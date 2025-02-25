@@ -1,0 +1,59 @@
+{
+  "name": "epsx",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "build:packages": "turbo run build --filter=./packages/*",
+    "build:services": "turbo run build --filter=./apps/{market,gateway,scheduler,ai}",
+    "build:frontend": "turbo run build --filter=@epsx/frontend",
+    "dev": "turbo dev",
+    "dev:frontend": "turbo run dev --filter=@epsx/frontend",
+    "dev:services": "turbo run dev --filter=./apps/{market,gateway,scheduler,ai} --parallel",
+    "start:services": "turbo run start --filter=./apps/{market,gateway,scheduler,ai} --parallel",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "clean": "turbo clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "build:deps": "turbo run build --filter=./packages/*"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.6.1",
+    "@ant-design/nextjs-registry": "^1.0.2",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@hookform/resolvers": "^3.10.0",
+    "@stripe/react-stripe-js": "^3.1.1",
+    "@stripe/stripe-js": "^5.6.0",
+    "antd": "^5.24.1",
+    "cookies-next": "^5.1.0",
+    "firebase": "^11.3.1",
+    "firebase-admin": "^13.1.0",
+    "lucide-react": "^0.474.0",
+    "next": "15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-error-boundary": "^5.0.0",
+    "react-hook-form": "^7.54.2",
+    "stripe": "^17.6.0",
+    "swr": "^2.3.2",
+    "zod": "^3.24.2",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^1.12.4",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "15.1.6",
+    "prettier": "^3.2.5",
+    "turbo": "^1.12.4",
+    "typescript": "^5.7.3"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "bun@1.0.26"
+}

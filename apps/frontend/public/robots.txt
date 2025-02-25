@@ -1,0 +1,25 @@
+# Search engine and AI web scraper access rules
+User-agent: *
+Disallow: /
+
+# Allow major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Allow specific AI web scrapers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User 
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# TODO: Add more search engines and AI web scrapers as needed

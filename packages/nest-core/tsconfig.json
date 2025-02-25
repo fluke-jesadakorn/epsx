@@ -1,0 +1,9 @@
+{
+  "extends": "@epsx/tsconfig/nest.json",
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  }
+}

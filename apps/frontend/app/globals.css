@@ -1,0 +1,66 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom scrollbar styles */
+.scroll-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.scroll-container .ant-table-body {
+  scroll-behavior: smooth;
+}
+
+.scroll-container .ant-table-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-container .ant-table-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scroll-container .ant-table-body::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.scroll-container .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* Scroll shadows */
+.scroll-container::before,
+.scroll-container::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.scroll-container::before {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 100%);
+}
+
+.scroll-container::after {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.1) 0%, transparent 100%);
+}
+
+/* Horizontal scroll indicators */
+.scroll-container .ant-table-body {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 20px,
+    black calc(100% - 20px),
+    transparent
+  );
+}

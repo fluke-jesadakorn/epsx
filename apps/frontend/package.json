@@ -1,0 +1,23 @@
+{
+  "name": "@epsx/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "clean": "rm -rf .next out",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "devDependencies": {
+    "@epsx/eslint-config": "workspace:*",
+    "@epsx/tsconfig": "workspace:*",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "15.1.6",
+    "typescript": "^5.7.3"
+  }
+}

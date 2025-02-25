@@ -1,0 +1,69 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+/coverage
+/test
+
+# Next.js
+/.next/
+/out/
+.next
+
+# Production
+/build
+/dist
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local env files
+.env*.local
+.env.development
+.env.test
+
+# IDE
+.idea
+.vscode
+*.sublime-workspace
+*.sublime-project
+
+# Version control
+.git
+.gitignore
+
+# Build cache
+.cache
+
+# Documentation
+*.md
+CHANGELOG.md
+README.md
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Supabase
+/supabase
+
+# SQL
+/sql
+
+# Scripts
+/scripts
+
+# Docker
+Dockerfile
+.dockerignore
+
+# TODO: Future features to consider ignoring
+# - Add more test directories if created
+# - Add storybook files if implemented
+# - Add coverage reports if implemented
+# - Add performance profiling data if implemented
