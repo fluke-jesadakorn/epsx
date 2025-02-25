@@ -10,6 +10,10 @@
     "clean": "rm -rf .next out",
     "test": "echo \"No tests specified\" && exit 0"
   },
+  "dependencies": {
+    "@epsx/frontend-core": "workspace:*",
+    "@epsx/shared": "workspace:*"
+  },
   "devDependencies": {
     "@epsx/eslint-config": "workspace:*",
     "@epsx/tsconfig": "workspace:*",

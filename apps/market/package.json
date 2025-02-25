@@ -1,6 +1,7 @@
 {
-  "name": "@epsx/market-service",
-  "version": "1.0.0",
+  "name": "@epsx/market",
+  "version": "0.0.1",
+  "description": "Combined market microservice for exchange, stock, and financial data",
   "private": true,
   "scripts": {
     "build": "nest build",
@@ -16,15 +17,13 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.10",
     "@nestjs/microservices": "^11.0.10",
-    "@nestjs/mongoose": "^11.0.1",
     "@nestjs/platform-express": "^11.0.10",
-    "@nestjs/schedule": "^4.1.2",
-    "@nestjs/axios": "^4.0.0",
+    "@nestjs/swagger": "^11.0.4",
+    "@nestjs/terminus": "^11.0.0",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
-    "mongoose": "^8.10.1",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"
   },
@@ -35,5 +34,22 @@
     "@types/node": "^22.13.4",
     "jest": "^29.7.0",
     "typescript": "^5.7.3"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   }
 }

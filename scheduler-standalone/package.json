@@ -1,17 +1,15 @@
 {
-  "name": "@epsx/scheduler-service",
+  "name": "epsx-scheduler",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "bun ./dist/main.js",
+    "start": "node dist/main.js",
     "dev": "nest start --watch",
     "clean": "rm -rf dist",
     "test": "jest"
   },
   "dependencies": {
-    "@epsx/nest-core": "workspace:*",
-    "@epsx/shared": "workspace:*",
     "@nestjs/common": "^11.0.10",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.10",
@@ -24,11 +22,16 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@epsx/eslint-config": "workspace:*",
-    "@epsx/tsconfig": "workspace:*",
+    "@nestjs/cli": "^10.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.4",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.42.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
     "jest": "^29.7.0",
+    "prettier": "^3.0.0",
     "typescript": "^5.7.3"
   }
 }
