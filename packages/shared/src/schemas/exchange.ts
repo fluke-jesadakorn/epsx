@@ -10,10 +10,10 @@ export interface IExchange {
   timezone?: string;
 }
 
-export type ExchangeDocument = HydratedDocument<ExchangeEntity>;
+export type ExchangeDocument = HydratedDocument<Exchange>;
 
 @Schema({ timestamps: true })
-export class ExchangeEntity implements IExchange {
+export class Exchange implements IExchange {
   @Prop({ required: true, type: String })
   exchange_name!: string;
 
@@ -37,7 +37,7 @@ export class ExchangeEntity implements IExchange {
   }
 }
 
-export const ExchangeSchema = SchemaFactory.createForClass(ExchangeEntity);
+export const ExchangeSchema = SchemaFactory.createForClass(Exchange);
 
 ExchangeSchema.virtual("id").get(function () {
   return this._id.toHexString();

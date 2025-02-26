@@ -1,24 +1,66 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { StockService } from './stock.service';
+import { Controller, Get } from "@nestjs/common";
+import { Payload } from "@nestjs/microservices";
+import { StockService } from "./stock.service";
+import { PaginationParams } from "./interfaces/common.interfaces";
 
-@ApiTags('Stock')
-@Controller('stock')
+@Controller("stocks")
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   @Get()
-  async getAllStocks() {
-    return this.stockService.getAllStocks();
+  async getAllStocks(@Payload() params: PaginationParams) {
+    return this.stockService.getAllStocks(params);
   }
 
-  @Get(':symbol')
-  async getStockBySymbol(@Param('symbol') symbol: string) {
+  @Get("exchange/:exchangeId")
+  async getStocksByExchange(
+    @Payload() data: { exchangeId: string; params: PaginationParams }
+  ) {
+    return this.stockService.getStocksByExchange(data.exchangeId, data.params);
+  }
+
+  @Get("symbol/:symbol")
+  async getStockBySymbol(@Payload() symbol: string) {
     return this.stockService.getStockBySymbol(symbol);
   }
 
-  @Get(':symbol/price')
-  async getStockPrice(@Param('symbol') symbol: string) {
-    return this.stockService.getStockPrice(symbol);
+  @Get("scrape")
+  async scrapeAllStocks() {
+    return this.stockService.scrapeAllStocks();
+  }
+
+  @Get("scrape/marketcap")
+  async scrapeStocksByMarketCap(
+    @Payload() data: { minMarketCap?: number; maxMarketCap?: number }
+  ) {
+    return this.stockService.scrapeStocksByMarketCap(
+      data.minMarketCap,
+      data.maxMarketCap
+    );
+  }
+
+  @Get("scrape/sector/:sector")
+  async scrapeStocksBySector(@Payload() sector: string) {
+    return this.stockService.scrapeStocksBySector(sector);
+  }
+
+  @Get("scrape/region/:region")
+  async scrapeStocksByRegion(@Payload() region: string) {
+    return this.stockService.scrapeStocksByRegion(region);
+  }
+
+  @Get("scrape/volume/:minVolume")
+  async scrapeStocksByVolume(@Payload() minVolume: number) {
+    return this.stockService.scrapeStocksByVolume(minVolume);
+  }
+
+  @Get("scrape/exchanges")
+  async scrapeStockData(@Payload() exchangeIds?: string[]) {
+    return this.stockService.scrapeStockData(exchangeIds);
+  }
+
+  @Get("save")
+  async saveStockData() {
+    return this.stockService.saveStockData();
   }
 }
