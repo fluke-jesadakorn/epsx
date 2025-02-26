@@ -6,14 +6,23 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import { Stock, Exchange } from "@epsx/shared";
 import { HttpService } from "./services/http.service";
 import {
   StockScreenerResponse,
   PaginationParams,
   Paginate,
   formatPaginationResponse,
+  PaginateResult,
+  IStockBatchItem,
 } from "@epsx/shared";
+import { Stock, Exchange } from "@epsx/shared";
+import {
+  transformPaginatedResponse,
+  transformScrapingResponse,
+  transformStockToDto,
+} from "./transformers/stock.transformer";
+import { ScrapingStatusDto } from "./dto/stock.dto";
+import { StockDocument } from "./types/stock.types";
 
 const STOCK_CONFIG = {
   stockBatchSize: 100,
@@ -31,7 +40,7 @@ export class StockService {
 
   constructor(
     @InjectModel(Stock.name)
-    private stockModel: Model<Stock>,
+    private stockModel: Model<StockDocument>,
     @InjectModel("Exchange")
     private exchangeModel: Model<Exchange>,
     private readonly httpService: HttpService
@@ -40,10 +49,11 @@ export class StockService {
   /**
    * Get all stocks with pagination
    */
-  @Paginate()
+  @PaginateResult()
   async getAllStocks(params: PaginationParams = {}) {
-    const skip = params.skip || 0;
+    const page = params.page || 1;
     const limit = params.limit || 20;
+    const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.stockModel
         .find()
@@ -53,20 +63,22 @@ export class StockService {
         .exec(),
       this.stockModel.countDocuments().exec(),
     ]);
-    return formatPaginationResponse(data, total, skip, limit);
+    const response = formatPaginationResponse(data, total, skip, limit);
+    return transformPaginatedResponse(response);
   }
 
   /**
    * Get stocks by exchange with pagination
    */
-  @Paginate()
+  @PaginateResult()
   async getStocksByExchange(exchangeId: string, params: PaginationParams = {}) {
     if (!exchangeId) {
       throw new BadRequestException("Exchange ID is required");
     }
 
-    const skip = params.skip || 0;
+    const page = params.page || 1;
     const limit = params.limit || 20;
+    const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.stockModel
         .find({ exchange: exchangeId })
@@ -81,7 +93,8 @@ export class StockService {
       throw new NotFoundException(`No stocks found for exchange ${exchangeId}`);
     }
 
-    return formatPaginationResponse(data, total, skip, limit);
+    const response = formatPaginationResponse(data, total, skip, limit);
+    return transformPaginatedResponse(response);
   }
 
   /**
@@ -97,7 +110,7 @@ export class StockService {
       throw new NotFoundException(`Stock with symbol ${symbol} not found`);
     }
 
-    return stock;
+    return transformStockToDto(stock);
   }
 
   /**
@@ -113,7 +126,14 @@ export class StockService {
    * - Add data normalization for cross-exchange compatibility
    * - Consider implementing a caching layer for frequently accessed data
    */
-  async saveStockData() {
+  async saveStockData(): Promise<ScrapingStatusDto> {
+    const defaultErrorResponse: ScrapingStatusDto = {
+      status: "failed",
+      processed: 0,
+      failed: 1,
+      total: 1,
+      error: "Fatal error during stock data processing",
+    };
     this.logger.log("Starting stock data processing for all exchanges");
 
     const existingExchanges = await this.exchangeModel.find().exec();
@@ -181,7 +201,7 @@ export class StockService {
               );
 
               // Create array of symbols for bulk existence check
-              const symbols = stockBatch.map((s) => s.s);
+              const symbols = stockBatch.map((s: IStockBatchItem) => s.s);
 
               // Bulk check for existing stocks
               const existingStocks = await this.stockModel
@@ -195,8 +215,8 @@ export class StockService {
 
               // Filter only new stocks that need to be inserted
               const newStocks = stockBatch
-                .filter((s) => !existingSymbols.has(s.s))
-                .map((s) => ({
+                .filter((s: IStockBatchItem) => !existingSymbols.has(s.s))
+                .map((s: IStockBatchItem) => ({
                   symbol: s.s,
                   company_name: s.n,
                   exchange: exchange._id, // Add exchange relationship
@@ -214,7 +234,9 @@ export class StockService {
                     {
                       $push: {
                         stocks: {
-                          $each: createdStocks.map((stock) => stock._id),
+                          $each: (createdStocks as StockDocument[]).map(
+                            (stock) => stock._id
+                          ),
                         },
                       },
                     },
@@ -257,9 +279,17 @@ export class StockService {
         }
       }
 
-      this.logger.log("All batches have been processed successfully.");
+      const result = {
+        status: "completed",
+        processed: existingExchanges.length,
+        failed: 0,
+        total: existingExchanges.length,
+      };
+      this.logger.log("All batches have been processed successfully.", result);
+      return result;
     } catch (error) {
       this.logger.error("Fatal error during stock data processing");
+      return defaultErrorResponse;
     }
   }
 
@@ -305,7 +335,9 @@ export class StockService {
         }
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch exchanges: ${error.message}`);
+      this.logger.error(
+        `Failed to fetch exchanges: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
       throw new BadRequestException("Failed to fetch exchanges");
     }
 
@@ -428,7 +460,7 @@ export class StockService {
       }
 
       this.logger.log("Stock scraping completed", summary);
-      return summary;
+      return transformScrapingResponse(summary);
     } catch (error) {
       this.logger.error("Fatal error during stock scraping", error);
       throw new Error("Stock scraping failed");
@@ -440,47 +472,55 @@ export class StockService {
    * @param minMarketCap Minimum market cap in millions
    * @param maxMarketCap Maximum market cap in millions
    */
-  async scrapeStocksByMarketCap(minMarketCap?: number, maxMarketCap?: number) {
+  async scrapeStocksByMarketCap(
+    minMarketCap?: number,
+    maxMarketCap?: number
+  ): Promise<ScrapingStatusDto> {
     this.logger.log(
       `Starting stock scraping by market cap range: ${minMarketCap || 0} - ${maxMarketCap || "unlimited"}`
     );
-    return this.scrapeStockData(); // TODO: Add market cap filtering
+    const result = await this.scrapeStockData(); // TODO: Add market cap filtering
+    return transformScrapingResponse(result);
   }
 
   /**
    * Scrape stocks by sector
    * @param sector Sector to filter by
    */
-  async scrapeStocksBySector(sector: string) {
+  async scrapeStocksBySector(sector: string): Promise<ScrapingStatusDto> {
     this.logger.log(`Starting stock scraping for sector: ${sector}`);
-    return this.scrapeStockData(); // TODO: Add sector filtering
+    const result = await this.scrapeStockData(); // TODO: Add sector filtering
+    return transformScrapingResponse(result);
   }
 
   /**
    * Scrape stocks by region
    * @param region Geographic region to filter by
    */
-  async scrapeStocksByRegion(region: string) {
+  async scrapeStocksByRegion(region: string): Promise<ScrapingStatusDto> {
     this.logger.log(`Starting stock scraping for region: ${region}`);
-    return this.scrapeStockData(); // TODO: Add region filtering
+    const result = await this.scrapeStockData(); // TODO: Add region filtering
+    return transformScrapingResponse(result);
   }
 
   /**
    * Scrape all stocks from all exchanges
    * This is a comprehensive scrape that ensures complete coverage
    */
-  async scrapeAllStocks() {
+  async scrapeAllStocks(): Promise<ScrapingStatusDto> {
     this.logger.log("Starting comprehensive stock scraping from all exchanges");
-    return this.scrapeStockData();
+    const result = await this.scrapeStockData();
+    return transformScrapingResponse(result);
   }
 
   /**
    * Scrape stocks by volume
    * @param minVolume Minimum trading volume
    */
-  async scrapeStocksByVolume(minVolume: number) {
+  async scrapeStocksByVolume(minVolume: number): Promise<ScrapingStatusDto> {
     this.logger.log(`Starting stock scraping for minimum volume: ${minVolume}`);
-    return this.scrapeStockData(); // TODO: Add volume filtering
+    const result = await this.scrapeStockData(); // TODO: Add volume filtering
+    return transformScrapingResponse(result);
   }
 
   // TODO: Add methods for:

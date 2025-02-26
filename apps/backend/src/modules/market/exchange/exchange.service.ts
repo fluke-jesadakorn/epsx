@@ -4,6 +4,7 @@ import { Model } from "mongoose";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { Exchange } from "@epsx/shared";
+import { ExchangeResponseDto, PaginatedExchangeResponse } from "./dto/exchange.dto";
 
 @Injectable()
 export class ExchangeService {
@@ -13,7 +14,7 @@ export class ExchangeService {
   ) {}
 
   // Create
-  async create(exchangeData: Partial<Exchange>) {
+  async create(exchangeData: Partial<Exchange>): Promise<ExchangeResponseDto> {
     const existingExchange = await this.exchangeModel
       .findOne({ market_code: exchangeData.market_code })
       .exec();
@@ -25,11 +26,15 @@ export class ExchangeService {
     }
 
     const exchange = new this.exchangeModel(exchangeData);
-    return exchange.save();
+    const saved = await exchange.save();
+    return {
+      ...saved.toObject(),
+      _id: saved._id.toString()
+    };
   }
 
   // Read
-  async findAll(skip = 0, limit = 10) {
+  async findAll(skip = 0, limit = 10): Promise<PaginatedExchangeResponse> {
     try {
       // Remove console logs in production
       const [data, total] = await Promise.all([
@@ -60,16 +65,26 @@ export class ExchangeService {
           this.exchangeModel.countDocuments().exec(),
         ]);
 
-        const result = {
-          data: newData,
+        return {
+          items: newData.map(doc => ({
+            ...doc,
+            _id: doc._id.toString()
+          })),
           total: newTotal,
           page: Math.floor(skip / limit) + 1,
-          limit,
+          limit
         };
-        return result;
       }
 
-      return { data, total, page: Math.floor(skip / limit) + 1, limit };
+      return {
+        items: data.map(doc => ({
+          ...doc,
+          _id: doc._id.toString()
+        })),
+        total,
+        page: Math.floor(skip / limit) + 1,
+        limit
+      };
     } catch (error) {
       console.error("Error in findAll:", error);
       // TODO: Implement more robust error handling and logging
@@ -78,7 +93,7 @@ export class ExchangeService {
     }
   }
 
-  async findOne(marketCode: string) {
+  async findOne(marketCode: string): Promise<ExchangeResponseDto> {
     const exchange = await this.exchangeModel
       .findOne({ market_code: marketCode })
       .exec();
@@ -87,11 +102,14 @@ export class ExchangeService {
         `Exchange with market code ${marketCode} not found`
       );
     }
-    return exchange;
+    return {
+      ...exchange.toObject(),
+      _id: exchange._id.toString()
+    };
   }
 
   // Update
-  async update(marketCode: string, updateData: Partial<Exchange>) {
+  async update(marketCode: string, updateData: Partial<Exchange>): Promise<ExchangeResponseDto> {
     const exchange = await this.exchangeModel
       .findOneAndUpdate({ market_code: marketCode }, updateData, { new: true })
       .exec();
@@ -101,11 +119,14 @@ export class ExchangeService {
         `Exchange with market code ${marketCode} not found`
       );
     }
-    return exchange;
+    return {
+      ...exchange.toObject(),
+      _id: exchange._id.toString()
+    };
   }
 
   // Delete
-  async remove(marketCode: string) {
+  async remove(marketCode: string): Promise<void> {
     const exchange = await this.exchangeModel
       .findOneAndDelete({ market_code: marketCode })
       .exec();
@@ -115,11 +136,11 @@ export class ExchangeService {
         `Exchange with market code ${marketCode} not found`
       );
     }
-    return exchange;
+    return;
   }
 
   // Web scraping functionality using Cheerio
-  async scrapeAndSaveExchanges() {
+  async scrapeAndSaveExchanges(): Promise<ExchangeResponseDto[]> {
     try {
       // Fetch the HTML content
       const response = await axios.get(
@@ -191,11 +212,11 @@ export class ExchangeService {
         }
       }
 
-      return {
-        newCount,
-        updateCount,
-        total: await this.exchangeModel.countDocuments().exec(),
-      };
+      const allExchanges = await this.exchangeModel.find().exec();
+      return allExchanges.map(exchange => ({
+        ...exchange.toObject(),
+        _id: exchange._id.toString()
+      }));
     } catch (error) {
       console.error("Failed to scrape exchanges:", error);
       throw error;

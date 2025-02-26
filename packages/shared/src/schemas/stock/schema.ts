@@ -1,20 +1,16 @@
-import { Schema } from "mongoose";
-import { IStock } from "./types";
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
-const schema = new Schema<IStock>(
-  {
-    symbol: { type: String, required: true, unique: true },
-    company_name: { type: String, required: true },
-    exchange: { type: Schema.Types.ObjectId, ref: "Exchange", required: true },
-  },
-  {
-    timestamps: true,
-    collection: "stocks",
-  }
-);
+@Schema({ timestamps: true })
+export class Stock extends Document {
+  @Prop({ required: true, unique: true })
+  symbol!: string;
 
-// Add indexes for better query performance
-schema.index({ symbol: 1 }, { unique: true });
-schema.index({ exchange: 1 });
+  @Prop({ required: true })
+  company_name!: string;
 
-export const StockSchema = schema;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Exchange" })
+  exchange!: MongooseSchema.Types.ObjectId;
+}
+
+export const StockSchema = SchemaFactory.createForClass(Stock);

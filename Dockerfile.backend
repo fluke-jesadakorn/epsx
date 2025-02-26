@@ -1,0 +1,35 @@
+# Build stage
+FROM oven/bun:1.2.2 AS builder
+
+WORKDIR /app
+
+# Copy root package files and workspace packages
+COPY package.json bun.lock turbo.json ./
+COPY packages ./packages
+COPY apps/backend ./apps/backend
+
+# Install dependencies
+RUN bun install
+
+# Build workspace dependencies and backend
+RUN bun install -g @nestjs/cli && bun turbo run build --filter=@epsx/backend...
+
+# Production stage
+FROM oven/bun:1.2.2-slim AS runner
+
+WORKDIR /app
+
+# Set production environment and Cloud Run port
+ENV NODE_ENV=production \
+    PORT=8080
+
+# Copy built dependencies and application
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/dist ./dist
+
+# Expose Cloud Run port
+EXPOSE 3001
+
+# Start the server using Bun
+CMD ["bun", "dist/main.js"]

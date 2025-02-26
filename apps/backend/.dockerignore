@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+**/node_modules
+
+# Environment files (will be configured in Cloud Run)
+**/.env
+**/.env.*
+
+# Build outputs
+**/dist
+**/.turbo
+
+# Development files
+**/*.md
+**/*.log
+
+# Test files
+**/test
+**/*.test.ts
+**/*.spec.ts
+
+# Frontend and other apps
+apps/frontend
+apps/standalone
+
+# IDE specific files
+.vscode
+.idea
+
+# Temporary files
+**/.DS_Store
+**/*.swp
+**/*.swo
+
+# Docker specific
+**/Dockerfile
+**/.dockerignore

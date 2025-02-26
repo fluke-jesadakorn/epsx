@@ -2,12 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { EventEmitter } from "events";
-import {
-  EPSGrowthProcessing,
-  EPSGrowthBatch,
-  Financial,
-  Stock,
-} from "@epsx/shared";
+import { EPSGrowthProcessing, EPSGrowthBatch, Stock } from "@epsx/shared";
 import { AggregationService } from "../services/aggregation.service";
 
 @Injectable()
@@ -70,7 +65,7 @@ export class EPSBatchProcessingService extends EventEmitter {
 
     // Start processing first batch
     setImmediate(() => {
-      this.processBatch(processing._id.toString(), 0).catch((err) =>
+      this.processBatch(processing._id?.toString() || "", 0).catch((err) =>
         this.logger.error(`Error processing batch 0: ${err.message}`, err.stack)
       );
     });
@@ -154,7 +149,7 @@ export class EPSBatchProcessingService extends EventEmitter {
             if (processing.processedStocks >= processing.totalStocks) {
               processing.status = "completed";
               processing.isCompleted = true;
-              processing.completedTime = new Date();
+              processing.completed_at = new Date();
             }
 
             await processing.save();
@@ -192,8 +187,8 @@ export class EPSBatchProcessingService extends EventEmitter {
         error
       );
 
-      batch.status = "error";
-      batch.error = error;
+      batch.status = "failed";
+      batch.error = error?.toString() || "Unknown error";
       await batch.save();
 
       // Mark processing as error
@@ -207,7 +202,11 @@ export class EPSBatchProcessingService extends EventEmitter {
   async getProcessingStatus(
     processingId: string
   ): Promise<EPSGrowthProcessing> {
-    return this.epsProcessingModel.findById(processingId);
+    const processing = await this.epsProcessingModel.findById(processingId);
+    if (!processing) {
+      throw new Error(`Processing job ${processingId} not found`);
+    }
+    return processing;
   }
 
   onBatchCompleted(listener: (results: any[]) => void) {

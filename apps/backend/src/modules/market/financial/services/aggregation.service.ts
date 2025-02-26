@@ -7,7 +7,7 @@ import type {
   PaginatedResponse,
   PaginationParams,
   PaginationMetadata,
-} from "../types/financial.type";
+} from "../types/financial.types";
 
 // Base interface for EPS growth data
 interface BaseEpsGrowthData {
@@ -50,6 +50,17 @@ export interface EPSPriceGrowth extends BaseGrowthCorrelation {
 
 export interface EPSVolumeGrowth extends BaseGrowthCorrelation {
   volume_growth: number;
+}
+
+interface BatchEpsResult {
+  _id: string;
+  data: {
+    _id: string;
+    symbol: string;
+    year: number;
+    quarter: number;
+    [key: string]: any;
+  };
 }
 
 export interface GetEPSGrowthRankingParams extends PaginationParams {
@@ -153,21 +164,24 @@ export class AggregationService {
 
   private calculatePaginationMetadata(
     total: number,
-    { limit, skip }: PaginationParams
+    { limit = 10, skip = 0 }: PaginationParams
   ): PaginationMetadata {
+    limit = Number(limit);
+    skip = Number(skip);
     const page = Math.floor(skip / limit) + 1;
     const totalPages = Math.ceil(total / limit);
-    return { total, page, limit, totalPages, skip };
+    const hasMore = skip + limit < total;
+    return { total, skip, limit, hasMore };
   }
 
-  private async saveBatchEpsGrowth(results: any[], batchSize: number = 1000) {
+  private async saveBatchEpsGrowth(results: BatchEpsResult[], batchSize: number = 1000) {
     let processed = 0;
     let failed = 0;
 
     for (let i = 0; i < results.length; i += batchSize) {
       const batch = results.slice(i, i + batchSize);
       try {
-        const operations = batch.map((result) => {
+        const operations = batch.map((result: BatchEpsResult) => {
           const { _id, data } = result;
           const { _id: dataId, ...updateData } = data;
 
@@ -300,7 +314,7 @@ export class AggregationService {
         { $sort: { year: -1, quarter: -1, eps_growth: -1 } },
         {
           $facet: {
-            data: [{ $skip: skip }, { $limit: limit }],
+            data: [{ $skip: skip || 0 }, { $limit: limit || 20 }],
             totalCount: [{ $count: "count" }],
           },
         },
@@ -312,7 +326,7 @@ export class AggregationService {
 
       // Save the results
       const operations = await Promise.all(
-        data.map((result) =>
+        data.map((result: any) =>
           this.epsGrowthModel.findOneAndUpdate(
             {
               symbol: result.symbol,
@@ -447,8 +461,8 @@ export class AggregationService {
         this.epsGrowthModel
           .find(query)
           .sort(sortCriteria)
-          .skip(params.skip)
-          .limit(params.limit)
+          .skip(params.skip || 0)
+          .limit(params.limit || 10)
           .lean()
           .exec(),
         this.epsGrowthModel.countDocuments(query),

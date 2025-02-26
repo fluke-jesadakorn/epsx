@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { EPSBatchProcessingService } from "./services/eps-batch-processing.service";
-import { EpsGrowth } from "@epsx/shared";
+import { EpsGrowth, EPSGrowthProcessing, EPSGrowthBatch } from "@epsx/shared";
 
 @Injectable()
 export class FinancialService {
@@ -11,6 +11,10 @@ export class FinancialService {
   constructor(
     @InjectModel(EpsGrowth.name)
     private epsGrowthModel: Model<EpsGrowth>,
+    @InjectModel(EPSGrowthProcessing.name)
+    private epsProcessingModel: Model<EPSGrowthProcessing>,
+    @InjectModel(EPSGrowthBatch.name)
+    private epsBatchModel: Model<EPSGrowthBatch>,
     private readonly epsBatchProcessingService: EPSBatchProcessingService
   ) {}
 
@@ -129,7 +133,49 @@ export class FinancialService {
     }
   }
 
-  // Additional aggregation methods can be added here
-  // The financial service now focuses solely on data querying and aggregation
-  // Data scraping and processing has been moved to the scheduler service
+  async getEPSGrowthProcessingStatusBySymbol(
+    symbol: string
+  ): Promise<EPSGrowthProcessing | null> {
+    return this.epsProcessingModel.findOne({ symbol }).exec();
+  }
+
+  async getEPSGrowthBatchStatusByMarket(
+    marketCode: string
+  ): Promise<EPSGrowthBatch | null> {
+    return this.epsBatchModel.findOne({ market_code: marketCode }).exec();
+  }
+
+  async listEPSGrowthProcessingJobs(
+    page = 1,
+    limit = 10
+  ): Promise<{ data: EPSGrowthProcessing[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.epsProcessingModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.epsProcessingModel.countDocuments(),
+    ]);
+
+    return { data, total };
+  }
+
+  async listEPSGrowthBatches(
+    page = 1,
+    limit = 10
+  ): Promise<{ data: EPSGrowthBatch[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.epsBatchModel
+        .find()
+        .sort({ requested_at: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.epsBatchModel.countDocuments(),
+    ]);
+
+    return { data, total };
+  }
 }
