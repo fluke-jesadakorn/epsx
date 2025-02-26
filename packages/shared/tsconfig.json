@@ -3,9 +3,19 @@
   "include": ["src"],
   "exclude": ["dist", "build", "node_modules"],
   "compilerOptions": {
+    "module": "commonjs",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "removeComments": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "target": "ES2023",
+    "incremental": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
     "outDir": "./dist",
+    "baseUrl": "./",
     "rootDir": "./src"
   }
 }

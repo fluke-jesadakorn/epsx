@@ -11,4 +11,5 @@ export type ErrorResponse = {
   error?: string;
 };
 
-// Add more shared types as needed
+// Re-export schema interfaces
+export type { IExchange } from '../schemas/exchange';

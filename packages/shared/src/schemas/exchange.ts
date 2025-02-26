@@ -1,5 +1,5 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { Schema, Prop, SchemaFactory } from "@nestjs/mongoose";
+import { HydratedDocument } from "mongoose";
 
 export interface IExchange {
   exchange_name: string;
@@ -10,27 +10,47 @@ export interface IExchange {
   timezone?: string;
 }
 
-export type ExchangeDocument = HydratedDocument<Exchange>;
+export type ExchangeDocument = HydratedDocument<ExchangeEntity>;
 
 @Schema({ timestamps: true })
-export class Exchange {
-  @Prop({ type: String, required: true })
-  exchange_name: string;
+export class ExchangeEntity implements IExchange {
+  @Prop({ required: true, type: String })
+  exchange_name!: string;
 
-  @Prop({ type: String, required: true })
-  country: string;
+  @Prop({ required: true, type: String })
+  country!: string;
 
-  @Prop({ type: String, required: true, unique: true })
-  market_code: string;
+  @Prop({ required: true, unique: true, type: String })
+  market_code!: string;
 
-  @Prop({ type: String, required: true })
-  currency: string;
+  @Prop({ required: true, type: String })
+  currency!: string;
 
   @Prop({ type: String })
   exchange_url?: string;
 
   @Prop({ type: String, default: "UTC" })
-  timezone: string;
+  timezone: string = "UTC";
+
+  constructor(partial: Partial<IExchange> = {}) {
+    Object.assign(this, partial);
+  }
 }
 
-export const ExchangeSchema = SchemaFactory.createForClass(Exchange);
+export const ExchangeSchema = SchemaFactory.createForClass(ExchangeEntity);
+
+ExchangeSchema.virtual("id").get(function () {
+  return this._id.toHexString();
+});
+
+ExchangeSchema.set("toJSON", {
+  virtuals: true,
+  transform: (_, ret) => {
+    delete ret._id;
+    delete ret.__v;
+    return ret;
+  },
+});
+
+// Ensure indexes
+ExchangeSchema.index({ market_code: 1 }, { unique: true });
