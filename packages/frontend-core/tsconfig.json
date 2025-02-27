@@ -1,9 +1,0 @@
-{
-  "extends": "@epsx/tsconfig/nextjs.json",
-  "include": ["src"],
-  "exclude": ["dist", "build", "node_modules"],
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src"
-  }
-}

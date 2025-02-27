@@ -65,43 +65,44 @@ export async function fetchEpsGrowthRanking({
         headers: {
           "Content-Type": "application/json",
         },
-        // next: {
-        //   revalidate: 300, // Cache for 5 minutes
-        // },
+        next: {
+          revalidate: 300, // Cache for 5 minutes
+        },
       }
     );
 
     if (!response.ok) {
-      console.error(`HTTP error! status: ${response}`);
+      console.error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
     console.log("Data:", data);
 
     // Transform the response to match expected structure
-    const validatedData = data.data.map(
-      (item: any): EpsGrowthData => ({
-        symbol: item.symbol,
-        company_name: item.company_name,
-        market_code: item.market_code,
-        eps_diluted: item.eps_diluted,
-        eps_growth: item.eps_growth,
-        previous_eps_diluted: item.previous_eps_diluted,
-        report_date: item.report_date,
-        quarter: item.quarter,
-        year: item.year,
+    // Add null checks and provide fallback for data structure
+    const validatedData = (data?.data || []).map(
+      (item: Partial<EpsGrowthData>): EpsGrowthData => ({
+        symbol: item.symbol ?? "",
+        company_name: item.company_name ?? "",
+        market_code: item.market_code ?? "",
+        eps_diluted: item.eps_diluted ?? 0,
+        eps_growth: item.eps_growth ?? 0,
+        previous_eps_diluted: item.previous_eps_diluted ?? 0,
+        report_date: item.report_date ?? "",
+        quarter: item.quarter ?? 0,
+        year: item.year ?? 0,
       })
     );
 
-    // Construct response with metadata
+    // Construct response with metadata (with null checks)
     return {
       data: validatedData,
       metadata: {
-        total: data.metadata.total,
-        page: data.metadata.page,
-        limit: data.metadata.limit,
-        totalPages: data.metadata.totalPages,
-        skip: data.metadata.skip,
+        total: data?.metadata?.total ?? 0,
+        page: data?.metadata?.page ?? 1,
+        limit: data?.metadata?.limit ?? limit,
+        totalPages: data?.metadata?.totalPages ?? 0,
+        skip: data?.metadata?.skip ?? skip,
       },
     };
   } catch (error) {

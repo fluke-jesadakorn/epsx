@@ -1,22 +1,27 @@
 "use client";
 
-import { Card, App, Space } from "antd";
-import ProfileSettingsForm from "@/components/settings/ProfileSettingsForm";
-import ProviderAuthSettings from "@/components/settings/ProviderAuthSettings";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 export default function SettingsPage() {
   return (
-    <App>
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "24px" }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          <Card title="Profile Settings">
-            <ProfileSettingsForm />
-          </Card>
-          <Card title="Authentication Providers">
-            <ProviderAuthSettings />
-          </Card>
-        </Space>
+    <div className="max-w-2xl mx-auto p-6">
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardHeader>
+            <h2 className="text-2xl font-semibold">Profile Settings</h2>
+          </CardHeader>
+          <CardContent>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 className="text-2xl font-semibold">Authentication Providers</h2>
+          </CardHeader>
+          <CardContent>
+          </CardContent>
+        </Card>
       </div>
-    </App>
+    </div>
   );
 }

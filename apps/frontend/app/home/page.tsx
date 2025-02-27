@@ -1,11 +1,8 @@
 import StockRankTable from "@/components/home/StockRankTable";
 import HeroSection from "@/components/home/HeroSection";
 import ClientEpsCardSection from "@/components/home/ClientEpsCardSection";
-import ChatSection from "@/components/home/ChatSection";
-import { Col, Row } from "antd";
 import { fetchEpsGrowthRanking } from "@/app/actions/stockData";
 import { Suspense } from "react";
-import { Spin } from "antd";
 
 /**
  * Home page component that displays various sections including EPS growth ranking
@@ -61,40 +58,54 @@ export default async function HomeView() {
   const { data: initialData, total: initialTotal } = await getInitialEpsData();
 
   return (
-    <Row justify={"center"} align={"middle"} style={{ minHeight: "100vh" }}>
-      <Col span={20}>
-        <Row
-          gutter={[20, 40]}
-          style={{ margin: 0, padding: "24px 0" }}
-          justify={"center"}
-          align={"middle"}
-        >
-          <Col span={24}>
-            <Suspense fallback={<Spin size="large" />}>
-              <HeroSection style={{ minHeight: "400px" }} />
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="w-[83.333%]"> {/* equivalent to col-20/24 */}
+        <div className="flex flex-col gap-10 py-6">
+          <div className="w-full">
+            <Suspense fallback={
+              <div className="flex justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"/>
+              </div>
+            }>
+              <HeroSection className="min-h-[400px]" />
             </Suspense>
-          </Col>
-          <Col span={24}>
-            <Suspense fallback={<Spin size="large" />}>
+          </div>
+          
+          <div className="w-full">
+            <Suspense fallback={
+              <div className="flex justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"/>
+              </div>
+            }>
               <ClientEpsCardSection
-                style={{ minHeight: "300px" }}
+                className="min-h-[300px]"
                 initialData={initialData}
                 initialTotal={initialTotal}
               />
             </Suspense>
-          </Col>
-          <Col span={24}>
-            <Suspense fallback={<Spin size="large" />}>
-              <StockRankTable style={{ minHeight: "500px" }} />
+          </div>
+          
+          <div className="w-full">
+            <Suspense fallback={
+              <div className="flex justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"/>
+              </div>
+            }>
+              <StockRankTable className="min-h-[500px]" />
             </Suspense>
-          </Col>
-          <Col span={24}>
-            <Suspense fallback={<Spin size="large" />}>
-              <ChatSection />
+          </div>
+          
+          <div className="w-full">
+            <Suspense fallback={
+              <div className="flex justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"/>
+              </div>
+            }>
+              {/* <ChatSection /> */}
             </Suspense>
-          </Col>
-        </Row>
-      </Col>
-    </Row>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

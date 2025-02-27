@@ -1,10 +1,7 @@
-import "@ant-design/v5-patch-for-react-19";
-import { Geist, Geist_Mono } from "next/font/google";
-import AntdRegistryProvider from "@/components/layout/AntdRegistry";
-import type { Metadata } from "next";
-import EmotionRegistry from "@/components/EmotionRegistry";
-import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
+import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata } from "next";
+import ClientLayout from "@/components/layout/ClientLayout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,22 +29,17 @@ export const viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.className} ${geistMono.className}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body style={{ minHeight: "100vh" }}>
-        {/* TODO: Consider adding a loading skeleton for initial render */}
-        <AuthProvider>
-          <AntdRegistryProvider>
-            <EmotionRegistry>{children}</EmotionRegistry>
-          </AntdRegistryProvider>
-        </AuthProvider>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebase-admin';
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/firebase-admin";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export interface UserSession {
   user: {
@@ -13,15 +13,15 @@ export interface UserSession {
     photoURL: string | null | undefined;
     customClaims?: {
       roles?: string[];
-      [key: string]: any;
+      [key: string]: unknown;
     };
   } | null;
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<UserSession>> {
+export async function GET(): Promise<NextResponse<UserSession>> {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session')?.value;
+    const sessionCookie = cookieStore.get("session")?.value;
 
     if (!sessionCookie) {
       return NextResponse.json({ user: null }, { status: 401 });
@@ -43,10 +43,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<UserSessio
         displayName: user.displayName ?? null,
         photoURL: user.photoURL ?? null,
         customClaims: user.customClaims,
-      }
+      },
     });
   } catch (error) {
-    console.error('Session verification error:', error);
+    console.error("Session verification error:", error);
     return NextResponse.json({ user: null }, { status: 401 });
   }
 }

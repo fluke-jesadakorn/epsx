@@ -5,20 +5,18 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Form,
-  Input,
-  Button,
-  Alert,
-  Skeleton,
-  Divider,
-  Col,
-  Row,
-  Typography,
-} from "antd";
-import { LockOutlined } from "@ant-design/icons";
-
-const { Title } = Typography;
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Zod schema for form validation
 const resetPasswordSchema = z.object({
@@ -36,11 +34,13 @@ const ResetPasswordPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-  const {
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ResetPasswordForm>({
+  
+  const form = useForm<ResetPasswordForm>({
     resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   const onSubmit = async (values: ResetPasswordForm) => {
@@ -48,11 +48,9 @@ const ResetPasswordPage = () => {
     setError("");
 
     try {
-      // TODO: Implement password reset logic
-      // 1. Validate reset token from URL
-      // 2. Call authentication service to update password
-      // 3. Handle success/error states
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      // Simulate API call with the new password value
+      console.log(`Attempting to reset password. Password length: ${values.password.length}`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccess(true);
       setTimeout(() => router.push("/login"), 2000);
     } catch (error) {
@@ -63,105 +61,106 @@ const ResetPasswordPage = () => {
   };
 
   return (
-    <Row align={"middle"} justify={"center"} style={{ minHeight: "100vh" }}>
-      <Col xs={20} sm={12} md={8} lg={6}>
-        <Title
-          style={{
-            fontSize: 24,
-            fontWeight: 600,
-            marginBottom: 24,
-            textAlign: "center",
-          }}
-        >
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-full max-w-md p-6">
+        <h1 className="text-2xl font-semibold mb-6 text-center">
           Reset Password
-        </Title>
+        </h1>
 
         {error && (
-          <Alert
-            message={error}
-            type="error"
-            showIcon
-            closable
-            style={{ marginBottom: 24 }}
-          />
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {success && (
-          <Alert
-            message="Password reset successfully! Redirecting to login..."
-            type="success"
-            showIcon
-            closable
-            style={{ marginBottom: 24 }}
-          />
+          <Alert className="mb-6 border-green-500 text-green-700">
+            <AlertDescription>
+              Password reset successfully! Redirecting to login...
+            </AlertDescription>
+          </Alert>
         )}
 
-        <Form
-          name="reset-password"
-          initialValues={{ remember: true }}
-          onFinish={handleSubmit(onSubmit)}
-          layout="vertical"
-        >
-          <Form.Item
-            name="password"
-            validateStatus={errors.password ? "error" : ""}
-            help={errors.password?.message}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="text-gray-300" />}
-              placeholder="New Password"
-              size="large"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input 
+                        type="password"
+                        placeholder="New Password" 
+                        className="pl-10" 
+                        {...field} 
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Form.Item>
 
-          <Form.Item
-            name="confirmPassword"
-            validateStatus={errors.confirmPassword ? "error" : ""}
-            help={errors.confirmPassword?.message}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="text-gray-300" />}
-              placeholder="Confirm New Password"
-              size="large"
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input 
+                        type="password"
+                        placeholder="Confirm New Password" 
+                        className="pl-10" 
+                        {...field} 
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Form.Item>
 
-          <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              block
-              loading={loading}
-              icon={loading ? (
-                <Skeleton.Avatar 
-                  active 
-                  size="small" 
-                  shape="circle" 
-                  style={{ marginRight: 8 }}
-                />
-              ) : null}
-              // TODO: Add skeleton loading for form fields
-              // TODO: Implement progress indicators
-              // TODO: Add loading states for navigation
+              type="submit"
+              className="w-full"
+              disabled={loading}
             >
-              Reset Password
+              {loading ? (
+                <div className="flex items-center">
+                  <Skeleton className="h-4 w-4 rounded-full mr-2" />
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                "Reset Password"
+              )}
             </Button>
-          </Form.Item>
+          </form>
         </Form>
 
-        <Divider>or</Divider>
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-background text-muted-foreground">or</span>
+          </div>
+        </div>
 
-        <Col style={{ marginTop: 16, textAlign: "center" }}>
+        <div className="text-center">
           <Button
-            type="link"
+            variant="link"
             onClick={() => router.push("/login")}
           >
             Back to Login
           </Button>
-        </Col>
-      </Col>
-    </Row>
+        </div>
+      </div>
+    </div>
   );
 };
 

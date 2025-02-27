@@ -3,42 +3,59 @@ FROM oven/bun:1.2.2 AS builder
 
 WORKDIR /app
 
-# Copy necessary files
-COPY package.json bun.lockb ./
+# Copy workspace files
 COPY . .
 
-# Install dependencies and build
-RUN bun install --frozen-lockfile
-RUN bun run build
+# Remove any existing node_modules to ensure clean install
+RUN rm -rf node_modules
+RUN rm -rf apps/frontend/node_modules
+
+# Install global dependencies needed for builds
+RUN bun install -g turbo typescript
+
+# Set Next.js environment to production for build
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Install and build
+RUN bun install
+RUN bun turbo run build --filter=@epsx/frontend...
+
+# Build frontend
+WORKDIR /app/apps/frontend
+RUN NODE_ENV=production bun run build
 
 # Production stage
-FROM oven/bun:1.2.2-slim AS runner
+FROM oven/bun:1.2.2-alpine AS runner
 
 WORKDIR /app
 
-# Set to production environment
+# Set production environment variables
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Copy necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/next.config.ts ./
+# Copy necessary workspace files
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/bun.lock ./
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/package.json
 
-# TODO: Future improvements
-# - Add health check endpoint
-# - Implement proper logging configuration
-# - Consider adding security scanning
-# - Setup proper cache management for build optimization
-# - Implement rate limiting for API routes
-# - Add monitoring and observability tools
-# - Setup automated backups for persistent data
-# - Implement circuit breakers for external services
+# Copy Next.js specific files
+COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder /app/apps/frontend/.next/standalone ./
+COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
+
+# Move standalone server files to the frontend directory
+RUN mkdir -p apps/frontend && \
+    mv server.js apps/frontend/ && \
+    mv apps/frontend/.next/static apps/frontend/.next/
+
+WORKDIR /app/apps/frontend
 
 # Expose port
 EXPOSE 3000
 
-# Start the application
+# Start the standalone Next.js server
 CMD ["bun", "server.js"]

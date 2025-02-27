@@ -9,17 +9,13 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { useRouter } from "next/navigation";
-// TODO: Implement payment record storage
-import { Button, Form, Typography, Alert, Skeleton } from "antd";
-// TODO: Add skeleton loading for payment form
-// TODO: Implement progress indicators for payment processing
-// TODO: Add loading states for payment history
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
-
-const { Title, Text } = Typography;
 
 const PaymentForm = () => {
   const stripe = useStripe();
@@ -28,18 +24,18 @@ const PaymentForm = () => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!stripe || !elements) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const { error: stripeError, paymentMethod } =
-        await stripe.createPaymentMethod({
-          type: "card",
-          card: elements.getElement(CardElement)!,
-        });
+      const { error: stripeError } = await stripe.createPaymentMethod({
+        type: "card",
+        card: elements.getElement(CardElement)!,
+      });
 
       if (stripeError) {
         setError(stripeError.message || "Payment failed");
@@ -58,7 +54,7 @@ const PaymentForm = () => {
       router.refresh();
       alert("Payment successful!");
     } catch (err) {
-      console.error(err)
+      console.error(err);
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -66,53 +62,47 @@ const PaymentForm = () => {
   };
 
   return (
-    <Form
-      onFinish={handleSubmit}
-      className="payment-form"
-      layout="vertical"
-      style={{ maxWidth: 400, margin: "auto" }}
-    >
-      <Form.Item label="Card Details" required>
-        <div
-          style={{
-            padding: "8px",
-            border: "1px solid #d9d9d9",
-            borderRadius: "4px",
-          }}
-        >
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          Card Details <span className="text-red-500">*</span>
+        </label>
+        <div className="p-3 border rounded-md">
           <CardElement options={{ style: { base: { fontSize: "16px" } } }} />
         </div>
-      </Form.Item>
-      {error && <Alert type="error" message={error} showIcon />}
-      <Form.Item>
-        <Button
-          type="primary"
-          htmlType="submit"
-          loading={loading}
-          disabled={!stripe}
-          block
-        >
-          {loading ? (
-            <Skeleton.Avatar 
-              active 
-              size="small" 
-              shape="circle" 
-              style={{ marginRight: 8 }}
-            />
-          ) : "Pay"}
-        </Button>
-      </Form.Item>
-    </Form>
+      </div>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={!stripe || loading}
+      >
+        {loading ? (
+          <div className="flex items-center">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <span>Processing...</span>
+          </div>
+        ) : (
+          "Pay"
+        )}
+      </Button>
+    </form>
   );
 };
 
 const PaymentSettings = () => {
   return (
-    <div style={{ padding: "24px", maxWidth: "600px", margin: "auto" }}>
-      <Title level={2}>Payment Settings</Title>
-      <Text type="secondary">
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-2">Payment Settings</h1>
+      <p className="text-muted-foreground mb-6">
         Securely manage your payments and subscriptions here.
-      </Text>
+      </p>
 
       <Elements stripe={stripePromise}>
         <PaymentForm />

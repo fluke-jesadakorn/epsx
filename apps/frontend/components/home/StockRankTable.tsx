@@ -1,43 +1,68 @@
 "use client";
 
-import { AnyObject } from "antd/es/_util/type";
-import { Table, Alert, Row, Skeleton, Tooltip } from "antd";
-import type { TableColumnsType } from "antd";
 import React, { useState, useCallback } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  flexRender,
+  ColumnDef,
+} from "@tanstack/react-table";
 import { fetchEpsGrowthRanking } from "@/app/actions/stockData";
 import { EpsGrowthRankingResponse } from "@/types/epsGrowthRanking";
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Info } from "lucide-react";
+
+// ... interfaces remain the same ...
+interface TableDataType {
+  key: number;
+  symbol: string;
+  companyName: string;
+  currentEps: string;
+  previousEps: string;
+  epsGrowth: string;
+  reportDate: string;
+  market: string;
+  quarter: number;
+  year: number;
+}
 
 interface StockRankTableProps {
   style?: React.CSSProperties;
-  accessLevel?: 1 | 2 | 3; // 1 = basic, 2 = premium, 3 = admin
+  className?: string;
+  accessLevel?: 1 | 2 | 3;
 }
 
 const StockRankTable: React.FC<StockRankTableProps> = ({
   style,
+  className,
   accessLevel = 1,
 }) => {
-  const [columns, setColumns] = useState<TableColumnsType<AnyObject>>([]);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [tableData, setTableData] = useState<
-    { [key: string]: string | number }[]
-  >([]);
+  const [tableData, setTableData] = useState<TableDataType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [data, setData] = useState<EpsGrowthRankingResponse | null>(null);
 
-  // Convert API data to table format
   const processTableData = useCallback((apiData: EpsGrowthRankingResponse) => {
     const filteredData = apiData.data.filter((_, index) => {
       const rank = index + 1;
-      // Public users can see rank 21+
       if (!accessLevel) return rank >= 21;
-      // Basic users (logged in) can see rank 11-20
       if (accessLevel === 1) return rank >= 11;
-      // Premium users can see rank 1-10
       if (accessLevel === 2) return rank >= 1;
-      // Admin can see all ranks
       return true;
     });
 
@@ -45,78 +70,65 @@ const StockRankTable: React.FC<StockRankTableProps> = ({
       key: index,
       symbol: item.symbol,
       companyName: item.company_name,
-      currentEps: item.eps_diluted?.toFixed(2) ?? 'N/A',
-      previousEps: item.previous_eps_diluted?.toFixed(6) ?? 'N/A',
-      epsGrowth: item.eps_growth ? (item.eps_growth > 999999 ? '>999999' : item.eps_growth.toFixed(2)) : 'N/A',
+      currentEps: item.eps_diluted?.toFixed(2) ?? "N/A",
+      previousEps: item.previous_eps_diluted?.toFixed(6) ?? "N/A",
+      epsGrowth: item.eps_growth
+        ? item.eps_growth > 999999
+          ? ">999999"
+          : item.eps_growth.toFixed(2)
+        : "N/A",
       reportDate: new Date(item.report_date).toLocaleDateString(),
       market: item.market_code,
       quarter: item.quarter,
-      year: item.year
+      year: item.year,
     }));
-  }, []);
+  }, [accessLevel]);
 
-  // Create table columns
-  const createColumns = useCallback(() => {
-    const baseColumns = [
+  const columns = React.useMemo<ColumnDef<TableDataType>[]>(
+    () => [
       {
-        title: <Tooltip title="Stock symbol">Symbol</Tooltip>,
-        dataIndex: "symbol",
-        key: "symbol",
-        width: 100,
+        accessorFn: (_, index) => (currentPage - 1) * pageSize + index + 1,
+        id: "rowNumber",
+        header: "No.",
+        size: 50,
       },
       {
-        title: (
-          <Tooltip title="Full registered name of the company">
-            Company Name
-          </Tooltip>
-        ),
-        dataIndex: "companyName",
-        key: "companyName",
-        width: 200,
+        accessorKey: "symbol",
+        header: "Symbol",
+        size: 100,
       },
       {
-        title: (
-          <Tooltip title="Latest reported Earnings Per Share">
-            Current EPS
-          </Tooltip>
-        ),
-        dataIndex: "currentEps",
-        key: "currentEps",
-        width: 120,
-        render: (value: string, record: any) => (
-          <Tooltip title={`Previous EPS: ${record.previousEps}`}>
-            <span>{value}</span>
-          </Tooltip>
-        ),
-        sorter: (a: any, b: any) =>
-          (a.currentEps === 'N/A' ? -Infinity : parseFloat(a.currentEps)) - 
-          (b.currentEps === 'N/A' ? -Infinity : parseFloat(b.currentEps)),
+        accessorKey: "companyName",
+        header: "Company Name",
+        size: 200,
       },
       {
-        title: <Tooltip title="Stock market code">Market</Tooltip>,
-        dataIndex: "market",
-        key: "market",
-        width: 100,
+        accessorKey: "currentEps",
+        header: () => <span title="Latest reported Earnings Per Share">Current EPS</span>,
+        size: 120,
+        cell: ({ row }) => (
+          <span title={`Previous EPS: ${row.original.previousEps}`}>
+            {row.original.currentEps}
+          </span>
+        ),
       },
       {
-        title: (
-          <Tooltip title="Percentage change in EPS from previous to current period">
-            EPS Growth (%)
-          </Tooltip>
-        ),
-        dataIndex: "epsGrowth",
-        key: "epsGrowth",
-        width: 150,
-        sorter: (a: any, b: any) =>
-          (a.epsGrowth === 'N/A' || a.epsGrowth === '>100000' ? -Infinity : parseFloat(a.epsGrowth)) - 
-          (b.epsGrowth === 'N/A' || b.epsGrowth === '>100000' ? -Infinity : parseFloat(b.epsGrowth)),
-        render: (value: string) => {
-          if (value === 'N/A' || value === '>100000') {
+        accessorKey: "market",
+        header: "Market",
+        size: 100,
+      },
+      {
+        accessorKey: "epsGrowth",
+        header: () => <span title="Percentage change in EPS from previous to current period">EPS Growth (%)</span>,
+        size: 150,
+        cell: ({ row }) => {
+          const value = row.original.epsGrowth;
+          if (value === "N/A" || value === ">999999") {
             return <span>{value}</span>;
           }
           const numValue = parseFloat(value);
           return (
-            <span style={{ color: numValue >= 0 ? "#52c41a" : "#f5222d" }}>
+            <span className={numValue >= 0 ? "text-green-500" : "text-red-500"}>
               {numValue >= 0 ? "+" : ""}
               {value}%
             </span>
@@ -124,35 +136,19 @@ const StockRankTable: React.FC<StockRankTableProps> = ({
         },
       },
       {
-        title: (
-          <Tooltip title="Date of latest earnings report">Period</Tooltip>
-        ),
-        dataIndex: "reportDate",
-        key: "reportDate",
-        width: 200,
-        render: (_: string, record: any) => (
+        accessorKey: "reportDate",
+        header: () => <span title="Date of latest earnings report">Period</span>,
+        size: 200,
+        cell: ({ row }) => (
           <span>
-            Q{record.quarter} {record.year} ({new Date(record.reportDate).toLocaleDateString()})
+            Q{row.original.quarter} {row.original.year} ({row.original.reportDate})
           </span>
         ),
       },
-    ];
+    ],
+    [currentPage, pageSize]
+  );
 
-    const rowNumberColumn = {
-      title: "No.",
-      dataIndex: "rowNumber",
-      key: "rowNumber",
-      width: 50,
-      fixed: "left" as const,
-      render: (_: string, __: any, index: number) => {
-        return (currentPage - 1) * pageSize + index + 1;
-      },
-    };
-
-    return [rowNumberColumn, ...baseColumns];
-  }, [currentPage, pageSize]);
-
-  // Function to fetch data
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -163,7 +159,6 @@ const StockRankTable: React.FC<StockRankTableProps> = ({
 
       setData(response);
       const processedData = processTableData(response);
-      setColumns(createColumns());
       setTableData(processedData);
       setTotalRecords(response.metadata.total);
       setError(null);
@@ -172,104 +167,145 @@ const StockRankTable: React.FC<StockRankTableProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, pageSize, processTableData, createColumns]);
+  }, [currentPage, pageSize, processTableData]);
 
-  // Initial data fetch and setup pagination changes
   React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   if (isLoading && !data) {
     return (
-      <div
-        style={{
-          minHeight: 500,
-          width: "100%",
-          background: "var(--background-color)",
-          borderRadius: 8,
-          padding: 24,
-        }}
-      >
-        <Skeleton active paragraph={{ rows: 10 }} title={false} />
+      <div className="min-h-[500px] w-full bg-white rounded-lg p-6 animate-pulse">
+        <div className="space-y-4">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="h-8 bg-gray-200 rounded"></div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!accessLevel && currentPage === 1) {
     return (
-      <Alert
-        message="Login Required"
-        description="Please login to view ranks 11-20. Premium users can view ranks 1-10."
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-      />
+      <Alert className="bg-blue-50 border-blue-200">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-700">
+          Please login to view ranks 11-20. Premium users can view ranks 1-10.
+        </AlertDescription>
+      </Alert>
     );
   }
 
   if (error || !data?.data) {
     return (
-      <Alert
-        message="Error Loading Data"
-        description={error?.message || "Failed to load stock data"}
-        type="error"
-        showIcon
-      />
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error?.message || "Failed to load stock data"}
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
-    <Row justify="center" align="middle" style={{ width: "100%", ...style }}>
-      <div className="scroll-container">
-        <Table
-          style={{ width: "100%" }}
-          columns={columns}
-          dataSource={tableData}
-          loading={isLoading}
-          pagination={{
-            pageSize,
-            current: currentPage,
-            total: totalRecords,
-            responsive: true,
-            showSizeChanger: true,
-            pageSizeOptions: [10, 20, 50, 100],
-            onChange: (page, size) => {
-              setCurrentPage(page);
-              setPageSize(size);
-            },
-          }}
-          scroll={{
-            x: "max-content",
-            y: 500,
-            scrollToFirstRowOnChange: true,
-          }}
-          size="large"
-        />
+    <div className={`w-full ${className || ''}`} style={style}>
+      <div className="scroll-shadow-container custom-scrollbar rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map(headerGroup => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <TableHead 
+                    key={header.id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={header.column.getToggleSortingHandler()}
+                    style={{ width: header.getSize() }}
+                  >
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    <span className="ml-2">
+                      {{
+                        asc: "↑",
+                        desc: "↓",
+                      }[header.column.getIsSorted() as string] ?? null}
+                    </span>
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map(row => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map(cell => (
+                  <TableCell key={cell.id}>
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
-    </Row>
+
+      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+        <div className="flex items-center space-x-2">
+          <select
+            className="p-2 text-sm border rounded-md"
+            value={pageSize}
+            onChange={e => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+          >
+            {[10, 20, 50, 100].map(size => (
+              <option key={size} value={size}>
+                Show {size}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="px-3 py-1">
+            Page {currentPage} of {Math.ceil(totalRecords / pageSize)}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => 
+              setCurrentPage(page => 
+                Math.min(Math.ceil(totalRecords / pageSize), page + 1)
+              )
+            }
+            disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
 export default StockRankTable;
-
-// TODO: Future features:
-// - Add more advanced filtering options (by date range, EPS threshold, growth percentage)
-// - Add column customization with saveable presets
-// - Add export functionality (CSV, Excel with calculated metrics)
-// - Add data visualization options (growth trends, comparative charts)
-// - Add real-time updates with websocket connection
-// - Add sorting indicators with multi-column sort support
-// - Add column resizing and reordering
-// - Add row selection for multi-stock comparison
-// - Add favorites/watchlist feature with email alerts
-// - Add historical data comparison with quarterly/yearly views
-// - Add conditional formatting for significant EPS changes
-// - Implement caching for paginated data
-// - Consider adding a debounce for rapid page changes
-// - Add validation for pagination parameters
-// - Implement persistent user preferences (page size, column order, sorting)
-// - Add proper access control for advanced features
-// - Add tooltip explanations for metrics
-// - Add performance indicators (green/red) for growth metrics
-// - Consider adding "average sector EPS" comparison
-// - Add YoY and QoQ growth rate calculations

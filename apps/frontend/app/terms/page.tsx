@@ -1,23 +1,43 @@
 "use client";
 
-import { Form, Input, Button, Typography } from "antd";
-import { MailOutlined } from "@ant-design/icons";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
-const { Title, Text } = Typography;
+const formSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type SubscribeForm = z.infer<typeof formSchema>;
 
 export default function TermsPage() {
-  const [form] = Form.useForm();
+  const form = useForm<SubscribeForm>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
 
-  const handleSubmit = (values: { email: string }) => {
+  const handleSubmit = (values: SubscribeForm) => {
     console.log("Email to store:", values.email);
     // TODO: Implement actual email storage
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px" }}>
-      <Title level={2}>Terms and Conditions</Title>
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Terms and Conditions</h1>
       
-      <Text>
+      <div className="prose prose-gray max-w-none">
         <p>Last updated: {new Date().toLocaleDateString()}</p>
         
         <h3>1. Introduction</h3>
@@ -38,30 +58,36 @@ export default function TermsPage() {
           account information and for all activities that occur under your
           account.
         </p>
-      </Text>
+      </div>
 
-      <div style={{ marginTop: "32px" }}>
-        <Title level={4}>Subscribe for Updates</Title>
-        <Form form={form} onFinish={handleSubmit}>
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: "Please input your email!" },
-              { type: "email", message: "Please enter a valid email address" },
-            ]}
-          >
-            <Input
-              prefix={<MailOutlined />}
-              placeholder="Enter your email"
-              size="large"
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Subscribe for Updates</h2>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input 
+                        placeholder="Enter your email" 
+                        className="pl-10" 
+                        {...field} 
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Form.Item>
 
-          <Form.Item>
-            <Button type="primary" htmlType="submit" size="large">
+            <Button type="submit">
               Subscribe
             </Button>
-          </Form.Item>
+          </form>
         </Form>
       </div>
     </div>

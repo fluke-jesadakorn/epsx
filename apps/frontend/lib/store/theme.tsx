@@ -1,76 +1,28 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { theme, ThemeConfig } from "antd";
-
-const lightTheme: ThemeConfig = {
-  token: {
-    wireframe: true,
-    borderRadius: 16,
-    colorPrimary: "#1fc7d4",
-    colorInfo: "#1fc7d4",
-    colorBgBase: "#ffffff",
-  },
-  components: {
-    Button: {
-      algorithm: true,
-    },
-    // Menu: {
-    //   colorPrimaryActive: "#ffffff",
-    // },
-  },
-  algorithm: theme.defaultAlgorithm,
-};
-
-const darkTheme: ThemeConfig = {
-  token: {
-    wireframe: true,
-    borderRadius: 16,
-    colorPrimary: "#1fc7d4",
-    colorInfo: "#1fc7d4",
-    colorBgBase: "#27262c",
-  },
-  components: {
-    Button: {
-      algorithm: true,
-    },
-    // Menu: {
-    //   colorPrimaryActive: "#ffffff",
-    // },
-  },
-  algorithm: theme.darkAlgorithm,
-};
-
-export const ThemeType = {
-  lightTheme,
-  darkTheme,
-};
 
 interface ThemeState {
-  theme: ThemeConfig;
   isDarkMode: boolean;
-  setTheme: (theme: ThemeConfig) => void;
   toggleTheme: () => void;
+  setDarkMode: (isDark: boolean) => void;
   initializeTheme: () => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: darkTheme,
       isDarkMode: true,
-      setTheme: (theme) => set({ theme }),
-toggleTheme: () =>
-  set((state) => ({
-    isDarkMode: !state.isDarkMode,
-    theme: !state.isDarkMode ? lightTheme : darkTheme,
-  })),
+      toggleTheme: () =>
+        set((state) => ({
+          isDarkMode: !state.isDarkMode,
+        })),
+      setDarkMode: (isDark: boolean) => set({ isDarkMode: isDark }),
       initializeTheme: () => {
         if (typeof window !== "undefined") {
           const prefersDark = window.matchMedia(
             "(prefers-color-scheme: dark)"
           ).matches;
           set({
-            theme: prefersDark ? darkTheme : lightTheme,
             isDarkMode: prefersDark,
           });
         }

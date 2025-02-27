@@ -11,8 +11,8 @@
     "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
-    "@epsx/frontend-core": "workspace:*",
-    "@epsx/shared": "workspace:*"
+    "@epsx/shared": "workspace:*",
+    "react-firebase-hooks": "^5.1.1"
   },
   "devDependencies": {
     "@epsx/eslint-config": "workspace:*",
@@ -20,8 +20,11 @@
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "autoprefixer": "10.4.17",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.1.6",
+    "postcss": "8.4.35",
+    "tailwindcss": "3.4.1",
     "typescript": "^5.7.3"
   }
 }

@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Set production environment and Cloud Run port
 ENV NODE_ENV=production \
-    PORT=8080
+    PORT=3001
 
 # Copy built dependencies and application
 COPY --from=builder /app/packages ./packages

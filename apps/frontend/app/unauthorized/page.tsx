@@ -1,26 +1,20 @@
-import { Button, Result } from 'antd';
-import Link from 'next/link';
-export default function UnauthorizedPage() {
-  // TODO: Implement auth check
-  // If user is logged in, redirect to home
-  // Example:
-  // const session = await getSession();
-  // if (session) redirect('/');
+import { Result } from "@/components/ui/result";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
+export default function UnauthorizedPage() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <Result
-        status="403"
-        title="403"
+        status="error"
+        title="401"
         subTitle="Sorry, you are not authorized to access this page."
         extra={
-          <Link href="/login">
-            <Button type="primary">Login</Button>
+          <Link href="/">
+            <Button>Back Home</Button>
           </Link>
         }
       />
     </div>
   );
 }
-
-export const runtime = 'edge';

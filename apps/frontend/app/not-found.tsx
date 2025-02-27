@@ -1,27 +1,11 @@
-import React from "react";
-import { Result } from "antd";
-
-const NotFoundPage: React.FC = () => {
+export default function NotFound() {
   return (
-    <div style={{ 
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh'
-    }}>
-      <Result
-        status="404"
-        title="404"
-        subTitle="Sorry, the page you visited does not exist."
-        // TODO: Add back home button functionality
-        /* Future features:
-           - Add interactive back button component
-           - Implement animated transition effects
-           - Add search box for lost pages
-        */
-      />
+    <div className="flex min-h-screen flex-col items-center justify-center">
+      <h1 className="text-4xl font-bold mb-4">404</h1>
+      <h2 className="text-xl mb-4">Page Not Found</h2>
+      <p className="text-gray-600">
+        The page you are looking for does not exist.
+      </p>
     </div>
   );
-};
-
-export default NotFoundPage;
+}

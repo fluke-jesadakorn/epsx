@@ -1,29 +1,26 @@
-"use client";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-import { Card, Typography, Button } from "antd";
-
-export default function ConfirmationPending() {
+export default function ConfirmationPendingPage() {
   return (
-    <Card className="max-w-md mx-auto mt-10">
-      <Typography.Title level={2} className="text-center mb-4">
-        Confirm Your Email
-      </Typography.Title>
-      <Typography.Paragraph className="mb-4">
-        We&apos;ve sent a confirmation email to your inbox. Please check your email
-        and click the confirmation link to activate your account.
-      </Typography.Paragraph>
-      <Typography.Text type="secondary">
-        Didn&apos;t receive the email? Check your spam folder or
-        {/* TODO: Implement resend confirmation email functionality with proper error handling */}
-        {/* TODO: Add rate limiting for resend requests */}
-        {/* TODO: Add loading state during resend operation */}{" "}
-        <Button
-          type="primary"
-          onClick={() => alert("Resend confirmation email")}
-        >
-          Click here to resend
-        </Button>
-      </Typography.Text>
-    </Card>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+      <Card className="max-w-md w-full">
+        <CardHeader>
+          <h2 className="text-2xl font-bold text-center">Confirmation Pending</h2>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-center text-gray-600">
+            Please check your email to complete the registration process. You will
+            be able to access all features once your email is confirmed.
+          </p>
+          <div className="flex justify-center">
+            <Link href="/login">
+              <Button>Go to Login</Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

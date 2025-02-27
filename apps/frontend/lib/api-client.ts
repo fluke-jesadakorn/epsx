@@ -10,10 +10,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 // - NextAuth.js session
 // - OAuth2 tokens
 
-async function fetchWithAuth(
+async function fetchWithAuth<TData = unknown>(
   endpoint: string,
   method: RequestMethod = "GET",
-  data?: any,
+  data?: TData,
   customHeaders: Record<string, string> = {}
 ) {
   if (!API_URL) {
@@ -59,10 +59,10 @@ export const apiClient = {
   get: <T>(endpoint: string, headers = {}) =>
     fetchWithAuth(endpoint, "GET", undefined, headers) as Promise<T>,
 
-  post: <T>(endpoint: string, data: any, headers = {}) =>
-    fetchWithAuth(endpoint, "POST", data, headers) as Promise<T>,
+  post: <T, TData = unknown>(endpoint: string, data: TData, headers = {}) =>
+    fetchWithAuth<TData>(endpoint, "POST", data, headers) as Promise<T>,
 
-  put: <T>(endpoint: string, data: any, headers = {}) =>
+  put: <T, TData = unknown>(endpoint: string, data: TData, headers = {}) =>
     fetchWithAuth(endpoint, "PUT", data, headers) as Promise<T>,
 
   delete: <T>(endpoint: string, headers = {}) =>
