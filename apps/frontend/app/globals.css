@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
  
 @layer base {
   :root {
@@ -36,33 +34,33 @@
   }
  
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 266 29% 3%;
+    --foreground: 270 100% 96%;
  
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 11%;
+    --card-foreground: 270 100% 96%;
  
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 270 100% 96%;
  
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 184 93% 47%;
+    --primary-foreground: 0 0% 100%;
  
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 271 13% 23%;
+    --secondary-foreground: 270 100% 96%;
  
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 271 13% 23%;
+    --muted-foreground: 270 20% 80%;
  
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 271 13% 23%;
+    --accent-foreground: 270 100% 96%;
  
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 270 100% 96%;
  
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 271 13% 23%;
+    --input: 271 13% 23%;
+    --ring: 184 93% 47%;
   }
 }
  
@@ -73,57 +71,4 @@
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
-}
-
-/* Custom scrollbar styles */
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    @apply w-2 h-2;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800 rounded;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 dark:bg-gray-600 rounded hover:bg-gray-500 dark:hover:bg-gray-500;
-  }
-}
-
-/* Scroll shadows */
-.scroll-shadow-container {
-  @apply relative overflow-hidden;
-}
-
-.scroll-shadow-container::before,
-.scroll-shadow-container::after {
-  content: '';
-  @apply absolute left-0 right-0 h-5 pointer-events-none z-10;
-}
-
-.scroll-shadow-container::before {
-  @apply top-0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 100%);
-  .dark & {
-    background: linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, transparent 100%);
-  }
-}
-
-.scroll-shadow-container::after {
-  @apply bottom-0;
-  background: linear-gradient(to top, rgba(0,0,0,0.1) 0%, transparent 100%);
-  .dark & {
-    background: linear-gradient(to top, rgba(255,255,255,0.05) 0%, transparent 100%);
-  }
-}
-
-/* Table mask gradient */
-.table-mask {
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    black 20px,
-    black calc(100% - 20px),
-    transparent
-  );
 }

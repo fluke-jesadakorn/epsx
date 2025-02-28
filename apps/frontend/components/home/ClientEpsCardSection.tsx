@@ -3,13 +3,9 @@
 import React from "react";
 import type { CSSProperties } from "react";
 import type { EpsGrowthData } from "@/types/epsGrowthRanking";
-import {
-  Card,
-  CardHeader,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
-interface ClientEpsCardSectionProps {
+interface Props {
   style?: CSSProperties;
   className?: string;
   initialData: EpsGrowthData[];
@@ -20,7 +16,7 @@ export default function ClientEpsCardSection({
   style,
   className,
   initialData,
-}: ClientEpsCardSectionProps) {
+}: Props) {
   const getMarketColor = (marketCode: string | undefined) => {
     switch (marketCode) {
       case "TYO":
@@ -34,70 +30,84 @@ export default function ClientEpsCardSection({
     }
   };
 
-  const getRankColor = (index: number) => {
-    switch (index) {
-      case 0:
-        return "text-yellow-400"; // Gold
-      case 1:
-        return "text-gray-400"; // Silver
-      case 2:
-        return "text-amber-600"; // Bronze
-      default:
-        return "text-gray-500";
-    }
-  };
-
   return (
-    <div className={`flex flex-col gap-4 w-full ${className || ''}`} style={style}>
+    <div
+      className={`flex flex-col gap-4 w-full ${className || ""}`}
+      style={style}
+    >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-        {initialData.map((item, index) => {
-          // Skip rendering if item or required properties are missing
+        {initialData.slice(0, 3).map((item, index) => {
           if (!item?.symbol || !item?.company_name) {
             console.error("Missing required data for item:", item);
             return null;
           }
 
           return (
-            <Card key={item.symbol || index}>
-              <CardHeader className="pb-2">
+            <Card
+              key={item.symbol || index}
+              className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card via-card/80 to-card/50"
+            >
+              <CardHeader className="pb-3">
                 <div className="flex justify-between items-center">
-                  <span className={getMarketColor(item.market_code)}>
+                  <span
+                    className={`${getMarketColor(item.market_code)} font-medium px-3 py-1 rounded-full bg-primary/5`}
+                  >
                     {item.market_code || "N/A"}
                   </span>
                   {index < 3 && (
-                    <span className={`font-bold ${getRankColor(index)}`}>
+                    <span
+                      className={`
+                          font-bold text-sm px-3 py-1 rounded-full
+                          ${index === 0 ? "bg-yellow-100 text-yellow-700" : ""}
+                          ${index === 1 ? "bg-gray-100 text-gray-700" : ""}
+                          ${index === 2 ? "bg-amber-100 text-amber-700" : ""}
+                        `}
+                    >
                       #{index + 1}
                     </span>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <h4 className="text-xl font-bold">
-                    {item.company_name || "Unknown Company"}
-                  </h4>
-                  <p className="text-gray-600">
-                    Symbol: {item.symbol || "N/A"}
-                  </p>
-                  <p className="text-gray-600">
-                    EPS:{" "}
-                    {typeof item.eps_diluted === "number"
-                      ? item.eps_diluted.toFixed(2)
-                      : "N/A"}
-                  </p>
-                  <p className={`font-bold ${(item.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    Growth:{" "}
-                    {typeof item.eps_growth === "number"
-                      ? item.eps_growth.toFixed(2)
-                      : "0"}
-                    %
-                  </p>
-                  <p className="text-gray-400">
-                    Last Report:{" "}
-                    {item.report_date
-                      ? new Date(item.report_date).toLocaleDateString()
-                      : "N/A"}
-                  </p>
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="text-lg font-bold truncate">
+                      {item.company_name || "Unknown Company"}
+                    </h4>
+                    <p className="text-muted-foreground text-sm">
+                      {item.symbol || "N/A"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        Current EPS
+                      </p>
+                      <p className="font-semibold">
+                        {typeof item.eps_diluted === "number"
+                          ? item.eps_diluted.toFixed(2)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Growth</p>
+                      <p
+                        className={`font-semibold ${(item.eps_growth || 0) >= 0 ? "text-green-500" : "text-rose-500"}`}
+                      >
+                        {typeof item.eps_growth === "number"
+                          ? `${item.eps_growth >= 0 ? "+" : ""}${item.eps_growth.toFixed(2)}%`
+                          : "0%"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Last Report:{" "}
+                      {item.report_date
+                        ? new Date(item.report_date).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

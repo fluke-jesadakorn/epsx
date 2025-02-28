@@ -1,6 +1,6 @@
 export interface EpsGrowthRankingResponse {
   data: EpsGrowthData[];
-  metadata: Metadata;
+  metadata?: Metadata;
 }
 
 export interface EpsGrowthData {
@@ -16,9 +16,9 @@ export interface EpsGrowthData {
 }
 
 export interface Metadata {
-  skip: number;
+  skip?: number;
   total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
 }

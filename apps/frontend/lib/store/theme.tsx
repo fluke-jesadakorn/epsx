@@ -11,21 +11,15 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      isDarkMode: true,
+      isDarkMode: false,
       toggleTheme: () =>
         set((state) => ({
           isDarkMode: !state.isDarkMode,
         })),
       setDarkMode: (isDark: boolean) => set({ isDarkMode: isDark }),
       initializeTheme: () => {
-        if (typeof window !== "undefined") {
-          const prefersDark = window.matchMedia(
-            "(prefers-color-scheme: dark)"
-          ).matches;
-          set({
-            isDarkMode: prefersDark,
-          });
-        }
+        // Let next-themes handle the initial state
+        return;
       },
     }),
     {

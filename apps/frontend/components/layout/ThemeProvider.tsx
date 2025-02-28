@@ -21,11 +21,6 @@ function ThemeWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Initialize theme on mount
-  React.useEffect(() => {
-    useThemeStore.getState().initializeTheme();
-  }, []);
-
   return (
     <NextThemesProvider
       attribute="class"

@@ -1,21 +1,26 @@
 {
-  "extends": "@epsx/tsconfig/base.json",
-  "include": ["src"],
-  "exclude": ["dist", "build", "node_modules"],
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "target": "es2019",
     "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "removeComments": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "target": "ES2023",
-    "incremental": true,
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "rootDir": "./src"
-  }
+    "noEmitOnError": false,
+    "noImplicitAny": false,
+    "strict": false,
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["node_modules/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

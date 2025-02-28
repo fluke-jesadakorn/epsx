@@ -2,19 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/lib/firebase-client";
 import { signOut } from "firebase/auth";
-import {
-  Home,
-  LineChart,
-  User,
-  LogOut,
-  LogIn,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { Home, LineChart, User, LogOut, LogIn } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -22,7 +13,6 @@ import {
   NavigationMenuList,
 } from "@/components/ui/navigation-menu";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -30,14 +20,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import ThemeToggle from "./ThemeToggle";
 
 const getNavItems = (isLoggedIn: boolean) => [
-  {
-    label: "Home",
-    href: "/",
-    key: "home",
-    icon: <Home className="h-4 w-4" />,
-  },
   {
     label: "Ranking",
     href: "/ranking",
@@ -57,7 +42,6 @@ const getNavItems = (isLoggedIn: boolean) => [
 ];
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const [user] = useAuthState(auth);
   const isLoggedIn = !!user;
@@ -72,49 +56,40 @@ export default function Navbar() {
   };
 
   return (
-    <div className="border-b">
-      <div className="flex h-16 items-center px-4 justify-between max-w-7xl mx-auto">
-        <NavigationMenu>
-          <NavigationMenuList>
-            {getNavItems(isLoggedIn).map((item) => (
-              <NavigationMenuItem key={item.key}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <NavigationMenuLink
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-primary
-                      ${pathname === item.href ? "text-primary" : "text-muted-foreground"}`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-            ))}
-          </NavigationMenuList>
-        </NavigationMenu>
-        
-        <div className="flex items-center gap-4">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={theme === "dark"}
-                    onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-                    className="data-[state=checked]:bg-slate-700"
-                  />
-                  {theme === "dark" ? (
-                    <Moon className="h-4 w-4 text-slate-400" />
-                  ) : (
-                    <Sun className="h-4 w-4 text-yellow-500" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
+    <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
+      <div className="flex h-20 items-center px-6 justify-between max-w-7xl mx-auto">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+            <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+              EPSX
+            </span>
+          </Link>
+          <NavigationMenu>
+            <NavigationMenuList>
+              {getNavItems(isLoggedIn).map((item) => (
+                <NavigationMenuItem key={item.key}>
+                  <Link href={item.href} legacyBehavior passHref>
+                    <NavigationMenuLink
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all rounded-full hover:bg-primary/10
+                      ${
+                        pathname === item.href
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-primary"
+                      }`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </NavigationMenuLink>
+                  </Link>
+                </NavigationMenuItem>
+              ))}
+            </NavigationMenuList>
+          </NavigationMenu>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <ThemeToggle />
+
           {isLoggedIn && userEmail && (
             <TooltipProvider>
               <Tooltip>
@@ -133,12 +108,12 @@ export default function Navbar() {
               </Tooltip>
             </TooltipProvider>
           )}
-          
+
           <Link href={isLoggedIn ? "#" : "/login"}>
             <Button
               variant="ghost"
               onClick={isLoggedIn ? logout : undefined}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 rounded-full hover:bg-primary/10"
             >
               {isLoggedIn ? (
                 <>

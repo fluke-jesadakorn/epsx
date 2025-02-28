@@ -4,12 +4,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "packages/frontend-core/dist/**",
-        "packages/nest-core/dist/**"
-      ],
+      "outputs": ["dist/**", ".next/**", "packages/*/dist/**"],
+      "inputs": ["src/**/*", "tsconfig.json"],
       "cache": true
     },
     "dev": {
@@ -23,7 +19,12 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"],
+      "inputs": [
+        "src/**/*.tsx",
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "test/**/*.tsx"
+      ],
       "cache": true
     },
     "lint": {

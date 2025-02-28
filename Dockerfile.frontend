@@ -1,61 +1,38 @@
 # Build stage
-FROM oven/bun:1.2.2 AS builder
-
+FROM oven/bun:1.2.4-alpine AS builder
 WORKDIR /app
 
+RUN bun add --global turbo
 # Copy workspace files
 COPY . .
 
-# Remove any existing node_modules to ensure clean install
-RUN rm -rf node_modules
-RUN rm -rf apps/frontend/node_modules
+ARG NODE_ENV=production
 
-# Install global dependencies needed for builds
-RUN bun install -g turbo typescript
+RUN cd apps/frontend && bun install
 
-# Set Next.js environment to production for build
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-
-# Install and build
-RUN bun install
-RUN bun turbo run build --filter=@epsx/frontend...
-
-# Build frontend
-WORKDIR /app/apps/frontend
-RUN NODE_ENV=production bun run build
+WORKDIR /app
+RUN bun run turbo build --filter=@epsx/frontend...
 
 # Production stage
-FROM oven/bun:1.2.2-alpine AS runner
+FROM oven/bun:1.2.4-alpine AS runner
 
 WORKDIR /app
 
 # Set production environment variables
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Copy necessary workspace files
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/bun.lock ./
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/package.json
-
-# Copy Next.js specific files
-COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
-COPY --from=builder /app/apps/frontend/.next/standalone ./
-COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
-
-# Move standalone server files to the frontend directory
-RUN mkdir -p apps/frontend && \
-    mv server.js apps/frontend/ && \
-    mv apps/frontend/.next/static apps/frontend/.next/
-
-WORKDIR /app/apps/frontend
+# Copy build outputs from builder
+COPY --from=builder /app/apps/frontend/.next ./.next
+COPY --from=builder /app/apps/frontend/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/frontend/package.json ./package.json
+COPY --from=builder /app/apps/frontend/public ./public
 
 # Expose port
 EXPOSE 3000
 
 # Start the standalone Next.js server
-CMD ["bun", "server.js"]
+CMD ["bun", "run", "start"]

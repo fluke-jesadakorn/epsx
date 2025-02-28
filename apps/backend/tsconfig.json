@@ -2,12 +2,25 @@
   "extends": "@epsx/tsconfig/nest.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "baseUrl": "./",
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@backend/*": ["src/*"]
-    }
+      "@backend/*": ["src/*"],
+      "@epsx/shared": ["../../packages/shared/src"],
+      "@epsx/shared/*": ["../../packages/shared/src/*"],
+      "@epsx/nest-core": ["../../packages/nest-core/src"],
+      "@epsx/nest-core/*": ["../../packages/nest-core/src/*"]
+    },
+    "rootDirs": [
+      "./src",
+      "../../packages/shared/src",
+      "../../packages/nest-core/src"
+    ]
   },
-  "include": ["src"],
+  "include": [
+    "src/**/*",
+    "../../packages/shared/src/**/*",
+    "../../packages/nest-core/src/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

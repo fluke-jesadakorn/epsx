@@ -102,9 +102,3 @@ debug/
 
 #vercel
 .vercel/
-
-#cloudflare
-.wrangler/
-
-#temp file
-temp/
