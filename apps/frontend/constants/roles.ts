@@ -1,63 +1,36 @@
-// Role definitions
-export const ROLES = {
-  ADMIN: 'admin',
-  PREMIUM: 'premium',
-  BASIC: 'basic',
-} as const;
+export enum UserRole {
+  PUBLIC = 'public',
+  BASIC = 'basic',
+  PREMIUM = 'premium',
+}
 
-export type Role = typeof ROLES[keyof typeof ROLES];
-
-// Access level mapping
 export const ROLE_ACCESS_LEVELS = {
-  [ROLES.ADMIN]: 3,
-  [ROLES.PREMIUM]: 2,
-  [ROLES.BASIC]: 1,
+  [UserRole.PREMIUM]: 3,
+  [UserRole.BASIC]: 2,
+  [UserRole.PUBLIC]: 1,
 } as const;
 
 // Permission definitions
 export const PERMISSIONS = {
-  READ_BASIC: 'read:basic',
-  READ_PREMIUM: 'read:premium',
-  READ_ADMIN: 'read:admin',
-  WRITE_BASIC: 'write:basic',
-  WRITE_PREMIUM: 'write:premium',
-  WRITE_ADMIN: 'write:admin',
-  MANAGE_USERS: 'manage:users',
+  VIEW_ALL_RANKS: 'view:all_ranks',
+  VIEW_BASIC_RANKS: 'view:basic_ranks',
+  VIEW_PUBLIC_RANKS: 'view:public_ranks',
 } as const;
 
-export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
 
 // Role permissions mapping
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  [ROLES.ADMIN]: Object.values(PERMISSIONS),
-  [ROLES.PREMIUM]: [
-    PERMISSIONS.READ_BASIC,
-    PERMISSIONS.WRITE_BASIC,
-    PERMISSIONS.READ_PREMIUM,
-    PERMISSIONS.WRITE_PREMIUM,
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.PREMIUM]: [
+    PERMISSIONS.VIEW_ALL_RANKS,
+    PERMISSIONS.VIEW_BASIC_RANKS,
+    PERMISSIONS.VIEW_PUBLIC_RANKS,
   ],
-  [ROLES.BASIC]: [
-    PERMISSIONS.READ_BASIC,
-    PERMISSIONS.WRITE_BASIC,
+  [UserRole.BASIC]: [
+    PERMISSIONS.VIEW_BASIC_RANKS,
+    PERMISSIONS.VIEW_PUBLIC_RANKS,
   ],
-};
-
-// Helper functions
-export const getRoleFromAccessLevel = (accessLevel: number): Role => {
-  switch (accessLevel) {
-    case 3:
-      return ROLES.ADMIN;
-    case 2:
-      return ROLES.PREMIUM;
-    default:
-      return ROLES.BASIC;
-  }
-};
-
-export const getPermissionsForRole = (role: Role): Permission[] => {
-  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS[ROLES.BASIC];
-};
-
-export const hasPermission = (userRole: Role, permission: Permission): boolean => {
-  return ROLE_PERMISSIONS[userRole]?.includes(permission) || false;
+  [UserRole.PUBLIC]: [
+    PERMISSIONS.VIEW_PUBLIC_RANKS,
+  ],
 };

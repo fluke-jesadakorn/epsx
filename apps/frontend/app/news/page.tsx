@@ -1,8 +1,14 @@
+'use client';
+
+import { Suspense } from 'react';
+
 const News = () => {
   return (
-    <div>
-      <h1>News</h1>
-    </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <div>
+        <h1>News</h1>
+      </div>
+    </Suspense>
   );
 };
 

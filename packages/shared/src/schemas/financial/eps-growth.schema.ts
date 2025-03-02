@@ -1,15 +1,29 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import type { HydratedDocument } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
+export interface IEpsGrowth {
+  symbol: string;
+  company_name: string;
+  market_code: string;
+  eps_diluted: number;
+  previous_eps_diluted: number;
+  eps_growth: number;
+  report_date: Date;
+  year: number;
+  quarter: number;
+}
+
+export type EpsGrowthDocument = HydratedDocument<EpsGrowth>;
+
 @Schema({ timestamps: true })
-export class EpsGrowth extends Document {
+export class EpsGrowth implements IEpsGrowth {
   @ApiProperty({
     description: 'Stock symbol/ticker',
     example: 'AAPL',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   symbol!: string;
 
   @ApiProperty({
@@ -17,7 +31,7 @@ export class EpsGrowth extends Document {
     example: 'Apple Inc.',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   company_name!: string;
 
   @ApiProperty({
@@ -25,7 +39,7 @@ export class EpsGrowth extends Document {
     example: 'SET',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   market_code!: string;
 
   @ApiProperty({
@@ -34,7 +48,7 @@ export class EpsGrowth extends Document {
     type: 'number',
     format: 'float'
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   eps_diluted!: number;
 
   @ApiProperty({
@@ -43,7 +57,7 @@ export class EpsGrowth extends Document {
     type: 'number',
     format: 'float'
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   previous_eps_diluted!: number;
 
   @ApiProperty({
@@ -52,7 +66,7 @@ export class EpsGrowth extends Document {
     type: 'number',
     format: 'float'
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   eps_growth!: number;
 
   @ApiProperty({
@@ -61,7 +75,7 @@ export class EpsGrowth extends Document {
     type: 'string',
     format: 'date-time'
   })
-  @Prop({ required: true, type: Date })
+  @Prop({ type: Date, required: true })
   report_date!: Date;
 
   @ApiProperty({
@@ -70,7 +84,7 @@ export class EpsGrowth extends Document {
     type: 'number',
     minimum: 1900
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   year!: number;
 
   @ApiProperty({
@@ -80,7 +94,7 @@ export class EpsGrowth extends Document {
     minimum: 1,
     maximum: 4
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true, min: 1, max: 4 })
   quarter!: number;
 }
 

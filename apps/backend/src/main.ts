@@ -14,8 +14,10 @@ async function bootstrap() {
   // Enable CORS
   app.enableCors();
 
-  // Set global prefix
-  app.setGlobalPrefix("api/v1");
+  // Set global prefix with explicit path handling
+  app.setGlobalPrefix("api/v1", {
+    exclude: ["/health", "/docs"],
+  });
 
   // Enable validation pipes
   app.useGlobalPipes(new ValidationPipe({ transform: true }));

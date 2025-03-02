@@ -1,156 +1,143 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import { ROLES, type Role } from "@/constants/roles";
+import { useState } from "react";
+import { UserRole } from "@/constants/roles";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-interface UserRoleData {
+interface User {
   userId: string;
-  currentRole: Role;
+  email?: string;
+  role: UserRole;
 }
 
-export default function UserRoleManager() {
-  const [userId, setUserId] = useState("");
-  const [selectedRole, setSelectedRole] = useState<Role>(ROLES.BASIC);
+export function UserRoleManager() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<UserRoleData | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [selectedRole, setSelectedRole] = useState<UserRole>();
+  const [searchEmail, setSearchEmail] = useState("");
 
-  // Fetch user's current role
-  const fetchUserRole = useCallback(async (uid: string) => {
+  const fetchUsers = async () => {
     try {
-      const response = await fetch(
-        `/api/auth/roles?userId=${encodeURIComponent(uid)}`
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch user role");
-      }
-
-      setUserRole({
-        userId: uid,
-        currentRole: data.role,
-      });
-      setSelectedRole(data.role);
-      setError(null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch user role"
-      );
-      setUserRole(null);
-    }
-  }, []);
-
-  // Update user's role
-  const updateUserRole = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/auth/roles", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId,
-          role: selectedRole,
-        }),
-      });
+      setLoading(true);
+      const response = await fetch("/api/auth/roles");
+      if (!response.ok) throw new Error("Failed to fetch users");
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update role");
-      }
-
-      // Refresh the displayed role
-      await fetchUserRole(userId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update role");
+      setUsers(data);
+    } catch (error) {
+      toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAssignRole = async () => {
+    if (!selectedUser || !selectedRole) {
+      toast.error("Please select both user and role");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch("/api/auth/roles/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: selectedUser,
+          role: selectedRole,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to assign role");
+
+      toast.success("Role assigned successfully");
+      await fetchUsers(); // Refresh user list
+    } catch (error) {
+      toast.error("Failed to assign role");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter((user) =>
+    user.email?.toLowerCase().includes(searchEmail.toLowerCase())
+  );
+
   return (
-    <div className="p-4 max-w-md mx-auto bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-4">User Role Manager</h2>
-
-      <form onSubmit={updateUserRole} className="space-y-4">
-        <div>
-          <label
-            htmlFor="userId"
-            className="block text-sm font-medium text-gray-700"
-          >
-            User ID
-          </label>
-          <input
-            type="text"
-            id="userId"
-            value={userId}
-            onChange={(e) => {
-              setUserId(e.target.value);
-              if (e.target.value) {
-                fetchUserRole(e.target.value);
-              } else {
-                setUserRole(null);
-              }
-            }}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            required
-          />
-        </div>
-
-        {userRole && (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>User Role Management</CardTitle>
+        <CardDescription>Assign roles to users</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
           <div>
-            <label
-              htmlFor="role"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Role
-            </label>
-            <select
-              id="role"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as Role)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              required
-            >
-              {Object.values(ROLES).map((role) => (
-                <option key={role} value={role}>
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                </option>
-              ))}
-            </select>
+            <Input
+              placeholder="Search by email"
+              value={searchEmail}
+              onChange={(e) => setSearchEmail(e.target.value)}
+              className="mb-4"
+            />
           </div>
-        )}
 
-        {error && <div className="text-red-600 text-sm">{error}</div>}
+          <div className="flex flex-col space-y-4">
+            <Select value={selectedUser} onValueChange={setSelectedUser}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select user" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredUsers.map((user) => (
+                  <SelectItem key={user.userId} value={user.userId}>
+                    {user.email} ({user.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        <div className="flex justify-between items-center">
-          {userRole && (
-            <div className="text-sm text-gray-600">
-              Current Role: {userRole.currentRole}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={loading || !userId}
-            className={`
-                px-4 py-2 rounded-md text-white
-                ${
-                  loading || !userId
-                    ? "bg-gray-400"
-                    : "bg-indigo-600 hover:bg-indigo-700"
-                }
-              `}
-          >
-            {loading ? "Updating..." : "Update Role"}
-          </button>
+            <Select
+              value={selectedRole}
+              onValueChange={(value) => setSelectedRole(value as UserRole)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(UserRole).map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              onClick={handleAssignRole}
+              disabled={loading || !selectedUser || !selectedRole}
+            >
+              {loading ? "Assigning..." : "Assign Role"}
+            </Button>
+          </div>
         </div>
-      </form>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

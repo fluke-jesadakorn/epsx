@@ -2,7 +2,7 @@
 
 import { AuthForm } from "@/components/auth/AuthForm";
 import { signInWithOAuth, signInWithEmailPassword } from "@/utils/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Suspense } from "react";
 import { LoadingForm } from "@/components/common/LoadingForm";
@@ -13,9 +13,12 @@ interface AuthFormValues {
   password: string;
 }
 
-export default function Login() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const redirectTo = searchParams.get("redirectTo") || "/home";
 
   const handleEmailPasswordLogin = async ({
     email,
@@ -24,7 +27,7 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await signInWithEmailPassword({ email, password });
-      router.push("/home");
+      router.push(redirectTo);
     } catch (error) {
       console.error("Login error:", error);
     } finally {
@@ -40,7 +43,7 @@ export default function Login() {
           ? new GoogleAuthProvider()
           : new GithubAuthProvider();
       await signInWithOAuth(authProvider);
-      router.push("/home");
+      router.push(redirectTo);
     } catch (error) {
       console.error("OAuth login error:", error);
     } finally {
@@ -50,14 +53,20 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <Suspense fallback={<LoadingForm>Loading...</LoadingForm>}>
-        <AuthForm
-          mode="login"
-          onSubmit={handleEmailPasswordLogin}
-          onOAuthClick={handleOAuthLogin}
-          isSubmitting={isSubmitting}
-        />
-      </Suspense>
+      <AuthForm
+        mode="login"
+        onSubmit={handleEmailPasswordLogin}
+        onOAuthClick={handleOAuthLogin}
+        isSubmitting={isSubmitting}
+      />
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<LoadingForm>Loading...</LoadingForm>}>
+      <LoginContent />
+    </Suspense>
   );
 }

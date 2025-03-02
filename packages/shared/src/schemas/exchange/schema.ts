@@ -1,5 +1,5 @@
 import { Schema, Prop, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument, Schema as MongooseSchema } from "mongoose";
+import type { HydratedDocument } from "mongoose";
 
 export interface IExchange {
   exchange_name: string;

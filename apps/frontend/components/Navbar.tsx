@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/lib/firebase-client";
 import { signOut } from "firebase/auth";
-import { Home, LineChart, User, LogOut, LogIn } from "lucide-react";
+import { LineChart, User, LogOut, LogIn, File } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -23,6 +23,12 @@ import {
 import ThemeToggle from "./ThemeToggle";
 
 const getNavItems = (isLoggedIn: boolean) => [
+  {
+    label: "Docs",
+    href: "https://your-gitbook-url.com",
+    key: "docs",
+    icon: <File className="h-4 w-4" />,
+  },
   {
     label: "Ranking",
     href: "/ranking",

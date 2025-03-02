@@ -1,17 +1,18 @@
-import { Module } from "@nestjs/common";
+import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
+import cookieParser from "cookie-parser";
+import { AuthModule } from "./modules/auth/auth.module";
 import { MarketModule } from "./modules/market/market.module";
-import { TerminusModule } from "@nestjs/terminus";
-import { HttpModule } from "@nestjs/axios";
-import { FinancialModule } from "./modules/market/financial/financial.module";
+import { FinancialModule } from "./modules/financial/financial.module";
+import { StockModule } from "./modules/stock/stock.module";
+import { ExchangeModule } from "./modules/exchange/exchange.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -19,12 +20,15 @@ import { FinancialModule } from "./modules/market/financial/financial.module";
       }),
       inject: [ConfigService],
     }),
-
-    TerminusModule,
-    HttpModule,
-
-    FinancialModule,
+    AuthModule,
     MarketModule,
+    FinancialModule,
+    StockModule,
+    ExchangeModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(cookieParser()).forRoutes("*path");
+  }
+}

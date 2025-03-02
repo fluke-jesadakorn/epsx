@@ -1,15 +1,43 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import type { Document } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
+export interface IEPSGrowthProcessing {
+  symbol: string;
+  market_code: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+  processedStocks: number;
+  totalStocks: number;
+  lastProcessedSymbol?: string;
+  isCompleted: boolean;
+  requested_at?: Date;
+  completed_at?: Date;
+}
+
+export interface IEPSGrowthBatch {
+  market_code: string;
+  symbols: string[];
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+  isProcessed: boolean;
+  results: any[];
+  requested_at: Date;
+  completed_at?: Date;
+  processed_count: number;
+  total_count: number;
+}
+
+export type EPSGrowthProcessingDocument = Document & IEPSGrowthProcessing;
+
 @Schema({ timestamps: true })
-export class EPSGrowthProcessing extends Document {
+export class EPSGrowthProcessing implements IEPSGrowthProcessing {
   @ApiProperty({
     description: 'Stock symbol being processed',
     example: 'AAPL',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   symbol!: string;
 
   @ApiProperty({
@@ -17,7 +45,7 @@ export class EPSGrowthProcessing extends Document {
     example: 'SET',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   market_code!: string;
 
   @ApiProperty({
@@ -26,7 +54,7 @@ export class EPSGrowthProcessing extends Document {
     example: 'processing',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, enum: ['pending', 'processing', 'completed', 'failed'], required: true })
   status!: 'pending' | 'processing' | 'completed' | 'failed';
 
   @ApiProperty({
@@ -35,7 +63,7 @@ export class EPSGrowthProcessing extends Document {
     type: 'string',
     required: false
   })
-  @Prop()
+  @Prop({ type: String })
   error?: string;
 
   @ApiProperty({
@@ -62,7 +90,7 @@ export class EPSGrowthProcessing extends Document {
     type: 'string',
     required: false
   })
-  @Prop()
+  @Prop({ type: String })
   lastProcessedSymbol?: string;
 
   @ApiProperty({
@@ -96,14 +124,16 @@ export class EPSGrowthProcessing extends Document {
 
 export const EPSGrowthProcessingSchema = SchemaFactory.createForClass(EPSGrowthProcessing);
 
+export type EPSGrowthBatchDocument = Document & IEPSGrowthBatch;
+
 @Schema({ timestamps: true })
-export class EPSGrowthBatch extends Document {
+export class EPSGrowthBatch implements IEPSGrowthBatch {
   @ApiProperty({
     description: 'Market code for this batch',
     example: 'SET',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   market_code!: string;
 
   @ApiProperty({
@@ -123,7 +153,7 @@ export class EPSGrowthBatch extends Document {
     example: 'processing',
     type: 'string'
   })
-  @Prop({ required: true })
+  @Prop({ type: String, enum: ['pending', 'processing', 'completed', 'failed'], required: true })
   status!: 'pending' | 'processing' | 'completed' | 'failed';
 
   @ApiProperty({
@@ -132,7 +162,7 @@ export class EPSGrowthBatch extends Document {
     type: 'string',
     required: false
   })
-  @Prop()
+  @Prop({ type: String })
   error?: string;
 
   @ApiProperty({

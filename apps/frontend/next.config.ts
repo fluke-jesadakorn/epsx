@@ -9,8 +9,8 @@ const nextConfig: NextConfig = {
     // Enable server components for better performance
     serverActions: {
       allowedOrigins: ["*"],
-    }
-  }
+    },
+  },
 };
 
 export default nextConfig;

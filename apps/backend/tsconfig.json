@@ -1,26 +1,25 @@
 {
-  "extends": "@epsx/tsconfig/nest.json",
+  "extends": "../../packages/tsconfig/nest.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "baseUrl": ".",
+    "baseUrl": "./",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "preserveConstEnums": true,
+    "removeComments": false,
+    "useUnknownInCatchVariables": true,
     "paths": {
-      "@/*": ["src/*"],
-      "@backend/*": ["src/*"],
-      "@epsx/shared": ["../../packages/shared/src"],
-      "@epsx/shared/*": ["../../packages/shared/src/*"],
-      "@epsx/nest-core": ["../../packages/nest-core/src"],
-      "@epsx/nest-core/*": ["../../packages/nest-core/src/*"]
-    },
-    "rootDirs": [
-      "./src",
-      "../../packages/shared/src",
-      "../../packages/nest-core/src"
-    ]
+      "@/*": ["./src/*"],
+      "@epsx/shared": ["../../packages/shared/src/index.ts"],
+      "@epsx/shared/*": ["../../packages/shared/src/*"]
+    }
   },
-  "include": [
-    "src/**/*",
-    "../../packages/shared/src/**/*",
-    "../../packages/nest-core/src/**/*"
-  ],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

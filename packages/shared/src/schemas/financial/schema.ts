@@ -1,10 +1,21 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document, Schema as MongooseSchema } from "mongoose";
+import type { HydratedDocument } from "mongoose";
+import { Schema as MongooseSchema } from "mongoose";
 import { Stock } from "../stock/schema";
 import { ApiProperty } from "@nestjs/swagger";
 
+export interface IFinancial {
+  stock: Stock;
+  fiscal_year: number;
+  fiscal_quarter: number;
+  eps_diluted: number;
+  report_date: Date;
+}
+
+export type FinancialDocument = HydratedDocument<Financial>;
+
 @Schema({ timestamps: true })
-export class Financial extends Document {
+export class Financial implements IFinancial {
   @ApiProperty({
     description: 'Reference to the associated stock',
     type: 'string',
@@ -20,7 +31,7 @@ export class Financial extends Document {
     example: 2024,
     minimum: 1900
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   fiscal_year!: number;
 
   @ApiProperty({
@@ -30,7 +41,7 @@ export class Financial extends Document {
     minimum: 1,
     maximum: 4
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true, min: 1, max: 4 })
   fiscal_quarter!: number;
 
   @ApiProperty({
@@ -39,7 +50,7 @@ export class Financial extends Document {
     example: 2.45,
     format: 'float'
   })
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   eps_diluted!: number;
 
   @ApiProperty({
@@ -48,7 +59,7 @@ export class Financial extends Document {
     format: 'date-time',
     example: '2024-02-26T08:30:00.000Z'
   })
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   report_date!: Date;
 }
 

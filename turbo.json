@@ -1,39 +1,54 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env"],
+  "globalDependencies": [".env", ".env.*"],
+  "globalEnv": ["NODE_ENV", "PORT", "DATABASE_URL", "API_KEY", "NEXT_PUBLIC_*"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "packages/*/dist/**"],
-      "inputs": ["src/**/*", "tsconfig.json"],
+      "dependsOn": ["^build", "type-check"],
+      "outputs": ["dist/**", ".next/**", "build/**", "packages/*/dist/**"],
+      "inputs": ["src/**/*", "app/**/*", "tsconfig.json", "package.json", "turbo.json"],
       "cache": true
     },
-    "dev": {
-      "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build"]
-    },
-    "start": {
-      "cache": false,
-      "persistent": true
-    },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**", "test-results/**"],
       "inputs": [
         "src/**/*.tsx",
         "src/**/*.ts",
         "test/**/*.ts",
-        "test/**/*.tsx"
+        "test/**/*.tsx",
+        "jest.config.*"
       ],
       "cache": true
     },
     "lint": {
       "outputs": [],
-      "cache": false
+      "inputs": ["src/**/*", "app/**/*", "*.config.*"],
+      "cache": true
+    },
+    "type-check": {
+      "outputs": [],
+      "inputs": ["src/**/*", "app/**/*", "tsconfig.json"],
+      "cache": true
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*", "app/**/*", "tsconfig.json"]
     },
     "clean": {
       "cache": false,
-      "outputs": ["dist/**", ".next/**", "node_modules/**"]
+      "inputs": ["package.json"]
+    },
+    "start": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["build"]
+    },
+    "//#clean": {
+      "cache": false,
+      "inputs": ["package.json"]
     }
   }
 }

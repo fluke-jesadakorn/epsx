@@ -1,8 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { HealthCheckResponse } from './types/market.types';
 import { MarketService } from './market.service';
 import { EpsGrowth, Paginate } from '@epsx/shared';
+import { RolesGuard, Roles, UserRole } from '../../shared/guards/role.guard';
+import type { Request } from 'express';
 
 @ApiTags('Market')
 @Controller('market')
@@ -37,9 +39,11 @@ export class MarketController {
   }
 
   @Get('financials/eps-growth')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PUBLIC)
   @ApiOperation({
     summary: 'Get EPS growth data with pagination',
-    description: 'Returns paginated list of companies EPS growth data sorted by EPS growth percentage'
+    description: 'Returns paginated list of companies EPS growth data sorted by EPS growth percentage. Access levels: Public (rank >21), Basic (rank >11), Premium (all ranks)'
   })
   @ApiQuery({
     name: 'limit',
@@ -86,8 +90,9 @@ export class MarketController {
   })
   async getEpsGrowth(
     @Query('limit') limit: number = 10,
-    @Query('skip') skip: number = 0
+    @Query('skip') skip: number = 0,
+    @Req() request: Request & { userRole?: UserRole }
   ): Promise<Paginate<EpsGrowth>> {
-    return this.marketService.getEpsGrowth(skip, limit);
+    return this.marketService.getEpsGrowth(skip, limit, request.userRole || UserRole.PUBLIC);
   }
 }

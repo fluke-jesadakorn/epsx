@@ -108,16 +108,9 @@ export default async function HomeView() {
           </ErrorBoundary>
 
           <ErrorBoundary>
-            <div className="w-full">
-              <Suspense
-                fallback={
-                  <div className="w-full h-[500px] animate-pulse bg-card/50 rounded-lg" />
-                }
-              >
-                {/* ChatSection is a client component */}
-                <ChatSection />
-              </Suspense>
-            </div>
+            <Suspense>
+              <ChatSection />
+            </Suspense>
           </ErrorBoundary>
         </div>
       </div>

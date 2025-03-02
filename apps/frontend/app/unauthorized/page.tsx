@@ -1,10 +1,14 @@
+"use client";
+
 import { Result } from "@/components/ui/result";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export default function UnauthorizedPage() {
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+    <Suspense fallback={<div>Loading...</div>}>
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <Result
         status="error"
         title="401"
@@ -15,6 +19,7 @@ export default function UnauthorizedPage() {
           </Link>
         }
       />
-    </div>
+      </div>
+    </Suspense>
   );
 }

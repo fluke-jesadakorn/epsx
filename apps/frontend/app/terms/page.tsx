@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -20,7 +21,7 @@ const formSchema = z.object({
 
 type SubscribeForm = z.infer<typeof formSchema>;
 
-export default function TermsPage() {
+function SubscribeForm() {
   const form = useForm<SubscribeForm>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -33,6 +34,38 @@ export default function TermsPage() {
     // TODO: Implement actual email storage
   };
 
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input 
+                    placeholder="Enter your email" 
+                    className="pl-10" 
+                    {...field} 
+                  />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit">
+          Subscribe
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
+export default function TermsPage() {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Terms and Conditions</h1>
@@ -62,33 +95,9 @@ export default function TermsPage() {
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Subscribe for Updates</h2>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input 
-                        placeholder="Enter your email" 
-                        className="pl-10" 
-                        {...field} 
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit">
-              Subscribe
-            </Button>
-          </form>
-        </Form>
+        <Suspense fallback={<div>Loading subscription form...</div>}>
+          <SubscribeForm />
+        </Suspense>
       </div>
     </div>
   );

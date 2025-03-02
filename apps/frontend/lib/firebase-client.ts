@@ -1,5 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { Analytics, getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,4 +24,18 @@ if (process.env.NODE_ENV !== 'production') {
   }
 }
 
-export { app, auth };
+// Initialize analytics if supported (not available during SSR)
+let analytics: Analytics | null = null;
+if (typeof window !== 'undefined') {
+  isSupported()
+    .then(yes => {
+      if (yes) {
+        analytics = getAnalytics(app);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to initialize Firebase Analytics:', err);
+    });
+}
+
+export { app, auth, analytics };

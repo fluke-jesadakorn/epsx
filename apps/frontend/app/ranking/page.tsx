@@ -6,7 +6,20 @@ import { fetchEpsGrowthRanking } from "@/app/actions/stockData";
 import { EpsGrowthData } from "@/types/epsGrowthRanking";
 
 export default function Ranking() {
-  const [tableData, setTableData] = useState<any[]>([]);
+  interface RankingTableData {
+    key: number;
+    symbol: string;
+    companyName: string;
+    currentEps: string;
+    previousEps: string;
+    epsGrowth: string;
+    reportDate: string;
+    market: string;
+    quarter: number;
+    year: number;
+  }
+
+  const [tableData, setTableData] = useState<RankingTableData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,5 +70,5 @@ export default function Ranking() {
     return <div>Loading...</div>;
   }
 
-  return <RankingView accessLevel={1} data={tableData} />;
+  return <RankingView data={tableData} />;
 }

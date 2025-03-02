@@ -1,10 +1,3 @@
-export interface StockScreenerResponse<T = any> {
-  data: {
-    data: T[];
-    resultsCount?: number;
-  };
-}
-
 export interface IStockDocument {
   _id: unknown;
   symbol: string;

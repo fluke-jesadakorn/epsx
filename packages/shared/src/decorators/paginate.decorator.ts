@@ -1,4 +1,4 @@
-export function PaginateResult(): MethodDecorator {
+export function PaginateResultDecorator(): MethodDecorator {
   return function (
     _target: any,
     _propertyKey: string | symbol,
