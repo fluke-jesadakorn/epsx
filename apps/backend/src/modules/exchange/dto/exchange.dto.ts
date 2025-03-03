@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { IExchange } from '@epsx/shared';
+import { IExchange } from '@epsx/shared';
 
 export class CreateExchangeDto implements Partial<IExchange> {
   @ApiProperty({

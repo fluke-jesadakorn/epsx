@@ -2,46 +2,13 @@
   "name": "@epsx/shared",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    },
-    "./decorators": {
-      "types": "./dist/decorators/index.d.ts",
-      "import": "./dist/decorators/index.js",
-      "require": "./dist/decorators/index.cjs"
-    },
-    "./schemas": {
-      "types": "./dist/schemas/index.d.ts",
-      "import": "./dist/schemas/index.js",
-      "require": "./dist/schemas/index.cjs"
-    },
-    "./types": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/types/index.js",
-      "require": "./dist/types/index.cjs"
-    },
-    "./utils": {
-      "types": "./dist/utils/index.d.ts",
-      "import": "./dist/utils/index.js",
-      "require": "./dist/utils/index.cjs"
-    },
-    "./package.json": "./package.json"
-  },
   "scripts": {
-    "build": "tsup && tsc --emitDeclarationOnly",
+    "build": "tsc",
     "clean": "rm -rf dist node_modules/.cache",
-    "dev": "tsup --watch",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "test": "vitest",
-    "test:watch": "vitest watch",
-    "type-check": "tsc --noEmit"
+    "dev": "tsc --watch --preserveWatchOutput",
+    "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {},
   "peerDependencies": {

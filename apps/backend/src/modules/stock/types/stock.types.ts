@@ -1,4 +1,4 @@
-import { Stock } from '@epsx/shared';
+import { Stock } from '@epsx/shared/schemas/stock/schema';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 
 export interface StockDocument extends Stock, Document {

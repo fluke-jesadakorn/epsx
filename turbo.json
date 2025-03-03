@@ -5,8 +5,20 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build", "type-check"],
-      "outputs": ["dist/**", ".next/**", "build/**", "packages/*/dist/**"],
-      "inputs": ["src/**/*", "app/**/*", "tsconfig.json", "package.json", "turbo.json"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "build/**",
+        "packages/*/dist/**"
+      ],
+      "inputs": [
+        "src/**/*",
+        "app/**/*",
+        "tsconfig.json",
+        "package.json",
+        "turbo.json"
+      ],
       "cache": true
     },
     "test": {
@@ -33,9 +45,9 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true,
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*", "app/**/*", "tsconfig.json"]
+      "inputs": ["src/**/*", "app/**/*", "tsconfig.json"],
+      "outputs": ["dist/**"]
     },
     "clean": {
       "cache": false,

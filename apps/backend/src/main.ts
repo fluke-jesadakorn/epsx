@@ -1,3 +1,4 @@
+// Testing file watching system
 import { NestFactory } from "@nestjs/core";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
@@ -16,7 +17,7 @@ async function bootstrap() {
 
   // Set global prefix with explicit path handling
   app.setGlobalPrefix("api/v1", {
-    exclude: ["/health", "/docs"],
+    exclude: ["/health", "/docs", "/docs-json", "/docs/*"],
   });
 
   // Enable validation pipes
@@ -59,7 +60,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
 
   // Customize Swagger UI
-  SwaggerModule.setup("docs", app, document, {
+  SwaggerModule.setup("/docs", app, document, {
+    useGlobalPrefix: false,
     swaggerOptions: {
       persistAuthorization: true,
       tagsSorter: "alpha",

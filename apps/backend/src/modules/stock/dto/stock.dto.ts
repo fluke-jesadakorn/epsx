@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PaginationParams } from '@epsx/shared';
+import { PaginationParams } from '@epsx/shared/types';
 
 export class StockPaginationParamsDto implements PaginationParams {
   @ApiProperty({

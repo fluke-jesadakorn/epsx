@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Stock, Exchange } from '@epsx/shared';
+import { Exchange, Stock } from '@epsx/shared';
 import { Types } from 'mongoose';
 import { HttpService } from './services/http.service';
 import {

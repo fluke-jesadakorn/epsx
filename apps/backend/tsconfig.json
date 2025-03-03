@@ -1,6 +1,10 @@
 {
   "extends": "../../packages/tsconfig/nest.json",
+  "references": [
+    { "path": "../../packages/shared" }
+  ],
   "compilerOptions": {
+    "composite": true,
     "outDir": "./dist",
     "baseUrl": "./",
     "module": "commonjs",
@@ -16,7 +20,7 @@
     "useUnknownInCatchVariables": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@epsx/shared": ["../../packages/shared/src/index.ts"],
+      "@epsx/shared": ["../../packages/shared/src"],
       "@epsx/shared/*": ["../../packages/shared/src/*"]
     }
   },

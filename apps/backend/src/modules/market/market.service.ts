@@ -3,9 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { EpsGrowth } from '@epsx/shared';
-import { Paginate } from '@epsx/shared';
-import { UserRole } from '../../shared/guards/role.guard';
+import { EpsGrowth, Paginate } from '@epsx/shared';
+import { UserRole } from '@/shared/guards/role.guard';
 
 @Injectable()
 export class MarketService {

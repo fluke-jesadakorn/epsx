@@ -3,10 +3,10 @@ import { HttpService } from "./http.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Financial, Stock } from "@epsx/shared";
-import {
+import type {
   StockWithMarketCode,
-  ProcessedFinancialData,
   StockFinancialResponse,
+  ProcessedFinancialData,
 } from "../types/financial.types";
 import { processDynamicFinancialData } from "../utils/financial-data.util";
 import { Retry, RetryConfig } from "../utils/retry.util";

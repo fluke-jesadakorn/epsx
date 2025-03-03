@@ -1,39 +1,30 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@epsx/tsconfig/base.json",
   "compilerOptions": {
-    "outDir": "./dist",
     "target": "es2020",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noEmitOnError": true,
-    "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@epsx/shared": ["./src/index.ts"],
-      "@epsx/shared/*": ["./src/*"]
-    },
-    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "preserveConstEnums": true,
-    "removeComments": false,
+    "strict": true,
     "composite": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "isolatedModules": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "paths": {
+      "@epsx/shared/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*", "tsup.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
