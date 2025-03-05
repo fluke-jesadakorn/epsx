@@ -76,20 +76,57 @@ export default function TermsPage() {
         <h3>1. Introduction</h3>
         <p>
           Welcome to our platform. By accessing or using our services, you agree
-          to be bound by these terms and conditions.
+          to be bound by these terms and conditions, including our use of Google Sign-in
+          for authentication.
         </p>
 
-        <h3>2. Data Collection</h3>
+        <h3>2. Authentication & Account Security</h3>
         <p>
-          We may collect and process your email address for communication
-          purposes. By providing your email, you consent to this collection.
+          We use Google Sign-in to provide secure authentication. By using this service:
         </p>
+        <ul>
+          <li>You agree to provide accurate information during the sign-in process</li>
+          <li>You acknowledge that we only request necessary permissions (email and basic profile)</li>
+          <li>You understand that token revocation may occur for security purposes</li>
+          <li>You are responsible for maintaining the security of your Google account</li>
+        </ul>
 
-        <h3>3. User Responsibilities</h3>
+        <h3>3. Data Collection & Usage</h3>
         <p>
-          You are responsible for maintaining the confidentiality of your
-          account information and for all activities that occur under your
-          account.
+          We collect and process certain data as outlined in our Privacy Policy, including:
+        </p>
+        <ul>
+          <li>Basic profile information from Google (name and email)</li>
+          <li>Account preferences and settings</li>
+          <li>Authentication tokens and session data</li>
+        </ul>
+
+        <h3>4. User Responsibilities</h3>
+        <p>
+          As a user of our platform, you are responsible for:
+        </p>
+        <ul>
+          <li>Maintaining the confidentiality of your account</li>
+          <li>All activities that occur under your account</li>
+          <li>Notifying us of any unauthorized access</li>
+          <li>Keeping your Google account secure</li>
+        </ul>
+
+        <h3>5. Service Changes & Termination</h3>
+        <p>
+          We reserve the right to:
+        </p>
+        <ul>
+          <li>Modify or discontinue services at any time</li>
+          <li>Revoke access tokens for security purposes</li>
+          <li>Update authentication methods and requirements</li>
+          <li>Terminate accounts that violate these terms</li>
+        </ul>
+
+        <h3>6. Compliance with Google's Terms</h3>
+        <p>
+          Our use of Google Sign-in complies with Google's OAuth 2.0 policies and terms of service.
+          You acknowledge that your use of Google Sign-in is also subject to Google's terms and policies.
         </p>
       </div>
 

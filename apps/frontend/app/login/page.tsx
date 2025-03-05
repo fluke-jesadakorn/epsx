@@ -1,72 +1,70 @@
-"use client";
-
 import { AuthForm } from "@/components/auth/AuthForm";
-import { signInWithOAuth, signInWithEmailPassword } from "@/utils/auth";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import {
+  signInWithGoogleToken,
+  handleOAuthCallback,
+} from "../actions/auth-server";
 import { Suspense } from "react";
 import { LoadingForm } from "@/components/common/LoadingForm";
-import { GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
+import { redirect } from "next/navigation";
 
-interface AuthFormValues {
-  email: string;
-  password: string;
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+interface PageProps {
+  params: {};
+  searchParams: Promise<SearchParams>;
 }
 
-function LoginContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const redirectTo = searchParams.get("redirectTo") || "/home";
+function getParamValue(
+  value: string | string[] | undefined
+): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value[0];
+  return undefined;
+}
 
-  const handleEmailPasswordLogin = async ({
-    email,
-    password,
-  }: AuthFormValues) => {
-    try {
-      setIsSubmitting(true);
-      await signInWithEmailPassword({ email, password });
-      router.push(redirectTo);
-    } catch (error) {
-      console.error("Login error:", error);
-    } finally {
-      setIsSubmitting(false);
+export default async function Page({ searchParams }: PageProps) {
+  // Await the searchParams before accessing properties
+  const params = await searchParams;
+
+  // Extract search parameters after awaiting
+  const code = getParamValue(params.code);
+  const state = getParamValue(params.state);
+  const token = getParamValue(params.token);
+  const error = getParamValue(params.error);
+
+  try {
+    if (code && state) {
+      const urlParams = new URLSearchParams();
+      urlParams.set("code", code);
+      urlParams.set("state", state);
+      await handleOAuthCallback(urlParams);
+      redirect("/home");
+    } else if (token) {
+      await signInWithGoogleToken(token);
+      redirect("/home");
     }
-  };
+  } catch (error) {
+    console.error("Auth error:", error);
+  }
 
-  const handleOAuthLogin = async (provider: "google" | "github") => {
-    try {
-      setIsSubmitting(true);
-      const authProvider =
-        provider === "google"
-          ? new GoogleAuthProvider()
-          : new GithubAuthProvider();
-      await signInWithOAuth(authProvider);
-      router.push(redirectTo);
-    } catch (error) {
-      console.error("OAuth login error:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Handle errors from OAuth callback
+  const authError = error 
+    ? decodeURIComponent(error) 
+    : undefined;
 
+  // Show loading state during callback processing
+  if (code && state) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingForm>Processing authentication...</LoadingForm>
+      </div>
+    );
+  }
+
+  // Show auth form
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <AuthForm
-        mode="login"
-        onSubmit={handleEmailPasswordLogin}
-        onOAuthClick={handleOAuthLogin}
-        isSubmitting={isSubmitting}
-      />
+      <AuthForm error={authError} />
     </div>
-  );
-}
-
-export default function Login() {
-  return (
-    <Suspense fallback={<LoadingForm>Loading...</LoadingForm>}>
-      <LoginContent />
-    </Suspense>
   );
 }

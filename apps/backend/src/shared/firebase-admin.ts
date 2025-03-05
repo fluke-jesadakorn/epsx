@@ -1,52 +1,42 @@
 import * as admin from 'firebase-admin';
+import { Injectable } from '@nestjs/common';
 
-interface FirebaseAdminConfig {
-  projectId: string;
-  clientEmail: string;
-  privateKey: string;
-}
+@Injectable()
+export class FirebaseAdminService {
+  private app: admin.app.App;
+  public auth: admin.auth.Auth;
 
-function formatPrivateKey(key: string): string {
-  return key.replace(/\\n/g, '\n');
-}
+  constructor() {
+    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
+      throw new Error('Missing Firebase configuration environment variables');
+    }
 
-function getFirebaseAdminConfig(): FirebaseAdminConfig {
-  const { 
-    FIREBASE_PROJECT_ID,
-    FIREBASE_CLIENT_EMAIL,
-    FIREBASE_PRIVATE_KEY,
-  } = process.env;
-
-  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    throw new Error('Missing Firebase Admin configuration');
-  }
-
-  return {
-    projectId: FIREBASE_PROJECT_ID,
-    clientEmail: FIREBASE_CLIENT_EMAIL,
-    privateKey: formatPrivateKey(FIREBASE_PRIVATE_KEY),
-  };
-}
-
-export function initializeFirebaseAdmin() {
-  if (admin.apps.length > 0) {
-    return admin.apps[0]!;
-  }
-
-  const config = getFirebaseAdminConfig();
-
-  try {
-    return admin.initializeApp({
+    this.app = admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: config.projectId,
-        clientEmail: config.clientEmail,
-        privateKey: config.privateKey,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       }),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET
     });
-  } catch (error) {
-    console.error('Error initializing Firebase Admin:', error);
-    throw error;
+    this.auth = this.app.auth();
+  }
+
+  async verifyIdToken(token: string): Promise<admin.auth.DecodedIdToken> {
+    return this.auth.verifyIdToken(token);
+  }
+
+  async setCustomUserClaims(uid: string, claims: Record<string, any>): Promise<void> {
+    return this.auth.setCustomUserClaims(uid, claims);
+  }
+
+  async getUser(uid: string): Promise<admin.auth.UserRecord> {
+    return this.auth.getUser(uid);
+  }
+
+  async getUserByEmail(email: string): Promise<admin.auth.UserRecord> {
+    return this.auth.getUserByEmail(email);
   }
 }
 
-export const auth = () => initializeFirebaseAdmin().auth();
+// Single export is enough since the class is already decorated with @Injectable()

@@ -23,7 +23,14 @@ import { MarketModule } from "./modules/market/market.module";
   ],
 })
 export class AppModule implements NestModule {
+  constructor(private configService: ConfigService) {}
+
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(cookieParser()).forRoutes("*path");
+    // Use cookie parser middleware
+    consumer.apply(cookieParser()).forRoutes("*");
+
+    // Log environment variables for debugging
+    console.log('Backend URL:', this.configService.get('BACKEND_URL'));
+    console.log('Frontend URL:', this.configService.get('FRONTEND_URL'));
   }
 }

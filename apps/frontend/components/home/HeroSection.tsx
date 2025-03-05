@@ -30,7 +30,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
             </span>
             Rankings
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground">
+          <p className="text-2xl md:text-3xl font-medium bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent max-w-2xl mx-auto leading-relaxed">
             Unlock deeper insights and make smarter investment decisions with real-time EPS tracking and advanced analytics
           </p>
         </div>

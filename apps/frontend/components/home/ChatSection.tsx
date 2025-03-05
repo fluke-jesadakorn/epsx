@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { MessageCircle, Send, Minimize2 } from "lucide-react";
 import { streamChat } from "@/app/actions/chat";
 import { ErrorBoundary } from "../common/ErrorBoundary";
-import ThemeToggle from "../ThemeToggle";
 
 export default function ChatSection() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -92,7 +91,6 @@ export default function ChatSection() {
 
   return (
     <ErrorBoundary>
-      <ThemeToggle />
       <div className="fixed z-50">
         {!isOpen && (
           <div className="fixed bottom-8 right-8 cursor-pointer">

@@ -1,23 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { auth } from "@/lib/firebase-admin";
+import { UserRole } from "@/constants/roles";
+import { NextResponse } from "next/server";
+import { UserRecord } from "firebase-admin/auth";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/roles`, {
-      headers: {
-        'Cookie': request.headers.get('cookie') || '',
-      },
-      credentials: 'include'
-    });
+    const usersResult = await auth().listUsers();
+    const users = usersResult.users.map((user: UserRecord) => ({
+      userId: user.uid,
+      email: user.email,
+      role: (user.customClaims?.role as UserRole) || UserRole.PUBLIC,
+    }));
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(users);
   } catch (error) {
+    console.error("Error fetching users:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch users' },
+      { error: "Failed to fetch users" },
       { status: 500 }
     );
   }

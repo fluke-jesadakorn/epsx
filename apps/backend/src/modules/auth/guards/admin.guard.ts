@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { auth } from '../../../shared/firebase-admin';
+import { auth } from '../../../shared';
 import { AuthenticatedRequest } from '../types/request';
 import { UserRole } from '../../../shared/guards/role.guard';
 
@@ -14,8 +14,8 @@ export class AdminGuard implements CanActivate {
     }
 
     try {
-      const decodedToken = await auth().verifyIdToken(token);
-      const userSnapshot = await auth().getUser(decodedToken.uid);
+      const decodedToken = await auth.verifyToken(token);
+      const userSnapshot = await auth.getUser(decodedToken.uid);
       const customClaims = userSnapshot.customClaims || {};
 
       // Only users with admin role can access protected routes

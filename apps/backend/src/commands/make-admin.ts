@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { auth } from '../shared/firebase-admin';
+import { auth } from '../shared';
 
 async function makeAdmin(email: string) {
   try {
     // Initialize Firebase Admin
-    const user = await auth().getUserByEmail(email);
+    const user = await auth.getUserByEmail(email);
     
     // Set custom claims for admin
-    await auth().setCustomUserClaims(user.uid, {
+    await auth.setCustomUserClaims(user.uid, {
       admin: true,
       premium: true // Admins get premium access too
     });

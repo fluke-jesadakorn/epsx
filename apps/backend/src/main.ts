@@ -4,6 +4,7 @@ import { Logger, ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { ConfigService } from "@nestjs/config";
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,13 +13,52 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>("PORT", 3001);
 
+  // Enable CORS with specific options
   // Enable CORS
-  app.enableCors();
+  const frontendUrl = configService.get('FRONTEND_URL');
+  const corsOrigins = [
+    frontendUrl,
+    'https://accounts.google.com',
+    // Add localhost variations for development
+    'http://localhost:3000',
+    'http://localhost:4000'
+  ];
+  
+  console.log('CORS Origins:', corsOrigins);
+  
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
 
   // Set global prefix with explicit path handling
   app.setGlobalPrefix("api/v1", {
     exclude: ["/health", "/docs", "/docs-json", "/docs/*"],
   });
+
+  // Log environment configuration
+  const backendUrl = configService.get('BACKEND_URL');
+  const oauthCallbackUrl = new URL('/api/v1/auth/oauth/callback', backendUrl).toString();
+  
+  console.log('Environment Configuration:', {
+    backendUrl,
+    frontendUrl,
+    oauthCallbackUrl
+  });
+
+  // Verify URLs are properly formatted
+  try {
+    new URL(backendUrl);
+    new URL(frontendUrl);
+    console.log('URLs are properly formatted');
+  } catch (error) {
+    console.error('Invalid URL format detected:', error);
+  }
+
+  // Enable cookie parser middleware
+  app.use(cookieParser());
 
   // Enable validation pipes
   app.useGlobalPipes(new ValidationPipe({ transform: true }));

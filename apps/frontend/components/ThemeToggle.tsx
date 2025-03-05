@@ -28,13 +28,19 @@ export default function ThemeToggle() {
         <TooltipTrigger asChild>
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-primary/10"
+            className="relative w-16 h-8 rounded-full bg-gray-200 dark:bg-gray-600 transition-colors"
           >
-            {theme === "dark" ? (
-              <Moon className="h-5 w-5 text-primary" />
-            ) : (
-              <Sun className="h-5 w-5 text-primary" />
-            )}
+            <div
+              className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 transform ${
+                theme === "dark" ? "translate-x-8" : "translate-x-0"
+              } flex items-center justify-center`}
+            >
+              {theme === "dark" ? (
+                <Moon className="h-4 w-4 text-gray-600" />
+              ) : (
+                <Sun className="h-4 w-4 text-amber-500" />
+              )}
+            </div>
           </button>
         </TooltipTrigger>
         <TooltipContent>

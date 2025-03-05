@@ -15,7 +15,7 @@ import {
   ScrapingStatusDto,
 } from './dto/stock.dto';
 
-@Controller('api/v1/stocks')
+@Controller('stocks')
 @ApiTags('Stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}

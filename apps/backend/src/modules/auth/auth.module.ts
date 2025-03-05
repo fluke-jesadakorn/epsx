@@ -1,14 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { AdminGuard } from './guards/admin.guard';
+import { AuthController } from './auth.controller';
+import { FirebaseAdminService } from '../../shared/firebase-admin';
 
 @Module({
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    AdminGuard
-  ],
+  providers: [AuthService, FirebaseAdminService],
   exports: [AuthService],
 })
 export class AuthModule {}

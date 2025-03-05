@@ -1,5 +1,4 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
 import { Analytics, getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -14,9 +13,6 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-
-// Get Auth instance
-const auth = getAuth(app);
 
 if (process.env.NODE_ENV !== 'production') {
   if (!firebaseConfig.apiKey) {
@@ -38,4 +34,4 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export { app, auth, analytics };
+export { app, analytics };

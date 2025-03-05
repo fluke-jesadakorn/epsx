@@ -21,7 +21,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@epsx/shared": ["../../packages/shared/src"],
-      "@epsx/shared/*": ["../../packages/shared/src/*"]
+      "@epsx/shared/*": ["../../packages/shared/src/*"],
+      "@backend/shared": ["./src/shared"],
+      "@backend/shared/*": ["./src/shared/*"]
     }
   },
   "include": ["src/**/*"],

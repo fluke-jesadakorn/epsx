@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { auth } from '../firebase-admin';
+import { auth } from '../';
 import { Request } from 'express';
 
 export enum UserRole {
@@ -51,8 +51,8 @@ export class RolesGuard implements CanActivate {
     }
 
     try {
-      const decodedToken = await auth().verifyIdToken(token);
-      const userSnapshot = await auth().getUser(decodedToken.uid);
+      const decodedToken = await auth.verifyToken(token);
+      const userSnapshot = await auth.getUser(decodedToken.uid);
       
       // Get user's custom claims which contain their role
       const customClaims = userSnapshot.customClaims || {};

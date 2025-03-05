@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useTransition } from "react";
 
 interface User {
   userId: string;
@@ -26,27 +27,16 @@ interface User {
   role: UserRole;
 }
 
-export function UserRoleManager() {
-  const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+interface UserRoleManagerProps {
+  users: User[];
+}
+
+export function UserRoleManager({ users: initialUsers }: UserRoleManagerProps) {
+  const [users, setUsers] = useState<User[]>(initialUsers);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<UserRole>();
   const [searchEmail, setSearchEmail] = useState("");
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/auth/roles");
-      if (!response.ok) throw new Error("Failed to fetch users");
-
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [isAssigning, startAssignTransition] = useTransition();
 
   const handleAssignRole = async () => {
     if (!selectedUser || !selectedRole) {
@@ -54,33 +44,76 @@ export function UserRoleManager() {
       return;
     }
 
-    try {
-      setLoading(true);
-      const response = await fetch("/api/auth/roles/assign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: selectedUser,
-          role: selectedRole,
-        }),
-      });
+    startAssignTransition(async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/roles/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: selectedUser,
+            role: selectedRole,
+          }),
+        });
 
-      if (!response.ok) throw new Error("Failed to assign role");
+        if (!response.ok) {
+          throw new Error('Failed to assign role');
+        }
 
-      toast.success("Role assigned successfully");
-      await fetchUsers(); // Refresh user list
-    } catch (error) {
-      toast.error("Failed to assign role");
-    } finally {
-      setLoading(false);
-    }
+        toast.success("Role assigned successfully");
+
+        // Fetch updated users list
+        const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        if (!usersResponse.ok) {
+          throw new Error('Failed to fetch updated users');
+        }
+
+        const data = await usersResponse.json();
+        setUsers(data.users.map((user: any) => ({
+          userId: user.userId,
+          email: user.email,
+          role: user.role as UserRole
+        })));
+
+        // Reset selections
+        setSelectedUser("");
+        setSelectedRole(undefined);
+      } catch (error) {
+        console.error('Error assigning role:', error);
+        toast.error("Failed to assign role");
+      }
+    });
   };
 
+  const availableRoles = [UserRole.BASIC, UserRole.PREMIUM, UserRole.PUBLIC];
+  
   const filteredUsers = users.filter((user) =>
     user.email?.toLowerCase().includes(searchEmail.toLowerCase())
   );
+
+  const handleError = (error: any) => {
+    console.error('Error:', error);
+    if (error instanceof Response) {
+      switch (error.status) {
+        case 403:
+          toast.error("You don't have permission to perform this action");
+          break;
+        case 404:
+          toast.error("User not found");
+          break;
+        default:
+          toast.error("An error occurred while assigning role");
+      }
+    } else {
+      toast.error("Failed to communicate with server");
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -121,9 +154,9 @@ export function UserRoleManager() {
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(UserRole).map((role) => (
+                {availableRoles.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {role}
+                    {role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -131,10 +164,17 @@ export function UserRoleManager() {
 
             <Button
               onClick={handleAssignRole}
-              disabled={loading || !selectedUser || !selectedRole}
+              disabled={isAssigning || !selectedUser || !selectedRole}
+              className="bg-primary hover:bg-primary/90"
             >
-              {loading ? "Assigning..." : "Assign Role"}
+              {isAssigning ? "Assigning..." : "Assign Role"}
             </Button>
+            
+            {users.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center">
+                No users found
+              </p>
+            )}
           </div>
         </div>
       </CardContent>
