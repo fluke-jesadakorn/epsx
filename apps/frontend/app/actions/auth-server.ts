@@ -2,16 +2,156 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { UserRole } from "@/types/auth/roles";
+import { TokenFeature, Permission } from "@/types/auth/features";
 
-interface AuthResponseData {
+interface AuthResponse {
   token: string;
   email: string;
-  role: string;
+  role: UserRole;
+  tokenBalance: number;
+  features: TokenFeature[];
+  permissions: Permission[];
   redirectUrl?: string;
 }
 
-interface OAuthResponseData {
-  authUrl: string;
+export async function verifyAuth() {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("__session");
+  const email = cookieStore.get("email");
+  const role = cookieStore.get("role");
+  const tokenBalance = cookieStore.get("token_balance");
+  const features = cookieStore.get("features");
+  const permissions = cookieStore.get("permissions");
+
+  if (!sessionToken || !email || !role) {
+    return {
+      isLoggedIn: false,
+      userEmail: null,
+      role: UserRole.GUEST,
+      tokenBalance: 0,
+      features: [],
+      permissions: [],
+      isAdmin: false,
+    };
+  }
+
+  return {
+    isLoggedIn: true,
+    userEmail: email.value,
+    role: role.value as UserRole,
+    tokenBalance: tokenBalance ? parseInt(tokenBalance.value, 10) : 0,
+    features: features ? (JSON.parse(features.value) as TokenFeature[]) : [],
+    permissions: permissions
+      ? (JSON.parse(permissions.value) as Permission[])
+      : [],
+    isAdmin: role.value === UserRole.ADMINISTRATOR,
+  };
+}
+
+export async function signOut() {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("__session");
+    cookieStore.delete("email");
+    cookieStore.delete("role");
+    cookieStore.delete("token_balance");
+    cookieStore.delete("features");
+    cookieStore.delete("permissions");
+
+    redirect("/login");
+  } catch (error) {
+    console.error("Sign out error:", error);
+    throw error;
+  }
+}
+
+export async function handleOAuthCallback(params: URLSearchParams) {
+  const code = params.get("code");
+  const state = params.get("state");
+
+  if (!code || !state) {
+    throw new Error("Invalid OAuth callback parameters");
+  }
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/oauth/callback`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          state,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("OAuth authentication failed");
+    }
+
+    const data: AuthResponse = await response.json();
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    };
+
+    const cookieStore = await cookies();
+    cookieStore.set("__session", data.token, cookieOptions);
+    cookieStore.set("email", data.email, cookieOptions);
+    cookieStore.set("role", data.role, cookieOptions);
+    cookieStore.set(
+      "token_balance",
+      data.tokenBalance.toString(),
+      cookieOptions
+    );
+    cookieStore.set("features", JSON.stringify(data.features), cookieOptions);
+    cookieStore.set(
+      "permissions",
+      JSON.stringify(data.permissions),
+      cookieOptions
+    );
+
+    return data;
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+    throw error;
+  }
+}
+
+export async function listUsers() {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/roles`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch users");
+    }
+
+    const users = await response.json();
+    return users.map((user: any) => ({
+      userId: user.uid,
+      email: user.email,
+      role: user.role,
+    }));
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
 }
 
 export async function signInWithEmail(formData: FormData) {
@@ -42,152 +182,34 @@ export async function signInWithEmail(formData: FormData) {
       throw new Error("Invalid credentials");
     }
 
-    const data: AuthResponseData = await response.json();
+    const data: AuthResponse = await response.json();
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    };
 
     const cookieStore = await cookies();
-    cookieStore.set("__session", data.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-    cookieStore.set("email", data.email, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-    cookieStore.set("role", data.role, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
+    cookieStore.set("__session", data.token, cookieOptions);
+    cookieStore.set("email", data.email, cookieOptions);
+    cookieStore.set("role", data.role, cookieOptions);
+    cookieStore.set(
+      "token_balance",
+      data.tokenBalance.toString(),
+      cookieOptions
+    );
+    cookieStore.set("features", JSON.stringify(data.features), cookieOptions);
+    cookieStore.set(
+      "permissions",
+      JSON.stringify(data.permissions),
+      cookieOptions
+    );
 
     redirect(redirectTo);
   } catch (error) {
-    throw error;
-  }
-}
-
-export async function signInWithOAuth(formData: FormData) {
-  const provider = formData.get("provider") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || "/home";
-
-  if (!provider) {
-    throw new Error("Provider is required");
-  }
-
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/oauth`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider,
-          redirectUrl: redirectTo,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to initialize OAuth");
-    }
-
-    const data: OAuthResponseData = await response.json();
-    if (!data.authUrl) {
-      throw new Error("No auth URL provided");
-    }
-
-    // Store the redirectTo URL in session storage to use after callback
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("oauth_redirect", redirectTo);
-    }
-
-    // Redirect to provider's consent page
-    redirect(data.authUrl);
-  } catch (error) {
-    console.error("OAuth error:", error);
-    throw error;
-  }
-}
-
-export async function handleOAuthCallback(searchParams: URLSearchParams) {
-  const code = searchParams.get("code");
-  const state = searchParams.get("state");
-  const error = searchParams.get("error");
-
-  if (error) {
-    throw new Error(`OAuth error: ${error}`);
-  }
-
-  if (!code || !state) {
-    throw new Error("Invalid OAuth callback");
-  }
-
-  try {
-    const callbackUrl = `${process.env.NEXT_PUBLIC_API_URL}/auth/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-    const response = await fetch(callbackUrl);
-
-    if (!response.ok) {
-      throw new Error("Failed to complete OAuth");
-    }
-
-    const data: AuthResponseData = await response.json();
-
-    const cookieStore = await cookies();
-    cookieStore.set("__session", data.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-    cookieStore.set("email", data.email, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-    cookieStore.set("role", data.role, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-
-    // Get stored redirect URL or default to /home
-    let redirectUrl = "/home";
-    if (typeof window !== "undefined") {
-      redirectUrl = sessionStorage.getItem("oauth_redirect") || "/home";
-      sessionStorage.removeItem("oauth_redirect");
-    }
-
-    redirect(redirectUrl);
-  } catch (error) {
-    console.error("OAuth callback error:", error);
-    throw error;
-  }
-}
-
-export async function signOut() {
-  try {
-    const cookieStore = await cookies();
-    cookieStore.delete("__session");
-    cookieStore.delete("email");
-    cookieStore.delete("role");
-
-    redirect("/login");
-  } catch (error) {
-    console.error("Sign out error:", error);
     throw error;
   }
 }

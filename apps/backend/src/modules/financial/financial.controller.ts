@@ -4,17 +4,18 @@ import { ApiOperation, ApiResponse, ApiTags, ApiQuery } from "@nestjs/swagger";
 import { FinancialService } from "./financial.service";
 import { AggregationService } from "./services/aggregation.service";
 import { FinancialFetchService } from "./services/financial-fetch.service";
+import { ProcessingService } from "./services/processing.service";
 import {
   ProcessingStatusDto,
   GetEPSGrowthRankingDto,
-  EpsGrowthResponseDto,
   PaginatedEpsGrowthResponse,
 } from "./dto/financial.dto";
 import { 
   EPSGrowthProcessing, 
   EPSGrowthBatch,
   EPSGrowthProcessingDocument,
-  EPSGrowthBatchDocument
+  EPSGrowthBatchDocument,
+  EpsGrowthResponse
 } from "@epsx/shared";
 
 @ApiTags("Financial")
@@ -25,7 +26,8 @@ export class FinancialController {
   constructor(
     private readonly financialService: FinancialService,
     private readonly aggregationService: AggregationService,
-    private readonly financialFetchService: FinancialFetchService
+    private readonly financialFetchService: FinancialFetchService,
+    private readonly processingService: ProcessingService
   ) {}
 
   @MessagePattern({ cmd: "startEPSGrowthProcessing" })
@@ -38,7 +40,28 @@ export class FinancialController {
     status: 200,
     description:
       "Processing started successfully. Returns a processing ID that can be used to check the status.",
-    type: String,
+    schema: {
+      type: 'object',
+      example: {
+        processingId: '64c9b1b2f1a2b3c4d5e6f7g8',
+        status: 'pending',
+        message: 'EPS growth processing started successfully'
+      },
+      properties: {
+        processingId: {
+          type: 'string',
+          description: 'Unique ID for tracking the processing status'
+        },
+        status: {
+          type: 'string',
+          description: 'Initial processing status'
+        },
+        message: {
+          type: 'string',
+          description: 'Processing status message'
+        }
+      }
+    }
   })
   @ApiResponse({
     status: 500,
@@ -55,8 +78,8 @@ export class FinancialController {
       },
     },
   })
-  async startEPSGrowthProcessing() {
-    return await this.financialService.startEPSGrowthProcessing();
+  async startEPSGrowthProcessing(): Promise<ProcessingStatusDto> {
+    return await this.processingService.startEPSGrowthProcessing();
   }
 
   @MessagePattern({ cmd: "getEPSGrowthProcessingStatus" })
@@ -94,8 +117,8 @@ export class FinancialController {
   })
   async getEPSGrowthProcessingStatus(
     @Payload() data: { processingId: string }
-  ) {
-    return await this.financialService.getEPSGrowthProcessingStatus(
+  ): Promise<ProcessingStatusDto> {
+    return await this.processingService.getEPSGrowthProcessingStatus(
       data.processingId
     );
   }
@@ -135,7 +158,45 @@ export class FinancialController {
   @ApiResponse({
     status: 200,
     description: "EPS growth ranking retrieved successfully",
-    type: PaginatedEpsGrowthResponse,
+    schema: {
+      type: 'object',
+      example: {
+        data: [
+          {
+            symbol: 'AAPL',
+            companyName: 'Apple Inc.',
+            epsGrowth: 0.15,
+            marketCode: 'NASDAQ'
+          },
+          {
+            symbol: 'MSFT',
+            companyName: 'Microsoft Corporation',
+            epsGrowth: 0.12,
+            marketCode: 'NASDAQ'
+          }
+        ],
+        total: 100,
+        page: 1,
+        limit: 20
+      },
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              symbol: { type: 'string' },
+              companyName: { type: 'string' },
+              epsGrowth: { type: 'number' },
+              marketCode: { type: 'string' }
+            }
+          }
+        },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' }
+      }
+    }
   })
   @ApiResponse({
     status: 400,
@@ -192,7 +253,20 @@ export class FinancialController {
   @ApiResponse({
     status: 200,
     description: "Single quarter EPS growth ranking retrieved successfully",
-    type: PaginatedEpsGrowthResponse,
+    schema: {
+      type: "object",
+      properties: {
+        data: {
+          type: "array",
+          items: {
+            $ref: "#/components/schemas/EpsGrowthResponse"
+          }
+        },
+        total: { type: "number" },
+        page: { type: "number" },
+        limit: { type: "number" }
+      }
+    },
   })
   @ApiResponse({
     status: 400,
@@ -264,7 +338,7 @@ export class FinancialController {
   async getEpsProcessingStatus(
     @Param("symbol") symbol: string
   ): Promise<EPSGrowthProcessingDocument | null> {
-    return this.financialService.getEPSGrowthProcessingStatusBySymbol(symbol);
+    return this.processingService.getEPSGrowthProcessingStatusBySymbol(symbol);
   }
 
   @Get("eps/batch/:marketCode")
@@ -278,7 +352,7 @@ export class FinancialController {
   async getEpsBatchStatus(
     @Param("marketCode") marketCode: string
   ): Promise<EPSGrowthBatchDocument | null> {
-    return this.financialService.getEPSGrowthBatchStatusByMarket(marketCode);
+    return this.processingService.getEPSGrowthBatchStatusByMarket(marketCode);
   }
 
   @Get("eps/processing")
@@ -288,12 +362,14 @@ export class FinancialController {
     required: false,
     type: Number,
     description: "Page number (default: 1)",
+    example: 1
   })
   @ApiQuery({
     name: "limit",
     required: false,
     type: Number,
     description: "Items per page (default: 10)",
+    example: 10
   })
   @ApiResponse({
     status: 200,
@@ -312,7 +388,7 @@ export class FinancialController {
     @Query("page") page = 1,
     @Query("limit") limit = 10
   ) {
-    return this.financialService.listEPSGrowthProcessingJobs(+page, +limit);
+    return this.processingService.listEPSGrowthProcessingJobs(+page, +limit);
   }
 
   @Get("eps/batches")
@@ -343,7 +419,7 @@ export class FinancialController {
     },
   })
   async listEpsBatches(@Query("page") page = 1, @Query("limit") limit = 10) {
-    return this.financialService.listEPSGrowthBatches(+page, +limit);
+    return this.processingService.listEPSGrowthBatches(+page, +limit);
   }
 
   @Get("scrape")
@@ -357,13 +433,20 @@ export class FinancialController {
     description: "Financial data scraping process started successfully",
     schema: {
       type: "object",
-      properties: {
-        status: { type: "string", example: "success" },
-        message: {
-          type: "string",
-          example: "Financial data scraping process started",
-        },
+      example: {
+        status: "success",
+        message: "Financial data scraping process started",
+        timestamp: "2025-03-06T10:40:09Z",
+        estimatedDuration: "2 hours",
+        progressUrl: "/financial/scrape/progress/64c9b1b2f1a2b3c4d5e6f7g8"
       },
+      properties: {
+        status: { type: "string" },
+        message: { type: "string" },
+        timestamp: { type: "string" },
+        estimatedDuration: { type: "string" },
+        progressUrl: { type: "string" }
+      }
     },
   })
   @ApiResponse({

@@ -1,23 +1,28 @@
 import * as admin from 'firebase-admin';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class FirebaseAdminService {
   private app: admin.app.App;
   public auth: admin.auth.Auth;
 
-  constructor() {
-    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
+  constructor(private configService: ConfigService) {
+    const projectId = this.configService.get('FIREBASE_PROJECT_ID');
+    const privateKey = this.configService.get('FIREBASE_PRIVATE_KEY');
+    const clientEmail = this.configService.get('FIREBASE_CLIENT_EMAIL');
+
+    if (!projectId || !privateKey || !clientEmail) {
       throw new Error('Missing Firebase configuration environment variables');
     }
 
     this.app = admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        projectId,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
+        clientEmail,
       }),
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+      storageBucket: this.configService.get('FIREBASE_STORAGE_BUCKET')
     });
     this.auth = this.app.auth();
   }
@@ -36,6 +41,10 @@ export class FirebaseAdminService {
 
   async getUserByEmail(email: string): Promise<admin.auth.UserRecord> {
     return this.auth.getUserByEmail(email);
+  }
+
+  async verifySessionCookie(sessionCookie: string): Promise<admin.auth.DecodedIdToken> {
+    return this.auth.verifySessionCookie(sessionCookie);
   }
 }
 

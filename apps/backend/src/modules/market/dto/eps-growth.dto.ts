@@ -1,38 +1,46 @@
 import { IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum UserRole {
-  PUBLIC = 'public',
-  BASIC = 'basic',
-  PREMIUM = 'premium',
-}
+import { UserRole } from '../../../shared/types/roles.enum';
 
 export class GetEpsGrowthDto {
   @ApiProperty({
+    description: 'Maximum number of EPS growth records to return in a single request',
+    type: 'number',
+    minimum: 1,
+    maximum: 100,
+    default: 10,
     required: false,
-    type: Number,
-    description: 'Number of records to return',
-    example: 10,
+    example: 20
   })
   @IsOptional()
   limit?: number;
 
   @ApiProperty({
+    description: 'Number of records to skip for pagination. Use with limit to iterate through large datasets',
+    type: 'number',
+    minimum: 0,
+    default: 0,
     required: false,
-    type: Number,
-    description: 'Number of records to skip',
-    example: 0,
+    example: 20
   })
   @IsOptional()
   skip?: number;
 
   @ApiProperty({
-    required: false,
+    description: 'User role that determines access level and data visibility. Access levels:\n' +
+      '- guest: Basic EPS data with delays\n' +
+      '- registered_user: Standard EPS data access\n' +
+      '- premium_user: Real-time EPS data\n' +
+      '- token_holder: Advanced EPS analytics\n' +
+      '- administrator: Full data access',
     enum: UserRole,
-    description: 'User role for access control',
-    example: UserRole.BASIC,
+    default: UserRole.GUEST,
+    required: false,
+    example: UserRole.PREMIUM_USER,
+    enumName: 'UserRole',
+    examples: Object.values(UserRole)
   })
   @IsEnum(UserRole)
   @IsOptional()
-  role?: UserRole = UserRole.PUBLIC;
+  role?: UserRole = UserRole.GUEST;
 }

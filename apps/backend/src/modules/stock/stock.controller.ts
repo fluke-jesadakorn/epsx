@@ -28,7 +28,48 @@ export class StockController {
   @ApiResponse({
     status: 200,
     description: "List of stocks successfully retrieved",
-    type: PaginatedStockResponse,
+    schema: {
+      type: 'object',
+      example: {
+        data: [
+          {
+            symbol: 'AAPL',
+            name: 'Apple Inc.',
+            exchange: 'NASDAQ',
+            marketCap: 2500000000000,
+            sector: 'Technology'
+          },
+          {
+            symbol: 'MSFT',
+            name: 'Microsoft Corporation',
+            exchange: 'NASDAQ',
+            marketCap: 2000000000000,
+            sector: 'Technology'
+          }
+        ],
+        total: 100,
+        page: 1,
+        limit: 20
+      },
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              symbol: { type: 'string' },
+              name: { type: 'string' },
+              exchange: { type: 'string' },
+              marketCap: { type: 'number' },
+              sector: { type: 'string' }
+            }
+          }
+        },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' }
+      }
+    }
   })
   async getAllStocks(
     @Body() params: StockPaginationParamsDto
@@ -49,7 +90,45 @@ export class StockController {
   @ApiResponse({
     status: 200,
     description: "List of stocks for the exchange retrieved successfully",
-    type: PaginatedStockResponse,
+    schema: {
+      type: 'object',
+      example: {
+        data: [
+          {
+            symbol: 'AAPL',
+            name: 'Apple Inc.',
+            marketCap: 2500000000000,
+            sector: 'Technology'
+          },
+          {
+            symbol: 'MSFT',
+            name: 'Microsoft Corporation',
+            marketCap: 2000000000000,
+            sector: 'Technology'
+          }
+        ],
+        total: 50,
+        page: 1,
+        limit: 20
+      },
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              symbol: { type: 'string' },
+              name: { type: 'string' },
+              marketCap: { type: 'number' },
+              sector: { type: 'string' }
+            }
+          }
+        },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' }
+      }
+    }
   })
   @ApiResponse({
     status: 404,
@@ -75,7 +154,35 @@ export class StockController {
   @ApiResponse({
     status: 200,
     description: "Stock details retrieved successfully",
-    type: StockResponseDto,
+    schema: {
+      type: 'object',
+      example: {
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchange: 'NASDAQ',
+        marketCap: 2500000000000,
+        sector: 'Technology',
+        industry: 'Consumer Electronics',
+        website: 'https://www.apple.com',
+        description: 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide.',
+        ceo: 'Tim Cook',
+        employees: 147000,
+        headquarters: 'Cupertino, California'
+      },
+      properties: {
+        symbol: { type: 'string' },
+        name: { type: 'string' },
+        exchange: { type: 'string' },
+        marketCap: { type: 'number' },
+        sector: { type: 'string' },
+        industry: { type: 'string' },
+        website: { type: 'string' },
+        description: { type: 'string' },
+        ceo: { type: 'string' },
+        employees: { type: 'number' },
+        headquarters: { type: 'string' }
+      }
+    }
   })
   @ApiResponse({
     status: 404,
@@ -93,7 +200,25 @@ export class StockController {
   @ApiResponse({
     status: 200,
     description: "Stock scraping completed successfully",
-    type: ScrapingStatusDto,
+    schema: {
+      type: 'object',
+      example: {
+        status: 'success',
+        message: 'Stock data scraping completed successfully',
+        timestamp: '2025-03-06T10:42:59Z',
+        totalStocksScraped: 5000,
+        duration: '2 hours 15 minutes',
+        nextScrape: '2025-03-07T10:42:59Z'
+      },
+      properties: {
+        status: { type: 'string' },
+        message: { type: 'string' },
+        timestamp: { type: 'string' },
+        totalStocksScraped: { type: 'number' },
+        duration: { type: 'string' },
+        nextScrape: { type: 'string' }
+      }
+    }
   })
   async scrapeAllStocks(): Promise<ScrapingStatusDto> {
     return this.stockService.scrapeAllStocks();

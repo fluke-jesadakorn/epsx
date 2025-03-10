@@ -1,183 +1,286 @@
 import {
   Controller,
-  Post,
   Get,
+  Post,
+  Delete,
   Body,
+  Req,
+  Res,
   Param,
   Query,
-  BadRequestException,
   UnauthorizedException,
-  Headers,
-  Res,
-  Req
-} from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { UserRole } from '../../shared/guards/role.guard';
-import { OAuthInitDTO } from './dto/oauth.dto';
-import { GoogleSignInDTO } from './dto/google-signin.dto';
-import { FirebaseAdminService } from '../../shared/firebase-admin';
-import { Response, Request } from 'express';
+  ForbiddenException,
+  UseGuards,
+} from "@nestjs/common";
+import { Response } from "express";
+import { AuthenticatedRequest } from "./interfaces/auth-request.interface";
+import { FirebaseAdminService } from "../../shared/firebase-admin";
+import { Roles } from "../../shared/decorators/roles.decorator";
+import { UserRole } from "../../shared/types/roles.enum";
+import { AuthService } from "./services/auth.service";
+import { TokenService } from "./services/token.service";
+import { SessionService } from "./services/session.service";
+import { AuthLoggerService } from "./services/auth-logger.service";
+import { UserManagementService } from "./services/user-management.service";
+import { FirebaseAuthGuard } from "../../shared/guards/role.guard";
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiCookieAuth,
+  ApiParam,
+  ApiBody,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiSecurity
+} from '@nestjs/swagger';
 
-@Controller('auth')
+@ApiTags('Authentication')
+@Controller("auth")
+@UseGuards(FirebaseAuthGuard)
 export class AuthController {
   constructor(
+    private readonly firebaseAdmin: FirebaseAdminService,
     private readonly authService: AuthService,
-    private readonly firebaseAdmin: FirebaseAdminService
+    private readonly tokenService: TokenService,
+    private readonly sessionService: SessionService,
+    private readonly authLogger: AuthLoggerService,
+    private readonly userManagementService: UserManagementService
   ) {}
 
-  @Post('google')
-  async signInWithGoogle(
-    @Body() googleSignInDto: GoogleSignInDTO,
-    @Res() res: Response
+  @Post("oauth")
+  @ApiOperation({
+    summary: 'Initialize OAuth flow',
+    description: 'Starts the OAuth authentication process for the specified provider'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['provider'],
+      properties: {
+        provider: {
+          type: 'string',
+          example: 'google',
+          description: 'OAuth provider (e.g. google)'
+        }
+      }
+    }
+  })
+  async initializeOAuth(
+    @Body() { provider }: { provider: string },
+    @Req() req: AuthenticatedRequest
   ) {
-    const { token, user } = await this.authService.signInWithGoogle(googleSignInDto.idToken);
-    const userRole = await this.authService.getUserRole(user.uid);
-
-    // Set cookies with proper types for express
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
-    };
-
-    res.cookie('__session', token, cookieOptions);
-    res.cookie('uid', user.uid, cookieOptions);
-    res.cookie('email', user.email || '', cookieOptions);
-    res.cookie('role', userRole.role, cookieOptions);
-
-    return res.json({
-      user: {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        role: userRole.role
-      },
-      redirectUrl: googleSignInDto.redirectUrl || '/home'
+    if (!provider) {
+      throw new UnauthorizedException("Provider is required");
+    }
+    const { authUrl } = await this.authService.generateOAuthURL(provider);
+    await this.authLogger.logAuthEvent({
+      action: 'login',
+      status: 'success',
+      metadata: { provider, initOAuth: true },
+      ipAddress: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown'
     });
+    return { authUrl };
   }
 
-  @Post('oauth')
-  async initializeOAuth(@Body() oauthInitDto: OAuthInitDTO) {
-    return await this.authService.generateOAuthURL(oauthInitDto.provider);
-  }
-
-  @Get('/oauth/callback')
+  @Get("oauth/callback")
+  @ApiOperation({
+    summary: 'Handle OAuth callback',
+    description: 'Processes the OAuth callback from authentication provider'
+  })
+  @ApiQuery({
+    name: 'code',
+    required: true,
+    type: String,
+    description: 'Authorization code from OAuth provider'
+  })
+  @ApiQuery({
+    name: 'state',
+    required: true,
+    type: String,
+    description: 'State parameter for CSRF protection'
+  })
   async handleOAuthCallback(
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
     @Query('code') code: string,
-    @Query('state') state: string,
-    @Query('error') error?: string
+    @Query('state') state: string
   ) {
-    console.log('OAuth Callback Received:', { code: code?.substring(0, 10) + '...', state, error });
-    if (error) {
-      const frontendErrorUrl = new URL('/login', process.env.FRONTEND_URL!);
-      frontendErrorUrl.searchParams.set('error', error);
-      return res.redirect(frontendErrorUrl.toString());
-    }
-
-    try {
-      console.log('Processing OAuth callback...');
-      const { token, user } = await this.authService.handleOAuthCallback(code, state);
-      console.log('OAuth callback processed successfully');
-
-      // Get user role
-      const userRole = await this.authService.getUserRole(user.uid);
-      
-      // Set cookies with proper types for express
-      const cookieOptions = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax' as const,
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
-      };
-
-      res.cookie('__session', token, cookieOptions);
-      res.cookie('uid', user.uid, cookieOptions);
-      res.cookie('email', user.email || '', cookieOptions);
-      res.cookie('role', userRole.role, cookieOptions);
-
-      // Redirect to frontend home page
-      return res.redirect(`${process.env.FRONTEND_URL}/home`);
-    } catch (err: any) {
-      console.error('OAuth callback error:', err);
-      // Redirect to frontend with error
-      const frontendErrorUrl = new URL('/login', process.env.FRONTEND_URL!);
-      frontendErrorUrl.searchParams.set('error', err.message || 'Authentication failed');
-      return res.redirect(frontendErrorUrl.toString());
-    }
+    const redirectUrl = await this.authService.handleOAuthCallbackAndCreateSession(
+      code,
+      state,
+      req.ip || 'unknown',
+      req.headers['user-agent'] || 'unknown',
+      res
+    );
+    return res.redirect(redirectUrl);
   }
 
-  @Post('verify')
-  async verifyToken(@Req() req: Request) {
-    const sessionToken = req.cookies?.__session;
-    if (!sessionToken) {
-      throw new UnauthorizedException('No session token found');
-    }
-    
-    try {
-      const decodedToken = await this.authService.verifyToken(sessionToken);
-      // Get user role to return complete user info
-      const userRole = await this.authService.getUserRole(decodedToken.uid);
-      
-      return {
-        valid: true,
-        user: {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          role: userRole.role
-        }
-      };
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
-    }
+  @ApiOperation({
+    summary: 'Verify session',
+    description: 'Verifies the session and returns user information'
+  })
+  @ApiCookieAuth()
+  @Get("verify")
+  async verify(@Req() req: AuthenticatedRequest) {
+    return this.authService.verifySession(req.cookies?.__session);
   }
 
-  @Post('roles/:userId')
-  async assignUserRole(
-    @Param('userId') userId: string,
-    @Body('role') role: UserRole
+  @ApiOperation({
+    summary: 'Get user sessions',
+    description: 'Get all active sessions for a user'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID to get sessions for',
+    required: true
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Get("sessions/:userId")
+  @Roles(UserRole.ADMINISTRATOR)
+  async getUserSessions(@Param('userId') userId: string) {
+    return this.sessionService.getActiveSessions(userId);
+  }
+
+  @ApiOperation({
+    summary: 'Invalidate session',
+    description: 'Invalidate a specific session'
+  })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'Session ID to invalidate',
+    required: true
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Delete("sessions/:sessionId")
+  @Roles(UserRole.ADMINISTRATOR)
+  async invalidateSession(
+    @Param('sessionId') sessionId: string,
+    @Body() request: { reason: string },
+    @Req() req: AuthenticatedRequest
   ) {
-    if (!userId || !role) {
-      throw new BadRequestException('User ID and role are required');
+    const adminId = req.user?.uid;
+    if (!adminId) {
+      throw new ForbiddenException('Admin ID not found');
     }
 
-    await this.authService.assignUserRole(userId, role);
+    await this.sessionService.invalidateSession(sessionId, {
+      reason: request.reason,
+      adminId
+    });
+
     return { success: true };
   }
 
-  @Get('roles/:userId')
-  async getUserRole(@Param('userId') userId: string) {
-    if (!userId) {
-      throw new BadRequestException('User ID is required');
+  @ApiOperation({
+    summary: 'Invalidate all user sessions',
+    description: 'Invalidate all sessions for a specific user'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID to invalidate sessions for',
+    required: true
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Delete("sessions/user/:userId")
+  @Roles(UserRole.ADMINISTRATOR)
+  async invalidateUserSessions(
+    @Param('userId') userId: string,
+    @Body() request: { reason: string },
+    @Req() req: AuthenticatedRequest
+  ) {
+    const adminId = req.user?.uid;
+    if (!adminId) {
+      throw new ForbiddenException('Admin ID not found');
     }
 
-    return await this.authService.getUserRole(userId);
+    await this.sessionService.invalidateAllUserSessions(userId, {
+      reason: request.reason,
+      adminId
+    });
+
+    return { success: true };
   }
 
-  @Get('roles')
-  async listUsers(@Query('maxResults') maxResults?: string) {
-    return await this.authService.listUsers(maxResults ? parseInt(maxResults) : undefined);
+  @ApiOperation({
+    summary: 'Get auth logs',
+    description: 'Get authentication logs for a user'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID to get logs for',
+    required: true
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: Date
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: Date
+  })
+  @ApiQuery({
+    name: 'onlySuspicious',
+    required: false,
+    type: Boolean
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Get("logs/:userId")
+  @Roles(UserRole.ADMINISTRATOR)
+  async getAuthLogs(
+    @Param('userId') userId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('onlySuspicious') onlySuspicious?: boolean
+  ) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+
+    return this.authLogger.getAuthLogs(
+      userId,
+      start,
+      end,
+      onlySuspicious
+    );
   }
 
-  @Post('logout')
-  async logout(@Res() res: Response) {
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/'
-    };
+  @ApiOperation({
+    summary: 'Assign role to user',
+    description: 'Assigns a role to a specified user (Admin only)'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID',
+    required: true
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Post("roles/:userId")
+  @Roles(UserRole.ADMINISTRATOR)
+  async assignRole(
+    @Param("userId") userId: string,
+    @Body() { role }: { role: UserRole },
+    @Req() req: AuthenticatedRequest
+  ) {
+    const adminId = req.user?.uid;
+    if (!adminId) {
+      throw new ForbiddenException('Admin ID not found');
+    }
 
-    // Clear all auth-related cookies
-    res.clearCookie('__session', cookieOptions);
-    res.clearCookie('uid', cookieOptions);
-    res.clearCookie('email', cookieOptions);
-    res.clearCookie('role', cookieOptions);
+    await this.userManagementService.assignUserRole(userId, role, adminId);
+    return { success: true };
+  }
 
-    return res.json({ success: true });
+  @ApiOperation({
+    summary: 'Get all users with roles',
+    description: 'Retrieves a list of all users and their roles (Admin only)'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @Get("roles")
+  @Roles(UserRole.ADMINISTRATOR)
+  async getUsers() {
+    return this.userManagementService.getUsers();
   }
 }

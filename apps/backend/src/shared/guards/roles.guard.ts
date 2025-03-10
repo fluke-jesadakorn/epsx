@@ -1,44 +1,66 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { FirebaseAdminService, PERMISSIONS_KEY } from '..';
+import { AUTH_REQUIREMENTS_KEY, AuthRequirements } from '../decorators/auth-requirements.decorator';
+import { TokenClaims } from '../types/token-claims';
+import { UserRole } from '../types/roles.enum';
+import { hasRequiredAccessLevel } from '../types/roles.enum';
 
 @Injectable()
-export class RolesGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private firebaseAdmin: FirebaseAdminService
-  ) {}
+export class AuthorizationGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.get<string[]>(
-      PERMISSIONS_KEY,
-      context.getHandler()
+    const requirements = this.reflector.getAllAndOverride<AuthRequirements>(
+      AUTH_REQUIREMENTS_KEY,
+      [context.getHandler(), context.getClass()]
     );
 
-    if (!requiredPermissions) {
+    if (!requirements?.roles && !requirements?.permissions) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
+    const user = request.user as TokenClaims;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
+    if (!user) {
+      throw new ForbiddenException('User not authenticated');
     }
 
-    const token = authHeader.split(' ')[1];
-    
-    try {
-      const decodedToken = await this.firebaseAdmin.verifyIdToken(token);
-      const userRoles = decodedToken.roles || [];
-      const userPermissions = decodedToken.permissions || [];
+    // Administrator has access to everything
+    if (user.role === UserRole.ADMINISTRATOR) {
+      return true;
+    }
 
-      // Check if user has all required permissions
-      return requiredPermissions.every(permission => 
-        userPermissions.includes(permission)
+    // Check role requirements
+    if (requirements.roles) {
+      const minRequiredRole = requirements.roles.reduce((min, role) => {
+        const minLevel = hasRequiredAccessLevel(min, role) ? min : role;
+        return minLevel;
+      }, requirements.roles[0]);
+
+      if (!hasRequiredAccessLevel(user.role, minRequiredRole)) {
+        throw new ForbiddenException(
+          `Insufficient role level. Required: ${minRequiredRole}, Current: ${user.role}`
+        );
+      }
+    }
+
+    // Check permission requirements - using permissions from token claims
+    if (requirements.permissions) {
+      const hasAllPermissions = requirements.permissions.every(permission =>
+        user.permissions.includes(permission)
       );
-    } catch (error) {
-      return false;
+
+      if (!hasAllPermissions) {
+        const missingPermissions = requirements.permissions.filter(
+          permission => !user.permissions.includes(permission)
+        );
+        throw new ForbiddenException(
+          `Missing required permissions: ${missingPermissions.join(', ')}`
+        );
+      }
     }
+
+    return true;
   }
 }

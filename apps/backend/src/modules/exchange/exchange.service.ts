@@ -4,7 +4,11 @@ import { Model } from "mongoose";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { Exchange, IExchange } from "@epsx/shared";
-import { ExchangeResponseDto, PaginatedExchangeResponse } from "./dto/exchange.dto";
+import {
+  ExchangeResponseDto,
+  ExchangeScrapeResponseDto,
+  PaginatedExchangeResponse,
+} from "./dto/exchange.dto";
 
 @Injectable()
 export class ExchangeService {
@@ -29,7 +33,7 @@ export class ExchangeService {
     const saved = await exchange.save();
     return {
       ...saved.toObject(),
-      _id: saved._id.toString()
+      _id: saved._id.toString(),
     };
   }
 
@@ -66,24 +70,24 @@ export class ExchangeService {
         ]);
 
         return {
-          items: newData.map(doc => ({
+          items: newData.map((doc) => ({
             ...doc,
-            _id: doc._id.toString()
+            _id: doc._id.toString(),
           })),
           total: newTotal,
           page: Math.floor(skip / limit) + 1,
-          limit
+          limit,
         };
       }
 
       return {
-        items: data.map(doc => ({
+        items: data.map((doc) => ({
           ...doc,
-          _id: doc._id.toString()
+          _id: doc._id.toString(),
         })),
         total,
         page: Math.floor(skip / limit) + 1,
-        limit
+        limit,
       };
     } catch (error) {
       console.error("Error in findAll:", error);
@@ -104,12 +108,15 @@ export class ExchangeService {
     }
     return {
       ...exchange.toObject(),
-      _id: exchange._id.toString()
+      _id: exchange._id.toString(),
     };
   }
 
   // Update
-  async update(marketCode: string, updateData: Partial<IExchange>): Promise<ExchangeResponseDto> {
+  async update(
+    marketCode: string,
+    updateData: Partial<IExchange>
+  ): Promise<ExchangeResponseDto> {
     const exchange = await this.exchangeModel
       .findOneAndUpdate({ market_code: marketCode }, updateData, { new: true })
       .exec();
@@ -121,7 +128,7 @@ export class ExchangeService {
     }
     return {
       ...exchange.toObject(),
-      _id: exchange._id.toString()
+      _id: exchange._id.toString(),
     };
   }
 
@@ -140,7 +147,7 @@ export class ExchangeService {
   }
 
   // Web scraping functionality using Cheerio
-  async scrapeAndSaveExchanges(): Promise<ExchangeResponseDto[]> {
+  async scrapeAndSaveExchanges(): Promise<ExchangeScrapeResponseDto> {
     try {
       // Fetch the HTML content
       const response = await axios.get(
@@ -213,10 +220,10 @@ export class ExchangeService {
       }
 
       const allExchanges = await this.exchangeModel.find().exec();
-      return allExchanges.map(exchange => ({
-        ...exchange.toObject(),
-        _id: exchange._id.toString()
-      }));
+      return {
+        status: "success",
+        addNewRecord: newCount,
+      };
     } catch (error) {
       console.error("Failed to scrape exchanges:", error);
       throw error;

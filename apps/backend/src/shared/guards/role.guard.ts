@@ -1,76 +1,84 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { auth } from '../';
+import { AuthService } from '../auth';
+import { PERMISSIONS, hasPermission, PermissionKey } from '../permissions';
 import { Request } from 'express';
-
-export enum UserRole {
-  PUBLIC = 'public',
-  BASIC = 'basic',
-  PREMIUM = 'premium',
-}
+import { UserRole } from '../types/roles.enum';
 
 export const ROLES_KEY = 'roles';
-export const Roles = (...roles: UserRole[]) => {
-  return (target: any, key?: string | symbol, descriptor?: any) => {
-    if (descriptor) {
-      Reflect.defineMetadata(ROLES_KEY, roles, descriptor.value);
-      return descriptor;
-    }
-    Reflect.defineMetadata(ROLES_KEY, roles, target);
-    return target;
-  };
-};
+export const PERMISSIONS_KEY = 'permissions';
 
 export const extractTokenFromCookie = (req: Request): string | null => {
-  if (req.cookies && req.cookies.token) {
-    return req.cookies.token;
+  if (req.cookies && req.cookies.__session) {
+    return req.cookies.__session;
   }
   return null;
 };
 
+export const RequirePermissions = (...permissions: PermissionKey[]) => SetMetadata(PERMISSIONS_KEY, permissions);
+
 @Injectable()
-export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+export class FirebaseAuthGuard implements CanActivate {
+  constructor(
+    private reflector: Reflector,
+    private authService: AuthService
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const roles = this.reflector.get<UserRole[]>(ROLES_KEY, context.getHandler());
+    const requiredRoles = this.reflector.get<UserRole[]>(ROLES_KEY, context.getHandler());
+    const requiredPermissions = this.reflector.get<PermissionKey[]>(PERMISSIONS_KEY, context.getHandler());
     
-    if (!roles) {
-      return true; // No roles specified means the endpoint is public
+    if (!requiredRoles && !requiredPermissions) {
+      return true; // No roles or permissions specified means the endpoint is public
     }
 
     const request = context.switchToHttp().getRequest();
     const token = extractTokenFromCookie(request);
 
     if (!token) {
-      if (roles.includes(UserRole.PUBLIC)) {
-        request.userRole = UserRole.PUBLIC;
+      if (requiredRoles?.includes(UserRole.GUEST)) {
+        request.userRole = UserRole.GUEST;
         return true;
       }
       throw new UnauthorizedException('No authentication token provided');
     }
 
     try {
-      const decodedToken = await auth.verifyToken(token);
-      const userSnapshot = await auth.getUser(decodedToken.uid);
+      const decodedToken = await this.authService.verifyToken(token);
+      const userSnapshot = await this.authService.getUser(decodedToken.uid);
       
       // Get user's custom claims which contain their role
       const customClaims = userSnapshot.customClaims || {};
-      let userRole = UserRole.PUBLIC;
+      let userRole = UserRole.GUEST;
 
-      if (customClaims.premium) {
-        userRole = UserRole.PREMIUM;
+      // Check roles in descending order of privilege
+      if (customClaims.admin) {
+        userRole = UserRole.ADMINISTRATOR;
+      } else if (customClaims.token_holder) {
+        userRole = UserRole.TOKEN_HOLDER;
+      } else if (customClaims.premium) {
+        userRole = UserRole.PREMIUM_USER;
       } else if (customClaims.basic) {
-        userRole = UserRole.BASIC;
+        userRole = UserRole.REGISTERED_USER;
       }
 
       // Attach the role to the request for use in the controller
       request.userRole = userRole;
 
       // Check if user has sufficient role
-      const hasRole = roles.includes(userRole);
-      if (!hasRole) {
+      // Check role-based access
+      if (requiredRoles && !requiredRoles.includes(userRole)) {
         throw new ForbiddenException('Insufficient role permissions');
+      }
+
+      // Check permission-based access
+      if (requiredPermissions) {
+        const hasAllPermissions = requiredPermissions.every(permissionKey => 
+          hasPermission(userRole, PERMISSIONS[permissionKey])
+        );
+        if (!hasAllPermissions) {
+          throw new ForbiddenException('Insufficient permissions');
+        }
       }
 
       return true;

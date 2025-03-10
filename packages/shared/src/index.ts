@@ -11,6 +11,7 @@ export type {
   StockDocument,
   FinancialDocument,
   ExchangeDocument,
+  AuthLogDocument,
 } from './schemas';
 
 // Re-export models and schemas
@@ -21,10 +22,15 @@ export {
   StockSchema,
   FinancialSchema,
   ExchangeSchema,
+  AuthLogSchema,
   EpsGrowth,
   EPSGrowthProcessing,
   EPSGrowthBatch,
   Stock,
   Financial,
   Exchange,
+  AuthLog,
 } from './schemas';
+
+// Export types
+export type { EpsGrowthResponse } from './types/financial.types';

@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@types/next-auth": "^3.15.0",
+    "jest": "^29.7.0",
     "next-auth": "^4.24.11",
     "nookies": "^2.5.2"
   }

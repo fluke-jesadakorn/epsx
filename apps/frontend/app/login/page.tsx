@@ -1,8 +1,5 @@
 import { AuthForm } from "@/components/auth/AuthForm";
-import {
-  signInWithGoogleToken,
-  handleOAuthCallback,
-} from "../actions/auth-server";
+import { handleOAuthCallback } from "../actions/auth-server";
 import { Suspense } from "react";
 import { LoadingForm } from "@/components/common/LoadingForm";
 import { redirect } from "next/navigation";
@@ -38,9 +35,6 @@ export default async function Page({ searchParams }: PageProps) {
       urlParams.set("code", code);
       urlParams.set("state", state);
       await handleOAuthCallback(urlParams);
-      redirect("/home");
-    } else if (token) {
-      await signInWithGoogleToken(token);
       redirect("/home");
     }
   } catch (error) {

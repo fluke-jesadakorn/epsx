@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { UserRole } from "@/constants/roles";
+import { useAuth } from "@/context/auth-context";
+import { listUsers } from "@/app/actions/auth-server";
+type UserRole = "admin" | "premium" | "basic" | "public";
 import {
   Card,
   CardContent,
@@ -31,12 +33,15 @@ interface UserRoleManagerProps {
   users: User[];
 }
 
-export function UserRoleManager({ users: initialUsers }: UserRoleManagerProps) {
+export default function UserRoleManager({
+  users: initialUsers,
+}: UserRoleManagerProps) {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<UserRole>();
   const [searchEmail, setSearchEmail] = useState("");
   const [isAssigning, startAssignTransition] = useTransition();
+  const { checkStatus } = useAuth();
 
   const handleAssignRole = async () => {
     if (!selectedUser || !selectedRole) {
@@ -46,74 +51,29 @@ export function UserRoleManager({ users: initialUsers }: UserRoleManagerProps) {
 
     startAssignTransition(async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/roles/assign`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            userId: selectedUser,
-            role: selectedRole,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to assign role');
+        const result = await assignUserRole(selectedUser, selectedRole);
+        if (result.success) {
+          toast.success("Role assigned successfully");
         }
 
-        toast.success("Role assigned successfully");
-
-        // Fetch updated users list
-        const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-
-        if (!usersResponse.ok) {
-          throw new Error('Failed to fetch updated users');
-        }
-
-        const data = await usersResponse.json();
-        setUsers(data.users.map((user: any) => ({
-          userId: user.userId,
-          email: user.email,
-          role: user.role as UserRole
-        })));
+        // Refresh auth context and user list
+        await checkStatus();
 
         // Reset selections
         setSelectedUser("");
         setSelectedRole(undefined);
       } catch (error) {
-        console.error('Error assigning role:', error);
+        console.error("Error assigning role:", error);
         toast.error("Failed to assign role");
       }
     });
   };
 
-  const availableRoles = [UserRole.BASIC, UserRole.PREMIUM, UserRole.PUBLIC];
-  
+  const availableRoles = ["admin", "premium", "basic", "public"] as const;
+
   const filteredUsers = users.filter((user) =>
     user.email?.toLowerCase().includes(searchEmail.toLowerCase())
   );
-
-  const handleError = (error: any) => {
-    console.error('Error:', error);
-    if (error instanceof Response) {
-      switch (error.status) {
-        case 403:
-          toast.error("You don't have permission to perform this action");
-          break;
-        case 404:
-          toast.error("User not found");
-          break;
-        default:
-          toast.error("An error occurred while assigning role");
-      }
-    } else {
-      toast.error("Failed to communicate with server");
-    }
-  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -169,7 +129,7 @@ export function UserRoleManager({ users: initialUsers }: UserRoleManagerProps) {
             >
               {isAssigning ? "Assigning..." : "Assign Role"}
             </Button>
-            
+
             {users.length === 0 && (
               <p className="text-sm text-muted-foreground text-center">
                 No users found

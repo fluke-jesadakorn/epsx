@@ -10,6 +10,7 @@ import {
   EPSGrowthBatchDocument,
   StockDocument
 } from "@epsx/shared";
+import { EpsGrowthResponse } from "@epsx/shared";
 import { AggregationService } from "../services/aggregation.service";
 
 @Injectable()
@@ -121,12 +122,12 @@ export class EPSBatchProcessingService extends EventEmitter {
           (result) =>
             result &&
             result.symbol &&
-            result.company_name &&
-            result.market_code &&
-            typeof result.eps_diluted === "number" &&
-            typeof result.previous_eps_diluted === "number" &&
-            typeof result.eps_growth === "number" &&
-            result.report_date &&
+            result.companyName &&
+            result.marketCode &&
+            typeof result.epsDiluted === "number" &&
+            typeof result.previousEpsDiluted === "number" &&
+            typeof result.epsGrowth === "number" &&
+            result.reportDate &&
             result.year &&
             result.quarter
         );

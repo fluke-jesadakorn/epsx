@@ -76,11 +76,6 @@ export class FinancialService {
     return this.epsBatchProcessingService.getProcessingStatus(processingId);
   }
 
-  /**
-   * Get EPS Growth data from database
-   * @param limit Maximum number of results to return
-   * @param skip Number of results to skip (for pagination)
-   */
   async getEPSGrowthFromDatabase(limit: number = 20, skip: number = 0) {
     try {
       // Get the most recent report date to filter by

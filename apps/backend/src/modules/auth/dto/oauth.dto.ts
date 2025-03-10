@@ -3,13 +3,13 @@ import { IsString, IsIn } from 'class-validator';
 export class OAuthInitDTO {
   @IsString()
   @IsIn(['google'])
-  provider: string;
+  provider!: string;
 }
 
 export class OAuthCallbackDTO {
   @IsString()
-  code: string;
+  code!: string;
 
   @IsString()
-  state: string;
+  state!: string;
 }

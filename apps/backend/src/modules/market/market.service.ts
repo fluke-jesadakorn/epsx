@@ -3,8 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { EpsGrowth, Paginate } from '@epsx/shared';
-import { UserRole } from '@/shared/guards/role.guard';
+import { EpsGrowth, Paginate, UserRole } from '@epsx/shared';
 
 @Injectable()
 export class MarketService {
@@ -22,18 +21,22 @@ export class MarketService {
     };
   }
 
-  async getEpsGrowth(skip: number, limit: number, userRole: UserRole = UserRole.PUBLIC): Promise<Paginate<EpsGrowth>> {
+  async getEpsGrowth(skip: number, limit: number, userRole: UserRole = UserRole.GUEST): Promise<Paginate<EpsGrowth>> {
     // Calculate base skip and limit based on role restrictions
     let rankLimit: number;
     switch (userRole) {
-      case UserRole.PREMIUM:
-        rankLimit = 1;
+      case UserRole.ADMINISTRATOR:
+      case UserRole.PREMIUM_USER:
+        rankLimit = 1; // Full access
         break;
-      case UserRole.BASIC:
+      case UserRole.REGISTERED_USER:
         rankLimit = 11;
         break;
+      case UserRole.TOKEN_HOLDER:
+        rankLimit = 6; // Add intermediate access level
+        break;
       default:
-        rankLimit = 21;
+        rankLimit = 21; // Guest access
     }
 
     // First, get total count

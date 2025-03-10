@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
-import { IHttpService, IHttpServiceResponse, IStockScreenerData } from '../types';
+import { 
+  IHttpService, 
+  IHttpServiceResponse, 
+  IStockScreenerResponse
+} from '../types';
 
 @Injectable()
 export class HttpService implements IHttpService {
@@ -42,9 +46,46 @@ export class HttpService implements IHttpService {
     );
   }
 
-  async fetchStockScreener(marketCode: string): Promise<IHttpServiceResponse<IStockScreenerData>> {
+  async fetchStockScreener(marketCode: string): Promise<IHttpServiceResponse<IStockScreenerResponse>> {
     try {
-      const response = await this.client.get(`/screener/${marketCode}`);
+      let endpoint: string;
+      let params: Record<string, string> = {};
+
+      // Handle different market types
+      switch (marketCode) {
+        case 'NASDAQ':
+          endpoint = '/screener/s';
+          params = {
+            m: 'marketCap',
+            s: 'desc',
+            c: 's,n',
+            f: 'exchange-is-NASDAQ'
+          };
+          break;
+        case 'NYSE':
+          endpoint = '/screener/a';
+          params = {
+            m: 'marketCap',
+            s: 'desc',
+            c: 's,n',
+            f: 'exchangeCode-is-NYSE'
+          };
+          break;
+        case 'UKR':
+          endpoint = '/screener/u';
+          params = {
+            m: 'marketCap',
+            s: 'desc',
+            c: 's,n',
+            f: 'exchangeCode-is-UKR'
+          };
+          break;
+        default:
+          this.logger.warn(`Unsupported market code: ${marketCode}`);
+          throw new Error(`Market ${marketCode} is not supported`);
+      }
+
+      const response = await this.client.get(endpoint, { params });
       return {
         data: response.data,
         status: response.status,

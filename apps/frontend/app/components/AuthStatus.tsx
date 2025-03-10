@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
+const publicRoutes = ["/login", "/register", "/privacy", "/terms"];
+
 export default function AuthStatus() {
-  const { isLoggedIn, userEmail, isAdmin, updateAuthStatus } = useAuth();
+  const { isLoggedIn } = useAuth();
+  const pathname = usePathname() || '';
+  const router = useRouter();
 
+  // Redirect to login if authentication is lost on protected routes
   useEffect(() => {
-    // Update auth status when component mounts
-    updateAuthStatus();
+    if (!isLoggedIn && !publicRoutes.includes(pathname)) {
+      router.push("/login");
+    }
+  }, [isLoggedIn, pathname, router]);
 
-    // Set up interval to periodically check auth status
-    const interval = setInterval(updateAuthStatus, 60000); // Check every minute
-    
-    return () => clearInterval(interval);
-  }, [updateAuthStatus]);
-
-  // Component doesn't need to render anything visible
   return null;
 }

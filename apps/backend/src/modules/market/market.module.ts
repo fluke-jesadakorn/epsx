@@ -5,8 +5,6 @@ import { HttpModule } from "@nestjs/axios";
 import { MarketController } from "./market.controller";
 import { MarketService } from "./market.service";
 import { EpsGrowth, EpsGrowthSchema } from "@epsx/shared";
-import { APP_GUARD } from "@nestjs/core";
-import { RolesGuard } from "../../shared/guards/role.guard";
 import { FinancialModule } from "../financial/financial.module";
 import { ExchangeModule } from "../exchange/exchange.module";
 import { StockModule } from "../stock/stock.module";
@@ -23,13 +21,7 @@ import { StockModule } from "../stock/stock.module";
     ExchangeModule,
   ],
   controllers: [MarketController],
-  providers: [
-    MarketService,
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
-  ],
+  providers: [MarketService],
   exports: [MarketService],
 })
 export class MarketModule {}

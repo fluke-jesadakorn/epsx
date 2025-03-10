@@ -1,31 +1,45 @@
 {
-  "extends": "../../packages/tsconfig/nest.json",
-  "references": [
-    { "path": "../../packages/shared" }
-  ],
   "compilerOptions": {
-    "composite": true,
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es2017",
+    "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "strict": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "strictPropertyInitialization": false,
+    "incremental": true,
     "skipLibCheck": true,
-    "preserveConstEnums": true,
-    "removeComments": false,
-    "useUnknownInCatchVariables": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./src/*"],
       "@epsx/shared": ["../../packages/shared/src"],
       "@epsx/shared/*": ["../../packages/shared/src/*"],
-      "@backend/shared": ["./src/shared"],
-      "@backend/shared/*": ["./src/shared/*"]
-    }
+      "@app/*": ["src/*"]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./test/types"
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../../packages/shared"
+    }
+  ]
 }

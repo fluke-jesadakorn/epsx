@@ -1,23 +1,23 @@
+import { Injectable } from '@nestjs/common';
 import { FirebaseAdminService } from './firebase-admin';
 
-export const auth = {
-  verifyToken: async (token: string) => {
-    const firebaseAdmin = new FirebaseAdminService();
-    return await firebaseAdmin.verifyIdToken(token);
-  },
-  
-  getUser: async (userId: string) => {
-    const firebaseAdmin = new FirebaseAdminService();
-    return await firebaseAdmin.getUser(userId);
-  },
+@Injectable()
+export class AuthService {
+  constructor(private readonly firebaseAdmin: FirebaseAdminService) {}
 
-  setCustomUserClaims: async (userId: string, claims: Record<string, any>) => {
-    const firebaseAdmin = new FirebaseAdminService();
-    return await firebaseAdmin.setCustomUserClaims(userId, claims);
-  },
-
-  getUserByEmail: async (email: string) => {
-    const firebaseAdmin = new FirebaseAdminService();
-    return await firebaseAdmin.getUserByEmail(email);
+  async verifyToken(token: string) {
+    return await this.firebaseAdmin.verifyIdToken(token);
   }
-};
+  
+  async getUser(userId: string) {
+    return await this.firebaseAdmin.getUser(userId);
+  }
+
+  async setCustomUserClaims(userId: string, claims: Record<string, any>) {
+    return await this.firebaseAdmin.setCustomUserClaims(userId, claims);
+  }
+
+  async getUserByEmail(email: string) {
+    return await this.firebaseAdmin.getUserByEmail(email);
+  }
+}

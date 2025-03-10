@@ -1,9 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { getAuthStatus } from "@/app/actions/getAuthStatus";
+
+interface NavbarProps {
+  isAdmin: boolean;
+  userEmail: string | null;
+}
+import {
+  LineChart,
+  User,
+  LogOut,
+  LogIn,
+  File,
+  Menu,
+  Settings,
+} from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import {
   NavigationMenu,
@@ -27,8 +41,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import ThemeToggle from "./ThemeToggle";
-import { Suspense } from "react";
-import AuthStatus from "@/app/components/AuthStatus";
 
 const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
   const items = [
@@ -49,7 +61,7 @@ const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
   if (isAdmin) {
     items.push({
       label: "Admin",
-      href: "/admin/roles",
+      href: "/admin",
       key: "admin",
       icon: <Settings className="h-4 w-4" />,
     });
@@ -58,19 +70,30 @@ const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
   return items;
 };
 
-export default function Navbar() {
-  const pathname = usePathname();
-  const { isLoggedIn, userEmail, isAdmin, updateAuthStatus } = useAuth();
+export default function Navbar({
+  isAdmin,
+  userEmail,
+}: NavbarProps) {
+  const pathname = usePathname() || "";
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const router = useRouter();
 
-  const logout = async () => {
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const authStatus = await getAuthStatus();
+      setIsLoggedIn(authStatus.isAuthenticated);
+    };
+    checkAuthStatus();
+  }, [pathname]);
+
+  const handleLogout = async () => {
     try {
-      const { logout } = await import('@/app/actions/auth');
-      const result = await logout();
-      if (result.success) {
-        await updateAuthStatus(); // Update auth context after logout
-        window.location.href = result.redirectUrl;
-      }
+      setIsOpen(false);
+      await logout();
+      router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -78,9 +101,6 @@ export default function Navbar() {
 
   return (
     <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
-      <Suspense fallback={null}>
-        <AuthStatus />
-      </Suspense>
       <div className="flex h-20 items-center px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
@@ -115,10 +135,10 @@ export default function Navbar() {
           </NavigationMenu>
         </div>
 
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-4 md:gap-6 justify-end min-w-[200px]">
           <ThemeToggle />
 
-          {isLoggedIn && userEmail && (
+          {isLoggedIn && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -128,11 +148,13 @@ export default function Navbar() {
                         <User className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline text-muted-foreground hover:text-primary">Setting</span>
+                    <span className="hidden md:inline text-muted-foreground hover:text-primary">
+                      Setting
+                    </span>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{userEmail}</p>
+                  <p>{userEmail || "User"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -168,7 +190,7 @@ export default function Navbar() {
                     variant="ghost"
                     onClick={() => {
                       setIsOpen(false);
-                      logout();
+                      handleLogout();
                     }}
                     className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
                   >
@@ -193,7 +215,7 @@ export default function Navbar() {
             {isLoggedIn ? (
               <Button
                 variant="ghost"
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-2 rounded-full hover:bg-primary/10 hover:cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />

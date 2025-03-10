@@ -1,155 +1,240 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PaginationParams } from '@epsx/shared/types';
 
-export class StockPaginationParamsDto implements PaginationParams {
+export class StockPaginationParamsDto {
   @ApiProperty({
-    description: 'Number of items per page',
-    example: 20,
-    required: false
+    description: 'Maximum number of stock records to return per page',
+    type: 'number',
+    minimum: 1,
+    maximum: 100,
+    default: 10,
+    required: false,
+    example: 20
   })
   limit?: number;
 
   @ApiProperty({
-    description: 'Number of items to skip',
-    example: 0,
-    required: false
+    description: 'Number of records to skip for pagination',
+    type: 'number',
+    minimum: 0,
+    default: 0,
+    required: false,
+    example: 20
   })
   skip?: number;
+
+  @ApiProperty({
+    description: 'Field to sort results by',
+    enum: ['marketCap', 'symbol', 'name', 'sector'],
+    default: 'marketCap',
+    required: false,
+    example: 'marketCap'
+  })
+  sortBy?: string;
+
+  @ApiProperty({
+    description: 'Sort direction',
+    enum: ['asc', 'desc'],
+    default: 'desc',
+    required: false,
+    example: 'desc'
+  })
+  sortOrder?: 'asc' | 'desc';
 }
 
 export class StockResponseDto {
   @ApiProperty({
-    description: 'Unique identifier of the stock',
-    example: '507f1f77bcf86cd799439011'
-  })
-  _id!: string;
-
-  @ApiProperty({
-    description: 'Stock symbol',
-    example: 'AAPL'
+    description: 'Stock market symbol/ticker',
+    example: 'AAPL',
+    type: 'string',
+    minLength: 1,
+    maxLength: 5,
+    pattern: '^[A-Z]{1,5}$'
   })
   symbol!: string;
 
   @ApiProperty({
-    description: 'Company name',
-    example: 'Apple Inc.'
+    description: 'Company legal name',
+    example: 'Apple Inc.',
+    type: 'string',
+    minLength: 1,
+    maxLength: 100
   })
-  company_name!: string;
+  name!: string;
 
   @ApiProperty({
-    description: 'Market cap in billions',
-    example: 2850.12
-  })
-  market_cap?: number;
-
-  @ApiProperty({
-    description: 'Market sector',
-    example: 'Technology'
-  })
-  sector?: string;
-
-  @ApiProperty({
-    description: 'Average trading volume',
-    example: 80000000
-  })
-  volume?: number;
-
-  @ApiProperty({
-    description: 'Exchange reference',
-    example: '507f1f77bcf86cd799439011'
+    description: 'Stock exchange where the stock is listed',
+    example: 'NASDAQ',
+    type: 'string',
+    minLength: 2,
+    maxLength: 10
   })
   exchange!: string;
 
   @ApiProperty({
-    description: 'Creation timestamp',
-    example: '2024-02-26T08:30:00.000Z'
+    description: 'Company market capitalization in USD',
+    example: 2500000000000,
+    type: 'number',
+    minimum: 0,
+    format: 'int64'
   })
-  createdAt?: Date;
+  marketCap!: number;
 
   @ApiProperty({
-    description: 'Last update timestamp',
-    example: '2024-02-26T08:30:00.000Z'
+    description: 'Business sector classification',
+    example: 'Technology',
+    type: 'string'
   })
-  updatedAt?: Date;
+  sector!: string;
+
+  @ApiProperty({
+    description: 'Specific industry within the sector',
+    example: 'Consumer Electronics',
+    type: 'string'
+  })
+  industry!: string;
+
+  @ApiProperty({
+    description: 'Company official website URL',
+    example: 'https://www.apple.com',
+    type: 'string',
+    format: 'uri',
+    pattern: '^https?://[\\w\\-]+(\\.[\\w\\-]+)+[/#?]?.*$'
+  })
+  website!: string;
+
+  @ApiProperty({
+    description: 'Brief company description and business overview',
+    example: 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide.',
+    type: 'string',
+    maxLength: 2000
+  })
+  description!: string;
+
+  @ApiProperty({
+    description: 'Current Chief Executive Officer',
+    example: 'Tim Cook',
+    type: 'string'
+  })
+  ceo!: string;
+
+  @ApiProperty({
+    description: 'Total number of employees',
+    example: 147000,
+    type: 'number',
+    minimum: 0,
+    format: 'int32'
+  })
+  employees!: number;
+
+  @ApiProperty({
+    description: 'Company headquarters location',
+    example: 'Cupertino, California',
+    type: 'string'
+  })
+  headquarters!: string;
 }
 
 export class PaginatedStockResponse {
   @ApiProperty({
-    description: 'List of stocks',
+    description: 'Array of stock records for the current page',
     type: [StockResponseDto]
   })
   data!: StockResponseDto[];
 
   @ApiProperty({
-    description: 'Total number of records',
-    example: 100
+    description: 'Total number of stock records available',
+    type: 'number',
+    minimum: 0,
+    example: 500
   })
   total!: number;
 
   @ApiProperty({
-    description: 'Current page number',
-    example: 1
+    description: 'Current page number (1-based)',
+    type: 'number',
+    minimum: 1,
+    example: 2
   })
   page!: number;
 
   @ApiProperty({
-    description: 'Items per page',
+    description: 'Number of items per page',
+    type: 'number',
+    minimum: 1,
+    maximum: 100,
     example: 20
   })
   limit!: number;
-
-  @ApiProperty({
-    description: 'Total number of pages',
-    example: 5
-  })
-  totalPages!: number;
 }
 
 export class ScrapeByMarketCapDto {
   @ApiProperty({
-    description: 'Minimum market cap in billions',
-    example: 1,
-    required: false
+    description: 'Minimum market capitalization in USD to include in scraping',
+    type: 'number',
+    minimum: 0,
+    format: 'int64',
+    example: 1000000000,
+    default: 1000000000
   })
-  minMarketCap?: number;
+  minMarketCap!: number;
 
   @ApiProperty({
-    description: 'Maximum market cap in billions',
-    example: 100,
-    required: false
+    description: 'Maximum market capitalization in USD to include in scraping',
+    type: 'number',
+    minimum: 0,
+    format: 'int64',
+    example: 5000000000000,
+    default: 5000000000000
   })
-  maxMarketCap?: number;
+  maxMarketCap!: number;
 }
 
 export class ScrapingStatusDto {
   @ApiProperty({
     description: 'Status of the scraping operation',
-    example: 'completed'
+    enum: ['success', 'failure'],
+    example: 'success'
   })
-  status!: string;
+  status!: 'success' | 'failure';
 
   @ApiProperty({
-    description: 'Number of records processed',
-    example: 500
+    description: 'Detailed status message describing the scraping result',
+    example: 'Stock data scraping completed successfully',
+    type: 'string'
   })
-  processed!: number;
+  message!: string;
 
   @ApiProperty({
-    description: 'Number of records failed',
-    example: 0
+    description: 'When the scraping operation was performed',
+    example: '2025-03-06T10:42:59Z',
+    type: 'string',
+    format: 'date-time'
   })
-  failed!: number;
+  timestamp!: string;
 
   @ApiProperty({
-    description: 'Total number of records',
-    example: 500
-  })
-  total!: number;
-
-  @ApiProperty({
-    description: 'Error message if any',
-    example: 'Failed to fetch data from API',
+    description: 'Total number of stocks successfully scraped',
+    example: 5000,
+    type: 'number',
+    minimum: 0,
     required: false
   })
-  error?: string;
+  totalStocksScraped?: number;
+
+  @ApiProperty({
+    description: 'How long the scraping operation took',
+    example: '2 hours 15 minutes',
+    type: 'string',
+    required: false
+  })
+  duration?: string;
+
+  @ApiProperty({
+    description: 'When the next scheduled scraping operation will occur',
+    example: '2025-03-07T10:42:59Z',
+    type: 'string',
+    format: 'date-time',
+    required: false
+  })
+  nextScrape?: string;
 }

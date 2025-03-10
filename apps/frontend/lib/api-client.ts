@@ -37,6 +37,7 @@ async function fetchWithAuth<TData = unknown>(
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       "X-Source": "Cloudflare-Workers",
     },
+    credentials: "include",
   };
 
   if (data && (method === "POST" || method === "PUT")) {

@@ -22,6 +22,7 @@ import { ExchangeService } from "./exchange.service";
 import {
   CreateExchangeDto,
   ExchangeResponseDto,
+  ExchangeScrapeResponseDto,
   PaginatedExchangeResponse,
 } from "./dto/exchange.dto";
 
@@ -208,7 +209,7 @@ export class ExchangeController {
   @ApiResponse({
     status: 200,
     description: "Exchanges successfully scraped and saved",
-    type: [ExchangeResponseDto],
+    type: ExchangeScrapeResponseDto,
   })
   @ApiResponse({
     status: 401,
@@ -222,7 +223,7 @@ export class ExchangeController {
     status: 500,
     description: "Error occurred while scraping exchanges - External service may be unavailable",
   })
-  async scrapeExchanges(): Promise<ExchangeResponseDto[]> {
+  async scrapeExchanges(): Promise<ExchangeScrapeResponseDto> {
     return this.exchangeService.scrapeAndSaveExchanges();
   }
 }
