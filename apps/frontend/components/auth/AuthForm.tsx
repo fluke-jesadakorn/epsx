@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { signInWithEmail } from "@/app/actions/auth-server";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -22,9 +21,13 @@ const formSchema = z.object({
 
 interface AuthFormProps {
   error?: string;
+  mode: 'login' | 'register';
+  onSubmit: (values: { email: string; password: string }) => Promise<void>;
+  onOAuthClick: (provider: 'google' | 'github') => Promise<void>;
+  isSubmitting: boolean;
 }
 
-export function AuthForm({ error }: AuthFormProps) {
+export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: AuthFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -43,14 +46,7 @@ export function AuthForm({ error }: AuthFormProps) {
       <Form<z.infer<typeof formSchema>>
         {...form}
         onSubmit={async (data) => {
-          try {
-            const formData = new FormData();
-            formData.append('email', data.email);
-            formData.append('password', data.password);
-            await signInWithEmail(formData);
-          } catch (error) {
-            console.error('Login error:', error);
-          }
+          await onSubmit(data);
         }}
       >
         <div className="space-y-4">
@@ -92,7 +88,7 @@ export function AuthForm({ error }: AuthFormProps) {
             type="submit"
             className="w-full"
           >
-            Sign In
+            {mode === 'login' ? 'Sign In' : 'Sign Up'}
           </Button>
         </div>
       </Form>
@@ -112,33 +108,8 @@ export function AuthForm({ error }: AuthFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
-            onClick={async () => {
-              try {
-                const response = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL}/auth/oauth`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      provider: 'google',
-                    }),
-                  }
-                );
-
-                if (!response.ok) {
-                  throw new Error("Failed to initialize OAuth");
-                }
-
-                const data = await response.json();
-                if (data.authUrl) {
-                  window.location.href = data.authUrl;
-                }
-              } catch (error) {
-                console.error('Google sign in error:', error);
-              }
-            }}
+            onClick={() => onOAuthClick('google')}
+            disabled={isSubmitting}
           >
             <svg
               className="mr-2 h-4 w-4"

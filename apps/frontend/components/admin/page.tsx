@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserRoleManager } from "./UserRoleManager";
+import UserRoleManager from "./UserRoleManager";
 import { UserRole } from "@/types/auth/roles";
 
 export default function AdminPage() {

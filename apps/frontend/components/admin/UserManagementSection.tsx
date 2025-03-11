@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserDetailsDialog } from "./UserDetailsDialog";
 import { Input } from "@/components/ui/input";

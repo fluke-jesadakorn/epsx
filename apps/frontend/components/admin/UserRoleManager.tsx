@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
-import { listUsers } from "@/app/actions/auth-server";
-type UserRole = "admin" | "premium" | "basic" | "public";
+import { updateUserRole } from "@/app/actions/admin-server";
+import { UserRole } from "@/types/auth/roles";
 import {
   Card,
   CardContent,
@@ -36,7 +36,7 @@ interface UserRoleManagerProps {
 export default function UserRoleManager({
   users: initialUsers,
 }: UserRoleManagerProps) {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const users = initialUsers; // No need for state since we're not modifying the users array
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<UserRole>();
   const [searchEmail, setSearchEmail] = useState("");
@@ -51,7 +51,7 @@ export default function UserRoleManager({
 
     startAssignTransition(async () => {
       try {
-        const result = await assignUserRole(selectedUser, selectedRole);
+        const result = await updateUserRole(selectedUser, selectedRole);
         if (result.success) {
           toast.success("Role assigned successfully");
         }
@@ -69,7 +69,13 @@ export default function UserRoleManager({
     });
   };
 
-  const availableRoles = ["admin", "premium", "basic", "public"] as const;
+  const availableRoles = [
+    UserRole.ADMINISTRATOR,
+    UserRole.TOKEN_HOLDER,
+    UserRole.PREMIUM_USER,
+    UserRole.REGISTERED_USER,
+    UserRole.GUEST
+  ] as const;
 
   const filteredUsers = users.filter((user) =>
     user.email?.toLowerCase().includes(searchEmail.toLowerCase())

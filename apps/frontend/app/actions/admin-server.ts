@@ -1,8 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { UserRole, hasRequiredAccessLevel } from "@/types/auth/roles";
+import { UserRole} from "@/types/auth/roles";
 import { TokenFeature, Permission } from "@/types/auth/features";
 
 interface User {

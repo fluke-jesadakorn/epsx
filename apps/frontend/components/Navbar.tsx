@@ -14,7 +14,7 @@ import {
   User,
   LogOut,
   LogIn,
-  File,
+  // File,
   Menu,
   Settings,
 } from "lucide-react";
@@ -44,12 +44,12 @@ import ThemeToggle from "./ThemeToggle";
 
 const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
   const items = [
-    {
-      label: "Docs",
-      href: "https://your-gitbook-url.com",
-      key: "docs",
-      icon: <File className="h-4 w-4" />,
-    },
+    // {
+    //   label: "Docs",
+    //   href: "https://your-gitbook-url.com",
+    //   key: "docs",
+    //   icon: <File className="h-4 w-4" />,
+    // },
     {
       label: "Ranking",
       href: "/ranking",
@@ -70,10 +70,7 @@ const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
   return items;
 };
 
-export default function Navbar({
-  isAdmin,
-  userEmail,
-}: NavbarProps) {
+export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
   const pathname = usePathname() || "";
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -185,33 +182,36 @@ export default function Navbar({
                   </Link>
                 ))}
 
-                {isLoggedIn ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setIsOpen(false);
-                      handleLogout();
-                    }}
-                    className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Logout
-                  </Button>
-                ) : (
-                  <Link
-                    href="/login"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
-                  >
-                    <LogIn className="h-4 w-4" />
-                    Login
-                  </Link>
-                )}
+                {/* Temporarily hidden login/logout buttons */}
+                <div className="hidden">
+                  {isLoggedIn ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setIsOpen(false);
+                        handleLogout();
+                      }}
+                      className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </Button>
+                  ) : (
+                    <Link
+                      href="/login"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Login
+                    </Link>
+                  )}
+                </div>
               </div>
             </SheetContent>
           </Sheet>
 
-          <div className="hidden md:block">
+          <div className="hidden">
             {isLoggedIn ? (
               <Button
                 variant="ghost"

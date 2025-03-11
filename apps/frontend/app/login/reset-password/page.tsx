@@ -54,7 +54,8 @@ const ResetPasswordPage = () => {
       setSuccess(true);
       setTimeout(() => router.push("/login"), 2000);
     } catch (error) {
-      setError('Password reset functionality not implemented');
+      console.error('Password reset error:', error);
+      setError(`Password reset functionality not implemented: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

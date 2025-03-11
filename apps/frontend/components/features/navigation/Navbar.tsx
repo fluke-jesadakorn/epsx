@@ -6,8 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { navigationService } from "@/services/navigation.service";
-import { authService } from "@/services/auth.service";
 import { UserRole } from "@/types/auth/roles";
+import { authService } from "@/services/auth.service";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -44,7 +44,7 @@ function NavbarComponent() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
-  const navItems = navigationService.getNavItems(isLoggedIn, isAdmin ? 'admin' : undefined);
+  const navItems = navigationService.getNavItems(isLoggedIn, isAdmin ? UserRole.ADMINISTRATOR : undefined);
 
   const handleLogout = async () => {
     try {

@@ -1,12 +1,3 @@
-import type { IStockBatchItem } from './stock';
-
-// Response types
-export interface StockScreenerResponse<T = IStockBatchItem> {
-  data: {
-    data: T[];
-    resultsCount?: number;
-  };
-}
 
 // Pagination types
 export interface PaginationParams {

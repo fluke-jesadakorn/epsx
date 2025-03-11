@@ -1,8 +1,8 @@
 import { fetchUserDetails } from "@/app/actions/admin-server";
+export const dynamic = "force-dynamic";
 import UserManagementSection from "@/components/admin/UserManagementSection";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,

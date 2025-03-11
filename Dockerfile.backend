@@ -1,35 +1,35 @@
-# Build stage
-FROM oven/bun:1.2.2 AS builder
+# Rust build stage
+FROM rust:1.75-slim AS builder
 
 WORKDIR /app
 
-# Copy root package files and workspace packages
-COPY package.json bun.lock turbo.json ./
-COPY packages ./packages
-COPY apps/backend ./apps/backend
+# Create blank project to cache dependencies
+RUN USER=root cargo new --bin rust-backend
+WORKDIR /app/rust-backend
 
-# Install dependencies
-RUN bun install
+# Copy and build just the dependencies
+COPY apps/rust-backend/Cargo.toml apps/rust-backend/Cargo.lock ./
+RUN cargo build --release
 
-# Build workspace dependencies and backend
-RUN bun install -g @nestjs/cli && bun turbo run build --filter=@epsx/backend...
+# Copy source code
+COPY apps/rust-backend/src ./src
 
-# Production stage
-FROM oven/bun:1.2.2-slim AS runner
+# Build application
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Set production environment and Cloud Run port
-ENV NODE_ENV=production \
-    PORT=3001
+# Copy built binary
+COPY --from=builder /app/rust-backend/target/release/rust-backend /usr/local/bin/rust-backend
 
-# Copy built dependencies and application
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/dist ./dist
+# Set production environment
+ENV RUST_LOG=info
 
-# Expose Cloud Run port
+# Expose port
 EXPOSE 3001
 
-# Start the server using Bun
-CMD ["bun", "dist/main.js"]
+# Run the application
+CMD ["rust-backend"]

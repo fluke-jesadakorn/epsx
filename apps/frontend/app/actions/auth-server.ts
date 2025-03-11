@@ -49,6 +49,74 @@ export async function verifyAuth() {
   };
 }
 
+interface OAuthProvider {
+  providerId: string;
+}
+
+export async function signInWithOAuth(provider: OAuthProvider) {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/oauth/init`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: provider.providerId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to initiate OAuth flow");
+    }
+
+    const { url } = await response.json();
+    window.location.href = url;
+  } catch (error) {
+    console.error("OAuth initialization error:", error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmailPassword({
+  email,
+  password,
+}: {
+  email: string;
+  password: string;
+}) {
+  if (!email || !password) {
+    throw new Error("Email and password are required");
+  }
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Registration failed");
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Registration error:", error);
+    throw error;
+  }
+}
+
 export async function signOut() {
   try {
     const cookieStore = await cookies();
@@ -142,8 +210,14 @@ export async function listUsers() {
       throw new Error("Failed to fetch users");
     }
 
+    interface UserResponse {
+      uid: string;
+      email: string;
+      role: UserRole;
+    }
+    
     const users = await response.json();
-    return users.map((user: any) => ({
+    return users.map((user: UserResponse) => ({
       userId: user.uid,
       email: user.email,
       role: user.role,

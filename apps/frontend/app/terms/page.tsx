@@ -123,10 +123,10 @@ export default function TermsPage() {
           <li>Terminate accounts that violate these terms</li>
         </ul>
 
-        <h3>6. Compliance with Google's Terms</h3>
+        <h3>6. Compliance with Google&apos;s Terms</h3>
         <p>
-          Our use of Google Sign-in complies with Google's OAuth 2.0 policies and terms of service.
-          You acknowledge that your use of Google Sign-in is also subject to Google's terms and policies.
+          Our use of Google Sign-in complies with Google&apos;s OAuth 2.0 policies and terms of service.
+          You acknowledge that your use of Google Sign-in is also subject to Google&apos;s terms and policies.
         </p>
       </div>
 

@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
-import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { TokenFeature } from '@/types/auth/features';
-import { UserRole } from '@/types/auth/roles';
-import { FeatureErrorBoundary } from './FeatureErrorBoundary';
+import React from "react";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { TokenFeature } from "@/types/auth/features";
+import { UserRole } from "@/types/auth/roles";
+import { FeatureErrorBoundary } from "./FeatureErrorBoundary";
 
 interface TokenGatedFeatureProps {
   feature: TokenFeature;
@@ -21,11 +21,10 @@ interface UpgradeCardProps {
 }
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({
-  feature,
   currentTokens,
   requiredTokens,
   currentRole,
-  requiredRole
+  requiredRole,
 }) => {
   return (
     <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
@@ -51,7 +50,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
                 <div
                   className="bg-blue-600 h-2.5 rounded-full"
                   style={{
-                    width: `${Math.min(100, (currentTokens / requiredTokens) * 100)}%`
+                    width: `${Math.min(100, (currentTokens / requiredTokens) * 100)}%`,
                   }}
                 ></div>
               </div>
@@ -65,7 +64,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
         <div className="mt-4">
           <button
             className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors"
-            onClick={() => window.location.href = '/upgrade'}
+            onClick={() => (window.location.href = "/upgrade")}
           >
             Upgrade Now
           </button>
@@ -78,14 +77,11 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
 export const TokenGatedFeature: React.FC<TokenGatedFeatureProps> = ({
   feature,
   children,
-  fallback
+  fallback,
 }) => {
   return (
     <FeatureErrorBoundary feature={feature} fallback={fallback}>
-      <TokenGatedContent 
-        feature={feature}
-        fallback={fallback}
-      >
+      <TokenGatedContent feature={feature} fallback={fallback}>
         {children}
       </TokenGatedContent>
     </FeatureErrorBoundary>
@@ -95,7 +91,7 @@ export const TokenGatedFeature: React.FC<TokenGatedFeatureProps> = ({
 const TokenGatedContent: React.FC<TokenGatedFeatureProps> = ({
   feature,
   children,
-  fallback
+  fallback,
 }) => {
   const { checkFeatureAccess } = useFeatureAccess();
   const access = checkFeatureAccess(feature);
@@ -137,7 +133,7 @@ export function withTokenGate<P extends object>(
 // Example usage with error handling:
 // const TradingBot = () => <div>Trading Bot Component</div>;
 // const SafeTradingBot = withTokenGate(
-//   TradingBot, 
+//   TradingBot,
 //   TokenFeature.TRADING_BOT,
 //   <div>Feature unavailable</div>
 // );

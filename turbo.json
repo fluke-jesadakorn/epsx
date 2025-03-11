@@ -10,14 +10,17 @@
         ".next/**",
         "!.next/cache/**",
         "build/**",
-        "packages/*/dist/**"
+        "packages/*/dist/**",
+        "apps/rust-backend/target/**"
       ],
       "inputs": [
         "src/**/*",
         "app/**/*",
         "tsconfig.json",
         "package.json",
-        "turbo.json"
+        "turbo.json",
+        "apps/rust-backend/Cargo.toml",
+        "apps/rust-backend/src/**/*.rs"
       ],
       "cache": true
     },

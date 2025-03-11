@@ -8,7 +8,6 @@ export default async function Template({
   children: React.ReactNode;
 }) {
   const {
-    isAuthenticated: isLoggedIn,
     email: userEmail,
     role,
   } = await getAuthStatus();

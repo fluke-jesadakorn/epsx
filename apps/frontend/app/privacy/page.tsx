@@ -59,13 +59,13 @@ export default function PrivacyPage() {
 
         <h3>6. Changes to Privacy Policy</h3>
         <p>
-          We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last updated" date.
+          We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the &ldquo;Last updated&rdquo; date.
         </p>
 
         <h3>7. Contact Us</h3>
         <p>
           If you have questions about this Privacy Policy, please contact us at:
-          [Your Contact Information]
+          &ldquo;Your Contact Information&rdquo;
         </p>
       </div>
     </div>

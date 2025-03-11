@@ -1,45 +1,44 @@
+"use client";
+
 import { AuthForm } from "@/components/auth/AuthForm";
 import { handleOAuthCallback } from "../actions/auth-server";
-import { Suspense } from "react";
+import { signInWithEmail } from "@/app/actions/auth-server";
+import { signInWithOAuth } from "@/utils/auth";
+import { GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
 import { LoadingForm } from "@/components/common/LoadingForm";
-import { redirect } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
-type SearchParams = { [key: string]: string | string[] | undefined };
-
-interface PageProps {
-  params: {};
-  searchParams: Promise<SearchParams>;
+interface AuthFormValues {
+  email: string;
+  password: string;
 }
 
-function getParamValue(
-  value: string | string[] | undefined
-): string | undefined {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value[0];
-  return undefined;
-}
+export default function Page() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  const error = searchParams.get('error');
 
-export default async function Page({ searchParams }: PageProps) {
-  // Await the searchParams before accessing properties
-  const params = await searchParams;
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        if (code && state) {
+          const urlParams = new URLSearchParams();
+          urlParams.set("code", code);
+          urlParams.set("state", state);
+          await handleOAuthCallback(urlParams);
+          router.push("/home");
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
 
-  // Extract search parameters after awaiting
-  const code = getParamValue(params.code);
-  const state = getParamValue(params.state);
-  const token = getParamValue(params.token);
-  const error = getParamValue(params.error);
-
-  try {
-    if (code && state) {
-      const urlParams = new URLSearchParams();
-      urlParams.set("code", code);
-      urlParams.set("state", state);
-      await handleOAuthCallback(urlParams);
-      redirect("/home");
-    }
-  } catch (error) {
-    console.error("Auth error:", error);
-  }
+    handleCallback();
+  }, [code, state, router]);
 
   // Handle errors from OAuth callback
   const authError = error 
@@ -55,10 +54,47 @@ export default async function Page({ searchParams }: PageProps) {
     );
   }
 
+  const handleEmailPasswordLogin = async ({ email, password }: AuthFormValues) => {
+    try {
+      setIsSubmitting(true);
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      await signInWithEmail(formData);
+      router.push("/home");
+    } catch (error) {
+      console.error("Login error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOAuthLogin = async (provider: "google" | "github") => {
+    try {
+      setIsSubmitting(true);
+      const authProvider =
+        provider === "google"
+          ? new GoogleAuthProvider()
+          : new GithubAuthProvider();
+      await signInWithOAuth(authProvider);
+      router.push("/home");
+    } catch (error) {
+      console.error("OAuth login error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Show auth form
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <AuthForm error={authError} />
+      <AuthForm
+        mode="login"
+        onSubmit={handleEmailPasswordLogin}
+        onOAuthClick={handleOAuthLogin}
+        isSubmitting={isSubmitting}
+        error={authError}
+      />
     </div>
   );
 }

@@ -4,4 +4,5 @@ export {
   signInWithOAuth,
   handleOAuthCallback,
   signOut,
+  signUpWithEmailPassword,
 } from "@/app/actions/auth-server";

@@ -23,8 +23,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: 'Role assigned successfully' });
   } catch (error) {
+    console.error('Role assignment error:', error);
     return NextResponse.json(
-      { error: 'Failed to assign role' },
+      { error: `Failed to assign role: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
