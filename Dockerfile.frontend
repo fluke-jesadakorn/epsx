@@ -1,38 +1,53 @@
 # Build stage
-FROM oven/bun:1.2.4-alpine AS builder
+FROM oven/bun:1.2.3 AS builder
 WORKDIR /app
 
-RUN bun add --global turbo
-# Copy workspace files
+# Copy package files for better layer caching
+COPY package.json bun.lock ./
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/package.json ./packages/shared/
+
+# Set environment variables
+ENV HUSKY=0 \
+    NODE_ENV=production \
+    NX_DAEMON=false
+
+# Install dependencies with caching
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --ignore-scripts
+
+# Copy the rest of the source code
 COPY . .
 
-ARG NODE_ENV=production
-
-RUN cd apps/frontend && bun install
-
-WORKDIR /app
-RUN bun run turbo build --filter=@epsx/frontend...
+# Build the application
+RUN cd apps/frontend && \
+    bun run build
 
 # Production stage
-FROM oven/bun:1.2.4-alpine AS runner
-
+FROM oven/bun:1.2.3-alpine AS runner
 WORKDIR /app
 
-# Set production environment variables
-ENV NODE_ENV=production
-# ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
+# Create app user
+RUN addgroup --system --gid 1001 bunjs \
+    && adduser --system --uid 1001 nextjs
 
-# Copy build outputs from builder
-COPY --from=builder /app/apps/frontend/.next ./.next
-COPY --from=builder /app/apps/frontend/node_modules ./node_modules
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/frontend/package.json ./package.json
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000
+
+# Copy necessary files from builder
 COPY --from=builder /app/apps/frontend/public ./public
+COPY --from=builder --chown=nextjs:bunjs /app/apps/frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:bunjs /app/apps/frontend/.next/static ./apps/frontend/.next/static
 
-# Expose port
+# Switch to non-root user
+USER nextjs
+
+# Expose the port
 EXPOSE 3000
 
-# Start the standalone Next.js server
-CMD ["bun", "run", "start"]
+# Start the server
+# Set the correct working directory for the server
+WORKDIR /app/apps/frontend
+
+CMD ["bun", "server.js"]

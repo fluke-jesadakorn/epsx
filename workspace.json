@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "projects": {
+    "frontend": {
+      "root": "apps/frontend",
+      "sourceRoot": "apps/frontend",
+      "projectType": "application",
+      "targets": {
+        "lint": {
+          "executor": "@nx/linter:eslint",
+          "outputs": ["{options.outputFile}"],
+          "options": {
+            "lintFilePatterns": ["apps/frontend/**/*.{ts,tsx,js,jsx}"]
+          }
+        },
+        "build": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "cd apps/frontend && NODE_ENV=production NEXT_MINIMAL=1 node_modules/next build",
+            "cwd": ".",
+            "env": {
+              "NODE_ENV": "production",
+              "NEXT_MINIMAL": "1",
+              "NEXT_TURBO": "1"
+            }
+          }
+        },
+        "serve": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "cd apps/frontend && next dev",
+            "cwd": "."
+          }
+        }
+      },
+      "tags": []
+    },
+    "backend": {
+      "root": "apps/backend",
+      "sourceRoot": "apps/backend/src",
+      "projectType": "application",
+      "dependencies": ["shared"],
+      "targets": {
+        "lint": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "cargo clippy",
+            "cwd": "apps/backend"
+          }
+        },
+        "build": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "cargo build --release",
+            "cwd": "apps/backend"
+          }
+        },
+        "serve": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "cargo watch -x run",
+            "cwd": "apps/backend"
+          }
+        }
+      },
+      "tags": []
+    },
+    "shared": {
+      "root": "packages/shared",
+      "sourceRoot": "packages/shared/src",
+      "projectType": "library",
+      "targets": {
+        "lint": {
+          "executor": "@nx/linter:eslint",
+          "outputs": ["{options.outputFile}"],
+          "options": {
+            "lintFilePatterns": ["packages/shared/**/*.ts"]
+          }
+        },
+        "build": {
+          "executor": "nx:run-commands",
+          "options": {
+            "command": "tsc",
+            "cwd": "packages/shared"
+          }
+        }
+      },
+      "tags": []
+    }
+  }
+}

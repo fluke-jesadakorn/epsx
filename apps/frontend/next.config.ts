@@ -1,15 +1,26 @@
+// @ts-check
+
+import { composePlugins, withNx } from "@nx/next";
 import type { NextConfig } from "next";
+import { join } from "path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
-    // Enable server components for better performance
     serverActions: {
       allowedOrigins: ["*"],
     },
+    optimizePackageImports: ["@radix-ui/react-*"],
   },
+  outputFileTracingRoot: join(__dirname, "../../"),
   poweredByHeader: false,
   generateEtags: true,
+  nx: {
+    svgr: false,
+  },
+  output: "standalone",
 };
 
-export default nextConfig;
+const plugins = [withNx];
+
+export default composePlugins(...plugins)(nextConfig);

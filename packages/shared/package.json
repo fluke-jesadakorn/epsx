@@ -10,7 +10,9 @@
     "dev": "tsc --watch --preserveWatchOutput",
     "lint": "eslint src --ext .ts,.tsx"
   },
-  "dependencies": {},
+  "dependencies": {
+    "firebase-admin": "13.2.0"
+  },
   "peerDependencies": {
     "axios": "1.8.2",
     "firebase": "11.4.0",
@@ -20,7 +22,6 @@
     "react-dom": "*"
   },
   "devDependencies": {
-    "@epsx/tsconfig": "workspace:*",
     "@swc/core": "^1.11.5",
     "@types/node": "22.13.10",
     "eslint": "9.22.0",

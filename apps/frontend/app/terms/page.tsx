@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -44,20 +45,23 @@ function SubscribeForm() {
             <FormItem>
               <FormControl>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-purple-400" />
                   <Input 
                     placeholder="Enter your email" 
-                    className="pl-10" 
+                    className="pl-10 bg-[#27262c] border-[#383241] focus:border-purple-500 focus-visible:ring-purple-500/20" 
                     {...field} 
                   />
                 </div>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
 
-        <Button type="submit">
+        <Button 
+          type="submit"
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold"
+        >
           Subscribe
         </Button>
       </form>
@@ -67,74 +71,83 @@ function SubscribeForm() {
 
 export default function TermsPage() {
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Terms and Conditions</h1>
-      
-      <div className="prose prose-gray max-w-none">
-        <p>Last updated: {new Date().toLocaleDateString()}</p>
-        
-        <h3>1. Introduction</h3>
-        <p>
-          Welcome to our platform. By accessing or using our services, you agree
-          to be bound by these terms and conditions, including our use of Google Sign-in
-          for authentication.
-        </p>
+    <div className="min-h-screen bg-[#08060B] text-white">
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="space-y-6">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Terms and Conditions
+            </h1>
+            <p className="text-gray-400">Last updated: {new Date().toLocaleDateString()}</p>
+          </div>
 
-        <h3>2. Authentication & Account Security</h3>
-        <p>
-          We use Google Sign-in to provide secure authentication. By using this service:
-        </p>
-        <ul>
-          <li>You agree to provide accurate information during the sign-in process</li>
-          <li>You acknowledge that we only request necessary permissions (email and basic profile)</li>
-          <li>You understand that token revocation may occur for security purposes</li>
-          <li>You are responsible for maintaining the security of your Google account</li>
-        </ul>
+          <Card className="p-8 bg-[#27262c] border-[#383241] rounded-[24px] shadow-xl">
+            <div className="prose prose-invert prose-purple max-w-none">
+              <h3 className="text-2xl font-bold text-purple-400 mb-4">1. Introduction</h3>
+              <p className="text-gray-300">
+                Welcome to our platform. By accessing or using our services, you agree
+                to be bound by these terms and conditions, including our use of Google Sign-in
+                for authentication.
+              </p>
 
-        <h3>3. Data Collection & Usage</h3>
-        <p>
-          We collect and process certain data as outlined in our Privacy Policy, including:
-        </p>
-        <ul>
-          <li>Basic profile information from Google (name and email)</li>
-          <li>Account preferences and settings</li>
-          <li>Authentication tokens and session data</li>
-        </ul>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">2. Authentication & Account Security</h3>
+              <p className="text-gray-300">
+                We use Google Sign-in to provide secure authentication. By using this service:
+              </p>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>You agree to provide accurate information during the sign-in process</li>
+                <li>You acknowledge that we only request necessary permissions (email and basic profile)</li>
+                <li>You understand that token revocation may occur for security purposes</li>
+                <li>You are responsible for maintaining the security of your Google account</li>
+              </ul>
 
-        <h3>4. User Responsibilities</h3>
-        <p>
-          As a user of our platform, you are responsible for:
-        </p>
-        <ul>
-          <li>Maintaining the confidentiality of your account</li>
-          <li>All activities that occur under your account</li>
-          <li>Notifying us of any unauthorized access</li>
-          <li>Keeping your Google account secure</li>
-        </ul>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">3. Data Collection & Usage</h3>
+              <p className="text-gray-300">
+                We collect and process certain data as outlined in our Privacy Policy, including:
+              </p>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>Basic profile information from Google (name and email)</li>
+                <li>Account preferences and settings</li>
+                <li>Authentication tokens and session data</li>
+              </ul>
 
-        <h3>5. Service Changes & Termination</h3>
-        <p>
-          We reserve the right to:
-        </p>
-        <ul>
-          <li>Modify or discontinue services at any time</li>
-          <li>Revoke access tokens for security purposes</li>
-          <li>Update authentication methods and requirements</li>
-          <li>Terminate accounts that violate these terms</li>
-        </ul>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">4. User Responsibilities</h3>
+              <p className="text-gray-300">
+                As a user of our platform, you are responsible for:
+              </p>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>Maintaining the confidentiality of your account</li>
+                <li>All activities that occur under your account</li>
+                <li>Notifying us of any unauthorized access</li>
+                <li>Keeping your Google account secure</li>
+              </ul>
 
-        <h3>6. Compliance with Google&apos;s Terms</h3>
-        <p>
-          Our use of Google Sign-in complies with Google&apos;s OAuth 2.0 policies and terms of service.
-          You acknowledge that your use of Google Sign-in is also subject to Google&apos;s terms and policies.
-        </p>
-      </div>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">5. Service Changes & Termination</h3>
+              <p className="text-gray-300">
+                We reserve the right to:
+              </p>
+              <ul className="list-disc pl-6 text-gray-300 space-y-2">
+                <li>Modify or discontinue services at any time</li>
+                <li>Revoke access tokens for security purposes</li>
+                <li>Update authentication methods and requirements</li>
+                <li>Terminate accounts that violate these terms</li>
+              </ul>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Subscribe for Updates</h2>
-        <Suspense fallback={<div>Loading subscription form...</div>}>
-          <SubscribeForm />
-        </Suspense>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">6. Compliance with Google&apos;s Terms</h3>
+              <p className="text-gray-300">
+                Our use of Google Sign-in complies with Google&apos;s OAuth 2.0 policies and terms of service.
+                You acknowledge that your use of Google Sign-in is also subject to Google&apos;s terms and policies.
+              </p>
+            </div>
+          </Card>
+
+          <Card className="p-8 bg-[#27262c] border-[#383241] rounded-[24px] shadow-xl mt-8">
+            <h2 className="text-2xl font-bold text-purple-400 mb-6">Subscribe for Updates</h2>
+            <Suspense fallback={<div>Loading subscription form...</div>}>
+              <SubscribeForm />
+            </Suspense>
+          </Card>
+        </div>
       </div>
     </div>
   );
