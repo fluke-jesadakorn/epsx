@@ -1,9 +1,11 @@
 {
-  "name": "@epsx/shared",
-  "version": "1.0.0",
+  "name": "@epsx/api-client",
+  "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "lint": "nx lint",
     "build": "nx build",
@@ -13,18 +15,10 @@
   "dependencies": {
     "@epsx/types": "workspace:*",
     "@epsx/utils": "workspace:*",
-    "firebase-admin": "13.2.0"
-  },
-  "peerDependencies": {
     "axios": "1.8.2",
-    "firebase": "11.4.0",
-    "zod": "3.24.2",
-    "next": "*",
-    "react": "*",
-    "react-dom": "*"
+    "zod": "3.24.2"
   },
   "devDependencies": {
-    "@types/node": "22.13.10",
-    "vitest": "3.0.8"
+    "@types/node": "22.13.10"
   }
 }

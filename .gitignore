@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-.pnp
+.pnp/
 .pnp.js
 package-lock.json
 yarn.lock
@@ -46,16 +46,16 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# Others
-*.pem
+# Environment Variables
 .env
 .env.local
 .env.development
 .env.test
 .env.production
+*.env
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -65,35 +65,82 @@ lerna-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+tsconfig.tsbuildinfo
 
 # Turbo
-.turbo
+.turbo/
 
 # NX
 .nx/
 tmp/
 **/tmp/
-/dist
-/tmp
-/.nx
+/dist/
+/tmp/
+/.nx/
 **/.nx/
 **/nx-cache/
 
-# IDE
-.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# IDE and Editors
+## VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+*.code-workspace
+
+## JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+## Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+## Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
 
 # Rust/Backend specific
 target/
 Cargo.lock
 **/*.rs.bk
+
+# SSL/TLS
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.pfx
+*.p12
+
+# Packages specific
+packages/**/dist/
+packages/**/build/
+packages/**/.cache/
+
+# Backups
+*.bak
+*.backup
+*.old
+*.orig
+*.swp
+*.swo
+
+# Debug
+.debug/
+debug/
+.debug.log
+
+# Cache
+.cache/
+**/.cache/

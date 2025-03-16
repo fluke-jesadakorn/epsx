@@ -1,0 +1,23 @@
+{
+  "name": "@epsx/utils",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "lint": "nx lint",
+    "build": "nx build",
+    "clean": "rm -rf dist node_modules/.cache",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@epsx/types": "workspace:*",
+    "date-fns": "4.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.10"
+  }
+}

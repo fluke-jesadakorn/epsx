@@ -1,24 +1,24 @@
 // @ts-check
 
-import { composePlugins, withNx } from "@nx/next";
-import type { NextConfig } from "next";
-import { join } from "path";
+import { composePlugins, withNx } from '@nx/next';
+import type { NextConfig } from 'next';
+import { join } from 'path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      allowedOrigins: ["*"],
+      allowedOrigins: ['*'],
     },
-    optimizePackageImports: ["@radix-ui/react-*"],
+    optimizePackageImports: ['@radix-ui/react-*'],
   },
-  outputFileTracingRoot: join(__dirname, "../../"),
+  outputFileTracingRoot: join(__dirname, '../../'),
   poweredByHeader: false,
   generateEtags: true,
   nx: {
     svgr: false,
   },
-  output: "standalone",
+  // output: 'standalone',
 };
 
 const plugins = [withNx];
