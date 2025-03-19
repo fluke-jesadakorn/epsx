@@ -97,7 +97,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
+    <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm relative z-50">
       <div className="flex h-20 items-center px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
@@ -109,23 +109,22 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
             <NavigationMenuList className="flex space-x-2">
               {getNavItems(isLoggedIn, isAdmin).map((item) => (
                 <NavigationMenuItem key={item.key}>
-                  <Link href={item.href} legacyBehavior passHref>
-                    <Button
-                      variant="ghost"
-                      asChild
-                      className={`flex items-center gap-2 rounded-full hover:bg-primary/10
-                      ${
-                        pathname === item.href
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:text-primary"
-                      }`}
-                    >
-                      <NavigationMenuLink className="flex flex-row items-center gap-2">
-                        <div>{item.icon}</div>
-                        <div>{item.label}</div>
-                      </NavigationMenuLink>
-                    </Button>
-                  </Link>
+                  <NavigationMenuLink asChild>
+                    <Link href={item.href}>
+                      <Button
+                        variant="ghost"
+                        className={`flex items-center gap-2 rounded-full hover:bg-primary/10
+                        ${
+                          pathname === item.href
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:text-primary"
+                        }`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </Button>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
               ))}
             </NavigationMenuList>
@@ -182,16 +181,15 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                   </Link>
                 ))}
 
-                {/* Temporarily hidden login/logout buttons */}
-                <div className="hidden">
+                <div className="border-t pt-4 mt-2">
                   {isLoggedIn ? (
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        setIsOpen(false);
                         handleLogout();
+                        setIsOpen(false);
                       }}
-                      className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                      className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary"
                     >
                       <LogOut className="h-4 w-4" />
                       Logout
@@ -200,7 +198,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                     <Link
                       href="/login"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary"
                     >
                       <LogIn className="h-4 w-4" />
                       Login
@@ -211,7 +209,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
             </SheetContent>
           </Sheet>
 
-          <div className="hidden">
+          <div className="hidden md:block">
             {isLoggedIn ? (
               <Button
                 variant="ghost"

@@ -4,6 +4,8 @@ node_modules/
 .pnp
 .pnp.js
 yarn.lock
+package-lock.json
+pnpm-lock.yaml
 
 # Build and Cache
 .next/
@@ -17,11 +19,18 @@ tmp/
 **/tmp/
 **/.nx/
 **/nx-cache/
+.cache/
+**/.cache
+.turbo
+**/.turbo
 
 # Environment and Config
 .env
 .env.*
 !.env.production
+**/.env
+**/.env.*
+!**/.env.production
 
 # Testing and Coverage
 coverage/
@@ -29,6 +38,12 @@ coverage/
 **/coverage/
 reports/
 **/junit/
+**/__tests__/
+**/__mocks__/
+**/test/
+**/tests/
+vitest.config.*
+jest.config.*
 
 # Logs
 logs/
@@ -43,6 +58,8 @@ lerna-debug.log*
 .git/
 .gitignore
 .gitattributes
+**/.git
+**/.gitignore
 
 # IDE
 .idea/
@@ -53,27 +70,43 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+.history/
+**/.history
 
 # Documentation
 *.md
 docs/
 CHANGELOG*
 LICENSE*
+**/*.md
+**/docs/
 
 # OS Files
 .DS_Store
 Thumbs.db
 *.swp
 *~
+**/.DS_Store
 
 # Rust/Backend
 target/
 Cargo.lock
 **/*.rs.bk
+**/target/
 
 # TypeScript
 *.tsbuildinfo
+**/*.tsbuildinfo
 
 # Misc
 *.pem
 .directory
+**/.directory
+.eslintrc*
+.prettier*
+.editorconfig
+storybook/
+**/storybook/
+**/stories/
+.husky/
+.lint-staged*

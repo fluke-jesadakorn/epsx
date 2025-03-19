@@ -11,23 +11,27 @@ export class ApiClient {
 
   // Generic request methods
   async get<T>(endpoint: string, headers = {}) {
-    const response = await this.axios.get<T>(endpoint, { headers });
-    return response.data;
+    return this.handleRequest(
+      this.axios.get<T>(endpoint, { headers }).then(response => response.data)
+    );
   }
 
   async post<T, TData = unknown>(endpoint: string, data: TData, headers = {}) {
-    const response = await this.axios.post<T>(endpoint, data, { headers });
-    return response.data;
+    return this.handleRequest(
+      this.axios.post<T>(endpoint, data, { headers }).then(response => response.data)
+    );
   }
 
   async put<T, TData = unknown>(endpoint: string, data: TData, headers = {}) {
-    const response = await this.axios.put<T>(endpoint, data, { headers });
-    return response.data;
+    return this.handleRequest(
+      this.axios.put<T>(endpoint, data, { headers }).then(response => response.data)
+    );
   }
 
   async delete<T>(endpoint: string, headers = {}) {
-    const response = await this.axios.delete<T>(endpoint, { headers });
-    return response.data;
+    return this.handleRequest(
+      this.axios.delete<T>(endpoint, { headers }).then(response => response.data)
+    );
   }
 
   // Specific API endpoints

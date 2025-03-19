@@ -32,10 +32,18 @@ export default function ClientEpsCardSection({
 
   return (
     <div
-      className={`flex flex-col gap-4 w-full ${className || ""}`}
+      className={`flex flex-col gap-6 w-full ${className || ""}`}
       style={style}
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+      {/* Section Header */}
+      <div className="text-center space-y-4 mb-4 animate-fade-in">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+          Top Performing Companies
+        </h2>
+        <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full" />
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full animate-fade-in-delayed">
         {initialData.slice(0, 3).map((item, index) => {
           if (!item?.symbol || !item?.name) {
             console.error("Missing required data for item:", item);
@@ -45,23 +53,24 @@ export default function ClientEpsCardSection({
           return (
             <Card
               key={item.symbol || index}
-              className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card via-card/80 to-card/50"
+              className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-2 bg-gradient-to-br from-card via-card/80 to-card/50 border border-blue-500/10 hover:border-blue-500/30 group"
             >
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 group-hover:bg-gradient-to-br from-blue-500/5 to-purple-500/5 transition-colors duration-300">
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-between items-center">
-                    <span
-                      className={`${getMarketColor(item.exchange)} font-medium px-3 py-1 rounded-full bg-primary/5`}
+                      <span
+                        className={`${getMarketColor(item.exchange)} font-medium px-3 py-1 rounded-full bg-primary/5 group-hover:scale-105 transition-transform duration-300`}
                     >
                       {item.exchange || "N/A"}
                     </span>
                     {index < 3 && (
                       <span
                         className={`
-                            font-bold text-sm px-3 py-1 rounded-full
-                            ${index === 0 ? "bg-yellow-100 text-yellow-700" : ""}
-                            ${index === 1 ? "bg-gray-100 text-gray-700" : ""}
-                            ${index === 2 ? "bg-amber-100 text-amber-700" : ""}
+                            font-bold text-sm px-3 py-1 rounded-full shadow-sm
+                            ${index === 0 ? "bg-gradient-to-r from-yellow-300 to-yellow-400 text-yellow-900" : ""}
+                            ${index === 1 ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900" : ""}
+                            ${index === 2 ? "bg-gradient-to-r from-amber-300 to-amber-400 text-amber-900" : ""}
+                            group-hover:scale-105 transition-transform duration-300
                           `}
                       >
                         Rank #{index + 1}
@@ -77,19 +86,19 @@ export default function ClientEpsCardSection({
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="group-hover:bg-gradient-to-br from-blue-500/5 to-purple-500/5 transition-colors duration-300">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-muted-foreground">Signal</p>
                       <p
-                        className={`font-semibold ${
+                        className={`font-semibold transition-colors ${
                           item.startBuy?.active
-                            ? "text-green-500"
+                            ? "text-green-500 group-hover:text-green-400"
                             : item.startAction?.type === "sell" &&
                                 item.startAction?.active
-                              ? "text-rose-500"
-                              : "text-yellow-500"
+                              ? "text-rose-500 group-hover:text-rose-400"
+                              : "text-yellow-500 group-hover:text-yellow-400"
                         }`}
                       >
                         {item.startBuy?.active
@@ -104,7 +113,11 @@ export default function ClientEpsCardSection({
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-muted-foreground">Growth</p>
                       <p
-                        className={`font-semibold ${parseFloat(item.epsGrowth) >= 0 ? "text-green-500" : "text-rose-500"}`}
+                        className={`font-semibold transition-colors ${
+                          parseFloat(item.epsGrowth) >= 0 
+                            ? "text-green-500 group-hover:text-green-400" 
+                            : "text-rose-500 group-hover:text-rose-400"
+                        }`}
                       >
                         {item.epsGrowth || "0%"}
                       </p>
@@ -123,7 +136,7 @@ export default function ClientEpsCardSection({
                       </p>
                     </div>
                   </div>
-                  <div className="pt-2 border-t flex justify-between items-center">
+                  <div className="pt-3 mt-2 border-t border-blue-500/10 flex justify-between items-center">
                     <p className="text-xs text-muted-foreground">
                       Last Report: {item.lastEarningsDate || "N/A"}
                     </p>
@@ -131,9 +144,9 @@ export default function ClientEpsCardSection({
                       href={`https://www.tradingview.com/symbols/${item.symbol}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                      className="text-xs text-blue-500 hover:text-blue-400 transition-colors flex items-center gap-1 group-hover:gap-2"
                     >
-                      View Chart →
+                      View Chart <span className="transition-transform group-hover:translate-x-1">→</span>
                     </a>
                   </div>
                 </div>

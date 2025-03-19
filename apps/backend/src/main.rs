@@ -10,6 +10,7 @@ use crate::{ app_state::AppState, config::Config, error::AppResult };
 use std::net::SocketAddr;
 use tracing_subscriber::{ layer::SubscriberExt, util::SubscriberInitExt };
 use tokio::signal;
+use axum::{Router, extract::connect_info::IntoMakeServiceWithConnectInfo};
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
@@ -27,11 +28,11 @@ async fn main() -> AppResult<()> {
     // Load configuration
     let config = Config::from_env()?;
 
-    // Create application state
+    // Create application state and router
     let state = AppState::new(config.clone()).await?;
 
     // Create router with all routes
-    let app = routes::create_router(state);
+    let app = routes::create_router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     // Get address to bind to
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
@@ -49,9 +50,9 @@ async fn main() -> AppResult<()> {
     };
 
     // Start the server with graceful shutdown
-    axum
-        ::serve(listener, app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal()).await
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
         .map_err(|e| error::AppError::Internal(e.to_string()))?;
 
     tracing::info!("Server shutdown completed");

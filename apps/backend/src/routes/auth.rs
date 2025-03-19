@@ -4,7 +4,7 @@ use axum::{
     routing::{post, get, delete},
     Router,
     Json,
-    http::{StatusCode, header, HeaderMap},
+    http::{StatusCode, header},
     middleware::from_fn_with_state,
 };
 use serde::{Deserialize, Serialize};
@@ -46,10 +46,8 @@ struct VerifyResponse {
 //     .route("/protected", get(protected_handler))
 //     .layer(from_fn_with_state(state, session_auth_middleware))
 // ```
-pub fn auth_routes(state: Arc<AppState>) -> Router {
-    let app_state = state.clone();
+pub fn auth_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
-        .with_state(app_state)
         .route("/session", post(create_session))
         .route("/verify", get(verify_session))
         .route(
@@ -57,6 +55,7 @@ pub fn auth_routes(state: Arc<AppState>) -> Router {
             delete(revoke_tokens)
                 .layer(from_fn_with_state(state.clone(), firebase_auth_middleware))
         )
+        .with_state(state)
 }
 
 async fn create_session(

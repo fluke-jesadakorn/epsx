@@ -1,5 +1,5 @@
 node_modules
-.next
+# Allow .next directory for build output
 dist
 build
 coverage

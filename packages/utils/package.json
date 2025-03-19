@@ -7,17 +7,21 @@
   "types": "./dist/index.d.ts",
   "sideEffects": false,
   "scripts": {
-    "lint": "nx lint",
-    "build": "nx build",
+    "lint": "eslint src",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "clean": "rm -rf dist node_modules/.cache",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@epsx/types": "workspace:*",
     "date-fns": "4.1.0",
+    "yahoo-finance2": "2.13.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/node": "22.13.10"
+    "@types/node": "22.13.10",
+    "tsup": "^8.0.2",
+    "typescript": "^5.7.3"
   }
 }
