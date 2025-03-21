@@ -24,7 +24,8 @@ build-frontend:
 		--platform $(PLATFORMS) \
 		-t $(FRONTEND_IMAGE):$(ENV)-$(TAG) \
 		-t $(FRONTEND_IMAGE):$(ENV)-latest \
-		-f Dockerfile .
+		-f Dockerfile \
+		--build-context frontend=. .
 
 force-build-frontend:
 	@echo $(TAG) > $(TAG_FILE)
@@ -33,7 +34,9 @@ force-build-frontend:
 		--platform $(PLATFORMS) \
 		-t $(FRONTEND_IMAGE):$(ENV)-$(TAG) \
 		-t $(FRONTEND_IMAGE):$(ENV)-latest \
-		-f Dockerfile .
+		--progress=plain \
+		-f Dockerfile \
+		--build-context frontend=. .
 
 push-frontend:
 	docker push $(FRONTEND_IMAGE):$(ENV)-$(TAG)

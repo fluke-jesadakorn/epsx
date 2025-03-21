@@ -1,8 +1,20 @@
-# Ignore everything
-*
+# Temporary files
+**/*.rs.bk
+**/*.swp
 
-# Except these files
-!Cargo.toml
-!Cargo.lock
-!src/
-!target/release/rust-backend
+# Target directory, except release binary
+target/*
+!target/release/
+target/release/*
+!target/release/backend
+
+# Git directory
+.git/
+
+# Environment files
+.env*
+!.env.example
+
+# Editor directories
+.vscode/
+.idea/

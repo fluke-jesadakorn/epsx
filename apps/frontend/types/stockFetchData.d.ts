@@ -38,32 +38,49 @@ export interface TradingViewStock {
   ];
 }
 
-export interface TableStockData {
+export interface TableDataMetrics {
   symbol: string;
   name: string;
-  price: string;
-  changePercent: string;
-  volume: string;
-  marketCap: string;
-  peRatio: string;
+  valueIndex: string;
+  growthRate: string;
+  activityScore: string;
+  marketSize: string;
+  growthFactor: string;
   sector: string;
   country: string;
   exchange: string;
   currency: string;
-  startBuy: {
+  entryPhase: {
     date: string;
     active: boolean;
   };
-  startAction: {
+  phaseStatus: {
     date: string;
-    type: 'hold' | 'sell';
+    type: 'monitor' | 'exit';
     active: boolean;
   };
-  // Keep EPS data in type but don't display in frontend
-  eps: string;
-  epsGrowth: string;
-  currentQuarterEps: string;
-  nextEps: string;
-  lastEarningsDate: string;
-  nextEarningsDate: string;
+  // Analytics data kept but renamed
+  metricScore: string;
+  growthIndicator: string;
+  currentMetric: string;
+  predictedMetric: string;
+  lastAnalysisDate: string;
+  nextAnalysisDate: string;
+  // Additional fields used in ClientEpsCardSection
+  startBuy?: {
+    active: boolean;
+  };
+  startAction?: {
+    type: 'sell' | 'hold';
+    active: boolean;
+  };
+  epsGrowth?: string;
+  lastEarningsDate?: string;
+  // Additional fields used in StockGrowthTable
+  currentQuarterEps?: string;
+  nextEps?: string;
+  price?: string;
+  changePercent?: string;
+  volume?: string;
+  nextEarningsDate?: string;
 }

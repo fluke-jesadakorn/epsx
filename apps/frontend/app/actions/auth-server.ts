@@ -1,9 +1,10 @@
-"use server";
+'use server';
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { UserRole } from "@/types/auth/roles";
-import { TokenFeature, Permission } from "@/types/auth/features";
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { UserRole } from '@/types/auth/roles';
+import { TokenFeature, Permission } from '@/types/auth/features';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthResponse {
   token: string;
@@ -17,12 +18,12 @@ interface AuthResponse {
 
 export async function verifyAuth() {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("__session");
-  const email = cookieStore.get("email");
-  const role = cookieStore.get("role");
-  const tokenBalance = cookieStore.get("token_balance");
-  const features = cookieStore.get("features");
-  const permissions = cookieStore.get("permissions");
+  const sessionToken = cookieStore.get('__session');
+  const email = cookieStore.get('email');
+  const role = cookieStore.get('role');
+  const tokenBalance = cookieStore.get('token_balance');
+  const features = cookieStore.get('features');
+  const permissions = cookieStore.get('permissions');
 
   if (!sessionToken || !email || !role) {
     return {
@@ -49,235 +50,169 @@ export async function verifyAuth() {
   };
 }
 
-interface OAuthProvider {
-  providerId: string;
-}
-
-export async function signInWithOAuth(provider: OAuthProvider) {
+export async function signInWithOAuth(providerId: string) {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/oauth/init`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider: provider.providerId,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to initiate OAuth flow");
+    console.info('Initiating OAuth flow', { providerId });
+    
+    const { url } = await apiClient.auth.googleInit();
+    console.info('Received OAuth init response:', { url });
+    
+    if (!url) {
+      console.error('OAuth init response missing URL');
+      throw new Error('OAuth initialization response missing redirect URL');
     }
 
-    const { url } = await response.json();
-    window.location.href = url;
+    console.info('OAuth init successful, returning URL:', url);
+    return { redirectUrl: url };
   } catch (error) {
-    console.error("OAuth initialization error:", error);
+    console.error('OAuth initialization error:', error);
+    // Log additional error details if available
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+    }
     throw error;
   }
 }
 
-export async function signUpWithEmailPassword({
-  email,
-  password,
-}: {
-  email: string;
-  password: string;
-}) {
+export async function signUpWithEmailPassword({ email, password }: { email: string; password: string }) {
   if (!email || !password) {
-    throw new Error("Email and password are required");
+    throw new Error('Email and password are required');
   }
 
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Registration failed");
-    }
-
-    return response.json();
+    return await apiClient.auth.register({ email, password });
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error('Registration error:', error);
     throw error;
   }
 }
 
 export async function signOut() {
   try {
+    await apiClient.auth.logout();
+    
     const cookieStore = await cookies();
-    cookieStore.delete("__session");
-    cookieStore.delete("email");
-    cookieStore.delete("role");
-    cookieStore.delete("token_balance");
-    cookieStore.delete("features");
-    cookieStore.delete("permissions");
+    cookieStore.delete('__session');
+    cookieStore.delete('email');
+    cookieStore.delete('role');
+    cookieStore.delete('token_balance');
+    cookieStore.delete('features');
+    cookieStore.delete('permissions');
+    cookieStore.delete('oauth_state');
 
-    redirect("/login");
+    redirect('/login');
   } catch (error) {
-    console.error("Sign out error:", error);
+    console.error('Sign out error:', error);
     throw error;
   }
 }
 
 export async function handleOAuthCallback(params: URLSearchParams) {
-  const code = params.get("code");
-  const state = params.get("state");
+  const code = params.get('code');
+  const state = params.get('state');
 
   if (!code || !state) {
-    throw new Error("Invalid OAuth callback parameters");
+    throw new Error('Invalid OAuth callback parameters');
   }
 
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/oauth/callback`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          code,
-          state,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("OAuth authentication failed");
+    // Verify state starts with valid provider
+    if (!state.startsWith('google_') && !state.startsWith('github_')) {
+      throw new Error('Invalid state parameter');
     }
 
-    const data: AuthResponse = await response.json();
+    const data: AuthResponse = await apiClient.auth.googleCallback(code, state);
+    
+    // Validate required fields in response
+    if (!data.token || !data.email) {
+      console.error('Invalid auth response:', data);
+      throw new Error('Invalid authentication response');
+    }
 
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax" as const,
-      path: "/",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
       maxAge: 60 * 60 * 24 * 7, // 1 week
     };
 
     const cookieStore = await cookies();
-    cookieStore.set("__session", data.token, cookieOptions);
-    cookieStore.set("email", data.email, cookieOptions);
-    cookieStore.set("role", data.role, cookieOptions);
+    cookieStore.set('__session', data.token, cookieOptions);
+    cookieStore.set('email', data.email, cookieOptions);
+    cookieStore.set('role', data.role || UserRole.REGISTERED_USER, cookieOptions);
     cookieStore.set(
-      "token_balance",
-      data.tokenBalance.toString(),
+      'token_balance',
+      (data.tokenBalance || 0).toString(),
       cookieOptions
     );
-    cookieStore.set("features", JSON.stringify(data.features), cookieOptions);
     cookieStore.set(
-      "permissions",
-      JSON.stringify(data.permissions),
+      'features', 
+      JSON.stringify(data.features || []),
+      cookieOptions
+    );
+    cookieStore.set(
+      'permissions',
+      JSON.stringify(data.permissions || []),
       cookieOptions
     );
 
     return data;
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    console.error('OAuth callback error:', error);
     throw error;
   }
 }
 
 export async function listUsers() {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/roles`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch users");
-    }
-
-    interface UserResponse {
-      uid: string;
-      email: string;
-      role: UserRole;
-    }
-    
-    const users = await response.json();
-    return users.map((user: UserResponse) => ({
+    const users = await apiClient.auth.roles();
+    return users.map(user => ({
       userId: user.uid,
       email: user.email,
-      role: user.role,
+      role: user.role as UserRole,
     }));
   } catch (error) {
-    console.error("Error fetching users:", error);
+    console.error('Error fetching users:', error);
     throw error;
   }
 }
 
 export async function signInWithEmail(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || "/home";
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const redirectTo = (formData.get('redirectTo') as string) || '/home';
 
   if (!email || !password) {
-    throw new Error("Email and password are required");
+    throw new Error('Email and password are required');
   }
 
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Invalid credentials");
-    }
-
-    const data: AuthResponse = await response.json();
+    const data: AuthResponse = await apiClient.auth.login({ email, password });
 
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax" as const,
-      path: "/",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
       maxAge: 60 * 60 * 24 * 7, // 1 week
     };
 
     const cookieStore = await cookies();
-    cookieStore.set("__session", data.token, cookieOptions);
-    cookieStore.set("email", data.email, cookieOptions);
-    cookieStore.set("role", data.role, cookieOptions);
+    cookieStore.set('__session', data.token, cookieOptions);
+    cookieStore.set('email', data.email, cookieOptions);
+    cookieStore.set('role', data.role, cookieOptions);
     cookieStore.set(
-      "token_balance",
+      'token_balance',
       data.tokenBalance.toString(),
       cookieOptions
     );
-    cookieStore.set("features", JSON.stringify(data.features), cookieOptions);
+    cookieStore.set('features', JSON.stringify(data.features), cookieOptions);
     cookieStore.set(
-      "permissions",
+      'permissions',
       JSON.stringify(data.permissions),
       cookieOptions
     );

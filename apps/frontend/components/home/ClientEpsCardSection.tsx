@@ -2,13 +2,13 @@
 
 import React from "react";
 import type { CSSProperties } from "react";
-import { TableStockData } from "@/types/stockFetchData";
+import { TableDataMetrics } from "@/types/stockFetchData";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 interface Props {
   style?: CSSProperties;
   className?: string;
-  initialData: TableStockData[];
+  initialData: TableDataMetrics[];
   initialTotal: number;
 }
 
@@ -114,7 +114,7 @@ export default function ClientEpsCardSection({
                       <p className="text-sm text-muted-foreground">Growth</p>
                       <p
                         className={`font-semibold transition-colors ${
-                          parseFloat(item.epsGrowth) >= 0 
+                          parseFloat(item.epsGrowth || "0") >= 0 
                             ? "text-green-500 group-hover:text-green-400" 
                             : "text-rose-500 group-hover:text-rose-400"
                         }`}

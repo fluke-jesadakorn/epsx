@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 async function AnalyticsPage() {
   const { data } = await fetchEpsGrowthRanking({
-    sortBy: "epsGrowth", 
+    sortBy: "growthIndicator",
     limit: 1000 // Show more results for analysis
   });
 

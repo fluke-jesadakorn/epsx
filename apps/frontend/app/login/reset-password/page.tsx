@@ -49,7 +49,7 @@ const ResetPasswordPage = () => {
 
     try {
       // Simulate API call with the new password value
-      console.log(`Attempting to reset password. Password length: ${values.password.length}`);
+      console.info(`Attempting to reset password. Password length: ${values.password.length}`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccess(true);
       setTimeout(() => router.push("/login"), 2000);

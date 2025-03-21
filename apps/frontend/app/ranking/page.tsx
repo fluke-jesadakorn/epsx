@@ -1,4 +1,4 @@
-import StockRankTable from "@/components/home/StockRankTable";
+import DataRankTable from "@/components/home/DataRankTable";
 import { fetchStockScreenerData } from "@/app/actions/stockData";
 import { Suspense } from "react";
 
@@ -7,37 +7,41 @@ const rankingColumns = [
   { key: "number" as const, header: "No." },
   { key: "symbol" as const, header: "Symbol" },
   { key: "name" as const, header: "Name" },
-  { key: "price" as const, header: "Price" },
+  { key: "valueIndex" as const, header: "Value Index" },
   {
-    key: "changePercent" as const,
-    header: "Change %",
-    tooltip: "Price Change Percentage",
-  },
-  { key: "volume" as const, header: "Volume", tooltip: "Trading Volume" },
-  {
-    key: "marketCap" as const,
-    header: "Market Cap",
-    tooltip: "Market Capitalization",
+    key: "growthRate" as const,
+    header: "Growth Rate",
+    tooltip: "Value Change Percentage",
   },
   {
-    key: "peRatio" as const,
-    header: "P/E",
-    tooltip: "Price to Earnings Ratio",
+    key: "activityScore" as const,
+    header: "Activity Score",
+    tooltip: "Engagement Level",
+  },
+  {
+    key: "marketSize" as const,
+    header: "Market Size",
+    tooltip: "Total Market Presence",
+  },
+  {
+    key: "growthFactor" as const,
+    header: "Growth Factor",
+    tooltip: "Growth Potential Indicator",
   },
   { key: "sector" as const, header: "Sector" },
   { key: "country" as const, header: "Country" },
   { key: "exchange" as const, header: "Exchange" },
   {
-    key: "startBuy" as const,
-    header: "Start Buy",
-    tooltip: "When to start buying",
+    key: "entryPhase" as const,
+    header: "Entry Phase",
+    tooltip: "Optimal Entry Time",
   },
   {
-    key: "startAction" as const,
-    header: "Hold or Sell",
-    tooltip: "When to start holding/selling",
+    key: "phaseStatus" as const,
+    header: "Phase Status",
+    tooltip: "Current Phase Status",
   },
-  { key: "chart" as const, header: "Chart", tooltip: "Open TradingView Chart" },
+  { key: "chart" as const, header: "Analytics", tooltip: "Open Analytics View" },
 ];
 
 async function RankingPage() {
@@ -46,7 +50,7 @@ async function RankingPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <div className="p-4 sm:p-6 lg:p-8 mx-auto">
-        <StockRankTable data={data} columns={rankingColumns} />
+        <DataRankTable data={data} columns={rankingColumns} defaultView="table" />
       </div>
     </Suspense>
   );

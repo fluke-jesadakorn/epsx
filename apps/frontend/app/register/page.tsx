@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Suspense } from "react";
 import { LoadingForm } from "@/components/common/LoadingForm";
-import { GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
-
 interface AuthFormValues {
   email: string;
   password: string;
@@ -35,11 +33,7 @@ export default function Register() {
   const handleOAuthRegister = async (provider: "google" | "github") => {
     try {
       setIsSubmitting(true);
-      const authProvider =
-        provider === "google"
-          ? new GoogleAuthProvider()
-          : new GithubAuthProvider();
-      await signInWithOAuth(authProvider);
+      await signInWithOAuth(provider);
       router.push("/home");
     } catch (error) {
       console.error("OAuth registration error:", error);

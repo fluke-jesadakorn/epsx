@@ -1,5 +1,6 @@
-import StockRankTable from '@/components/home/StockRankTable';
+import DataRankTable from '@/components/home/DataRankTable';
 import HeroSection from '@/components/home/HeroSection';
+import DataTechSection from '@/components/home/DataTechSection';
 import PricingSection from '@/components/home/PricingSection';
 import EpsCardSection from '@/components/home/EpsCardSection';
 import ChatSection from '@/components/home/ChatSection';
@@ -11,28 +12,28 @@ const homeColumns = [
   { key: 'number' as const, header: 'No.' },
   { key: 'symbol' as const, header: 'Symbol' },
   { key: 'name' as const, header: 'Name' },
-  { key: 'price' as const, header: 'Price' },
+  { key: 'valueIndex' as const, header: 'Value Index' },
   {
-    key: 'changePercent' as const,
-    header: 'Change %',
-    tooltip: 'Price Change Percentage',
+    key: 'growthRate' as const,
+    header: 'Growth Rate',
+    tooltip: 'Value Change Percentage',
   },
   {
-    key: 'marketCap' as const,
-    header: 'Market Cap',
-    tooltip: 'Market Capitalization',
+    key: 'marketSize' as const,
+    header: 'Market Size',
+    tooltip: 'Total Market Presence',
   },
   {
-    key: 'startBuy' as const,
-    header: 'Start Buy',
-    tooltip: 'When to start buying',
+    key: 'entryPhase' as const,
+    header: 'Entry Phase',
+    tooltip: 'Optimal Entry Time',
   },
   {
-    key: 'startAction' as const,
-    header: 'Hold or Sell',
-    tooltip: 'When to start holding/selling',
+    key: 'phaseStatus' as const,
+    header: 'Phase Status',
+    tooltip: 'Current Phase Status',
   },
-  { key: 'chart' as const, header: 'Chart', tooltip: 'Open TradingView Chart' },
+  { key: 'chart' as const, header: 'Analytics', tooltip: 'Open Analytics View' },
 ];
 
 async function HomePage() {
@@ -57,13 +58,14 @@ async function HomePage() {
       <div className="relative z-10">
         <ChatSection />
         <HeroSection className="relative z-10" />
+        <DataTechSection />
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <EpsCardSection initialData={data} initialTotal={data.length} />
         </div>
         <PricingSection />
         <Suspense fallback={<div>Loading...</div>}>
           <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-            <StockRankTable data={lastTenItems} columns={homeColumns} />
+            <DataRankTable data={lastTenItems} columns={homeColumns} defaultView="card" />
           </div>
         </Suspense>
       </div>

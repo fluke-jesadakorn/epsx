@@ -2,9 +2,7 @@
 
 import { AuthForm } from "@/components/auth/AuthForm";
 import { handleOAuthCallback } from "../actions/auth-server";
-import { signInWithEmail } from "@/app/actions/auth-server";
-import { signInWithOAuth } from "@/utils/auth";
-import { GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
+import { signInWithEmail, signInWithOAuth } from "@/app/actions/auth-server";
 import { LoadingForm } from "@/components/common/LoadingForm";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -72,15 +70,13 @@ export default function Page() {
   const handleOAuthLogin = async (provider: "google" | "github") => {
     try {
       setIsSubmitting(true);
-      const authProvider =
-        provider === "google"
-          ? new GoogleAuthProvider()
-          : new GithubAuthProvider();
-      await signInWithOAuth(authProvider);
-      router.push("/home");
+      const providerId = provider === "google" ? "google.com" : "github.com";
+      const result = await signInWithOAuth(providerId);
+      if (result?.redirectUrl) {
+        router.push(result.redirectUrl);
+      }
     } catch (error) {
       console.error("OAuth login error:", error);
-    } finally {
       setIsSubmitting(false);
     }
   };

@@ -44,7 +44,7 @@ const ForgotPasswordPage = () => {
 
     try {
       // Simulate API call with the email value
-      console.log(`Attempting password reset for email: ${values.email}`);
+      console.info(`Attempting password reset for email: ${values.email}`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccess(true);
     } catch (error) {

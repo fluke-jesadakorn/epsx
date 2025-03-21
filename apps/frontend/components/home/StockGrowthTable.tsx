@@ -9,13 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TableStockData } from "@/types/stockFetchData";
+import { TableDataMetrics } from "@/types/stockFetchData";
 import { Button } from "../ui/button";
 
 interface StockGrowthTableProps {
   style?: React.CSSProperties;
   className?: string;
-  data: TableStockData[];
+  data: TableDataMetrics[];
 }
 
 const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
@@ -95,12 +95,12 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                 <TableCell>
                   <span
                     className={`font-medium ${
-                      parseFloat(row.changePercent) >= 0
+                      parseFloat(row.changePercent || "0") >= 0
                         ? "text-green-500"
                         : "text-rose-500"
                     }`}
                   >
-                    {parseFloat(row.changePercent) >= 0 ? "+" : ""}
+                    {parseFloat(row.changePercent || "0") >= 0 ? "+" : ""}
                     {row.changePercent}%
                   </span>
                 </TableCell>

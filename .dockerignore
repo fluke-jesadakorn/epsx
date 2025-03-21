@@ -14,11 +14,8 @@ dist/
 build/
 out/
 .turbo/
-.nx/
 tmp/
 **/tmp/
-**/.nx/
-**/nx-cache/
 .cache/
 **/.cache
 .turbo

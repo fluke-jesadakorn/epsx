@@ -1,84 +1,59 @@
-mod app_state;
-mod middleware;
-mod models;
-mod services;
+mod auth;
 mod config;
-mod error;
-mod routes;
 
-use crate::{ app_state::AppState, config::Config, error::AppResult };
+use crate::{auth::AuthService, config::Config};
 use std::net::SocketAddr;
-use tracing_subscriber::{ layer::SubscriberExt, util::SubscriberInitExt };
-use tokio::signal;
-use axum::{Router, extract::connect_info::IntoMakeServiceWithConnectInfo};
+use axum::{routing::get, Router};
+use tower_http::trace::TraceLayer;
+use tracing::{info, error, Level};
+use tracing_subscriber::{self, EnvFilter};
 
 #[tokio::main]
-async fn main() -> AppResult<()> {
-    // Initialize logging
-    tracing_subscriber
-        ::registry()
-        .with(
-            tracing_subscriber::EnvFilter
-                ::try_from_default_env()
-                .unwrap_or_else(|_| "rust_backend=debug,tower_http=debug".into())
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize the logger
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::from_default_env()
+                .add_directive(Level::INFO.into())
         )
-        .with(tracing_subscriber::fmt::layer())
         .init();
+
+    info!("Starting API server...");
 
     // Load configuration
     let config = Config::from_env()?;
-
-    // Create application state and router
-    let state = AppState::new(config.clone()).await?;
-
-    // Create router with all routes
-    let app = routes::create_router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     // Get address to bind to
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
 
     // Bind to the address
-    let listener = match tokio::net::TcpListener::bind(&addr).await {
-        Ok(listener) => {
-            tracing::info!("Starting server on {}", addr);
-            listener
-        }
-        Err(e) => {
-            tracing::error!("Failed to bind to {}: {}", addr, e);
-            return Err(error::AppError::Internal(format!("Failed to bind to {}: {}", addr, e)));
-        }
-    };
+    let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
+        error!("Failed to bind to address {}: {}", addr, e);
+        e
+    })?;
+
+    info!("Server listening on {}", addr);
+
+    // Initialize auth service
+    let auth_service = AuthService::new(config.clone())
+        .expect("Failed to initialize auth service");
+
+    // Create router with API v1 routes
+    let app = Router::new()
+        .route("/", get(|| async { "API is running" }))
+        .nest("/api/v1", Router::new()
+            .nest("/auth", auth::auth_router(auth_service))
+        )
+        .layer(TraceLayer::new_for_http());
 
     // Start the server with graceful shutdown
+    info!("Server initialized successfully, starting to serve requests");
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
         .await
-        .map_err(|e| error::AppError::Internal(e.to_string()))?;
+        .map_err(|e| {
+            error!("Server error: {}", e);
+            Box::new(e)
+        })?;
 
-    tracing::info!("Server shutdown completed");
     Ok(())
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c().await.expect("Failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix
-            ::signal(signal::unix::SignalKind::terminate())
-            .expect("Failed to install signal handler")
-            .recv().await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-
-    tracing::info!("Shutdown signal received, starting graceful shutdown");
 }
