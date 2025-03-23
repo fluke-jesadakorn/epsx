@@ -9,6 +9,10 @@
       }
     ],
     "baseUrl": ".",
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "paths": {
       "@/*": ["./*"],
       "@/components/*": ["./components/*"],
@@ -22,7 +26,10 @@
       "@epsx/api-client/*": ["../../packages/api-client/*"],
       "@epsx/shared/*": ["../../packages/shared/*"],
       "@epsx/types/*": ["../../packages/types/*"],
-      "@epsx/utils/*": ["../../packages/utils/*"]
+      "@epsx/utils/*": ["../../packages/utils/*"],
+      "@epsx/ui": ["../../packages/ui/src"],
+      "@epsx/ui/*": ["../../packages/ui/src/*"],
+      "@types/react": ["node_modules/@types/react"]
     },
     "target": "ES2022",
     "module": "ESNext",
@@ -37,13 +44,16 @@
     "declaration": false,
     "declarationMap": false,
     "isolatedModules": true,
+    "esModuleInterop": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "../../packages/types/src/**/*.ts"
+    "../../packages/types/src/**/*.ts",
+    "../../packages/ui/src/**/*.ts",
+    "../../packages/ui/src/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

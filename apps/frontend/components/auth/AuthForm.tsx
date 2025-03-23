@@ -1,15 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@epsx/ui";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,7 +13,7 @@ const formSchema = z.object({
 interface AuthFormProps {
   error?: string;
   mode: 'login' | 'register';
-  onSubmit: (values: { email: string; password: string }) => Promise<void>;
+  onSubmit: (values: z.infer<typeof formSchema>) => Promise<void>;
   onOAuthClick: (provider: 'google' | 'github') => Promise<void>;
   isSubmitting: boolean;
 }
@@ -43,14 +34,9 @@ export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: 
           {error === 'auth_failed' ? 'Authentication failed. Please try again.' : error}
         </div>
       )}
-      <Form<z.infer<typeof formSchema>>
-        {...form}
-        onSubmit={async (data) => {
-          await onSubmit(data);
-        }}
-      >
-        <div className="space-y-4">
-          <FormField
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField<z.infer<typeof formSchema>>
             control={form.control}
             name="email"
             render={({ field }) => (
@@ -67,7 +53,7 @@ export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: 
               </FormItem>
             )}
           />
-          <FormField
+          <FormField<z.infer<typeof formSchema>>
             control={form.control}
             name="password"
             render={({ field }) => (
@@ -87,10 +73,11 @@ export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: 
           <Button
             type="submit"
             className="w-full"
+            disabled={isSubmitting}
           >
             {mode === 'login' ? 'Sign In' : 'Sign Up'}
           </Button>
-        </div>
+        </form>
       </Form>
 
       <div className="space-y-3">
@@ -132,8 +119,8 @@ export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: 
                 fill="#EA4335"
               />
             </svg>
-              Google
-            </Button>
+            <span>Google</span>
+          </Button>
         </div>
       </div>
     </div>

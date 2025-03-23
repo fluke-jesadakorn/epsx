@@ -1,0 +1,14 @@
+{
+  "name": "@epsx/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cargo watch -x run",
+    "build": "cargo build --release",
+    "start": "cargo run --release",
+    "clean": "cargo clean"
+  },
+  "devDependencies": {
+    "cargo-watch": "^8.1.0"
+  }
+}

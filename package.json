@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "turbo run build:pkg",
-    "dev": "turbo run dev",
+    "dev": "bun run turbo run dev",
     "dev:fe": "turbo run dev:fe",
     "dev:be": "turbo run dev:be",
     "build": "turbo run build",
@@ -67,5 +67,11 @@
     "nookies": "^2.5.2",
     "react": "19.0.0",
     "react-dom": "19.0.0"
+  },
+  "resolutions": {
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "@types/react": "19.0.12",
+    "@types/react-dom": "19.0.4"
   }
 }
