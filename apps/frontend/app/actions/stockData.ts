@@ -1,6 +1,6 @@
 "use server";
 
-import { TableDataMetrics, TradingViewResponse } from "@/types/stockFetchData";
+import type { TableDataMetrics, TradingViewResponse } from "@/types/stockFetchData";
 
 const formatLargeNumber = (num: number): string => {
   if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`;

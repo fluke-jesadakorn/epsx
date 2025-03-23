@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { CSSProperties } from "react";
-import { TableDataMetrics } from "@/types/stockFetchData";
+import type { TableDataMetrics } from "@/types/stockFetchData";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 interface Props {

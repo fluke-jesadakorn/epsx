@@ -1,6 +1,7 @@
-import { LogoutResponse } from "@/types/auth";
+import type { LogoutResponse } from "@/types/auth";
 import { UserRole } from "@/types/auth/roles";
-import { TokenFeature, Permission } from "@/types/auth/features";
+import { TokenFeature } from "@/types/auth/features";
+import type { Permission } from "@/types/auth/features";
 
 interface AuthStatus {
   isLoggedIn: boolean;
@@ -13,9 +14,6 @@ interface AuthStatus {
 }
 
 class AuthService {
-  private currentStatus: AuthStatus | null = null;
-  private readonly API_URL = process.env.NEXT_PUBLIC_API_URL;
-
   private getDefaultStatus(): AuthStatus {
     return {
       isLoggedIn: false,
@@ -33,7 +31,7 @@ class AuthService {
       const { verifyAuth } = await import('@/app/actions/auth-server');
       const { isLoggedIn, userEmail, role, tokenBalance, features, permissions } = await verifyAuth();
       
-      const status: AuthStatus = {
+      return {
         isLoggedIn,
         userEmail,
         role: role || UserRole.GUEST,
@@ -42,9 +40,6 @@ class AuthService {
         permissions: permissions || [],
         isAdmin: role === UserRole.ADMINISTRATOR
       };
-
-      this.currentStatus = status;
-      return status;
     } catch (error) {
       console.error('Error checking auth status:', error);
       return this.getDefaultStatus();
@@ -67,7 +62,6 @@ class AuthService {
       };
     }
   }
-
 }
 
 export const authService = new AuthService();

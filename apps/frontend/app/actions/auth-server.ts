@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { UserRole } from '@/types/auth/roles';
-import { TokenFeature, Permission } from '@/types/auth/features';
+import type { TokenFeature, Permission } from '@/types/auth/features';
 import { apiClient } from '@/lib/api-client';
 
 interface AuthResponse {

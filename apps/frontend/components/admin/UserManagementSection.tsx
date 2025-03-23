@@ -111,22 +111,24 @@ export default function UserManagementSection({ users: initialUsers }: UserManag
                 <TableRow key={user.userId}>
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>
-                    <Select
-                      value={user.role}
-                      onValueChange={(value) => handleRoleChange(user.userId, value)}
-                      disabled={isUpdating}
-                    >
-                      <SelectTrigger className="w-[130px]">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableRoles.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="w-[130px]">
+                      <Select
+                        defaultValue={user.role}
+                        onValueChange={(value: string) => handleRoleChange(user.userId, value)}
+                        disabled={isUpdating}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableRoles.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role.charAt(0).toUpperCase() + role.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.tokenBalance > 0 ? "default" : "secondary"}>

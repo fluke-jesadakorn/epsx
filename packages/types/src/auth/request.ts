@@ -1,12 +1,4 @@
-import { Request } from 'express';
-
-export interface FirebaseUserData {
-  uid: string;
-  email: string | undefined;
-  customClaims: { [key: string]: any } | undefined;
-}
-
-export interface AuthenticatedRequest extends Request {
-  user: FirebaseUserData;
-  userRole?: string;
+// Types for auth requests will go here
+export interface AuthRequest {
+  // Common auth request fields can be added here
 }

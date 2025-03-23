@@ -2,9 +2,14 @@
 FROM oven/bun:1.2.3-alpine AS builder
 WORKDIR /app
 
-# Copy package files first for better caching
-COPY apps/frontend/package.json ./
-COPY bun.lock ./
+# Add build memory optimizations
+ENV NODE_OPTIONS="--max-old-space-size=4096" \
+    NEXT_TELEMETRY_DISABLED=1
+
+# Copy root workspace files for monorepo setup
+COPY package.json bun.lock turbo.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/frontend/package.json ./apps/frontend/
 
 # Set environment variables
 ENV HUSKY=0 \
@@ -14,12 +19,19 @@ ENV HUSKY=0 \
 RUN bun install --frozen-lockfile
 
 # Copy frontend source code
-COPY apps/frontend/ .
-# Build the application and verify output existence
-RUN bun run build && \
+COPY apps/frontend/ ./apps/frontend/
+
+# Build the application
+WORKDIR /app/apps/frontend
+# Build with existing next.config.ts (which has standalone output configured)
+RUN NEXT_TELEMETRY_DISABLED=1 bun run build && \
     if [ ! -d ".next/standalone" ] || [ ! -d ".next/static" ]; then \
-        echo "Error: Build outputs not found" && exit 1; \
-    fi
+    echo "Error: Build outputs not found" && \
+    exit 1; \
+    fi && \
+    # Move static files into standalone directory to maintain expected structure
+    mkdir -p .next/standalone/.next && \
+    cp -r .next/static .next/standalone/.next/
 
 # Production stage
 FROM oven/bun:1.2.3-alpine AS runner
@@ -33,17 +45,15 @@ RUN addgroup -S -g 1001 bunjs && \
 ENV NODE_ENV=production \
     PORT=3000
 
-# Copy necessary files from builder
-COPY --from=builder --chown=bunjs:bunjs /app/public ./public
-COPY --from=builder --chown=bunjs:bunjs /app/.next/standalone ./
-COPY --from=builder --chown=bunjs:bunjs /app/.next/static ./.next/static
-COPY --from=builder --chown=bunjs:bunjs /app/.next/standalone/server.js ./
-
-# Switch to non-root user
-USER bunjs
+# Copy standalone directory contents and public files
+COPY --from=builder --chown=bunjs:bunjs /app/apps/frontend/.next/standalone/. ./
+COPY --from=builder --chown=bunjs:bunjs /app/apps/frontend/public ./public
 
 # Expose the port
 EXPOSE 3000
+
+# Switch to non-root user
+USER bunjs
 
 # Start the application
 CMD ["bun", "server.js"]

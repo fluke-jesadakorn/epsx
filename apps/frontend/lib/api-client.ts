@@ -1,4 +1,4 @@
-import { ChatRequest, ChatResponse } from "@/types/chat";
+import type { ChatRequest, ChatResponse } from "@/types/chat";
 
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE";
 

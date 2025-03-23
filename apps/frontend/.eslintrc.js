@@ -1,27 +1,38 @@
 module.exports = {
   root: true,
   extends: [
-    'next/core-web-vitals',
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier'
+    '../../packages/config/dist/eslint/base',
+    'next/core-web-vitals'
   ],
-  plugins: ['@typescript-eslint'],
+  parserOptions: {
+    project: ['./tsconfig.json'],
+    tsconfigRootDir: __dirname,
+  },
+  ignorePatterns: ["lib/store/*"],
+  settings: {
+    'import/resolver': {
+      typescript: {
+        project: './tsconfig.json',
+      },
+    },
+    next: {
+      rootDir: '.',
+    },
+  },
   rules: {
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/no-explicit-any': 'warn',
     'no-console': ['warn', { allow: ['warn', 'error', 'info', 'debug'] }],
     'no-case-declarations': 'off',
-    'no-useless-catch': 'off'
+    'no-useless-catch': 'off',
+    '@next/next/no-html-link-for-pages': 'error',
+    '@next/next/no-img-element': 'error',
+    'jsx-a11y/alt-text': ['warn', { elements: ['img'], img: ['Image'] }],
   },
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module'
-  },
-  env: {
-    browser: true,
-    es2021: true,
-    node: true
-  }
-}
+  overrides: [
+    {
+      files: ['app/**/*.ts?(x)', 'pages/**/*.ts?(x)'],
+      rules: {
+        'import/no-default-export': 'off',
+      },
+    },
+  ],
+};

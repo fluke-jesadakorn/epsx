@@ -1,4 +1,4 @@
-import { Paginate } from '@epsx/types';
+import type { Paginate } from '@epsx/types';
 
 export function formatPaginationResponse<T>(
   data: T[],

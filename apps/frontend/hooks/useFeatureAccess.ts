@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { TokenFeature, FeatureAccess, Permission, UpgradeRequirement } from '@/types/auth/features';
+import { TokenFeature } from '@/types/auth/features';
+import type { FeatureAccess, Permission, UpgradeRequirement } from '@/types/auth/features';
 import { UserRole } from '@/types/auth/roles';
 
 export function useFeatureAccess() {

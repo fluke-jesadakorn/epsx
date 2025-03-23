@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,7 +13,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { InputWithIcon } from "@/components/ui/input-with-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -89,16 +88,26 @@ const ResetPasswordPage = () => {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormControl>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input 
-                        type="password"
-                        placeholder="New Password" 
-                        className="pl-10" 
-                        {...field} 
-                      />
-                    </div>
+                  <FormControl asChild>
+                    <InputWithIcon 
+                      type="password"
+                      placeholder="New Password"
+                      icon={
+                        <svg
+                          className="h-4 w-4 text-gray-400"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                      }
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -110,16 +119,26 @@ const ResetPasswordPage = () => {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormControl>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input 
-                        type="password"
-                        placeholder="Confirm New Password" 
-                        className="pl-10" 
-                        {...field} 
-                      />
-                    </div>
+                  <FormControl asChild>
+                    <InputWithIcon
+                      type="password"
+                      placeholder="Confirm New Password"
+                      icon={
+                        <svg
+                          className="h-4 w-4 text-gray-400"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                      }
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

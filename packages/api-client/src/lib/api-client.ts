@@ -1,4 +1,5 @@
-import { AxiosInstance, AxiosError } from "axios";
+import type { AxiosInstance } from "axios";
+import { AxiosError } from "axios";
 import type { ChatRequest, ChatResponse } from "@epsx/types";
 import { createAxiosInstance } from "./axios-instance";
 

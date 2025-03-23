@@ -17,7 +17,7 @@ function ThemeWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [resolvedTheme, setDarkMode]);
 
-  return children;
+  return <>{children}</>;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

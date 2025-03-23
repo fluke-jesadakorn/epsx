@@ -2,7 +2,14 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: [],
+  transpilePackages: [
+    '@epsx/api-client',
+    '@epsx/config',
+    '@epsx/frontend', 
+    '@epsx/shared',
+    '@epsx/types',
+    '@epsx/utils'
+  ],
   experimental: {
     serverActions: {
       allowedOrigins: ['*'],

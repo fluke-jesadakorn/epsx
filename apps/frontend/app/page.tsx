@@ -1,5 +1,7 @@
+'use client';
+
 import HomeView from "@/app/home/page";
 
-export default async function Home() {
+export default function Home() {
   return <HomeView />;
 }

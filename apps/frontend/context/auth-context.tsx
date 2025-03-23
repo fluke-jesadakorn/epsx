@@ -2,10 +2,9 @@
 
 import React from "react";
 import { authService } from "@/services/auth.service";
-import { AuthContextType } from "@/types/auth";
 import { UserRole } from "@/types/auth/roles";
 
-import { TokenFeature, Permission } from '@/types/auth/features';
+import type { TokenFeature, Permission } from '@/types/auth/features';
 
 interface AuthState {
   isLoggedIn: boolean;

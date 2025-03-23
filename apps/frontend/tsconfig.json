@@ -1,53 +1,55 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Next.js",
-  // "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "plugins": [
       {
         "name": "next"
       }
     ],
-    "allowJs": true,
-    "declaration": false,
-    "declarationMap": false,
-    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/utils/*": ["./utils/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/types/*": ["./types/*"],
+      "@/context/*": ["./context/*"],
+      "@/services/*": ["./services/*"],
+      "@epsx/config/*": ["../../packages/config/*"],
+      "@epsx/api-client/*": ["../../packages/api-client/*"],
+      "@epsx/shared/*": ["../../packages/shared/*"],
+      "@epsx/types/*": ["../../packages/types/*"],
+      "@epsx/utils/*": ["../../packages/utils/*"]
+    },
+    "target": "ES2022",
+    "module": "ESNext",
     "jsx": "preserve",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "module": "esnext",
     "moduleResolution": "bundler",
+    "allowJs": true,
     "noEmit": true,
+    "incremental": true,
     "resolveJsonModule": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "strict": true,
-    "target": "es6",
+    "declaration": false,
+    "declarationMap": false,
     "isolatedModules": true,
-    "skipLibCheck": true,
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
-    "esModuleInterop": true
   },
   "include": [
-    "**/*.mjs",
+    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "../../apps/frontend/.next/types/**/*.ts",
-    "../../dist/apps/frontend/.next/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    "../../dist/apps/frontend/dist/apps/frontend/.next/types/**/*.ts"
+    "../../packages/types/src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     ".next",
-    "out"
+    "out",
+    "dist",
+    "build"
   ]
 }

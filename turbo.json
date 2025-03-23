@@ -1,9 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env"],
+  "globalDependencies": [
+    "**/.env"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "NEXT_PUBLIC_*"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": [
         "dist/**",
         ".next/**",
@@ -12,16 +20,32 @@
       ]
     },
     "build:fe": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**"
+      ],
+      "env": [
+        "NEXT_PUBLIC_*",
+        "FIREBASE_*"
+      ]
     },
     "build:be": {
-      "dependsOn": ["^build"],
-      "outputs": ["target/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "target/**"
+      ]
     },
     "build:pkg": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "dev": {
       "cache": false,
@@ -29,18 +53,60 @@
     },
     "dev:fe": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "NEXT_PUBLIC_*",
+        "FIREBASE_*"
+      ]
     },
     "dev:be": {
       "cache": false,
       "persistent": true
     },
+    "start": {
+      "dependsOn": [
+        "^build",
+        "build"
+      ],
+      "cache": false
+    },
+    "start:fe": {
+      "dependsOn": [
+        "build:fe"
+      ],
+      "cache": false
+    },
+    "start:be": {
+      "dependsOn": [
+        "build:be"
+      ],
+      "cache": false
+    },
     "lint": {
-      "outputs": []
+      "outputs": [
+        "node_modules/.cache/.eslintcache"
+      ]
+    },
+    "lint:fix": {
+      "outputs": [
+        "node_modules/.cache/.eslintcache"
+      ]
     },
     "type-check": {
-      "dependsOn": ["^build"],
-      "outputs": []
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "node_modules/.cache/tsbuildinfo.json"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
     },
     "clean": {
       "cache": false

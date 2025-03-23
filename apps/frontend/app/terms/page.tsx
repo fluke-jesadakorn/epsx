@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -14,7 +13,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { InputWithIcon } from "@/components/ui/input-with-icon";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -43,15 +42,26 @@ function SubscribeForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormControl>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-purple-400" />
-                  <Input 
-                    placeholder="Enter your email" 
-                    className="pl-10 bg-[#27262c] border-[#383241] focus:border-purple-500 focus-visible:ring-purple-500/20" 
-                    {...field} 
-                  />
-                </div>
+              <FormControl asChild>
+                <InputWithIcon 
+                  placeholder="Enter your email"
+                  icon={
+                    <svg
+                      className="h-4 w-4 text-purple-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="20" height="16" x="2" y="4" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  }
+                  className="bg-[#27262c] border-[#383241] focus:border-purple-500 focus-visible:ring-purple-500/20"
+                  {...field}
+                />
               </FormControl>
               <FormMessage className="text-red-400" />
             </FormItem>

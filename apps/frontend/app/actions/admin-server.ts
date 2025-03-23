@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { UserRole } from '@/types/auth/roles';
-import { TokenFeature, Permission } from '@/types/auth/features';
+import type { TokenFeature, Permission } from '@/types/auth/features';
 
 interface User {
   userId: string;

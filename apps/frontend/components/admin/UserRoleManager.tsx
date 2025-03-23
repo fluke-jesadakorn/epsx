@@ -49,24 +49,24 @@ export default function UserRoleManager({
       return;
     }
 
-    startAssignTransition(async () => {
-      try {
-        const result = await updateUserRole(selectedUser, selectedRole);
+    try {
+      // Perform async operation outside transition
+      const result = await updateUserRole(selectedUser, selectedRole);
+      
+      // Use transition for synchronous state updates
+      startAssignTransition(() => {
         if (result.success) {
           toast.success("Role assigned successfully");
         }
-
-        // Refresh auth context and user list
-        await checkStatus();
-
-        // Reset selections
-        setSelectedUser("");
-        setSelectedRole(undefined);
-      } catch (error) {
-        console.error("Error assigning role:", error);
-        toast.error("Failed to assign role");
-      }
-    });
+        checkStatus().then(() => {
+          setSelectedUser("");
+          setSelectedRole(undefined);
+        });
+      });
+    } catch (error) {
+      console.error("Error assigning role:", error);
+      toast.error("Failed to assign role");
+    }
   };
 
   const availableRoles = [

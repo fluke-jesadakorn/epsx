@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 import ThemeToggle from "./ThemeToggle";
 
-const getNavItems = (isLoggedIn: boolean, isAdmin: boolean) => {
+const getNavItems = (isAdmin: boolean) => {
   const items = [
     // {
     //   label: "Docs",
@@ -107,7 +107,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
           </Link>
           <NavigationMenu className="hidden md:block">
             <NavigationMenuList className="flex space-x-2">
-              {getNavItems(isLoggedIn, isAdmin).map((item) => (
+              {getNavItems(isAdmin).map((item) => (
                 <NavigationMenuItem key={item.key}>
                   <NavigationMenuLink asChild>
                     <Link href={item.href}>
@@ -168,7 +168,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                 <SheetTitle className="text-left">Menu</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-4 mt-6 hover:cursor-pointer">
-                {getNavItems(isLoggedIn, isAdmin).map((item) => (
+                {getNavItems(isAdmin).map((item) => (
                   <Link
                     key={item.key}
                     href={item.href}

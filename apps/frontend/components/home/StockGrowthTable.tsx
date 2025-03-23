@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TableDataMetrics } from "@/types/stockFetchData";
+import type { TableDataMetrics } from "@/types/stockFetchData";
 import { Button } from "../ui/button";
 
 interface StockGrowthTableProps {

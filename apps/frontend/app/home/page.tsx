@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import DataRankTable from '@/components/home/DataRankTable';
 import HeroSection from '@/components/home/HeroSection';
 import DataTechSection from '@/components/home/DataTechSection';
@@ -5,7 +8,6 @@ import PricingSection from '@/components/home/PricingSection';
 import EpsCardSection from '@/components/home/EpsCardSection';
 import ChatSection from '@/components/home/ChatSection';
 import { fetchStockScreenerData } from '@/app/actions/stockData';
-import { Suspense } from 'react';
 
 // Define columns for home page - showing a compact view
 const homeColumns = [
@@ -36,8 +38,29 @@ const homeColumns = [
   { key: 'chart' as const, header: 'Analytics', tooltip: 'Open Analytics View' },
 ];
 
-async function HomePage() {
-  const data = await fetchStockScreenerData();
+function HomePage() {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const result = await fetchStockScreenerData();
+        setData(result);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   // Get the last 10 items from the data
   const lastTenItems = data.slice(-10);
 
@@ -63,17 +86,12 @@ async function HomePage() {
           <EpsCardSection initialData={data} initialTotal={data.length} />
         </div>
         <PricingSection />
-        <Suspense fallback={<div>Loading...</div>}>
-          <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-            <DataRankTable data={lastTenItems} columns={homeColumns} defaultView="card" />
-          </div>
-        </Suspense>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+          <DataRankTable data={lastTenItems} columns={homeColumns} defaultView="card" />
+        </div>
       </div>
     </div>
   );
 }
 
 export default HomePage;
-
-// Revalidate page every 5 minutes
-export const revalidate = 300;

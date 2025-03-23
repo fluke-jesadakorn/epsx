@@ -38,7 +38,7 @@ export function UserDetailsDialog({ user, open, onOpenChange }: UserDetailsDialo
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="flex-grow h-full">
           <div className="space-y-6 p-4">
             {/* Basic Information */}
             <div className="space-y-2">

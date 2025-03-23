@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { TokenFeature } from '@/types/auth/features';
 
 interface Props {

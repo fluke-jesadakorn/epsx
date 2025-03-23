@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Message } from "@/types/chat";
+import type { Message } from "@/types/chat";
 import { Button } from "@/components/ui/button";
 import {
   Card,

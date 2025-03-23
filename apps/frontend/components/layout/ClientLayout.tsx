@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ThemeProvider } from "./ThemeProvider";
 import { Toaster } from "sonner";
 import { useFirebaseAnalytics } from "@/hooks/useFirebaseAnalytics";
-import LoadingForm from "../common/LoadingForm";
+import DefaultLoadingForm from "../common/LoadingForm";
 import CookieBanner from "../common/CookieBanner";
 
 interface ClientLayoutProps {
@@ -16,7 +16,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const { AnalyticsWrapper } = useFirebaseAnalytics();
   return (
     <ThemeProvider>
-      <Suspense fallback={<LoadingForm>Loading...</LoadingForm>}>
+      <Suspense fallback={<DefaultLoadingForm>Loading...</DefaultLoadingForm>}>
         <AnalyticsWrapper />
         <div className="min-h-screen flex flex-col">
           <main className="flex-grow">{children}</main>
