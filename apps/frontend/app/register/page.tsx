@@ -5,7 +5,7 @@ import { signInWithOAuth, signUpWithEmailPassword } from "@/utils/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Suspense } from "react";
-import { LoadingForm } from "@/components/common/LoadingForm";
+import { SkeletonLoader } from "@/components/common/Skeleton";
 interface AuthFormValues {
   email: string;
   password: string;
@@ -44,7 +44,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <Suspense fallback={<LoadingForm>Loading...</LoadingForm>}>
+      <Suspense fallback={<SkeletonLoader />}>
         <AuthForm
           mode="register"
           onSubmit={handleEmailPasswordRegister}

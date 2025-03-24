@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ControllerProps, FieldValues, Path } from "react-hook-form";
 
 export type FormFieldContextValue<
@@ -16,7 +17,7 @@ export type FormFieldProps<
   TName extends Path<TFieldValues> = Path<TFieldValues>
 > = Omit<ControllerProps<TFieldValues, TName>, "render"> & {
   name: TName;
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 export interface UseFormReturn<TFieldValues extends FieldValues = FieldValues> {

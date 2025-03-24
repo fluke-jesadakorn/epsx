@@ -19,6 +19,17 @@
         "build/**"
       ]
     },
+    "build:admin": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**"
+      ],
+      "env": [
+        "NEXT_PUBLIC_*"
+      ]
+    },
     "build:fe": {
       "dependsOn": [
         "^build"
@@ -48,6 +59,10 @@
       ]
     },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:admin": {
       "cache": false,
       "persistent": true
     },

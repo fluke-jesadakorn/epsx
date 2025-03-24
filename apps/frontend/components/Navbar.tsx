@@ -51,9 +51,9 @@ const getNavItems = (isAdmin: boolean) => {
     //   icon: <File className="h-4 w-4" />,
     // },
     {
-      label: "Ranking",
-      href: "/ranking",
-      key: "ranking",
+      label: "Analytics",
+      href: "/analytics",
+      key: "analytics",
       icon: <LineChart className="h-4 w-4" />,
     },
   ];

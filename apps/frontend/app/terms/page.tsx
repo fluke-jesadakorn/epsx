@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { SkeletonLoader } from "@/components/common/Skeleton";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -153,7 +154,7 @@ export default function TermsPage() {
 
           <Card className="p-8 bg-[#27262c] border-[#383241] rounded-[24px] shadow-xl mt-8">
             <h2 className="text-2xl font-bold text-purple-400 mb-6">Subscribe for Updates</h2>
-            <Suspense fallback={<div>Loading subscription form...</div>}>
+            <Suspense fallback={<SkeletonLoader />}>
               <SubscribeForm />
             </Suspense>
           </Card>

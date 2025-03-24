@@ -13,35 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface TableDataMetrics {
-  symbol: string;
-  name: string;
-  valueIndex: string;
-  growthRate: string;
-  activityScore: string;
-  marketSize: string;
-  growthFactor: string;
-  sector: string;
-  country: string;
-  exchange: string;
-  currency: string;
-  entryPhase: {
-    date: string;
-    active: boolean;
-  };
-  phaseStatus: {
-    date: string;
-    type: "monitor" | "exit";
-    active: boolean;
-  };
-  // Analytics data kept but renamed
-  metricScore: string;
-  growthIndicator: string;
-  currentMetric: string;
-  predictedMetric: string;
-  lastAnalysisDate: string;
-  nextAnalysisDate: string;
-}
+import type { TableDataMetrics } from "@/types/stockFetchData";
 
 interface ColumnDef {
   key: keyof TableDataMetrics | "number" | "chart";
@@ -75,10 +47,12 @@ const defaultColumns: ColumnDef[] = [
   { key: "chart", header: "Analytics", tooltip: "Open Analytics View" },
 ];
 
-const DataCard: React.FC<{
+interface DataCardProps {
   data: TableDataMetrics;
   index: number;
-}> = ({ data, index }) => {
+}
+
+function DataCard({ data, index }: DataCardProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
@@ -209,13 +183,13 @@ const DataCard: React.FC<{
   );
 };
 
-const DataRankTable: React.FC<DataRankTableProps> = ({
+function DataRankTable({
   style,
   className,
   data,
   columns = defaultColumns,
   defaultView = 'card'
-}) => {
+}: DataRankTableProps): React.JSX.Element {
   const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -229,7 +203,7 @@ const DataRankTable: React.FC<DataRankTableProps> = ({
       if (defaultView === 'table') {
         setViewMode(width < 768 ? 'card' : 'table');
       }
-    };
+    }
 
     checkScreenSize();
 

@@ -1,6 +1,7 @@
 import StockGrowthTable from "@/components/home/StockGrowthTable";
 import { fetchEpsGrowthRanking } from "@/app/actions/stockData";
 import { Suspense } from "react";
+import { SkeletonLoader } from "@/components/common/Skeleton";
 
 async function AnalyticsPage() {
   const { data } = await fetchEpsGrowthRanking({
@@ -9,7 +10,7 @@ async function AnalyticsPage() {
   });
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<SkeletonLoader />}>
       <StockGrowthTable data={data} />
     </Suspense>
   );

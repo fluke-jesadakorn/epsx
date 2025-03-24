@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LineChart, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { WithLoading } from "@/components/common/withLoading";
 
 interface HeroSectionProps {
   style?: CSSProperties;
@@ -13,6 +14,15 @@ interface HeroSectionProps {
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
   const handleShare = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
@@ -27,43 +37,47 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
     >
 
       <div className="relative text-center space-y-12 max-w-4xl mx-auto px-6 py-16 sm:px-8">
-        <div className="space-y-6">
-          <div className="inline-block animate-fade-in">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold">
-              Track
-              <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mx-2 animate-gradient">
-                EPS Growth
-              </span>
-              Rankings
-            </h1>
+        <WithLoading loading={loading} className="space-y-6">
+          <div>
+            <div className="inline-block animate-fade-in">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold">
+                Track
+                <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mx-2 animate-gradient">
+                  Performance Growth
+                </span>
+                Rankings
+              </h1>
+            </div>
+            <p className="text-lg sm:text-xl md:text-2xl font-medium text-foreground/90 max-w-2xl mx-auto leading-relaxed animate-fade-in-delayed">
+              Unlock deeper insights and optimize data center performance with real-time analytics and advanced data tracking systems for smarter operational decisions
+            </p>
           </div>
-          <p className="text-xl md:text-2xl font-medium text-foreground/90 max-w-2xl mx-auto leading-relaxed animate-fade-in-delayed">
-            Unlock deeper insights and optimize data center performance with real-time analytics and advanced data tracking systems for smarter operational decisions
-          </p>
-        </div>
+        </WithLoading>
 
-        <div className="flex flex-wrap justify-center gap-6 animate-fade-in-delayed-2">
-          <Link href="/ranking" className="cursor-pointer">
+        <WithLoading loading={loading} className="flex flex-wrap justify-center gap-6 animate-fade-in-delayed-2">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
+            <Link href="/ranking" className="cursor-pointer">
+              <Button
+                size="lg"
+                className="cursor-pointer bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-full h-14 px-10 font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                <LineChart className="w-5 h-5 mr-2" />
+                View Rankings
+              </Button>
+            </Link>
             <Button
+              variant="outline"
               size="lg"
-              className="cursor-pointer bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-full h-14 px-10 font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="rounded-full h-14 px-10 font-semibold hover:bg-primary/10 cursor-pointer text-lg border-2 hover:border-blue-500/50 transition-all duration-300 hover:scale-105"
+              onClick={handleShare}
             >
-              <LineChart className="w-5 h-5 mr-2" />
-              View Rankings
+              <Share2 className="w-5 h-5 mr-2" />
+              Share EPSx
             </Button>
-          </Link>
-          <Button
-            variant="outline"
-            size="lg"
-            className="rounded-full h-14 px-10 font-semibold hover:bg-primary/10 cursor-pointer text-lg border-2 hover:border-blue-500/50 transition-all duration-300 hover:scale-105"
-            onClick={handleShare}
-          >
-            <Share2 className="w-5 h-5 mr-2" />
-            Share EPSx
-          </Button>
-        </div>
+          </div>
+        </WithLoading>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 animate-fade-in-delayed-3">
+        <WithLoading loading={loading} className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 animate-fade-in-delayed-3">
           {[
             { label: "Ready for Users", value: "10K+" },
             { label: "Markets", value: "40+" },
@@ -79,7 +93,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
               <div className="text-foreground/80 mt-1 font-medium">{stat.label}</div>
             </div>
           ))}
-        </div>
+        </WithLoading>
       </div>
     </div>
   );

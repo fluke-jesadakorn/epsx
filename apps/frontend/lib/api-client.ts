@@ -2,9 +2,9 @@ import type { ChatRequest, ChatResponse } from "@/types/chat";
 
 type RequestMethod = "GET" | "POST" | "PUT" | "DELETE";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
-// Auth URL using the same base as API_URL
-const AUTH_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/v1";
+// Auth URL includes /v1 prefix for consistency with API routes
+const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3001/v1";
 
 // Original fetch function for API endpoints
 async function fetchWithAuth<TData = unknown>(
@@ -21,6 +21,7 @@ async function fetchWithAuth<TData = unknown>(
   
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Frontend-URL": typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000',
     ...customHeaders,
   };
 
@@ -78,6 +79,7 @@ async function fetchWithAuthBase<TData = unknown>(
   
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Frontend-URL": typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000',
     ...customHeaders,
   };
 
@@ -140,8 +142,17 @@ export const apiClient = {
 
   // Auth endpoints using the base API URL
   auth: {
-    googleInit: () => 
-      fetchWithAuthBase("/auth/google/init", "GET") as Promise<{ url: string }>,
+    googleInit: (params: { redirectUrl?: string; oauthRedirectUri?: string }) => {
+      const queryParams = new URLSearchParams();
+      if (params.redirectUrl) {
+        queryParams.set('redirect_url', params.redirectUrl);
+      }
+      if (params.oauthRedirectUri) {
+        queryParams.set('oauth_redirect_uri', params.oauthRedirectUri);
+      }
+      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      return fetchWithAuthBase(`/auth/google/init${query}`, "GET") as Promise<{ url: string }>;
+    },
       
     googleCallback: (code: string, state: string) =>
       fetchWithAuthBase(`/auth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, "GET"),

@@ -36,13 +36,13 @@ function FormField<
   render,
   ...props
 }: ControllerProps<TFieldValues, TName> & {
-  render: (props: FormFieldRenderProps<TFieldValues, TName>) => React.ReactElement;
+  render: (props: FormFieldRenderProps<TFieldValues, TName>) => React.ReactElement | null;
 }) {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller
         {...props}
-        render={({ field }) => render({ field })}
+        render={({ field }) => render({ field }) || <></>}
       />
     </FormFieldContext.Provider>
   );

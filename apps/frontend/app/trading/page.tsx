@@ -5,7 +5,7 @@ import { TokenGatedFeature } from '@/components/features/TokenGatedFeature';
 import { TokenFeature } from '@/types/auth/features';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
-const TradingDashboard = () => {
+const AutomationDashboard = () => {
   const { tokenBalance, role } = useFeatureAccess();
 
   return (
@@ -137,4 +137,4 @@ const TradingDashboard = () => {
   );
 };
 
-export default TradingDashboard;
+export default AutomationDashboard;

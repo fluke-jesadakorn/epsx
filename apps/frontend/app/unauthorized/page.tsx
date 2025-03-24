@@ -4,10 +4,11 @@ import { Result } from "@/components/ui/result";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Suspense } from "react";
+import { SkeletonLoader } from "@/components/common/Skeleton";
 
 export default function UnauthorizedPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<SkeletonLoader />}>
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <Result
         status="error"

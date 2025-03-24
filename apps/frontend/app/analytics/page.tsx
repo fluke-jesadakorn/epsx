@@ -1,9 +1,10 @@
-import DataRankTable from "@/components/home/DataRankTable";
+import * as React from "react";
+import { SkeletonLoader } from "@/components/common/Skeleton";
 import { fetchStockScreenerData } from "@/app/actions/stockData";
-import { Suspense } from "react";
+import RankingClient from "./RankingClient";
 
 // Define columns for ranking page - showing all columns
-const rankingColumns = [
+export const rankingColumns = [
   { key: "number" as const, header: "No." },
   { key: "symbol" as const, header: "Symbol" },
   { key: "name" as const, header: "Name" },
@@ -45,14 +46,12 @@ const rankingColumns = [
 ];
 
 async function RankingPage() {
-  const data = await fetchStockScreenerData();
+  const initialData = await fetchStockScreenerData();
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <div className="p-4 sm:p-6 lg:p-8 mx-auto">
-        <DataRankTable data={data} columns={rankingColumns} defaultView="table" />
-      </div>
-    </Suspense>
+    <React.Suspense fallback={<SkeletonLoader />}>
+      <RankingClient initialData={initialData} />
+    </React.Suspense>
   );
 }
 

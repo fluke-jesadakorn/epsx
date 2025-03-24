@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create router with API v1 routes
     let app = Router::new()
         .route("/", get(|| async { "API is running" }))
-        .nest("/api/v1", Router::new()
+        .nest("/v1", Router::new()
             .nest("/auth", auth::auth_router(auth_service))
         )
         .layer(TraceLayer::new_for_http());

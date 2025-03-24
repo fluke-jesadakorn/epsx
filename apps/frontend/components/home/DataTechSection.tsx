@@ -44,9 +44,9 @@ const DataTechSection: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-8 w-full p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-8 w-full p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto my-8 sm:my-16">
       {/* Section Header */}
-      <div className="text-center space-y-4 mb-6">
+      <div className="text-center space-y-4 mb-6 px-4">
         <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
           DataTech Platform
         </h2>
@@ -54,7 +54,7 @@ const DataTechSection: React.FC = () => {
       </div>
 
       {/* Overview Card */}
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-card via-card/80 to-card/50 border border-blue-500/10 hover:border-blue-500/30">
+      <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-card via-card/80 to-card/50 border border-blue-500/10 hover:border-blue-500/30 mx-2 sm:mx-0">
         <CardHeader>
           <CardDescription className="text-lg text-muted-foreground">
             <p className="text-lg">
@@ -65,7 +65,7 @@ const DataTechSection: React.FC = () => {
       </Card>
 
       {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-2 sm:px-0">
         {features.map((feature) => (
           <Card key={feature.id} className="group hover:shadow-xl transition-all duration-300 border-blue-500/10 hover:border-blue-500/30">
             <CardHeader>
@@ -82,14 +82,14 @@ const DataTechSection: React.FC = () => {
       </div>
 
       {/* Benefits Section */}
-      <Card className="mt-8 bg-gradient-to-br from-card via-card/80 to-card/50 border-blue-500/10">
+      <Card className="mt-8 bg-gradient-to-br from-card via-card/80 to-card/50 border-blue-500/10 mx-2 sm:mx-0">
         <CardHeader>
           <h3 className="text-2xl font-semibold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
             Benefits
           </h3>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <p className="flex items-center text-muted-foreground">
                 <span className="mr-2">•</span>

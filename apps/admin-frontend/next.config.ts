@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     '@epsx/api-client',
     '@epsx/config',
-    '@epsx/frontend', 
+    '@epsx/admin-frontend',
     '@epsx/shared',
     '@epsx/types',
     '@epsx/utils'

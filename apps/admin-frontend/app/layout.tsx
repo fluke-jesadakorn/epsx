@@ -1,7 +1,6 @@
 import './globals.css';
 import { Geist, Geist_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
-import ClientLayout from '@/components/layout/ClientLayout';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -16,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ESPx',
-  description: 'ESPx - Stock Insights and Portfolio Management',
+  title: 'ESPx Admin',
+  description: 'ESPx - Admin Dashboard',
 };
 
 export const viewport = {
@@ -39,7 +38,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen bg-background font-sans antialiased">
-        <ClientLayout>{children}</ClientLayout>
+        <div className="relative flex min-h-screen flex-col">{children}</div>
       </body>
     </html>
   );

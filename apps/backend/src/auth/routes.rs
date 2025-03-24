@@ -15,6 +15,7 @@ pub fn auth_router(auth_service: AuthService) -> Router {
     let public_routes = Router::new()
         .route("/register", post(handlers::email_sign_up))
         .route("/login", post(handlers::email_sign_in))
+        .route("/logout", post(handlers::logout))
         .route("/google/init", get(handlers::google_oauth_init))
         .route("/google/callback", get(handlers::google_oauth_callback))
         .with_state(auth_service.clone());

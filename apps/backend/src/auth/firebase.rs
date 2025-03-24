@@ -1,5 +1,4 @@
 use crate::config::Config;
-use base64::Engine;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use reqwest::Client;

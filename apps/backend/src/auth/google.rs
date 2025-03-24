@@ -26,6 +26,12 @@ pub struct OAuthTokens {
     pub expiry_time: Option<u64>,
 }
 
+#[derive(Debug)]
+pub struct OAuthState {
+    pub token: String,
+    pub redirect_url: String,
+}
+
 // Wrapper around PkceCodeVerifier that implements Clone
 #[derive(Debug, Clone)]
 struct CloneablePkceVerifier(String);
@@ -85,10 +91,10 @@ impl GoogleOAuth {
             .build()?;
 
         let client = BasicClient::new(
-            client_id,
-            Some(client_secret),
-            auth_url,
-            Some(token_url),
+            client_id.clone(),
+            Some(client_secret.clone()),
+            auth_url.clone(),
+            Some(token_url.clone()),
         )
         .set_redirect_uri(redirect_url);
 
@@ -99,14 +105,27 @@ impl GoogleOAuth {
         })
     }
 
-    pub fn generate_auth_url(&mut self) -> (String, CsrfToken) {
+    pub fn update_redirect_uri(&mut self, new_uri: &str) -> Result<()> {
+        let redirect_url = RedirectUrl::new(new_uri.to_string())
+            .context("Failed to create new redirect URI")?;
+
+        // Create new client with updated redirect URI while preserving other settings
+        self.client = self.client.clone()
+            .set_redirect_uri(redirect_url);
+
+        info!("Updated Google OAuth redirect URI to: {}", new_uri);
+        Ok(())
+    }
+
+    pub fn generate_auth_url(&mut self, redirect_url: String) -> (String, OAuthState) {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
         
         // Store PKCE verifier for later use in token exchange
         self.pkce_code_verifier = Some(CloneablePkceVerifier::from(pkce_verifier));
 
-        // Create state token with google_ prefix
-        let state = format!("google_{}", CsrfToken::new_random().secret());
+        // Create state token with google_ prefix and encode redirect URL
+        let state_token = CsrfToken::new_random().secret().to_string();
+        let state = format!("google_{}", state_token);
         let csrf_token = CsrfToken::new(state);
 
         let (auth_url, _) = self.client
@@ -119,8 +138,14 @@ impl GoogleOAuth {
             .add_extra_param("prompt", "consent")
             .url();
 
-        info!("Generated authorization URL with PKCE");
-        (auth_url.to_string(), csrf_token)
+        info!("Generated authorization URL with PKCE and redirect URL: {}", redirect_url);
+        (
+            auth_url.to_string(), 
+            OAuthState {
+                token: csrf_token.secret().to_string(),
+                redirect_url,
+            }
+        )
     }
 
     pub async fn exchange_code(&mut self, code: &str) -> Result<OAuthTokens> {

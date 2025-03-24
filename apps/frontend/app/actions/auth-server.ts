@@ -50,11 +50,18 @@ export async function verifyAuth() {
   };
 }
 
-export async function signInWithOAuth(providerId: string) {
+export async function signInWithOAuth(
+  providerId: string, 
+  redirectUrl?: string,
+  oauthRedirectUri?: string
+) {
   try {
-    console.info('Initiating OAuth flow', { providerId });
+    console.info('Initiating OAuth flow', { providerId, redirectUrl, oauthRedirectUri });
     
-    const { url } = await apiClient.auth.googleInit();
+    const { url } = await apiClient.auth.googleInit({
+      redirectUrl,
+      oauthRedirectUri
+    });
     console.info('Received OAuth init response:', { url });
     
     if (!url) {
