@@ -52,11 +52,10 @@ pub struct GoogleOAuth {
 
 impl Clone for GoogleOAuth {
     fn clone(&self) -> Self {
-        // We don't clone the PKCE verifier since it's single-use
         Self {
             client: self.client.clone(),
             http_client: self.http_client.clone(),
-            pkce_code_verifier: None,
+            pkce_code_verifier: self.pkce_code_verifier.clone(),
         }
     }
 }

@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM rust:latest AS builder
+FROM --platform=linux/amd64 rust:latest AS builder
 
 WORKDIR /app
 
@@ -10,20 +10,22 @@ RUN apt-get update && \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace files
-COPY . .
+# Copy Cargo files first for better caching
+COPY apps/backend/Cargo.toml Cargo.toml
+COPY apps/backend/src/ src/
 
-# Build release version with explicit target dir
-RUN cargo build --release --target-dir /app/target
+# Build release version with explicit target for amd64 Linux
+RUN rustup target add x86_64-unknown-linux-gnu && \
+    cargo build --release --target x86_64-unknown-linux-gnu --target-dir /app/target
 
 # Remove debug symbols to reduce binary size further
-RUN strip /app/target/release/backend
+RUN strip /app/target/x86_64-unknown-linux-gnu/release/backend
 
 # Stage 2: Runtime
-FROM gcr.io/distroless/cc-debian12 AS runtime
+FROM --platform=linux/amd64 gcr.io/distroless/cc-debian12 AS runtime
 
 # Copy the binary from builder
-COPY --from=builder /app/target/release/backend /app/backend
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/backend /app/backend
 
 # Required for HTTPS certificates
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

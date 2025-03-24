@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       allowedOrigins: ['*'],
     },
     optimizePackageImports: ['@radix-ui/react-*'],
+    serverComponentsExternalPackages: ['sharp'],
   },
   poweredByHeader: false,
   generateEtags: true,

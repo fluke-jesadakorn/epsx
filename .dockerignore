@@ -10,16 +10,15 @@ pnpm-lock.yaml
 # Build and Cache
 .next/
 dist/
-**/dist/
 build/
 out/
-.turbo/
 tmp/
 **/tmp/
 .cache/
 **/.cache
-.turbo
-**/.turbo
+# Keep turbo build outputs
+!.next/
+!dist/
 
 # Environment and Config
 .env
