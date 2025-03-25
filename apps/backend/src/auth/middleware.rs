@@ -10,7 +10,7 @@ use tracing::{debug, error, info, warn};
 
 #[derive(Clone, Debug)]
 pub struct AuthUser {
-    pub user_id: String,
+    pub email: String,
 }
 
 use axum::body::Body;
@@ -42,7 +42,7 @@ pub async fn auth_middleware(
     debug!("Successfully extracted bearer token");
 
     // Verify token with Firebase Admin
-    let user_id = auth_service
+    let (user_id, email) = auth_service
         .verify_id_token(&token)
         .await
         .map_err(|e| {
@@ -50,22 +50,15 @@ pub async fn auth_middleware(
             StatusCode::UNAUTHORIZED
         })?;
 
-    info!("User authenticated successfully: {}", user_id);
+    debug!("Verified token for user: {} ({})", user_id, email);
+
+    info!("User authenticated successfully with email: {}", &email);
 
     // Add authenticated user to request extensions
-    request.extensions_mut().insert(AuthUser { user_id });
+    request.extensions_mut().insert(AuthUser {
+        email: email,
+    });
 
     // Continue with the request
     Ok(next.run(request).await)
-}
-
-// Helper function to extract AuthUser from request extensions
-pub fn get_auth_user(request: &Request<Body>) -> Result<&AuthUser, StatusCode> {
-    request
-        .extensions()
-        .get::<AuthUser>()
-        .ok_or_else(|| {
-            warn!("AuthUser not found in request extensions");
-            StatusCode::UNAUTHORIZED
-        })
 }

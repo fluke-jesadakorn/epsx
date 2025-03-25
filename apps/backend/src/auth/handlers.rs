@@ -1,23 +1,35 @@
 use crate::auth::AuthService;
-use axum::{ 
-    extract::{ Json, State, Query }, 
+use axum::{
+    extract::{ Json, State, Query },
     http::{ StatusCode, HeaderMap, HeaderValue, header },
     response::{ IntoResponse, Response },
 };
 use serde::{ Deserialize, Serialize };
 use tracing::{ info, error, warn };
-use std::{collections::HashMap, sync::Mutex};
+use std::{ collections::HashMap, sync::Mutex };
 use lazy_static::lazy_static;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(example = json!({
+    "email": "user@example.com",
+    "password": "securepassword123"
+}))]
 pub struct EmailSignUpRequest {
+    #[schema(example = "user@example.com")]
     email: String,
+    #[schema(example = "securepassword123", min_length = 8)]
     password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(example = json!({
+    "email": "user@example.com",
+    "password": "securepassword123"
+}))]
 pub struct EmailSignInRequest {
+    #[schema(example = "user@example.com")]
     email: String,
+    #[schema(example = "securepassword123", min_length = 8)]
     password: String,
 }
 
@@ -29,7 +41,20 @@ pub enum ClientType {
     Mobile,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[schema(
+    example = json!({
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
+    "user_id": "abc123",
+    "email": "user@example.com",
+    "role": "REGISTERED_USER",
+    "token_balance": 0,
+    "features": [],
+    "permissions": [],
+    "expires_in": 3600,
+    "redirect_url": "http://localhost:3000/home"
+})
+)]
 pub struct AuthResponse {
     token: String,
     user_id: String,
@@ -55,18 +80,29 @@ fn set_auth_cookies(
     token_balance: i32,
     features: &Vec<String>,
     permissions: &Vec<String>,
-    expires_in: i64,
+    expires_in: i64
 ) -> Vec<(HeaderValue, HeaderValue)> {
+    let is_production = std::env
+        ::var("ENV")
+        .map(|v| v == "production")
+        .unwrap_or(false);
+    let secure_flag = if is_production { "Secure; " } else { "" };
+    let same_site = if is_production { "SameSite=Lax" } else { "SameSite=Lax" };
+    let domain = std::env::var("COOKIE_DOMAIN").unwrap_or_else(|_| String::from("localhost"));
     let cookie_options = format!(
-        "Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age={}",
+        "Path=/; Domain={}; HttpOnly; {}{}; Max-Age={}",
+        domain,
+        secure_flag,
+        same_site,
         expires_in
     );
 
     let create_cookie = |name: &str, value: String| {
         (
             HeaderValue::from_static("set-cookie"),
-            HeaderValue::from_str(&format!("{}={}; {}", name, value, cookie_options))
-                .unwrap_or_else(|_| HeaderValue::from_static(""))
+            HeaderValue::from_str(
+                &format!("{}={}; {}", name, value, cookie_options)
+            ).unwrap_or_else(|_| HeaderValue::from_static("")),
         )
     };
 
@@ -76,18 +112,25 @@ fn set_auth_cookies(
         create_cookie("role", role.to_string()),
         create_cookie("token_balance", token_balance.to_string()),
         create_cookie("features", serde_json::to_string(features).unwrap_or_default()),
-        create_cookie("permissions", serde_json::to_string(permissions).unwrap_or_default()),
+        create_cookie("permissions", serde_json::to_string(permissions).unwrap_or_default())
     ]
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(example = json!({
+    "redirect_url": "http://localhost:3000/home"
+}))]
 pub struct OAuthInitRequest {
+    #[schema(example = "http://localhost:3000/home")]
     redirect_url: Option<String>,
-    oauth_redirect_uri: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[schema(example = json!({
+    "url": "https://accounts.google.com/o/oauth2/v2/auth?..."
+}))]
 pub struct OAuthUrlResponse {
+    #[schema(example = "https://accounts.google.com/o/oauth2/v2/auth?...")]
     url: String,
 }
 
@@ -97,17 +140,45 @@ lazy_static! {
     static ref OAUTH_STATES: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(example = json!({
+    "code": "4/0AeaYSH...",
+    "state": "google_abc123"
+}))]
 pub struct OAuthCallbackRequest {
+    #[schema(example = "4/0AeaYSH...")]
     code: String,
+    #[schema(example = "google_abc123")]
     state: String,
 }
 
-// Email sign up handler
+/// Register a new user with email and password
+///
+/// Creates a new user account with the provided credentials.
+/// Returns authentication tokens and user information.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/register",
+    request_body = EmailSignUpRequest,
+    responses(
+        (
+            status = 302,
+            description = "Redirect to frontend with auth cookies set (web client)",
+            body = AuthResponse,
+        ),
+        (
+            status = 200,
+            description = "Returns auth tokens directly (mobile client)",
+            body = AuthResponse,
+        ),
+        (status = 400, description = "Invalid request or email already exists")
+    ),
+    tag = "Auth"
+)]
 pub async fn email_sign_up(
     State(auth_service): State<AuthService>,
     headers: HeaderMap,
-    Json(request): Json<EmailSignUpRequest>,
+    Json(request): Json<EmailSignUpRequest>
 ) -> Result<Response, StatusCode> {
     info!("Processing sign up request for email: {}", request.email);
 
@@ -131,7 +202,9 @@ pub async fn email_sign_up(
         .get("X-Frontend-URL")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000")));
+        .unwrap_or_else(||
+            std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000"))
+        );
     let redirect_url = format!("{}/home", frontend_url);
 
     let token = firebase_response.id_token.clone();
@@ -166,29 +239,47 @@ pub async fn email_sign_up(
                 0,
                 &vec![],
                 &vec![],
-                3600,
+                3600
             );
-            
+
             for (_, value) in cookies {
                 response = response.header(header::SET_COOKIE, value);
             }
-            
+
             response = response.header(header::LOCATION, &redirect_url);
         }
         ClientType::Mobile => {}
     }
 
-    Ok(response
-        .body(serde_json::to_string(&auth_response).unwrap())
-        .unwrap()
-        .into_response())
+    Ok(response.body(serde_json::to_string(&auth_response).unwrap()).unwrap().into_response())
 }
 
-// Email sign in handler
+/// Authenticate user with email and password
+///
+/// Validates credentials and returns authentication tokens.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/login",
+    request_body = EmailSignInRequest,
+    responses(
+        (
+            status = 302,
+            description = "Redirect to frontend with auth cookies set (web client)",
+            body = AuthResponse,
+        ),
+        (
+            status = 200,
+            description = "Returns auth tokens directly (mobile client)",
+            body = AuthResponse,
+        ),
+        (status = 401, description = "Invalid credentials")
+    ),
+    tag = "Auth"
+)]
 pub async fn email_sign_in(
     State(auth_service): State<AuthService>,
     headers: HeaderMap,
-    Json(request): Json<EmailSignInRequest>,
+    Json(request): Json<EmailSignInRequest>
 ) -> Result<Response, StatusCode> {
     info!("Processing sign in request for email: {}", request.email);
 
@@ -212,7 +303,9 @@ pub async fn email_sign_in(
         .get("X-Frontend-URL")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000")));
+        .unwrap_or_else(||
+            std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000"))
+        );
     let redirect_url = format!("{}/home", frontend_url);
 
     let token = firebase_response.id_token.clone();
@@ -247,25 +340,37 @@ pub async fn email_sign_in(
                 0,
                 &vec![],
                 &vec![],
-                3600,
+                3600
             );
-            
+
             for (_, value) in cookies {
                 response = response.header(header::SET_COOKIE, value);
             }
-            
+
             response = response.header(header::LOCATION, &redirect_url);
         }
         ClientType::Mobile => {}
     }
 
-    Ok(response
-        .body(serde_json::to_string(&auth_response).unwrap())
-        .unwrap()
-        .into_response())
+    Ok(response.body(serde_json::to_string(&auth_response).unwrap()).unwrap().into_response())
 }
 
-// Google OAuth initialization handler
+/// Initialize Google OAuth flow
+///
+/// Returns URL to redirect user to for Google authentication.
+#[utoipa::path(
+    get,
+    path = "/v1/auth/google/init",
+    params(
+        ("redirect_url" = Option<String>, Query, description = "Frontend URL to redirect to after auth")
+    ),
+    responses(
+        (status = 200, description = "Returns Google auth URL", body = OAuthUrlResponse),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Auth"
+)]
+#[axum::debug_handler]
 pub async fn google_oauth_init(
     State(auth_service): State<AuthService>,
     headers: HeaderMap,
@@ -277,82 +382,91 @@ pub async fn google_oauth_init(
         .get("X-Frontend-URL")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000")));
-    let redirect_url = query.redirect_url.unwrap_or_else(|| format!("{}/home", frontend_url));
-    
+        .unwrap_or_else(||
+            std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000"))
+        );
+
+    // Store the frontend destination URL for after authentication
+    let frontend_destination = query.redirect_url.unwrap_or_else(||
+        format!("{}/home", frontend_url)
+    );
+
     // Generate auth URL and store PKCE verifier state
     let (auth_url, oauth_state) = {
-        let mut oauth = auth_service.google_oauth.lock()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            
-        // Update OAuth redirect URI if provided
-        if let Some(oauth_redirect_uri) = query.oauth_redirect_uri.clone() {
-            oauth.update_redirect_uri(&oauth_redirect_uri)
-                .map_err(|_| StatusCode::BAD_REQUEST)?;
-        }
-            
-        let result = oauth.generate_auth_url(redirect_url.clone());
-        drop(oauth); // Explicitly drop the guard
-        result
+        let oauth = auth_service.google_oauth
+            .lock()
+            .await;
+        
+        // Generate auth URL with PKCE using the configured redirect URI
+        oauth.generate_auth_url(frontend_destination.clone()).await
     };
 
     // Store state and redirect URL mapping
     OAUTH_STATES.lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .insert(oauth_state.token.clone(), oauth_state.redirect_url);
-    
+
     info!("Generated Google OAuth URL with state: {}", oauth_state.token);
-    
+
     Ok(Json(OAuthUrlResponse { url: auth_url }))
 }
 
+/// Google OAuth callback handler
+///
+/// Handles the callback from Google OAuth flow, exchanges code for tokens,
+/// and redirects to frontend with authentication cookies.
+#[utoipa::path(
+    get,
+    path = "/v1/auth/google/callback",
+    params(
+        ("code" = String, Query, description = "Authorization code from Google"),
+        ("state" = String, Query, description = "State parameter for CSRF protection")
+    ),
+    responses(
+        (
+            status = 302,
+            description = "Redirects to frontend with auth cookies set",
+            body = AuthResponse,
+        ),
+        (status = 400, description = "Invalid state parameter"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Auth"
+)]
 #[axum::debug_handler]
 pub async fn google_oauth_callback(
     State(auth_service): State<AuthService>,
     headers: HeaderMap,
-    Query(params): Query<OAuthCallbackRequest>,
+    Query(params): Query<OAuthCallbackRequest>
 ) -> Result<Response, StatusCode> {
     info!("Processing Google OAuth callback with code");
-    
+
     // Verify state parameter to prevent CSRF
     if !params.state.starts_with("google_") {
         error!("Invalid state parameter in OAuth callback");
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Clone components for each async operation
-    let auth_service_google1 = auth_service.google_oauth.clone();
-    let auth_service_google2 = auth_service.google_oauth.clone();
+    // Get a single lock on the GoogleOAuth instance for the entire callback
+    let oauth = auth_service.google_oauth.lock().await;
     let auth_service_firebase = auth_service.firebase.clone();
     let auth_service_store = auth_service.clone();
-    
-    // Exchange code for tokens
+
+    // Exchange code for tokens using the same instance that generated auth URL
     let code = params.code.clone();
-    let oauth_tokens = tokio::task::spawn_blocking(move || {
-        let mut oauth = auth_service_google1.lock()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(oauth.exchange_code(&code))
-            .map_err(|e| {
-                error!("Failed to exchange OAuth code: {}", e);
-                StatusCode::BAD_REQUEST
-            })
-    }).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)??;
+    let oauth_tokens = oauth.exchange_code(&code).await
+        .map_err(|e| {
+            error!("Failed to exchange OAuth code: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
 
     // Get user info using the access token
     let access_token = oauth_tokens.access_token.clone();
-    let user_info = tokio::task::spawn_blocking(move || {
-        let oauth = auth_service_google2.lock()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(oauth.get_user_info(&access_token))
-            .map_err(|e| {
+    let user_info = oauth.get_user_info(&access_token).await
+        .map_err(|e| {
             error!("Failed to get user info: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
-            })
-    }).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)??;
+        })?;
 
     let expires_in = oauth_tokens.expires_in;
     let user_email = user_info.email.to_owned();
@@ -360,8 +474,7 @@ pub async fn google_oauth_callback(
 
     // Create or update Firebase custom token
     let token = auth_service_firebase
-        .create_custom_token(&user_sub, user_email.clone())
-        .await
+        .create_custom_token(&user_sub, user_email.clone()).await
         .map_err(|e| {
             error!("Failed to create custom token: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
@@ -369,8 +482,7 @@ pub async fn google_oauth_callback(
 
     // Store refresh token if available
     if let Some(ref refresh_token) = oauth_tokens.refresh_token {
-        auth_service_store.store_refresh_token(&user_sub, &refresh_token).await
-        .map_err(|e| {
+        auth_service_store.store_refresh_token(&user_sub, &refresh_token).await.map_err(|e| {
             error!("Failed to store refresh token: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
@@ -378,104 +490,93 @@ pub async fn google_oauth_callback(
 
     info!("Successfully authenticated Google user: {}", user_email);
 
-    let client_type = headers
-        .get("X-Client-Type")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|str| serde_json::from_str::<ClientType>(str).ok())
-        .unwrap_or(ClientType::Web);
-
     let frontend_url = headers
         .get("X-Frontend-URL")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000")));
-    
+        .unwrap_or_else(||
+            std::env::var("FRONTEND_URL").unwrap_or_else(|_| String::from("http://localhost:3000"))
+        );
+
     // Get stored redirect URL from state
-    // Get stored redirect URL from state
-    let stored_redirect_url = OAUTH_STATES.lock()
+    let frontend_destination = OAUTH_STATES.lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .remove(&params.state[7..]) // Remove "google_" prefix
         .unwrap_or_else(|| format!("{}/home", frontend_url));
 
+    // Create auth response
     let auth_response = AuthResponse {
         token: token.clone(),
-        user_id: user_sub.clone(),
+        user_id: user_sub,
         email: Some(user_email.clone()),
         role: Some("REGISTERED_USER".to_string()),
         token_balance: Some(0),
         features: Some(vec![]),
         permissions: Some(vec![]),
         expires_in: expires_in.map(|e| e as i64).or(Some(3600)),
-        redirect_url: stored_redirect_url.clone(),
+        redirect_url: frontend_destination.clone(),
     };
 
+    // Set cookies and redirect to frontend
     let mut response = Response::builder()
-        .status(match client_type {
-            ClientType::Web => StatusCode::FOUND,
-            ClientType::Mobile => StatusCode::OK,
-        })
+        .status(StatusCode::FOUND)
         .header(header::CONTENT_TYPE, "application/json");
 
-    match client_type {
-        ClientType::Web => {
-            let cookies = set_auth_cookies(
-                &token,
-                &user_email,
-                "REGISTERED_USER",
-                0,
-                &vec![],
-                &vec![],
-                expires_in.unwrap_or(3600) as i64,
-            );
-            
-            for (_, value) in cookies {
-                response = response.header(header::SET_COOKIE, value);
-            }
-            
-            response = response.header(header::LOCATION, &stored_redirect_url);
-        }
-        ClientType::Mobile => {}
+    // Set auth cookies
+    let cookies = set_auth_cookies(
+        &token,
+        &user_email,
+        "REGISTERED_USER",
+        0,
+        &vec![],
+        &vec![],
+        expires_in.unwrap_or(3600) as i64
+    );
+
+    for (_, value) in cookies {
+        response = response.header(header::SET_COOKIE, value);
     }
 
-    Ok(response
-        .body(serde_json::to_string(&auth_response).unwrap())
-        .unwrap()
-        .into_response())
+    // Redirect to frontend
+    response = response.header(header::LOCATION, &frontend_destination);
+
+    Ok(response.body(serde_json::to_string(&auth_response).unwrap()).unwrap().into_response())
 }
 
-// Error response handler
+/// Logout handler
+///
+/// Clears all authentication cookies and returns success message.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/logout",
+    responses((
+        status = 200,
+        description = "Successfully logged out",
+        body = String,
+        example = json!({"message": "Logged out successfully"}),
+    )),
+    tag = "Auth"
+)]
 pub async fn logout() -> Response {
     info!("Processing logout request");
-    
+
     let cookie_options = "Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
     let mut response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json");
 
     // Clear all auth cookies by setting them to expire immediately
-    let cookies = vec![
-        "__session",
-        "email",
-        "role",
-        "token_balance",
-        "features",
-        "permissions"
-    ];
-    
+    let cookies = vec!["__session", "email", "role", "token_balance", "features", "permissions"];
+
     for cookie_name in cookies {
         response = response.header(
             header::SET_COOKIE,
             format!("{}=; {}", cookie_name, cookie_options)
         );
     }
-    
+
     response
         .body(serde_json::json!({ "message": "Logged out successfully" }).to_string())
         .unwrap()
         .into_response()
-}
-
-pub fn handle_auth_error(err: anyhow::Error) -> Response {
-    error!("Authentication error occurred: {}", err);
-    (StatusCode::INTERNAL_SERVER_ERROR, format!("Authentication error: {}", err)).into_response()
 }

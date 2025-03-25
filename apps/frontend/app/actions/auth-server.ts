@@ -2,19 +2,9 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { UserRole } from '@/types/auth/roles';
-import type { TokenFeature, Permission } from '@/types/auth/features';
+import type { AuthResponse, TokenFeature, Permission, AuthActionResponse } from '@/types/auth';
+import { UserRole } from '@/types/auth';
 import { apiClient } from '@/lib/api-client';
-
-interface AuthResponse {
-  token: string;
-  email: string;
-  role: UserRole;
-  tokenBalance: number;
-  features: TokenFeature[];
-  permissions: Permission[];
-  redirectUrl?: string;
-}
 
 export async function verifyAuth() {
   const cookieStore = await cookies();
@@ -117,10 +107,7 @@ export async function signOut() {
   }
 }
 
-export async function handleOAuthCallback(params: URLSearchParams) {
-  const code = params.get('code');
-  const state = params.get('state');
-
+export async function handleOAuthCallback(code: string, state: string): Promise<AuthActionResponse> {
   if (!code || !state) {
     throw new Error('Invalid OAuth callback parameters');
   }
@@ -131,43 +118,28 @@ export async function handleOAuthCallback(params: URLSearchParams) {
       throw new Error('Invalid state parameter');
     }
 
-    const data: AuthResponse = await apiClient.auth.googleCallback(code, state);
+    console.debug('OAuth callback request started with:', { code, state });
     
-    // Validate required fields in response
-    if (!data.token || !data.email) {
-      console.error('Invalid auth response:', data);
-      throw new Error('Invalid authentication response');
-    }
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    };
-
+    const response = await apiClient.auth.googleCallback(code, state);
+    console.debug('OAuth callback response:', { response });
+    
+    // Check cookies after callback
     const cookieStore = await cookies();
-    cookieStore.set('__session', data.token, cookieOptions);
-    cookieStore.set('email', data.email, cookieOptions);
-    cookieStore.set('role', data.role || UserRole.REGISTERED_USER, cookieOptions);
-    cookieStore.set(
-      'token_balance',
-      (data.tokenBalance || 0).toString(),
-      cookieOptions
-    );
-    cookieStore.set(
-      'features', 
-      JSON.stringify(data.features || []),
-      cookieOptions
-    );
-    cookieStore.set(
-      'permissions',
-      JSON.stringify(data.permissions || []),
-      cookieOptions
-    );
+    // Log individual cookies
+    console.debug('Cookies after OAuth callback:', {
+      session: cookieStore.get('__session'),
+      email: cookieStore.get('email'),
+      role: cookieStore.get('role'),
+      tokenBalance: cookieStore.get('token_balance'),
+      features: cookieStore.get('features'),
+      permissions: cookieStore.get('permissions'),
+    });
 
-    return data;
+    // Return the redirect URL to be handled by the client component
+    if (response && 'redirect' in response) {
+      return { redirect: response.redirect };
+    }
+    return null;
   } catch (error) {
     console.error('OAuth callback error:', error);
     throw error;
@@ -188,7 +160,7 @@ export async function listUsers() {
   }
 }
 
-export async function signInWithEmail(formData: FormData) {
+export async function signInWithEmail(formData: FormData): Promise<AuthActionResponse> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const redirectTo = (formData.get('redirectTo') as string) || '/home';
@@ -198,33 +170,27 @@ export async function signInWithEmail(formData: FormData) {
   }
 
   try {
-    const data: AuthResponse = await apiClient.auth.login({ email, password });
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    };
-
+    console.debug('Email login request started with:', { email });
+    
+    const response = await apiClient.auth.login({ email, password });
+    console.debug('Email login response:', { response });
+    
+    // Check cookies after login
     const cookieStore = await cookies();
-    cookieStore.set('__session', data.token, cookieOptions);
-    cookieStore.set('email', data.email, cookieOptions);
-    cookieStore.set('role', data.role, cookieOptions);
-    cookieStore.set(
-      'token_balance',
-      data.tokenBalance.toString(),
-      cookieOptions
-    );
-    cookieStore.set('features', JSON.stringify(data.features), cookieOptions);
-    cookieStore.set(
-      'permissions',
-      JSON.stringify(data.permissions),
-      cookieOptions
-    );
+    // Log individual cookies
+    console.debug('Cookies after login:', {
+      session: cookieStore.get('__session'),
+      email: cookieStore.get('email'),
+      role: cookieStore.get('role'),
+      tokenBalance: cookieStore.get('token_balance'),
+      features: cookieStore.get('features'),
+      permissions: cookieStore.get('permissions'),
+    });
 
-    redirect(redirectTo);
+    if (response && 'redirect' in response) {
+      return { redirect: response.redirect };
+    }
+    return null;
   } catch (error) {
     throw error;
   }

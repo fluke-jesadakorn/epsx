@@ -1,47 +1,21 @@
 use crate::config::Config;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use jsonwebtoken::{decode, decode_header, DecodingKey, Validation, Algorithm, encode, EncodingKey, Header};
 use reqwest::Client;
-use tracing::{debug, error, info};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{debug, info};
 
-const PUBLIC_FIREBASE_AUTH_URL: &str = "https://identitytoolkit.googleapis.com/v1";
-const ADMIN_FIREBASE_AUTH_URL: &str = "https://iamcredentials.googleapis.com/v1";
+const GOOGLE_JWKS_URL: &str = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
+const FIREBASE_AUTH_URL: &str = "https://identitytoolkit.googleapis.com/v1";
 
 #[derive(Debug, Clone)]
 pub struct FirebaseAuth {
-    client: Client,
-    api_key: String,
     project_id: String,
+    api_key: String,
+    client: Client,
     service_account_email: String,
     private_key: String,
-}
-
-#[derive(Debug, Serialize)]
-struct CreateCustomTokenRequest<'a> {
-    uid: &'a str,
-    claims: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateCustomTokenResponse {
-    #[serde(alias = "signedJwt")]
-    token: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SignUpResponse {
-    pub local_id: String,
-    pub id_token: String,
-    pub email: String,
-    pub refresh_token: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SignInResponse {
-    pub local_id: String,
-    pub id_token: String,
-    pub email: String,
-    pub refresh_token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,42 +33,193 @@ struct SignInRequest<'a> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct VerifyTokenResponse {
-    pub users: Vec<UserInfo>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UserInfo {
+pub struct SignUpResponse {
     pub local_id: String,
-    pub email: String,
-    pub email_verified: bool,
-    #[serde(default)]
-    pub provider_user_info: Vec<ProviderInfo>,
+    pub id_token: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ProviderInfo {
-    pub provider_id: String,
-    pub display_name: Option<String>,
-    pub photo_url: Option<String>,
+pub struct SignInResponse {
+    pub local_id: String,
+    pub id_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct JwkKey {
+    kid: String,
+    #[serde(rename = "n")]
+    modulus: String,
+    #[serde(rename = "e")]
+    exponent: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct JwkSet {
+    keys: Vec<JwkKey>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TokenClaims {
+    aud: String,
+    iss: String,
+    sub: String,
+    email: Option<String>,
+    email_verified: Option<bool>,
+    auth_time: i64,
+    exp: i64,
+    iat: i64,
 }
 
 impl FirebaseAuth {
-    pub fn new(api_key: String, project_id: String, service_account_email: String, private_key: String) -> Self {
+    pub fn new(
+        project_id: String,
+        api_key: String,
+        service_account_email: String,
+        private_key: String,
+    ) -> Self {
         Self {
-            client: Client::new(),
-            api_key,
             project_id,
+            api_key,
+            client: Client::new(),
             service_account_email,
             private_key,
         }
     }
 
+    async fn fetch_google_jwks(&self) -> Result<JwkSet> {
+        debug!("Fetching Google JWKS");
+        let jwks = self.client
+            .get(GOOGLE_JWKS_URL)
+            .send()
+            .await
+            .context("Failed to fetch JWKS")?
+            .json::<JwkSet>()
+            .await
+            .context("Failed to parse JWKS response")?;
+        
+        debug!("Successfully fetched {} JWKs", jwks.keys.len());
+        Ok(jwks)
+    }
+
+    pub async fn verify_id_token(&self, token: &str) -> Result<(String, String)> {
+        debug!("Attempting to verify Firebase ID token");
+
+        // Get the key ID from the token header
+        let header = decode_header(token)
+            .context("Failed to decode token header")?;
+        
+        let kid = header.kid.context("Token header missing 'kid'")?;
+
+        // Fetch the JWKs and find the matching key
+        let jwks = self.fetch_google_jwks().await?;
+        let jwk = jwks.keys
+            .into_iter()
+            .find(|k| k.kid == kid)
+            .context("No matching key found for token")?;
+
+        // Create validation parameters
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&[&self.project_id]);
+        validation.set_issuer(&[&format!("https://securetoken.google.com/{}", self.project_id)]);
+        
+        // Convert JWK to PEM format for verification
+        let key = format!(
+            "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----",
+            base64::encode(&jwk.modulus)
+        );
+        
+        // Verify and decode the token
+        let token_data = decode::<TokenClaims>(
+            token,
+            &DecodingKey::from_rsa_pem(key.as_bytes())?,
+            &validation
+        ).context("Token verification failed")?;
+
+        let claims = token_data.claims;
+        
+        // Extract user ID and email
+        let email = claims.email
+            .context("Token missing email claim")?;
+
+        debug!("Successfully verified Firebase ID token for user: {}", claims.sub);
+
+        Ok((claims.sub, email))
+    }
+
+    pub async fn sign_up(&self, email: &str, password: &str) -> Result<SignUpResponse> {
+        debug!("Attempting to sign up user with email: {}", email);
+        let url = format!(
+            "{}/accounts:signUp?key={}",
+            FIREBASE_AUTH_URL, self.api_key
+        );
+
+        let request = SignUpRequest {
+            email,
+            password,
+            return_secure_token: true,
+        };
+
+        let response = self.client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .context("Failed to send signup request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await
+                .context("Failed to get error response text")?;
+            debug!("Firebase signup request failed: {}", error_text);
+            anyhow::bail!("Firebase error: {}", error_text);
+        }
+
+        let result = response
+            .json::<SignUpResponse>()
+            .await
+            .context("Failed to parse signup response")?;
+
+        info!("Successfully created new user account for email: {}", email);
+        Ok(result)
+    }
+
+    pub async fn sign_in(&self, email: &str, password: &str) -> Result<SignInResponse> {
+        debug!("Attempting to sign in user with email: {}", email);
+        let url = format!(
+            "{}/accounts:signInWithPassword?key={}",
+            FIREBASE_AUTH_URL, self.api_key
+        );
+
+        let request = SignInRequest {
+            email,
+            password,
+            return_secure_token: true,
+        };
+
+        let response = self.client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .context("Failed to send signin request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await
+                .context("Failed to get error response text")?;
+            debug!("Firebase signin request failed: {}", error_text);
+            anyhow::bail!("Firebase error: {}", error_text);
+        }
+
+        let result = response
+            .json::<SignInResponse>()
+            .await
+            .context("Failed to parse signin response")?;
+
+        info!("Successfully signed in user with email: {}", email);
+        Ok(result)
+    }
+
     pub async fn create_custom_token(&self, uid: &str, email: String) -> Result<String> {
         debug!("Creating custom token for user: {}", uid);
-
-        use std::time::{SystemTime, UNIX_EPOCH};
-        use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -103,7 +228,7 @@ impl FirebaseAuth {
 
         // Create the custom token directly using service account credentials
         // Create the custom token following Firebase's format
-        let token_payload = serde_json::json!({
+        let token_claims = serde_json::json!({
             "iss": self.service_account_email,
             "sub": self.service_account_email,
             "aud": "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
@@ -123,127 +248,20 @@ impl FirebaseAuth {
 
         let custom_token = encode(
             &header,
-            &token_payload,
+            &token_claims,
             &EncodingKey::from_rsa_pem(self.private_key.as_bytes())?,
         )?;
 
         info!("Successfully created custom token for user: {}", uid);
         Ok(custom_token)
     }
-
-    pub async fn sign_up(&self, email: &str, password: &str) -> Result<SignUpResponse> {
-        debug!("Attempting to sign up user with email: {}", email);
-        let url = format!(
-            "{}/accounts:signUp?key={}",
-            PUBLIC_FIREBASE_AUTH_URL, self.api_key
-        );
-
-        let request = SignUpRequest {
-            email,
-            password,
-            return_secure_token: true,
-        };
-
-        let response = self.client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await
-            .context("Failed to send signup request")?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await
-                .context("Failed to get error response text")?;
-            error!("Firebase signup request failed: {}", error_text);
-            anyhow::bail!("Firebase error: {}", error_text);
-        }
-
-        let result = response
-            .json::<SignUpResponse>()
-            .await
-            .context("Failed to parse signup response")?;
-
-        info!("Successfully created new user account for email: {}", email);
-
-        Ok(result)
-    }
-
-    pub async fn sign_in(&self, email: &str, password: &str) -> Result<SignInResponse> {
-        debug!("Attempting to sign in user with email: {}", email);
-        let url = format!(
-            "{}/accounts:signInWithPassword?key={}",
-            PUBLIC_FIREBASE_AUTH_URL, self.api_key
-        );
-
-        let request = SignInRequest {
-            email,
-            password,
-            return_secure_token: true,
-        };
-
-        let response = self.client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await
-            .context("Failed to send signin request")?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await
-                .context("Failed to get error response text")?;
-            error!("Firebase signin request failed: {}", error_text);
-            anyhow::bail!("Firebase error: {}", error_text);
-        }
-
-        let result = response
-            .json::<SignInResponse>()
-            .await
-            .context("Failed to parse signin response")?;
-
-        info!("Successfully signed in user with email: {}", email);
-
-        Ok(result)
-    }
-
-    pub async fn verify_id_token(&self, token: &str) -> Result<VerifyTokenResponse> {
-        debug!("Attempting to verify Firebase ID token");
-        let url = format!(
-            "{}/accounts:lookup?key={}",
-            PUBLIC_FIREBASE_AUTH_URL, self.api_key
-        );
-
-        let response = self.client
-            .post(&url)
-            .json(&serde_json::json!({
-                "idToken": token
-            }))
-            .send()
-            .await
-            .context("Failed to send token verification request")?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await
-                .context("Failed to get error response text")?;
-            error!("Firebase token verification failed: {}", error_text);
-            anyhow::bail!("Firebase error: {}", error_text);
-        }
-
-        let result = response
-            .json::<VerifyTokenResponse>()
-            .await
-            .context("Failed to parse token verification response")?;
-
-        debug!("Successfully verified Firebase ID token");
-
-        Ok(result)
-    }
 }
 
 pub fn create_firebase(config: &Config) -> Result<FirebaseAuth> {
     info!("Creating new Firebase Auth instance");
     Ok(FirebaseAuth::new(
-        config.firebase_api_key.clone(),
         config.firebase_project_id.clone(),
+        config.firebase_api_key.clone(),
         config.firebase_client_email.clone(),
         config.firebase_private_key.clone(),
     ))
@@ -256,18 +274,18 @@ mod tests {
     #[test]
     fn test_create_firebase() {
         let config = Config {
-            firebase_project_id: "test-project".to_string(),
-            firebase_private_key: "dummy-key".to_string(),
-            firebase_client_email: "dummy@email.com".to_string(),
             port: 3001,
-            host: "localhost".to_string(),
-            mongodb_uri: "mongodb://localhost".to_string(),
-            firebase_api_key: "test-api-key".to_string(),
-            jwt_secret: "test-secret".to_string(),
             frontend_url: "http://localhost:3000".to_string(),
-            google_client_id: "test-client-id".to_string(),
-            google_client_secret: "test-client-secret".to_string(),
-            google_redirect_uri: "http://localhost:3000/auth/google/callback".to_string(),
+            musepay_partner_id: "test".to_string(),
+            musepay_private_key: "test".to_string(),
+            musepay_api_url: "https://api.musepay.io/v1/order/pay".to_string(),
+            firebase_project_id: "test-project".to_string(),
+            firebase_client_email: "test@test.com".to_string(),
+            firebase_private_key: "test-key".to_string(),
+            firebase_api_key: "test-key".to_string(),
+            google_client_id: "test-id".to_string(),
+            google_client_secret: "test-secret".to_string(),
+            google_redirect_uri: "http://localhost:3000/callback".to_string(),
         };
 
         let result = create_firebase(&config);

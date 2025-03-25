@@ -14,7 +14,7 @@ const defaultConfig = {
 export const createAxiosInstance = (baseURL?: string) => {
   const instance = axios.create({
     ...defaultConfig,
-    baseURL: baseURL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
+    baseURL: baseURL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
   });
 
   // Request interceptor

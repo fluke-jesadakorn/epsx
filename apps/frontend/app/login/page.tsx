@@ -24,11 +24,12 @@ export default function Page() {
     const handleCallback = async () => {
       try {
         if (code && state) {
-          const urlParams = new URLSearchParams();
-          urlParams.set("code", code);
-          urlParams.set("state", state);
-          await handleOAuthCallback(urlParams);
-          router.push("/home");
+          const response = await handleOAuthCallback(code, state);
+          // Check for redirect URL from the callback
+          if (response?.redirect && !response.redirect.includes('/login')) {
+            // Prevent redirect loops by checking the URL
+            window.location.href = response.redirect;
+          }
         }
       } catch (error) {
         console.error("Auth error:", error);
@@ -58,8 +59,12 @@ export default function Page() {
       const formData = new FormData();
       formData.append('email', email);
       formData.append('password', password);
-      await signInWithEmail(formData);
-      router.push("/home");
+      const response = await signInWithEmail(formData);
+      // Check for redirect URL from the response
+      if (response?.redirect && !response.redirect.includes('/login')) {
+        // Prevent redirect loops by checking the URL
+        window.location.href = response.redirect;
+      }
     } catch (error) {
       console.error("Login error:", error);
     } finally {
@@ -71,9 +76,16 @@ export default function Page() {
     try {
       setIsSubmitting(true);
       const providerId = provider === "google" ? "google.com" : "github.com";
-      const result = await signInWithOAuth(providerId);
-      if (result?.redirectUrl) {
-        router.push(result.redirectUrl);
+      const redirectUrl = window.location.origin + "/login";
+      const oauthRedirectUri = window.location.origin + "/home";
+      const result = await signInWithOAuth(
+        providerId,
+        redirectUrl,
+        oauthRedirectUri
+      );
+      if (result?.redirectUrl && !result.redirectUrl.includes('/login')) {
+        // Use window.location for consistent cookie handling
+        window.location.href = result.redirectUrl;
       }
     } catch (error) {
       console.error("OAuth login error:", error);
