@@ -57,9 +57,7 @@ const DataTechSection: React.FC = () => {
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl bg-gradient-to-br from-card via-card/80 to-card/50 border border-blue-500/10 hover:border-blue-500/30 mx-2 sm:mx-0">
         <CardHeader>
           <CardDescription className="text-lg text-muted-foreground">
-            <p className="text-lg">
-              A <strong className="text-primary">DataTech Platform</strong> is a comprehensive technology platform designed to manage the complete data lifecycle, from collection and storage to management, processing, analysis, and visualization. These platforms integrate various tools and technologies to help organizations and users maximize the value of their data, especially in the digital era where data plays a crucial role in business decision-making and operations across multiple sectors.
-            </p>
+            A <strong className="text-primary">DataTech Platform</strong> is a comprehensive technology platform designed to manage the complete data lifecycle, from collection and storage to management, processing, analysis, and visualization. These platforms integrate various tools and technologies to help organizations and users maximize the value of their data, especially in the digital era where data plays a crucial role in business decision-making and operations across multiple sectors.
           </CardDescription>
         </CardHeader>
       </Card>

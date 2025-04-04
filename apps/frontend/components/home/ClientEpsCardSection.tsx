@@ -9,7 +9,6 @@ interface Props {
   style?: CSSProperties;
   className?: string;
   initialData: TableDataMetrics[];
-  initialTotal: number;
 }
 
 export default function ClientEpsCardSection({
@@ -44,11 +43,10 @@ export default function ClientEpsCardSection({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full animate-fade-in-delayed">
-        {initialData.slice(0, 3).map((item, index) => {
-          if (!item?.symbol || !item?.name) {
-            console.error("Missing required data for item:", item);
-            return null;
-          }
+        {initialData
+          .filter(item => item && typeof item === 'object' && item.symbol && item.name)
+          .slice(0, 3)
+          .map((item, index) => {
 
           return (
             <Card
@@ -93,18 +91,18 @@ export default function ClientEpsCardSection({
                       <p className="text-sm text-muted-foreground">Signal</p>
                       <p
                         className={`font-semibold transition-colors ${
-                          item.startBuy?.active
+                          item.startBuy && item.startBuy.active
                             ? "text-green-500 group-hover:text-green-400"
-                            : item.startAction?.type === "sell" &&
-                                item.startAction?.active
+                            : item.startAction && item.startAction.type === "sell" &&
+                              item.startAction.active
                               ? "text-rose-500 group-hover:text-rose-400"
                               : "text-yellow-500 group-hover:text-yellow-400"
                         }`}
                       >
-                        {item.startBuy?.active
+                        {item.startBuy && item.startBuy.active
                           ? "Buy"
-                          : item.startAction?.type === "sell" &&
-                              item.startAction?.active
+                          : item.startAction && item.startAction.type === "sell" &&
+                            item.startAction.active
                             ? "Sell"
                             : "Hold"}
                       </p>
@@ -126,11 +124,11 @@ export default function ClientEpsCardSection({
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-muted-foreground">Status</p>
                       <p className="text-sm">
-                        {item.startAction?.type === "hold" &&
-                        item.startAction?.active
+                        {item.startAction && item.startAction.type === "hold" &&
+                        item.startAction.active
                           ? "Waiting for Hold"
-                          : item.startAction?.type === "sell" &&
-                              !item.startAction?.active
+                          : item.startAction && item.startAction.type === "sell" &&
+                            !item.startAction.active
                             ? "Waiting for Sell"
                             : "Active"}
                       </p>

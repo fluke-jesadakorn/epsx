@@ -8,7 +8,7 @@ import DataTechSection from '@/components/home/DataTechSection';
 import PricingSection from '@/components/home/PricingSection';
 import EpsCardSection from '@/components/home/EpsCardSection';
 import ChatSection from '@/components/home/ChatSection';
-import { fetchStockScreenerData } from '@/app/actions/stockData';
+import { fetchStockScreenerData } from '@/app/actions/stock';
 
 // Define columns for home page - showing a compact view
 const homeColumns = [

@@ -1,21 +1,19 @@
-use axum::{
-    extract::{State, Json},
-    Extension,
-    http::StatusCode,
-};
-use serde::{Deserialize, Serialize};
+use axum::{ extract::{ State, Json }, Extension, http::StatusCode };
+use serde::{ Deserialize, Serialize };
 use uuid::Uuid;
 use super::PaymentService;
 use crate::auth::AuthUser;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
-#[schema(example = json!({
+#[schema(
+    example = json!({
     "currency": "USD",
     "amount": "100.00",
     "payment_method": "credit_card",
     "product_name": "Premium Subscription",
     "notify_url": "https://example.com/webhook"
-}))]
+})
+)]
 pub struct CreatePaymentRequest {
     #[schema(example = "USD")]
     currency: String,
@@ -30,7 +28,8 @@ pub struct CreatePaymentRequest {
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
-#[schema(example = json!({
+#[schema(
+    example = json!({
     "request_id": "123e4567-e89b-12d3-a456-426614174000",
     "order_no": "ORD12345",
     "currency": "USD",
@@ -39,7 +38,8 @@ pub struct CreatePaymentRequest {
     "payment_method": "credit_card",
     "receive_address": "0x123...abc",
     "checkout_url": "https://payment.example.com/checkout/123"
-}))]
+})
+)]
 pub struct CreatePaymentResponse {
     #[schema(example = "123e4567-e89b-12d3-a456-426614174000")]
     request_id: String,
@@ -71,7 +71,6 @@ pub struct ErrorResponse {
     message: String,
 }
 
-
 #[utoipa::path(
     post,
     path = "/v1/payment/create",
@@ -87,10 +86,10 @@ pub struct ErrorResponse {
 pub async fn create_payment(
     State(payment_service): State<PaymentService>,
     Extension(auth_user): Extension<AuthUser>,
-    Json(request): Json<CreatePaymentRequest>,
+    Json(request): Json<CreatePaymentRequest>
 ) -> Result<Json<CreatePaymentResponse>, (StatusCode, Json<ErrorResponse>)> {
     let request_id = Uuid::new_v4().to_string();
-    
+
     let result = payment_service.musepay_client
         .create_payment(
             &request_id,
@@ -98,17 +97,16 @@ pub async fn create_payment(
             &request.amount,
             &request.payment_method,
             &request.product_name,
-            &auth_user.email,
-            request.notify_url.as_deref(),
-        )
-        .await
+            auth_user.email.as_deref().unwrap_or_default(),
+            request.notify_url.as_deref()
+        ).await
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
                     code: "PAYMENT_ERROR".to_string(),
                     message: e.to_string(),
-                })
+                }),
             )
         })?;
 
@@ -118,7 +116,7 @@ pub async fn create_payment(
             Json(ErrorResponse {
                 code: "INVALID_RESPONSE".to_string(),
                 message: "Invalid response from payment provider".to_string(),
-            })
+            }),
         )
     })?;
 

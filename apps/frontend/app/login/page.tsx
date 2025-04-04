@@ -1,108 +1,65 @@
-"use client";
+'use client';
 
-import { AuthForm } from "@/components/auth/AuthForm";
-import { handleOAuthCallback } from "../actions/auth-server";
-import { signInWithEmail, signInWithOAuth } from "@/app/actions/auth-server";
-import { LoadingForm } from "@/components/common/LoadingForm";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmailPasswordForm } from "@/components/auth/EmailPasswordForm";
+import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
+import { useAuth } from "@/context/auth-context";
+import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
-interface AuthFormValues {
-  email: string;
-  password: string;
-}
-
-export default function Page() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const code = searchParams.get('code');
-  const state = searchParams.get('state');
-  const error = searchParams.get('error');
+export default function LoginPage() {
+  const { user } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        if (code && state) {
-          const response = await handleOAuthCallback(code, state);
-          // Check for redirect URL from the callback
-          if (response?.redirect && !response.redirect.includes('/login')) {
-            // Prevent redirect loops by checking the URL
-            window.location.href = response.redirect;
-          }
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
-      }
-    };
-
-    handleCallback();
-  }, [code, state, router]);
-
-  // Handle errors from OAuth callback
-  const authError = error 
-    ? decodeURIComponent(error) 
-    : undefined;
-
-  // Show loading state during callback processing
-  if (code && state) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingForm>Processing authentication...</LoadingForm>
-      </div>
-    );
-  }
-
-  const handleEmailPasswordLogin = async ({ email, password }: AuthFormValues) => {
-    try {
-      setIsSubmitting(true);
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('password', password);
-      const response = await signInWithEmail(formData);
-      // Check for redirect URL from the response
-      if (response?.redirect && !response.redirect.includes('/login')) {
-        // Prevent redirect loops by checking the URL
-        window.location.href = response.redirect;
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-    } finally {
-      setIsSubmitting(false);
+    if (user) {
+      redirect('/dashboard');
     }
-  };
+  }, [user]);
 
-  const handleOAuthLogin = async (provider: "google" | "github") => {
-    try {
-      setIsSubmitting(true);
-      const providerId = provider === "google" ? "google.com" : "github.com";
-      const redirectUrl = window.location.origin + "/login";
-      const oauthRedirectUri = window.location.origin + "/home";
-      const result = await signInWithOAuth(
-        providerId,
-        redirectUrl,
-        oauthRedirectUri
-      );
-      if (result?.redirectUrl && !result.redirectUrl.includes('/login')) {
-        // Use window.location for consistent cookie handling
-        window.location.href = result.redirectUrl;
-      }
-    } catch (error) {
-      console.error("OAuth login error:", error);
-      setIsSubmitting(false);
-    }
-  };
-
-  // Show auth form
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <AuthForm
-        mode="login"
-        onSubmit={handleEmailPasswordLogin}
-        onOAuthClick={handleOAuthLogin}
-        isSubmitting={isSubmitting}
-        error={authError}
-      />
-    </div>
+    <main className="container flex items-center justify-center min-h-screen py-10">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">
+            {isSignUp ? "Create an account" : "Welcome back"}
+          </CardTitle>
+          <CardDescription>
+            Choose your preferred sign in method
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <GoogleSignIn />
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <EmailPasswordForm isSignUp={isSignUp} />
+            
+            <div className="text-center mt-4">
+              <Button
+                variant="link"
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+              >
+                {isSignUp 
+                  ? "Already have an account? Sign in" 
+                  : "Don't have an account? Sign up"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

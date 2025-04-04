@@ -1,5 +1,5 @@
 import StockGrowthTable from "@/components/home/StockGrowthTable";
-import { fetchEpsGrowthRanking } from "@/app/actions/stockData";
+import { fetchEpsGrowthRanking } from "@/app/actions/stock";
 import { Suspense } from "react";
 import { SkeletonLoader } from "@/components/common/Skeleton";
 

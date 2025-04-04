@@ -44,6 +44,12 @@ const defaultColumns: ColumnDef[] = [
   { key: "exchange", header: "Exchange" },
   { key: "entryPhase", header: "Entry Phase", tooltip: "Optimal Entry Time" },
   { key: "phaseStatus", header: "Phase Status", tooltip: "Current Phase Status" },
+  { key: "metricScore", header: "Metric Score", tooltip: "Current Metric Score" },
+  { key: "growthIndicator", header: "Growth Indicator", tooltip: "Growth Potential" },
+  { key: "currentMetric", header: "Current Metric", tooltip: "Current Metric Value" },
+  { key: "predictedMetric", header: "Predicted Metric", tooltip: "Predicted Metric Value" },
+  { key: "lastAnalysisDate", header: "Last Analysis", tooltip: "Date of Last Analysis" },
+  { key: "nextAnalysisDate", header: "Next Analysis", tooltip: "Date of Next Analysis" },
   { key: "chart", header: "Analytics", tooltip: "Open Analytics View" },
 ];
 
@@ -147,18 +153,18 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-muted-foreground mb-1">Entry Phase</div>
-                <div className={`${data.entryPhase.active ? "text-green-500 font-medium" : ""}`}>
-                  {data.entryPhase.date}
-                  {data.entryPhase.active && (
+                <div className={`${data.entryPhase?.active ? "text-green-500 font-medium" : ""}`}>
+                  {data.entryPhase?.date || "N/A"}
+                  {data.entryPhase?.active && (
                     <span className="block text-xs">Active</span>
                   )}
                 </div>
               </div>
               <div>
                 <div className="text-muted-foreground mb-1">Phase Status</div>
-                <div className={`${data.phaseStatus.active ? "text-yellow-500 font-medium" : ""}`}>
-                  {data.phaseStatus.date}
-                  {data.phaseStatus.active && (
+                <div className={`${data.phaseStatus?.active ? "text-yellow-500 font-medium" : ""}`}>
+                  {data.phaseStatus?.date || "N/A"}
+                  {data.phaseStatus?.active && (
                     <span className="block text-xs">
                       {data.phaseStatus.type === "monitor" ? "Monitor" : "Exit"}
                     </span>
@@ -283,21 +289,34 @@ function DataRankTable({
       case "number":
         return index + 1;
       case "valueIndex":
-        return `${row.valueIndex} ${row.currency}`;
+        return `${row.valueIndex || 'N/A'} ${row.currency || ''}`.trim();
       case "growthRate":
+        const growthRate = parseFloat(row.growthRate || '0');
         return (
-          <span className={`font-medium ${parseFloat(row.growthRate) >= 0 ? "text-green-500" : "text-rose-500"}`}>
-            {parseFloat(row.growthRate) >= 0 ? "+" : ""}
-            {row.growthRate}%
+          <span className={`font-medium ${growthRate >= 0 ? "text-green-500" : "text-rose-500"}`}>
+            {growthRate >= 0 ? "+" : ""}
+            {!isNaN(growthRate) ? `${growthRate.toFixed(2)}%` : 'N/A'}
           </span>
         );
+      case "activityScore":
+        return row.activityScore || 'N/A';
+      case "marketSize":
+        return row.marketSize || 'N/A';
+      case "growthFactor":
+        return row.growthFactor || 'N/A';
+      case "sector":
+        return row.sector || 'N/A';
+      case "country":
+        return row.country || 'N/A';
+      case "exchange":
+        return row.exchange || 'N/A';
       case "entryPhase":
         return (
           <div className="flex flex-col gap-1">
-            <span className={`text-xs ${row.entryPhase.active ? "text-green-500 font-medium" : "text-muted-foreground"}`}>
-              {row.entryPhase.date}
+            <span className={`text-xs ${row.entryPhase?.active ? "text-green-500 font-medium" : "text-muted-foreground"}`}>
+              {row.entryPhase?.date || "N/A"}
             </span>
-            {row.entryPhase.active && (
+            {row.entryPhase?.active && (
               <span className="text-xs text-green-500 font-medium">Active</span>
             )}
           </div>
@@ -305,16 +324,28 @@ function DataRankTable({
       case "phaseStatus":
         return (
           <div className="flex flex-col gap-1">
-            <span className={`text-xs ${row.phaseStatus.active ? "text-yellow-500 font-medium" : "text-muted-foreground"}`}>
-              {row.phaseStatus.date}
+            <span className={`text-xs ${row.phaseStatus?.active ? "text-yellow-500 font-medium" : "text-muted-foreground"}`}>
+              {row.phaseStatus?.date || "N/A"}
             </span>
-            {row.phaseStatus.active && (
+            {row.phaseStatus?.active && (
               <span className="text-xs text-yellow-500 font-medium">
-                {row.phaseStatus.type === "monitor" ? "Monitor" : "Exit"}
+                {row.phaseStatus?.type === "monitor" ? "Monitor" : "Exit"}
               </span>
             )}
           </div>
         );
+      case "metricScore":
+        return row.metricScore || 'N/A';
+      case "growthIndicator":
+        return row.growthIndicator || 'N/A';
+      case "currentMetric":
+        return row.currentMetric || 'N/A';
+      case "predictedMetric":
+        return row.predictedMetric || 'N/A';
+      case "lastAnalysisDate":
+        return row.lastAnalysisDate || 'N/A';
+      case "nextAnalysisDate":
+        return row.nextAnalysisDate || 'N/A';
       case "chart":
         return (
           <Button asChild size="sm" variant="secondary">

@@ -2,6 +2,7 @@
   "name": "@epsx/config",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -14,20 +15,21 @@
     "build": "tsc && node scripts/build-eslint.js"
   },
   "dependencies": {
-    "@typescript-eslint/eslint-plugin": "8.26.1",
-    "@typescript-eslint/parser": "8.26.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "eslint-config-prettier": "^10.0.0",
-    "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-jsx-a11y": "^6.10.1",
-    "eslint-plugin-react": "^7.35.0",
-    "eslint-plugin-react-hooks": "^5.0.0"
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-define-config": "^1.23.0"
   },
   "devDependencies": {
     "eslint-config-next": "15.2.3",
     "typescript": "^5.7.3"
   },
   "peerDependencies": {
-    "eslint": "^9.22.0",
+    "eslint": "^9.0.0",
     "prettier": "^3.5.2",
     "typescript": "^5.7.3"
   }

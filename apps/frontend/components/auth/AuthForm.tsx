@@ -1,107 +1,43 @@
-"use client";
+'use client';
 
-import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@epsx/ui";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-
-const formSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+import { Button } from '@epsx/ui';
 
 interface AuthFormProps {
   error?: string;
-  mode: 'login' | 'register';
-  onSubmit: (values: z.infer<typeof formSchema>) => Promise<void>;
-  onOAuthClick: (provider: 'google' | 'github') => Promise<void>;
+  mode: 'login';
+  onOAuthClick: () => Promise<void>;
   isSubmitting: boolean;
 }
 
-export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: AuthFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
+export function AuthForm({ error, onOAuthClick, isSubmitting }: AuthFormProps) {
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-sm space-y-6">
       {error && (
         <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-          {error === 'auth_failed' ? 'Authentication failed. Please try again.' : error}
+          {error === 'auth_failed'
+            ? 'Authentication failed. Please try again.'
+            : error}
         </div>
       )}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField<z.infer<typeof formSchema>>
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter your email"
-                    type="email"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField<z.infer<typeof formSchema>>
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter your password"
-                    type="password"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isSubmitting}
-          >
-            {mode === 'login' ? 'Sign In' : 'Sign Up'}
-          </Button>
-        </form>
-      </Form>
 
       <div className="space-y-3">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
+        <div className="text-center mb-4">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Sign in to your account
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={() => onOAuthClick('google')}
+        <div>
+          <button
+            type="button"
+            onClick={onOAuthClick}
             disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg
-              className="mr-2 h-4 w-4"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 fill="#4285F4"
@@ -119,8 +55,8 @@ export function AuthForm({ error, mode, onSubmit, onOAuthClick, isSubmitting }: 
                 fill="#EA4335"
               />
             </svg>
-            <span>Google</span>
-          </Button>
+            <span>Continue with Google</span>
+          </button>
         </div>
       </div>
     </div>

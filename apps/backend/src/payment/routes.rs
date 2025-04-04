@@ -18,11 +18,9 @@ use crate::auth::AuthService;
 #[allow(dead_code)]
 pub struct PaymentApiDoc;
 
-pub fn router(payment_service: PaymentService, auth_service: AuthService) -> Router {
+pub fn router(payment_service: PaymentService, _auth_service: AuthService) -> Router {
     Router::new()
         .route("/create", post(handlers::create_payment))
-        .layer(
-            middleware::from_fn_with_state(auth_service, crate::auth::middleware::auth_middleware)
-        )
+        .layer(middleware::from_fn(crate::auth::middleware::auth_middleware))
         .with_state(payment_service)
 }

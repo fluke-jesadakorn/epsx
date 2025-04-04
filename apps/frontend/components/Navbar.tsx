@@ -18,7 +18,7 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from "../context/auth-context";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -76,7 +76,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -89,8 +89,8 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
   const handleLogout = async () => {
     try {
       setIsOpen(false);
-      await logout();
-      router.push("/");
+      await signOut();
+      router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
     }

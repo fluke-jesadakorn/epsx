@@ -1,90 +1,127 @@
-"use client";
+'use client';
 
-import React from "react";
-import { authService } from "@/services/auth.service";
-import { UserRole } from "@/types/auth/roles";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import type { ReactNode } from "react";
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword as signInWithEmailPwd,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+  onIdTokenChanged,
+} from "firebase/auth";
+import type { User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { handleSignIn, handleSignOut } from "@/app/actions/auth";
 
-import type { TokenFeature, Permission } from '@/types/auth/features';
-
-interface AuthState {
-  isLoggedIn: boolean;
-  userEmail: string | null;
-  role: UserRole;
-  tokenBalance: number;
-  features: TokenFeature[];
-  permissions: Permission[];
-  isAdmin: boolean;
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmailPassword: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
-interface AuthContextValue extends AuthState {
-  logout: () => Promise<void>;
-  checkStatus: () => Promise<void>;
-  hasFeature: (feature: TokenFeature) => boolean;
-  hasPermission: (permission: Permission) => boolean;
-}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const initialState: AuthState = {
-  isLoggedIn: false,
-  userEmail: null,
-  role: UserRole.GUEST,
-  tokenBalance: 0,
-  features: [],
-  permissions: [],
-  isAdmin: false,
-};
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const AuthContext = React.createContext<AuthContextValue>({
-  ...initialState,
-  logout: async () => {},
-  checkStatus: async () => {},
-  hasFeature: () => false,
-  hasPermission: () => false,
-});
+  // Listen for token changes
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const idToken = await user.getIdToken();
+          // Use server action to create session
+          await handleSignIn(idToken);
+          setUser(user);
+        } catch (error) {
+          console.error("Session sync error:", error);
+          setError("Failed to sync session");
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
 
-export const useAuth = (): AuthContextValue =>
-  React.useContext(AuthContext);
-
-export const AuthProvider = React.memo(({ children }: { children: React.ReactNode }) => {
-  const [state, setState] = React.useState<AuthState>(initialState);
-  
-  const checkStatus = React.useCallback(async () => {
-    const status = await authService.checkAuthStatus();
-    setState(status);
+    return () => unsubscribe();
   }, []);
 
-  const logout = async () => {
-    await authService.logout();
-    setState(initialState);
+  const signInWithGoogle = async () => {
+    try {
+      setError(null);
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      setError("Failed to sign in with Google");
+      throw error;
+    }
   };
 
-  const hasFeature = React.useCallback((feature: TokenFeature): boolean => {
-    return state.features.includes(feature);
-  }, [state.features]);
+  const signInWithEmailPassword = async (email: string, password: string) => {
+    try {
+      setError(null);
+      await signInWithEmailPwd(auth, email, password);
+    } catch (error) {
+      console.error("Email/Password sign-in error:", error);
+      setError("Failed to sign in with email/password");
+      throw error;
+    }
+  };
 
-  const hasPermission = React.useCallback((permission: Permission): boolean => {
-    return state.permissions.includes(permission);
-  }, [state.permissions]);
+  const signUp = async (email: string, password: string) => {
+    try {
+      setError(null);
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error("Sign-up error:", error);
+      setError("Failed to create account");
+      throw error;
+    }
+  };
 
-  // Check status on mount and set up periodic checks
-  React.useEffect(() => {
-    checkStatus();
-    
-    // Check status every minute to keep auth state in sync
-    const interval = setInterval(checkStatus, 60000);
-    return () => clearInterval(interval);
-  }, [checkStatus]);
+  const signOut = async () => {
+    try {
+      setError(null);
+      await firebaseSignOut(auth);
+      // Use server action to clear session
+      await handleSignOut();
+    } catch (error) {
+      console.error("Sign-out error:", error);
+      setError("Failed to sign out");
+      throw error;
+    }
+  };
 
-  const value = React.useMemo(() => ({
-    ...state,
-    logout,
-    checkStatus,
-    hasFeature,
-    hasPermission
-  }), [state, checkStatus, hasFeature, hasPermission]);
+  const value = {
+    user,
+    loading,
+    error,
+    signInWithGoogle,
+    signInWithEmailPassword,
+    signUp,
+    signOut,
+  };
 
-  return (
-    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-  );
-});
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
-AuthProvider.displayName = "AuthProvider";
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
