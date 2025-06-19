@@ -1,7 +1,5 @@
 'use client';
 
-import { Button } from '@epsx/ui';
-
 interface AuthFormProps {
   error?: string;
   mode: 'login';

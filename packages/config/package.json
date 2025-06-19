@@ -9,7 +9,7 @@
     "dist"
   ],
   "exports": {
-    "./eslint/base": "./dist/eslint/base.js"
+    "./eslint/base": "./dist/eslint/base.cjs"
   },
   "scripts": {
     "build": "tsc && node scripts/build-eslint.cjs"

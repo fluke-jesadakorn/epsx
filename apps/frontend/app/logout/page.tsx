@@ -6,12 +6,12 @@ import { useAuth } from '@/context/auth-context';
 
 export default function LogoutPage() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const performLogout = async () => {
       try {
-        await logout();
+        await signOut();
         
         // Clear auth cookies
         document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -25,7 +25,7 @@ export default function LogoutPage() {
     };
 
     performLogout();
-  }, [logout, router]);
+  }, [signOut, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

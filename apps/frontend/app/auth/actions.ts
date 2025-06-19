@@ -1,5 +1,4 @@
 import { verifySession, destroySession } from '@/lib/session';
-import type { SessionClaims } from '@/lib/session';
 
 export async function getCurrentSession(): Promise<{
   userId: string;
@@ -8,11 +7,11 @@ export async function getCurrentSession(): Promise<{
 } | null> {
   const claims = await verifySession();
   if (!claims) return null;
-  
+
   return {
     userId: claims.uid,
     email: claims.email,
-    expiresAt: claims.exp * 1000 // Convert to milliseconds
+    expiresAt: claims.exp * 1000, // Convert to milliseconds
   };
 }
 

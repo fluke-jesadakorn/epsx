@@ -1,7 +1,7 @@
-'use server'
+'use server';
 
-import { redirect } from 'next/navigation';
 import { createSession, destroySession, verifySession } from '@/lib/session';
+import type { User } from '@/types/auth/user';
 
 export async function handleSignIn(idToken: string) {
   try {
@@ -24,10 +24,21 @@ export async function handleSignOut() {
   }
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<User | null> {
   try {
     const claims = await verifySession();
-    return claims;
+    if (!claims) return null;
+
+    return {
+      id: claims.uid,
+      email: claims.email || '',
+      createdAt: claims.auth_time ? new Date(claims.auth_time * 1000).toISOString() : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      emailVerified: claims.email_verified || false,
+      role: claims.admin ? 'ADMIN' : 'USER',
+      displayName: claims.name || undefined,
+      photoURL: claims.picture || undefined
+    };
   } catch (error) {
     console.error('Get current user error:', error);
     return null;

@@ -1,23 +1,20 @@
 'use client';
 
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import type { User } from 'firebase/auth';
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import type { ReactNode } from "react";
-import {
-  signInWithPopup,
-  signInWithEmailAndPassword as signInWithEmailPwd,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
-  signOut as firebaseSignOut,
   onIdTokenChanged,
-} from "firebase/auth";
-import type { User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { handleSignIn, handleSignOut } from "@/app/actions/auth";
+  signInWithEmailAndPassword as signInWithEmailPwd,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+} from 'firebase/auth';
+
+import { handleSignIn, handleSignOut } from '@/app/actions/auth';
+import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -31,7 +28,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}): React.ReactElement {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await handleSignIn(idToken);
           setUser(user);
         } catch (error) {
-          console.error("Session sync error:", error);
-          setError("Failed to sync session");
+          console.error('Session sync error:', error);
+          setError('Failed to sync session');
         }
       } else {
         setUser(null);
@@ -58,49 +59,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<void> => {
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Google sign-in error:", error);
-      setError("Failed to sign in with Google");
+      console.error('Google sign-in error:', error);
+      setError('Failed to sign in with Google');
       throw error;
     }
   };
 
-  const signInWithEmailPassword = async (email: string, password: string) => {
+  const signInWithEmailPassword = async (
+    email: string,
+    password: string,
+  ): Promise<void> => {
     try {
       setError(null);
       await signInWithEmailPwd(auth, email, password);
     } catch (error) {
-      console.error("Email/Password sign-in error:", error);
-      setError("Failed to sign in with email/password");
+      console.error('Email/Password sign-in error:', error);
+      setError('Failed to sign in with email/password');
       throw error;
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string): Promise<void> => {
     try {
       setError(null);
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      console.error("Sign-up error:", error);
-      setError("Failed to create account");
+      console.error('Sign-up error:', error);
+      setError('Failed to create account');
       throw error;
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     try {
       setError(null);
       await firebaseSignOut(auth);
       // Use server action to clear session
       await handleSignOut();
     } catch (error) {
-      console.error("Sign-out error:", error);
-      setError("Failed to sign out");
+      console.error('Sign-out error:', error);
+      setError('Failed to sign out');
       throw error;
     }
   };
@@ -118,10 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

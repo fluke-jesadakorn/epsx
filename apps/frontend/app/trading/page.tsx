@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
 import React from 'react';
-import { TokenGatedFeature } from '@/components/features/TokenGatedFeature';
-import { TokenFeature } from '@/types/auth/features';
-import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
-const AutomationDashboard = () => {
+import { TokenGatedFeature } from '@/components/features/TokenGatedFeature';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { TokenFeature } from '@/types/auth/features';
+
+const AutomationDashboard = (): React.JSX.Element => {
   const { tokenBalance, role } = useFeatureAccess();
 
   return (
@@ -43,7 +44,7 @@ const AutomationDashboard = () => {
         </TokenGatedFeature>
 
         {/* Trading Bot Feature */}
-        <TokenGatedFeature 
+        <TokenGatedFeature
           feature={TokenFeature.TRADING_BOT}
           fallback={
             <div className="p-4 border rounded-lg bg-gray-50">
@@ -103,7 +104,7 @@ const AutomationDashboard = () => {
         </TokenGatedFeature>
 
         {/* Advanced Tools Feature */}
-        <TokenGatedFeature 
+        <TokenGatedFeature
           feature={TokenFeature.ADVANCED_TOOLS}
           fallback={
             <div className="col-span-2 p-4 border rounded-lg bg-gray-50">

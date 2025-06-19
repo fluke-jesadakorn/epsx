@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && bun run build:fe",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && bun install",
+  "outputDirectory": "apps/frontend/.next",
+  "rootDirectory": "apps/frontend",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/frontend/ packages/",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url",
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url"
+  },
+  "functions": {
+    "apps/frontend/app/api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}

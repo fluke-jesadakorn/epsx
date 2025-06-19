@@ -1,12 +1,17 @@
 "use client";
 
 import { useAuth } from '@/context/auth-context';
-import { TokenFeature } from '@/types/auth/features';
-import type { FeatureAccess, Permission, UpgradeRequirement } from '@/types/auth/features';
+import { TokenFeature, Permission } from '@/types/auth/features';
+import type { FeatureAccess, UpgradeRequirement, User } from '@/types/auth/features';
 import { UserRole } from '@/types/auth/roles';
 
 export function useFeatureAccess() {
-  const { role, tokenBalance, features, permissions } = useAuth();
+  const { user: firebaseUser } = useAuth();
+  const user = firebaseUser as User | null;
+  const role = user?.role ?? UserRole.USER;
+  const tokenBalance = user?.token_balance ?? 0;
+  const features = user?.features ?? [];
+  const permissions = user?.permissions ?? [];
 
   const checkFeatureAccess = (feature: TokenFeature): FeatureAccess => {
     // Feature requirements would be imported from a shared config
@@ -69,11 +74,8 @@ export function useFeatureAccess() {
 // Helper functions
 function hasRequiredRole(currentRole: UserRole, requiredRole: UserRole): boolean {
   const roleValues = {
-    [UserRole.GUEST]: 0,
-    [UserRole.REGISTERED_USER]: 1,
-    [UserRole.PREMIUM_USER]: 2,
-    [UserRole.TOKEN_HOLDER]: 3,
-    [UserRole.ADMINISTRATOR]: 4
+    [UserRole.USER]: 0,
+    [UserRole.ADMIN]: 1
   };
 
   return roleValues[currentRole] >= roleValues[requiredRole];
@@ -85,33 +87,33 @@ function getFeatureRequirements(feature: TokenFeature): {
 } {
   // This would come from a shared config
   const requirements = {
-    [TokenFeature.REAL_TIME_ANALYSIS]: {
+    [TokenFeature.TRADING]: {
       minTokens: 100,
-      requiredRole: UserRole.REGISTERED_USER
+      requiredRole: UserRole.USER
     },
-    [TokenFeature.PORTFOLIO_MANAGEMENT]: {
+    [TokenFeature.REAL_TIME_ANALYSIS]: {
       minTokens: 500,
-      requiredRole: UserRole.REGISTERED_USER
-    },
-    [TokenFeature.PORTFOLIO_ASSISTANCE]: {
-      minTokens: 1000,
-      requiredRole: UserRole.PREMIUM_USER
+      requiredRole: UserRole.USER
     },
     [TokenFeature.TRADING_BOT]: {
-      minTokens: 2500,
-      requiredRole: UserRole.PREMIUM_USER
+      minTokens: 1000,
+      requiredRole: UserRole.USER
     },
     [TokenFeature.AI_ANALYSIS]: {
+      minTokens: 2000,
+      requiredRole: UserRole.USER
+    },
+    [TokenFeature.PORTFOLIO_MANAGEMENT]: {
       minTokens: 5000,
-      requiredRole: UserRole.PREMIUM_USER
+      requiredRole: UserRole.USER
     },
     [TokenFeature.ADVANCED_TOOLS]: {
-      minTokens: 7500,
-      requiredRole: UserRole.PREMIUM_USER
-    },
-    [TokenFeature.GOVERNANCE]: {
       minTokens: 10000,
-      requiredRole: UserRole.TOKEN_HOLDER
+      requiredRole: UserRole.USER
+    },
+    [TokenFeature.ADMIN_ACCESS]: {
+      minTokens: 0,
+      requiredRole: UserRole.ADMIN
     }
   };
 
@@ -121,13 +123,13 @@ function getFeatureRequirements(feature: TokenFeature): {
 function getFeaturePermissions(feature: TokenFeature): Permission[] {
   // This would come from a shared config
   const featurePermissions: Record<TokenFeature, Permission[]> = {
-    [TokenFeature.REAL_TIME_ANALYSIS]: ['view:basic_analysis', 'view:premium_analysis'],
-    [TokenFeature.PORTFOLIO_MANAGEMENT]: ['manage:basic_portfolio', 'manage:premium_portfolio'],
-    [TokenFeature.PORTFOLIO_ASSISTANCE]: ['use:portfolio_assistance'],
-    [TokenFeature.TRADING_BOT]: ['use:trading_bot'],
-    [TokenFeature.AI_ANALYSIS]: ['use:ai_analysis'],
-    [TokenFeature.ADVANCED_TOOLS]: ['use:advanced_tools', 'view:risk_analysis', 'view:trend_detection'],
-    [TokenFeature.GOVERNANCE]: ['governance:vote_upgrades', 'governance:vote_strategies']
+    [TokenFeature.TRADING]: [Permission.EXECUTE_TRADES],
+    [TokenFeature.REAL_TIME_ANALYSIS]: [Permission.VIEW_ANALYTICS],
+    [TokenFeature.TRADING_BOT]: [Permission.EXECUTE_TRADES, Permission.ACCESS_API],
+    [TokenFeature.AI_ANALYSIS]: [Permission.VIEW_ANALYTICS, Permission.ACCESS_API],
+    [TokenFeature.PORTFOLIO_MANAGEMENT]: [Permission.READ, Permission.WRITE],
+    [TokenFeature.ADVANCED_TOOLS]: [Permission.READ, Permission.WRITE, Permission.ACCESS_API],
+    [TokenFeature.ADMIN_ACCESS]: [Permission.ADMIN, Permission.MANAGE_USERS, Permission.MANAGE_ROLES]
   } as const;
 
   return featurePermissions[feature];

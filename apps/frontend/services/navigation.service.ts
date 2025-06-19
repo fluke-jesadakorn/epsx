@@ -32,7 +32,7 @@ class NavigationService {
         requireAuth: true,
       });
 
-      if (role === UserRole.ADMINISTRATOR) {
+      if (role === UserRole.ADMIN) {
         items.push({
           label: "Admin",
           href: "/admin",

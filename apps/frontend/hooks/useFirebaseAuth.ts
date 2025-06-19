@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { watchAuthState, type FirebaseUser } from '@/lib/firebase-client';
+import { watchAuthState, type FirebaseUser } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuth } from '@/context/auth-context';
 
 export function useFirebaseAuth() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { session } = useAuth();
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
     // Subscribe to Firebase auth state changes
@@ -17,20 +17,20 @@ export function useFirebaseAuth() {
       setFirebaseUser(user);
       setIsLoading(false);
 
-      // If user is logged out in Firebase but we have a session, clear it
-      if (!user && session) {
+      // If user is logged out in Firebase but we have an auth session, clear it
+      if (!user && authUser) {
         router.push('/login');
       }
     });
 
     // Cleanup subscription
     return () => unsubscribe();
-  }, [router, session]);
+  }, [router, authUser]);
 
   return {
     user: firebaseUser,
     isLoading,
-    isAuthenticated: !!firebaseUser && !!session,
+    isAuthenticated: !!firebaseUser && !!authUser,
   };
 }
 

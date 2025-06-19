@@ -7,7 +7,6 @@ import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-rea
 import { useAuth } from "@/context/auth-context";
 import { navigationService } from "@/services/navigation.service";
 import { UserRole } from "@/types/auth/roles";
-import { authService } from "@/services/auth.service";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -40,19 +39,19 @@ const iconMap = {
 
 function NavbarComponent() {
   const pathname = usePathname();
-  const { isLoggedIn, userEmail, isAdmin, checkStatus } = useAuth();
+  const { user, signOut } = useAuth();
+  // Get user email and admin status from user object
+  const userEmail = user?.email;
+  const isAdmin = user?.email?.endsWith('@epsx.com') ?? false; // Example admin check - update based on your needs
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
-  const navItems = navigationService.getNavItems(isLoggedIn, isAdmin ? UserRole.ADMINISTRATOR : undefined);
+  const navItems = navigationService.getNavItems(!!user, isAdmin ? UserRole.ADMIN : undefined);
 
   const handleLogout = async () => {
     try {
-      const result = await authService.logout();
-      if (result.success) {
-        await checkStatus();
-        router.push(result.redirectUrl);
-      }
+      await signOut();
+      router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -99,7 +98,7 @@ function NavbarComponent() {
         <div className="flex items-center gap-4 md:gap-6">
           <ThemeToggle />
 
-          {isLoggedIn && userEmail && (
+          {user?.email && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -146,7 +145,7 @@ function NavbarComponent() {
                   </Link>
                 ))}
 
-                {isLoggedIn ? (
+                {user ? (
                   <Button
                     variant="ghost"
                     onClick={() => {
@@ -173,7 +172,7 @@ function NavbarComponent() {
           </Sheet>
 
           <div className="hidden md:block">
-            {isLoggedIn ? (
+            {user ? (
               <Button
                 variant="ghost"
                 onClick={handleLogout}

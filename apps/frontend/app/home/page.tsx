@@ -88,7 +88,7 @@ function HomePage() {
         <HeroSection className="relative z-10" />
         <DataTechSection />
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto my-8 sm:my-16">
-          <EpsCardSection initialData={data} initialTotal={data.length} />
+          <EpsCardSection initialData={data} />
         </div>
         <PricingSection />
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto my-8 sm:my-16">

@@ -50,7 +50,8 @@
     ".next/types/**/*.ts",
     "../../packages/types/src/**/*.ts",
     "../../packages/ui/src/**/*.ts",
-    "../../packages/ui/src/**/*.tsx"
+    "../../packages/ui/src/**/*.tsx",
+    "eslint.config.js"
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

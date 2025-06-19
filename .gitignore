@@ -144,3 +144,6 @@ debug/
 # Cache
 .cache/
 **/.cache/
+
+# Vercel
+.vercel

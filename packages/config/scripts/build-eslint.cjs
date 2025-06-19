@@ -21,6 +21,6 @@ if (!configMatch) {
 
 // Parse the config, replacing the plugins array
 let configStr = configMatch[1];
-const outputPath = path.resolve(distDir, 'base.js');
+const outputPath = path.resolve(distDir, 'base.cjs');
 
 fs.writeFileSync(outputPath, `module.exports = ${configStr};`);

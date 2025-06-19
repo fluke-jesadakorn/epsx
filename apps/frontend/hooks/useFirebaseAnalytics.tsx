@@ -2,7 +2,7 @@
 
 import React, { useEffect, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { analytics } from "../lib/firebase-client";
+import { analytics } from "@/lib/firebase";
 import { logEvent } from "firebase/analytics";
 
 const AnalyticsTracker = () => {
@@ -10,19 +10,25 @@ const AnalyticsTracker = () => {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!analytics) return;
+    const initAnalytics = async () => {
+      if (!analytics) return;
+      
+      const analyticsInstance = await analytics;
+      
+      // Construct full URL with search params
+      const url = searchParams?.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
 
-    // Construct full URL with search params
-    const url = searchParams?.toString()
-      ? `${pathname}?${searchParams.toString()}`
-      : pathname;
+      // Log page_view event
+      logEvent(analyticsInstance, "page_view", {
+        page_path: pathname,
+        page_url: url,
+        page_title: document.title,
+      });
+    };
 
-    // Log page_view event
-    logEvent(analytics, "page_view", {
-      page_path: pathname,
-      page_url: url,
-      page_title: document.title,
-    });
+    initAnalytics();
   }, [pathname, searchParams]);
 
   return null;
@@ -42,9 +48,10 @@ export const useFirebaseAnalytics = (): FirebaseAnalyticsHook => {
 
   return {
     AnalyticsWrapper,
-    logEvent: (eventName: string, eventParams?: Record<string, any>) => {
+    logEvent: async (eventName: string, eventParams?: Record<string, any>) => {
       if (!analytics) return;
-      logEvent(analytics, eventName, eventParams);
+      const analyticsInstance = await analytics;
+      logEvent(analyticsInstance, eventName, eventParams);
     },
   };
 };

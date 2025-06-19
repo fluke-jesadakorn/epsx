@@ -110,7 +110,7 @@ const TokenGatedContent: React.FC<TokenGatedFeatureProps> = ({
       currentTokens={access.currentTokens}
       requiredTokens={access.requiredTokens || 0}
       currentRole={access.currentRole}
-      requiredRole={access.requiredRole || UserRole.GUEST}
+      requiredRole={access.requiredRole || UserRole.USER}
     />
   );
 };

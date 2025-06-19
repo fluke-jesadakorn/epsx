@@ -7,16 +7,16 @@ import { useAuth } from "@/context/auth-context";
 const publicRoutes = ["/login", "/register", "/privacy", "/terms"];
 
 export default function AuthStatus() {
-  const { isLoggedIn } = useAuth();
+  const { user } = useAuth();
   const pathname = usePathname() || '';
   const router = useRouter();
 
   // Redirect to login if authentication is lost on protected routes
   useEffect(() => {
-    if (!isLoggedIn && !publicRoutes.includes(pathname)) {
+    if (!user && !publicRoutes.includes(pathname)) {
       router.push("/login");
     }
-  }, [isLoggedIn, pathname, router]);
+  }, [user, pathname, router]);
 
   return null;
 }

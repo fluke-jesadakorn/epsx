@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBof2MIWdFMfpvfl21Di2fOH08ElTgAurU",
@@ -14,4 +15,15 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-export { auth, app };
+// Initialize analytics only in browser environment and when supported
+const analytics = typeof window !== 'undefined' 
+  ? isSupported().then(() => getAnalytics(app)) 
+  : null;
+
+export { auth, app, analytics };
+
+export type { FirebaseUser };
+
+export const watchAuthState = (callback: (user: FirebaseUser | null) => void) => {
+  return onAuthStateChanged(auth, callback);
+};
