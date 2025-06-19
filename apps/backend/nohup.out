@@ -1,7 +1,0 @@
-    Finished `dev` profile [optimized + debuginfo] target(s) in 0.10s
-     Running `target/debug/backend`
-[2m2025-03-26T05:55:03.532329Z[0m [32m INFO[0m [2mbackend[0m[2m:[0m Starting API server...
-[2m2025-03-26T05:55:03.532597Z[0m [32m INFO[0m [2mbackend::auth::firebase[0m[2m:[0m Creating new Firebase Auth instance
-[2m2025-03-26T05:55:03.536716Z[0m [32m INFO[0m [2mbackend::auth::routes[0m[2m:[0m Initializing authentication router
-[2m2025-03-26T05:55:03.536820Z[0m [32m INFO[0m [2mbackend::auth::routes[0m[2m:[0m Finalizing router setup
-[2m2025-03-26T05:55:03.537098Z[0m [32m INFO[0m [2mbackend[0m[2m:[0m Server initialized successfully, starting to serve requests...
