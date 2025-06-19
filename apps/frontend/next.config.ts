@@ -5,10 +5,10 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     '@epsx/api-client',
     '@epsx/config',
-    '@epsx/frontend', 
+    '@epsx/frontend',
     '@epsx/shared',
     '@epsx/types',
-    '@epsx/utils'
+    '@epsx/utils',
   ],
   experimental: {
     serverActions: {
@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   generateEtags: true,
-  output: 'standalone',
 };
 
 export default nextConfig;
