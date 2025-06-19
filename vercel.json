@@ -4,7 +4,6 @@
   "framework": "nextjs",
   "installCommand": "cd ../.. && bun install",
   "outputDirectory": "apps/frontend/.next",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/frontend/ packages/",
   "functions": {
     "apps/frontend/app/api/**/*.js": {
       "maxDuration": 30
