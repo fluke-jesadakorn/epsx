@@ -1,62 +1,34 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [
-    "**/.env"
-  ],
+  "globalDependencies": ["**/.env"],
   "globalEnv": [
     "NODE_ENV",
-    "NEXT_PUBLIC_*"
+    "NEXT_PUBLIC_*",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET"
   ],
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "target/**",
-        "build/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "target/**", "build/**"]
     },
     "build:admin": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        ".next/**"
-      ],
-      "env": [
-        "NEXT_PUBLIC_*"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"],
+      "env": ["NEXT_PUBLIC_*"]
     },
     "build:fe": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        ".next/**"
-      ],
-      "env": [
-        "NEXT_PUBLIC_*",
-        "FIREBASE_*"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"],
+      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
     "build:be": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "target/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["target/**"]
     },
     "build:pkg": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
     },
     "dev": {
       "cache": false,
@@ -69,59 +41,37 @@
     "dev:fe": {
       "cache": false,
       "persistent": true,
-      "env": [
-        "NEXT_PUBLIC_*",
-        "FIREBASE_*"
-      ]
+      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
     "dev:be": {
       "cache": false,
       "persistent": true
     },
     "start": {
-      "dependsOn": [
-        "^build",
-        "build"
-      ],
+      "dependsOn": ["^build", "build"],
       "cache": false
     },
     "start:fe": {
-      "dependsOn": [
-        "build:fe"
-      ],
+      "dependsOn": ["build:fe"],
       "cache": false
     },
     "start:be": {
-      "dependsOn": [
-        "build:be"
-      ],
+      "dependsOn": ["build:be"],
       "cache": false
     },
     "lint": {
-      "outputs": [
-        "node_modules/.cache/.eslintcache"
-      ]
+      "outputs": ["node_modules/.cache/.eslintcache"]
     },
     "lint:fix": {
-      "outputs": [
-        "node_modules/.cache/.eslintcache"
-      ]
+      "outputs": ["node_modules/.cache/.eslintcache"]
     },
     "type-check": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "node_modules/.cache/tsbuildinfo.json"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["node_modules/.cache/tsbuildinfo.json"]
     },
     "test": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "coverage/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
     },
     "clean": {
       "cache": false
