@@ -1,28 +1,35 @@
-use mongodb::{ Client, options::{ ClientOptions, Tls, TlsOptions } };
-use anyhow::Result;
+use dotenv::dotenv;
+use mongodb::{Client, Database};
+use std::env;
 
-pub async fn connect_db() -> Result<Client> {
-    let mongodb_uri = std::env::var("MONGODB_URI").expect("MONGODB_URI must be set");
-    let mongodb_db = std::env::var("MONGODB_DB").unwrap_or_else(|_| "epsx".to_string());
+pub mod models;
 
-    // Configure TLS with system certificates
-    let tls_options = TlsOptions::builder().build();
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct DB {
+    pub client: Client,
+    pub database: Database,
+}
 
-    let mut client_options = ClientOptions::parse(&mongodb_uri).await
-        .expect("Failed to parse MongoDB URI");
+impl DB {
+    pub fn get_stock_data(&self) -> mongodb::Collection<crate::db::models::StockData> {
+        self.database.collection("stock_data")
+    }
+}
 
-    client_options.tls = Some(Tls::Enabled(tls_options));
+pub async fn connect_db() -> Result<DB, mongodb::error::Error> {
+    dotenv().ok();
+    
+    let mongodb_uri = env::var("MONGODB_URI")
+        .expect("MONGODB_URI must be set");
+    let database_name = env::var("MONGODB_DB")
+        .expect("MONGODB_DB must be set");
 
-    let client = Client::with_options(client_options)
-        .expect("Failed to create MongoDB client");
+    let client = Client::with_uri_str(&mongodb_uri).await?;
+    let database = client.database(&database_name);
 
-    // Test the connection by pinging instead of listing collections
-    client
-        .database(&mongodb_db)
-        .run_command(mongodb::bson::doc! { "ping": 1 }, None)
-        .await
-        .expect("Failed to connect to MongoDB");
-
-    tracing::info!("Connected to MongoDB");
-    Ok(client)
+    Ok(DB {
+        client,
+        database,
+    })
 }

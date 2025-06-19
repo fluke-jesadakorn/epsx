@@ -1,122 +1,64 @@
-use axum::{
-    extract::State,
-    Json,
-    http::StatusCode,
-};
+use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
-use crate::auth::{AuthService};
+use std::sync::Arc;
+use super::{AuthService, AuthError};
+use utoipa::{OpenApi, ToSchema};
 
-#[derive(Deserialize, utoipa::ToSchema)]
+#[derive(OpenApi)]
+#[openapi(
+    paths(verify_token),
+    components(
+        schemas(LoginRequest, LoginResponse)
+    ),
+    tags(
+        (name = "Authentication", description = "Authentication endpoints")
+    )
+)]
+#[allow(dead_code)]
+struct AuthApi;
+
+#[derive(Debug, Deserialize, ToSchema)]
 #[schema(example = json!({
-    "token": "firebase.auth.token"
+    "token": "firebase.jwt.token"
 }))]
-pub struct SignInRequest {
+#[allow(dead_code)]
+pub struct LoginRequest {
     token: String,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
-pub struct SignInResponse {
-    roles: Vec<String>,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Debug, Serialize, ToSchema)]
 #[schema(example = json!({
-    "success": true,
-    "message": "Authentication successful",
+    "user_id": "user123",
+    "email": "user@example.com",
     "roles": ["user"]
 }))]
-pub struct AuthResponse {
-    success: bool,
-    message: String,
+pub struct LoginResponse {
+    user_id: String,
+    email: Option<String>,
     roles: Vec<String>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({
-    "message": "Protected endpoint response"
-}))]
-pub struct ProtectedResponse {
-    message: String,
-}
-
-#[utoipa::path(
-    get,
-    path = "/auth/session/validate",
-    responses(
-        (status = 200, description = "Session validated successfully", body = SignInResponse),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(("bearer" = []))
-)]
-pub async fn session_validate(
-    State(_state): State<AuthService>,
-) -> Result<Json<SignInResponse>, StatusCode> {
-    Ok(Json(SignInResponse {
-        roles: vec!["user".to_string()],
-    }))
-}
-
-#[utoipa::path(
-    get,
-    path = "/auth/protected",
-    responses(
-        (status = 200, description = "Protected endpoint accessed", body = ProtectedResponse),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(("bearer" = []))
-)]
-pub async fn protected_example() -> Result<Json<ProtectedResponse>, StatusCode> {
-    Ok(Json(ProtectedResponse {
-        message: "This is a protected endpoint".to_string(),
-    }))
-}
-
-#[utoipa::path(
-    get,
-    path = "/auth/admin-only",
-    responses(
-        (status = 200, description = "Admin endpoint accessed", body = ProtectedResponse),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(("bearer" = []))
-)]
-pub async fn admin_only_example() -> Result<Json<ProtectedResponse>, StatusCode> {
-    Ok(Json(ProtectedResponse {
-        message: "This is an admin-only endpoint".to_string(),
-    }))
-}
-
+/// Verify Firebase JWT token and return user information
 #[utoipa::path(
     post,
-    path = "/auth/sign-in",
-    request_body = SignInRequest,
+    path = "/verify",
+    request_body = LoginRequest,
     responses(
-        (status = 200, description = "Sign in successful", body = SignInResponse),
-        (status = 401, description = "Unauthorized")
-    )
-)]
-pub async fn sign_in(
-    State(auth_service): State<AuthService>,
-    Json(payload): Json<SignInRequest>,
-) -> Result<Json<SignInResponse>, StatusCode> {
-    auth_service
-        .validate_session(&payload.token)
-        .await
-        .map(|auth_user| Json(SignInResponse {
-            roles: auth_user.roles.iter().map(|r| r.to_string()).collect(),
-        }))
-        .map_err(|_| StatusCode::UNAUTHORIZED)
-}
-
-#[utoipa::path(
-    get,
-    path = "/auth/sign-out",
-    responses(
-        (status = 200, description = "Sign out successful", body = Object),
-        (status = 401, description = "Unauthorized")
+        (status = 200, description = "Successfully verified token", body = LoginResponse),
+        (status = 401, description = "Invalid token"),
+        (status = 500, description = "Internal server error")
     ),
-    security(("bearer" = []))
+    tag = "Authentication"
 )]
-pub async fn sign_out() -> Result<Json<serde_json::Value>, StatusCode> {
-    Ok(Json(serde_json::json!({ "success": true })))
+pub async fn verify_token(
+    State(_state): State<Arc<AuthService>>,
+    Json(_req): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, AuthError> {
+    // In real implementation, this would validate the token with Firebase
+    // For now, just return mock data
+    Ok(Json(LoginResponse {
+        user_id: "mock_user_id".to_string(),
+        email: Some("mock@example.com".to_string()),
+        roles: vec!["user".to_string()],
+    }))
 }
