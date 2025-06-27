@@ -1,12 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { getAuthStatus } from "@/app/actions/getAuthStatus";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { getAuthStatus } from '@/app/actions/getAuthStatus';
 
 interface NavbarProps {
-  isAdmin: boolean;
   userEmail: string | null;
 }
 import {
@@ -14,64 +13,59 @@ import {
   User,
   LogOut,
   LogIn,
+  CreditCard,
   // File,
   Menu,
-  Settings,
-} from "lucide-react";
-import { useAuth } from "../context/auth-context";
+} from 'lucide-react';
+import { useAuth } from '../context/auth-context';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/navigation-menu';
+import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+} from '@/components/ui/sheet';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import ThemeToggle from "./ThemeToggle";
+} from '@/components/ui/tooltip';
+import ThemeToggle from './ThemeToggle';
 
-const getNavItems = (isAdmin: boolean) => {
-  const items = [
+const getNavItems = () => {
+  return [
     // {
     //   label: "Docs",
-    //   href: "https://your-gitbook-url.com",
+    //   href: "https://your-git-book-url.com",
     //   key: "docs",
     //   icon: <File className="h-4 w-4" />,
     // },
     {
-      label: "Analytics",
-      href: "/analytics",
-      key: "analytics",
+      label: 'Analytics',
+      href: '/analytics',
+      key: 'analytics',
       icon: <LineChart className="h-4 w-4" />,
     },
+    {
+      label: 'Data Collection',
+      href: '/data-collection',
+      key: 'data-collection',
+      icon: <CreditCard className="h-4 w-4" />,
+    },
   ];
-
-  if (isAdmin) {
-    items.push({
-      label: "Admin",
-      href: "/admin",
-      key: "admin",
-      icon: <Settings className="h-4 w-4" />,
-    });
-  }
-
-  return items;
 };
 
-export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
-  const pathname = usePathname() || "";
+export default function Navbar({ userEmail }: NavbarProps) {
+  const pathname = usePathname() || '';
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
@@ -90,9 +84,9 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
     try {
       setIsOpen(false);
       await signOut();
-      router.push("/login");
+      router.push('/login');
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
     }
   };
 
@@ -107,7 +101,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
           </Link>
           <NavigationMenu className="hidden md:block">
             <NavigationMenuList className="flex space-x-2">
-              {getNavItems(isAdmin).map((item) => (
+              {getNavItems().map((item) => (
                 <NavigationMenuItem key={item.key}>
                   <NavigationMenuLink asChild>
                     <Link href={item.href}>
@@ -116,8 +110,8 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                         className={`flex items-center gap-2 rounded-full hover:bg-primary/10
                         ${
                           pathname === item.href
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:text-primary"
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:text-primary'
                         }`}
                       >
                         {item.icon}
@@ -150,7 +144,7 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{userEmail || "User"}</p>
+                  <p>{userEmail || 'User'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -168,13 +162,13 @@ export default function Navbar({ isAdmin, userEmail }: NavbarProps) {
                 <SheetTitle className="text-left">Menu</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-4 mt-6 hover:cursor-pointer">
-                {getNavItems(isAdmin).map((item) => (
+                {getNavItems().map((item) => (
                   <Link
                     key={item.key}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
                     className={`flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10
-                      ${pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary"}`}
+                      ${pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'}`}
                   >
                     {item.icon}
                     {item.label}

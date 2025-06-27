@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { navigationService } from "@/services/navigation.service";
-import { UserRole } from "@/types/auth/roles";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -34,7 +33,6 @@ const iconMap = {
   docs: <File className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
-  admin: <Settings className="h-4 w-4" />,
 };
 
 function NavbarComponent() {
@@ -42,11 +40,10 @@ function NavbarComponent() {
   const { user, signOut } = useAuth();
   // Get user email and admin status from user object
   const userEmail = user?.email;
-  const isAdmin = user?.email?.endsWith('@epsx.com') ?? false; // Example admin check - update based on your needs
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
-  const navItems = navigationService.getNavItems(!!user, isAdmin ? UserRole.ADMIN : undefined);
+  const navItems = navigationService.getNavItems(!!user);
 
   const handleLogout = async () => {
     try {

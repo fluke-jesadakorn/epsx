@@ -39,11 +39,11 @@ export default function ThemeToggle() {
               const newTheme = theme === 'dark' ? 'light' : 'dark';
               setTheme(newTheme);
             }}
-            className="w-16 h-8 rounded-full bg-gray-200 dark:bg-gray-600 transition-colors z-100"
+            className="w-16 h-8 rounded-full bg-gray-200 dark:bg-gray-600 transition-colors relative z-50"
           >
             <div
-              className={`top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 transform ${
-                theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
+              className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 transform ${
+                theme === 'dark' ? 'translate-x-7' : 'translate-x-0'
               } flex items-center justify-center`}
             >
               {theme === 'dark' ? (

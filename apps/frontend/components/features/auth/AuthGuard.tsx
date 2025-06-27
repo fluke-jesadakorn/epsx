@@ -6,13 +6,10 @@ import { useAuth } from "@/context/auth-context";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requireAdmin?: boolean;
 }
 
 export function AuthGuard({ 
-  children, 
-  // @ts-ignore - Admin check temporarily disabled, will be implemented later
-  requireAdmin = false 
+  children
 }: AuthGuardProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -22,8 +19,7 @@ export function AuthGuard({
       router.push("/login");
       return;
     }
-    // TODO: Implement proper admin check when admin functionality is added
-    // For now, we'll skip the admin check
+    // Check if user is authenticated
   }, [user, router]);
 
   if (!user) {

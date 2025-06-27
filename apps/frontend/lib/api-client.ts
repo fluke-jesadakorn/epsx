@@ -179,12 +179,22 @@ async function fetchWithAuth<T, TData = unknown>(
 
   // Get CSRF token from cookie if it exists
   let csrfToken = '';
+  let authToken = '';
   if (typeof window !== 'undefined') {
     csrfToken =
       document.cookie
         .split('; ')
         .find((row) => row.startsWith('csrf_token='))
         ?.split('=')[1] || '';
+    // Attempt to get auth token from local storage or context
+    try {
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        authToken = storedToken;
+      }
+    } catch (e) {
+      console.error('Failed to retrieve auth token from storage:', e);
+    }
   }
 
   const headers: Record<string, string> = {
@@ -199,6 +209,7 @@ async function fetchWithAuth<T, TData = unknown>(
         ? window.location.origin
         : process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000',
     ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+    ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...customHeaders,
   };
 

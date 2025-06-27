@@ -23,6 +23,9 @@ pub struct PaymentResponse {
     pub currency: String,
     pub status: PaymentStatus,
     pub created_at: String,
+    pub expiration_date: String,
+    pub user_level: UserLevel,
+    pub qr_code: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -32,6 +35,15 @@ pub enum PaymentStatus {
     Processing,
     Succeeded,
     Failed,
+    USDT,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum UserLevel {
+    Basic,
+    Premium,
+    VIP,
 }
 
 #[derive(Debug, thiserror::Error, ToSchema)]
@@ -63,13 +75,18 @@ impl PaymentService {
     ) -> Result<PaymentResponse, PaymentError> {
         // Mock implementation for testing
         let payment_id = Uuid::new_v4().to_string();
+        let now = chrono::Utc::now();
+        let expiration = now + chrono::Duration::days(90);
         
         Ok(PaymentResponse {
-            id: payment_id,
+            id: payment_id.clone(),
             amount: request.amount,
             currency: request.currency,
-            status: PaymentStatus::Pending,
-            created_at: chrono::Utc::now().to_rfc3339(),
+            status: PaymentStatus::USDT,
+            created_at: now.to_rfc3339(),
+            expiration_date: expiration.to_rfc3339(),
+            user_level: UserLevel::Premium,
+            qr_code: format!("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={}", payment_id),
         })
     }
 }

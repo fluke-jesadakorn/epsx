@@ -103,3 +103,4 @@ debug/
 #vercel
 .vercel/
 /secret/*
+.vercel

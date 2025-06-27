@@ -1,27 +1,50 @@
 'use client';
 
-import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const formSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string()
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface EmailPasswordFormProps {
   isSignUp?: boolean;
 }
 
 export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { signInWithEmailPassword, signUp, loading, error } = useAuth();
+  const { 
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting }
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: ""
+    }
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { signInWithEmailPassword, signUp, error } = useAuth();
+
+  const onSubmit = async (data: FormValues) => {
     try {
       if (isSignUp) {
-        await signUp(email, password);
+        await signUp(data.email, data.password);
       } else {
-        await signInWithEmailPassword(email, password);
+        await signInWithEmailPassword(data.email, data.password);
       }
     } catch (error) {
       console.error("Auth error:", error);
@@ -29,37 +52,73 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="name@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+        <Controller
+          name="email"
+          control={control}
+          render={({ field }) => (
+            <Input
+              {...field}
+              id="email"
+              type="email"
+              placeholder="name@example.com"
+              error={!!errors.email}
+            />
+          )}
         />
+        {errors.email && (
+          <p className="text-sm text-red-500">{errors.email.message}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
+        <Controller
+          name="password"
+          control={control}
+          render={({ field }) => (
+            <Input
+              {...field}
+              id="password"
+              type="password"
+              error={!!errors.password}
+            />
+          )}
         />
+        {errors.password && (
+          <p className="text-sm text-red-500">{errors.password.message}</p>
+        )}
       </div>
+      {isSignUp && (
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Controller
+            name="confirmPassword"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                id="confirmPassword"
+                type="password"
+                error={!!errors.confirmPassword}
+              />
+            )}
+          />
+          {errors.confirmPassword && (
+            <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+      )}
       {error && (
         <p className="text-sm text-red-500">{error}</p>
       )}
       <Button
         type="submit"
         className="w-full"
-        disabled={loading}
+        disabled={isSubmitting}
       >
-        {loading ? "Processing..." : isSignUp ? "Sign up" : "Sign in"}
+        {isSubmitting ? "Processing..." : isSignUp ? "Sign up" : "Sign in"}
       </Button>
     </form>
   );

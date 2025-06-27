@@ -14,7 +14,11 @@ pub use screener::ScreenerService;
 
 use crate::config::Config;
 
-pub fn stock_router(config: &Config, db: Arc<DB>) -> Router {
+pub fn stock_router(
+    config: &Config,
+    db: Arc<DB>,
+    _auth_service: Arc<crate::auth::AuthService>
+) -> Router {
     let screener_service = Arc::new(ScreenerService::new(config, db.clone()));
     let financial_data_service = Arc::new(FinancialDataService::new(config));
     let price_data_service = Arc::new(PriceDataService::new(config));
@@ -23,4 +27,5 @@ pub fn stock_router(config: &Config, db: Arc<DB>) -> Router {
         .merge(screener::screener_router(screener_service))
         .merge(financial_data::financial_data_router(financial_data_service))
         .merge(price_data::price_data_router(price_data_service))
+        .layer(axum::middleware::from_fn(crate::auth::middleware::auth_middleware))
 }

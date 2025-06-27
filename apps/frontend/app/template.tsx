@@ -7,20 +7,12 @@ export default async function Template({
 }: {
   children: React.ReactNode;
 }) {
-  const {
-    email: userEmail,
-    role,
-  } = await getAuthStatus();
-  const isAdmin = role === "admin";
-
+  const { email: userEmail } = await getAuthStatus();
   return (
     <div>
       <AuthProvider>
         <header>
-      <Navbar
-        isAdmin={isAdmin}
-        userEmail={userEmail}
-      />
+      <Navbar userEmail={userEmail} />
         </header>
         {children}
       </AuthProvider>

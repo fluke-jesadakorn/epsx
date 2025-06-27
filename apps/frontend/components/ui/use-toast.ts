@@ -1,4 +1,4 @@
-// Copied from shadcn/ui toast component
+'use client'
 import { useState, useEffect } from "react"
 
 const TOAST_LIMIT = 1

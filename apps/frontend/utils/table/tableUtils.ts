@@ -5,6 +5,57 @@
  * TODO: Add pagination support
  */
 
+/**
+ * Applies access control rules to a stock number value.
+ * @param value - The stock number value.
+ * @param accessLevel - User access level.
+ * @returns The display value based on access level.
+ */
+function applyStockNumberAccessControl(value: string | number, accessLevel: number): string | number {
+  const stockNumber = Number(value);
+  if (accessLevel === 1 && stockNumber < 21) {
+    return "Subscribe for access";
+  } else if (accessLevel === 2 && stockNumber < 11) {
+    return "Premium content";
+  }
+  return value || "-";
+}
+
+/**
+ * Stub for custom column renderers.
+ * @param columnMetric - The metric of the column.
+ * @param value - The value to render.
+ * @returns The rendered value.
+ */
+function customColumnRenderer(columnMetric: string, value: string | number): string | number {
+  // TODO: Implement custom rendering logic per column
+  return value;
+}
+
+/**
+ * Stub for sorting table data.
+ * @param data - The table data array.
+ * @param sortBy - The column to sort by.
+ * @param direction - 'asc' or 'desc'.
+ * @returns Sorted data array.
+ */
+function sortTableData<T>(data: T[], sortBy: string, direction: 'asc' | 'desc'): T[] {
+  // TODO: Implement sorting logic
+  return data;
+}
+
+/**
+ * Stub for paginating table data.
+ * @param data - The table data array.
+ * @param page - Current page number.
+ * @param pageSize - Number of items per page.
+ * @returns Paginated data array.
+ */
+function paginateTableData<T>(data: T[], page: number, pageSize: number): T[] {
+  // TODO: Implement pagination logic
+  return data;
+}
+
 interface Column {
   label: string;
   metric: string;
@@ -44,7 +95,7 @@ export function createTableColumns(result: ApiResponse) {
 /**
  * Creates table data with access level visibility
  * @param result - API response containing stock data
- * @param accessLevel - User access level (1 = basic, 2 = premium, 3 = admin)
+ * @param accessLevel - User access level (1 = basic, 2 = premium)
  * @returns Filtered table data based on user access level
  * TODO: Implement proper access control system
  */
@@ -59,25 +110,14 @@ export function createTableData(result: ApiResponse, accessLevel: number = 1) {
       row.data.forEach((dataItem: { value: string | number }, idx: number) => {
         const columnMetric = result.columns[idx]?.metric;
         if (columnMetric) {
-          // Apply access level visibility rules
+          let value = dataItem.value;
+          // Apply access control for stock_number
           if (columnMetric === 'stock_number') {
-            const stockNumber = Number(dataItem.value);
-            
-            // TODO: Replace with proper access control system
-            // Temporary visibility rules:
-            // Basic users (1): Limited access
-            // Premium users (2): More access
-            // Admin users (3): Full access
-            if (accessLevel === 1 && stockNumber < 21) {
-              rowData[columnMetric] = "Subscribe for access";
-            } else if (accessLevel === 2 && stockNumber < 11) {
-              rowData[columnMetric] = "Premium content";
-            } else {
-              rowData[columnMetric] = dataItem.value || "-";
-            }
-          } else {
-            rowData[columnMetric] = dataItem.value || "-";
+            value = applyStockNumberAccessControl(value, accessLevel);
           }
+          // Apply custom renderer (stub)
+          value = customColumnRenderer(columnMetric, value);
+          rowData[columnMetric] = value || "-";
         }
       });
 

@@ -89,9 +89,27 @@ export function AuthProvider({
     try {
       setError(null);
       await createUserWithEmailAndPassword(auth, email, password);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign-up error:', error);
-      setError('Failed to create account');
+      let errorMessage = 'Failed to create account';
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            errorMessage = 'This email is already in use';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Please enter a valid email address';
+            break;
+          case 'auth/weak-password':
+            errorMessage = 'Password should be at least 6 characters';
+            break;
+          default:
+            errorMessage = error.message || 'Failed to create account';
+        }
+      }
+      
+      setError(errorMessage);
       throw error;
     }
   };

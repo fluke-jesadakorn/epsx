@@ -1,0 +1,22 @@
+{
+  "name": "epsx-backend",
+  "version": 2,
+  "builds": [
+    {
+      "src": "Dockerfile",
+      "use": "@vercel/docker",
+      "config": {
+        "cmd": ["./target/release/epsx"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

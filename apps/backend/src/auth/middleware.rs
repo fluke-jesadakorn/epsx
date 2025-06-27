@@ -1,37 +1,59 @@
-use axum::{
-    extract::State,
-    http::{Request, StatusCode},
-    response::Response,
-    body::Body,
-    middleware::Next,
-};
+use axum::{ http::{ Request, StatusCode }, middleware::Next, response::Response };
+use tracing::{ debug, warn };
 use std::sync::Arc;
 
-use super::AuthService;
-
 pub async fn auth_middleware(
-    State(auth_service): State<Arc<AuthService>>,
-    mut request: Request<Body>,
-    next: Next,
-) -> Result<Response, StatusCode>
-{
-    let auth_header = request
-        .headers()
-        .get("Authorization")
-        .and_then(|value| value.to_str().ok());
+    mut req: Request<axum::body::Body>,
+    next: Next
+) -> Result<Response, StatusCode> {
+    // Extract the Authorization header
+    let auth_header = req.headers().get("Authorization");
 
-    match auth_header {
-        Some(auth) if auth.starts_with("Bearer ") => {
-            let token = &auth[7..];
-            match auth_service.verify_token(token).await {
-                Ok(claims) => {
-                    // Add user claims to request extensions
-                    request.extensions_mut().insert(claims);
-                    Ok(next.run(request).await)
+    if let Some(auth_value) = auth_header {
+        if let Ok(auth_str) = auth_value.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                let token = &auth_str[7..]; // Remove "Bearer " prefix
+                debug!("Verifying token from Authorization header");
+
+                // Extract auth_service from request state
+                let auth_service = req.extensions().get::<Arc<crate::auth::AuthService>>()
+                    .ok_or_else(|| {
+                        warn!("AuthService not found in request extensions");
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?.clone();
+
+                match auth_service.firebase_admin.verify_token(token).await {
+                    Ok(user) => {
+                        // Attach user to request extensions for downstream handlers
+                        req.extensions_mut().insert(user);
+                        return Ok(next.run(req).await);
+                    }
+                    Err(e) => {
+                        warn!("Token verification failed: {:?}", e);
+                        return Err(StatusCode::UNAUTHORIZED);
+                    }
                 }
-                Err(_) => Err(StatusCode::UNAUTHORIZED),
             }
         }
-        _ => Err(StatusCode::UNAUTHORIZED),
     }
+
+    // No valid auth header found
+    warn!("No valid Authorization header found");
+    Err(StatusCode::UNAUTHORIZED)
+}
+
+#[allow(dead_code)]
+pub async fn admin_middleware(
+    req: Request<axum::body::Body>,
+    next: Next
+) -> Result<Response, StatusCode> {
+    // Check if user is in request extensions (set by auth_middleware)
+    if let Some(user) = req.extensions().get::<crate::auth::FirebaseUser>() {
+        if user.roles.contains(&crate::auth::UserRole::Admin) {
+            return Ok(next.run(req).await);
+        }
+    }
+
+    warn!("Admin access required but user is not admin");
+    Err(StatusCode::FORBIDDEN)
 }

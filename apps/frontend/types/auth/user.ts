@@ -1,3 +1,5 @@
+import type { USDTDetails } from "@/types/userLevel";
+
 export interface User {
   id: string;
   email: string;
@@ -7,6 +9,7 @@ export interface User {
   role: 'USER' | 'ADMIN';
   displayName?: string;
   photoURL?: string;
+  usdtDetails?: USDTDetails;
 }
 
 export interface UserCredentials {

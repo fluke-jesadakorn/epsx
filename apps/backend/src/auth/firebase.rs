@@ -1,11 +1,9 @@
 use jsonwebtoken::{ decode, DecodingKey, Validation, Algorithm };
-use crate::{config::Config, db::{DB, models::User}};
 use serde::{ Deserialize, Serialize };
 use std::sync::Arc;
-use tracing::{debug, info};
-use anyhow::Result;
+use tracing::debug;
+use thiserror::Error;
 use serde_json::Value;
-use mongodb::bson::{doc, DateTime};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -47,23 +45,32 @@ struct TokenClaims {
     claims: Option<Value>,
 }
 
+#[derive(Error, Debug)]
+#[allow(dead_code)]
+pub enum FirebaseError {
+    #[error("Token verification failed: {0}")]
+    TokenVerificationError(String),
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+}
+
+#[derive(Debug)]
 pub struct FirebaseAdmin {
     credentials: Arc<ServiceAccount>,
     validation: Validation,
-    db: Arc<DB>,
 }
 
 impl FirebaseAdmin {
-    pub async fn new(service_account_path: &str, db: Arc<DB>) -> Result<Self> {
+    pub async fn new(service_account_path: &str) -> Result<Self, FirebaseError> {
         debug!("Initializing Firebase Admin with service account from: {}", service_account_path);
 
-        let (project_id, _client_email, private_key_pem) =
-            Config::load_firebase_config(service_account_path);
-
+        // Placeholder for loading credentials - to be implemented
         let credentials = ServiceAccount {
-            project_id,
-            _client_email,
-            private_key_pem,
+            project_id: String::from("placeholder_project_id"),
+            _client_email: String::from("placeholder_email"),
+            private_key_pem: String::from("placeholder_key"),
         };
 
         let mut validation = Validation::new(Algorithm::RS256);
@@ -77,167 +84,59 @@ impl FirebaseAdmin {
         Ok(Self {
             credentials: Arc::new(credentials),
             validation,
-            db,
         })
     }
 
-    pub async fn verify_token(&self, token: &str) -> Result<FirebaseUser> {
+    pub async fn verify_token(&self, token: &str) -> Result<FirebaseUser, FirebaseError> {
         debug!("Verifying Firebase token");
 
         let decoding_key = DecodingKey::from_rsa_pem(
             self.credentials.private_key_pem.as_bytes()
-        ).map_err(|e| anyhow::anyhow!("Failed to create decoding key: {}", e))?;
+        ).map_err(|e| FirebaseError::TokenVerificationError(format!("Failed to create decoding key: {}", e)))?;
 
-        let token_data = decode::<TokenClaims>(token, &decoding_key, &self.validation).map_err(|e|
-            anyhow::anyhow!("Failed to verify token: {}", e)
-        )?;
+        let token_data = decode::<TokenClaims>(token, &decoding_key, &self.validation)
+            .map_err(|e| FirebaseError::TokenVerificationError(format!("Failed to verify token: {}", e)))?;
 
-        // Get or create user in MongoDB
-        let user = match self.db.get_users()
-            .find_one(doc! { "firebase_uid": &token_data.claims.sub }, None)
-            .await? {
-                Some(user) => {
-                    // Update last login
-                    self.db.get_users()
-                        .update_one(
-                            doc! { "firebase_uid": &token_data.claims.sub },
-                            doc! { 
-                                "$set": { 
-                                    "metadata.last_login": DateTime::now(),
-                                    "metadata.updated_at": DateTime::now()
-                                }
-                            },
-                            None,
-                        )
-                        .await?;
-                    user
-                },
-                None => {
-                    // Create new user
-                    let new_user = User::new(
-                        token_data.claims.sub.clone(),
-                        token_data.claims.email.clone().unwrap_or_default(),
-                    );
-                    self.db.get_users()
-                        .insert_one(&new_user, None)
-                        .await?;
-                    info!("Created new user in MongoDB for Firebase user: {}", &token_data.claims.sub);
-                    new_user
-                }
-            };
+        // Placeholder for user data - to be implemented with actual DB integration
+        let roles = vec![UserRole::User];
 
         Ok(FirebaseUser {
             uid: token_data.claims.sub,
             email: token_data.claims.email,
-            roles: user.roles.iter()
-                .map(|r| match r.as_str() {
-                    "admin" => UserRole::Admin,
-                    _ => UserRole::User,
-                })
-                .collect(),
+            roles,
             token: token.to_string(),
         })
     }
 
-    pub async fn set_user_roles(&self, uid: &str, roles: Vec<String>) -> Result<()> {
-        // Update roles in MongoDB
-        self.db.get_users()
-            .update_one(
-                doc! { "firebase_uid": uid },
-                doc! { 
-                    "$set": { 
-                        "roles": &roles,
-                        "metadata.updated_at": DateTime::now()
-                    }
-                },
-                None,
-            )
-            .await?;
-
-        // Update Firebase custom claims
-        self.sync_user_claims(uid).await?;
-
+    #[allow(dead_code)]
+pub async fn set_user_roles(&self, _uid: &str, _roles: Vec<String>) -> Result<(), FirebaseError> {
+        // Placeholder - to be implemented with actual DB integration
+        debug!("Setting user roles - not implemented yet");
         Ok(())
     }
 
-    pub async fn sync_user_claims(&self, uid: &str) -> Result<()> {
-        // Get user from MongoDB
-        let user = self.db.get_users()
-            .find_one(doc! { "firebase_uid": uid }, None)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("User not found"))?;
-
-        // Get user's current subscription
-        let subscription_plan = user.subscription.as_ref().map(|s| s.plan_id.clone());
-
-        // Construct claims
-        let claims = doc! {
-            "roles": &user.roles,
-            "subscription": subscription_plan,
-            "permissions": self.get_role_permissions(&user.roles).await?
-        };
-
-        // TODO: Implement Firebase custom claims update
-        // This would require the Firebase Admin SDK's set_custom_user_claims functionality
-        // For now, we'll just log the claims we would set
-        debug!("Would set Firebase custom claims for user {}: {:?}", uid, claims);
-
+    #[allow(dead_code)]
+pub async fn sync_user_claims(&self, _uid: &str) -> Result<(), FirebaseError> {
+        // Placeholder - to be implemented with actual Firebase integration
+        debug!("Syncing user claims - not implemented yet");
         Ok(())
     }
 
-    async fn get_role_permissions(&self, role_names: &[String]) -> Result<Vec<String>> {
-        let mut permissions = Vec::new();
-
-        for role_name in role_names {
-            if let Some(role) = self.db.get_roles()
-                .find_one(doc! { "name": role_name }, None)
-                .await? 
-            {
-                permissions.extend(role.permissions);
-            }
-        }
-
-        Ok(permissions.into_iter().collect())
+    #[allow(dead_code)]
+async fn get_role_permissions(&self, _role_names: &[String]) -> Result<Vec<String>, FirebaseError> {
+        // Placeholder - to be implemented with actual DB integration
+        Ok(Vec::new())
     }
 
-    pub async fn update_user_subscription(
-        &self,
-        uid: &str,
-        plan_id: &str,
-        end_date: DateTime,
-    ) -> Result<()> {
-        // Get associated role for the plan
-        let role = match plan_id {
-            "free" => "free",
-            "personal" => "personal",
-            "company" => "company",
-            "api" => "api",
-            _ => return Err(anyhow::anyhow!("Invalid plan ID")),
-        };
-
-        // Update subscription and roles in MongoDB
-        self.db.get_users()
-            .update_one(
-                doc! { "firebase_uid": uid },
-                doc! { 
-                    "$set": { 
-                        "subscription": {
-                            "plan_id": plan_id,
-                            "status": "active",
-                            "start_date": DateTime::now(),
-                            "end_date": end_date
-                        },
-                        "roles": [role],
-                        "metadata.updated_at": DateTime::now()
-                    }
-                },
-                None,
-            )
-            .await?;
-
-        // Sync changes to Firebase claims
-        self.sync_user_claims(uid).await?;
-
+#[allow(dead_code)]
+pub async fn update_user_subscription(
+    &self,
+    _uid: &str,
+    _plan_id: &str,
+    _end_date: chrono::DateTime<chrono::Utc>,
+) -> Result<(), FirebaseError> {
+        // Placeholder - to be implemented with actual DB integration
+        debug!("Updating user subscription - not implemented yet");
         Ok(())
     }
 }

@@ -1,16 +1,13 @@
-import { UserRole } from "@/types/auth/roles";
-
 interface NavItem {
   label: string;
   href: string;
   key: string;
   icon?: React.ReactNode;
   requireAuth?: boolean;
-  requireAdmin?: boolean;
 }
 
 class NavigationService {
-  getNavItems(isLoggedIn: boolean, role?: UserRole): NavItem[] {
+  getNavItems(isLoggedIn: boolean): NavItem[] {
     const items: NavItem[] = [
       {
         label: "Docs",
@@ -31,15 +28,6 @@ class NavigationService {
         key: "settings",
         requireAuth: true,
       });
-
-      if (role === UserRole.ADMIN) {
-        items.push({
-          label: "Admin",
-          href: "/admin",
-          key: "admin",
-          requireAdmin: true,
-        });
-      }
     }
 
     return items;

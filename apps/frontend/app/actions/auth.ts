@@ -2,6 +2,7 @@
 
 import { createSession, destroySession, verifySession } from '@/lib/session';
 import type { User } from '@/types/auth/user';
+import { getPaymentDetails } from './payment';
 
 export async function handleSignIn(idToken: string) {
   try {
@@ -26,18 +27,27 @@ export async function handleSignOut() {
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const claims = await verifySession();
-    if (!claims) return null;
+    const token = await verifySession();
+    if (!token) return null;
 
-    return {
-      id: claims.uid,
-      email: claims.email || '',
-      createdAt: claims.auth_time ? new Date(claims.auth_time * 1000).toISOString() : new Date().toISOString(),
+    // Decode JWT token to get user information
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    
+    const user: User = {
+      id: payload.sub,
+      email: payload.email || '',
+      createdAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      emailVerified: claims.email_verified || false,
-      role: claims.admin ? 'ADMIN' : 'USER',
-      displayName: claims.name || undefined,
-      photoURL: claims.picture || undefined
+      emailVerified: payload.email_verified || false,
+      role: 'USER',
+      displayName: payload.name || undefined,
+      photoURL: payload.picture || undefined
+    };
+
+    const usdtDetails = await getPaymentDetails(user.id);
+    return {
+      ...user,
+      usdtDetails
     };
   } catch (error) {
     console.error('Get current user error:', error);

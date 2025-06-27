@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM --platform=linux/amd64 rust:latest AS builder
+FROM --platform=linux/amd64 rust:1.77.2-slim AS builder
 
 WORKDIR /app
 
