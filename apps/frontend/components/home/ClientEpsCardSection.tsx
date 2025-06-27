@@ -1,9 +1,11 @@
 "use client";
 
 import React from "react";
-import type { CSSProperties } from "react";
-import type { TableDataMetrics } from "@/types/stockFetchData";
+
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+
+import type { TableDataMetrics } from "@/types/stockFetchData";
+import type { CSSProperties } from "react";
 
 interface Props {
   style?: CSSProperties;

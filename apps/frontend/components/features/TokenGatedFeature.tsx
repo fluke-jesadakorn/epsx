@@ -1,10 +1,13 @@
 "use client";
 
 import React from "react";
+
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
-import { TokenFeature } from "@/types/auth/features";
 import { UserRole } from "@/types/auth/roles";
+
 import { FeatureErrorBoundary } from "./FeatureErrorBoundary";
+
+import type { TokenFeature } from "@/types/auth/features";
 
 interface TokenGatedFeatureProps {
   feature: TokenFeature;

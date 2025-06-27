@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { AuthError, ErrorCode } from '@/types/auth/errors';
+
 import type {
   GoogleAuthParams,
   Permission,

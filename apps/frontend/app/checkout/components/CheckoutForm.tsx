@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { createPayment, getAssetInfo } from '@/app/actions/payment-server'
+
 import type { CreatePaymentResponse } from '@/types/payment'
 
 interface CheckoutFormProps {
@@ -47,8 +49,10 @@ export default function CheckoutForm({ currency }: CheckoutFormProps) {
       errors.amount = 'Amount is required'
     } else if (isNaN(numAmount)) {
       errors.amount = 'Amount must be a valid number'
-    } else if (numAmount < assetInfo.depositThreshold) {
+    } else if (assetInfo.depositThreshold !== undefined && numAmount < assetInfo.depositThreshold) {
       errors.amount = `Minimum amount is ${assetInfo.depositThreshold} ${currency}`
+    } else if (numAmount <= 0) {
+      errors.amount = 'Amount must be greater than 0'
     }
 
     setFormErrors(errors)
@@ -169,7 +173,7 @@ export default function CheckoutForm({ currency }: CheckoutFormProps) {
           <input
             type="number"
             step="any"
-            min={assetInfo.depositThreshold}
+            min={assetInfo.depositThreshold !== undefined ? assetInfo.depositThreshold : 0}
             required
             value={amount}
             onChange={(e) => {
@@ -179,7 +183,7 @@ export default function CheckoutForm({ currency }: CheckoutFormProps) {
             className={`mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 
               ${formErrors.amount ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}
               focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none`}
-            placeholder={`Min: ${assetInfo.depositThreshold}`}
+            placeholder={`Min: ${assetInfo.depositThreshold !== undefined ? assetInfo.depositThreshold : 0}`}
             disabled={loading}
           />
         </div>

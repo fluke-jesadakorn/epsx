@@ -1,10 +1,12 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+import { useAuth } from '@/context/auth-context';
+
 import AssetSelection from './components/AssetSelection';
 import CheckoutForm from './components/CheckoutForm';
-import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
 
 export default function CheckoutPage() {
   const { user, loading } = useAuth();

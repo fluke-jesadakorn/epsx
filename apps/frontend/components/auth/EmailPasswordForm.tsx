@@ -1,12 +1,13 @@
 'use client';
 
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
-import { useAuth } from "@/context/auth-context";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/auth-context";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),

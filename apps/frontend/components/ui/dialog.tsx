@@ -1,7 +1,8 @@
 "use client"
 
-import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
+import * as React from "react"
+
 import { cn } from "@/lib/utils"
 
 const Dialog = (props: DialogPrimitive.DialogProps) => {

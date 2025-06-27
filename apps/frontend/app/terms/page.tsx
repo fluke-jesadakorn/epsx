@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
-import { SkeletonLoader } from "@/components/common/Skeleton";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Suspense } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { SkeletonLoader } from "@/components/common/Skeleton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {

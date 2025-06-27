@@ -51,7 +51,9 @@
     "../../packages/types/src/**/*.ts",
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx",
-    "eslint.config.js"
+    "eslint.config.js",
+    "lib/store/**/*.ts",
+    "lib/store/**/*.tsx"
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

@@ -1,13 +1,16 @@
 "use client";
 
-import React, { Suspense } from "react";
 import Link from "next/link";
-import { ThemeProvider } from "./ThemeProvider";
+import React, { Suspense } from "react";
 import { Toaster } from "sonner";
-import { useFirebaseAnalytics } from "@/hooks/useFirebaseAnalytics";
+
 import { SkeletonLoader } from "@/components/common/Skeleton";
-import CookieBanner from "../common/CookieBanner";
 import { LoadingProvider } from "@/context/loading-context";
+import { useFirebaseAnalytics } from "@/hooks/useFirebaseAnalytics";
+
+import CookieBanner from "../common/CookieBanner";
+
+import { ThemeProvider } from "./ThemeProvider";
 
 interface ClientLayoutProps {
   children: React.ReactNode;

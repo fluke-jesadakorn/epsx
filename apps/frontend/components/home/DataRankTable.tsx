@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "../ui/button";
 import { ChevronDown, ChevronUp, LayoutGrid, Table2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+import { Button } from "../ui/button";
 
 import type { TableDataMetrics } from "@/types/stockFetchData";
 

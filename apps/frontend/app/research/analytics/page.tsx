@@ -1,7 +1,8 @@
-import StockGrowthTable from "@/components/home/StockGrowthTable";
-import { fetchEpsGrowthRanking } from "@/app/actions/stock";
 import { Suspense } from "react";
+
+import { fetchEpsGrowthRanking } from "@/app/actions/stock";
 import { SkeletonLoader } from "@/components/common/Skeleton";
+import StockGrowthTable from "@/components/home/StockGrowthTable";
 
 async function AnalyticsPage() {
   const { data } = await fetchEpsGrowthRanking({

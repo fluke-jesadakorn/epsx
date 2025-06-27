@@ -1,7 +1,8 @@
 "use server";
 
-import type { ChatRequest, ChatResponse } from "@/types/chat";
 import { chatApiService } from "@/lib/services/chat-api.service";
+
+import type { ChatRequest, ChatResponse } from "@/types/chat";
 
 export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
   try {

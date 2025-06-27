@@ -1,7 +1,8 @@
 'use client';
 
-import { useAuth } from '@/context/auth-context';
 import { redirect } from 'next/navigation';
+
+import { useAuth } from '@/context/auth-context';
 
 export default function CheckoutLayout({
   children,

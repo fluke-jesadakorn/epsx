@@ -1,6 +1,8 @@
 import * as React from 'react';
-import { SkeletonLoader } from '@/components/common/Skeleton';
+
 import { fetchStockScreenerData } from '@/app/actions/stock';
+import { SkeletonLoader } from '@/components/common/Skeleton';
+
 import RankingClient from './RankingClient';
 
 // Define columns for ranking page - showing all columns

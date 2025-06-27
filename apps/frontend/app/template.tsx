@@ -1,5 +1,5 @@
-import Navbar from "@/components/Navbar";
 import { getAuthStatus } from "@/app/actions/getAuthStatus";
+import Navbar from "@/components/Navbar";
 import { AuthProvider } from "@/context/auth-context";
 
 export default async function Template({

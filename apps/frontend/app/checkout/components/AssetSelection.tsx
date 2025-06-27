@@ -17,8 +17,8 @@ export default function AssetSelection({
   const [chainFilter, setChainFilter] = useState<string>('');
 
   const chains = useMemo(() => {
-    const uniqueChains = new Set(supportedAssets.map((asset) => asset.chain));
-    return Array.from(uniqueChains);
+    const uniqueChains = new Set(supportedAssets.map((asset) => asset.chain || ''));
+    return Array.from(uniqueChains).filter(Boolean);
   }, []);
 
   const filteredAssets = useMemo(() => {
@@ -26,7 +26,7 @@ export default function AssetSelection({
       const matchesSearch = asset.currency
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
-      const matchesChain = !chainFilter || asset.chain === chainFilter;
+      const matchesChain = !chainFilter || (asset.chain || '') === chainFilter;
       return matchesSearch && matchesChain;
     });
   }, [searchQuery, chainFilter]);
@@ -73,7 +73,7 @@ export default function AssetSelection({
           >
             <div className="font-medium">{asset.currency}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              Chain: {asset.chain}
+              Chain: {asset.chain || 'N/A'}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
               Min Deposit: {asset.depositThreshold}

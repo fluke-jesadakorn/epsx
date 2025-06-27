@@ -11,7 +11,7 @@ export async function getCurrentSession(): Promise<{
   return {
     userId: claims.uid,
     email: claims.email,
-    expiresAt: claims.exp * 1000, // Convert to milliseconds
+    expiresAt: (claims.exp ?? 0) * 1000, // Convert to milliseconds, default to 0 if undefined
   };
 }
 

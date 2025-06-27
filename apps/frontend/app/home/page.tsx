@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SkeletonLoader } from '@/components/common/Skeleton';
-import DataRankTable from '@/components/home/DataRankTable';
-import HeroSection from '@/components/home/HeroSection';
-import DataTechSection from '@/components/home/DataTechSection';
-import PricingSection from '@/components/home/PricingSection';
-import EpsCardSection from '@/components/home/EpsCardSection';
-import ChatSection from '@/components/home/ChatSection';
+
 import { fetchStockScreenerData } from '@/app/actions/stock';
+import { SkeletonLoader } from '@/components/common/Skeleton';
+import ChatSection from '@/components/home/ChatSection';
+import DataRankTable from '@/components/home/DataRankTable';
+import DataTechSection from '@/components/home/DataTechSection';
+import EpsCardSection from '@/components/home/EpsCardSection';
+import HeroSection from '@/components/home/HeroSection';
+import PricingSection from '@/components/home/PricingSection';
 
 // Define columns for home page - showing a compact view
 const homeColumns = [

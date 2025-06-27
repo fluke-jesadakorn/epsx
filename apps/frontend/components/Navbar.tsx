@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
 import { getAuthStatus } from '@/app/actions/getAuthStatus';
 
 interface NavbarProps {
@@ -17,14 +18,15 @@ import {
   // File,
   Menu,
 } from 'lucide-react';
-import { useAuth } from '../context/auth-context';
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
 } from '@/components/ui/navigation-menu';
-import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -32,13 +34,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+
+import { useAuth } from '../context/auth-context';
+
 import ThemeToggle from './ThemeToggle';
 
 const getNavItems = () => {

@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
+
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -9,9 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createPaymentService } from '@/services/payment.service';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api-client';
+import { createPaymentService } from '@/services/payment.service';
 
 export function PaymentForm() {
   const [step, setStep] = useState(1);
@@ -221,10 +223,12 @@ export function PaymentForm() {
             {qrCodeUrl ? (
               <div className="mt-2">
                 <h4 className="text-md font-medium mb-2">Scan to Pay</h4>
-                <img
+                <Image
                   src={qrCodeUrl}
                   alt="Payment QR Code"
-                  className="w-40 h-40 mx-auto"
+                  width={160}
+                  height={160}
+                  className="mx-auto"
                 />
                 <p className="text-sm text-center mt-2">
                   Payment ID: {paymentId}

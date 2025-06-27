@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+
 import { Card, CardHeader, CardContent, CardDescription } from "@/components/ui/card";
 
 const DataTechSection: React.FC = () => {

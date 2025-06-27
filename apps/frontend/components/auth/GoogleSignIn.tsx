@@ -1,8 +1,9 @@
 'use client';
 
-import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/ui/button";
 import { FcGoogle } from "react-icons/fc";
+
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 
 export function GoogleSignIn() {
   const { signInWithGoogle, loading } = useAuth();

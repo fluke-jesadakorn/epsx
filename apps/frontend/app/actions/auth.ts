@@ -1,8 +1,10 @@
 'use server';
 
 import { createSession, destroySession, verifySession } from '@/lib/session';
-import type { User } from '@/types/auth/user';
+
 import { getPaymentDetails } from './payment';
+
+import type { User } from '@/types/auth/user';
 
 export async function handleSignIn(idToken: string) {
   try {
@@ -30,18 +32,16 @@ export async function getCurrentUser(): Promise<User | null> {
     const token = await verifySession();
     if (!token) return null;
 
-    // Decode JWT token to get user information
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    
+    // Use token properties directly as it is a SessionClaims object
     const user: User = {
-      id: payload.sub,
-      email: payload.email || '',
-      createdAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
+      id: token.uid,
+      email: token.email || '',
+      createdAt: token.exp ? new Date(token.exp * 1000).toISOString() : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      emailVerified: payload.email_verified || false,
+      emailVerified: token.email_verified || false,
       role: 'USER',
-      displayName: payload.name || undefined,
-      photoURL: payload.picture || undefined
+      displayName: token.name || undefined,
+      photoURL: token.picture || undefined
     };
 
     const usdtDetails = await getPaymentDetails(user.id);

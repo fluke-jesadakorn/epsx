@@ -1,17 +1,18 @@
 'use client';
 
+// import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
+import { redirect } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { EmailPasswordForm } from '@/components/auth/EmailPasswordForm';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { EmailPasswordForm } from '@/components/auth/EmailPasswordForm';
-// import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
 import { useAuth } from '@/context/auth-context';
-import { redirect } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const { user } = useAuth();

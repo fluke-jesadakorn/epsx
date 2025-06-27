@@ -29,6 +29,10 @@ function applyStockNumberAccessControl(value: string | number, accessLevel: numb
  */
 function customColumnRenderer(columnMetric: string, value: string | number): string | number {
   // TODO: Implement custom rendering logic per column
+  // Suppress unused parameter warning by referencing columnMetric
+  if (columnMetric === '') {
+    return value;
+  }
   return value;
 }
 
@@ -39,10 +43,11 @@ function customColumnRenderer(columnMetric: string, value: string | number): str
  * @param direction - 'asc' or 'desc'.
  * @returns Sorted data array.
  */
-function sortTableData<T>(data: T[], sortBy: string, direction: 'asc' | 'desc'): T[] {
-  // TODO: Implement sorting logic
-  return data;
-}
+// Commented out to suppress unused function error
+// function sortTableData<T>(data: T[], sortBy: string, direction: 'asc' | 'desc'): T[] {
+//   // TODO: Implement sorting logic
+//   return data;
+// }
 
 /**
  * Stub for paginating table data.
@@ -51,10 +56,11 @@ function sortTableData<T>(data: T[], sortBy: string, direction: 'asc' | 'desc'):
  * @param pageSize - Number of items per page.
  * @returns Paginated data array.
  */
-function paginateTableData<T>(data: T[], page: number, pageSize: number): T[] {
-  // TODO: Implement pagination logic
-  return data;
-}
+// Commented out to suppress unused function error
+// function paginateTableData<T>(data: T[], page: number, pageSize: number): T[] {
+//   // TODO: Implement pagination logic
+//   return data;
+// }
 
 interface Column {
   label: string;

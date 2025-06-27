@@ -3,6 +3,8 @@ import type { AssetInfo } from '@/types/payment'
 export const supportedAssets: AssetInfo[] = [
   {
     currency: 'USDT_TRC20',
+    name: 'Tether (TRC20)',
+    symbol: 'USDT',
     chain: 'TRX',
     decimals: 6,
     depositThreshold: 1,
@@ -10,6 +12,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'USDT_ERC20',
+    name: 'Tether (ERC20)',
+    symbol: 'USDT',
     chain: 'Ethereum',
     decimals: 6,
     depositThreshold: 1,
@@ -17,6 +21,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'USDT_BSC',
+    name: 'Tether (BSC)',
+    symbol: 'USDT',
     chain: 'Binance Smart Chain',
     decimals: 18,
     depositThreshold: 1,
@@ -24,6 +30,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'USDT_ARB',
+    name: 'Tether (Arbitrum)',
+    symbol: 'USDT',
     chain: 'Arbitrum',
     decimals: 6,
     depositThreshold: 1,
@@ -31,6 +39,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'USDC_ERC20',
+    name: 'USD Coin (ERC20)',
+    symbol: 'USDC',
     chain: 'Ethereum',
     decimals: 6,
     depositThreshold: 1,
@@ -38,6 +48,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'USDC_ARB',
+    name: 'USD Coin (Arbitrum)',
+    symbol: 'USDC',
     chain: 'Arbitrum',
     decimals: 6,
     depositThreshold: 1,
@@ -45,6 +57,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'BTC',
+    name: 'Bitcoin',
+    symbol: 'BTC',
     chain: 'Bitcoin',
     decimals: 8,
     depositThreshold: 0.0001,
@@ -52,6 +66,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'ETH',
+    name: 'Ethereum',
+    symbol: 'ETH',
     chain: 'Ethereum',
     decimals: 18,
     depositThreshold: 0.001,
@@ -59,6 +75,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'TRX',
+    name: 'TRON',
+    symbol: 'TRX',
     chain: 'TRX',
     decimals: 18,
     depositThreshold: 15,
@@ -66,6 +84,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'BNB_BSC',
+    name: 'Binance Coin (BSC)',
+    symbol: 'BNB',
     chain: 'Binance Smart Chain',
     decimals: 18,
     depositThreshold: 0.01,
@@ -73,6 +93,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'DOGE',
+    name: 'Dogecoin',
+    symbol: 'DOGE',
     chain: 'Dogecoin',
     decimals: 8,
     depositThreshold: 5,
@@ -80,6 +102,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'LTC',
+    name: 'Litecoin',
+    symbol: 'LTC',
     chain: 'litecoin',
     decimals: 8,
     depositThreshold: 0.01,
@@ -87,6 +111,8 @@ export const supportedAssets: AssetInfo[] = [
   },
   {
     currency: 'BCH',
+    name: 'Bitcoin Cash',
+    symbol: 'BCH',
     chain: 'Bitcoin Cash',
     decimals: 8,
     depositThreshold: 0.01,

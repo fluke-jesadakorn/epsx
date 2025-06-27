@@ -1,6 +1,8 @@
-import type { ReactNode } from "react"
 import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
+
 import { cn } from "@/lib/utils"
+
+import type { ReactNode } from "react"
 
 interface ResultProps {
   status?: 'success' | 'error' | 'warning' | 'info'

@@ -1,6 +1,6 @@
-import baseConfig from '@epsx/config/eslint/base'
+const baseConfig = require('../../packages/config/eslint/base.cjs')
 
-export default [
+module.exports = [
   ...baseConfig,
   {
     ignores: ['dist/**', 'node_modules/**']

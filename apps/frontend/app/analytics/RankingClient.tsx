@@ -1,5 +1,7 @@
 import DataRankTable from "@/components/home/DataRankTable";
+
 import { rankingColumns } from "./page";
+
 import type { TableDataMetrics } from "@/types/stockFetchData";
 
 interface RankingClientProps {

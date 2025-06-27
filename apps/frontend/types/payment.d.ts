@@ -11,6 +11,10 @@ export interface CreatePaymentRequest {
 export interface CreatePaymentResponse extends PaymentResponse {
   payment_method: 'on_line' | 'on_chain';
   product_name: string;
+  order_no: string;
+  order_amount: number;
+  receive_address?: string;
+  checkout_url?: string;
 }
 
 export interface AssetInfo {
@@ -19,6 +23,9 @@ export interface AssetInfo {
   symbol: string;
   decimals: number;
   contract_address?: string;
+  chain?: string;
+  depositThreshold?: number;
+  addressFormat?: string;
 }
 
 export interface PaymentResponse {

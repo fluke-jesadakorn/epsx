@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, memo } from "react";
+import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LineChart, User, LogOut, LogIn, File, Menu, Settings } from "lucide-react";
-import { useAuth } from "@/context/auth-context";
-import { navigationService } from "@/services/navigation.service";
+import { useState, memo } from "react";
+
+import ThemeToggle from "@/components/features/theme/ThemeToggle";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
 } from "@/components/ui/navigation-menu";
-import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -20,14 +21,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import ThemeToggle from "@/components/features/theme/ThemeToggle";
+import { useAuth } from "@/context/auth-context";
+import { navigationService } from "@/services/navigation.service";
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,

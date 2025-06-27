@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+
 import { getCurrentUser } from '@/app/actions/auth';
 
 export async function checkAuth() {

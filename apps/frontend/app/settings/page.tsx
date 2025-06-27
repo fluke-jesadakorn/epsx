@@ -1,11 +1,12 @@
 "use client";
 
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { PaymentForm } from "@/components/features/payment/PaymentForm";
-import { ProfileSettings } from "@/components/features/settings/ProfileSettings";
-import { AuthProviders } from "@/components/features/settings/AuthProviders";
 import { Suspense } from "react";
+
 import { SkeletonLoader } from "@/components/common/Skeleton";
+import { PaymentForm } from "@/components/features/payment/PaymentForm";
+import { AuthProviders } from "@/components/features/settings/AuthProviders";
+import { ProfileSettings } from "@/components/features/settings/ProfileSettings";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 export default function SettingsPage() {
   return (

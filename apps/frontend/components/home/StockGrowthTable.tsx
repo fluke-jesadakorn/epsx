@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+
 import {
   Table,
   TableBody,
@@ -9,8 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { TableDataMetrics } from "@/types/stockFetchData";
+
 import { Button } from "../ui/button";
+
+import type { TableDataMetrics } from "@/types/stockFetchData";
 
 interface StockGrowthTableProps {
   style?: React.CSSProperties;

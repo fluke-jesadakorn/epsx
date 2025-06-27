@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+
 import { SkeletonLoader } from '@/components/common/Skeleton';
 
 const News = () => {

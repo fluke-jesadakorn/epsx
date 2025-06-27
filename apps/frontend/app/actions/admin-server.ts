@@ -1,8 +1,10 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { UserRole } from '@/types/auth/roles';
+
 import type { TokenFeature, Permission } from '@/types/auth/features';
+import type { UserRole } from '@/types/auth/roles';
+
 
 interface User {
   userId: string;

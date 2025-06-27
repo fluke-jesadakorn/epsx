@@ -1,5 +1,6 @@
-import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Skeleton } from '@/components/ui/skeleton';
+
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

@@ -1,6 +1,8 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { getAnalytics, isSupported } from 'firebase/analytics';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged  } from 'firebase/auth';
+
+import type {User as FirebaseUser} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBof2MIWdFMfpvfl21Di2fOH08ElTgAurU",

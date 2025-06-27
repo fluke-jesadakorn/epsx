@@ -1,7 +1,9 @@
 "use client";
 
+import { MessageCircle, Send, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "@/types/chat";
+
+import { streamChat } from "@/app/actions/chat";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,9 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, Send, Minimize2 } from "lucide-react";
-import { streamChat } from "@/app/actions/chat";
+
+
 import { ErrorBoundary } from "../common/ErrorBoundary";
+
+import type { Message } from "@/types/chat";
 
 export default function ChatSection() {
   const [messages, setMessages] = useState<Message[]>([]);

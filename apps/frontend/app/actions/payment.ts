@@ -1,7 +1,8 @@
 'use server';
 
-import { createPaymentService } from '@/services/payment.service';
 import { apiClient } from '@/lib/api-client';
+import { createPaymentService } from '@/services/payment.service';
+
 import type { PaymentResponse } from '@/types/payment.d.ts';
 
 const paymentService = createPaymentService({
