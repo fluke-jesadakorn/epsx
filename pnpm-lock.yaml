@@ -522,9 +522,15 @@ importers:
       '@epsx/types':
         specifier: workspace:*
         version: link:../types
+      clsx:
+        specifier: ^2.1.0
+        version: 2.1.1
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
+      tailwind-merge:
+        specifier: ^2.2.1
+        version: 2.6.0
       yahoo-finance2:
         specifier: 3.0.0
         version: 3.0.0
