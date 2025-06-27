@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "turbo run build:pkg",
-    "dev": "bun run turbo run dev",
+    "dev": "pnpm run turbo run dev",
     "dev:fe": "turbo run dev:fe",
     "dev:be": "turbo run dev:be",
     "dev:admin": "turbo run dev:admin",
@@ -56,9 +56,9 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "bun@1.2.4",
+  "packageManager": "pnpm@8.15.4",
   "engines": {
-    "bun": ">=1.2.4"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "react-icons": "^5.5.0"
