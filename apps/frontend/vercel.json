@@ -17,6 +17,7 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VERCEL_PACKAGE_MANAGER": "bun"
   }
 }
