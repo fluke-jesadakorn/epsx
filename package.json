@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "turbo run build:pkg",
-    "dev": "pnpm run turbo run dev",
+    "dev": "turbo run dev",
     "dev:fe": "turbo run dev:fe",
     "dev:be": "turbo run dev:be",
     "dev:admin": "turbo run dev:admin",

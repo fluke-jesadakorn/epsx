@@ -147,3 +147,19 @@ debug/
 
 # Vercel
 .vercel
+
+# Additional Next.js caches
+.next/cache/images/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Additional caches
+npm-cache/
+yarn-cache/
+.pnpm-store/
+
+# CI/CD and deployment artifacts
+.github/*.log
+.vercel/*.log
