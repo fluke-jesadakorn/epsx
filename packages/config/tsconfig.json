@@ -6,7 +6,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "declaration": true,
-    "emitDeclarationOnly": false
+    "emitDeclarationOnly": false,
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

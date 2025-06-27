@@ -24,6 +24,7 @@
     "eslint-plugin-react-hooks": "5.2.0"
   },
   "devDependencies": {
+    "@types/node": "24.0.3",
     "eslint-config-next": "15.2.3",
     "typescript": "^5.7.3"
   },
