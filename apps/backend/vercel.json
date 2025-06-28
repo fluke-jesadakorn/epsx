@@ -6,7 +6,7 @@
       "src": "Dockerfile",
       "use": "@vercel/docker",
       "config": {
-        "cmd": ["./target/release/epsx"]
+        "cmd": ["./backend"]
       }
     }
   ],

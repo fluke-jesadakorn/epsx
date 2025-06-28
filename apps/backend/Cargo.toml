@@ -34,3 +34,4 @@ tokio-retry = "0.3"
 url = "2.5"
 utoipa = "4.2"
 uuid = { version = "1.7", features = ["v4", "serde"] }
+vercel_runtime = "1.1.6"
