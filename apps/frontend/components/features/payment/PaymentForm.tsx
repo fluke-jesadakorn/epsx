@@ -94,8 +94,8 @@ export function PaymentForm() {
           setIsLoading(false);
         }
       }
-      // Ensure progression to Step 3 (Confirm Payment Details)
-      setStep(step + 1);
+      // Move directly to Step 3 (Complete Payment with QR Code)
+      setStep(step + 2);
     }
   };
 
@@ -245,36 +245,7 @@ export function PaymentForm() {
       case 3:
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">
-              Step 3: Confirm Payment Details
-            </h3>
-            <div className="space-y-2">
-              <div>
-                <Label>Amount:</Label> {amount} {currency}
-              </div>
-              <div>
-                <Label>Payment Method:</Label> Cryptocurrency (QR Code)
-              </div>
-              {currency === 'USDT' && (
-                <div>
-                  <Label>Network:</Label> {network}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleBack}>
-                Back
-              </Button>
-              <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
-                {isLoading ? 'Processing...' : 'Confirm and Pay'}
-              </Button>
-            </div>
-          </div>
-        );
-      case 4:
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Step 4: Complete Payment</h3>
+            <h3 className="text-lg font-medium">Step 3: Complete Payment</h3>
             {qrCodeUrl ? (
               <div className="mt-2">
                 <h4 className="text-md font-medium mb-2">Scan to Pay</h4>
@@ -306,9 +277,14 @@ export function PaymentForm() {
                 </p>
               </div>
             )}
-            <Button variant="outline" onClick={() => setStep(1)}>
-              Make Another Payment
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleBack}>
+                Back
+              </Button>
+              <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
+                {isLoading ? 'Processing...' : 'Confirm and Pay'}
+              </Button>
+            </div>
           </div>
         );
       default:
