@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-context';
 
-export default function LoginPage() {
+export default function SignupPage() {
   const { user } = useAuth();
 
   useEffect(() => {
@@ -29,10 +29,10 @@ export default function LoginPage() {
       <Card className="w-full sm:max-w-md md:max-w-lg hover:scale-105 transition-transform duration-300">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl md:text-3xl font-bold mb-4">
-            Welcome
+            Create an account
           </CardTitle>
           {/* <CardDescription>
-            Choose your preferred sign in method
+            Choose your preferred sign up method
           </CardDescription> */}
         </CardHeader>
         <CardContent>
@@ -48,7 +48,7 @@ export default function LoginPage() {
               </div>
             </div> */}
 
-            <EmailPasswordForm isSignUp={false} />
+            <EmailPasswordForm isSignUp={true} />
 
             <div className="text-center mt-4">
               <Button
@@ -57,8 +57,8 @@ export default function LoginPage() {
                 className="min-h-[48px]"
                 asChild
               >
-                <Link href="/signup">
-                  Don't have an account? Sign up
+                <Link href="/login">
+                  Already have an account? Sign in
                 </Link>
               </Button>
             </div>

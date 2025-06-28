@@ -54,22 +54,22 @@ function isGoogleOAuthUrl(url: string): boolean {
 
 // Helper function to handle responses
 async function handleFetchResponse<T>(response: Response): Promise<T> {
-  // Log request details
-  console.debug('Request details:', {
-    url: response.url,
-    redirected: response.redirected,
-    status: response.status,
-    type: response.type,
-  });
+  // Log request details - commented out for production
+  // console.debug('Request details:', {
+  //   url: response.url,
+  //   redirected: response.redirected,
+  //   status: response.status,
+  //   type: response.type,
+  // });
 
-  // Log response headers
-  console.debug(
-    'Response headers:',
-    [...response.headers.entries()].reduce(
-      (acc, [key, value]) => ({ ...acc, [key]: value }),
-      {},
-    ),
-  );
+  // Log response headers - commented out for production
+  // console.debug(
+  //   'Response headers:',
+  //   [...response.headers.entries()].reduce(
+  //     (acc, [key, value]) => ({ ...acc, [key]: value }),
+  //     {},
+  //   ),
+  // );
 
   // Special handling for redirects
   if (response.status === 302 || response.status === 307) {
@@ -99,19 +99,19 @@ async function handleFetchResponse<T>(response: Response): Promise<T> {
         errorData = await response.text();
       }
 
-      // Log full error details
-      console.error('Request failed:', {
-        url: response.url,
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        error: errorData,
-        cookies: response.headers.getSetCookie(),
-      });
+      // Log full error details - commented out for production
+      // console.error('Request failed:', {
+      //   url: response.url,
+      //   status: response.status,
+      //   statusText: response.statusText,
+      //   headers: Object.fromEntries(response.headers.entries()),
+      //   error: errorData,
+      //   cookies: response.headers.getSetCookie(),
+      // });
 
       // Special handling for auth errors
       if (response.status === 401) {
-        console.error('Authentication failed:', errorData);
+        // console.error('Authentication failed:', errorData);
         if (typeof window !== 'undefined') {
           // For client-side auth failures, clear cookies
           document.cookie.split(';').forEach((cookie) => {
@@ -149,7 +149,7 @@ async function handleFetchResponse<T>(response: Response): Promise<T> {
   if (response.url.includes('/auth/')) {
     const cookies = response.headers.getSetCookie();
     if (cookies.length > 0) {
-      console.log('Received cookies from auth endpoint:', cookies);
+      // console.log('Received cookies from auth endpoint:', cookies);
     }
   }
 
@@ -194,7 +194,7 @@ async function fetchWithAuth<T, TData = unknown>(
         authToken = storedToken;
       }
     } catch (e) {
-      console.error('Failed to retrieve auth token from storage:', e);
+      // console.error('Failed to retrieve auth token from storage:', e);
     }
   }
 
@@ -273,11 +273,11 @@ export const apiClient: ApiClient = {
       permissions: Permission[];
     }> => {
       try {
-        // Log API URL and endpoint
-        console.log('API Client - Verify Session:', {
-          url: API_URL,
-          endpoint: '/v1/auth/session/validate',
-        });
+        // Log API URL and endpoint - commented out for production
+        // console.log('API Client - Verify Session:', {
+        //   url: API_URL,
+        //   endpoint: '/v1/auth/session/validate',
+        // });
 
         const response = await fetchWithAuth<{
           email: string;
@@ -287,11 +287,11 @@ export const apiClient: ApiClient = {
           features: TokenFeature[];
           permissions: Permission[];
         }>('/v1/auth/session/validate', 'GET');
-        // Log successful validation
-        console.log('API Client - Session verified successfully');
+        // Log successful validation - commented out for production
+        // console.log('API Client - Session verified successfully');
         return response;
       } catch (error) {
-        console.error('Session validation failed:', error);
+        // console.error('Session validation failed:', error);
         throw error;
       }
     },

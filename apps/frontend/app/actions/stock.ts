@@ -22,7 +22,7 @@ export async function fetchStockScreenerData(): Promise<TableDataMetrics[]> {
   }
 
   const data = await response.json();
-  console.log('Fetched stock screener data:', data);
+  // console.log('Fetched stock screener data:', data);
   return data;
 }
 

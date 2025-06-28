@@ -13,8 +13,10 @@ export interface PaymentStatus {
 }
 
 export interface USDTDetails {
-  network: 'ERC20' | 'TRC20'
+  network: 'ERC20' | 'TRC20' | 'BEP20' | 'Arbitrum' | 'TON'
   walletAddress: string
+  qrCodePath?: string
+  tag?: string
   paymentStatus: PaymentStatus
   userLevel: UserLevel
 }

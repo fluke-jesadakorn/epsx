@@ -7,6 +7,7 @@ const SESSION_KEY = '__session';
 const publicPaths = [
   '/',
   '/login',
+  '/signup',
   '/register',
   '/privacy',
   '/terms',

@@ -13,7 +13,7 @@ export async function handleSignIn(idToken: string) {
       throw new Error('Failed to create session');
     }
   } catch (error) {
-    console.error('Sign-in error:', error);
+    // console.error('Sign-in error:', error);
     throw new Error('Authentication failed');
   }
 }
@@ -22,7 +22,7 @@ export async function handleSignOut() {
   try {
     await destroySession();
   } catch (error) {
-    console.error('Sign-out error:', error);
+    // console.error('Sign-out error:', error);
     throw new Error('Failed to sign out');
   }
 }
@@ -50,7 +50,7 @@ export async function getCurrentUser(): Promise<User | null> {
       usdtDetails
     };
   } catch (error) {
-    console.error('Get current user error:', error);
+    // console.error('Get current user error:', error);
     return null;
   }
 }

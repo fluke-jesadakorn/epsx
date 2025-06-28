@@ -4,6 +4,7 @@
   "builds": [
     {
       "src": "Dockerfile",
+      "use": "docker",
       "config": {
         "cmd": ["./backend"]
       }

@@ -11,7 +11,7 @@ export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
       maxTokens: request.maxTokens,
     });
   } catch (error) {
-    console.error("Server chat query failed:", error);
+    // console.error("Server chat query failed:", error);
     throw error;
   }
 }
@@ -20,7 +20,7 @@ export async function getChatHistory(conversationId: string) {
   try {
     return await chatApiService.getChatHistory(conversationId);
   } catch (error) {
-    console.error("Failed to fetch chat history:", error);
+    // console.error("Failed to fetch chat history:", error);
     throw error;
   }
 }
@@ -32,7 +32,7 @@ export async function streamChat(request: ChatRequest): Promise<ReadableStream<U
       maxTokens: request.maxTokens,
     });
   } catch (error) {
-    console.error("Stream chat query failed:", error);
+    // console.error("Stream chat query failed:", error);
     throw error;
   }
 }

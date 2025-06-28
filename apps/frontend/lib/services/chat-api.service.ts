@@ -53,7 +53,7 @@ export class ChatApiService {
         },
       };
     } catch (error) {
-      console.error("Chat API error:", error);
+      // console.error("Chat API error:", error);
       throw error;
     }
   }
@@ -71,7 +71,7 @@ export class ChatApiService {
       const data: ChatHistoryResponse = await response.json();
       return data.messages;
     } catch (error) {
-      console.error("Chat history API error:", error);
+      // console.error("Chat history API error:", error);
       throw error;
     }
   }
@@ -99,7 +99,7 @@ export class ChatApiService {
 
       return response.body;
     } catch (error) {
-      console.error("Chat stream error:", error);
+      // console.error("Chat stream error:", error);
       throw error;
     }
   }

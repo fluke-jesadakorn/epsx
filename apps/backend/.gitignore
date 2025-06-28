@@ -21,3 +21,4 @@
 # Ignore Rust cache
 Cargo.lock
 /secret/*
+.vercel

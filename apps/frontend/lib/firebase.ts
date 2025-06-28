@@ -1,6 +1,7 @@
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged  } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 import type {User as FirebaseUser} from 'firebase/auth';
 
@@ -14,15 +15,17 @@ const firebaseConfig = {
   measurementId: "G-FQWE9G37ZE"
 };
 
+// Initialize Firebase app
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Initialize analytics only in browser environment and when supported
 const analytics = typeof window !== 'undefined' 
   ? isSupported().then(() => getAnalytics(app)) 
   : null;
 
-export { auth, app, analytics };
+export { auth, app, analytics, db };
 
 export type { FirebaseUser };
 
