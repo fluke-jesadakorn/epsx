@@ -3,11 +3,11 @@
 import type { TableDataMetrics } from '@/types/stockFetchData';
 
 const getBackendUrl = () => {
-  return process.env.BACKEND_URL || 'http://localhost:3002';
+  return 'http://localhost:3000';
 };
 
 export async function fetchStockScreenerData(): Promise<TableDataMetrics[]> {
-  const response = await fetch(`${getBackendUrl()}/v1/stock/screener`, {
+  const response = await fetch(`${getBackendUrl()}/api/v1/stock/screener`, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -18,6 +18,8 @@ export async function fetchStockScreenerData(): Promise<TableDataMetrics[]> {
   });
 
   if (!response.ok) {
+    const text = await response.text();
+    console.error('Stock screener fetch failed:', response.status, text);
     throw new Error(`Stock screener fetch failed: ${response.status}`);
   }
 

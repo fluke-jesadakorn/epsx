@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { apiClient } from '@/lib/api-client';
 import { createPaymentService } from '@/services/payment.service';
 
 export function PaymentForm() {

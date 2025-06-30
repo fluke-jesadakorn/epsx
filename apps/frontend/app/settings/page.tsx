@@ -2,7 +2,6 @@
 
 import { Suspense } from 'react';
 
-import { SkeletonLoader } from '@/components/common/Skeleton';
 import { PaymentForm } from '@/components/features/payment/PaymentForm';
 import { PaymentStatus } from '@/components/features/payment/PaymentStatus';
 import { AuthProviders } from '@/components/features/settings/AuthProviders';
@@ -78,8 +77,7 @@ export default function SettingsPage() {
             Settings
           </h1>
           <p className="text-muted-foreground text-base max-w-xl mx-auto">
-            Manage your profile, authentication methods, and payment details all
-            in one place.
+            Manage your profile and authentication methods.
           </p>
         </div>
         <div className="flex flex-col gap-8">
@@ -137,7 +135,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Payment Settings */}
+          {/* Payment Settings Navigation */}
           <Card className="transition-shadow hover:shadow-lg border-primary border-2 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:bg-gradient-to-r dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -160,52 +158,15 @@ export default function SettingsPage() {
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage your payment details and view transaction status below.
+                Manage your payment details and view transaction status.
               </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg">
-                  <h3 className="text-base font-medium text-primary mb-2 flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-primary"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 11c0-1.104.896-2 2-2s2 .896 2 2-.896 2-2 2-2-.896-2-2z"
-                      />
-                    </svg>
-                    Step 1: Enter Payment Details
-                  </h3>
-                  <PaymentForm />
-                </div>
-                <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg">
-                  <h3 className="text-base font-medium text-primary mb-2 flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-primary"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-3-3v6m9 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    Step 2: Check Payment Status
-                  </h3>
-                  <PaymentStatus />
-                </div>
-              </div>
+              <a href="/settings/payment" className="inline-block">
+                <button className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                  Go to Payment Settings
+                </button>
+              </a>
             </CardContent>
           </Card>
         </div>

@@ -3,10 +3,13 @@ import { db } from '../../../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import crypto from 'crypto';
 
-// MusePay Public Key for signature verification
-const MUSEPAY_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjsC3qAfxiqFohyGmRLC3gIp9GnQ0Q6lYKoLlD7JEX8JSXe9fKLKTnnw2RmezZUSFfmOLvJg7dUJO/g5lX467kI+vuNliu0+ATW/EsNPC6nxg1yWASjMVQhiiz77z7m11KqzFpNXmKuzgE41nai2hkQO1Yp/KWFePHOtegjx8GEVW5ll3lzHE+wkkAUXfBr9yoiB58mXZFQqli7pOSEgzVzGBeQ4IbEi2qdhsiSYnAEepRlF6KNfT9hy1nIBZ7ZfQYxpKwa60AhXar4PiJs9c14P3xHdwSpbM5/5SQRJxxEgnDf3ayHcKJTv6KvVySlU3Mq16k2X5CChE+QXzeo37UwIDAQAB
------END PUBLIC KEY-----`;
+// MusePay Public Key for signature verification, loaded from environment variable
+const MUSEPAY_PUBLIC_KEY = process.env.MUSEPAY_PUBLIC_KEY || '';
+if (!MUSEPAY_PUBLIC_KEY) {
+  throw new Error(
+    'MUSEPAY_PUBLIC_KEY environment variable is not set. Please set it in your environment variables.',
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -52,30 +55,34 @@ export async function POST(req: Request) {
     // Update transaction record in Firestore
     const transactionRef = doc(db, 'transactions', order_no || request_id);
     const transactionData = {
+      partnerId: body.partner_id || 'N/A',
       orderNo: order_no,
       requestId: request_id,
       orderType: order_type,
       productCode: product_code,
       currency: currency || 'Unknown',
+      orderAmount: parseFloat(body.order_amount) || 0,
+      feeAmount: parseFloat(body.fee_amount) || 0,
       actualAmount: parseFloat(actual_amount) || 0,
       status: status.toString(),
       reason: reason || 'N/A',
       finishTime: finish_time ? new Date(finish_time) : new Date(),
       updatedAt: new Date(),
+      signature: body.sign || 'N/A',
       extraInfo: extra_info ? JSON.parse(extra_info) : {},
     };
 
     await setDoc(transactionRef, transactionData, { merge: true });
 
     // If status indicates a completed transaction, update user payment status
-    // Assuming status '1' or similar indicates completion - adjust based on MusePay documentation
+    // According to MusePay documentation, status is a Number. Adjust the condition below to match specific status codes for completed transactions.
     if (
       status === 1 ||
       status.toString().includes('complete') ||
       status.toString().includes('success')
     ) {
       // We need userId associated with this transaction to update user status
-      // This assumes userId is stored in transaction or can be fetched
+      // This assumes userId is stored in transaction or can be fetched. Future improvement: implement a fallback mechanism to lookup userId based on request_id or order_no if not stored.
       const transactionSnap = await getDoc(transactionRef);
       const userId = transactionSnap.data()?.userId;
 
