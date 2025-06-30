@@ -147,32 +147,66 @@ export function PaymentForm() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Step 1: Select Package</h3>
             <div className="space-y-2">
-              <Label>Select Package Amount</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  variant={amount === '199' ? 'default' : 'outline'}
-                  onClick={() => setAmount('199')}
-                  className="w-full"
-                >
-                  199 {currency}
-                </Button>
-                <Button
-                  type="button"
-                  variant={amount === '299' ? 'default' : 'outline'}
-                  onClick={() => setAmount('299')}
-                  className="w-full"
-                >
-                  299 {currency}
-                </Button>
-                <Button
-                  type="button"
-                  variant={amount === '399' ? 'default' : 'outline'}
-                  onClick={() => setAmount('399')}
-                  className="w-full"
-                >
-                  399 {currency}
-                </Button>
+              <Label>Select Package</Label>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h4 className="text-md font-medium text-primary">Personal Plans</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant={amount === '9.9' ? 'default' : 'outline'}
+                      onClick={() => setAmount('9.9')}
+                      className="w-full"
+                    >
+                      PersonalX 9.9 {currency}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={amount === '19.9' ? 'default' : 'outline'}
+                      onClick={() => setAmount('19.9')}
+                      className="w-full"
+                    >
+                      ProfessionalY 19.9 {currency}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={amount === '29.9' ? 'default' : 'outline'}
+                      onClick={() => setAmount('29.9')}
+                      className="w-full"
+                    >
+                      EnterpriseZ 29.9 {currency}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-md font-medium text-primary">Business & API Plans</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant={amount === '999' ? 'default' : 'outline'}
+                      onClick={() => setAmount('999')}
+                      className="w-full"
+                    >
+                      API Personal 999 {currency}/M
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={amount === '2999' ? 'default' : 'outline'}
+                      onClick={() => setAmount('2999')}
+                      className="w-full"
+                    >
+                      API Company 2,999 {currency}/M
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={amount === '999.1' ? 'default' : 'outline'}
+                      onClick={() => setAmount('999.1')}
+                      className="w-full"
+                    >
+                      Company 999 {currency}/M
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="space-y-2">
