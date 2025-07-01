@@ -1,5 +1,6 @@
 import { AuthProvider } from "@/context/auth-context";
 import { LoadingProvider } from "@/context/loading-context";
+import { ThemeProvider } from "next-themes";
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -15,13 +16,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <LoadingProvider>
-            {children}
-          </LoadingProvider>
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <LoadingProvider>
+              {children}
+            </LoadingProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
