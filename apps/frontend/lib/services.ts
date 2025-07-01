@@ -1,4 +1,4 @@
-import { defaultAuthConfig } from '@/config/auth.config';
+import { defaultAuthConfig } from '@/configs/auth.config';
 import { apiClient } from '@/lib/api-client';
 import { createAuthService } from '@/services/auth.service';
 
