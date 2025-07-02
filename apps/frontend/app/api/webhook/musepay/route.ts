@@ -3,6 +3,16 @@ import { db } from '../../../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import crypto from 'crypto';
 
+// Status mapping
+const STATUS_MAP: Record<number | string, string> = {
+  1: 'completed',
+  2: 'pending',
+  3: 'failed',
+  success: 'completed',
+  pending: 'pending',
+  failed: 'failed',
+};
+
 // MusePay Public Key for signature verification, loaded from environment variable
 const MUSEPAY_PUBLIC_KEY = process.env.MUSEPAY_PUBLIC_KEY || '';
 if (!MUSEPAY_PUBLIC_KEY) {
@@ -35,6 +45,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
     }
 
+    console.log(body);
+
     // Extract relevant data from the notification
     const {
       order_no,
@@ -52,6 +64,9 @@ export async function POST(req: Request) {
     // Log the received webhook for debugging
     console.log(`Received webhook for order ${order_no} with status ${status}`);
 
+    // Get normalized status
+    const normalizedStatus = STATUS_MAP[status] || 'pending';
+
     // Update transaction record in Firestore
     const transactionRef = doc(db, 'transactions', order_no || request_id);
     const transactionData = {
@@ -64,7 +79,7 @@ export async function POST(req: Request) {
       orderAmount: parseFloat(body.order_amount) || 0,
       feeAmount: parseFloat(body.fee_amount) || 0,
       actualAmount: parseFloat(actual_amount) || 0,
-      status: status.toString(),
+      status: normalizedStatus,
       reason: reason || 'N/A',
       finishTime: finish_time ? new Date(finish_time) : new Date(),
       updatedAt: new Date(),
@@ -74,13 +89,8 @@ export async function POST(req: Request) {
 
     await setDoc(transactionRef, transactionData, { merge: true });
 
-    // If status indicates a completed transaction, update user payment status
-    // According to MusePay documentation, status is a Number. Adjust the condition below to match specific status codes for completed transactions.
-    if (
-      status === 1 ||
-      status.toString().includes('complete') ||
-      status.toString().includes('success')
-    ) {
+    // Update user payment status if transaction is completed
+    if (normalizedStatus === 'completed') {
       // We need userId associated with this transaction to update user status
       // This assumes userId is stored in transaction or can be fetched. Future improvement: implement a fallback mechanism to lookup userId based on request_id or order_no if not stored.
       const transactionSnap = await getDoc(transactionRef);

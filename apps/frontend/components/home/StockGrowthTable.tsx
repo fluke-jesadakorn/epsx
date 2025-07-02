@@ -93,7 +93,7 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                 <TableCell className="font-medium">{row.currentQuarterEps}</TableCell>
                 <TableCell className="font-medium">{row.nextEps}</TableCell>
                 <TableCell className="font-medium">
-                  {row.price} {row.currency}
+                  {row.dataValue} {row.currency}
                 </TableCell>
                 <TableCell>
                   <span

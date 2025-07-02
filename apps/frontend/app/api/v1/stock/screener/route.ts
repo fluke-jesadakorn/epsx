@@ -1,48 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getFirestoreAdmin } from '../../../../../lib/firebase-admin';
 import type { TableDataMetrics } from '../../../../../types/stockFetchData';
-
-// Firestore collection name for stock screener data
-const COLLECTION_NAME = 'stockScreenerData';
 
 // Cache duration in seconds (5 minutes)
 const CACHE_DURATION = 300;
 
 export async function GET() {
   try {
-    // Initialize Firestore
-    const db = getFirestoreAdmin();
-
-    // Check for cached data in Firestore
-    const cacheRef = db.collection(COLLECTION_NAME).doc('latest');
-    const cacheDoc = await cacheRef.get();
-
-    const now = Date.now() / 1000; // Current time in seconds
-
-    if (cacheDoc.exists) {
-      const cachedData = cacheDoc.data();
-      if (cachedData) {
-        const cacheTimestamp = cachedData.timestamp || 0;
-
-        // Check if cached data is still valid (within 5 minutes)
-        if (now - cacheTimestamp < CACHE_DURATION) {
-          return NextResponse.json(cachedData.data, {
-            headers: {
-              'Cache-Control': `public, max-age=${CACHE_DURATION}`,
-            },
-          });
-        }
-      }
-    }
-
-    // If no valid cache, fetch new data from TradingView
+    // Fetch data directly from TradingView
     const newData = await fetchStockScreenerDataFromTradingView();
-
-    // Store the new data in Firestore with timestamp
-    await cacheRef.set({
-      data: newData,
-      timestamp: now,
-    });
 
     return NextResponse.json(newData, {
       headers: {

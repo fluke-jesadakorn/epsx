@@ -148,7 +148,7 @@ export function ProfileSettings() {
             placeholder="Enter URL for profile picture"
           />
         </div>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="border border-primary">
           {isLoading ? "Updating..." : "Save Changes"}
         </Button>
       </form>
@@ -186,7 +186,7 @@ export function ProfileSettings() {
               placeholder="Confirm new password"
             />
           </div>
-          <Button type="submit" disabled={isPasswordLoading}>
+          <Button type="submit" disabled={isPasswordLoading} className="border border-primary">
             {isPasswordLoading ? "Changing..." : "Change Password"}
           </Button>
         </form>

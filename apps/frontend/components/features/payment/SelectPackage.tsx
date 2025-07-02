@@ -1,6 +1,3 @@
-'use client';
-
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,11 +31,8 @@ export function SelectPackage({
 }: SelectPackageProps) {
   return (
     <TooltipProvider>
-    <div className="space-y-8 p-6 rounded-xl border bg-card shadow-sm">
+    <div className="space-y-8 p-6 rounded-xl shadow-sm">
       <div className="space-y-2">
-        <h3 className="text-2xl font-bold text-primary">
-          Step 1: Select Package
-        </h3>
         <p className="text-muted-foreground">
           Choose the plan that best fits your needs
         </p>
@@ -69,7 +63,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '0' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('0')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                   disabled={true}
@@ -112,7 +106,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '9.9' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('9.9')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -161,7 +155,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '19.9' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('19.9')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -210,7 +204,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '29.9' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('29.9')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -279,7 +273,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '999' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('999')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -325,7 +319,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '2999' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('2999')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -374,7 +368,7 @@ export function SelectPackage({
               >
                 <Button
                   type="button"
-                  variant={amount === '999.1' ? 'default' : 'outline'}
+                  variant="default"
                   onClick={() => onAmountChange('999.1')}
                   className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
                 >
@@ -445,7 +439,10 @@ export function SelectPackage({
             <SelectValue placeholder="Select currency" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="USDT">USDT</SelectItem>
+            <SelectItem value="USDT_TRC20">USDT (TRC20)</SelectItem>
+            <SelectItem value="USDT_ERC20">USDT (ERC20)</SelectItem>
+            <SelectItem value="USDT_BSC">USDT (BSC)</SelectItem>
+            <SelectItem value="USDT_ARB">USDT (Arbitrum)</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-start gap-2 text-sm text-orange-500">
@@ -465,8 +462,9 @@ export function SelectPackage({
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
           <p>
-            Currently, only USDT is supported for cryptocurrency payments. More
-            payment options coming soon.
+            Multiple cryptocurrencies supported. Please ensure you meet the minimum deposit requirements:
+            USDT (min 1), USDC_ARB (min 1), BTC (min 0.0001), ETH (min 0.001),
+            TRX (min 15), BNB_BSC (min 0.01), DOGE (min 5), LTC (min 0.01).
           </p>
         </div>
       </div>

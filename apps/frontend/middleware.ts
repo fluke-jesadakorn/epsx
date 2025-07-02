@@ -14,15 +14,45 @@ const publicPaths = [
   '/reset-password'
 ];
 
+// List of paths that require session but allow public access
+const semiPublicPaths = [
+  '/payment',
+  '/checkout' // Include checkout for redirection handling
+];
+
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Handle redirection from /checkout to /payment
+  if (pathname === '/checkout') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/payment';
+    // Preserve all query parameters
+    return NextResponse.redirect(url);
+  }
 
   // Allow public paths
   if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Check for session cookie presence
+  // Allow semi-public paths but attach session if available
+  if (semiPublicPaths.includes(pathname)) {
+    const sessionCookie = request.cookies.get(SESSION_KEY);
+    const response = NextResponse.next();
+    
+    if (sessionCookie?.value) {
+      response.cookies.set(SESSION_KEY, sessionCookie.value, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      });
+    }
+    
+    return response;
+  }
+
+  // Check for session cookie presence for protected routes
   const sessionCookie = request.cookies.get(SESSION_KEY);
   
   if (!sessionCookie?.value) {

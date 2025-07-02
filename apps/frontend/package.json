@@ -8,8 +8,7 @@
     "build:fe": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
-    "clean": "rm -rf .next out node_modules",
-    "test": "echo \"No tests specified\" && exit 0"
+    "clean": "rm -rf .next out node_modules"
   },
   "dependencies": {
     "@epsx/config": "workspace:*",

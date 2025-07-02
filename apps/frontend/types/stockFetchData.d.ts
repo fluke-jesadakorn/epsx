@@ -79,7 +79,7 @@ export interface TableDataMetrics {
   // Additional fields used in StockGrowthTable
   currentQuarterEps?: string;
   nextEps?: string;
-  price?: string;
+  dataValue?: string;
   changePercent?: string;
   volume?: string;
   nextEarningsDate?: string;
