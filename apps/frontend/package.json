@@ -7,7 +7,7 @@
     "build": "next build",
     "build:fe": "next build",
     "start": "next start -p ${PORT:-3000}",
-    "lint": "next lint",
+    "lint": "next lint --dir app --dir components --dir context --dir hooks --dir middleware --dir services --dir types --dir utils",
     "clean": "rm -rf .next out node_modules",
     "test": "jest"
   },

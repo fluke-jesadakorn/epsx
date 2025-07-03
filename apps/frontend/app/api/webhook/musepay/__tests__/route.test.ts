@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { db } from '../../../../../lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { NextResponse as _NextResponse } from 'next/server';
+import { db as _db } from '../../../../../lib/firebase';
+import { doc as _doc, setDoc, getDoc as _getDoc } from 'firebase/firestore';
 import crypto from 'crypto';
 
 // Mock environment variable before importing the route

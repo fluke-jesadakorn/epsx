@@ -58,7 +58,7 @@ export default function LoginPage() {
                 asChild
               >
                 <Link href="/signup">
-                  Don't have an account? Sign up
+                  Don&apos;t have an account? Sign up
                 </Link>
               </Button>
             </div>

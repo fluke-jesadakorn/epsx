@@ -1,0 +1,6 @@
+# Ignore specific files
+lib/firebase-admin.d.ts
+**/*.js
+**/*.jsx
+**/*.json
+lib/store/theme.tsx

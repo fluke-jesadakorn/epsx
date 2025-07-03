@@ -5,7 +5,7 @@ module.exports = [
   ...baseConfig,
   {
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: ['lib/store/theme.tsx'],
+    ignores: ['lib/store/theme.tsx', 'lib/firebase-admin.d.ts'],
     plugins: {
       '@next/next': nextjs,
     },

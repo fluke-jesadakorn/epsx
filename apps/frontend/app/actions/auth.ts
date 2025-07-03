@@ -12,8 +12,8 @@ export async function handleSignIn(idToken: string) {
     if (!result.success) {
       throw new Error('Failed to create session');
     }
-  } catch (error) {
-    // console.error('Sign-in error:', error);
+  } catch (_error) {
+    // console.error('Sign-in error:', _error);
     throw new Error('Authentication failed');
   }
 }
@@ -21,8 +21,8 @@ export async function handleSignIn(idToken: string) {
 export async function handleSignOut() {
   try {
     await destroySession();
-  } catch (error) {
-    // console.error('Sign-out error:', error);
+  } catch (_error) {
+    // console.error('Sign-out error:', _error);
     throw new Error('Failed to sign out');
   }
 }
@@ -49,8 +49,8 @@ export async function getCurrentUser(): Promise<User | null> {
       ...user,
       usdtDetails
     };
-  } catch (error) {
-    // console.error('Get current user error:', error);
+  } catch (_error) {
+    // console.error('Get current user error:', _error);
     return null;
   }
 }

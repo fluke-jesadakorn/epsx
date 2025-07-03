@@ -5,8 +5,21 @@ import { PaymentStatusCard } from '@/components/features/payment/PaymentStatusCa
 import { TransactionHistory } from '@/components/features/payment/TransactionHistory';
 import { withPaymentAuth } from './withPaymentAuth';
 import { createPaymentService } from '@/services/payment.service';
-import type { PaymentTransaction } from '@/services/payment.service';
 import { auth } from '@/lib/firebase';
+
+// Transaction interface that matches what TransactionHistory expects
+interface Transaction {
+  orderNo: string;
+  actualAmount: number;
+  currency: string;
+  status: string;
+  finishTime: string;
+  blockchainData: {
+    txHash: string;
+    network: string;
+  };
+  blockExplorerUrl: string;
+}
 
 interface PaymentStatusSectionProps {
   className?: string;
@@ -17,19 +30,21 @@ const BasePaymentStatusSection = ({
   className = '',
   showTitle = true 
 }: PaymentStatusSectionProps) => {
-  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const paymentService = createPaymentService();
 
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const userTransactions = await paymentService.getTransactionHistory();
-        setTransactions(userTransactions || []);
+        const userTransactions = await paymentService.getTxHistory();
+        // Map PaymentTx to Transaction format expected by TransactionHistory
+        const mappedTransactions: Transaction[] = userTransactions.map(tx => ({
+          ...tx,
+          actualAmount: tx.amount, // Map amount to actualAmount
+        }));
+        setTransactions(mappedTransactions || []);
       } catch (error) {
         console.error('Failed to fetch transactions:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -38,12 +53,11 @@ const BasePaymentStatusSection = ({
         fetchTransactions();
       } else {
         setTransactions([]);
-        setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [paymentService]);
 
   return (
     <section className={`w-full ${className}`}>
@@ -56,7 +70,7 @@ const BasePaymentStatusSection = ({
         </div>
       )}
       <div className="space-y-8">
-        <PaymentStatusCard />
+        <PaymentStatusCard status="pending" />
         
         {/* Transaction History */}
         <div id="history">

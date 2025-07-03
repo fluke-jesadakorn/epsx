@@ -1,6 +1,7 @@
 {
   "extends": [
-    "next/core-web-vitals"
+    "next/core-web-vitals",
+    "plugin:@next/next/recommended"
   ],
   "rules": {
     "@typescript-eslint/explicit-function-return-type": "off",
@@ -28,5 +29,5 @@
     // Additional rules disabled to reduce warning noise during lint fix
     "@typescript-eslint/no-unsafe-call": "off"
   },
-  "ignorePatterns": ["**/*.js", "**/*.jsx", "**/*.json"]
+  "ignorePatterns": ["**/*.js", "**/*.jsx", "**/*.json", "**/firebase-admin.d.ts"]
 }

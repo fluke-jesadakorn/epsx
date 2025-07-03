@@ -193,8 +193,8 @@ async function fetchWithAuth<T, TData = unknown>(
       if (storedToken) {
         authToken = storedToken;
       }
-    } catch (e) {
-      // console.error('Failed to retrieve auth token from storage:', e);
+    } catch (_e) {
+      // console.error('Failed to retrieve auth token from storage:', _e);
     }
   }
 

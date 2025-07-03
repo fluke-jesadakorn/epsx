@@ -1,19 +1,10 @@
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { PACKAGES, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
+import { PACKAGES } from '@/app/constants/packages';
+import { Check, ArrowRight, Star, CreditCard, Wallet } from 'lucide-react';
 
 interface SelectPackageProps {
   amount: string;
@@ -21,14 +12,8 @@ interface SelectPackageProps {
   onAmountChange: (amount: string) => void;
   onCurrencyChange: (currency: string) => void;
   onNext: () => void;
+  className?: string;
 }
-
-const currencies = [
-  { value: 'USDT_TRC20', label: 'USDT (TRC20)', min: '1' },
-  { value: BLOCKCHAIN_CONFIG.BSC.currency, label: 'USDT (BSC)', min: '1' },
-  { value: 'USDT_ERC20', label: 'USDT (ERC20)', min: '1' },
-  { value: 'USDT_ARB', label: 'USDT (Arbitrum)', min: '1' }
-];
 
 export function SelectPackage({
   amount,
@@ -36,467 +21,187 @@ export function SelectPackage({
   onAmountChange,
   onCurrencyChange,
   onNext,
+  className = '',
 }: SelectPackageProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Filter out free packages and API packages for standard plans display
+  const standardPackages = PACKAGES.filter(pkg => 
+    pkg.price > 0 && !pkg.id.startsWith('api_')
+  );
+  
+  // API packages separately
+  const apiPackages = PACKAGES.filter(pkg => 
+    pkg.id.startsWith('api_') && pkg.price > 0
+  );
+
+  const handleSelectPackage = (packageId: string) => {
+    const selectedPackage = PACKAGES.find(pkg => pkg.id === packageId);
+    if (selectedPackage) {
+      onAmountChange(selectedPackage.price.toString());
+    }
+  };
+
+  const handleProceed = async () => {
+    setIsLoading(true);
+    try {
+      await onNext();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Payment method options
+  const paymentMethods = [
+    { id: 'USDT_TRC20', name: 'USDT (TRC20)', icon: <Wallet className="h-5 w-5" /> },
+    { id: 'USDT_BSC', name: 'USDT (BSC)', icon: <Wallet className="h-5 w-5" /> },
+    { id: 'USDT_ERC20', name: 'USDT (ERC20)', icon: <Wallet className="h-5 w-5" /> },
+  ];
+
   return (
-    <TooltipProvider>
-    <div className="space-y-8 p-6 rounded-xl shadow-sm">
-      <div className="space-y-2">
-        <p className="text-muted-foreground">
-          Choose the plan that best fits your needs
-        </p>
-      </div>
-      <div className="space-y-6">
-        <div className="space-y-10">
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-primary flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              Personal Plans
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className={`space-y-6 ${className}`}>
+      <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Star className="h-5 w-5 text-yellow-500" />
+            Select a Plan
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {standardPackages.map((pkg) => (
               <div
-                className={`relative rounded-lg border-2 ${amount === '0' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
+                key={pkg.id}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
+                  amount === pkg.price.toString()
+                    ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-md'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-gray-700'
+                }`}
+                onClick={() => handleSelectPackage(pkg.id)}
               >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('0')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                  disabled={true}
-                >
-                  <span className="font-bold text-lg">Free Package</span>
-                  <span className="text-sm text-muted-foreground">
-                    Basic features for starting out
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">$0</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Limited API access</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Up to 1,000 API calls per month</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Basic analytics</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Market trends and basic portfolio tracking</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Community support</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Access to community forums and documentation</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-                <div className="absolute -top-3 left-2 px-3 py-1 bg-muted text-xs font-medium rounded-full shadow-sm">
-                  All Level
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">{pkg.name}</h4>
+                  {pkg.level === 'GOLD' && (
+                    <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 text-xs px-2 py-0.5 rounded-full">
+                      Popular
+                    </div>
+                  )}
+                </div>
+                <p className="text-xl font-bold text-primary mb-2">
+                  ${pkg.price}
+                </p>
+                <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                  {pkg.features.map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div
-                className={`relative rounded-lg border-2 ${amount === '9.9' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('9.9')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">PersonalX</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Perfect for individual traders and investors</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    Enhanced features for individuals
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 9.9</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Full API access</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Unlimited API calls with standard rate limits</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Advanced analytics</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Real-time market analysis and portfolio insights</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Priority support</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Fast response time support via email</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-                <div className="absolute -top-3 left-2 px-3 py-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground text-xs font-medium rounded-full shadow-md">
-                  Most Popular
-                </div>
-              </div>
-              <div
-                className={`relative rounded-lg border-2 ${amount === '19.9' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('19.9')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">ProfessionalY</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Enhanced features for professional traders</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    Advanced tools for professionals
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 19.9</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Real-time market analysis</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Live market data and advanced technical indicators</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Custom alert system</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Set custom price alerts and notifications</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• 24/7 dedicated support</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Round-the-clock support via email and chat</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-                <div className="absolute -top-3 left-2 px-3 py-1 bg-orange-500 text-white text-xs font-medium rounded-full shadow-sm">
-                  Best Value
-                </div>
-              </div>
-              <div
-                className={`relative rounded-lg border-2 ${amount === '29.9' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('29.9')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">EnterpriseZ</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Ultimate package for serious traders</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    Complete solution for power users
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 29.9</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Unlimited API access</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Unlimited API calls with higher rate limits</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Custom integrations</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Custom API endpoints and integrations</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• VIP support & training</div>
-                      </TooltipTrigger>
-                      <TooltipContent>24/7 priority support and personalized training</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <h4 className="text-lg font-semibold text-primary flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 7h-9"></path>
-                <path d="M14 17H5"></path>
-                <circle cx="17" cy="17" r="3"></circle>
-                <circle cx="7" cy="7" r="3"></circle>
-              </svg>
-              Business & API Plans
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div
-                className={`relative rounded-lg border-2 ${amount === '999' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('999')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">API Personal</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>API integration for personal projects</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    API access for individual developers
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 999</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• 100k API calls/month</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Up to 100,000 API calls per month with standard rate limits</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Developer support</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Technical support and API documentation</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Testing environment</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Sandbox environment for testing integrations</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-              </div>
-              <div
-                className={`relative rounded-lg border-2 ${amount === '2999' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('2999')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">API Company</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Enterprise-grade API access with unlimited calls</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    Enterprise-grade API solution
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 2,999</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Unlimited API calls</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Unlimited API calls with premium rate limits</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Priority support</div>
-                      </TooltipTrigger>
-                      <TooltipContent>24/7 priority technical support</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Custom solutions</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Custom API features and enterprise solutions</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-                <div className="absolute -top-3 left-2 px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full shadow-sm">
-                  Enterprise
-                </div>
-              </div>
-              <div
-                className={`relative rounded-lg border-2 ${amount === '999.1' ? 'border-primary' : 'border-border'} transition-all duration-200 hover:border-primary/50`}
-              >
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => onAmountChange('999.1')}
-                  className="w-full h-full min-h-[160px] flex flex-col gap-3 p-4 hover:scale-[1.02] transition-transform duration-200"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-bold text-lg cursor-help">Company Plan</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Complete solution for business teams</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <span className="text-sm text-muted-foreground">
-                    Complete business solution
-                  </span>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold">{currency} 999</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Team collaboration</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Multi-user access and team management features</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Advanced reporting</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Customizable reports and analytics dashboard</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">• Dedicated account manager</div>
-                      </TooltipTrigger>
-                      <TooltipContent>Personal account manager for support and optimization</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-muted/30 to-muted/10 rounded-xl space-x-4 border">
-        <div className="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="16" x2="12" y2="12"></line>
-            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-          </svg>
-          <Label htmlFor="currency" className="font-semibold">
-            Select Payment Currency
-          </Label>
-        </div>
-        <Select value={currency} onValueChange={onCurrencyChange}>
-          <SelectTrigger id="currency" className="bg-background border-2 w-[200px] transition-colors hover:border-primary">
-            <SelectValue placeholder="Select currency" />
-          </SelectTrigger>
-          <SelectContent>
-            {currencies.map(({ value, label }) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-start gap-2 text-sm text-orange-500">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <p>
-            Multiple cryptocurrencies supported. Please ensure you meet the minimum deposit requirements:
-            USDT (min 1), USDC_ARB (min 1), BTC (min 0.0001), ETH (min 0.001),
-            TRX (min 15), BNB_BSC (min 0.01), DOGE (min 5), LTC (min 0.01).
-          </p>
-        </div>
-      </div>
-      <Button
-        onClick={onNext}
-        className="w-full py-6 text-lg font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 border-2 rounded-3xl bg-pink-100 dark:bg-gray-700 hover:border-primary"
-      >
-        Continue to Next Step
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="ml-2"
-        >
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-          <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
-      </Button>
+          </div>
+
+          {apiPackages.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">API Plans</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {apiPackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
+                      amount === pkg.price.toString()
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-md'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-gray-700'
+                    }`}
+                    onClick={() => handleSelectPackage(pkg.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">{pkg.name}</h4>
+                    </div>
+                    <p className="text-xl font-bold text-primary mb-2">
+                      ${pkg.price}
+                    </p>
+                    <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                      {pkg.features.map((feature, idx) => (
+                        <div key={idx} className="flex items-center gap-1">
+                          <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+                          <span>{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <CreditCard className="h-5 w-5 text-blue-500" />
+            Payment Method
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {paymentMethods.map((method) => (
+              <div 
+                key={method.id}
+                className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer ${
+                  currency === method.id
+                    ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                    : 'border-gray-200 dark:border-gray-600'
+                }`}
+                onClick={() => onCurrencyChange(method.id)}
+              >
+                <div className={`w-4 h-4 rounded-full border ${
+                  currency === method.id
+                    ? 'border-primary bg-primary'
+                    : 'border-gray-400'
+                }`}>
+                  {currency === method.id && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 flex items-center gap-2">
+                  {method.icon}
+                  <span className="font-medium">{method.name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex justify-between items-center text-lg font-semibold mb-4">
+              <span className="text-gray-900 dark:text-white">Total:</span>
+              <span className="text-primary text-xl">${amount}</span>
+            </div>
+            
+            <Button
+              onClick={handleProceed}
+              disabled={isLoading || !amount}
+              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  Continue to Payment
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-    </TooltipProvider>
   );
 }

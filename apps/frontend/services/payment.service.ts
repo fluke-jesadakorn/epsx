@@ -1,7 +1,6 @@
-import { doc, updateDoc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { nanoid } from 'nanoid';
-import type { UserLevelType } from '@/app/constants/packages';
 
 export interface PaymentStatus {
   paid: boolean;
@@ -25,9 +24,9 @@ export interface PaymentTx {
 
 export const createPaymentService = () => {
   const recordPayment = async (
-    amount: number,
-    currency: string,
-    description?: string,
+    _amount: number,
+    _currency: string,
+    _description?: string,
   ): Promise<string | null> => {
     try {
       const txId = nanoid();
@@ -40,9 +39,9 @@ export const createPaymentService = () => {
   };
 
   const confirmPayment = async (
-    txId: string,
-    payMethod: string,
-    userLevel: string,
+    _txId: string,
+    _payMethod: string,
+    _userLevel: string,
   ): Promise<{
     success: boolean;
     message: string;
@@ -121,11 +120,11 @@ export const createPaymentService = () => {
     }
   };
 
-  const initQRPayment = async (amount: number, currency: string) => {
+  const initQRPayment = async (_amount: number, _currency: string) => {
     // Implementation...
   };
 
-  const getPlanDetails = async (planId: string) => {
+  const getPlanDetails = async (_planId: string) => {
     // Implementation...
   };
 

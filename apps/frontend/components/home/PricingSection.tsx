@@ -3,7 +3,7 @@
 import { Check, Sparkles } from 'lucide-react';
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { PACKAGES, LEVEL_BENEFITS, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
+import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
 import type { Package } from '@/app/constants/packages';
 
 interface PlanFeature {

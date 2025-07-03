@@ -48,7 +48,7 @@ export default function SignupPage() {
               </div>
             </div> */}
 
-            <EmailPasswordForm isSignUp={true} />
+            <EmailPasswordForm isSignUp />
 
             <div className="text-center mt-4">
               <Button
