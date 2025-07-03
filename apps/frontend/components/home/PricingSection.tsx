@@ -144,7 +144,7 @@ const PricingSection = () => {
                 ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-blue-500/25'
                 : 'hover:scale-105'
             }`}
-            onClick={() => window.location.href = '/settings/payment'}
+            onClick={() => window.location.href = '/payment'}
           >
             {card.buttonText}
           </Button>

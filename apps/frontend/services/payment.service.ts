@@ -1,4 +1,11 @@
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { nanoid } from 'nanoid';
 
@@ -7,6 +14,7 @@ export interface PaymentStatus {
   lastPayDate?: Date;
   expireDate?: Date;
   userLevel?: string;
+  isNewUser?: boolean;
 }
 
 export interface PaymentTx {
@@ -67,15 +75,19 @@ export const createPaymentService = () => {
         return {
           paid: false,
           userLevel: 'BASIC',
+          isNewUser: true,
         };
       }
 
       const userData = userDoc.data();
+      const hasPaid = userData.paymentStatus?.hasPaid || false;
+      
       return {
-        paid: userData.paymentStatus?.hasPaid || false,
+        paid: hasPaid,
         lastPayDate: userData.paymentStatus?.lastPaymentDate?.toDate(),
         expireDate: userData.paymentStatus?.expirationDate?.toDate(),
         userLevel: userData.userLevel || 'BASIC',
+        isNewUser: !hasPaid,
       };
     } catch (error) {
       console.error('Error getting payment status:', error);
@@ -91,11 +103,10 @@ export const createPaymentService = () => {
       }
 
       const txRef = collection(db, 'transactions');
-      const q = query(
-        txRef,
-        where('userId', '==', user.uid),
-        orderBy('finishTime', 'desc')
-      );
+      // Note: We don't use orderBy here to avoid requiring a composite index
+      // Alternative: Create a composite index in Firebase Console for userId (ASC) + finishTime (DESC)
+      // Index URL: https://console.firebase.google.com/v1/r/project/epsx-449804/firestore/indexes
+      const q = query(txRef, where('userId', '==', user.uid));
 
       const querySnapshot = await getDocs(q);
       const txs: PaymentTx[] = [];
@@ -107,11 +118,19 @@ export const createPaymentService = () => {
           amount: data.actualAmount,
           currency: data.currency,
           status: data.status,
-          finishTime: data.finishTime?.toDate?.().toISOString() || new Date().toISOString(),
+          finishTime:
+            data.finishTime?.toDate?.().toISOString() ||
+            new Date().toISOString(),
           blockchainData: data.blockchainData || { txHash: '', network: '' },
           blockExplorerUrl: data.blockExplorerUrl || '',
         });
       });
+
+      // Sort by finishTime in descending order (most recent first) in JavaScript
+      txs.sort(
+        (a, b) =>
+          new Date(b.finishTime).getTime() - new Date(a.finishTime).getTime(),
+      );
 
       return txs;
     } catch (error) {
@@ -128,6 +147,59 @@ export const createPaymentService = () => {
     // Implementation...
   };
 
+  const getTxHistoryForNewUser = async (): Promise<PaymentTx[]> => {
+    try {
+      const paymentStatus = await getPaymentStatus();
+      if (!paymentStatus?.isNewUser) {
+        // If not a new user, return all transactions
+        return getTxHistory();
+      }
+
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const txRef = collection(db, 'transactions');
+      const q = query(txRef, where('userId', '==', user.uid));
+
+      const querySnapshot = await getDocs(q);
+      const txs: PaymentTx[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        
+        // Skip pending transactions for new users
+        if (data.status === 'PENDING' || data.status === 'pending') {
+          return;
+        }
+
+        txs.push({
+          orderNo: data.orderNo,
+          amount: data.actualAmount,
+          currency: data.currency,
+          status: data.status,
+          finishTime:
+            data.finishTime?.toDate?.().toISOString() ||
+            new Date().toISOString(),
+          blockchainData: data.blockchainData || { txHash: '', network: '' },
+          blockExplorerUrl: data.blockExplorerUrl || '',
+        });
+      });
+
+      // Sort by finishTime in descending order (most recent first) in JavaScript
+      txs.sort(
+        (a, b) =>
+          new Date(b.finishTime).getTime() - new Date(a.finishTime).getTime(),
+      );
+
+      return txs;
+    } catch (error) {
+      console.error('Error fetching transaction history for new user:', error);
+      return [];
+    }
+  };
+
   return {
     recordPayment,
     confirmPayment,
@@ -135,5 +207,6 @@ export const createPaymentService = () => {
     initQRPayment,
     getPlanDetails,
     getTxHistory,
+    getTxHistoryForNewUser,
   };
 };

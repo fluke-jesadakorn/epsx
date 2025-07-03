@@ -6,9 +6,8 @@ import { createPaymentService } from '@/services/payment.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, CreditCard, Smartphone, Wallet, ArrowRight, Shield, Clock, Star } from 'lucide-react';
+import { Check, CreditCard, Smartphone, Wallet, ArrowRight, Shield, Clock, Star, AlertCircle, Loader2 } from 'lucide-react';
 import { PACKAGES, LEVEL_BENEFITS, validatePayment } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
 import PaymentDetails from './PaymentDetails';
@@ -174,16 +173,20 @@ export default function OneClickPayment({
 
   if (success) {
     return (
-      <Card className={`max-w-md mx-auto ${className} border-green-200 dark:border-green-800`}>
-        <CardContent className="pt-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-            <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+      <Card className={`max-w-md mx-auto ${className} border-0 shadow-2xl bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 relative overflow-hidden`}>
+        <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-teal-400/10"></div>
+        <CardContent className="pt-8 text-center relative z-10">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+            <Check className="h-10 w-10 text-white" />
           </div>
-          <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Payment Successful!</h3>
-          <p className="text-muted-foreground mb-4">
+          <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            Payment Successful! 🎉
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6 text-lg">
             Your {selectedPackageData?.name} has been activated.
           </p>
-          <div className="text-sm text-muted-foreground">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-4 py-2 rounded-full">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             Redirecting to dashboard...
           </div>
         </CardContent>
@@ -211,46 +214,69 @@ export default function OneClickPayment({
       {step === 'select' && (
         <>
           {/* Quick Package Selection */}
-          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <Star className="h-5 w-5 text-yellow-500" />
+          <Card className="border-0 shadow-2xl bg-gradient-to-br from-white via-pink-50/50 to-purple-50/50 dark:from-gray-800 dark:via-purple-900/20 dark:to-gray-800 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-400/5 via-purple-400/5 to-orange-400/5"></div>
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white text-2xl font-bold">
+                <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                  <Star className="h-5 w-5 text-white" />
+                </div>
                 Choose Your Plan
+                <div className="ml-auto text-2xl animate-bounce">🎯</div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardContent className="relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {popularPackages.map((pkg) => (
                   <div
                     key={pkg.id}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
+                    className={`group relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl hover:-translate-y-1 ${
                       selectedPackage === pkg.id
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-md'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-gray-700'
+                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/30 dark:to-purple-900/30 shadow-xl scale-105'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-pink-300 dark:hover:border-pink-500 bg-white dark:bg-gray-700 hover:bg-gradient-to-br hover:from-pink-50 hover:to-purple-50 dark:hover:from-pink-900/20 dark:hover:to-purple-900/20'
                     }`}
                     onClick={() => {
                       setSelectedPackage(pkg.id);
                       setAmount(pkg.price.toString());
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{pkg.name}</h4>
-                      {pkg.level === 'GOLD' && (
-                        <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs">
-                          Popular
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xl sm:text-2xl font-bold text-primary mb-2">
-                      ${pkg.price}
-                    </p>
-                    <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                      {LEVEL_BENEFITS[pkg.level].slice(0, 2).map((benefit, idx) => (
-                        <div key={idx} className="flex items-center gap-1">
-                          <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
-                          <span className="line-clamp-1">{benefit}</span>
+                    <div className="absolute inset-0 bg-gradient-to-br from-pink-400/10 via-purple-400/10 to-orange-400/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-gray-900 dark:text-white text-lg">{pkg.name}</h4>
+                        {pkg.level === 'GOLD' && (
+                          <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 shadow-lg animate-pulse">
+                            🔥 Popular
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="mb-4">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-black bg-gradient-to-r from-pink-600 via-purple-600 to-orange-600 bg-clip-text text-transparent">
+                            ${pkg.price}
+                          </span>
+                          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">/month</span>
                         </div>
-                      ))}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {LEVEL_BENEFITS[pkg.level].slice(0, 3).map((benefit, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{benefit}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {selectedPackage === pkg.id && (
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -259,67 +285,79 @@ export default function OneClickPayment({
           </Card>
 
           {/* Payment Method Selection */}
-          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <Shield className="h-5 w-5 text-blue-500" />
+          <Card className="border-0 shadow-2xl bg-gradient-to-br from-white via-blue-50/50 to-cyan-50/50 dark:from-gray-800 dark:via-blue-900/20 dark:to-gray-800 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/5 via-cyan-400/5 to-teal-400/5"></div>
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white text-2xl font-bold">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
                 Payment Method
+                <div className="ml-auto text-2xl animate-bounce">💳</div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="relative z-10">
+              <div className="space-y-4">
                 {PAYMENT_METHODS.map((method) => (
                   <div 
                     key={method.id}
-                    className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
+                    className={`group relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${
                       selectedPaymentMethod === method.id
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-md'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-gray-700'
+                        ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-xl scale-[1.02]'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 bg-white dark:bg-gray-700 hover:bg-gradient-to-br hover:from-blue-50 hover:to-cyan-50 dark:hover:from-blue-900/20 dark:hover:to-cyan-900/20'
                     }`}
                     onClick={() => setSelectedPaymentMethod(method.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="text-primary">{method.icon}</div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">{method.name}</span>
-                            {method.popular && (
-                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                Popular
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">
-                            {method.description}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right text-xs sm:text-sm hidden sm:block">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {method.processingTime}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Fee: {method.fees}
-                          </div>
-                        </div>
-                        {selectedPaymentMethod === method.id && (
-                          <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Mobile-friendly fee display */}
-                    <div className="sm:hidden mt-2 text-xs text-muted-foreground">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/5 via-cyan-400/5 to-teal-400/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    
+                    <div className="relative z-10">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {method.processingTime}
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white shadow-lg">
+                            {method.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-bold text-gray-900 dark:text-white text-lg">{method.name}</span>
+                              {method.popular && (
+                                <Badge className="bg-gradient-to-r from-orange-400 to-red-500 text-white border-0 shadow-lg animate-pulse">
+                                  🔥 Popular
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                              {method.description}
+                            </div>
+                          </div>
                         </div>
-                        <div>Fee: {method.fees}</div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right text-sm hidden sm:block">
+                            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-300 font-medium mb-1">
+                              <Clock className="h-4 w-4" />
+                              {method.processingTime}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Fee: <span className="font-semibold text-green-600 dark:text-green-400">{method.fees}</span>
+                            </div>
+                          </div>
+                          {selectedPaymentMethod === method.id && (
+                            <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                              <Check className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Mobile-friendly fee display */}
+                      <div className="sm:hidden mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                            <Clock className="h-4 w-4" />
+                            <span className="font-medium">{method.processingTime}</span>
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400">
+                            Fee: <span className="font-semibold text-green-600 dark:text-green-400">{method.fees}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -329,36 +367,49 @@ export default function OneClickPayment({
           </Card>
 
           {/* Payment Summary & Action */}
-          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-gray-900 dark:text-white">Payment Summary</CardTitle>
+          <Card className="border-0 shadow-2xl bg-gradient-to-br from-white via-green-50/50 to-emerald-50/50 dark:from-gray-800 dark:via-green-900/20 dark:to-gray-800 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-400/5 via-emerald-400/5 to-teal-400/5"></div>
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white text-2xl font-bold">
+                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                  <ArrowRight className="h-5 w-5 text-white" />
+                </div>
+                Payment Summary
+                <div className="ml-auto text-2xl animate-bounce">💎</div>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Package:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{selectedPackageData?.name}</span>
+            <CardContent className="space-y-6 relative z-10">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">Package:</span>
+                  <span className="font-bold text-gray-900 dark:text-white text-lg">{selectedPackageData?.name}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Payment Method:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{selectedMethodData?.name}</span>
+                <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">Payment Method:</span>
+                  <span className="font-bold text-gray-900 dark:text-white text-lg">{selectedMethodData?.name}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Processing Time:</span>
-                  <span className="text-sm text-muted-foreground">
+                <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">Processing Time:</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
                     {selectedMethodData?.processingTime}
                   </span>
                 </div>
               </div>
-              <Separator className="dark:bg-gray-600" />
-              <div className="flex justify-between items-center text-lg font-semibold">
-                <span className="text-gray-900 dark:text-white">Total:</span>
-                <span className="text-primary text-xl">${amount}</span>
+              
+              <div className="h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+              
+              <div className="flex justify-between items-center p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border-2 border-green-200 dark:border-green-700">
+                <span className="text-gray-900 dark:text-white font-bold text-xl">Total:</span>
+                <span className="text-3xl font-black bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                  ${amount}
+                </span>
               </div>
 
               {error && (
-                <Alert className="border-destructive bg-red-50 dark:bg-red-900/20">
-                  <AlertDescription className="text-destructive">
+                <Alert className="border-red-200 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-400/10 to-pink-400/10"></div>
+                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <AlertDescription className="text-red-700 dark:text-red-300 font-medium">
                     {error}
                   </AlertDescription>
                 </Alert>
@@ -367,24 +418,28 @@ export default function OneClickPayment({
               <Button
                 onClick={handleQuickPay}
                 disabled={isProcessing || !selectedPackageData || !amount}
-                className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
+                className="w-full h-14 text-lg font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500 hover:from-pink-600 hover:via-purple-600 hover:to-orange-600 text-white border-0 shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {isProcessing ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing...
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Processing...</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    {selectedPaymentMethod.startsWith('USDT_') ? 'Continue' : `Pay $${amount}`}
-                    <ArrowRight className="h-4 w-4" />
+                  <div className="flex items-center gap-3">
+                    <span>
+                      {selectedPaymentMethod.startsWith('USDT_') ? 'Continue Payment' : `Pay $${amount} Now`}
+                    </span>
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    <span className="text-xl">🚀</span>
                   </div>
                 )}
               </Button>
 
-              <div className="text-xs text-center text-muted-foreground">
-                <Shield className="h-3 w-3 inline mr-1" />
-                Secure payment powered by blockchain technology
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400 bg-white/60 dark:bg-gray-700/60 rounded-xl p-3">
+                <Shield className="h-4 w-4 text-green-500" />
+                <span className="font-medium">Secure payment powered by blockchain technology</span>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
             </CardContent>
           </Card>

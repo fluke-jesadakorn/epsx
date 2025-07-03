@@ -162,7 +162,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <Button
-                onClick={() => (window.location.href = '/settings/payment')}
+                onClick={() => (window.location.href = '/payment')}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Manage Payment
