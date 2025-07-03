@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { SelectPackage } from '@/components/features/payment/SelectPackage';
 import { withPaymentAuth } from './withPaymentAuth';
+import { PACKAGES, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
 
 interface SelectPackageSectionProps {
   className?: string;
@@ -12,26 +13,17 @@ interface SelectPackageSectionProps {
 const BaseSelectPackageSection = ({ 
   className = '',
 }: SelectPackageSectionProps) => {
-  const [amount, setAmount] = useState('9.9'); // Default to PersonalX plan
-  const [currency, setCurrency] = useState('USDT_TRC20');
+  const defaultPackage = PACKAGES.find(pkg => pkg.id === 'silver') || PACKAGES[0];
+  const [amount, setAmount] = useState(defaultPackage.price.toString());
+  const [currency, setCurrency] = useState<string>(BLOCKCHAIN_CONFIG.BSC.currency);
+
+  const handleCurrencyChange = (newCurrency: string) => {
+    setCurrency(newCurrency);
+  };
 
   const getPackageType = (amount: string): string => {
-    switch (amount) {
-      case '9.9':
-        return 'personalx';
-      case '19.9':
-        return 'professionaly';
-      case '29.9':
-        return 'enterprisez';
-      case '999':
-        return 'apipersonal';
-      case '2999':
-        return 'apicompany';
-      case '999.1':
-        return 'company';
-      default:
-        return 'personalx';
-    }
+    const pkg = PACKAGES.find(p => p.price.toString() === amount);
+    return pkg?.id || 'silver';
   };
 
   const handleNext = async () => {
@@ -48,7 +40,7 @@ const BaseSelectPackageSection = ({
         amount={amount}
         currency={currency}
         onAmountChange={setAmount}
-        onCurrencyChange={setCurrency}
+        onCurrencyChange={handleCurrencyChange}
         onNext={handleNext}
       />
     </section>

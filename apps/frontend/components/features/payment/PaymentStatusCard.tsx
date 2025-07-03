@@ -6,8 +6,17 @@ import { Button } from '@/components/ui/button';
 import { createPaymentService } from '@/services/payment.service';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { TransactionHistory } from './TransactionHistory';
+import { UserLevelBadge } from './UserLevelBadge';
+import { ExpirationCountdown } from './ExpirationCountdown';
 import type { PaymentResponse } from '@/types/payment';
-import type { UserLevel } from '@/types/userLevel';
+import type { UserLevelType } from '@/app/constants/packages';
+import { LEVEL_BENEFITS, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
+
+// Extend PaymentResponse to use UserLevelType
+interface ExtendedPaymentResponse extends Omit<PaymentResponse, 'user_level'> {
+  user_level: UserLevelType;
+}
 
 const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
   const getStatusColor = () => {
@@ -39,7 +48,9 @@ const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
   };
 
   return (
-    <div className={`flex items-center gap-2 text-lg font-medium ${getStatusColor()}`}>
+    <div
+      className={`flex items-center gap-2 text-lg font-medium ${getStatusColor()}`}
+    >
       <span>{getStatusEmoji()}</span>
       <span>{status}</span>
     </div>
@@ -47,7 +58,8 @@ const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
 };
 
 export function PaymentStatusCard() {
-  const [paymentStatus, setPaymentStatus] = useState<PaymentResponse | null>(null);
+  const [paymentStatus, setPaymentStatus] =
+    useState<ExtendedPaymentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -76,16 +88,19 @@ export function PaymentStatusCard() {
     try {
       const status = await paymentService.getPaymentStatus();
       if (status) {
-        // Convert the payment status to PaymentResponse format
-        const paymentResponse: PaymentResponse = {
+        // Convert the payment status to ExtendedPaymentResponse format
+        const paymentResponse: ExtendedPaymentResponse = {
           id: 'current',
           amount: 0, // This would come from the actual transaction
           currency: 'USDT',
           status: status.hasPaid ? 'Succeeded' : 'Pending',
-          created_at: status.lastPaymentDate?.toISOString() || new Date().toISOString(),
-          expiration_date: status.expirationDate?.toISOString() || new Date().toISOString(),
-          user_level: (status.userLevel || 'Basic') as UserLevel,
-          qr_code: '' // This would be set if needed
+          created_at:
+            status.lastPaymentDate?.toISOString() || new Date().toISOString(),
+          expiration_date:
+            status.expirationDate?.toISOString() || new Date().toISOString(),
+          user_level: (status.userLevel?.toUpperCase() ||
+            'BASIC') as UserLevelType,
+          qr_code: '', // This would be set if needed
         };
         setPaymentStatus(paymentResponse);
       }
@@ -203,32 +218,64 @@ export function PaymentStatusCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {paymentStatus && (
-          <>
-            <StatusIndicator status={paymentStatus.status} />
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                <span className="font-medium">Last Updated:</span>{' '}
-                {lastUpdated.toLocaleTimeString()}
-              </p>
-              <p>
-                <span className="font-medium">User Level:</span>{' '}
-                {paymentStatus.user_level}
-              </p>
-              {paymentStatus.expiration_date && (
-                <p>
-                  <span className="font-medium">Valid Until:</span>{' '}
-                  {new Date(paymentStatus.expiration_date).toLocaleDateString()}
-                </p>
-              )}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <UserLevelBadge level={paymentStatus.user_level} />
+                <StatusIndicator status={paymentStatus.status} />
+              </div>
+
+              <div className="space-y-2">
+                {paymentStatus.expiration_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Subscription Status:
+                    </span>
+                    <ExpirationCountdown
+                      expirationDate={paymentStatus.expiration_date}
+                    />
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground">
+                  <p className="mb-2">Level Benefits:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {LEVEL_BENEFITS[paymentStatus.user_level]?.map(
+                      (benefit, index) => (
+                        <li key={index} className="text-sm">
+                          {benefit}
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </div>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={() => window.location.href = '/settings/payment'}
-            >
-              View Payment History
-            </Button>
-          </>
+
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground mb-4">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  variant="default"
+                  className="w-full border-2"
+                  onClick={() => (window.location.href = '/settings/payment')}
+                >
+                  Manage Subscription
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-2"
+                  onClick={() =>
+                    (window.location.href = '/settings/payment#history')
+                  }
+                >
+                  View Transaction History
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

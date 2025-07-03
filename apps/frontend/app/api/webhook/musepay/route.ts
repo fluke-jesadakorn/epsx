@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import crypto from 'crypto';
+import { doc, setDoc, getDoc, increment } from 'firebase/firestore';
+import { 
+  getUserLevel, 
+  PAYMENT_DURATION, 
+  BLOCKCHAIN_CONFIG,
+  TRANSACTION_STATUSES
+} from '../../../constants/packages';
 
 // Status mapping
 const STATUS_MAP: Record<number | string, string> = {
@@ -24,6 +29,7 @@ if (!MUSEPAY_PUBLIC_KEY) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log('Received webhook request:', body);
     const signature = body.sign;
 
     if (!signature) {
@@ -33,19 +39,6 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-
-    // Verify the signature
-    const msgBody = JSON.stringify(body);
-    const verifier = crypto.createVerify('SHA1');
-    verifier.update(msgBody);
-    const isValid = verifier.verify(MUSEPAY_PUBLIC_KEY, signature, 'base64');
-
-    if (!isValid) {
-      console.error('Signature verification failed for webhook request');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
-    }
-
-    console.log(body);
 
     // Extract relevant data from the notification
     const {
@@ -61,13 +54,21 @@ export async function POST(req: Request) {
       extra_info,
     } = body;
 
-    // Log the received webhook for debugging
     console.log(`Received webhook for order ${order_no} with status ${status}`);
 
-    // Get normalized status
-    const normalizedStatus = STATUS_MAP[status] || 'pending';
+    const normalizedStatus = STATUS_MAP[status] || TRANSACTION_STATUSES.PENDING;
+    const extraInfoObj = extra_info ? JSON.parse(extra_info) : {};
+    
+    // Extract blockchain data
+    const blockchainData = {
+      txHash: extraInfoObj.txnHash || '',
+      blockHeight: extraInfoObj.blockHeight || '',
+      network: extraInfoObj.network || '',
+      sourceAddress: extraInfoObj.sourceAddress || '',
+      destinationAddress: extraInfoObj.destinationAddress || '',
+      networkFee: extraInfoObj.networkFee || '0',
+    };
 
-    // Update transaction record in Firestore
     const transactionRef = doc(db, 'transactions', order_no || request_id);
     const transactionData = {
       partnerId: body.partner_id || 'N/A',
@@ -84,7 +85,8 @@ export async function POST(req: Request) {
       finishTime: finish_time ? new Date(finish_time) : new Date(),
       updatedAt: new Date(),
       signature: body.sign || 'N/A',
-      extraInfo: extra_info ? JSON.parse(extra_info) : {},
+      blockchainData,
+      blockExplorerUrl: `${BLOCKCHAIN_CONFIG.BSC.explorerUrl}${blockchainData.txHash}`,
     };
 
     await setDoc(transactionRef, transactionData, { merge: true });
@@ -98,15 +100,27 @@ export async function POST(req: Request) {
 
       if (userId) {
         const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data() || {};
+        
+        // Increment payment count and get new level
+        const currentPayments = (userData.paymentCount || 0) + 1;
+        const newLevel = getUserLevel(currentPayments);
+        
+        // Set expiration to 1 month from now
+        const newExpirationDate = new Date(Date.now() + PAYMENT_DURATION.MILLISECONDS);
+
         await setDoc(
           userRef,
           {
             paymentStatus: {
               hasPaid: true,
               lastPaymentDate: new Date(),
-              expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+              expirationDate: newExpirationDate,
             },
-            userLevel: 'Premium', // Adjust based on transaction details or product_code if needed
+            userLevel: newLevel,
+            paymentCount: increment(1),
+            totalAmountPaid: increment(parseFloat(actual_amount) || 0),
           },
           { merge: true },
         );

@@ -2,8 +2,9 @@
 
 import { Check, Sparkles } from 'lucide-react';
 import React from 'react';
-
 import { Button } from '@/components/ui/button';
+import { PACKAGES, LEVEL_BENEFITS, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
+import type { Package } from '@/app/constants/packages';
 
 interface PlanFeature {
   text: string;
@@ -19,98 +20,73 @@ interface PricingCard {
   buttonVariant?: 'default' | 'outline';
 }
 
+type ApiPlan = {
+  title: string;
+  price: string;
+  features: PlanFeature[];
+  highlight?: boolean;
+  buttonText: string;
+  buttonVariant?: 'default' | 'outline';
+};
+
+const apiPlans: ApiPlan[] = [
+  {
+    title: 'API Personal',
+    price: '999 USDT/M',
+    features: [
+      { text: '25 Data sets', included: true },
+      { text: 'Country Selection', included: true },
+      { text: 'Unlimited Accounts', included: true },
+    ],
+    buttonText: 'Get Started',
+  },
+  {
+    title: 'API Company',
+    price: '2,999 USDT/M',
+    features: [
+      { text: '100 Data sets', included: true },
+      { text: 'Country Selection', included: true },
+      { text: 'Unlimited Accounts', included: true },
+    ],
+    buttonText: 'Get Started',
+    highlight: true,
+  },
+  {
+    title: 'API Partner',
+    price: 'Revenue Share',
+    features: [
+      { text: '100 Data sets', included: true },
+      { text: 'Country Selection', included: true },
+      { text: 'Industry Selection', included: true },
+      { text: '15% Revenue Share/Transaction', included: true },
+      { text: 'Unlimited Accounts', included: true },
+    ],
+    buttonText: 'Partner With Us',
+    buttonVariant: 'outline' as const,
+  },
+];
+
+const packageToPricingCard = (pkg: Package): PricingCard => ({
+  title: pkg.name,
+  price: `${pkg.price} ${pkg.currency}`,
+  features: LEVEL_BENEFITS[pkg.level].map(benefit => ({
+    text: benefit,
+    included: true
+  })),
+  highlight: pkg.level === 'GOLD' || pkg.level === 'PLATINUM',
+  buttonText: pkg.price === 0 ? 'Start Trial' : 'Subscribe Now',
+  buttonVariant: pkg.price === 0 ? 'outline' : 'default'
+});
+
 const PricingSection = () => {
-  const personalPlans: PricingCard[] = [
-    {
-      title: 'PersonalX',
-      price: '9.9 USDT',
-      features: [
-        { text: '24-Hour Access', included: true },
-        { text: 'Stock Ranks from #50 and above', included: true },
-        { text: 'Unlimited Stock Selection', included: true },
-        { text: 'No Country Restrictions', included: true },
-        { text: 'Unlimited Accounts', included: true },
-      ],
-      buttonText: 'Subscribe Now',
-      highlight: true,
-    },
-    {
-      title: 'Free Trial',
-      price: 'Free',
-      features: [
-        { text: '1000 Accounts', included: true },
-        { text: '6 Months (First 100 Users)', included: true },
-        { text: '1 Month (Next 900 Users)', included: true },
-        { text: 'New Members Only', included: true },
-      ],
-      buttonText: 'Start Trial',
-      buttonVariant: 'outline',
-    },
-    {
-      title: 'Personal',
-      price: '199 USDT/M',
-      features: [
-        { text: '100 Accounts', included: true },
-        { text: 'Monthly Plan', included: true },
-        { text: 'Unlimited Usage', included: true },
-        { text: 'Unblock Feature', included: true },
-      ],
-      buttonText: 'Get Started',
-      highlight: true,
-    },
-  ];
+  const personalPlans = PACKAGES.filter(pkg => 
+    ['BASIC', 'SILVER', 'GOLD'].includes(pkg.level)
+  ).map(packageToPricingCard);
 
-  const companyPlans: PricingCard[] = [
-    {
-      title: 'Company',
-      price: '999 USDT/M',
-      features: [
-        { text: '100 Accounts', included: true },
-        { text: 'Monthly Plan', included: true },
-        { text: 'Unlimited Usage', included: true },
-        { text: 'Unblock Feature', included: true },
-      ],
-      buttonText: 'Get Started',
-      highlight: true,
-    },
-  ];
+  const companyPlans = PACKAGES.filter(pkg => 
+    pkg.level === 'PLATINUM'
+  ).map(packageToPricingCard);
 
-  const apiPlans: PricingCard[] = [
-    {
-      title: 'API Personal',
-      price: '999 USDT/M',
-      features: [
-        { text: '25 Data sets', included: true },
-        { text: 'Country Selection', included: true },
-        { text: 'Unlimited Accounts', included: true },
-      ],
-      buttonText: 'Get Started',
-    },
-    {
-      title: 'API Company',
-      price: '2,999 USDT/M',
-      features: [
-        { text: '100 Data sets', included: true },
-        { text: 'Country Selection', included: true },
-        { text: 'Unlimited Accounts', included: true },
-      ],
-      buttonText: 'Get Started',
-      highlight: true,
-    },
-    {
-      title: 'API Partner',
-      price: 'Revenue Share',
-      features: [
-        { text: '100 Data sets', included: true },
-        { text: 'Country Selection', included: true },
-        { text: 'Industry Selection', included: true },
-        { text: '15% Revenue Share/Transaction', included: true },
-        { text: 'Unlimited Accounts', included: true },
-      ],
-      buttonText: 'Partner With Us',
-      buttonVariant: 'outline',
-    },
-  ];
 
   const renderPricingCards = (cards: PricingCard[]) => {
     return cards.map((card, index) => (
@@ -168,6 +144,7 @@ const PricingSection = () => {
                 ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-blue-500/25'
                 : 'hover:scale-105'
             }`}
+            onClick={() => window.location.href = '/settings/payment'}
           >
             {card.buttonText}
           </Button>

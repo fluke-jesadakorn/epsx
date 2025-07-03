@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PACKAGES, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
 
 interface SelectPackageProps {
   amount: string;
@@ -21,6 +22,13 @@ interface SelectPackageProps {
   onCurrencyChange: (currency: string) => void;
   onNext: () => void;
 }
+
+const currencies = [
+  { value: 'USDT_TRC20', label: 'USDT (TRC20)', min: '1' },
+  { value: BLOCKCHAIN_CONFIG.BSC.currency, label: 'USDT (BSC)', min: '1' },
+  { value: 'USDT_ERC20', label: 'USDT (ERC20)', min: '1' },
+  { value: 'USDT_ARB', label: 'USDT (Arbitrum)', min: '1' }
+];
 
 export function SelectPackage({
   amount,
@@ -439,10 +447,9 @@ export function SelectPackage({
             <SelectValue placeholder="Select currency" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="USDT_TRC20">USDT (TRC20)</SelectItem>
-            <SelectItem value="USDT_ERC20">USDT (ERC20)</SelectItem>
-            <SelectItem value="USDT_BSC">USDT (BSC)</SelectItem>
-            <SelectItem value="USDT_ARB">USDT (Arbitrum)</SelectItem>
+            {currencies.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="flex items-start gap-2 text-sm text-orange-500">
