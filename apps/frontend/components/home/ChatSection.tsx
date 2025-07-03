@@ -190,7 +190,7 @@ export default function ChatSection() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about EPS trends, market insights, or specific companies..."
+                placeholder="Ask about EPS trends, data insights, or specific companies..."
                 disabled={isLoading}
                 className="flex-1"
               />

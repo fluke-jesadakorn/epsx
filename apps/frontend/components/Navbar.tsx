@@ -89,11 +89,11 @@ export default function Navbar({ userEmail }: NavbarProps) {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm relative z-50">
+    <div className="navbar-bg backdrop-blur-lg border-b navbar-border relative z-50 transition-all duration-300">
       <div className="flex h-20 items-center px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-            <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
+            <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:animate-pulse-glow transition-all duration-300">
               EPSX
             </span>
           </Link>
@@ -105,7 +105,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
                     <Link href={item.href}>
                       <Button
                         variant="ghost"
-                        className={`flex items-center gap-2 rounded-full hover:bg-primary/10
+                        className={`flex items-center gap-2 rounded-full nav-item-hover
                         ${
                           pathname === item.href
                             ? 'bg-primary/10 text-primary'

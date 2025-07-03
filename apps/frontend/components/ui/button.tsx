@@ -9,20 +9,23 @@ import { cn } from '@/lib/utils';
 import type {VariantProps} from 'class-variance-authority';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
+  'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] relative overflow-hidden',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm hover:shadow-md',
+        default: 'bg-primary text-primary-foreground shadow-sm hover:shadow-md btn-default',
+        destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:shadow-md btn-destructive',
         outline: 'border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm hover:shadow-md',
+        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:shadow-md btn-secondary',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
         gradient: 'bg-gradient-to-r from-primary to-secondary text-primary-foreground hover:brightness-110 shadow-sm hover:shadow-md',
         success: 'bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md',
         warning: 'bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm hover:shadow-md',
         info: 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm hover:shadow-md',
+        pancake: 'pancake-gradient text-white shadow-lg hover:shadow-xl pancake-shadow hover:scale-105 transition-all duration-300',
+        'pancake-outline': 'border-2 border-pancake-primary text-pancake-primary bg-transparent hover:bg-pancake-primary hover:text-white transition-all duration-300',
+        'pancake-secondary': 'bg-secondary text-foreground border border-border hover:bg-secondary hover:border-primary transition-all duration-300',
       },
       size: {
         default: 'h-10 px-4 py-2',

@@ -33,18 +33,21 @@ export default function ClientEpsCardSection({
 
   return (
     <div
-      className={`flex flex-col gap-6 w-full ${className || ""}`}
+      className={`flex flex-col gap-8 w-full ${className || ""}`}
       style={style}
     >
-      {/* Section Header */}
-      <div className="text-center space-y-4 mb-4 animate-fade-in">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+      {/* Enhanced Section Header */}
+      <div className="text-center space-y-4 mb-6 animate-slide-up">
+        <h2 className="text-3xl sm:text-4xl font-bold pancake-gradient-text">
           Top Performing Companies
         </h2>
-        <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full" />
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Discover the data leaders with exceptional growth and performance metrics
+        </p>
+        <div className="w-24 h-1 pancake-gradient mx-auto rounded-full" />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full animate-fade-in-delayed">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full animate-slide-up-delayed">
         {initialData
           .filter(item => item && typeof item === 'object' && item.symbol && item.name)
           .slice(0, 3)
@@ -53,31 +56,34 @@ export default function ClientEpsCardSection({
           return (
             <Card
               key={item.symbol || index}
-              className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-2 bg-gradient-to-br from-card via-card/80 to-card/50 border border-blue-500/10 hover:border-blue-500/30 group"
+              className="card-pancake hover:pancake-shadow group relative overflow-hidden"
             >
-              <CardHeader className="pb-3 group-hover:bg-gradient-to-br from-blue-500/5 to-purple-500/5 transition-colors duration-300">
-                <div className="flex flex-col space-y-2">
-                  <div className="flex justify-between items-center">
+              {/* Ranking badge */}
+              {index < 3 && (
+                <div className="absolute top-4 right-4 z-10">
+                  <span
+                    className={`
+                        font-bold text-xs px-3 py-1.5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300
+                        ${index === 0 ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900" : ""}
+                        ${index === 1 ? "bg-gradient-to-r from-gray-400 to-gray-500 text-gray-900" : ""}
+                        ${index === 2 ? "bg-gradient-to-r from-amber-400 to-amber-500 text-amber-900" : ""}
+                      `}
+                  >
+                    #{index + 1}
+                  </span>
+                </div>
+              )}
+
+              <CardHeader className="pb-4 relative">
+                <div className="flex flex-col space-y-3">
+                  <div className="flex justify-between items-start">
                       <span
-                        className={`${getMarketColor(item.exchange)} font-medium px-3 py-1 rounded-full bg-primary/5 group-hover:scale-105 transition-transform duration-300`}
+                        className={`${getMarketColor(item.exchange)} font-semibold px-3 py-1.5 rounded-full bg-secondary border border-secondary group-hover:scale-105 transition-transform duration-300 text-sm`}
                     >
                       {item.exchange || "N/A"}
                     </span>
-                    {index < 3 && (
-                      <span
-                        className={`
-                            font-bold text-sm px-3 py-1 rounded-full shadow-sm
-                            ${index === 0 ? "bg-gradient-to-r from-yellow-300 to-yellow-400 text-yellow-900" : ""}
-                            ${index === 1 ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900" : ""}
-                            ${index === 2 ? "bg-gradient-to-r from-amber-300 to-amber-400 text-amber-900" : ""}
-                            group-hover:scale-105 transition-transform duration-300
-                          `}
-                      >
-                        Rank #{index + 1}
-                      </span>
-                    )}
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <p className="font-semibold">{item.symbol || "N/A"}</p>
                     <span className="text-muted-foreground">•</span>
                     <p className="text-muted-foreground truncate">

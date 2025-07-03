@@ -33,4 +33,10 @@ export const getFirestoreAdmin = () => {
   return admin.firestore(app);
 };
 
+// Get Auth instance for server-side operations
+export const getAuthAdmin = () => {
+  const app = initializeFirebaseAdmin();
+  return admin.auth(app);
+};
+
 export default initializeFirebaseAdmin;

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../lib/firebase';
+import { db } from '../../../../../lib/firebase';
 import { doc, setDoc, getDoc, increment } from 'firebase/firestore';
-import { 
-  getUserLevel, 
-  PAYMENT_DURATION, 
+import {
+  getUserLevel,
+  PAYMENT_DURATION,
   BLOCKCHAIN_CONFIG,
-  TRANSACTION_STATUSES
-} from '../../../constants/packages';
+  TRANSACTION_STATUSES,
+} from '../../../../constants/packages';
 
 // Status mapping
 const STATUS_MAP: Record<number | string, string> = {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
     const normalizedStatus = STATUS_MAP[status] || TRANSACTION_STATUSES.PENDING;
     const extraInfoObj = extra_info ? JSON.parse(extra_info) : {};
-    
+
     // Extract blockchain data
     const blockchainData = {
       txHash: extraInfoObj.txnHash || '',
@@ -102,13 +102,15 @@ export async function POST(req: Request) {
         const userRef = doc(db, 'users', userId);
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data() || {};
-        
+
         // Increment payment count and get new level
         const currentPayments = (userData.paymentCount || 0) + 1;
         const newLevel = getUserLevel(currentPayments);
-        
+
         // Set expiration to 1 month from now
-        const newExpirationDate = new Date(Date.now() + PAYMENT_DURATION.MILLISECONDS);
+        const newExpirationDate = new Date(
+          Date.now() + PAYMENT_DURATION.MILLISECONDS,
+        );
 
         await setDoc(
           userRef,

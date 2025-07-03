@@ -4,65 +4,95 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Light theme - PancakeSwap inspired */
+    --background: 252 100% 99%;
+    --foreground: 223 84% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 223 84% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 223 84% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 31 100% 50%; /* PancakeSwap orange */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 42 100% 70%; /* Light golden */
+    --secondary-foreground: 223 84% 10%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 35%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 31 100% 95%; /* Very light orange */
+    --accent-foreground: 31 100% 40%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 31 100% 50%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+
+    /* PancakeSwap specific colors */
+    --pancake-primary: 31 100% 50%;
+    --pancake-secondary: 42 100% 70%;
+    --pancake-success: 142 71% 45%;
+    --pancake-warning: 45 93% 47%;
+    --pancake-error: 0 85% 60%;
+    --pancake-info: 217 91% 60%;
+    
+    /* Gradient colors */
+    --gradient-primary: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(184 93% 47%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(31 100% 50%) 100%);
+    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 80% 92%) 0%, hsl(42 90% 88%) 100%);
   }
 
   .dark {
-    --background: 266 29% 3%;
-    --foreground: 270 100% 96%;
+    /* Dark theme - PancakeSwap inspired */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
 
-    --card: 0 0% 11%;
-    --card-foreground: 270 100% 96%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 11%;
-    --popover-foreground: 270 100% 96%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 184 93% 47%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 31 100% 55%; /* Slightly brighter orange for dark mode */
+    --primary-foreground: 240 10% 4%;
 
-    --secondary: 271 13% 23%;
-    --secondary-foreground: 270 100% 96%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 271 13% 23%;
-    --muted-foreground: 270 20% 90%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 271 13% 23%;
-    --accent-foreground: 270 100% 96%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 95%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 270 100% 96%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 95%;
 
-    --border: 271 13% 23%;
-    --input: 271 13% 23%;
-    --ring: 184 93% 47%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 31 100% 55%;
+
+    /* PancakeSwap specific colors for dark mode */
+    --pancake-primary: 31 100% 55%;
+    --pancake-secondary: 42 100% 75%;
+    --pancake-success: 142 71% 50%;
+    --pancake-warning: 45 93% 52%;
+    --pancake-error: 0 85% 65%;
+    --pancake-info: 217 91% 65%;
+    
+    /* Gradient colors for dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(31 100% 55%) 0%, hsl(42 100% 75%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(184 93% 52%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(31 100% 55%) 100%);
+    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%);
   }
 }
 
@@ -79,6 +109,214 @@
 }
 
 @layer utilities {
+  /* PancakeSwap inspired utility classes */
+  .pancake-gradient {
+    background: var(--gradient-primary);
+  }
+  
+  .pancake-gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  .pancake-gradient-accent {
+    background: var(--gradient-accent);
+  }
+  
+  .pancake-gradient-soft-highlight {
+    background: var(--gradient-soft-highlight);
+  }
+  
+  /* Gradient text utilities that work with bg-clip-text */
+  .pancake-gradient-text {
+    background: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .dark .pancake-gradient-text {
+    background: linear-gradient(135deg, hsl(31 100% 55%) 0%, hsl(42 100% 75%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .pancake-gradient-secondary-text {
+    background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(184 93% 47%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .dark .pancake-gradient-secondary-text {
+    background: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(184 93% 52%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .pancake-gradient-accent-text {
+    background: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(31 100% 50%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .dark .pancake-gradient-accent-text {
+    background: linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(31 100% 55%) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .pancake-shadow {
+    box-shadow: 0 4px 12px hsl(255 133 27 / 0.15);
+  }
+  
+  .dark .pancake-shadow {
+    box-shadow: 0 4px 12px hsl(255 133 27 / 0.25);
+  }
+  
+  .pancake-glow {
+    box-shadow: 0 0 20px hsl(255 133 27 / 0.3);
+  }
+  
+  .dark .pancake-glow {
+    box-shadow: 0 0 25px hsl(255 133 27 / 0.4);
+  }
+
+  /* Improved responsive containers */
+  .container-responsive {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 80rem;
+  }
+  
+  .container-section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Enhanced card styles */
+  .card-pancake {
+    background-color: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 300ms ease;
+  }
+  
+  .card-pancake:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-color: hsl(var(--primary) / 0.2);
+    transform: translateY(-0.25rem);
+  }
+  
+  .dark .card-pancake {
+    background-color: hsl(var(--card) / 0.6);
+    border-color: hsl(var(--border) / 0.3);
+  }
+  
+  .dark .card-pancake:hover {
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  /* Button enhancements */
+  .btn-pancake {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 300ms ease;
+    transform: scale(1);
+  }
+  
+  .btn-pancake:hover {
+    transform: scale(1.05);
+  }
+  
+  .btn-pancake:active {
+    transform: scale(0.95);
+  }
+  
+  .btn-pancake-primary {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  .btn-pancake-primary:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .btn-pancake-secondary {
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--secondary) / 0.1);
+  }
+  
+  .btn-pancake-secondary:hover {
+    background-color: hsl(var(--secondary) / 0.2);
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  /* Button hover state fixes for Tailwind 4.0 */
+  .btn-default:hover {
+    background-color: hsl(var(--primary) / 0.9);
+  }
+
+  .btn-destructive:hover {
+    background-color: hsl(var(--destructive) / 0.9);
+  }
+
+  .btn-secondary:hover {
+    background-color: hsl(var(--secondary) / 0.8);
+  }
+
+  /* Enhanced animations */
+  .animate-bounce-slow {
+    animation: bounceSlow 3s ease-in-out infinite;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-float-reverse {
+    animation: floatReverse 5s ease-in-out infinite;
+  }
+  
+  .animate-float-gentle {
+    animation: floatGentle 4s ease-in-out infinite;
+  }
+  
+  .animate-pulse-gentle {
+    animation: pulseGentle 3s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulseSlow 4s ease-in-out infinite;
+  }
+  
+  .animate-spin-slow {
+    animation: spinSlow 20s linear infinite;
+  }
+  
+  .animate-gradient-x {
+    animation: gradientX 3s ease infinite;
+    background-size: 200% 200%;
+  }
+
   /* Gradient Animation */
   .animate-gradient {
     background-size: 200% 200%;
@@ -134,10 +372,6 @@
     animation: wiggle 1s ease-in-out infinite;
   }
 
-  .animate-bounce-gentle {
-    animation: bounceGentle 2s ease-in-out infinite;
-  }
-
   .animate-glow {
     animation: glow 2s ease-in-out infinite alternate;
   }
@@ -163,6 +397,24 @@
   .hover-glow:hover {
     box-shadow: 0 0 30px rgba(236, 72, 153, 0.5);
   }
+
+  /* Ring utilities for highlighted cards - reduced contrast */
+  .ring-pancake-primary {
+    box-shadow: 0 0 0 2px hsl(var(--pancake-primary) / 0.15);
+  }
+  
+  .dark .ring-pancake-primary {
+    box-shadow: 0 0 0 2px hsl(var(--pancake-primary) / 0.2);
+  }
+  
+  /* Softer ring utility for better contrast */
+  .ring-soft-orange {
+    box-shadow: 0 0 0 2px hsl(31 70% 60% / 0.25);
+  }
+  
+  .dark .ring-soft-orange {
+    box-shadow: 0 0 0 2px hsl(31 70% 70% / 0.3);
+  }
 }
 
 /* Chat bubble clip paths */
@@ -172,6 +424,78 @@
 
 .clip-bubble-right {
   clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+/* Enhanced keyframes for better animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatSmooth {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes bounceGentle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px hsl(255 133 27 / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px hsl(255 133 27 / 0.6), 0 0 35px hsl(255 133 27 / 0.4);
+  }
+}
+
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes gradient-y {
+  0%, 100% {
+    transform: translateY(-100%);
+  }
+  50% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes gradient-xy {
+  0%, 100% {
+    transform: translate(-100%, -100%);
+  }
+  25% {
+    transform: translate(100%, -100%);
+  }
+  50% {
+    transform: translate(100%, 100%);
+  }
+  75% {
+    transform: translate(-100%, 100%);
+  }
 }
 
 @keyframes shimmer {
@@ -224,7 +548,6 @@
   }
 }
 
-/* PancakeSwap-inspired keyframes */
 @keyframes wiggle {
   0%, 7% {
     transform: rotateZ(0);
@@ -249,24 +572,12 @@
   }
 }
 
-@keyframes bounceGentle {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-}
-
 @keyframes glow {
   from {
-    box-shadow: 0 0 5px rgba(236, 72, 153, 0.2);
+    box-shadow: 0 0 5px hsl(236 72 153 / 0.2);
   }
   to {
-    box-shadow: 0 0 20px rgba(236, 72, 153, 0.6);
+    box-shadow: 0 0 20px hsl(236 72 153 / 0.6);
   }
 }
 
@@ -288,49 +599,158 @@
   }
 }
 
-@keyframes wiggle {
-  0%, 7% {
-    transform: rotateZ(0);
+/* Responsive design improvements */
+@media (max-width: 640px) {
+  .container-responsive {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
-  15% {
-    transform: rotateZ(-15deg);
+  
+  .card-pancake {
+    padding: 1rem;
+    border-radius: 0.75rem;
   }
-  20% {
-    transform: rotateZ(10deg);
+  
+  .container-section {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
   }
-  25% {
-    transform: rotateZ(-10deg);
+}
+
+@media (min-width: 640px) {
+  .container-responsive {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
-  30% {
-    transform: rotateZ(6deg);
+  
+  .container-section {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
   }
-  35% {
-    transform: rotateZ(-4deg);
+}
+
+@media (min-width: 1024px) {
+  .container-responsive {
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
-  40%, 100% {
-    transform: rotateZ(0);
+  
+  .container-section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+/* Enhanced navbar styles */
+.navbar-bg {
+  background-color: hsl(var(--background) / 0.8);
+}
+
+.dark .navbar-bg {
+  background-color: hsl(var(--background) / 0.9);
+}
+
+.navbar-border {
+  border-color: hsl(var(--border) / 0.5);
+}
+
+/* Hover effects for navigation items */
+.nav-item-hover:hover {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+/* Loading overlay styles */
+.loading-overlay {
+  background-color: hsl(var(--background) / 0.8);
+}
+
+/* Market badge styles */
+.market-badge {
+  background-color: hsl(var(--secondary) / 0.2);
+  border-color: hsl(var(--secondary) / 0.3);
+}
+
+/* Table header styles */
+.table-header-primary {
+  color: hsl(var(--primary) / 0.7);
+}
+
+/* Muted text styles */
+.text-muted-opacity {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+/* Card background with opacity */
+.card-bg-opacity {
+  background-color: hsl(var(--background) / 0.8);
+}
+
+/* Primary background with opacity */
+.bg-primary-opacity {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+/* PancakeSwap-style keyframe animations */
+@keyframes bounceSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
   }
 }
 
 @keyframes bounceGentle {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-10px) scale(1.02);
   }
 }
 
-@keyframes glow {
-  from {
-    box-shadow: 0 0 20px rgba(236, 72, 153, 0.3);
+@keyframes floatReverse {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
   }
-  to {
-    box-shadow: 0 0 30px rgba(236, 72, 153, 0.6);
+  50% {
+    transform: translateY(15px) rotate(2deg);
   }
 }
 
-@keyframes rotateSlow {
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+  66% {
+    transform: translateY(8px) rotate(-1deg);
+  }
+}
+
+@keyframes pulseGentle {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulseSlow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes spinSlow {
   from {
     transform: rotate(0deg);
   }
@@ -339,11 +759,11 @@
   }
 }
 
-@keyframes scalePulse {
+@keyframes gradientX {
   0%, 100% {
-    transform: scale(1);
+    background-position: 0% 50%;
   }
   50% {
-    transform: scale(1.05);
+    background-position: 100% 50%;
   }
 }

@@ -13,7 +13,7 @@ import {
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 
-import { handleSignIn, handleSignOut } from '@/app/actions/auth';
+import { handleSignIn, handleSignOut, refreshSession } from '@/app/actions/auth';
 import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -37,26 +37,52 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen for token changes
+  // Listen for token changes and implement token refresh
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
       if (user) {
         try {
-          const idToken = await user.getIdToken();
+          // Force token refresh to get a fresh token
+          const idToken = await user.getIdToken(true);
           // Use server action to create session
           await handleSignIn(idToken);
           setUser(user);
         } catch (error) {
           console.error('Session sync error:', error);
           setError('Failed to sync session');
+          setUser(null);
         }
       } else {
+        // User signed out - clear session
+        try {
+          await handleSignOut();
+        } catch (error) {
+          console.error('Session cleanup error:', error);
+        }
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Set up token refresh interval (refresh every 50 minutes, tokens expire after 1 hour)
+    const tokenRefreshInterval = setInterval(async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          console.log('Refreshing token...');
+          const freshToken = await currentUser.getIdToken(true);
+          await handleSignIn(freshToken);
+          console.log('Token refreshed successfully');
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+        }
+      }
+    }, 50 * 60 * 1000); // 50 minutes
+
+    return () => {
+      unsubscribe();
+      clearInterval(tokenRefreshInterval);
+    };
   }, []);
 
   const signInWithGoogle = async (): Promise<void> => {

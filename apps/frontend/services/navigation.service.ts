@@ -15,9 +15,9 @@ class NavigationService {
         key: "docs",
       },
       {
-        label: "Ranking",
-        href: "/ranking",
-        key: "ranking",
+        label: "Analytics",
+        href: "/analytics",
+        key: "analytics",
       },
     ];
 

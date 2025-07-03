@@ -92,31 +92,39 @@ const PricingSection = () => {
     return cards.map((card, index) => (
       <div
         key={index}
-        className={`group relative rounded-3xl p-6 sm:p-8 backdrop-blur-sm border transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+        className={`card-pancake group relative ${
           card.highlight
-            ? 'bg-gradient-to-b from-blue-500/30 to-purple-500/30 border-blue-500/40'
-            : 'bg-card/80 border-border hover:border-blue-500/40'
+            ? 'pancake-gradient-soft-highlight ring-2 ring-soft-orange scale-105 border-orange-200/40 dark:border-orange-400/30'
+            : 'hover:pancake-shadow'
         }`}
       >
         {/* Decorative elements */}
-        <div className="absolute -top-6 -left-6 w-12 h-12 bg-blue-500/20 rounded-full blur-xl group-hover:bg-blue-500/30 transition-colors duration-300" />
-        <div className="absolute -bottom-6 -right-6 w-12 h-12 bg-purple-500/20 rounded-full blur-xl group-hover:bg-purple-500/30 transition-colors duration-300" />
+        <div className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
+          card.highlight 
+            ? 'bg-orange-300/30 group-hover:bg-orange-400/40' 
+            : 'bg-pancake-primary/20 group-hover:bg-pancake-primary/40'
+        }`} />
+        <div className={`absolute -bottom-4 -right-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
+          card.highlight 
+            ? 'bg-amber-300/30 group-hover:bg-amber-400/40' 
+            : 'bg-pancake-secondary/20 group-hover:bg-pancake-secondary/40'
+        }`} />
 
         <div className="relative">
           {/* Title with sparkle effect */}
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-xl sm:text-2xl font-bold text-foreground">
               {card.title}
             </h3>
             {card.highlight && (
-              <Sparkles className="h-5 w-5 text-yellow-500 animate-pulse" />
+              <Sparkles className="h-5 w-5 text-pancake-primary animate-bounce-gentle" />
             )}
           </div>
 
           {/* Price with enhanced styling */}
           <div className="mt-4 sm:mt-6 mb-6 sm:mb-8">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+              <span className="text-4xl sm:text-5xl font-bold pancake-gradient-text">
                 {card.price}
               </span>
             </div>
@@ -126,10 +134,10 @@ const PricingSection = () => {
           <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             {card.features.map((feature, idx) => (
               <li key={idx} className="flex items-start group/feature">
-                <div className="flex-shrink-0 p-1 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 group-hover/feature:from-blue-500/30 group-hover/feature:to-purple-500/30">
-                  <Check className="h-4 w-4 text-blue-500 group-hover/feature:text-blue-400" />
+                <div className="flex-shrink-0 p-1 rounded-full bg-pancake-primary/20 group-hover/feature:bg-pancake-primary/30 transition-colors duration-300">
+                  <Check className="h-4 w-4 text-pancake-primary" />
                 </div>
-                <span className="ml-3 text-sm sm:text-base text-foreground/75 group-hover/feature:text-foreground transition-colors">
+                <span className="ml-3 text-sm sm:text-base text-muted-foreground group-hover/feature:text-foreground transition-colors">
                   {feature.text}
                 </span>
               </li>
@@ -138,12 +146,9 @@ const PricingSection = () => {
 
           {/* Enhanced button */}
           <Button
-            variant={card.buttonVariant || 'default'}
-            className={`w-full h-10 sm:h-12 text-sm sm:text-base font-semibold transition-all duration-300 ${
-              card.highlight
-                ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-blue-500/25'
-                : 'hover:scale-105'
-            }`}
+            variant={card.highlight ? 'pancake' : (card.buttonVariant === 'outline' ? 'pancake-outline' : 'pancake-secondary')}
+            size="lg"
+            className="w-full rounded-2xl font-semibold"
             onClick={() => window.location.href = '/payment'}
           >
             {card.buttonText}
@@ -154,22 +159,35 @@ const PricingSection = () => {
   };
 
   return (
-    <div className="w-full py-16 sm:py-24 lg:py-32 px-4 sm:px-6 overflow-hidden">
-      <div className="relative max-w-7xl mx-auto space-y-16 sm:space-y-24 lg:space-y-32">
+    <div className="relative w-full py-16 sm:py-24 lg:py-32 overflow-hidden">
+      {/* PancakeSwap-style background decorations */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full animate-float" />
+        <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full animate-bounce-gentle" />
+        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full animate-pulse-gentle" />
+        <div className="absolute bottom-1/4 right-1/3 w-20 h-20 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full animate-float-reverse" />
+      </div>
+
+      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl space-y-16 sm:space-y-24 lg:space-y-32">
         {/* Personal Plans */}
         <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
-            <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-              Personal Plans
+          <div className="text-center space-y-6 sm:space-y-8 animate-slide-up">
+            <h2 className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
+              💰 Personal Plans
             </h2>
-            <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
-              Choose the perfect plan for individual use
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              🚀 Choose the perfect plan for individual use and start your analytics journey
             </p>
-            <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
+            <div className="w-32 sm:w-40 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 mx-auto rounded-full" />
+            
+            {/* Decorative elements */}
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+              <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 animate-fade-in-delayed">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 animate-slide-up-delayed">
             {renderPricingCards(personalPlans)}
           </div>
         </div>

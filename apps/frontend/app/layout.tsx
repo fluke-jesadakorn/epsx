@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "EPSX",
-  description: "Your financial companion",
+  description: "Your data analytics companion",
 };
 
 export default function RootLayout({

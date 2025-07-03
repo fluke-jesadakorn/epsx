@@ -67,7 +67,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
         <div className="mt-4">
           <button
             className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors"
-            onClick={() => (window.location.href = "/upgrade")}
+            onClick={() => (window.location.href = "/payment")}
           >
             Upgrade Now
           </button>

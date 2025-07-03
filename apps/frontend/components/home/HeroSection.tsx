@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { LineChart, Share2 } from "lucide-react";
-import Link from "next/link";
-import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
+import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
-import { WithLoading } from "@/components/common/withLoading";
-import { Button } from "@/components/ui/button";
+import { WithLoading } from '@/components/common/withLoading';
+import { Button } from '@/components/ui/button';
 
-import type { CSSProperties } from "react";
+import type { CSSProperties } from 'react';
 
 interface HeroSectionProps {
   style?: CSSProperties;
@@ -25,76 +25,132 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
+
   const handleShare = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
-      toast.success("URL copied to clipboard!");
+      toast.success('URL copied to clipboard!');
     });
   };
 
   return (
     <div
-      className={`w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className || ""}`}
+      className={`relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className || ''}`}
       style={style}
     >
+      {/* PancakeSwap-style floating elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
+        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full animate-bounce-gentle" />
+        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full animate-pulse-gentle" />
+        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full animate-float-reverse" />
 
-      <div className="relative text-center space-y-12 max-w-4xl mx-auto px-6 py-16 sm:px-8">
-        <WithLoading loading={loading} className="space-y-6">
-          <div>
-            <div className="inline-block animate-fade-in">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold">
-                Track
-                <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mx-2 animate-gradient">
+        {/* Decorative pancake-like shapes */}
+        <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-spin-slow">
+          🥞
+        </div>
+        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-20 animate-bounce-slow">
+          ✨
+        </div>
+        <div className="absolute top-3/4 left-10 text-3xl opacity-15 animate-float-gentle">
+          🚀
+        </div>
+      </div>
+
+      <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-10">
+        <WithLoading loading={loading} className="space-y-8">
+          {/* Main heading with enhanced PancakeSwap-style typography */}
+          <div className="space-y-6">
+            <div className="inline-block animate-slide-up">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight">
+                📈 Track
+                <span className="block sm:inline bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent mx-0 sm:mx-3 animate-gradient-x">
                   Performance Growth
                 </span>
-                Rankings
+                <span className="block sm:inline mt-2 sm:mt-0">
+                  Rankings ✨
+                </span>
               </h1>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-medium text-foreground/90 max-w-2xl mx-auto leading-relaxed animate-fade-in-delayed">
-              Unlock deeper insights and optimize data center performance with real-time analytics and advanced data tracking systems for smarter operational decisions
-            </p>
-          </div>
-        </WithLoading>
 
-        <WithLoading loading={loading} className="flex flex-wrap justify-center gap-6 animate-fade-in-delayed-2">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
-            <Link href="/ranking" className="cursor-pointer">
-              <Button
-                size="lg"
-                className="cursor-pointer bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-full h-14 px-10 font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-              >
-                <LineChart className="w-5 h-5 mr-2" />
-                View Rankings
+            {/* Enhanced subtitle with PancakeSwap vibes */}
+            <div className="animate-slide-up-delayed">
+              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
+                🚀 Discover the sweetest data insights with our comprehensive
+                analytics platform!
+                <span className="block mt-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent font-bold">
+                  Make informed analytics decisions with real-time data 📈
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Enhanced CTA buttons with PancakeSwap styling */}
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center animate-slide-up-delayed-2">
+            <Link href="/trading" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl hover:shadow-orange-300/50 hover:scale-105 transition-all duration-300 group">
+                <LineChart className="mr-3 h-6 w-6 group-hover:animate-bounce-gentle" />
+                🚀 Start Analytics
               </Button>
             </Link>
+
             <Button
-              variant="outline"
-              size="lg"
-              className="rounded-full h-14 px-10 font-semibold hover:bg-primary/10 cursor-pointer text-lg border-2 hover:border-blue-500/50 transition-all duration-300 hover:scale-105"
               onClick={handleShare}
+              className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-white/10 backdrop-blur-sm border-2 border-orange-300/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-2xl shadow-xl hover:shadow-orange-300/30 hover:scale-105 transition-all duration-300 group"
             >
-              <Share2 className="w-5 h-5 mr-2" />
-              Share EPSx
+              <Share2 className="mr-3 h-6 w-6 group-hover:animate-wiggle" />
+              📤 Share Platform
             </Button>
           </div>
-        </WithLoading>
 
-        <WithLoading loading={loading} className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 animate-fade-in-delayed-3">
-          {[
-            { label: "Ready for Users", value: "10K+" },
-            { label: "Markets", value: "40+" },
-            { label: "Companies Tracked", value: "10000+" },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="bg-card/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-500/20 hover:border-blue-500/30 transition-all duration-300 hover:scale-105 hover:shadow-lg group"
-            >
-              <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:animate-gradient">
-                {stat.value}
-              </div>
-              <div className="text-foreground/80 mt-1 font-medium">{stat.label}</div>
-            </div>
-          ))}
+          {/* Stats grid with enhanced PancakeSwap styling */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16 animate-fade-in-delayed-3">
+            {[
+              {
+                number: '10K+',
+                label: '👥 Active Users',
+                icon: Users,
+                gradient: 'from-blue-500 to-cyan-500',
+              },
+              {
+                number: '99.9%',
+                label: '⚡ Uptime',
+                icon: Zap,
+                gradient: 'from-yellow-500 to-orange-500',
+              },
+              {
+                number: '50M+',
+                label: '📈 Data Points Processed',
+                icon: TrendingUp,
+                gradient: 'from-green-500 to-emerald-500',
+              },
+            ].map((stat, index) => {
+              const IconComponent = stat.icon;
+              return (
+                <div
+                  key={index}
+                  className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-orange-200/50 dark:border-orange-400/20 hover:scale-105 transition-all duration-300 group overflow-hidden"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {/* Card background decoration */}
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}
+                  />
+                  <div className="relative z-10 text-center">
+                    <IconComponent className="h-10 w-10 mx-auto mb-4 text-orange-500 group-hover:animate-bounce-gentle transition-colors duration-300" />
+                    <div
+                      className={`text-3xl sm:text-4xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-2`}
+                    >
+                      {stat.number}
+                    </div>
+                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      {stat.label}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </WithLoading>
       </div>
     </div>

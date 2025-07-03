@@ -31,7 +31,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Allow public paths
+  // Check for session cookie on login page - if user has session, redirect to return URL or dashboard
+  if (pathname === '/login') {
+    const sessionCookie = request.cookies.get(SESSION_KEY);
+    if (sessionCookie?.value) {
+      // Do not validate token in middleware to avoid using Firebase Admin in Edge runtime
+      // Just check if token exists and is not obviously invalid - detailed validation happens server-side
+      if (sessionCookie.value.length > 10) { // Basic sanity check
+        const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+        return NextResponse.redirect(new URL(returnUrl, request.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // Allow other public paths
   if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
@@ -44,7 +58,7 @@ export function middleware(request: NextRequest) {
     if (sessionCookie?.value) {
       response.cookies.set(SESSION_KEY, sessionCookie.value, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true, // Always use secure cookies; adjust if needed for local development
         sameSite: 'lax'
       });
     }

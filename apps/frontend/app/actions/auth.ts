@@ -8,21 +8,43 @@ import type { User } from '@/types/auth/user';
 
 export async function handleSignIn(idToken: string) {
   try {
+    console.log('Creating session with token');
     const result = await createSession(idToken);
     if (!result.success) {
       throw new Error('Failed to create session');
     }
+    console.log('Session created successfully');
+    return { success: true };
   } catch (_error) {
-    // console.error('Sign-in error:', _error);
+    console.error('Sign-in error:', _error);
     throw new Error('Authentication failed');
+  }
+}
+
+export async function refreshSession(): Promise<{ success: boolean }> {
+  try {
+    // This will check if current session is valid
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      console.log('Session is valid, no refresh needed');
+      return { success: true };
+    }
+    
+    console.log('Session needs refresh or is invalid');
+    return { success: false };
+  } catch (_error) {
+    console.error('Session refresh check failed:', _error);
+    return { success: false };
   }
 }
 
 export async function handleSignOut() {
   try {
+    console.log('Destroying session');
     await destroySession();
+    console.log('Session destroyed successfully');
   } catch (_error) {
-    // console.error('Sign-out error:', _error);
+    console.error('Sign-out error:', _error);
     throw new Error('Failed to sign out');
   }
 }
