@@ -1,8 +1,8 @@
-export const capitalize = (str: string): string => {
+export const cap = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
-export const slugify = (str: string): string => {
+export const slug = (str: string): string => {
   return str
     .toLowerCase()
     .trim()
@@ -11,16 +11,16 @@ export const slugify = (str: string): string => {
     .replace(/^-+|-+$/g, "");
 };
 
-export const truncate = (str: string, length: number): string => {
-  if (str.length <= length) return str;
-  return str.slice(0, length) + "...";
+export const truncate = (str: string, len: number): string => {
+  if (str.length <= len) return str;
+  return str.slice(0, len) + "...";
 };
 
-export const removeSpecialCharacters = (str: string): string => {
+export const rmSpecial = (str: string): string => {
   return str.replace(/[^\w\s]/gi, "");
 };
 
-export const getInitials = (name: string): string => {
+export const initials = (name: string): string => {
   return name
     .split(" ")
     .map((n) => n[0])

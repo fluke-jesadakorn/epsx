@@ -4,15 +4,15 @@ import { nanoid } from 'nanoid';
 import type { UserLevelType } from '@/app/constants/packages';
 
 export interface PaymentStatus {
-  hasPaid: boolean;
-  lastPaymentDate?: Date;
-  expirationDate?: Date;
+  paid: boolean;
+  lastPayDate?: Date;
+  expireDate?: Date;
   userLevel?: string;
 }
 
-export interface PaymentTransaction {
+export interface PaymentTx {
   orderNo: string;
-  actualAmount: number;
+  amount: number;
   currency: string;
   status: string;
   finishTime: string;
@@ -30,9 +30,9 @@ export const createPaymentService = () => {
     description?: string,
   ): Promise<string | null> => {
     try {
-      const transactionId = nanoid();
+      const txId = nanoid();
       // Implementation...
-      return transactionId;
+      return txId;
     } catch (error) {
       console.error('Error recording payment:', error);
       return null;
@@ -40,8 +40,8 @@ export const createPaymentService = () => {
   };
 
   const confirmPayment = async (
-    transactionId: string,
-    paymentMethod: string,
+    txId: string,
+    payMethod: string,
     userLevel: string,
   ): Promise<{
     success: boolean;
@@ -66,16 +66,16 @@ export const createPaymentService = () => {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists()) {
         return {
-          hasPaid: false,
+          paid: false,
           userLevel: 'BASIC',
         };
       }
 
       const userData = userDoc.data();
       return {
-        hasPaid: userData.paymentStatus?.hasPaid || false,
-        lastPaymentDate: userData.paymentStatus?.lastPaymentDate?.toDate(),
-        expirationDate: userData.paymentStatus?.expirationDate?.toDate(),
+        paid: userData.paymentStatus?.hasPaid || false,
+        lastPayDate: userData.paymentStatus?.lastPaymentDate?.toDate(),
+        expireDate: userData.paymentStatus?.expirationDate?.toDate(),
         userLevel: userData.userLevel || 'BASIC',
       };
     } catch (error) {
@@ -84,28 +84,28 @@ export const createPaymentService = () => {
     }
   };
 
-  const getTransactionHistory = async (): Promise<PaymentTransaction[]> => {
+  const getTxHistory = async (): Promise<PaymentTx[]> => {
     try {
       const user = auth.currentUser;
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      const transactionsRef = collection(db, 'transactions');
+      const txRef = collection(db, 'transactions');
       const q = query(
-        transactionsRef,
+        txRef,
         where('userId', '==', user.uid),
         orderBy('finishTime', 'desc')
       );
 
       const querySnapshot = await getDocs(q);
-      const transactions: PaymentTransaction[] = [];
+      const txs: PaymentTx[] = [];
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        transactions.push({
+        txs.push({
           orderNo: data.orderNo,
-          actualAmount: data.actualAmount,
+          amount: data.actualAmount,
           currency: data.currency,
           status: data.status,
           finishTime: data.finishTime?.toDate?.().toISOString() || new Date().toISOString(),
@@ -114,14 +114,14 @@ export const createPaymentService = () => {
         });
       });
 
-      return transactions;
+      return txs;
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       return [];
     }
   };
 
-  const initiateQRCodePayment = async (amount: number, currency: string) => {
+  const initQRPayment = async (amount: number, currency: string) => {
     // Implementation...
   };
 
@@ -133,8 +133,8 @@ export const createPaymentService = () => {
     recordPayment,
     confirmPayment,
     getPaymentStatus,
-    initiateQRCodePayment,
+    initQRPayment,
     getPlanDetails,
-    getTransactionHistory,
+    getTxHistory,
   };
 };

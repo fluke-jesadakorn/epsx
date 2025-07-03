@@ -24,15 +24,15 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "--websocket" {
         // Run websocket client
-        let config = Arc::new(Config::from_env());
-        let financial_data_service = FinancialDataService::new(&config);
-        financial_data_service.subscribe_to_symbols(vec!["AAPL".to_string()]).await.unwrap();
+        let cfg = Arc::new(Config::from_env());
+        let fin_svc = FinancialDataService::new(&cfg);
+        fin_svc.subscribe_to_symbols(vec!["AAPL".to_string()]).await.unwrap();
         tokio::signal::ctrl_c().await.unwrap();
         return;
     }
 
     // Load configuration
-    let config = Arc::new(Config::from_env());
+    let cfg = Arc::new(Config::from_env());
     info!("Configuration loaded");
 
     // Initialize MongoDB connection
@@ -40,10 +40,10 @@ async fn main() {
     info!("Connected to MongoDB");
 
     // Initialize services
-    let auth_service = Arc::new(
+    let auth_svc = Arc::new(
         AuthService::new(db.clone()).await.expect("Failed to initialize AuthService")
     );
-    let payment_service = Arc::new(PaymentService::new(config.clone()));
+    let pay_svc = Arc::new(PaymentService::new(cfg.clone()));
     info!("Services initialized");
 
     // CORS middleware
@@ -67,19 +67,19 @@ async fn main() {
     let app = Router::new()
         .merge(
             payment
-                ::payment_router(payment_service.clone(), auth_service.clone())
+                ::payment_router(pay_svc.clone(), auth_svc.clone())
                 .layer(axum::middleware::from_fn(auth::middleware::auth_middleware))
         )
         .merge(
             stock
-                ::stock_router(&config, db.clone(), auth_service.clone())
+                ::stock_router(&cfg, db.clone(), auth_svc.clone())
                 .layer(axum::middleware::from_fn(auth::middleware::auth_middleware))
         )
-        .merge(auth::auth_router(auth_service))
+        .merge(auth::auth_router(auth_svc))
         .layer(cors);
 
     // Start the server
-    let addr = SocketAddr::new(config.host().parse().expect("Invalid host"), config.port());
+    let addr = SocketAddr::new(cfg.host().parse().expect("Invalid host"), cfg.port());
     info!("Server starting on {}", addr);
 
     axum::serve(

@@ -11,9 +11,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a date string to a human-readable format
+ * Format date to readable string
  */
-export function formatDate(input: string | number | Date): string {
+export function fmtDate(input: string | number | Date): string {
   const date = new Date(input);
   return date.toLocaleDateString('en-US', {
     month: 'long',
@@ -23,17 +23,17 @@ export function formatDate(input: string | number | Date): string {
 }
 
 /**
- * Format a currency amount
+ * Format currency amount
  */
-export function formatCurrency(
-  amount: number,
-  currency: string = 'USD',
+export function fmtCurrency(
+  amt: number,
+  cur: string = 'USD',
   locale: string = 'en-US'
 ): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: currency,
-  }).format(amount);
+    currency: cur,
+  }).format(amt);
 }
 
 /**
@@ -44,26 +44,26 @@ export function wait(ms: number): Promise<void> {
 }
 
 /**
- * Create a debounced function
+ * Create debounced function
  */
 export function debounce<T extends (...args: any[]) => any>(
   fn: T,
-  ms: number
+  delay: number
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout>;
   
   return function (...args: Parameters<T>) {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), ms);
+    timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
 
 /**
- * Create a throttled function
+ * Create throttled function
  */
 export function throttle<T extends (...args: any[]) => any>(
   fn: T,
-  ms: number
+  delay: number
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean = false;
   
@@ -71,67 +71,67 @@ export function throttle<T extends (...args: any[]) => any>(
     if (!inThrottle) {
       fn(...args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, ms);
+      setTimeout(() => inThrottle = false, delay);
     }
   };
 }
 
 /**
- * Check if running on client side
+ * Check if client side
  */
 export const isClient = typeof window !== 'undefined';
 
 /**
- * Check if running on server side
+ * Check if server side
  */
 export const isServer = !isClient;
 
 /**
- * Simple deep clone implementation
+ * Deep clone object
  */
-export function deepClone<T>(obj: T): T {
+export function clone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(deepClone) as unknown as T;
+    return obj.map(clone) as unknown as T;
   }
 
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, deepClone(value)])
+    Object.entries(obj).map(([key, value]) => [key, clone(value)])
   ) as T;
 }
 
 /**
- * Parse a URL query string into an object
+ * Parse URL query to object
  */
-export function parseQueryString(queryString: string): Record<string, string> {
+export function parseQuery(queryString: string): Record<string, string> {
   const params = new URLSearchParams(queryString.startsWith('?') ? queryString.slice(1) : queryString);
   return Object.fromEntries(params.entries());
 }
 
 /**
- * Generate a random string
+ * Generate random string
  */
-export function generateRandomString(length: number = 16): string {
+export function genId(len: number = 16): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from(
-    { length }, 
+    { length: len }, 
     () => chars.charAt(Math.floor(Math.random() * chars.length))
   ).join('');
 }
 
 /**
- * Capitalize the first letter of a string
+ * Capitalize first letter
  */
-export function capitalizeFirst(str: string): string {
+export function cap(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
- * Get file extension from a filename
+ * Get file extension
  */
-export function getFileExtension(filename: string): string {
+export function getExt(filename: string): string {
   return filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2);
 }

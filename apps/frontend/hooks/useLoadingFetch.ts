@@ -5,18 +5,18 @@ export function useLoadingFetch() {
 
   const fetchWithLoading = async <T>(
     asyncFn: () => Promise<T>,
-    options: {
+    opts: {
       showLoading?: boolean;
     } = { showLoading: true }
   ): Promise<T> => {
     try {
-      if (options.showLoading) {
+      if (opts.showLoading) {
         startLoading();
       }
       const result = await asyncFn();
       return result;
     } finally {
-      if (options.showLoading) {
+      if (opts.showLoading) {
         stopLoading();
       }
     }

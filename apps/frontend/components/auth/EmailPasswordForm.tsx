@@ -66,7 +66,7 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
+  const handleForm = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Form submit event triggered');
     console.log('Form state before submission:', { errors, isSubmitting });
@@ -75,7 +75,7 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
   };
 
   return (
-    <form onSubmit={handleFormSubmit} className="space-y-4">
+    <form onSubmit={handleForm} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Controller

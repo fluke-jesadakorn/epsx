@@ -12,20 +12,20 @@ export class ChatApiService {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
   }
 
-  private buildRequest(
+  private buildReq(
     messages: Message[],
-    options?: { temperature?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number }
   ): ChatRequest {
     return {
       messages,
-      temperature: options?.temperature || 0.7,
-      maxTokens: options?.maxTokens || 1000,
+      temperature: opts?.temp || 0.7,
+      maxTokens: opts?.maxTokens || 1000,
     };
   }
 
-  async sendMessage(
+  async sendMsg(
     messages: Message[],
-    options?: { temperature?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number }
   ): Promise<ChatResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/chat`, {
@@ -33,7 +33,7 @@ export class ChatApiService {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(this.buildRequest(messages, options)),
+        body: JSON.stringify(this.buildReq(messages, opts)),
       });
 
       if (!response.ok) {
@@ -58,10 +58,10 @@ export class ChatApiService {
     }
   }
 
-  async getChatHistory(conversationId: string): Promise<Message[]> {
+  async getHistory(convId: string): Promise<Message[]> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/chat/history/${conversationId}`
+        `${this.baseUrl}/chat/history/${convId}`
       );
 
       if (!response.ok) {
@@ -76,9 +76,9 @@ export class ChatApiService {
     }
   }
 
-  async streamMessage(
+  async streamMsg(
     messages: Message[],
-    options?: { temperature?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number }
   ): Promise<ReadableStream<Uint8Array>> {
     try {
       const response = await fetch(`${this.baseUrl}/chat/stream`, {
@@ -86,7 +86,7 @@ export class ChatApiService {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(this.buildRequest(messages, options)),
+        body: JSON.stringify(this.buildReq(messages, opts)),
       });
 
       if (!response.ok) {

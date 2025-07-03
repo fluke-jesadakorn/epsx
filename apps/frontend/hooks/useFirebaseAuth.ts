@@ -6,16 +6,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
 export function useFirebaseAuth() {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { user: authUser } = useAuth();
 
   useEffect(() => {
     // Subscribe to Firebase auth state changes
     const unsubscribe = watchAuthState((user) => {
-      setFirebaseUser(user);
-      setIsLoading(false);
+      setFbUser(user);
+      setLoading(false);
 
       // If user is logged out in Firebase but we have an auth session, clear it
       if (!user && authUser) {
@@ -28,9 +28,9 @@ export function useFirebaseAuth() {
   }, [router, authUser]);
 
   return {
-    user: firebaseUser,
-    isLoading,
-    isAuthenticated: !!firebaseUser && !!authUser,
+    user: fbUser,
+    loading,
+    isAuth: !!fbUser && !!authUser,
   };
 }
 

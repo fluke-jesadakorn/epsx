@@ -6,16 +6,12 @@ import { useEffect, useState } from 'react';
 
 import { getAuthStatus } from '@/app/actions/getAuthStatus';
 
-interface NavbarProps {
-  userEmail: string | null;
-}
 import {
   LineChart,
   User,
   LogOut,
   LogIn,
   CreditCard,
-  // File,
   Menu,
 } from 'lucide-react';
 
@@ -45,14 +41,12 @@ import { useAuth } from '../context/auth-context';
 
 import ThemeToggle from './ThemeToggle';
 
+interface NavbarProps {
+  userEmail: string | null;
+}
+
 const getNavItems = () => {
   return [
-    // {
-    //   label: "Docs",
-    //   href: "https://your-git-book-url.com",
-    //   key: "docs",
-    //   icon: <File className="h-4 w-4" />,
-    // },
     {
       label: 'Analytics',
       href: '/analytics',
@@ -71,17 +65,17 @@ const getNavItems = () => {
 export default function Navbar({ userEmail }: NavbarProps) {
   const pathname = usePathname() || '';
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
   const router = useRouter();
 
   const { signOut } = useAuth();
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const checkAuth = async () => {
       const authStatus = await getAuthStatus();
-      setIsLoggedIn(authStatus.isAuthenticated);
+      setIsAuth(authStatus.isAuthenticated);
     };
-    checkAuthStatus();
+    checkAuth();
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -132,7 +126,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
         <div className="flex items-center gap-4 md:gap-6 justify-end min-w-[200px]">
           <ThemeToggle />
 
-          {isLoggedIn && (
+          {isAuth && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -180,7 +174,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
                 ))}
 
                 <div className="border-t pt-4 mt-2">
-                  {isLoggedIn ? (
+                  {isAuth ? (
                     <Button
                       variant="ghost"
                       onClick={() => {
@@ -208,7 +202,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
           </Sheet>
 
           <div className="hidden md:block">
-            {isLoggedIn ? (
+            {isAuth ? (
               <Button
                 variant="ghost"
                 onClick={handleLogout}
