@@ -57,6 +57,8 @@ pub async fn get_payment(
         amount: 1000,
         currency: "USDT".to_string(),
         description: Some("Mock payment".to_string()),
+        payment_method: Some("crypto".to_string()),
+        metadata: None,
     }).await?;
     
     Ok(Json(response))

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { createPaymentService } from '@/services/payment.service';
@@ -18,7 +18,7 @@ interface ExtendedPaymentResponse extends Omit<PaymentResponse, 'user_level'> {
   user_level: UserLevelType;
 }
 
-const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
+const StatusIndicator = ({ status, retryCount }: { status: PaymentResponse['status'], retryCount?: number }) => {
   const getStatusColor = () => {
     switch (status) {
       case 'Succeeded':
@@ -28,6 +28,12 @@ const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
         return 'text-yellow-500';
       case 'Failed':
         return 'text-red-500';
+      case 'Cancelled':
+        return 'text-gray-500';
+      case 'Expired':
+        return 'text-orange-500';
+      case 'RequiresAction':
+        return 'text-blue-500';
       default:
         return 'text-gray-500';
     }
@@ -36,14 +42,42 @@ const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
   const getStatusEmoji = () => {
     switch (status) {
       case 'Succeeded':
-        return '🟢';
+        return '✅';
       case 'Pending':
+        return '⏳';
       case 'Processing':
-        return '🟡';
+        return '�';
       case 'Failed':
-        return '🔴';
+        return '❌';
+      case 'Cancelled':
+        return '�';
+      case 'Expired':
+        return '⏰';
+      case 'RequiresAction':
+        return '⚠️';
       default:
         return '⚪';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case 'Succeeded':
+        return 'Payment Successful';
+      case 'Pending':
+        return 'Awaiting Payment';
+      case 'Processing':
+        return 'Processing Payment';
+      case 'Failed':
+        return `Payment Failed${retryCount ? ` (Retry ${retryCount})` : ''}`;
+      case 'Cancelled':
+        return 'Payment Cancelled';
+      case 'Expired':
+        return 'Payment Expired';
+      case 'RequiresAction':
+        return 'Action Required';
+      default:
+        return 'Unknown Status';
     }
   };
 
@@ -52,7 +86,7 @@ const StatusIndicator = ({ status }: { status: PaymentResponse['status'] }) => {
       className={`flex items-center gap-2 text-lg font-medium ${getStatusColor()}`}
     >
       <span>{getStatusEmoji()}</span>
-      <span>{status}</span>
+      <span>{getStatusText()}</span>
     </div>
   );
 };
@@ -64,6 +98,7 @@ export function PaymentStatusCard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [retryLoading, setRetryLoading] = useState(false);
 
   const router = useRouter();
   const paymentService = createPaymentService();
@@ -91,16 +126,18 @@ export function PaymentStatusCard() {
         // Convert the payment status to ExtendedPaymentResponse format
         const paymentResponse: ExtendedPaymentResponse = {
           id: 'current',
-          amount: 0, // This would come from the actual transaction
+          amount: 0,
           currency: 'USDT',
-          status: status.hasPaid ? 'Succeeded' : 'Pending',
-          created_at:
-            status.lastPaymentDate?.toISOString() || new Date().toISOString(),
-          expiration_date:
-            status.expirationDate?.toISOString() || new Date().toISOString(),
-          user_level: (status.userLevel?.toUpperCase() ||
-            'BASIC') as UserLevelType,
-          qr_code: '', // This would be set if needed
+          status: status.paid ? 'Succeeded' : 'Pending',
+          created_at: status.lastPayDate?.toISOString() || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          expiration_date: status.expireDate?.toISOString() || new Date().toISOString(),
+          user_level: (status.userLevel?.toUpperCase() || 'BASIC') as UserLevelType,
+          qr_code: undefined,
+          checkout_url: undefined,
+          payment_method: 'crypto',
+          retry_count: 0,
+          error_message: undefined,
         };
         setPaymentStatus(paymentResponse);
       }
@@ -113,7 +150,31 @@ export function PaymentStatusCard() {
     }
   };
 
-  // Auto-refresh every 5 minutes if authenticated
+  const handleRetryPayment = async () => {
+    if (!paymentStatus) return;
+    
+    setRetryLoading(true);
+    try {
+      // Mock retry logic - in real app, call payment service retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await fetchStatus();
+    } catch (error) {
+      console.error('Failed to retry payment:', error);
+      setError('Failed to retry payment. Please try again.');
+    } finally {
+      setRetryLoading(false);
+    }
+  };
+
+  // Auto-refresh every 30 seconds for pending payments
+  useEffect(() => {
+    if (isAuthenticated && paymentStatus?.status === 'Pending' || paymentStatus?.status === 'Processing') {
+      const interval = setInterval(fetchStatus, 30 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, paymentStatus?.status]);
+
+  // Auto-refresh every 5 minutes for other statuses
   useEffect(() => {
     if (isAuthenticated) {
       const interval = setInterval(fetchStatus, 5 * 60 * 1000);
@@ -222,8 +283,16 @@ export function PaymentStatusCard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <UserLevelBadge level={paymentStatus.user_level} />
-                <StatusIndicator status={paymentStatus.status} />
+                <StatusIndicator status={paymentStatus.status} retryCount={paymentStatus.retry_count} />
               </div>
+
+              {paymentStatus.error_message && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-sm text-red-800">
+                    <span className="font-medium">Error:</span> {paymentStatus.error_message}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 {paymentStatus.expiration_date && (
@@ -257,6 +326,16 @@ export function PaymentStatusCard() {
               </p>
 
               <div className="flex flex-col gap-3">
+                {paymentStatus.status === 'Failed' && (
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={handleRetryPayment}
+                    disabled={retryLoading}
+                  >
+                    {retryLoading ? 'Retrying...' : 'Retry Payment'}
+                  </Button>
+                )}
                 <Button
                   variant="default"
                   className="w-full border-2"

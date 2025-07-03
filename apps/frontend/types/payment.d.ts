@@ -32,9 +32,14 @@ export interface PaymentResponse {
   id: string;
   amount: number;
   currency: string;
-  status: "Pending" | "Processing" | "Succeeded" | "Failed" | "USDT";
+  status: "Pending" | "Processing" | "Succeeded" | "Failed" | "Cancelled" | "Expired" | "RequiresAction";
   created_at: string;
+  updated_at: string;
   expiration_date: string;
   user_level: UserLevel;
-  qr_code: string;
+  qr_code?: string;
+  checkout_url?: string;
+  payment_method: string;
+  retry_count: number;
+  error_message?: string;
 }

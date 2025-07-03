@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
 
 interface Transaction {
@@ -39,8 +41,49 @@ interface TransactionHistoryProps {
 
 export function TransactionHistory({ transactions, className = '' }: TransactionHistoryProps) {
   const [page, setPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const itemsPerPage = 5;
-  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+
+  // Filter transactions based on search and status
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = transaction.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.blockchainData.txHash.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || transaction.status.toLowerCase() === statusFilter.toLowerCase();
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const currentTransactions = filteredTransactions.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+
+  const exportToCSV = () => {
+    const csvContent = [
+      ['Order No', 'Amount', 'Currency', 'Status', 'Date', 'Network', 'TX Hash'].join(','),
+      ...filteredTransactions.map(tx => [
+        tx.orderNo,
+        tx.actualAmount,
+        tx.currency,
+        tx.status,
+        new Date(tx.finishTime).toLocaleDateString(),
+        tx.blockchainData.network,
+        tx.blockchainData.txHash
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -49,33 +92,20 @@ export function TransactionHistory({ transactions, className = '' }: Transaction
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+  const getStatusBadge = (status: string) => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'succeeded':
       case 'completed':
-        return 'text-green-500';
+        return <Badge className="bg-green-100 text-green-800">✅ {status}</Badge>;
       case 'pending':
-        return 'text-yellow-500';
+        return <Badge className="bg-yellow-100 text-yellow-800">⏳ {status}</Badge>;
       case 'failed':
-        return 'text-red-500';
+        return <Badge className="bg-red-100 text-red-800">❌ {status}</Badge>;
       default:
-        return 'text-gray-500';
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
-
-  const paginatedTransactions = transactions.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
 
   return (
     <Card className={`${className} transition-shadow hover:shadow-lg`}>
@@ -100,6 +130,51 @@ export function TransactionHistory({ transactions, className = '' }: Transaction
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 flex flex-col gap-2">
+          <Input
+            placeholder="Search by order no, currency, or TX hash"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('all')}
+              className="flex-1"
+            >
+              All
+            </Button>
+            <Button
+              variant={statusFilter === 'completed' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('completed')}
+              className="flex-1"
+            >
+              Completed
+            </Button>
+            <Button
+              variant={statusFilter === 'pending' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('pending')}
+              className="flex-1"
+            >
+              Pending
+            </Button>
+            <Button
+              variant={statusFilter === 'failed' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('failed')}
+              className="flex-1"
+            >
+              Failed
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            onClick={exportToCSV}
+            className="self-end"
+          >
+            📥 Export to CSV
+          </Button>
+        </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -111,17 +186,21 @@ export function TransactionHistory({ transactions, className = '' }: Transaction
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedTransactions.length > 0 ? (
-                paginatedTransactions.map((tx) => (
+              {currentTransactions.length > 0 ? (
+                currentTransactions.map((tx) => (
                   <TableRow key={tx.orderNo}>
-                    <TableCell>{formatDate(tx.finishTime)}</TableCell>
+                    <TableCell>{new Date(tx.finishTime).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}</TableCell>
                     <TableCell>
                       {formatAmount(tx.actualAmount)} {tx.currency}
                     </TableCell>
                     <TableCell>
-                      <span className={getStatusColor(tx.status)}>
-                        {tx.status}
-                      </span>
+                      {getStatusBadge(tx.status)}
                     </TableCell>
                     <TableCell>
                       {tx.blockchainData.txHash && (
