@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
+import * as chromium from '@sparticuz/chromium';
 
 const TARGET_URL =
   'https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FQ&revenues-period=FQ';
@@ -20,23 +21,17 @@ export async function GET() {
 
     if (isProduction) {
       // On Vercel or AWS Lambda, use @sparticuz/chromium and puppeteer-core
-      const chromium = require('@sparticuz/chromium');
-      
-      // Configure chromium for Vercel
-      chromium.setHeadlessMode = true;
-      chromium.setGraphicsMode = false;
-      
+      // Configure launch options for serverless environment
       launchOptions.args = [
-        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--single-process',
         '--no-zygote',
         '--disable-features=VizDisplayCompositor'
       ];
-      launchOptions.executablePath = await chromium.executablePath({
-        path: '/tmp'
-      });
+      launchOptions.executablePath = '/tmp/chromium';
       browser = await puppeteer.launch(launchOptions);
     } else {
       // Local development - use Puppeteer's default Chromium
