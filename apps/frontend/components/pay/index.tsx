@@ -23,7 +23,13 @@ export function Pay({ pkg = '', amt = '' }: PayProps) {
   if (step === 'done') return <Done />;
   if (step === 'qr') {
     return (
-      <QR {...data} back={() => setStep('pick')} done={() => setStep('done')} />
+      <QR
+        _pkg={data.pkg}
+        amt={data.amt}
+        _pay={data.pay}
+        back={() => setStep('pick')}
+        done={() => setStep('done')}
+      />
     );
   }
 

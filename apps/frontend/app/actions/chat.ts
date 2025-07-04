@@ -6,8 +6,8 @@ import type { ChatRequest, ChatResponse } from "@/types/chat";
 
 export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
   try {
-    return await chatApiService.sendMessage(request.messages, {
-      temperature: request.temperature,
+    return await chatApiService.sendMsg(request.messages, {
+      temp: request.temperature,
       maxTokens: request.maxTokens,
     });
   } catch (error) {
@@ -18,7 +18,7 @@ export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
 
 export async function getChatHistory(conversationId: string) {
   try {
-    return await chatApiService.getChatHistory(conversationId);
+    return await chatApiService.getHistory(conversationId);
   } catch (error) {
     // console.error("Failed to fetch chat history:", error);
     throw error;
@@ -27,8 +27,8 @@ export async function getChatHistory(conversationId: string) {
 
 export async function streamChat(request: ChatRequest): Promise<ReadableStream<Uint8Array>> {
   try {
-    return await chatApiService.streamMessage(request.messages, {
-      temperature: request.temperature,
+    return await chatApiService.streamMsg(request.messages, {
+      temp: request.temperature,
       maxTokens: request.maxTokens,
     });
   } catch (error) {

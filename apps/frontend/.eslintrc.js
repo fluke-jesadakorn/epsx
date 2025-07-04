@@ -1,5 +1,6 @@
 module.exports = {
   ignorePatterns: ['lib/store/theme.tsx', 'lib/firebase-admin.d.ts'],
+  plugins: ['next'],
   extends: [
     'next/core-web-vitals',
     '../../packages/config/eslint/base.cjs',

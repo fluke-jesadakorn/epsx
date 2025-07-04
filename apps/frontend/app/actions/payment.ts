@@ -5,7 +5,6 @@ import { createPaymentService } from '@/services/payment.service';
 const paymentService = createPaymentService();
 
 export async function getPaymentDetails(
-  userId: string,
   network: string = 'TRX',
 ) {
   try {
@@ -52,9 +51,9 @@ export async function getPaymentDetails(
       qrCodePath: selectedNetwork.qrPath,
       tag: 'tag' in selectedNetwork ? selectedNetwork.tag : '',
       paymentStatus: {
-        lastPaymentDate: status.lastPaymentDate || new Date(),
+        lastPaymentDate: status.lastPayDate || new Date(),
         expirationDate:
-          status.expirationDate ||
+          status.expireDate ||
           new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         paymentMethod: 'USDT' as const,
         transactionId: 'N/A', // Transaction ID not available in status, placeholder

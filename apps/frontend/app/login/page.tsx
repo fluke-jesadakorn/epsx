@@ -1,7 +1,6 @@
 'use client';
 
 // import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
-import { redirect } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';

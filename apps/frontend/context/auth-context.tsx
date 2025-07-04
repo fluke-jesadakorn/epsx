@@ -13,7 +13,7 @@ import {
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 
-import { handleSignIn, handleSignOut, refreshSession } from '@/app/actions/auth';
+import { handleSignIn, handleSignOut, refreshSession as _refreshSession } from '@/app/actions/auth';
 import { auth } from '@/lib/firebase';
 
 interface AuthContextType {

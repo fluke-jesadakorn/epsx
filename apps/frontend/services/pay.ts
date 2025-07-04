@@ -23,7 +23,7 @@ export async function pay(amt: number, method: string, desc?: string): Promise<s
   }
 }
 
-export async function confirm(txId: string, method: string, level: string) {
+export async function confirm(_txId: string, _method: string, _level: string) {
   try {
     const user = auth.currentUser;
     if (!user) return { success: false, message: 'Not logged in' };
