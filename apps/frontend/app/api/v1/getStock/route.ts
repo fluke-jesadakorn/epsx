@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import chromium from '@sparticuz/chromium-min';
-import puppeteerCore from 'puppeteer-core';
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright-core';
+import chromiumBinary from '@sparticuz/chromium';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,24 +9,23 @@ const TARGET_URL =
 const SELECTOR =
   '#js-category-content > div.js-financials-block-init-ssr > div > div > div:nth-child(7) > div.wrapper-Tv7LSjUz > div > div.container-vKM0WfUu.table-GQWAi9kx.legacy-mode-GQWAi9kx > div.container-C9MdAMrq.selected-C9MdAMrq.beforeSelected-C9MdAMrq.lastRowBorder-C9MdAMrq.legacy-mode-C9MdAMrq > div.values-C9MdAMrq.values-AtxjAQkN > div:nth-child(19) > div > div';
 
-const remoteExecutablePath =
-  'https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar';
-
 let browser: any = null;
 
 async function getBrowser() {
   if (browser) return browser;
 
   if (process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === 'production') {
-    browser = await puppeteerCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(remoteExecutablePath),
+    // In Vercel production, use @sparticuz/chromium for browser binary
+    const executablePath = await chromiumBinary.executablePath();
+    browser = await chromium.launch({
+      args: chromiumBinary.args,
+      executablePath: executablePath,
       headless: true,
     });
   } else {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    browser = await chromium.launch({
       headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
   }
   return browser;
@@ -36,18 +34,21 @@ async function getBrowser() {
 export async function GET() {
   try {
     const browser = await getBrowser();
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-    );
-    await page.goto(TARGET_URL, { waitUntil: 'networkidle2' });
-
-    const result = await page.$eval(SELECTOR, (el: Element) => {
-      return {
-        html: el.innerHTML,
-        text: el.textContent,
-      };
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
     });
+    const page = await context.newPage();
+    await page.goto(TARGET_URL, { waitUntil: 'networkidle' });
+
+    const result = await page.evaluate((selector: string) => {
+      const el = document.querySelector(selector);
+      return el
+        ? {
+            html: el.innerHTML,
+            text: el.textContent,
+          }
+        : { html: '', text: '' };
+    }, SELECTOR);
 
     return NextResponse.json(result);
   } catch (error) {
