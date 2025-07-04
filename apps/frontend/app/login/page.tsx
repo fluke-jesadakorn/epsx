@@ -26,8 +26,13 @@ export default function LoginPage() {
     // Only redirect if we have a confirmed authenticated user and we're not already redirecting
     if (user && !loading && !redirecting) {
       setRedirecting(true);
-      // Use window.location instead of redirect to ensure proper navigation
-      window.location.href = returnUrl;
+      // Add a small delay to ensure session cookie is set and recognized
+      setTimeout(() => {
+        // Use window.location instead of redirect to ensure proper navigation
+        // Append a query parameter to indicate this is a post-login redirect
+        const redirectUrl = `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}postLogin=true`;
+        window.location.href = redirectUrl;
+      }, 500);
     }
   }, [user, loading, returnUrl, redirecting]);
 

@@ -39,6 +39,10 @@ export function middleware(request: NextRequest) {
       // Just check if token exists and is not obviously invalid - detailed validation happens server-side
       if (sessionCookie.value.length > 10) { // Basic sanity check
         const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+        // Check if this is a post-login redirect to avoid loops
+        if (searchParams.get('postLogin') === 'true') {
+          return NextResponse.next();
+        }
         return NextResponse.redirect(new URL(returnUrl, request.url));
       }
     }

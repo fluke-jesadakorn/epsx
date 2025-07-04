@@ -1,5 +1,4 @@
 @import "tailwindcss";
-
 @custom-variant dark (&:is(.dark *));
 
 @layer base {
@@ -767,3 +766,29 @@
     background-position: 100% 50%;
   }
 }
+
+/* --- PancakeSwap-inspired blob animations and font --- */
+
+.font-pancake {
+  font-family: 'Baloo 2', 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+  letter-spacing: 0.01em;
+}
+
+@keyframes blob1 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.1, 0.9) translate(10px, -10px); }
+  66% { transform: scale(0.95, 1.05) translate(-10px, 10px); }
+}
+@keyframes blob2 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.05, 0.95) translate(-12px, 8px); }
+  66% { transform: scale(0.9, 1.1) translate(12px, -8px); }
+}
+@keyframes blob3 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.08, 0.92) translate(8px, 12px); }
+  66% { transform: scale(0.92, 1.08) translate(-8px, -12px); }
+}
+.animate-blob1 { animation: blob1 12s ease-in-out infinite; }
+.animate-blob2 { animation: blob2 14s ease-in-out infinite; }
+.animate-blob3 { animation: blob3 16s ease-in-out infinite; }

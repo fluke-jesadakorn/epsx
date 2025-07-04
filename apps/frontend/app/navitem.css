@@ -1,0 +1,7 @@
+.nav-item-hover {
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.nav-item-hover:hover {
+  box-shadow: 0 2px 8px 0 rgba(31, 41, 55, 0.08);
+  transform: scale(1.03);
+}

@@ -67,7 +67,12 @@ export const createPaymentService = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        throw new Error('User not authenticated');
+        console.warn('User not authenticated yet, returning default status');
+        return {
+          paid: false,
+          userLevel: 'BASIC',
+          isNewUser: true,
+        };
       }
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -99,7 +104,8 @@ export const createPaymentService = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        throw new Error('User not authenticated');
+        console.warn('User not authenticated yet, returning empty transaction history');
+        return [];
       }
 
       const txRef = collection(db, 'transactions');
@@ -157,7 +163,8 @@ export const createPaymentService = () => {
 
       const user = auth.currentUser;
       if (!user) {
-        throw new Error('User not authenticated');
+        console.warn('User not authenticated yet, returning empty transaction history for new user');
+        return [];
       }
 
       const txRef = collection(db, 'transactions');

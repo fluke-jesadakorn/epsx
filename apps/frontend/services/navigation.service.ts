@@ -10,22 +10,27 @@ class NavigationService {
   getNavItems(isLoggedIn: boolean): NavItem[] {
     const items: NavItem[] = [
       {
-        label: "Docs",
-        href: "https://your-gitbook-url.com",
-        key: "docs",
+        label: 'Docs',
+        href: 'https://your-gitbook-url.com',
+        key: 'docs',
       },
       {
-        label: "Analytics",
-        href: "/analytics",
-        key: "analytics",
+        label: 'Analytics',
+        href: '/analytics',
+        key: 'analytics',
+      },
+      {
+        label: 'Market Data Sync',
+        href: '/market-data-sync',
+        key: 'market-data-sync',
       },
     ];
 
     if (isLoggedIn) {
       items.push({
-        label: "Settings",
-        href: "/settings",
-        key: "settings",
+        label: 'Settings',
+        href: '/settings',
+        key: 'settings',
         requireAuth: true,
       });
     }
@@ -36,14 +41,14 @@ class NavigationService {
   getFooterLinks(): NavItem[] {
     return [
       {
-        label: "Terms of Service",
-        href: "/terms",
-        key: "terms",
+        label: 'Terms of Service',
+        href: '/terms',
+        key: 'terms',
       },
       {
-        label: "Privacy Policy",
-        href: "/privacy",
-        key: "privacy",
+        label: 'Privacy Policy',
+        href: '/privacy',
+        key: 'privacy',
       },
     ];
   }

@@ -13,7 +13,6 @@ export async function handleSignIn(idToken: string) {
     if (!result.success) {
       throw new Error('Failed to create session');
     }
-    console.log('Session created successfully');
     return { success: true };
   } catch (_error) {
     console.error('Sign-in error:', _error);

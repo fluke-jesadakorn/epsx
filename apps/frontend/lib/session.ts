@@ -6,7 +6,6 @@ const MAX_AGE = 60 * 60 * 24 * 5; // 5 days in seconds
 
 export async function createSession(token: string) {
   const cookieStore = await cookies();
-  console.log('Setting session cookie');
   cookieStore.set(SESSION_KEY, token, {
     maxAge: MAX_AGE,
     httpOnly: true,

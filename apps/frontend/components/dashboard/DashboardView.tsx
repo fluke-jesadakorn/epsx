@@ -21,7 +21,7 @@ export function DashboardView({ user }: DashboardViewProps) {
           <p>Member since: {new Date(user.createdAt).toLocaleDateString()}</p>
           {user.usdtDetails && (
             <>
-              <p className="mt-4">User Level: {user.usdtDetails.userLevel}</p>
+              <p className="mt-4">User Level: {user.usdtDetails.userLevel ?? "N/A"}</p>
               <p>Expiration Date: {new Date(user.usdtDetails.paymentStatus.expirationDate).toLocaleDateString()}</p>
             </>
           )}

@@ -34,6 +34,7 @@ const iconMap = {
   docs: <File className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
+  "market-data-sync": <LineChart className="h-4 w-4" />,
 };
 
 function NavbarComponent() {
@@ -121,7 +122,7 @@ function NavbarComponent() {
           {/* Mobile Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="bg-background shadow-md">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>

@@ -6,14 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { getAuthStatus } from '@/app/actions/getAuthStatus';
 
-import {
-  LineChart,
-  User,
-  LogOut,
-  LogIn,
-  CreditCard,
-  Menu,
-} from 'lucide-react';
+import { LineChart, User, LogOut, LogIn, CreditCard, Menu } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -40,6 +33,7 @@ import {
 import { useAuth } from '../context/auth-context';
 
 import ThemeToggle from './ThemeToggle';
+import '../app/navitem.css';
 
 interface NavbarProps {
   userEmail: string | null;
@@ -54,9 +48,9 @@ const getNavItems = () => {
       icon: <LineChart className="h-4 w-4" />,
     },
     {
-      label: 'Data Collection',
-      href: '/data-collection',
-      key: 'data-collection',
+      label: 'Market Data Sync',
+      href: '/market-data-sync',
+      key: 'market-data-sync',
       icon: <CreditCard className="h-4 w-4" />,
     },
   ];
@@ -92,7 +86,10 @@ export default function Navbar({ userEmail }: NavbarProps) {
     <div className="navbar-bg backdrop-blur-lg border-b navbar-border relative z-50 transition-all duration-300">
       <div className="flex h-20 items-center px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-bold text-xl group"
+          >
             <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:animate-pulse-glow transition-all duration-300">
               EPSX
             </span>
@@ -130,7 +127,10 @@ export default function Navbar({ userEmail }: NavbarProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Link href="/settings" className="flex items-center gap-2">
+                  <Link
+                    href="/settings"
+                    className="flex items-center gap-2 nav-item-hover rounded-full hover:bg-primary/10 hover:cursor-pointer"
+                  >
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>
                         <User className="h-4 w-4" />
@@ -181,7 +181,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
                         handleLogout();
                         setIsOpen(false);
                       }}
-                      className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      className="flex items-center gap-2 w-full justify-start p-2 rounded-lg nav-item-hover hover:bg-primary/10 hover:cursor-pointer text-muted-foreground hover:text-primary"
                     >
                       <LogOut className="h-4 w-4" />
                       Logout
@@ -190,7 +190,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
                     <Link
                       href="/login"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      className="flex items-center gap-2 p-2 rounded-lg nav-item-hover hover:bg-primary/10 hover:cursor-pointer text-muted-foreground hover:text-primary"
                     >
                       <LogIn className="h-4 w-4" />
                       Login
@@ -206,7 +206,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="flex items-center gap-2 rounded-full hover:bg-primary/10 hover:cursor-pointer"
+                className="flex items-center gap-2 rounded-full nav-item-hover hover:bg-primary/10 hover:cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
                 Logout
@@ -215,7 +215,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
               <Link href="/login">
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 rounded-full hover:bg-primary/10 hover:cursor-pointer"
+                  className="flex items-center gap-2 rounded-full nav-item-hover hover:bg-primary/10 hover:cursor-pointer"
                 >
                   <LogIn className="h-4 w-4" />
                   Login

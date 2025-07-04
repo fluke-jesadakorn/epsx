@@ -110,7 +110,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
   return (
     <Card
-      className={`w-full transition-all duration-200 hover:shadow-lg border-blue-500/10 hover:border-blue-500/30 relative ${
+      className={`w-full transition-all duration-200 hover:shadow-2xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] rounded-3xl shadow-lg relative ${
         isPressed ? 'scale-[0.98] opacity-90' : ''
       }`}
       onTouchStart={() => setIsPressed(true)}
@@ -120,29 +120,29 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
       onMouseLeave={() => setIsPressed(false)}
     >
       {/* Rank Number Badge */}
-      <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+      <div className="absolute -top-3 -left-3 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 dark:from-yellow-600 dark:via-pink-700 dark:to-purple-800 flex items-center justify-center text-white text-base font-extrabold shadow-xl border-4 border-white dark:border-[#232946]">
         {index + 1}
       </div>
-      <CardContent className="p-4 pt-6">
+      <CardContent className="p-6 pt-8">
         {/* Primary Information */}
-        <div className="flex justify-between items-start mb-2">
+        <div className="flex justify-between items-start mb-3">
           <div>
-            <div className="text-lg font-semibold text-primary">
+            <div className="text-xl font-extrabold text-primary dark:text-white drop-shadow-sm tracking-wide">
               {data.symbol}
             </div>
-            <div className="text-sm text-muted-foreground line-clamp-1">
+            <div className="text-sm text-muted-foreground line-clamp-1 font-medium">
               {data.name}
             </div>
           </div>
           <div className="text-right">
-            <div className="font-medium">
+            <div className="font-bold text-lg text-blue-600 dark:text-blue-300 drop-shadow">
               {data.valueIndex} {data.currency}
             </div>
             <div
-              className={`text-sm font-medium ${
+              className={`text-sm font-bold ${
                 parseFloat(data.growthRate) >= 0
                   ? 'text-green-500'
-                  : 'text-rose-500'
+                  : 'text-rose-400 dark:text-rose-300'
               }`}
             >
               {parseFloat(data.growthRate) >= 0 ? '+' : ''}
@@ -152,17 +152,17 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
         </div>
 
         {/* Market Size - Always visible */}
-        <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-          <span>Market Size:</span>
-          <span className="font-medium">{data.marketSize}</span>
+        <div className="text-xs sm:text-sm text-muted-foreground mb-2 flex items-center gap-2">
+          <span className="font-semibold text-purple-500 dark:text-purple-300">Market Size:</span>
+          <span className="font-bold">{data.marketSize}</span>
         </div>
 
         {/* Action Buttons Row */}
-        <div className="flex justify-between items-center gap-2 mt-2">
+        <div className="flex justify-between items-center gap-2 mt-3">
           <Button
             size="sm"
             variant="ghost"
-            className="w-full"
+            className="w-full rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-[#232946] dark:to-[#1a1a2e] text-primary dark:text-white font-bold shadow hover:scale-105 transition"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
@@ -172,7 +172,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
             )}
             {expanded ? 'Less' : 'More'}
           </Button>
-          <Button asChild size="sm" variant="secondary" className="w-[100px]">
+          <Button asChild size="sm" variant="secondary" className="w-[100px] rounded-full bg-gradient-to-r from-yellow-300 to-pink-300 dark:from-yellow-700 dark:to-pink-700 text-white font-bold shadow hover:scale-105 transition">
             <a
               href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}
               target="_blank"
@@ -185,26 +185,26 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
         {/* Expandable Content */}
         <div
-          className={`mt-4 pt-4 border-t border-border/50 grid gap-3 text-sm overflow-hidden transition-all duration-300 ${
+          className={`mt-4 pt-4 border-t border-border/50 grid gap-3 text-xs sm:text-sm overflow-hidden transition-all duration-300 ${
             expanded ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0'
           }`}
         >
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <div className="text-muted-foreground">Sector</div>
-              <div>{data.sector}</div>
+              <div className="text-muted-foreground font-semibold">Sector</div>
+              <div className="font-bold">{data.sector}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Growth Factor</div>
-              <div>{data.growthFactor}</div>
+              <div className="text-muted-foreground font-semibold">Growth Factor</div>
+              <div className="font-bold">{data.growthFactor}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-muted-foreground mb-1">Entry Phase</div>
+              <div className="text-muted-foreground mb-1 font-semibold">Entry Phase</div>
               <div
-                className={`${data.entryPhase?.active ? 'text-green-500 font-medium' : ''}`}
+                className={`${data.entryPhase?.active ? 'text-green-500 font-bold' : ''}`}
               >
                 {data.entryPhase?.date || 'N/A'}
                 {data.entryPhase?.active && (
@@ -213,9 +213,9 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
               </div>
             </div>
             <div>
-              <div className="text-muted-foreground mb-1">Phase Status</div>
+              <div className="text-muted-foreground mb-1 font-semibold">Phase Status</div>
               <div
-                className={`${data.phaseStatus?.active ? 'text-yellow-500 font-medium' : ''}`}
+                className={`${data.phaseStatus?.active ? 'text-yellow-500 font-bold' : ''}`}
               >
                 {data.phaseStatus?.date || 'N/A'}
                 {data.phaseStatus?.active && (
@@ -229,12 +229,12 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <div className="text-muted-foreground">Country</div>
-              <div>{data.country}</div>
+              <div className="text-muted-foreground font-semibold">Country</div>
+              <div className="font-bold">{data.country}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Exchange</div>
-              <div>{data.exchange}</div>
+              <div className="text-muted-foreground font-semibold">Exchange</div>
+              <div className="font-bold">{data.exchange}</div>
             </div>
           </div>
         </div>
@@ -275,15 +275,15 @@ function DataRankTable({
 
   const renderTableView = () => (
     <div className="relative w-full">
-      <div className="rounded-xl border bg-card max-w-[100vw] overflow-x-auto custom-scrollbar">
+      <div className="rounded-3xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] shadow-xl max-w-[100vw] overflow-x-auto custom-scrollbar">
         <div className="min-w-[1200px]">
           <Table>
-            <TableHeader className="bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 backdrop-blur-sm sticky top-0 z-10">
+            <TableHeader className="bg-gradient-to-r from-blue-200/40 via-purple-200/40 to-pink-200/40 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40 backdrop-blur-sm sticky top-0 z-10">
               <TableRow className="hover:bg-transparent">
                 {columns.map((column) => (
                   <TableHead
                     key={column.key}
-                    className="font-semibold text-primary/70"
+                    className="font-bold text-primary/80 dark:text-white tracking-wide"
                   >
                     {column.tooltip ? (
                       <span title={column.tooltip}>{column.header}</span>
@@ -298,7 +298,7 @@ function DataRankTable({
               {data.map((row, index) => (
                 <TableRow
                   key={`${row.symbol}-${index}`}
-                  className="hover:bg-primary/5 transition-colors"
+                  className="hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors"
                 >
                   {columns.map((column) => (
                     <TableCell
@@ -307,7 +307,7 @@ function DataRankTable({
                         column.key === 'symbol' ||
                         column.key === 'name' ||
                         column.key === 'valueIndex'
-                          ? 'font-medium'
+                          ? 'font-bold'
                           : column.key === 'sector' ||
                               column.key === 'country' ||
                               column.key === 'exchange'
@@ -333,7 +333,7 @@ function DataRankTable({
   );
 
   const renderCardView = () => (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {data.map((item, index) => (
         <DataCard key={`${item.symbol}-${index}`} data={item} index={index} />
       ))}
@@ -440,16 +440,16 @@ function DataRankTable({
 
   return (
     <div
-      className={`w-full space-y-4 p-4 sm:p-6 ${className || ''}`}
+      className={`w-full space-y-6 p-4 sm:p-8 ${className || ''}`}
       style={style}
     >
       {/* Title and View Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+          <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow">
             Top Data Rankings
           </h2>
-          <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-2" />
+          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full mt-2" />
         </div>
 
         {/* Only show view toggle for table default view */}
@@ -459,7 +459,7 @@ function DataRankTable({
               variant={viewMode === 'table' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('table')}
-              className="w-[100px]"
+              className="w-[100px] rounded-full font-bold shadow"
             >
               <Table2 className="h-4 w-4 mr-2" />
               Table
@@ -468,7 +468,7 @@ function DataRankTable({
               variant={viewMode === 'card' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('card')}
-              className="w-[100px]"
+              className="w-[100px] rounded-full font-bold shadow"
             >
               <LayoutGrid className="h-4 w-4 mr-2" />
               Cards
@@ -478,7 +478,7 @@ function DataRankTable({
       </div>
 
       {/* Content based on view mode */}
-      <div className="-mx-4 sm:-mx-6 px-4 sm:px-6">
+      <div className="-mx-4 sm:-mx-8 px-4 sm:px-8">
         {viewMode === 'table' ? renderTableView() : renderCardView()}
       </div>
     </div>
