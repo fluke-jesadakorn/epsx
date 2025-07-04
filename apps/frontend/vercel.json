@@ -1,7 +1,7 @@
 {
   "functions": {
     "app/api/v1/getStock/route.ts": {
-      "runtime": "nodejs18.x",
+      "runtime": "vercel-nodejs@4.0.0",
       "maxDuration": 30
     }
   }
