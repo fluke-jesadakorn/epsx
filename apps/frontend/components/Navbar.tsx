@@ -33,7 +33,6 @@ import {
 import { useAuth } from '../context/auth-context';
 
 import ThemeToggle from './ThemeToggle';
-import '../app/navitem.css';
 
 interface NavbarProps {
   userEmail: string | null;
@@ -48,9 +47,9 @@ const getNavItems = () => {
       icon: <LineChart className="h-4 w-4" />,
     },
     {
-      label: 'Market Data Sync',
-      href: '/market-data-sync',
-      key: 'market-data-sync',
+      label: 'You Market Data Sync',
+      href: '/you-market-data-sync',
+      key: 'you-market-data-sync',
       icon: <CreditCard className="h-4 w-4" />,
     },
   ];

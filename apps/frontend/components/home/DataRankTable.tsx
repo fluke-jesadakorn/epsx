@@ -36,26 +36,15 @@ const defaultColumns: ColumnDef[] = [
   { key: 'number', header: 'No.' },
   { key: 'symbol', header: 'Symbol' },
   { key: 'name', header: 'Name' },
-  { key: 'valueIndex', header: 'Value Index', tooltip: 'Current Value Score' },
   {
     key: 'growthRate',
     header: 'Growth Rate',
     tooltip: 'Value Change Percentage',
   },
   {
-    key: 'activityScore',
-    header: 'Activity Score',
-    tooltip: 'Engagement Level',
-  },
-  {
     key: 'marketSize',
     header: 'Market Size',
     tooltip: 'Total Market Presence',
-  },
-  {
-    key: 'growthFactor',
-    header: 'Growth Factor',
-    tooltip: 'Growth Potential Indicator',
   },
   { key: 'sector', header: 'Sector' },
   { key: 'country', header: 'Country' },
@@ -153,7 +142,9 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
         {/* Market Size - Always visible */}
         <div className="text-xs sm:text-sm text-muted-foreground mb-2 flex items-center gap-2">
-          <span className="font-semibold text-purple-500 dark:text-purple-300">Market Size:</span>
+          <span className="font-semibold text-purple-500 dark:text-purple-300">
+            Market Size:
+          </span>
           <span className="font-bold">{data.marketSize}</span>
         </div>
 
@@ -172,7 +163,12 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
             )}
             {expanded ? 'Less' : 'More'}
           </Button>
-          <Button asChild size="sm" variant="secondary" className="w-[100px] rounded-full bg-gradient-to-r from-yellow-300 to-pink-300 dark:from-yellow-700 dark:to-pink-700 text-white font-bold shadow hover:scale-105 transition">
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="w-[100px] rounded-full bg-gradient-to-r from-yellow-300 to-pink-300 dark:from-yellow-700 dark:to-pink-700 text-white font-bold shadow hover:scale-105 transition"
+          >
             <a
               href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}
               target="_blank"
@@ -195,14 +191,18 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
               <div className="font-bold">{data.sector}</div>
             </div>
             <div>
-              <div className="text-muted-foreground font-semibold">Growth Factor</div>
+              <div className="text-muted-foreground font-semibold">
+                Growth Factor
+              </div>
               <div className="font-bold">{data.growthFactor}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-muted-foreground mb-1 font-semibold">Entry Phase</div>
+              <div className="text-muted-foreground mb-1 font-semibold">
+                Entry Phase
+              </div>
               <div
                 className={`${data.entryPhase?.active ? 'text-green-500 font-bold' : ''}`}
               >
@@ -213,7 +213,9 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
               </div>
             </div>
             <div>
-              <div className="text-muted-foreground mb-1 font-semibold">Phase Status</div>
+              <div className="text-muted-foreground mb-1 font-semibold">
+                Phase Status
+              </div>
               <div
                 className={`${data.phaseStatus?.active ? 'text-yellow-500 font-bold' : ''}`}
               >
@@ -233,7 +235,9 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
               <div className="font-bold">{data.country}</div>
             </div>
             <div>
-              <div className="text-muted-foreground font-semibold">Exchange</div>
+              <div className="text-muted-foreground font-semibold">
+                Exchange
+              </div>
               <div className="font-bold">{data.exchange}</div>
             </div>
           </div>
@@ -250,6 +254,8 @@ function DataRankTable({
   columns = defaultColumns,
   defaultView = 'card',
 }: DataRankTableProps): React.JSX.Element {
+  // Ensure data is always an array to prevent runtime errors
+  const safeData = Array.isArray(data) ? data : [];
   const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -295,7 +301,7 @@ function DataRankTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((row, index) => (
+              {safeData.map((row, index) => (
                 <TableRow
                   key={`${row.symbol}-${index}`}
                   className="hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors"
@@ -334,7 +340,7 @@ function DataRankTable({
 
   const renderCardView = () => (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {data.map((item, index) => (
+      {safeData.map((item, index) => (
         <DataCard key={`${item.symbol}-${index}`} data={item} index={index} />
       ))}
     </div>
@@ -353,8 +359,7 @@ function DataRankTable({
     switch (column.key) {
       case 'number':
         return index + 1;
-      case 'valueIndex':
-        return `${row.valueIndex || 'N/A'} ${row.currency || ''}`.trim();
+      // valueIndex removed
       case 'growthRate':
         const growthRate = parseFloat(row.growthRate || '0');
         return (
@@ -365,12 +370,10 @@ function DataRankTable({
             {!isNaN(growthRate) ? `${growthRate.toFixed(2)}%` : 'N/A'}
           </span>
         );
-      case 'activityScore':
-        return row.activityScore || 'N/A';
+      // activityScore removed
       case 'marketSize':
         return row.marketSize || 'N/A';
-      case 'growthFactor':
-        return row.growthFactor || 'N/A';
+      // growthFactor removed
       case 'sector':
         return row.sector || 'N/A';
       case 'country':

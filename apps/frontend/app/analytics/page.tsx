@@ -10,16 +10,10 @@ export const rankingColumns = [
   { key: 'number' as const, header: 'No.' },
   { key: 'symbol' as const, header: 'Symbol' },
   { key: 'name' as const, header: 'Name' },
-  { key: 'valueIndex' as const, header: 'Value Index' },
   {
     key: 'growthRate' as const,
     header: 'Growth Rate',
     tooltip: 'Value Change Percentage',
-  },
-  {
-    key: 'activityScore' as const,
-    header: 'Activity Score',
-    tooltip: 'Engagement Level',
   },
   {
     key: 'marketSize' as const,

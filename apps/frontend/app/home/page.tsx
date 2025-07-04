@@ -16,7 +16,6 @@ const homeColumns = [
   { key: 'number' as const, header: 'No.' },
   { key: 'symbol' as const, header: 'Symbol' },
   { key: 'name' as const, header: 'Name' },
-  { key: 'valueIndex' as const, header: 'Value Index' },
   {
     key: 'growthRate' as const,
     header: 'Growth Rate',
@@ -67,8 +66,9 @@ function HomePage() {
     return <SkeletonLoader />;
   }
 
-  // Get the last 10 items from the data
-  const lastTenItems = data.slice(-10);
+  // Ensure data is always an array before slicing
+  const safeData = Array.isArray(data) ? data : [];
+  const lastTenItems = safeData.slice(-10);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
