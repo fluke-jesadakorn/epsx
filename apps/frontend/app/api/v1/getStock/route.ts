@@ -11,23 +11,23 @@ export async function GET() {
   let browser;
   try {
     // Check if running in production (Vercel/AWS Lambda)
-    const isProduction = process.env.AWS_LAMBDA_FUNCTION_VERSION || process.env.VERCEL_ENV === 'production';
-    
-    if (isProduction) {
-      // Production environment (Vercel/AWS Lambda)
-      browser = await puppeteer.launch({
-        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-        defaultViewport: { width: 1280, height: 720 },
-        executablePath: await chromium.executablePath(),
-        headless: true,
-      });
+    const isAwsLambda = process.env.AWS_LAMBDA_FUNCTION_VERSION;
+
+    let launchOptions: any = {
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: { width: 1280, height: 720 },
+    };
+
+    if (isAwsLambda) {
+      // On AWS Lambda, use @sparticuz/chromium
+      launchOptions.args = [...chromium.args, ...launchOptions.args];
+      launchOptions.executablePath = await chromium.executablePath();
+      browser = await puppeteer.launch(launchOptions);
     } else {
-      // Local development - use local puppeteer
+      // Local development and Vercel dev - use Puppeteer's default Chromium
       const puppeteerLocal = require('puppeteer');
-      browser = await puppeteerLocal.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+      browser = await puppeteerLocal.launch(launchOptions);
     }
 
     const page = await browser.newPage();
@@ -36,15 +36,12 @@ export async function GET() {
     );
     await page.goto(TARGET_URL, { waitUntil: 'networkidle2' });
 
-    const result = await page.$eval(
-      SELECTOR,
-      (el: Element) => {
-        return {
-          html: el.innerHTML,
-          text: el.textContent,
-        };
-      }
-    );
+    const result = await page.$eval(SELECTOR, (el: Element) => {
+      return {
+        html: el.innerHTML,
+        text: el.textContent,
+      };
+    });
 
     return NextResponse.json(result);
   } catch (error) {
