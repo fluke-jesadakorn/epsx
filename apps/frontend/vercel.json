@@ -2,7 +2,14 @@
   "functions": {
     "app/api/v1/getStock/route.ts": {
       "runtime": "vercel-nodejs@4.0.0",
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     }
-  }
+  },
+  "build": {
+    "env": {
+      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
+    }
+  },
+  "outputFunctionFileSizeLimit": 250
 }

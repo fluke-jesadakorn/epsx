@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
 
 const TARGET_URL =
   'https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FQ&revenues-period=FQ';
@@ -15,14 +14,29 @@ export async function GET() {
 
     let launchOptions: any = {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security'],
       defaultViewport: { width: 1280, height: 720 },
     };
 
     if (isProduction) {
       // On Vercel or AWS Lambda, use @sparticuz/chromium and puppeteer-core
-      launchOptions.args = [...chromium.args, ...launchOptions.args];
-      launchOptions.executablePath = await chromium.executablePath();
+      const chromium = require('@sparticuz/chromium');
+      
+      // Configure chromium for Vercel
+      chromium.setHeadlessMode = true;
+      chromium.setGraphicsMode = false;
+      
+      launchOptions.args = [
+        ...chromium.args,
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote',
+        '--disable-features=VizDisplayCompositor'
+      ];
+      launchOptions.executablePath = await chromium.executablePath({
+        path: '/tmp'
+      });
       browser = await puppeteer.launch(launchOptions);
     } else {
       // Local development - use Puppeteer's default Chromium
