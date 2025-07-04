@@ -163,3 +163,5 @@ yarn-cache/
 # CI/CD and deployment artifacts
 .github/*.log
 .vercel/*.log
+
+.devtools/
