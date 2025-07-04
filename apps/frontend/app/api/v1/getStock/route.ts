@@ -16,7 +16,7 @@ export async function GET() {
     if (isProduction) {
       // Production environment (Vercel/AWS Lambda)
       browser = await puppeteer.launch({
-        args: chromium.args,
+        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
         defaultViewport: { width: 1280, height: 720 },
         executablePath: await chromium.executablePath(),
         headless: true,
