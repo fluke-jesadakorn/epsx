@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 const TARGET_URL =
   'https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FQ&revenues-period=FQ';
@@ -9,23 +10,45 @@ const SELECTOR =
 export async function GET() {
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    // Check if running in production (Vercel/AWS Lambda)
+    const isProduction = process.env.AWS_LAMBDA_FUNCTION_VERSION || process.env.VERCEL_ENV === 'production';
+    
+    if (isProduction) {
+      // Production environment (Vercel/AWS Lambda)
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: { width: 1280, height: 720 },
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+    } else {
+      // Local development - use local puppeteer
+      const puppeteerLocal = require('puppeteer');
+      browser = await puppeteerLocal.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    }
+
     const page = await browser.newPage();
     await page.setUserAgent(
       'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
     );
     await page.goto(TARGET_URL, { waitUntil: 'networkidle2' });
 
-    const result = await page.$eval(SELECTOR, (el) => ({
-      html: el.innerHTML,
-      text: el.textContent,
-    }));
+    const result = await page.$eval(
+      SELECTOR,
+      (el: Element) => {
+        return {
+          html: el.innerHTML,
+          text: el.textContent,
+        };
+      }
+    );
 
     return NextResponse.json(result);
-  } catch (_error) {
+  } catch (error) {
+    console.error('Error in getStock API:', error);
     return NextResponse.json(
       { error: 'Failed to fetch or parse data.' },
       { status: 500 },

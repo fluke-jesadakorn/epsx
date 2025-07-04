@@ -1,31 +1,8 @@
 {
-  "name": "epsx-frontend",
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next",
-      "config": {
-        "command": "bun install && bun run build:fe"
-      }
+  "functions": {
+    "app/api/v1/getStock/route.ts": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 30
     }
-  ],
-  "routes": [
-    {
-      "src": "/_next/static/(.*)",
-      "dest": "/_next/static/$1"
-    },
-    {
-      "src": "/_next/image(.*)",
-      "dest": "/_next/image$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "VERCEL_PACKAGE_MANAGER": "bun"
   }
 }
