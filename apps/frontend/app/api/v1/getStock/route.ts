@@ -10,8 +10,8 @@ const SELECTOR =
 export async function GET() {
   let browser;
   try {
-    // Check if running in production (Vercel/AWS Lambda)
-    const isAwsLambda = process.env.AWS_LAMBDA_FUNCTION_VERSION;
+    // Check if running in production (Vercel or AWS Lambda)
+    const isProduction = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
 
     let launchOptions: any = {
       headless: true,
@@ -19,13 +19,13 @@ export async function GET() {
       defaultViewport: { width: 1280, height: 720 },
     };
 
-    if (isAwsLambda) {
-      // On AWS Lambda, use @sparticuz/chromium
+    if (isProduction) {
+      // On Vercel or AWS Lambda, use @sparticuz/chromium and puppeteer-core
       launchOptions.args = [...chromium.args, ...launchOptions.args];
       launchOptions.executablePath = await chromium.executablePath();
       browser = await puppeteer.launch(launchOptions);
     } else {
-      // Local development and Vercel dev - use Puppeteer's default Chromium
+      // Local development - use Puppeteer's default Chromium
       const puppeteerLocal = require('puppeteer');
       browser = await puppeteerLocal.launch(launchOptions);
     }
