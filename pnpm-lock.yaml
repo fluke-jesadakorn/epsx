@@ -255,6 +255,9 @@ importers:
       '@sparticuz/chromium':
         specifier: ^137.0.1
         version: 137.0.1
+      '@sparticuz/chromium-min':
+        specifier: ^137.0.1
+        version: 137.0.1
       '@tanstack/react-table':
         specifier: ^8.21.2
         version: 8.21.3(react-dom@19.1.0)(react@19.1.0)
@@ -5881,6 +5884,17 @@ packages:
     dependencies:
       '@sinonjs/commons': 3.0.1
     dev: true
+
+  /@sparticuz/chromium-min@137.0.1:
+    resolution: {integrity: sha512-nvi7274JFAIeAe0+lUL1hjRz5TKVpIHaQ9Bz8ZsHxsYDivGw4np0q90rvNS2R1oDHJgBsXvB+L93OQ3s+sgzNw==}
+    engines: {node: '>=20.11.0'}
+    dependencies:
+      follow-redirects: 1.15.9
+      tar-fs: 3.1.0
+    transitivePeerDependencies:
+      - bare-buffer
+      - debug
+    dev: false
 
   /@sparticuz/chromium@137.0.1:
     resolution: {integrity: sha512-9ixW23xjzIgSwBPLhWFOnrJNsnEw4dQWZqGzBCFGwGVuBPkNiJHO5VAGKezXj81J0wMYwP04tLlJFjsN5z4ROw==}

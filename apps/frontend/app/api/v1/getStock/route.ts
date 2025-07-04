@@ -1,49 +1,41 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium-min';
+import puppeteerCore from 'puppeteer-core';
+import puppeteer from 'puppeteer';
+
+export const dynamic = 'force-dynamic';
 
 const TARGET_URL =
   'https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FQ&revenues-period=FQ';
 const SELECTOR =
   '#js-category-content > div.js-financials-block-init-ssr > div > div > div:nth-child(7) > div.wrapper-Tv7LSjUz > div > div.container-vKM0WfUu.table-GQWAi9kx.legacy-mode-GQWAi9kx > div.container-C9MdAMrq.selected-C9MdAMrq.beforeSelected-C9MdAMrq.lastRowBorder-C9MdAMrq.legacy-mode-C9MdAMrq > div.values-C9MdAMrq.values-AtxjAQkN > div:nth-child(19) > div > div';
 
-export async function GET() {
-  let browser;
-  try {
-    // Check if running in production (Vercel or AWS Lambda)
-    const isProduction = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+const remoteExecutablePath =
+  'https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar';
 
-    let launchOptions: any = {
+let browser: any = null;
+
+async function getBrowser() {
+  if (browser) return browser;
+
+  if (process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === 'production') {
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(remoteExecutablePath),
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security'],
-      defaultViewport: { width: 1280, height: 720 },
-    };
+    });
+  } else {
+    browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: true,
+    });
+  }
+  return browser;
+}
 
-    if (isProduction) {
-      // On Vercel or AWS Lambda, configure for serverless environment
-      launchOptions.args = [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--single-process',
-        '--no-zygote',
-        '--disable-features=VizDisplayCompositor'
-      ];
-      // Specify a channel for puppeteer-core to download Chromium if needed
-      launchOptions.channel = 'chrome';
-      console.log('Launching Puppeteer in production mode with channel set to chrome.');
-      try {
-        browser = await puppeteer.launch(launchOptions);
-      } catch (err) {
-        console.error('Puppeteer launch error:', err);
-        throw err;
-      }
-    } else {
-      // Local development - use Puppeteer's default Chromium
-      const puppeteerLocal = require('puppeteer');
-      browser = await puppeteerLocal.launch(launchOptions);
-    }
-
+export async function GET() {
+  try {
+    const browser = await getBrowser();
     const page = await browser.newPage();
     await page.setUserAgent(
       'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -64,9 +56,5 @@ export async function GET() {
       { error: 'Failed to fetch or parse data.' },
       { status: 500 },
     );
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 }
