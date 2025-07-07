@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright-core';
-import chromiumBinary from '@sparticuz/chromium';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,20 +13,10 @@ let browser: any = null;
 async function getBrowser() {
   if (browser) return browser;
 
-  if (process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === 'production') {
-    // In Vercel production, use @sparticuz/chromium for browser binary
-    const executablePath = await chromiumBinary.executablePath();
-    browser = await chromium.launch({
-      args: chromiumBinary.args,
-      executablePath: executablePath,
-      headless: true,
-    });
-  } else {
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-  }
+  browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
   return browser;
 }
 
@@ -35,10 +24,16 @@ export async function GET() {
   try {
     const browser = await getBrowser();
     const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      userAgent:
+        'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
     });
     const page = await context.newPage();
     await page.goto(TARGET_URL, { waitUntil: 'networkidle' });
+
+    // Wait for the specific element to be visible
+    await page.waitForSelector(SELECTOR, {
+      timeout: 5000, // Adjust timeout as needed
+    });
 
     const result = await page.evaluate((selector: string) => {
       const el = document.querySelector(selector);

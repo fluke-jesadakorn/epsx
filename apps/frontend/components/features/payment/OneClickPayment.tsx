@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, CreditCard, Smartphone, Wallet, ArrowRight, Shield, Clock, Star, AlertCircle, Loader2 } from 'lucide-react';
+import { Check, Wallet, ArrowRight, Shield, Clock, Star, AlertCircle, Loader2 } from 'lucide-react';
 import { PACKAGES, LEVEL_BENEFITS, validatePayment } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
 import PaymentDetails from './PaymentDetails';
@@ -58,23 +58,25 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     fees: '$2-15',
     networks: ['ERC20']
   },
-  {
-    id: 'credit_card',
-    name: 'Credit Card',
-    icon: <CreditCard className="h-5 w-5" />,
-    description: 'Instant payment',
-    processingTime: 'Instant',
-    fees: '2.9%',
-    popular: true
-  },
-  {
-    id: 'apple_pay',
-    name: 'Apple Pay',
-    icon: <Smartphone className="h-5 w-5" />,
-    description: 'Quick & secure',
-    processingTime: 'Instant',
-    fees: '2.9%'
-  }
+  // Temporarily disabled as per request
+  // {
+  //   id: 'credit_card',
+  //   name: 'Credit Card',
+  //   icon: <CreditCard className="h-5 w-5" />,
+  //   description: 'Instant payment',
+  //   processingTime: 'Instant',
+  //   fees: '2.9%',
+  //   popular: true
+  // },
+  // Temporarily disabled as per request
+  // {
+  //   id: 'apple_pay',
+  //   name: 'Apple Pay',
+  //   icon: <Smartphone className="h-5 w-5" />,
+  //   description: 'Quick & secure',
+  //   processingTime: 'Instant',
+  //   fees: '2.9%'
+  // }
 ];
 
 export default function OneClickPayment({ 

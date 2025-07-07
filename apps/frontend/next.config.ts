@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       allowedOrigins: ['*'],
     },
     optimizePackageImports: ['@radix-ui/react-*'],
+    useCache: true,
   },
   poweredByHeader: false,
   generateEtags: true,
