@@ -82,6 +82,22 @@ const mapEpsToPrice = (
   });
 };
 
+// Adds eps_growth to each entry, calculated as percent change from sum of all previous eps values
+function addEpsGrowth(arr: FinancialsFromChart[]): (FinancialsFromChart & { eps_growth?: number | null })[] {
+  let sumPrev = 0;
+  return arr.map((item, idx) => {
+    if (idx === 0) {
+      sumPrev += item.eps;
+      return { ...item };
+    }
+    const growth = sumPrev !== 0
+      ? Math.round(((item.eps - sumPrev) / Math.abs(sumPrev)) * 100)
+      : null;
+    sumPrev += item.eps;
+    return { ...item, eps_growth: growth };
+  });
+}
+
 const parseMessages = (str: string): any[] => {
   const messages: any[] = [];
   let i = 0;
@@ -98,112 +114,124 @@ const parseMessages = (str: string): any[] => {
     try {
       messages.push(JSON.parse(payload));
     } catch {
-      throw new Error('Invalid JSON payload: ' + payload);
+      // Ignore non-JSON payloads (e.g., ~h~1 heartbeat messages)
     }
   }
 
   return messages;
 };
 
-export async function getFinancialsFromChart(): Promise<FinancialsFromChart[]> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket('wss://data.tradingview.com/socket.io/websocket', {
-      headers: {
-        Origin: 'https://www.tradingview.com',
-        'User-Agent': 'Mozilla/5.0',
-      },
-    });
+export async function getFinancialsFromChart(
+  symbols: string[],
+  quarters = 2,
+): Promise<Record<string, FinancialsFromChart[]>> {
+  const results: Record<string, FinancialsFromChart[]> = {};
+  for (const symbol of symbols) {
+    results[symbol] = await new Promise<FinancialsFromChart[]>(
+      (resolve, reject) => {
+        const ws = new WebSocket(
+          'wss://data.tradingview.com/socket.io/websocket',
+          {
+            headers: {
+              Origin: 'https://www.tradingview.com',
+              'User-Agent': 'Mozilla/5.0',
+            },
+          },
+        );
 
-    const sendMsg = (method: string, params: any[]) => {
-      const msg = JSON.stringify({ m: method, p: params });
-      ws.send(`~m~${msg.length}~m~${msg}`);
-    };
+        const sendMsg = (method: string, params: any[]) => {
+          const msg = JSON.stringify({ m: method, p: params });
+          ws.send(`~m~${msg.length}~m~${msg}`);
+        };
 
-    const prices: PriceData[] = [];
-    const eps: EpsData[] = [];
+        const prices: PriceData[] = [];
+        const eps: EpsData[] = [];
 
-    // Generate a unique sessionId based on 'cs_' + a hash of symbol and a random number
-    const symbol = 'NASDAQ:AAPL';
-    const hash = Math.abs(
-      Array.from(symbol).reduce((acc, char) => acc + char.charCodeAt(0), 0) +
-        Math.floor(Math.random() * 10000),
-    );
-    let sessionId = `cs_${hash}`;
-    let symbolResolved = false;
+        const sessionId = `cs_${Math.abs(
+          Array.from(symbol).reduce(
+            (acc, char) => acc + char.charCodeAt(0),
+            0,
+          ) + Math.floor(Math.random() * 10000),
+        )}`;
+        const symbolKey = `symbol_1`;
+        const seriesKey = `series_1`;
+        const studyKey = `study_1`;
+        let resolved = false;
 
-    const initSession = () => {
-      sessionId = 'cs_session';
-      sendMsg('chart_create_session', [sessionId, '']);
-      sendMsg('resolve_symbol', [
-        sessionId,
-        'symbol_1',
-        `={"adjustment":"splits","symbol":"${symbol}"}`,
-      ]);
-    };
-
-    const handleMessage = (data: any) => {
-      const str = Buffer.isBuffer(data) ? data.toString('utf8') : String(data);
-      const messages = parseMessages(str);
-
-      messages.forEach((parsed) => {
-        // Wait for symbol to be resolved before proceeding
-        if (!symbolResolved && parsed.m === 'symbol_resolved') {
-          symbolResolved = true;
-          sendMsg('create_series', [
+        const initSession = () => {
+          sendMsg('chart_create_session', [sessionId, '']);
+          sendMsg('resolve_symbol', [
             sessionId,
-            'series_1',
-            's1',
-            'symbol_1',
-            '1D',
-            20,
-            '',
+            symbolKey,
+            `={"adjustment":"splits","symbol":"${symbol}"}`,
           ]);
-          sendMsg('create_study', [
-            sessionId,
-            'study_1',
-            's1_study',
-            'series_1',
-            'Earnings@tv-basicstudies-251',
-            {},
-          ]);
-        }
+        };
 
-        prices.push(...extractPrices(parsed));
-        eps.push(...extractEps(parsed));
+        const handleMessage = (data: any) => {
+          const str = Buffer.isBuffer(data)
+            ? data.toString('utf8')
+            : String(data);
+          const messages = parseMessages(str);
 
-        if (parsed.m === 'study_completed') {
-          const result = mapEpsToPrice(prices, eps);
+          messages.forEach((parsed) => {
+            if (!resolved && parsed.m === 'symbol_resolved') {
+              resolved = true;
+sendMsg('create_series', [
+  sessionId,
+  seriesKey,
+  's1',
+  symbolKey,
+  '1D',
+  100,
+  '',
+]);
+              sendMsg('create_study', [
+                sessionId,
+                studyKey,
+                's1_study',
+                seriesKey,
+                'Earnings@tv-basicstudies-251',
+                {},
+              ]);
+            }
+
+            prices.push(...extractPrices(parsed));
+            eps.push(...extractEps(parsed));
+
+            if (parsed.m === 'study_completed' && eps.length > 0) {
+              ws.close();
+              // Filter out unofficial EPS values (e.g., 1e+100) and take last N quarters
+              const mapped = mapEpsToPrice(prices, eps)
+                .filter((item) => item.eps !== 1e100)
+                .slice(0, quarters);
+              const withGrowth = addEpsGrowth(mapped);
+              resolve(withGrowth);
+            }
+          });
+        };
+
+        ws.on('open', initSession);
+        ws.on('message', (data) => {
+          handleMessage(data);
+        });
+        ws.on('error', (err) => {
           ws.close();
-          resolve(result);
-        }
-      });
-    };
-
-    ws.on('open', initSession);
-    ws.on('message', (data) => {
-      handleMessage(data);
-    });
-    ws.on('error', (err) => {
-      ws.close();
-      reject(err);
-      throw new Error(`WebSocket error: ${err.message}`);
-    });
-    ws.on('close', () => {
-      if (!prices.length && !eps.length) {
-        reject(new Error('WebSocket closed before any data was received.'));
-      } else {
-        // If partial data was received, resolve with what we have
-        const result = mapEpsToPrice(prices, eps);
-        resolve(result);
-      }
-    });
-  });
+          reject(err);
+        });
+        ws.on('close', () => {
+          if (eps.length === 0) {
+            reject(new Error('WebSocket closed before any data was received.'));
+          } else {
+            // Filter out unofficial EPS values (e.g., 1e+100) and take last N quarters
+            const mapped = mapEpsToPrice(prices, eps)
+              .filter((item) => item.eps !== 1e100)
+              .slice(0, quarters);
+            const withGrowth = addEpsGrowth(mapped);
+            resolve(withGrowth);
+          }
+        });
+      },
+    ).catch(() => []);
+  }
+  return results;
 }
-
-getFinancialsFromChart()
-  .then((data) => {
-    console.log('Financials from chart:', data);
-  })
-  .catch((error) => {
-    console.error('Error fetching financials from chart:', error);
-  });
