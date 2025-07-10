@@ -1,52 +1,36 @@
 import * as React from 'react';
 
-import { fetchStockScreenerData } from '@/app/actions/stock';
+import { fetchStockFinancialData } from '@/app/actions/stock';
 import { SkeletonLoader } from '@/components/common/Skeleton';
 
 import RankingClient from './RankingClient';
 
-// Define columns for ranking page - showing all columns
-export const rankingColumns = [
+// Define columns for financial data ranking page
+export const financialColumns = [
   { key: 'number' as const, header: 'No.' },
   { key: 'symbol' as const, header: 'Symbol' },
-  { key: 'name' as const, header: 'Name' },
+  { key: 'latestPrice' as const, header: 'Latest Price' },
+  { key: 'latestEps' as const, header: 'Latest EPS' },
   {
-    key: 'growthRate' as const,
-    header: 'Growth Rate',
-    tooltip: 'Value Change Percentage',
+    key: 'latestGrowth' as const,
+    header: 'EPS Growth %',
+    tooltip: 'Latest quarter EPS growth percentage',
+  },
+  { key: 'latestDate' as const, header: 'Latest Date' },
+  {
+    key: 'avgGrowth' as const,
+    header: 'Avg Growth %',
+    tooltip: 'Average EPS growth across all quarters',
   },
   {
-    key: 'marketSize' as const,
-    header: 'Market Size',
-    tooltip: 'Total Market Presence',
-  },
-  {
-    key: 'growthFactor' as const,
-    header: 'Growth Factor',
-    tooltip: 'Growth Potential Indicator',
-  },
-  { key: 'sector' as const, header: 'Sector' },
-  { key: 'country' as const, header: 'Country' },
-  { key: 'exchange' as const, header: 'Exchange' },
-  {
-    key: 'entryPhase' as const,
-    header: 'Entry Phase',
-    tooltip: 'Optimal Entry Time',
-  },
-  {
-    key: 'phaseStatus' as const,
-    header: 'Phase Status',
-    tooltip: 'Current Phase Status',
-  },
-  {
-    key: 'chart' as const,
-    header: 'Analytics',
-    tooltip: 'Open Analytics View',
+    key: 'quarters' as const,
+    header: 'Historical Data',
+    tooltip: 'View quarterly financial data',
   },
 ];
 
 async function RankingPage() {
-  const initialData = await fetchStockScreenerData();
+  const initialData = await fetchStockFinancialData();
 
   return (
     <React.Suspense fallback={<SkeletonLoader />}>

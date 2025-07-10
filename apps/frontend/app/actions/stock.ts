@@ -1,60 +1,77 @@
 'use server';
 
-import type { TableDataMetrics } from '@/types/stockFetchData';
+import { rankStocksByEpsWithChart } from '@/utils/processStocks/rankingStocks';
+import { transformFinancialData } from '@/utils/transformers/stockDataTransformer';
+import type { StockFinancialData } from '@/types/financialChartData';
+import { MarketCountry } from '../../../../types/marketCountries';
 
-const getBackendUrl = () => {
-  return 'http://localhost:3000';
-};
+// Server-side cache to store data temporarily
+let serverCache: {
+  data: StockFinancialData[];
+  timestamp: number;
+  ttl: number;
+} | null = null;
 
-export async function fetchStockScreenerData(): Promise<TableDataMetrics[]> {
-  const response = await fetch(`${getBackendUrl()}/api/v1/stock/screener`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    next: {
-      revalidate: 300, // Cache for 5 minutes
-      tags: ['stockData'],
-    },
-  });
+const CACHE_TTL = 300; // 5 minutes in seconds
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.error('Stock screener fetch failed:', response.status, text);
-    throw new Error(`Stock screener fetch failed: ${response.status}`);
+export async function fetchStockFinancialData(
+  skip = 0,
+  limit = 10,
+  country: typeof MarketCountry = MarketCountry,
+  quarters = 3,
+): Promise<StockFinancialData[]> {
+  try {
+    console.log('Fetching stock financial data with params:', {
+      skip,
+      limit,
+      country,
+      quarters,
+    });
+
+    // Check server-side cache first
+    const now = Date.now();
+    if (serverCache && now - serverCache.timestamp < serverCache.ttl * 1000) {
+      console.log('Returning cached financial data');
+      return serverCache.data;
+    }
+
+    // Fetch data using the new utility function
+    const chartData = await rankStocksByEpsWithChart(
+      skip,
+      limit,
+      country,
+      quarters,
+    );
+
+    if (!chartData || Object.keys(chartData).length === 0) {
+      console.log('No financial chart data retrieved.');
+      return [];
+    }
+
+    // Transform the data to the new format
+    const transformedData = transformFinancialData(chartData);
+
+    // Cache the result
+    serverCache = {
+      data: transformedData,
+      timestamp: now,
+      ttl: CACHE_TTL,
+    };
+
+    console.log('Transformed and cached financial data:', transformedData);
+    return transformedData;
+  } catch (error) {
+    console.error('Error in fetchStockFinancialData:', error);
+    // Return cached data if available, even if expired, as fallback
+    if (serverCache) {
+      console.log('Returning expired cached data as fallback');
+      return serverCache.data;
+    }
+    return [];
   }
-
-  const data = await response.json();
-  // console.log('Fetched stock screener data:', data);
-  return data;
 }
 
-export async function fetchEpsGrowthRanking(params: {
-  limit?: number;
-  skip?: number;
-  sortBy?: 'growthIndicator' | 'activityScore';
-}): Promise<{ data: TableDataMetrics[] }> {
-  const searchParams = new URLSearchParams();
-  if (params.limit) searchParams.set('limit', params.limit.toString());
-  if (params.skip) searchParams.set('skip', params.skip.toString());
-  if (params.sortBy) searchParams.set('sort_by', params.sortBy);
-
-  const response = await fetch(
-    `${getBackendUrl()}/v1/stock/eps-growth-ranking?${searchParams}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      next: {
-        revalidate: 300, // Cache for 5 minutes
-        tags: ['stockData'],
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`EPS growth ranking fetch failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return { data };
+// Keep legacy function for backward compatibility during transition
+export async function fetchStockScreenerData(): Promise<StockFinancialData[]> {
+  return fetchStockFinancialData();
 }

@@ -52,15 +52,28 @@ const findClosestPrice = (
 ): PriceData | null => {
   if (!prices.length) return null;
 
-  return prices.reduce((closest, current) => {
-    const currentDiff = Math.abs(
-      new Date(current.date).getTime() - new Date(targetDate).getTime(),
-    );
-    const closestDiff = Math.abs(
-      new Date(closest.date).getTime() - new Date(targetDate).getTime(),
-    );
-    return currentDiff < closestDiff ? current : closest;
-  });
+  const targetTime = new Date(targetDate).getTime();
+
+  // Find the closest price, but only if it's within a reasonable time range (60 days)
+  const maxDiffMs = 60 * 24 * 60 * 60 * 1000; // 60 days in milliseconds
+
+  let closest = prices[0];
+  let closestDiff = Math.abs(new Date(closest.date).getTime() - targetTime);
+
+  for (const current of prices) {
+    const currentDiff = Math.abs(new Date(current.date).getTime() - targetTime);
+    if (currentDiff < closestDiff) {
+      closest = current;
+      closestDiff = currentDiff;
+    }
+  }
+
+  // Return null if the closest price is more than 60 days away from the target date
+  if (closestDiff > maxDiffMs) {
+    return null;
+  }
+
+  return closest;
 };
 
 const getQuarter = (date: string): number =>
@@ -73,6 +86,13 @@ const mapEpsToPrice = (
   return eps.map((epsItem) => {
     const closestPrice = findClosestPrice(prices, epsItem.date);
 
+    // Log when we can't find a suitable price match
+    if (!closestPrice) {
+      console.warn(
+        `No suitable price found for EPS date ${epsItem.date}. Available price range: ${prices.length > 0 ? `${prices[0].date} to ${prices[prices.length - 1].date}` : 'No prices available'}`,
+      );
+    }
+
     return {
       price: closestPrice?.price ?? null,
       date: epsItem.date,
@@ -83,16 +103,19 @@ const mapEpsToPrice = (
 };
 
 // Adds eps_growth to each entry, calculated as percent change from sum of all previous eps values
-function addEpsGrowth(arr: FinancialsFromChart[]): (FinancialsFromChart & { eps_growth?: number | null })[] {
+function addEpsGrowth(
+  arr: FinancialsFromChart[],
+): (FinancialsFromChart & { eps_growth?: number | null })[] {
   let sumPrev = 0;
   return arr.map((item, idx) => {
     if (idx === 0) {
       sumPrev += item.eps;
       return { ...item };
     }
-    const growth = sumPrev !== 0
-      ? Math.round(((item.eps - sumPrev) / Math.abs(sumPrev)) * 100)
-      : null;
+    const growth =
+      sumPrev !== 0
+        ? Math.round(((item.eps - sumPrev) / Math.abs(sumPrev)) * 100)
+        : null;
     sumPrev += item.eps;
     return { ...item, eps_growth: growth };
   });
@@ -176,15 +199,17 @@ export async function getFinancialsFromChart(
           messages.forEach((parsed) => {
             if (!resolved && parsed.m === 'symbol_resolved') {
               resolved = true;
-sendMsg('create_series', [
-  sessionId,
-  seriesKey,
-  's1',
-  symbolKey,
-  '1D',
-  100,
-  '',
-]);
+              // Request more historical data to cover multiple quarters
+              // Using 500 bars of daily data (~2 years) to ensure we have prices for EPS dates
+              sendMsg('create_series', [
+                sessionId,
+                seriesKey,
+                's1',
+                symbolKey,
+                '1D',
+                500,
+                '',
+              ]);
               sendMsg('create_study', [
                 sessionId,
                 studyKey,
