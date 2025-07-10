@@ -23,17 +23,20 @@ A modern monorepo for stock analytics and management, featuring a user-facing fr
 ## Features
 
 ### Frontend (`apps/frontend`)
+
 - Modern Next.js app with React and Tailwind CSS
 - User authentication via Google OAuth (Firebase)
 - Stock analytics and research tools
 - Responsive UI and dark mode support
 
 ### Admin Frontend (`apps/admin-frontend`)
+
 - Admin dashboard for managing users and data
 - Built with Next.js, React, and Tailwind CSS
 - Uses shared UI and config packages
 
 ### Backend (`apps/backend`)
+
 - Rust-based API server
 - Secure authentication with Firebase Admin SDK
 - Session management with HTTP-only cookies
@@ -61,12 +64,14 @@ A modern monorepo for stock analytics and management, featuring a user-facing fr
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone git@github.com:fluke-jesadakorn/epsx.git
    cd epsx
    ```
 
 2. **Install dependencies**
+
    ```bash
    pnpm install
    ```
@@ -76,8 +81,8 @@ A modern monorepo for stock analytics and management, featuring a user-facing fr
    - Fill in required values (see `.env.example` for details)
 
 4. **Build and run apps**
-
    - **Frontend**
+
      ```bash
      pnpm dev:fe
      # or
@@ -86,6 +91,7 @@ A modern monorepo for stock analytics and management, featuring a user-facing fr
      ```
 
    - **Admin Frontend**
+
      ```bash
      pnpm dev:admin
      # or
@@ -111,6 +117,7 @@ A modern monorepo for stock analytics and management, featuring a user-facing fr
 - RESTful API endpoints for authentication and session validation
 
 **Example Endpoints:**
+
 - `POST /v1/auth/google/init` — Initiate Google OAuth flow
 - `GET /v1/auth/google/callback` — Handle OAuth callback and set session
 - `GET /v1/auth/session/validate` — Validate active session
