@@ -1,6 +1,149 @@
 'use cache';
 
-const fetchScreenerStock = async () => {
+import { MarketCountry } from '../../../../types/marketCountries';
+
+const fetchScreenerStock = async (
+  skip = 0,
+  limit = 5,
+  country = MarketCountry,
+) => {
+  const customBody = () =>
+    JSON.stringify({
+      columns: [
+        'name',
+        'description',
+        'logoid',
+        'update_mode',
+        'type',
+        'typespecs',
+        'close',
+        'pricescale',
+        'minmov',
+        'fractional',
+        'minmove2',
+        'currency',
+        'change',
+        'volume',
+        'market_cap_basic',
+        'fundamental_currency_code',
+        'price_earnings_ttm',
+        'earnings_per_share_diluted_ttm',
+        'sector.tr',
+        'market',
+        'sector',
+        'recommendation_mark',
+        'earnings_per_share_diluted_qoq_growth_fq',
+        'exchange',
+      ],
+      filter: [
+        {
+          left: 'earnings_per_share_diluted_qoq_growth_fq',
+          operation: 'greater',
+          right: 0,
+        },
+        { left: 'is_primary', operation: 'equal', right: true },
+      ],
+      ignore_unknown_fields: false,
+      options: { lang: 'en' },
+      price_conversion: { to_currency: 'usd' },
+      range: [skip, limit],
+      sort: {
+        sortBy: 'earnings_per_share_diluted_qoq_growth_fq',
+        sortOrder: 'desc',
+      },
+      symbols: {},
+      markets: typeof country === 'string' ? [country] : Object.values(country),
+      filter2: {
+        operator: 'and',
+        operands: [
+          {
+            operation: {
+              operator: 'or',
+              operands: [
+                {
+                  operation: {
+                    operator: 'and',
+                    operands: [
+                      {
+                        expression: {
+                          left: 'type',
+                          operation: 'equal',
+                          right: 'stock',
+                        },
+                      },
+                      {
+                        expression: {
+                          left: 'typespecs',
+                          operation: 'has',
+                          right: ['common'],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  operation: {
+                    operator: 'and',
+                    operands: [
+                      {
+                        expression: {
+                          left: 'type',
+                          operation: 'equal',
+                          right: 'stock',
+                        },
+                      },
+                      {
+                        expression: {
+                          left: 'typespecs',
+                          operation: 'has',
+                          right: ['preferred'],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  operation: {
+                    operator: 'and',
+                    operands: [
+                      {
+                        expression: {
+                          left: 'type',
+                          operation: 'equal',
+                          right: 'dr',
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  operation: {
+                    operator: 'and',
+                    operands: [
+                      {
+                        expression: {
+                          left: 'type',
+                          operation: 'equal',
+                          right: 'fund',
+                        },
+                      },
+                      {
+                        expression: {
+                          left: 'typespecs',
+                          operation: 'has_none_of',
+                          right: ['etf'],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
   const response = await fetch(
     'https://scanner.tradingview.com/global/scan?label-product=screener-stock',
     {
@@ -23,7 +166,7 @@ const fetchScreenerStock = async () => {
         Referer: 'https://www.tradingview.com/',
         'Referrer-Policy': 'origin-when-cross-origin',
       },
-      body: '{"columns":["name","description","logoid","update_mode","type","typespecs","close","pricescale","minmov","fractional","minmove2","currency","change","volume","market_cap_basic","fundamental_currency_code","price_earnings_ttm","earnings_per_share_diluted_ttm","sector.tr","market","sector","recommendation_mark","earnings_per_share_diluted_qoq_growth_fq","exchange"],"filter":[{"left":"earnings_per_share_diluted_qoq_growth_fq","operation":"greater","right":0},{"left":"is_primary","operation":"equal","right":true}],"ignore_unknown_fields":false,"options":{"lang":"en"},"price_conversion":{"to_currency":"usd"},"range":[0,200],"sort":{"sortBy":"earnings_per_share_diluted_qoq_growth_fq","sortOrder":"desc"},"symbols":{},"markets":["america","argentina","australia","austria","bahrain","bangladesh","belgium","brazil","canada","chile","china","colombia","cyprus","czech","denmark","egypt","estonia","finland","france","germany","greece","hongkong","hungary","iceland","india","indonesia","ireland","israel","italy","japan","kenya","kuwait","latvia","lithuania","luxembourg","malaysia","mexico","morocco","netherlands","newzealand","nigeria","norway","pakistan","peru","philippines","poland","portugal","qatar","romania","russia","ksa","serbia","singapore","slovakia","rsa","korea","spain","srilanka","sweden","switzerland","taiwan","thailand","tunisia","turkey","uae","uk","venezuela","vietnam"],"filter2":{"operator":"and","operands":[{"operation":{"operator":"or","operands":[{"operation":{"operator":"and","operands":[{"expression":{"left":"type","operation":"equal","right":"stock"}},{"expression":{"left":"typespecs","operation":"has","right":["common"]}}]}},{"operation":{"operator":"and","operands":[{"expression":{"left":"type","operation":"equal","right":"stock"}},{"expression":{"left":"typespecs","operation":"has","right":["preferred"]}}]}},{"operation":{"operator":"and","operands":[{"expression":{"left":"type","operation":"equal","right":"dr"}}]}},{"operation":{"operator":"and","operands":[{"expression":{"left":"type","operation":"equal","right":"fund"}},{"expression":{"left":"typespecs","operation":"has_none_of","right":["etf"]}}]}}]}}]}}',
+      body: customBody(),
       method: 'POST',
     },
   );
@@ -35,7 +178,4 @@ const fetchScreenerStock = async () => {
   const data = await response.json();
   return data;
 };
-
-console.log('fetchScreenerStock called', await fetchScreenerStock());
-
 export default fetchScreenerStock;

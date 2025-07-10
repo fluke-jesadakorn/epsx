@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright-core';
+import chromiumBinary from '@sparticuz/chromium';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +14,17 @@ let browser: any = null;
 async function getBrowser() {
   if (browser) return browser;
 
-  browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  let launchOptions: any = { headless: true };
+
+  if (process.env.CHROME_PATH) {
+    launchOptions.executablePath = process.env.CHROME_PATH;
+  } else if (process.platform === 'linux') {
+    // Use @sparticuz/chromium only on Linux (e.g., AWS Lambda)
+    launchOptions.executablePath = await chromiumBinary.executablePath();
+    launchOptions.args = chromiumBinary.args;
+  }
+
+  browser = await chromium.launch(launchOptions);
   return browser;
 }
 
