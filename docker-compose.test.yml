@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  frontend-test:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=test
+    env_file:
+      - apps/frontend/.env.test
+    networks:
+      - epsx-test
+    depends_on:
+      - backend-test
+
+  backend-test:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - RUST_ENV=test
+      - PORT=3002
+    env_file:
+      - apps/backend/.env.test
+    networks:
+      - epsx-test
+
+  admin-test:
+    build:
+      context: .
+      dockerfile: apps/admin-frontend/Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=test
+    networks:
+      - epsx-test
+    depends_on:
+      - backend-test
+
+networks:
+  epsx-test:
+    driver: bridge
+
+volumes:
+  test_data:

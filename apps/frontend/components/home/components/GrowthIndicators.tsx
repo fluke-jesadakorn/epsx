@@ -114,12 +114,6 @@ export function AnimatedBadge({
   return (
     <div
       className={`
-        w-auto px-1 h-10 rounded-full 
-        bg-gradient-to-br from-purple-600 to-blue-500 
-        flex items-center justify-center 
-        text-white text-lg font-extrabold 
-        shadow-lg border-2 border-white dark:border-slate-900 
-        z-20 transition-all duration-300
         ${isHovered ? 'scale-110 shadow-xl' : ''}
         ${className}
       `}

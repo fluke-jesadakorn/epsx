@@ -15,13 +15,20 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getPackageById, PAYMENT_DURATION } from '@/app/constants/packages';
+import {
+  getAssetConfig,
+  getDefaultCurrency,
+  getSupportedCurrencies,
+  getMusePayApiUrl,
+  isProduction
+} from '@/utils/environment';
 
 // MusePay Configuration
 const MUSEPAY_CONFIG = {
   partnerId: process.env.MUSEPAY_PARTNER_ID || '2000109',
   privateKey: process.env.MUSEPAY_PRIVATE_KEY || '',
   publicKey: process.env.MUSEPAY_PUBLIC_KEY || '',
-  apiUrl: process.env.MUSEPAY_API_URL || 'https://api.test.topay.mobi/v1',
+  apiUrl: process.env.MUSEPAY_API_URL || getMusePayApiUrl(),
   notifyUrl:
     process.env.NEXT_PUBLIC_MUSEPAY_NOTIFY_URL ||
     'http://localhost:3000/api/v1/webhook/musepay',
@@ -226,6 +233,9 @@ export class MusePayService {
       throw new Error(`Package not found: ${packageId}`);
     }
 
+    // Get environment-appropriate currency
+    const defaultCurrency = getDefaultCurrency();
+    
     // 1. Store payment request in Firestore FIRST
     const paymentRequestRef = doc(collection(db, 'payment_requests'));
     const paymentRequest: PaymentRequest = {
@@ -234,7 +244,7 @@ export class MusePayService {
       userId,
       packageId,
       amount: packageData.price,
-      currency: 'USDT_BSC',
+      currency: defaultCurrency,
       status: 'pending',
       packageName: packageData.name,
       packageLevel: packageData.level,
@@ -245,10 +255,10 @@ export class MusePayService {
 
     await setDoc(paymentRequestRef, paymentRequest);
 
-    // 2. Call MusePay API
+    // 2. Call MusePay API with environment-appropriate currency
     const params: Record<string, any> = {
       request_id: customerRefId,
-      currency: 'USDT_BSC_TEST',
+      currency: defaultCurrency,
       amount: packageData.price.toString(),
       payment_method: 'on_chain',
       product_name: packageData.name,
@@ -458,6 +468,9 @@ export class MusePayService {
     return paymentRequestSnapshot.docs[0].data() as PaymentRequest;
   }
 }
+
+// Export utility functions for external use
+export { getAssetConfig, getDefaultCurrency, getSupportedCurrencies };
 
 // Export singleton instance
 export const musePayService = new MusePayService();

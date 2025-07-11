@@ -84,12 +84,14 @@ export function FinancialCard({
 
       {/* Rank Badge */}
       <div className="absolute top-4 left-4 z-30 w-12 h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-orange-400/60 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-orange-500/80">
+        {/* Decorative background */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-200/70 via-yellow-100/60 to-amber-100/50 dark:from-orange-900/40 dark:via-yellow-900/30 dark:to-amber-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1">
-            #{index + 1}
-            {index === 0 && <span className="text-xs">🏆</span>}
-            {index === 1 && <span className="text-xs">🥈</span>}
-            {index === 2 && <span className="text-xs">🥉</span>}
+        #{index + 1}
+        {index === 0 && <span className="text-xs">🏆</span>}
+        {index === 1 && <span className="text-xs">🥈</span>}
+        {index === 2 && <span className="text-xs">🥉</span>}
           </span>
         </AnimatedBadge>
       </div>

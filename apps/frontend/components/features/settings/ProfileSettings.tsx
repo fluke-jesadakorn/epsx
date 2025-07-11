@@ -1,33 +1,100 @@
-"use client";
+'use client';
 
-import { updateProfile, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "firebase/auth";
-import { useState, useEffect } from "react";
+import {
+  updateProfile,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider,
+} from 'firebase/auth';
+import { useState, useEffect } from 'react';
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/context/auth-context";
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/context/auth-context';
+import { status } from '@/services/pay';
+import { getPackageByLevel } from '@/app/constants/packages';
+import type { UserLevelType } from '@/app/constants/packages';
+import { User, Key, Save, Crown, Star, Trophy, Gem } from 'lucide-react';
 
 export function ProfileSettings() {
   const { user } = useAuth();
-  const [displayName, setDisplayName] = useState<string>("");
-  const [photoURL, setPhotoURL] = useState<string>("");
+  const [displayName, setDisplayName] = useState<string>('');
+  const [photoURL, setPhotoURL] = useState<string>('');
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
-  const [currentPassword, setCurrentPassword] = useState<string>("");
-  const [newPassword, setNewPassword] = useState<string>("");
-  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [currentPassword, setCurrentPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isPasswordLoading, setIsPasswordLoading] = useState<boolean>(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<boolean>(false);
+  const [userLevel, setUserLevel] = useState<UserLevelType>('BASIC');
+  const [isLoadingLevel, setIsLoadingLevel] = useState(true);
+
+  const levelIcons = {
+    BASIC: <Star className="h-5 w-5" />,
+    SILVER: <Trophy className="h-5 w-5" />,
+    GOLD: <Crown className="h-5 w-5" />,
+    PLATINUM: <Gem className="h-5 w-5" />,
+    API_PERSONAL: <Star className="h-5 w-5" />,
+    API_COMPANY: <Star className="h-5 w-5" />,
+    API_PARTNER: <Star className="h-5 w-5" />,
+  };
+
+  const levelGradients = {
+    BASIC: 'from-gray-400 to-gray-600',
+    SILVER: 'from-slate-400 to-slate-600',
+    GOLD: 'from-yellow-400 to-orange-500',
+    PLATINUM: 'from-purple-500 to-pink-600',
+    API_PERSONAL: 'from-indigo-500 to-blue-600',
+    API_COMPANY: 'from-blue-600 to-cyan-600',
+    API_PARTNER: 'from-purple-600 to-indigo-700',
+  };
+
+  const levelBackgrounds = {
+    BASIC:
+      'bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50',
+    SILVER:
+      'bg-gradient-to-br from-slate-50/50 to-slate-100/50 dark:from-slate-900/50 dark:to-slate-800/50',
+    GOLD: 'bg-gradient-to-br from-yellow-50/50 to-orange-50/50 dark:from-yellow-900/20 dark:to-orange-900/20',
+    PLATINUM:
+      'bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20',
+    API_PERSONAL:
+      'bg-gradient-to-br from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/20 dark:to-blue-900/20',
+    API_COMPANY:
+      'bg-gradient-to-br from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20',
+    API_PARTNER:
+      'bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/20',
+  };
 
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || "");
-      setPhotoURL(user.photoURL || "");
+      setDisplayName(user.displayName || '');
+      setPhotoURL(user.photoURL || '');
+
+      // Fetch user level
+      const fetchUserLevel = async () => {
+        try {
+          const userStatus = await status();
+          setUserLevel(userStatus.level as UserLevelType);
+        } catch (error) {
+          console.error('Failed to fetch user level:', error);
+          setUserLevel('BASIC');
+        } finally {
+          setIsLoadingLevel(false);
+        }
+      };
+
+      fetchUserLevel();
+    } else {
+      setIsLoadingLevel(false);
     }
   }, [user]);
 
@@ -42,13 +109,13 @@ export function ProfileSettings() {
     try {
       await updateProfile(user, {
         displayName,
-        photoURL: photoURL || "",
+        photoURL: photoURL || '',
       });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError("Failed to update profile. Please try again.");
-      console.error("Profile update error:", err);
+      setError('Failed to update profile. Please try again.');
+      console.error('Profile update error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +126,7 @@ export function ProfileSettings() {
     if (!user) return;
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match.");
+      setPasswordError('New passwords do not match.');
       return;
     }
 
@@ -69,19 +136,24 @@ export function ProfileSettings() {
 
     try {
       // Reauthenticate user before changing password
-      const credential = EmailAuthProvider.credential(user.email || "", currentPassword);
+      const credential = EmailAuthProvider.credential(
+        user.email || '',
+        currentPassword,
+      );
       await reauthenticateWithCredential(user, credential);
-      
+
       // Update password
       await updatePassword(user, newPassword);
       setPasswordSuccess(true);
       setTimeout(() => setPasswordSuccess(false), 3000);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (err) {
-      setPasswordError("Failed to change password. Please check your current password and try again.");
-      console.error("Password change error:", err);
+      setPasswordError(
+        'Failed to change password. Please check your current password and try again.',
+      );
+      console.error('Password change error:', err);
     } finally {
       setIsPasswordLoading(false);
     }
@@ -97,15 +169,37 @@ export function ProfileSettings() {
     );
   }
 
+  const currentPackage = getPackageByLevel(userLevel);
+
   return (
-    <div className="space-y-6">
+    <div
+      className={`relative space-y-6 ${levelBackgrounds[userLevel]} rounded-xl p-4 border border-muted/30 transition-all duration-300`}
+    >
+      {!isLoadingLevel && (
+        <>
+          <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
+            <div
+              className={`w-full h-full bg-gradient-to-br ${levelGradients[userLevel]} rounded-full blur-2xl animate-pulse-slow`}
+            ></div>
+          </div>
+          <div className="absolute bottom-0 left-0 w-16 h-16 opacity-5 pointer-events-none">
+            <div
+              className={`w-full h-full bg-gradient-to-tr ${levelGradients[userLevel]} rounded-full blur-xl animate-float`}
+            ></div>
+          </div>
+        </>
+      )}
+
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       {success && (
-        <Alert variant="default" className="border-green-500 text-green-500">
+        <Alert
+          variant="default"
+          className="border-green-500 text-green-500 bg-green-50/50 dark:bg-green-900/20"
+        >
           <AlertDescription>Profile updated successfully!</AlertDescription>
         </Alert>
       )}
@@ -115,81 +209,226 @@ export function ProfileSettings() {
         </Alert>
       )}
       {passwordSuccess && (
-        <Alert variant="default" className="border-green-500 text-green-500">
+        <Alert
+          variant="default"
+          className="border-green-500 text-green-500 bg-green-50/50 dark:bg-green-900/20"
+        >
           <AlertDescription>Password changed successfully!</AlertDescription>
         </Alert>
       )}
-      <div className="flex items-center gap-4">
-        <Avatar className="w-20 h-20">
-          <AvatarImage src={photoURL} alt={displayName || "User"} />
-          <AvatarFallback>{displayName?.charAt(0) || "U"}</AvatarFallback>
-        </Avatar>
-        <div>
-          <h3 className="text-lg font-medium">{displayName || "User"}</h3>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+
+      <div className="flex items-center gap-2 mb-4">
+        <div
+          className={`p-2 rounded-lg bg-gradient-to-br ${levelGradients[userLevel]} text-white`}
+        >
+          <User className="h-5 w-5" />
         </div>
+        <h4 className="text-lg font-semibold">Profile Information</h4>
       </div>
-      <form onSubmit={handleUpdateProfile} className="space-y-4">
-        <div className="grid gap-2">
-          <Label htmlFor="displayName">Name</Label>
-          <Input
-            id="displayName"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Enter your name"
-          />
+
+      {/* Enhanced Profile Header */}
+      <div className="relative flex items-center gap-4 p-4 rounded-lg bg-background/60 backdrop-blur-sm border border-muted/30">
+        <div className="relative">
+          <Avatar
+            className={`w-20 h-20 ring-2 ring-offset-2 transition-all duration-300 ${
+              isLoadingLevel ? 'ring-muted' : `ring-[hsl(var(--primary))]/30`
+            }`}
+          >
+            <AvatarImage src={photoURL} alt={displayName || 'User'} />
+            <AvatarFallback
+              className={`text-lg font-semibold ${
+                !isLoadingLevel
+                  ? `bg-gradient-to-br ${levelGradients[userLevel]} text-white`
+                  : ''
+              }`}
+            >
+              {displayName?.charAt(0) || 'U'}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* Level Badge on Avatar */}
+          {!isLoadingLevel && (
+            <div
+              className={`absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
+            >
+              <div className="text-white">{levelIcons[userLevel]}</div>
+            </div>
+          )}
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="photoURL">Profile Picture URL</Label>
-          <Input
-            id="photoURL"
-            value={photoURL}
-            onChange={(e) => setPhotoURL(e.target.value)}
-            placeholder="Enter URL for profile picture"
-          />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-semibold truncate">
+              {displayName || 'User'}
+            </h3>
+            {!isLoadingLevel && (
+              <Badge
+                variant="secondary"
+                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold animate-shimmer text-xs`}
+              >
+                {userLevel}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+          {!isLoadingLevel && currentPackage && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {currentPackage.rankingLimit} stocks access •{' '}
+              {currentPackage.name}
+            </p>
+          )}
         </div>
-        <Button type="submit" disabled={isLoading} className="border border-primary">
-          {isLoading ? "Updating..." : "Save Changes"}
+
+        {/* Special Effects for Premium Levels */}
+        {!isLoadingLevel &&
+          (userLevel === 'GOLD' || userLevel === 'PLATINUM') && (
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping"></div>
+              <div className="absolute bottom-2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-pulse delay-300"></div>
+            </div>
+          )}
+      </div>
+      {/* Enhanced Profile Form */}
+      <div className="relative space-y-6">
+        <Button
+          variant="outline"
+          className="mb-2"
+          onClick={() => setShowProfileForm((v) => !v)}
+        >
+          {showProfileForm ? 'Hide Name Section' : 'Set Name'}
         </Button>
-      </form>
-      
-      <div className="mt-8">
-        <h3 className="text-lg font-medium mb-4">Change Password</h3>
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Enter current password"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="newPassword">New Password</Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-            />
-          </div>
-          <Button type="submit" disabled={isPasswordLoading} className="border border-primary">
-            {isPasswordLoading ? "Changing..." : "Change Password"}
-          </Button>
-        </form>
+        {showProfileForm && (
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="displayName" className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                Name
+              </Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your name"
+                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="photoURL" className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4 text-muted-foreground"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Profile Picture URL
+              </Label>
+              <Input
+                id="photoURL"
+                value={photoURL}
+                onChange={(e) => setPhotoURL(e.target.value)}
+                placeholder="Enter URL for profile picture"
+                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isLoading ? 'Updating...' : 'Save Changes'}
+            </Button>
+          </form>
+        )}
+      </div>
+
+      {/* Enhanced Password Form */}
+      <div className="relative space-y-6 pt-6 border-t border-muted/30">
+        <Button
+          variant="outline"
+          className="mb-2"
+          onClick={() => setShowPasswordForm((v) => !v)}
+        >
+          {showPasswordForm ? 'Hide Change Password' : 'Change Password'}
+        </Button>
+        {showPasswordForm && (
+          <>
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className={`p-2 rounded-lg bg-gradient-to-br ${levelGradients[userLevel]} text-white`}
+              >
+                <Key className="h-5 w-5" />
+              </div>
+              <h4 className="text-lg font-semibold">Security Settings</h4>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="grid gap-2">
+                <Label
+                  htmlFor="currentPassword"
+                  className="flex items-center gap-2"
+                >
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  Current Password
+                </Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="newPassword" className="flex items-center gap-2">
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  New Password
+                </Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label
+                  htmlFor="confirmPassword"
+                  className="flex items-center gap-2"
+                >
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  Confirm New Password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isPasswordLoading}
+                className={`w-full bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}
+              >
+                <Key className="h-4 w-4 mr-2" />
+                {isPasswordLoading ? 'Changing...' : 'Change Password'}
+              </Button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

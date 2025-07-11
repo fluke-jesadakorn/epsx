@@ -18,13 +18,13 @@ export function Methods({ val, set }: MethodsProps) {
     <div className="p-6 bg-white rounded-lg shadow-sm">
       <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
       <div className="space-y-2">
-        {PAYS.map(m => (
-          <label 
-            key={m.id} 
+        {PAYS.map((m) => (
+          <label
+            key={m.id}
             className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
           >
-            <input 
-              type="radio" 
+            <input
+              type="radio"
               name="payment"
               checked={val === m.id}
               onChange={() => set(m.id)}
