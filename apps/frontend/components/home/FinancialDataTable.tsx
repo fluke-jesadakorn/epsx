@@ -1,55 +1,25 @@
 'use client';
 
-import { ChevronDown, ChevronUp, LayoutGrid, Table2 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 import { Button } from '../ui/button';
 
 import type { StockFinancialData } from '@/types/financialChartData';
 import { 
   getLatestQuarterData, 
-  getLatestQuarterWithGrowth,
   calculateAverageEpsGrowth, 
   formatPrice, 
   formatEpsGrowth, 
   formatDate 
 } from '@/utils/transformers/stockDataTransformer';
 
-interface FinancialColumnDef {
-  key: 'number' | 'symbol' | 'latestPrice' | 'latestEps' | 'latestGrowth' | 'latestDate' | 'avgGrowth' | 'quarters';
-  header: string;
-  tooltip?: string;
-  render?: (row: StockFinancialData, index: number) => React.ReactNode;
-}
-
 interface FinancialDataTableProps {
   style?: React.CSSProperties;
   className?: string;
   data: StockFinancialData[];
-  columns?: FinancialColumnDef[];
-  defaultView?: 'table' | 'card';
 }
-
-const defaultColumns: FinancialColumnDef[] = [
-  { key: 'number', header: 'No.' },
-  { key: 'symbol', header: 'Symbol' },
-  { key: 'latestPrice', header: 'Latest Price' },
-  { key: 'latestEps', header: 'Latest EPS' },
-  { key: 'latestGrowth', header: 'EPS Growth %', tooltip: 'Latest quarter EPS growth percentage' },
-  { key: 'latestDate', header: 'Latest Date' },
-  { key: 'avgGrowth', header: 'Avg Growth %', tooltip: 'Average EPS growth across all quarters' },
-  { key: 'quarters', header: 'Historical Data', tooltip: 'View quarterly financial data' },
-];
 
 interface FinancialDataCardProps {
   data: StockFinancialData;
@@ -57,8 +27,8 @@ interface FinancialDataCardProps {
 }
 
 function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.Element {
-  const [expanded, setExpanded] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+  const [isPressed, setIsPressed] = React.useState(false);
   const latestQuarter = getLatestQuarterData(data);
   const avgGrowth = calculateAverageEpsGrowth(data);
 
@@ -82,8 +52,19 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div>
             <div className="text-xs text-muted-foreground font-semibold">Symbol</div>
-            <div className="text-xl font-extrabold text-primary dark:text-white drop-shadow-sm tracking-wide">
-              {data.symbol}
+            <div className="flex items-center gap-2">
+              <div className="text-xl font-extrabold text-primary dark:text-white drop-shadow-sm tracking-wide">
+                {data.symbol}
+              </div>
+              {data.quarters.length >= 2 && data.quarters[0].eps_growth !== undefined && data.quarters[1].eps_growth !== undefined && (
+                <span className={`text-lg ${
+                  data.quarters[0].eps_growth > data.quarters[1].eps_growth 
+                    ? 'text-emerald-500' 
+                    : 'text-rose-500'
+                }`}>
+                  {data.quarters[0].eps_growth > data.quarters[1].eps_growth ? '↗' : '↘'}
+                </span>
+              )}
             </div>
           </div>
           <div>
@@ -144,11 +125,6 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
             className="w-full rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-[#232946] dark:to-[#1a1a2e] text-primary dark:text-white font-bold shadow hover:scale-105 transition"
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? (
-              <ChevronUp className="h-4 w-4 mr-1" />
-            ) : (
-              <ChevronDown className="h-4 w-4 mr-1" />
-            )}
             {expanded ? 'Less' : 'More'}
           </Button>
           <Button
@@ -186,19 +162,120 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="text-muted-foreground font-semibold">Historical Data</div>
-            {data.quarters.map((quarter, idx) => (
-              <div key={idx} className="flex justify-between items-center text-xs bg-white/50 dark:bg-black/20 rounded-lg p-2">
-                <span>Q{quarter.quarter} {quarter?.date ? formatDate(quarter.date) : 'N/A'}</span>
-                <div className="text-right">
-                  <div>{quarter?.price !== undefined ? formatPrice(quarter.price) : 'N/A'}</div>
-                  <div className={`${(quarter?.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-400'}`}>
-                    {quarter?.eps_growth !== undefined ? formatEpsGrowth(quarter.eps_growth) : 'N/A'}
+          <div className="space-y-3">
+            <div className="text-muted-foreground font-semibold text-sm flex items-center gap-2">
+              <span>📊 Quarterly Performance</span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                {data.quarters.length}Q
+              </span>
+            </div>
+            
+            {/* Modern Grid Header */}
+            <div className="grid grid-cols-6 gap-1 text-[9px] font-bold text-muted-foreground/80 uppercase tracking-wide bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800/50 dark:to-slate-700/50 px-2 py-1.5 rounded-lg">
+              <span className="text-center">Q</span>
+              <span className="text-center">Date</span>
+              <span className="text-center">Price</span>
+              <span className="text-center">EPS</span>
+              <span className="text-center">EPS %</span>
+              <span className="text-center">Price %</span>
+            </div>
+            
+            {/* Quarter Data with improved layout */}
+            <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar">
+              {data.quarters.map((quarter, idx) => (
+                <div key={idx} className="group hover:scale-[1.01] transition-all duration-150">
+                  <div className="grid grid-cols-6 gap-1 text-xs bg-gradient-to-r from-white/70 to-slate-50/70 dark:from-slate-800/30 dark:to-slate-700/30 rounded-lg px-2 py-2 border border-slate-200/40 dark:border-slate-600/20 hover:shadow-sm hover:border-blue-300/40 dark:hover:border-blue-500/30 transition-all duration-150">
+                    
+                    {/* Quarter */}
+                    <div className="flex items-center justify-center">
+                      <span className="font-bold text-primary/80 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full text-[9px]">
+                        Q{quarter.quarter}
+                      </span>
+                    </div>
+                    
+                    {/* Date */}
+                    <div className="flex items-center justify-center">
+                      <span className="font-medium text-slate-700 dark:text-slate-300 text-[9px] text-center">
+                        {quarter?.date ? formatDate(quarter.date).slice(5) : 'N/A'}
+                      </span>
+                    </div>
+                    
+                    {/* Price */}
+                    <div className="flex items-center justify-center">
+                      <span className="font-bold text-blue-700 dark:text-blue-300 text-[9px] text-center">
+                        {quarter?.price !== undefined && quarter?.price !== null ? 
+                          (quarter.price < 1000 ? formatPrice(quarter.price) : `$${(quarter.price/1000).toFixed(1)}k`) 
+                          : 'N/A'
+                        }
+                      </span>
+                    </div>
+                    
+                    {/* EPS */}
+                    <div className="flex items-center justify-center">
+                      <span className="font-bold text-purple-700 dark:text-purple-300 text-[9px] text-center">
+                        {quarter?.eps !== undefined ? quarter.eps.toFixed(2) : 'N/A'}
+                      </span>
+                    </div>
+                    
+                    {/* EPS Growth */}
+                    <div className="flex items-center justify-center">
+                      {quarter?.eps_growth !== undefined ? (
+                        <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
+                          quarter.eps_growth >= 0 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        }`}>
+                          {quarter.eps_growth >= 0 ? '+' : ''}{quarter.eps_growth}%
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[8px]">-</span>
+                      )}
+                    </div>
+                    
+                    {/* Price Growth */}
+                    <div className="flex items-center justify-center">
+                      {quarter?.price_growth !== undefined && quarter.price_growth !== null ? (
+                        <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
+                          quarter.price_growth >= 0 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        }`}>
+                          {quarter.price_growth >= 0 ? '+' : ''}{quarter.price_growth}%
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[8px]">-</span>
+                      )}
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Quick Insights */}
+            <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-200 dark:border-slate-600">
+              <div className="text-center">
+                <div className="text-[8px] text-muted-foreground font-medium">Best Growth</div>
+                <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {Math.max(...data.quarters.filter(q => q.eps_growth !== undefined).map(q => q.eps_growth || 0), 0)}%
+                </div>
               </div>
-            ))}
+              <div className="text-center">
+                <div className="text-[8px] text-muted-foreground font-medium">Trend</div>
+                <div className="text-[10px] font-bold">
+                  {data.quarters.length >= 2 && data.quarters[0].eps_growth !== undefined && data.quarters[1].eps_growth !== undefined ? (
+                    <span className={data.quarters[0].eps_growth > data.quarters[1].eps_growth ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                      {data.quarters[0].eps_growth > data.quarters[1].eps_growth ? '↗' : '↘'}
+                    </span>
+                  ) : '-'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-[8px] text-muted-foreground font-medium">Quarters</div>
+                <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                  {data.quarters.length}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -210,85 +287,11 @@ function FinancialDataTable({
   style,
   className,
   data,
-  columns = defaultColumns,
-  defaultView = 'card',
 }: FinancialDataTableProps): React.JSX.Element {
   // Ensure data is always an array to prevent runtime errors
   const safeData = Array.isArray(data) ? data : [];
-  const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isNarrow, setIsNarrow] = useState(false);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = typeof window !== 'undefined' ? window.innerWidth : 0;
-      setIsMobile(width < 768);
-      setIsNarrow(width < 1200);
-      // Only apply responsive switching for table view
-      if (defaultView === 'table') {
-        setViewMode(width < 768 ? 'card' : 'table');
-      }
-    };
-
-    checkScreenSize();
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', checkScreenSize);
-      return () => window.removeEventListener('resize', checkScreenSize);
-    }
-  }, [defaultView]);
-
-  const renderTableView = () => (
-    <div className="relative w-full">
-      <div className="rounded-3xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] shadow-xl max-w-[100vw] overflow-x-auto custom-scrollbar">
-        <div className="min-w-[1200px]">
-          <Table>
-            <TableHeader className="bg-gradient-to-r from-blue-200/40 via-purple-200/40 to-pink-200/40 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40 backdrop-blur-sm sticky top-0 z-10">
-              <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
-                  <TableHead
-                    key={column.key}
-                    className="font-bold text-primary/80 dark:text-white tracking-wide"
-                  >
-                    {column.tooltip ? (
-                      <span title={column.tooltip}>{column.header}</span>
-                    ) : (
-                      column.header
-                    )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {safeData.map((row, index) => (
-                <TableRow
-                  key={`${row.symbol}-${index}`}
-                  className="hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column.key}
-                      className={
-                        column.key === 'symbol' ? 'font-bold' : ''
-                      }
-                    >
-                      {renderCell(row, column, index)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-      {isNarrow && (
-        <div className="mt-2 text-sm text-muted-foreground text-center">
-          Scroll horizontally to see more →
-        </div>
-      )}
-    </div>
-  );
-
+  // Responsive card grid
   const renderCardView = () => (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {safeData.map((item, index) => (
@@ -297,84 +300,12 @@ function FinancialDataTable({
     </div>
   );
 
-  // Render cell content for table view
-  const renderCell = (
-    row: StockFinancialData,
-    column: FinancialColumnDef,
-    index: number,
-  ) => {
-    if (column.render) {
-      return column.render(row, index);
-    }
-
-    const latestQuarter = getLatestQuarterData(row);
-    const latestQuarterWithGrowth = getLatestQuarterWithGrowth(row);
-    const avgGrowth = calculateAverageEpsGrowth(row);
-
-    switch (column.key) {
-      case 'number':
-        return index + 1;
-      case 'symbol':
-        return row.symbol;
-      case 'latestPrice':
-        // Use current price if available, otherwise fall back to latest quarter price
-        const priceToShow = row.currentPrice !== undefined && row.currentPrice !== null 
-          ? row.currentPrice 
-          : latestQuarter?.price;
-        return priceToShow !== undefined && priceToShow !== null ? formatPrice(priceToShow) : 'N/A';
-      case 'latestEps':
-        return latestQuarter?.eps !== undefined ? latestQuarter.eps.toFixed(4) : 'N/A';
-      case 'latestGrowth':
-        return (
-          <span
-            className={`font-medium ${(latestQuarterWithGrowth?.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-500'}`}
-          >
-            {latestQuarterWithGrowth?.eps_growth !== undefined ? formatEpsGrowth(latestQuarterWithGrowth.eps_growth) : 'N/A'}
-          </span>
-        );
-      case 'latestDate':
-        return latestQuarter?.date ? formatDate(latestQuarter.date) : 'N/A';
-      case 'avgGrowth':
-        return (
-          <span
-            className={`font-medium ${(avgGrowth || 0) >= 0 ? 'text-green-500' : 'text-rose-500'}`}
-          >
-            {formatEpsGrowth(avgGrowth)}
-          </span>
-        );
-      case 'quarters':
-        return (
-          <div className="space-y-1 min-w-[220px]">
-            <div className="text-xs font-semibold text-muted-foreground mb-1">
-              Quarter | Date | Price | EPS | EPS Growth % | Price Growth %
-            </div>
-            {row.quarters.map((q, idx) => (
-              <div key={idx} className="flex flex-wrap items-center gap-2 text-xs bg-white/60 dark:bg-black/20 rounded px-2 py-1 mb-1">
-                <span className="font-bold">Q{q.quarter}</span>
-                <span>{q.date ? formatDate(q.date) : 'N/A'}</span>
-                <span>{q.price !== null && q.price !== undefined ? formatPrice(q.price) : 'N/A'}</span>
-                <span>{q.eps !== undefined ? q.eps.toFixed(4) : 'N/A'}</span>
-                <span className={q.eps_growth !== undefined && q.eps_growth >= 0 ? 'text-green-500' : 'text-rose-500'}>
-                  {q.eps_growth !== undefined ? formatEpsGrowth(q.eps_growth) : 'N/A'}
-                </span>
-                <span className={q.price_growth !== undefined && q.price_growth !== null && q.price_growth >= 0 ? 'text-green-500' : 'text-rose-500'}>
-                  {q.price_growth === null || q.price_growth === undefined ? '-' : `${q.price_growth}%`}
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <div
       className={`w-full space-y-6 p-4 sm:p-8 ${className || ''}`}
       style={style}
     >
-      {/* Title and View Toggle */}
+      {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow">
@@ -382,35 +313,10 @@ function FinancialDataTable({
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full mt-2" />
         </div>
-
-        {/* Only show view toggle for table default view */}
-        {!isMobile && defaultView === 'table' && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('table')}
-              className="w-[100px] rounded-full font-bold shadow"
-            >
-              <Table2 className="h-4 w-4 mr-2" />
-              Table
-            </Button>
-            <Button
-              variant={viewMode === 'card' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('card')}
-              className="w-[100px] rounded-full font-bold shadow"
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Cards
-            </Button>
-          </div>
-        )}
       </div>
-
-      {/* Content based on view mode */}
+      {/* Card content only */}
       <div className="-mx-4 sm:-mx-8 px-4 sm:px-8">
-        {viewMode === 'table' ? renderTableView() : renderCardView()}
+        {renderCardView()}
       </div>
     </div>
   );
