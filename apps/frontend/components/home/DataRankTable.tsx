@@ -30,6 +30,7 @@ interface DataRankTableProps {
   data: TableDataMetrics[];
   columns?: ColumnDef[];
   defaultView?: 'table' | 'card';
+  rankingLimit?: number; // max items to display, from user profile
 }
 
 const defaultColumns: ColumnDef[] = [
@@ -99,9 +100,9 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
   return (
     <Card
-      className={`w-full transition-all duration-200 hover:shadow-2xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] rounded-3xl shadow-lg relative ${
+      className={`w-full transition-all duration-200 hover:shadow-2xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] rounded-3xl shadow-lg ${
         isPressed ? 'scale-[0.98] opacity-90' : ''
-      }`}
+      } relative`}
       onTouchStart={() => setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       onMouseDown={() => setIsPressed(true)}
@@ -109,7 +110,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
       onMouseLeave={() => setIsPressed(false)}
     >
       {/* Rank Number Badge */}
-      <div className="absolute -top-3 -left-3 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 dark:from-yellow-600 dark:via-pink-700 dark:to-purple-800 flex items-center justify-center text-white text-base font-extrabold shadow-xl border-4 border-white dark:border-[#232946]">
+      <div className="absolute top-4 w-auto left-4 z-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 dark:from-yellow-600 dark:via-pink-700 dark:to-purple-800 flex items-center justify-center text-white text-base font-extrabold shadow-xl border-4 border-white dark:border-[#232946]">
         {index + 1}
       </div>
       <CardContent className="p-6 pt-8">
@@ -253,9 +254,13 @@ function DataRankTable({
   data,
   columns = defaultColumns,
   defaultView = 'card',
+  rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
   // Ensure data is always an array to prevent runtime errors
-  const safeData = Array.isArray(data) ? data : [];
+  let safeData = Array.isArray(data) ? data : [];
+  if (typeof rankingLimit === 'number' && rankingLimit > 0) {
+    safeData = safeData.slice(0, rankingLimit);
+  }
   const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);

@@ -19,14 +19,54 @@ export function Pay({ pkg = '', amt = '' }: PayProps) {
     amt,
     pay: 'USDT_TRC20',
   });
+  const [deposit, setDeposit] = useState<{
+    address: string;
+    currency: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGo = async () => {
+    if (!data.pkg || !data.amt || !data.pay) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Replace with actual userId from auth context if available
+      const userId =
+        (typeof window !== 'undefined' &&
+          window.localStorage.getItem('userId')) ||
+        'demo-user';
+      const res = await fetch('/api/payment/deposit-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currency: data.pay,
+          userId,
+          packageId: data.pkg,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.deposit)
+        throw new Error(result.error || 'Failed to get deposit address');
+      setDeposit({
+        address: result.deposit.address,
+        currency: result.deposit.currency,
+      });
+      setStep('qr');
+    } catch (e: any) {
+      setError(e.message || 'Failed to get deposit address');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (step === 'done') return <Done />;
-  if (step === 'qr') {
+  if (step === 'qr' && deposit) {
     return (
       <QR
-        _pkg={data.pkg}
         amt={data.amt}
-        _pay={data.pay}
+        address={deposit.address}
+        currency={deposit.currency}
         back={() => setStep('pick')}
         done={() => setStep('done')}
       />
@@ -44,10 +84,14 @@ export function Pay({ pkg = '', amt = '' }: PayProps) {
 
       <Methods val={data.pay} set={(pay) => setData({ ...data, pay })} />
 
-      <Total
-        {...data}
-        go={() => setStep(data.pay.includes('USDT') ? 'qr' : 'done')}
-      />
+      <Total {...data} go={handleGo} />
+
+      {loading && (
+        <div className="text-center text-gray-500">
+          Loading deposit address...
+        </div>
+      )}
+      {error && <div className="text-center text-red-500">{error}</div>}
     </div>
   );
 }

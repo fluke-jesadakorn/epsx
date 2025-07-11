@@ -54,9 +54,10 @@ export function FinancialCard({
         bg-gradient-to-br ${GRADIENTS.card}
         rounded-2xl shadow-lg 
         ${GRADIENTS.cardHover}
-        relative overflow-hidden backdrop-blur-sm cursor-pointer 
+        overflow-hidden backdrop-blur-sm cursor-pointer 
         focus:outline-none focus:ring-4 focus:ring-orange-500/20 
         ${isPressed ? `${ANIMATIONS.scalePress} opacity-90` : ''}
+        relative
       `}
       tabIndex={0}
       role="button"
@@ -82,7 +83,7 @@ export function FinancialCard({
       </div>
 
       {/* Rank Badge */}
-      <div className="absolute top-4 left-4 z-20">
+      <div className="absolute top-4 left-4 z-30 w-12 h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-orange-400/60 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-orange-500/80">
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1">
             #{index + 1}

@@ -61,7 +61,7 @@ export default function ClientEpsCardSection({
             return (
               <Card
                 key={item.symbol || index}
-                className="card-pancake hover:pancake-shadow group relative overflow-hidden"
+                className="card-pancake hover:pancake-shadow group overflow-hidden"
               >
                 {/* Ranking badge */}
                 {index < 3 && (

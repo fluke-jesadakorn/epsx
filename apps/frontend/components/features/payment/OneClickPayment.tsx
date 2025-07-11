@@ -25,6 +25,7 @@ import {
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
 import { auth } from '@/lib/firebase';
 import PaymentDetails from './PaymentDetails';
+import { QRCodeCanvas } from 'qrcode.react';
 interface OneClickPaymentProps {
   preselectedPackage?: string;
   preselectedAmount?: string;
@@ -101,7 +102,7 @@ export default function OneClickPayment({
   const paymentService = createPaymentService();
 
   // State management
-  const [step, setStep] = useState<'select' | 'details' | 'success'>('select');
+  const [step, setStep] = useState<'select' | 'pay' | 'success'>('select');
   const [selectedPackage, setSelectedPackage] = useState(preselectedPackage);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState('USDT_TRC20');
@@ -109,6 +110,7 @@ export default function OneClickPayment({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
+  const [deposit, setDeposit] = useState<{ address: string; currency: string } | null>(null);
 
   // Get popular packages (skip free basic)
   const popularPackages = PACKAGES.filter(
@@ -139,60 +141,36 @@ export default function OneClickPayment({
       return;
     }
 
-    // For crypto payments, initiate MusePay payment and go to details step
+    // For crypto payments, get deposit address and show custom UI
     if (selectedPaymentMethod.startsWith('USDT_')) {
       setIsProcessing(true);
       setError('');
 
       try {
-        // Create MusePay payment request via server-side API
-        const response = await fetch('/api/v1/musepay/create-payment', {
+        const response = await fetch('/api/payment/deposit-address', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            currency: selectedMethodData.id,
             userId: user.uid,
             packageId: selectedPackage,
-            userEmail: user.email || undefined,
           }),
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || 'Failed to create payment request',
-          );
-        }
-
         const result = await response.json();
-        console.log('MusePay payment created:', result.data);
-
-        // Store payment data for webhook processing and return handling
-        sessionStorage.setItem(
-          'activePayment',
-          JSON.stringify({
-            ...result.data,
-            selectedPackage,
-            selectedMethod: selectedPaymentMethod,
-            amount,
-          }),
-        );
-
-        // Redirect directly to MusePay gateway
-        const checkoutUrl = result.data.paymentRequest.checkoutUrl;
-        if (checkoutUrl) {
-          console.log('Redirecting to MusePay gateway:', checkoutUrl);
-          router.push(checkoutUrl);
-        } else {
-          throw new Error('No checkout URL received from MusePay');
+        if (!response.ok || !result.deposit) {
+          throw new Error(result.error || 'Failed to get deposit address');
         }
+
+        setDeposit({ address: result.deposit.address, currency: result.deposit.currency });
+        setStep('pay');
       } catch (err) {
-        console.error('MusePay payment creation failed:', err);
         setError(
           err instanceof Error
             ? err.message
-            : 'Failed to create payment request',
+            : 'Failed to get deposit address',
         );
       } finally {
         setIsProcessing(false);
@@ -277,23 +255,87 @@ export default function OneClickPayment({
     );
   }
 
+  // Custom payment details/QR code UI
+  if (step === 'pay' && deposit) {
+    return (
+      <div className={`max-w-2xl mx-auto space-y-6 ${className}`}>
+        <Card className="border-0 shadow-2xl bg-gradient-to-br from-white via-blue-50/50 to-cyan-50/50 dark:from-gray-800 dark:via-blue-900/20 dark:to-cyan-900/20 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/5 via-cyan-400/5 to-teal-400/5"></div>
+          <CardHeader className="relative z-10">
+            <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white text-2xl font-bold">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-white" />
+              </div>
+              Send Payment
+              <div className="ml-auto text-2xl animate-bounce">💰</div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 relative z-10">
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <div className="mb-2 font-bold text-gray-700 dark:text-gray-200">Scan QR to Pay</div>
+                <div className="flex justify-center">
+                  {/* QR code for address+amount+currency */}
+                  <div className="bg-white p-2 rounded">
+                    {/* @ts-ignore */}
+                    <QRCodeCanvas
+                      value={JSON.stringify({
+                        address: deposit.address,
+                        amount,
+                        currency: deposit.currency,
+                      })}
+                      size={192}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="w-full">
+                <div className="mb-1 text-gray-700 dark:text-gray-200 font-semibold">Payment Address</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={deposit.address}
+                    readOnly
+                    className="flex-1 p-2 border rounded bg-gray-50 text-xs"
+                  />
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(deposit.address);
+                    }}
+                    className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="w-full flex justify-between mt-2">
+                <span className="font-bold text-blue-600">{amount} {deposit.currency}</span>
+                <span className="font-bold text-gray-600">Network: {deposit.currency.split('_')[1]}</span>
+              </div>
+              <div className="w-full mt-4 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('select')}
+                  className="flex-1 border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={() => setSuccess(true)}
+                  className="flex-1 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  Sent Payment
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className={`max-w-4xl mx-auto space-y-6 ${className}`}>
-      {step === 'details' && (
-        <PaymentDetails
-          selectedPackage={selectedPackage}
-          selectedMethod={selectedPaymentMethod}
-          amount={amount}
-          onBack={() => setStep('select')}
-          onSuccess={() => {
-            setSuccess(true);
-            setTimeout(() => {
-              router.push('/dashboard?payment=success');
-            }, 2000);
-          }}
-        />
-      )}
-
       {step === 'select' && (
         <>
           {/* Quick Package Selection */}

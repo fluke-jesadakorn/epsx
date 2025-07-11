@@ -94,7 +94,7 @@ function FinancialDataTable({
             {safeData.map((item, index) => (
               <div
                 key={`${item.symbol}-${index}`}
-                className={ANIMATIONS.fadeIn}
+                className={ANIMATIONS.fadeIn + ' relative'}
                 style={{
                   animationDelay: `${index * 150}ms`,
                   animationDuration: '600ms',

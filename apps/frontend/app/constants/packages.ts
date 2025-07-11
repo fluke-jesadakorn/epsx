@@ -35,6 +35,8 @@ export interface Package {
   id: string;
   name: string;
   level: UserLevelType;
+  numericLevel: number; // numeric user level for access control
+  rankingLimit: number; // max ranking stocks user can see
   price: number;
   currency: string;
   features: string[];
@@ -59,6 +61,8 @@ export const PACKAGES: Package[] = [
     id: 'basic',
     name: 'Basic Plan',
     level: 'BASIC',
+    numericLevel: 0,
+    rankingLimit: 10,
     price: 0,
     currency: 'USDT',
     features: ['Limited access', 'Basic features', 'Community support'],
@@ -71,6 +75,8 @@ export const PACKAGES: Package[] = [
     id: 'silver',
     name: 'Silver Plan',
     level: 'SILVER',
+    numericLevel: 1,
+    rankingLimit: 25,
     price: 1,
     currency: 'USDT',
     features: [
@@ -87,6 +93,8 @@ export const PACKAGES: Package[] = [
     id: 'gold',
     name: 'Gold Plan',
     level: 'GOLD',
+    numericLevel: 2,
+    rankingLimit: 50,
     price: 9.9,
     currency: 'USDT',
     features: [
@@ -104,6 +112,8 @@ export const PACKAGES: Package[] = [
     id: 'platinum',
     name: 'Platinum Plan',
     level: 'PLATINUM',
+    numericLevel: 3,
+    rankingLimit: 100,
     price: 9.9,
     currency: 'USDT',
     features: [
@@ -123,6 +133,8 @@ export const PACKAGES: Package[] = [
     id: 'api_personal',
     name: 'API Personal',
     level: 'API_PERSONAL',
+    numericLevel: 4,
+    rankingLimit: 25,
     price: 999,
     currency: 'USDT',
     features: ['25 Data sets', 'Country Selection', 'Unlimited Accounts'],
@@ -135,6 +147,8 @@ export const PACKAGES: Package[] = [
     id: 'api_company',
     name: 'API Company',
     level: 'API_COMPANY',
+    numericLevel: 5,
+    rankingLimit: 100,
     price: 2999,
     currency: 'USDT',
     features: [
@@ -152,6 +166,8 @@ export const PACKAGES: Package[] = [
     id: 'api_partner',
     name: 'API Partner',
     level: 'API_PARTNER',
+    numericLevel: 6,
+    rankingLimit: 100,
     price: 0,
     currency: 'USDT',
     features: [

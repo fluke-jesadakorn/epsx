@@ -6,6 +6,7 @@ import { fetchStockScreenerData } from '@/app/actions/stock';
 import { SkeletonLoader } from '@/components/common/Skeleton';
 import ChatSection from '@/components/home/ChatSection';
 import DataRankTable from '@/components/home/DataRankTable';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import DataTechSection from '@/components/home/DataTechSection';
 import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
 import HeroSection from '@/components/home/HeroSection';
@@ -46,6 +47,7 @@ const homeColumns = [
 function HomePage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { profile } = useUserProfile();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,6 +179,7 @@ function HomePage() {
                   data={lastTenItems}
                   columns={homeColumns}
                   defaultView="card"
+                  rankingLimit={profile?.rankingLimit}
                 />
               </div>
             </div>

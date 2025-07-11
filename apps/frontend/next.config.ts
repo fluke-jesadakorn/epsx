@@ -20,16 +20,6 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   generateEtags: true,
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.externals = config.externals || [];
-      config.externals.push('firebase-admin');
-      config.externals.push('google-logging-utils');
-      // Externalize Node.js built-in modules for client and edge environments
-      config.externals.push(/^node:/);
-    }
-    return config;
-  },
 };
 
 export default nextConfig;
