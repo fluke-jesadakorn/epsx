@@ -92,12 +92,32 @@ const PricingSection = () => {
     return cards.map((card, index) => (
       <div
         key={index}
-        className={`card-pancake group relative ${
+        className={`card-pancake group relative transition-all duration-300 ${
           card.highlight
-            ? 'pancake-gradient-soft-highlight ring-2 ring-soft-orange scale-105 border-orange-200/40 dark:border-orange-400/30'
-            : 'hover:pancake-shadow'
+            ? 'pancake-gradient-soft-highlight ring-2 ring-soft-orange scale-105 border-orange-200/40 dark:border-orange-400/30 shadow-xl shadow-orange-500/20'
+            : 'hover:pancake-shadow hover:scale-[1.02] hover:shadow-orange-300/20'
         }`}
       >
+        {/* PancakeSwap-style decorative elements */}
+        {card.highlight && (
+          <>
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+              <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-4 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                <span className="animate-bounce">🔥</span>
+                MOST POPULAR
+                <span className="animate-pulse">✨</span>
+              </div>
+            </div>
+            <div className="absolute top-2 right-2 text-2xl opacity-20 animate-spin-slow">
+              🥞
+            </div>
+          </>
+        )}
+        
+        {/* Corner decorations for all cards */}
+        <div className="absolute bottom-2 left-2 text-lg opacity-15 group-hover:opacity-30 transition-opacity duration-300 animate-pulse">
+          💰
+        </div>
         {/* Decorative elements */}
         <div className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
           card.highlight 

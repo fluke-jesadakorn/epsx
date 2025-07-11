@@ -41,19 +41,25 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
       {/* PancakeSwap-style floating elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
-        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full animate-bounce-gentle" />
-        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full animate-float-reverse" />
+        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
+        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse-gentle" />
+        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float-reverse" />
 
-        {/* Decorative pancake-like shapes */}
+        {/* Decorative pancake-like shapes with enhanced styling */}
         <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-spin-slow">
           🥞
         </div>
-        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-20 animate-bounce-slow">
+        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-20 animate-bounce-gentle">
           ✨
         </div>
         <div className="absolute top-3/4 left-10 text-3xl opacity-15 animate-float-gentle">
           🚀
+        </div>
+        <div className="absolute top-1/2 right-1/4 text-5xl opacity-8 animate-wiggle">
+          💰
+        </div>
+        <div className="absolute bottom-1/3 left-1/3 text-2xl opacity-25 animate-pulse">
+          📈
         </div>
       </div>
 
