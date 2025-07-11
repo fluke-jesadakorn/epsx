@@ -56,9 +56,9 @@ function FinancialDataCard({
       {/* Animated Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Rank Number Badge - repositioned to avoid overlap */}
+      {/* Rank Number Badge - Better positioned */}
       <div
-        className={`absolute top-6 left-6 w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-xl border-2 border-white dark:border-slate-900 z-20 transition-all duration-300 ${isHovered ? 'scale-110 shadow-2xl' : ''}`}
+        className={`absolute top-4 left-4 w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white text-lg font-extrabold shadow-lg border-2 border-white dark:border-slate-900 z-20 transition-all duration-300 ${isHovered ? 'scale-110 shadow-xl' : ''}`}
         aria-label={`Rank ${index + 1}`}
       >
         <span className="drop-shadow-lg">{index + 1}</span>
@@ -73,12 +73,12 @@ function FinancialDataCard({
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />
 
       {/* Header Section with improved layout */}
-      <CardContent className="relative p-6 pt-8 z-10">
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-3 ml-16">
+      <CardContent className="relative p-5 pt-6 z-10">
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-3 ml-12">
             {' '}
             {/* Add left margin to avoid badge overlap */}
-            <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+            <div className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
               {data.symbol}
             </div>
             {data.quarters.length >= 2 &&
@@ -86,7 +86,7 @@ function FinancialDataCard({
               data.quarters[1].eps_growth !== undefined && (
                 <div className="flex items-center gap-1">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center ${
                       data.quarters[0].eps_growth > data.quarters[1].eps_growth
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                         : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
@@ -111,107 +111,121 @@ function FinancialDataCard({
           </div>
         </div>
 
-        {/* Key Metrics Grid */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200/50 dark:border-blue-700/30">
-              <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold tracking-wide uppercase mb-2">
-                Latest Price
-              </div>
-              <div className="font-bold text-xl text-blue-700 dark:text-blue-300">
-                {(() => {
-                  const priceToShow =
-                    data.currentPrice !== undefined &&
-                    data.currentPrice !== null
-                      ? data.currentPrice
-                      : latestQuarter?.price;
-                  return priceToShow !== undefined && priceToShow !== null
-                    ? formatPrice(priceToShow)
-                    : 'N/A';
-                })()}
-              </div>
+        {/* Key Metrics Grid - Improved Balance */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {/* Latest Price */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200/50 dark:border-blue-700/30">
+            <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold tracking-wide uppercase mb-2">
+              Latest Price
             </div>
-
-            <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30">
-              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold tracking-wide uppercase mb-2">
-                Avg Growth
-              </div>
-              <div
-                className={`font-bold text-lg flex items-center gap-2 ${(avgGrowth || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${(avgGrowth || 0) >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
-                >
-                  {(avgGrowth || 0) >= 0 ? (
-                    <span className="text-xs">▲</span>
-                  ) : (
-                    <span className="text-xs">▼</span>
-                  )}
-                </div>
-                {formatEpsGrowth(avgGrowth)}
-              </div>
+            <div className="font-bold text-lg text-blue-700 dark:text-blue-300">
+              {(() => {
+                const priceToShow =
+                  data.currentPrice !== undefined && data.currentPrice !== null
+                    ? data.currentPrice
+                    : latestQuarter?.price;
+                return priceToShow !== undefined && priceToShow !== null
+                  ? formatPrice(priceToShow)
+                  : 'N/A';
+              })()}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200/50 dark:border-purple-700/30">
-              <div className="text-xs text-purple-600 dark:text-purple-400 font-semibold tracking-wide uppercase mb-2">
-                Latest EPS
-              </div>
-              <div className="font-bold text-lg text-purple-700 dark:text-purple-300">
-                {latestQuarter?.eps !== undefined
-                  ? latestQuarter.eps.toFixed(4)
-                  : 'N/A'}
-              </div>
+          {/* Latest EPS */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200/50 dark:border-purple-700/30">
+            <div className="text-xs text-purple-600 dark:text-purple-400 font-semibold tracking-wide uppercase mb-2">
+              Latest EPS
             </div>
+            <div className="font-bold text-lg text-purple-700 dark:text-purple-300">
+              {latestQuarter?.eps !== undefined
+                ? latestQuarter.eps.toFixed(4)
+                : 'N/A'}
+            </div>
+          </div>
 
-            <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200/50 dark:border-orange-700/30">
-              <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold tracking-wide uppercase mb-2">
-                Quarters
+          {/* Avg Growth */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30">
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold tracking-wide uppercase mb-2">
+              Avg Growth
+            </div>
+            <div
+              className={`font-bold text-lg flex items-center gap-2 ${(avgGrowth || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center ${(avgGrowth || 0) >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
+              >
+                {(avgGrowth || 0) >= 0 ? (
+                  <span className="text-xs">▲</span>
+                ) : (
+                  <span className="text-xs">▼</span>
+                )}
               </div>
-              <div className="font-bold text-lg text-orange-700 dark:text-orange-300">
-                {data.quarters.length - 1}
-              </div>
+              {formatEpsGrowth(avgGrowth)}
             </div>
           </div>
         </div>
 
-        {/* Quarterly Performance Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-700/70">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <span className="text-white text-sm font-bold">📊</span>
+        <div className="mb-6">
+          <a
+            href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold shadow-md hover:from-purple-600 hover:to-blue-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:ring-offset-2 dark:focus:ring-blue-700/60 hover:shadow-lg hover:scale-[1.02]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-4 h-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h9a2.25 2.25 0 002.25-2.25V12.75M12 15.75l9-9m0 0h-5.25m5.25 0V9"
+              />
+            </svg>
+            <span>View Chart on TradingView</span>
+          </a>
+        </div>
+
+        {/* Quarterly Performance Section - Improved Balance */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 pb-2 border-b border-slate-200/70 dark:border-slate-700/70">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">📊</span>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+            <h3 className="text-base font-bold text-slate-800 dark:text-white">
               Quarterly Performance
             </h3>
             <div className="ml-auto">
-              <span className="text-xs bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1 rounded-full font-semibold shadow-sm">
+              <span className="text-xs bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-2 py-1 rounded-full font-medium shadow-sm">
                 {data.quarters.length - 1}Q
               </span>
             </div>
           </div>
 
-          {/* Table header */}
-          <div className="hidden sm:grid grid-cols-5 gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+          {/* Compact Table header */}
+          <div className="hidden sm:grid grid-cols-5 gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">
               Quarter
             </div>
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-right">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide text-right">
               Price
             </div>
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-right">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide text-right">
               EPS
             </div>
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-right">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide text-right">
               EPS %
             </div>
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-right">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide text-right">
               Price %
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {data.quarters
               .filter((quarter, idx) => {
                 if (
@@ -228,24 +242,24 @@ function FinancialDataCard({
               .map((quarter, idx) => (
                 <div
                   key={idx}
-                  className="group/row relative flex flex-wrap sm:grid sm:grid-cols-5 items-center gap-3 p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-white to-slate-50/50 dark:from-slate-800/30 dark:to-slate-700/30 hover:shadow-md hover:border-slate-300/50 dark:hover:border-slate-600/50 transition-all duration-200 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white dark:hover:from-slate-700/50 dark:hover:to-slate-800/50"
+                  className="group/row relative flex flex-wrap sm:grid sm:grid-cols-5 items-center gap-3 p-3 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-white to-slate-50/50 dark:from-slate-800/30 dark:to-slate-700/30 hover:shadow-md hover:border-slate-300/50 dark:hover:border-slate-600/50 transition-all duration-200 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white dark:hover:from-slate-700/50 dark:hover:to-slate-800/50"
                 >
-                  {/* Quarter info */}
-                  <div className="flex flex-col items-start min-w-[80px]">
+                  {/* Quarter info - More compact */}
+                  <div className="flex flex-col items-start min-w-[70px]">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-black text-slate-800 dark:text-white">
+                      <span className="text-base font-black text-slate-800 dark:text-white">
                         Q{quarter.quarter}
                       </span>
-                      <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 group-hover/row:scale-125 transition-transform duration-200" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 group-hover/row:scale-125 transition-transform duration-200" />
                     </div>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {quarter?.date ? formatDate(quarter.date) : 'N/A'}
                     </span>
                   </div>
 
-                  {/* Price */}
-                  <div className="flex flex-col items-end sm:items-end min-w-[90px]">
-                    <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                  {/* Price - More compact */}
+                  <div className="flex flex-col items-end sm:items-end min-w-[80px]">
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                       {quarter?.price !== undefined && quarter?.price !== null
                         ? formatPrice(quarter.price)
                         : 'N/A'}
@@ -255,9 +269,9 @@ function FinancialDataCard({
                     </span>
                   </div>
 
-                  {/* EPS */}
-                  <div className="flex flex-col items-end sm:items-end min-w-[70px]">
-                    <span className="text-base font-bold text-purple-600 dark:text-purple-400">
+                  {/* EPS - More compact */}
+                  <div className="flex flex-col items-end sm:items-end min-w-[60px]">
+                    <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
                       {quarter?.eps !== undefined
                         ? quarter.eps.toFixed(2)
                         : 'N/A'}
@@ -267,12 +281,12 @@ function FinancialDataCard({
                     </span>
                   </div>
 
-                  {/* EPS Growth */}
-                  <div className="flex flex-col items-end sm:items-end min-w-[80px]">
+                  {/* EPS Growth - More compact */}
+                  <div className="flex flex-col items-end sm:items-end min-w-[70px]">
                     {quarter?.eps_growth !== undefined ? (
                       <div className="flex items-center gap-1">
                         <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center ${quarter.eps_growth >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
+                          className={`w-4 h-4 rounded-full flex items-center justify-center ${quarter.eps_growth >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
                         >
                           <span
                             className={`text-xs ${quarter.eps_growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
@@ -295,13 +309,13 @@ function FinancialDataCard({
                     </span>
                   </div>
 
-                  {/* Price Growth */}
-                  <div className="flex flex-col items-end sm:items-end min-w-[80px]">
+                  {/* Price Growth - More compact */}
+                  <div className="flex flex-col items-end sm:items-end min-w-[70px]">
                     {quarter?.price_growth !== undefined &&
                     quarter.price_growth !== null ? (
                       <div className="flex items-center gap-1">
                         <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center ${quarter.price_growth >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
+                          className={`w-4 h-4 rounded-full flex items-center justify-center ${quarter.price_growth >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}
                         >
                           <span
                             className={`text-xs ${quarter.price_growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}

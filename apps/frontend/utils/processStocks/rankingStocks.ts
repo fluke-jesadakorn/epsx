@@ -1,6 +1,6 @@
 import fetchScreenerStock from './fetchRankScreenedStock';
 import { MarketCountry } from '../../../../types/marketCountries';
-import { getFinancialsWithCurrentPriceFromChart } from '../getFinancialsFromChart/getPriceAndEps';
+import { getFinancialsWithCurrentPriceFromChart } from './getPriceAndEps';
 
 /**
  * Fetches top ranked stocks and returns their price and EPS data from chart with current prices.

@@ -1,5 +1,5 @@
 import type { StockFinancialData } from '@/types/financialChartData';
-import type { FinancialsFromChart, FinancialsWithCurrentPrice } from '@/utils/getFinancialsFromChart/getPriceAndEps';
+import type { FinancialsFromChart, FinancialsWithCurrentPrice } from '@/utils/processStocks/getPriceAndEps';
 
 /**
  * Transforms financial chart data from the rankingStocks utility format
