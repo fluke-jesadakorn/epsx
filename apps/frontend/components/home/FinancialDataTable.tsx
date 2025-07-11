@@ -182,73 +182,81 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
             
             {/* Quarter Data with improved layout */}
             <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar">
-              {data.quarters.map((quarter, idx) => (
-                <div key={idx} className="group hover:scale-[1.01] transition-all duration-150">
-                  <div className="grid grid-cols-6 gap-1 text-xs bg-gradient-to-r from-white/70 to-slate-50/70 dark:from-slate-800/30 dark:to-slate-700/30 rounded-lg px-2 py-2 border border-slate-200/40 dark:border-slate-600/20 hover:shadow-sm hover:border-blue-300/40 dark:hover:border-blue-500/30 transition-all duration-150">
-                    
-                    {/* Quarter */}
-                    <div className="flex items-center justify-center">
-                      <span className="font-bold text-primary/80 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full text-[9px]">
-                        Q{quarter.quarter}
-                      </span>
-                    </div>
-                    
-                    {/* Date */}
-                    <div className="flex items-center justify-center">
-                      <span className="font-medium text-slate-700 dark:text-slate-300 text-[9px] text-center">
-                        {quarter?.date ? formatDate(quarter.date).slice(5) : 'N/A'}
-                      </span>
-                    </div>
-                    
-                    {/* Price */}
-                    <div className="flex items-center justify-center">
-                      <span className="font-bold text-blue-700 dark:text-blue-300 text-[9px] text-center">
-                        {quarter?.price !== undefined && quarter?.price !== null ? 
-                          (quarter.price < 1000 ? formatPrice(quarter.price) : `$${(quarter.price/1000).toFixed(1)}k`) 
-                          : 'N/A'
-                        }
-                      </span>
-                    </div>
-                    
-                    {/* EPS */}
-                    <div className="flex items-center justify-center">
-                      <span className="font-bold text-purple-700 dark:text-purple-300 text-[9px] text-center">
-                        {quarter?.eps !== undefined ? quarter.eps.toFixed(2) : 'N/A'}
-                      </span>
-                    </div>
-                    
-                    {/* EPS Growth */}
-                    <div className="flex items-center justify-center">
-                      {quarter?.eps_growth !== undefined ? (
-                        <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
-                          quarter.eps_growth >= 0 
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                        }`}>
-                          {quarter.eps_growth >= 0 ? '+' : ''}{quarter.eps_growth}%
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-[8px]">-</span>
-                      )}
-                    </div>
-                    
-                    {/* Price Growth */}
-                    <div className="flex items-center justify-center">
-                      {quarter?.price_growth !== undefined && quarter.price_growth !== null ? (
-                        <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
-                          quarter.price_growth >= 0 
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                        }`}>
-                          {quarter.price_growth >= 0 ? '+' : ''}{quarter.price_growth}%
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-[8px]">-</span>
-                      )}
+              {data.quarters
+                .filter((quarter, idx) => {
+                  // Remove first row if both eps_growth and price_growth are undefined or null
+                  if (idx === 0 && (quarter.eps_growth === undefined || quarter.eps_growth === null) && (quarter.price_growth === undefined || quarter.price_growth === null)) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((quarter, idx) => (
+                  <div key={idx} className="group hover:scale-[1.01] transition-all duration-150">
+                    <div className="grid grid-cols-6 gap-1 text-xs bg-gradient-to-r from-white/70 to-slate-50/70 dark:from-slate-800/30 dark:to-slate-700/30 rounded-lg px-2 py-2 border border-slate-200/40 dark:border-slate-600/20 hover:shadow-sm hover:border-blue-300/40 dark:hover:border-blue-500/30 transition-all duration-150">
+                      
+                      {/* Quarter */}
+                      <div className="flex items-center justify-center">
+                        <span className="font-bold text-primary/80 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full text-[9px]">
+                          Q{quarter.quarter}
+                        </span>
+                      </div>
+                      
+                      {/* Date */}
+                      <div className="flex items-center justify-center">
+                        <span className="font-medium text-slate-700 dark:text-slate-300 text-[9px] text-center">
+                          {quarter?.date ? formatDate(quarter.date).slice(5) : 'N/A'}
+                        </span>
+                      </div>
+                      
+                      {/* Price */}
+                      <div className="flex items-center justify-center">
+                        <span className="font-bold text-blue-700 dark:text-blue-300 text-[9px] text-center">
+                          {quarter?.price !== undefined && quarter?.price !== null ? 
+                            (quarter.price < 1000 ? formatPrice(quarter.price) : `$${(quarter.price/1000).toFixed(1)}k`) 
+                            : 'N/A'
+                          }
+                        </span>
+                      </div>
+                      
+                      {/* EPS */}
+                      <div className="flex items-center justify-center">
+                        <span className="font-bold text-purple-700 dark:text-purple-300 text-[9px] text-center">
+                          {quarter?.eps !== undefined ? quarter.eps.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      
+                      {/* EPS Growth */}
+                      <div className="flex items-center justify-center">
+                        {quarter?.eps_growth !== undefined ? (
+                          <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
+                            quarter.eps_growth >= 0 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                              : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                          }`}>
+                            {quarter.eps_growth >= 0 ? '+' : ''}{quarter.eps_growth}%
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[8px]">-</span>
+                        )}
+                      </div>
+                      
+                      {/* Price Growth */}
+                      <div className="flex items-center justify-center">
+                        {quarter?.price_growth !== undefined && quarter.price_growth !== null ? (
+                          <div className={`px-1 py-0.5 rounded-full font-bold text-[8px] text-center min-w-[28px] ${
+                            quarter.price_growth >= 0 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                              : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                          }`}>
+                            {quarter.price_growth >= 0 ? '+' : ''}{quarter.price_growth}%
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[8px]">-</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
             
             {/* Quick Insights */}
