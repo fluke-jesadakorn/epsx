@@ -3,20 +3,32 @@ export { default as FinancialDataTable } from './FinancialDataTable';
 
 // Sub-components
 export { FinancialCard } from './components/FinancialCard';
-export { GrowthIndicator, TrendIcon, AnimatedBadge } from './components/GrowthIndicators';
+export {
+  GrowthIndicator,
+  TrendIcon,
+  AnimatedBadge,
+} from './components/GrowthIndicators';
 export { MetricCard, QuarterRow } from './components/MetricComponents';
-export { FinancialDataLoading, FinancialDataHeader } from './components/LayoutComponents';
+export {
+  FinancialDataLoading,
+  FinancialDataHeader,
+} from './components/LayoutComponents';
 
 // PancakeSwap-style components
-export { 
-  FloatingElements, 
-  PancakeButton, 
-  GlowCard, 
-  EmojiBadge 
+export {
+  FloatingElements,
+  PancakeButton,
+  GlowCard,
+  EmojiBadge,
 } from './components/PancakeElements';
 
 // Hooks
-export { useFinancialData, getValidQuarters, isPositiveGrowth, getGrowthIndicator } from './hooks/useFinancialData';
+export {
+  useFinancialData,
+  getValidQuarters,
+  isPositiveGrowth,
+  getGrowthIndicator,
+} from './hooks/useFinancialData';
 export type { UseFinancialDataResult } from './hooks/useFinancialData';
 
 // Utilities
@@ -33,4 +45,11 @@ export {
 export type { PerformanceMetrics } from './utils/financialCalculations';
 
 // Constants
-export { GRADIENTS, ANIMATIONS, COLORS, SPACING, TYPOGRAPHY, BREAKPOINTS } from './constants/styles';
+export {
+  GRADIENTS,
+  ANIMATIONS,
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  BREAKPOINTS,
+} from './constants/styles';

@@ -6,8 +6,11 @@ import { AuthProviders } from '@/components/features/settings/AuthProviders';
 import { ProfileSettings } from '@/components/features/settings/ProfileSettings';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
+  const router = useRouter();
+
   const SettingsSkeleton = () => (
     <div className="max-w-2xl mx-auto p-6">
       <div className="flex flex-col gap-6">
@@ -162,13 +165,12 @@ export default function SettingsPage() {
                 </div>
               </div>
               <Button
-                onClick={() => (window.location.href = '/payment')}
+                onClick={() => router.push('/payment')}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Manage Payment
               </Button>
             </CardHeader>
-
           </Card>
         </div>
       </div>

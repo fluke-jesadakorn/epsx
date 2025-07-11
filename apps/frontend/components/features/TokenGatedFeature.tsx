@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
-import { UserRole } from "@/types/auth/roles";
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { UserRole } from '@/types/auth/roles';
 
-import { FeatureErrorBoundary } from "./FeatureErrorBoundary";
+import { FeatureErrorBoundary } from './FeatureErrorBoundary';
 
-import type { TokenFeature } from "@/types/auth/features";
+import type { TokenFeature } from '@/types/auth/features';
+import { useRouter } from 'next/navigation';
 
 interface TokenGatedFeatureProps {
   feature: TokenFeature;
@@ -29,6 +30,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
   currentRole,
   requiredRole,
 }) => {
+  const router = useRouter();
   return (
     <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
       <h3 className="text-lg font-semibold mb-2">Feature Locked</h3>
@@ -67,7 +69,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
         <div className="mt-4">
           <button
             className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors"
-            onClick={() => (window.location.href = "/payment")}
+            onClick={() => router.push('/payment')}
           >
             Upgrade Now
           </button>
@@ -122,7 +124,7 @@ const TokenGatedContent: React.FC<TokenGatedFeatureProps> = ({
 export function withTokenGate<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   feature: TokenFeature,
-  fallback?: React.ReactNode
+  fallback?: React.ReactNode,
 ) {
   return function WithTokenGate(props: P) {
     return (

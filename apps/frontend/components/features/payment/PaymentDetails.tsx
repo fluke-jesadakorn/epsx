@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,9 @@ import {
   Loader2,
   CreditCard
 } from 'lucide-react';
+import { onSnapshot, collection, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { PaymentRequest } from '@/lib/musepay.service';
 
 interface PaymentDetailsProps {
   selectedPackage: string;
@@ -65,9 +68,61 @@ export default function PaymentDetails({
   const [txHash, setTxHash] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'confirmed' | 'failed'>('pending');
+  const [activePayment, setActivePayment] = useState<any>(null);
 
-  const paymentAddress = PAYMENT_ADDRESSES[selectedMethod];
   const isCardPayment = selectedMethod === 'credit_card';
+
+  // Load active payment from session storage
+  useEffect(() => {
+    const storedPayment = sessionStorage.getItem('activePayment');
+    if (storedPayment) {
+      try {
+        const payment = JSON.parse(storedPayment);
+        setActivePayment(payment);
+        console.log('Loaded active payment:', payment);
+      } catch (error) {
+        console.error('Failed to parse stored payment:', error);
+      }
+    }
+  }, []);
+
+  // Real-time payment status monitoring
+  useEffect(() => {
+    if (!activePayment?.paymentRequest?.customerRefId) return;
+
+    console.log('Setting up payment monitoring for:', activePayment.paymentRequest.customerRefId);
+    
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, 'payment_requests'),
+        where('customerRefId', '==', activePayment.paymentRequest.customerRefId)
+      ),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const paymentData = snapshot.docs[0].data() as PaymentRequest;
+          console.log('Payment status update:', paymentData.status);
+          
+          if (paymentData.status === 'completed') {
+            setPaymentStatus('confirmed');
+            setTimeout(() => {
+              onSuccess();
+            }, 1500);
+          } else if (paymentData.status === 'failed') {
+            setPaymentStatus('failed');
+          }
+        }
+      },
+      (error) => {
+        console.error('Error monitoring payment:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [activePayment?.paymentRequest?.customerRefId, onSuccess]);
+
+  const paymentAddress = activePayment?.paymentRequest?.receiveAddress || PAYMENT_ADDRESSES[selectedMethod]?.address || '';
+  const checkoutUrl = activePayment?.paymentRequest?.checkoutUrl || '';
+  const networkInfo = PAYMENT_ADDRESSES[selectedMethod] || { network: 'BSC', minConfirmations: 3 };
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -169,7 +224,7 @@ export default function PaymentDetails({
                 <div className="flex-1">
                   <h4 className="font-bold text-blue-900 dark:text-blue-100 text-lg mb-2">Payment Instructions</h4>
                   <p className="text-blue-800 dark:text-blue-200 font-medium">
-                    Send exactly <span className="font-black text-2xl bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">${amount} USDT</span> to the address below using the <span className="font-bold text-blue-600 dark:text-blue-400">{paymentAddress.network}</span> network.
+                    Send exactly <span className="font-black text-2xl bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">${amount} USDT</span> to the address below using the <span className="font-bold text-blue-600 dark:text-blue-400">{networkInfo.network}</span> network.
                   </p>
                 </div>
               </div>
@@ -210,7 +265,7 @@ export default function PaymentDetails({
                 <Label className="text-gray-700 dark:text-gray-300 font-bold">Network</Label>
                 <div className="mt-2">
                   <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg text-lg px-4 py-2">
-                    {paymentAddress.network}
+                    {networkInfo.network}
                   </Badge>
                 </div>
               </div>

@@ -3,7 +3,10 @@
 import React from 'react';
 import { GRADIENTS, SPACING, ANIMATIONS } from './constants/styles';
 import { FinancialCard } from './components/FinancialCard';
-import { FinancialDataLoading, FinancialDataHeader } from './components/LayoutComponents';
+import {
+  FinancialDataLoading,
+  FinancialDataHeader,
+} from './components/LayoutComponents';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface FinancialDataTableProps {
@@ -45,7 +48,7 @@ function FinancialDataTable({
         <div className="absolute top-40 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
         <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse" />
         <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float-reverse" />
-        
+
         {/* Floating emojis */}
         <div className="absolute top-1/4 left-1/4 text-4xl opacity-10 animate-spin-slow">
           🥞
@@ -68,7 +71,9 @@ function FinancialDataTable({
       <FinancialDataHeader />
 
       {/* Cards Container */}
-      <div className={`relative ${SPACING.containerPadding} ${SPACING.verticalSpacing}`}>
+      <div
+        className={`relative ${SPACING.containerPadding} ${SPACING.verticalSpacing}`}
+      >
         <div className="max-w-7xl mx-auto">
           {/* Section Title with PancakeSwap style */}
           <div className="text-center mb-12">
@@ -78,11 +83,14 @@ function FinancialDataTable({
               </span>
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-              Discover the most delicious investment opportunities with our comprehensive analytics
+              Discover the most delicious investment opportunities with our
+              comprehensive analytics
             </p>
           </div>
-          
-          <div className={`grid grid-cols-1 lg:grid-cols-2 ${SPACING.sectionGap}`}>
+
+          <div
+            className={`grid grid-cols-1 lg:grid-cols-2 ${SPACING.sectionGap}`}
+          >
             {safeData.map((item, index) => (
               <div
                 key={`${item.symbol}-${index}`}

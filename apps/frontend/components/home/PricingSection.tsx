@@ -5,6 +5,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
 import type { Package } from '@/app/constants/packages';
+import { useRouter } from 'next/navigation';
 
 interface PlanFeature {
   text: string;
@@ -69,24 +70,25 @@ const apiPlans: ApiPlan[] = [
 const packageToPricingCard = (pkg: Package): PricingCard => ({
   title: pkg.name,
   price: `${pkg.price} ${pkg.currency}`,
-  features: LEVEL_BENEFITS[pkg.level].map(benefit => ({
+  features: LEVEL_BENEFITS[pkg.level].map((benefit) => ({
     text: benefit,
-    included: true
+    included: true,
   })),
   highlight: pkg.level === 'GOLD' || pkg.level === 'PLATINUM',
   buttonText: pkg.price === 0 ? 'Start Trial' : 'Subscribe Now',
-  buttonVariant: pkg.price === 0 ? 'outline' : 'default'
+  buttonVariant: pkg.price === 0 ? 'outline' : 'default',
 });
 
 const PricingSection = () => {
-  const personalPlans = PACKAGES.filter(pkg => 
-    ['BASIC', 'SILVER', 'GOLD'].includes(pkg.level)
+  const personalPlans = PACKAGES.filter((pkg) =>
+    ['BASIC', 'SILVER', 'GOLD'].includes(pkg.level),
   ).map(packageToPricingCard);
 
-  const companyPlans = PACKAGES.filter(pkg => 
-    pkg.level === 'PLATINUM'
-  ).map(packageToPricingCard);
+  const companyPlans = PACKAGES.filter((pkg) => pkg.level === 'PLATINUM').map(
+    packageToPricingCard,
+  );
 
+  const router = useRouter();
 
   const renderPricingCards = (cards: PricingCard[]) => {
     return cards.map((card, index) => (
@@ -113,22 +115,26 @@ const PricingSection = () => {
             </div>
           </>
         )}
-        
+
         {/* Corner decorations for all cards */}
         <div className="absolute bottom-2 left-2 text-lg opacity-15 group-hover:opacity-30 transition-opacity duration-300 animate-pulse">
           💰
         </div>
         {/* Decorative elements */}
-        <div className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
-          card.highlight 
-            ? 'bg-orange-300/30 group-hover:bg-orange-400/40' 
-            : 'bg-pancake-primary/20 group-hover:bg-pancake-primary/40'
-        }`} />
-        <div className={`absolute -bottom-4 -right-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
-          card.highlight 
-            ? 'bg-amber-300/30 group-hover:bg-amber-400/40' 
-            : 'bg-pancake-secondary/20 group-hover:bg-pancake-secondary/40'
-        }`} />
+        <div
+          className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
+            card.highlight
+              ? 'bg-orange-300/30 group-hover:bg-orange-400/40'
+              : 'bg-pancake-primary/20 group-hover:bg-pancake-primary/40'
+          }`}
+        />
+        <div
+          className={`absolute -bottom-4 -right-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
+            card.highlight
+              ? 'bg-amber-300/30 group-hover:bg-amber-400/40'
+              : 'bg-pancake-secondary/20 group-hover:bg-pancake-secondary/40'
+          }`}
+        />
 
         <div className="relative">
           {/* Title with sparkle effect */}
@@ -166,10 +172,16 @@ const PricingSection = () => {
 
           {/* Enhanced button */}
           <Button
-            variant={card.highlight ? 'pancake' : (card.buttonVariant === 'outline' ? 'pancake-outline' : 'pancake-secondary')}
+            variant={
+              card.highlight
+                ? 'pancake'
+                : card.buttonVariant === 'outline'
+                  ? 'pancake-outline'
+                  : 'pancake-secondary'
+            }
             size="lg"
             className="w-full rounded-2xl font-semibold"
-            onClick={() => window.location.href = '/payment'}
+            onClick={() => router.push('/payment')}
           >
             {card.buttonText}
           </Button>
@@ -196,15 +208,22 @@ const PricingSection = () => {
               💰 Personal Plans
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              🚀 Choose the perfect plan for individual use and start your analytics journey
+              🚀 Choose the perfect plan for individual use and start your
+              analytics journey
             </p>
             <div className="w-32 sm:w-40 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 mx-auto rounded-full" />
-            
+
             {/* Decorative elements */}
             <div className="flex justify-center items-center gap-4 mt-6">
               <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-              <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+              <div
+                className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"
+                style={{ animationDelay: '0.5s' }}
+              />
+              <div
+                className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"
+                style={{ animationDelay: '1s' }}
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 animate-slide-up-delayed">

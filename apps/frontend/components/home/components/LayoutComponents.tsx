@@ -1,22 +1,29 @@
 import React from 'react';
-import { GRADIENTS, SPACING, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
+import {
+  GRADIENTS,
+  SPACING,
+  TYPOGRAPHY,
+  ANIMATIONS,
+} from '../constants/styles';
 
 /**
  * Loading state component for financial data
  */
 export function FinancialDataLoading(): React.JSX.Element {
   return (
-    <div className={`
+    <div
+      className={`
       w-full min-h-screen flex items-center justify-center 
       bg-gradient-to-br ${GRADIENTS.background}
       relative overflow-hidden
-    `}>
+    `}
+    >
       {/* PancakeSwap-style floating elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
         <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
         <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse" />
-        
+
         {/* Floating emojis */}
         <div className="absolute top-1/4 left-1/4 text-4xl opacity-10 animate-spin-slow">
           🥞
@@ -30,7 +37,9 @@ export function FinancialDataLoading(): React.JSX.Element {
         <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center animate-pulse">
           <span className="text-white text-2xl">🥞</span>
         </div>
-        <h3 className={`${TYPOGRAPHY.subtitle} font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2`}>
+        <h3
+          className={`${TYPOGRAPHY.subtitle} font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2`}
+        >
           <span className="animate-bounce">📊</span>
           Loading Sweet Data...
           <span className="animate-pulse">✨</span>
@@ -76,13 +85,15 @@ export function FinancialDataHeader(): React.JSX.Element {
       <div className={`relative ${SPACING.containerPadding} pt-8 pb-12`}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-6">
-            <h1 className={`
+            <h1
+              className={`
               ${TYPOGRAPHY.hero} 
               bg-gradient-to-r ${GRADIENTS.primary} 
               bg-clip-text text-transparent leading-tight 
               ${ANIMATIONS.fadeIn} duration-1000
               flex items-center justify-center gap-4
-            `}>
+            `}
+            >
               <span className="text-6xl animate-bounce-gentle">🍯</span>
               Financial Rankings
               <span className="text-6xl animate-float">🚀</span>
@@ -97,8 +108,9 @@ export function FinancialDataHeader(): React.JSX.Element {
               `}
               style={{ animationDelay: '200ms' }}
             >
-              🥞 Discover the sweetest performing stocks with comprehensive quarterly
-              analysis, real-time data, and intelligent growth metrics ✨
+              🥞 Discover the sweetest performing stocks with comprehensive
+              quarterly analysis, real-time data, and intelligent growth metrics
+              ✨
               <span className="block mt-2 text-orange-600 dark:text-orange-400 font-semibold">
                 Make your portfolio as sweet as pancakes! 🎯
               </span>
@@ -111,19 +123,15 @@ export function FinancialDataHeader(): React.JSX.Element {
               `}
               style={{ animationDelay: '400ms' }}
             >
-              <StatusBadge 
-                label="🔥 Growth Trending" 
-                color="emerald" 
+              <StatusBadge
+                label="🔥 Growth Trending"
+                color="emerald"
                 delay="0s"
               />
-              <StatusBadge 
-                label="⚡ Live Data" 
-                color="orange" 
-                delay="0.5s"
-              />
-              <StatusBadge 
-                label="📊 Multi-Quarter Analysis" 
-                color="yellow" 
+              <StatusBadge label="⚡ Live Data" color="orange" delay="0.5s" />
+              <StatusBadge
+                label="📊 Multi-Quarter Analysis"
+                color="yellow"
                 delay="1s"
               />
             </div>
@@ -143,7 +151,11 @@ interface StatusBadgeProps {
 /**
  * Status badge component for header
  */
-function StatusBadge({ label, color, delay }: StatusBadgeProps): React.JSX.Element {
+function StatusBadge({
+  label,
+  color,
+  delay,
+}: StatusBadgeProps): React.JSX.Element {
   const colorClasses = {
     emerald: {
       bg: 'bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30',
@@ -175,12 +187,14 @@ function StatusBadge({ label, color, delay }: StatusBadgeProps): React.JSX.Eleme
   const colors = colorClasses[color];
 
   return (
-    <div className={`
+    <div
+      className={`
       flex items-center gap-3 px-4 py-2 rounded-full 
       ${colors.bg} 
       transition-colors duration-200
-    `}>
-      <div 
+    `}
+    >
+      <div
         className={`w-4 h-4 rounded-full ${colors.dot} animate-pulse`}
         style={{ animationDelay: delay }}
       />

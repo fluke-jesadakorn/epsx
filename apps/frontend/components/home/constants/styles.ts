@@ -6,18 +6,22 @@ export const GRADIENTS = {
   primary: 'from-orange-500 via-yellow-400 to-orange-600',
   secondary: 'from-blue-500 via-cyan-400 to-teal-500',
   pancake: 'from-orange-400 via-yellow-400 to-amber-500',
-  background: 'from-orange-50/30 via-yellow-50/20 to-amber-50/30 dark:from-slate-950 dark:via-orange-950/20 dark:to-yellow-950/10',
+  background:
+    'from-orange-50/30 via-yellow-50/20 to-amber-50/30 dark:from-slate-950 dark:via-orange-950/20 dark:to-yellow-950/10',
   card: 'from-white via-orange-50/20 to-yellow-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-orange-900/20',
-  cardHover: 'hover:from-white hover:via-orange-50/40 hover:to-yellow-100/50 dark:hover:from-slate-800 dark:hover:via-slate-700 dark:hover:to-orange-800/30',
+  cardHover:
+    'hover:from-white hover:via-orange-50/40 hover:to-yellow-100/50 dark:hover:from-slate-800 dark:hover:via-slate-700 dark:hover:to-orange-800/30',
   badge: 'from-orange-500 to-yellow-500',
   button: 'from-orange-500 to-yellow-500',
   buttonHover: 'hover:from-yellow-500 hover:to-orange-500',
   glow: 'from-orange-400/20 via-yellow-400/30 to-amber-400/20',
   metric: {
-    price: 'from-orange-50 to-yellow-100/50 dark:from-orange-900/20 dark:to-yellow-800/20',
+    price:
+      'from-orange-50 to-yellow-100/50 dark:from-orange-900/20 dark:to-yellow-800/20',
     eps: 'from-amber-50 to-orange-100/50 dark:from-amber-900/20 dark:to-orange-800/20',
-    growth: 'from-emerald-50 to-green-100/50 dark:from-emerald-900/20 dark:to-green-800/20',
-  }
+    growth:
+      'from-emerald-50 to-green-100/50 dark:from-emerald-900/20 dark:to-green-800/20',
+  },
 } as const;
 
 export const ANIMATIONS = {

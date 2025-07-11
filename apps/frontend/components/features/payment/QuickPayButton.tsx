@@ -4,14 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Zap, 
-  CreditCard, 
-  Wallet, 
-  ArrowRight, 
-  Check,
-  X 
-} from 'lucide-react';
+import { Zap, CreditCard, Wallet, ArrowRight, Check, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface QuickPayButtonProps {
   packageId: string;
@@ -21,15 +15,18 @@ interface QuickPayButtonProps {
   className?: string;
 }
 
-export default function QuickPayButton({ 
-  packageId, 
-  packageName, 
-  amount, 
+export default function QuickPayButton({
+  packageId,
+  packageName,
+  amount,
   onPaymentStart,
-  className = ''
+  className = '',
 }: QuickPayButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<'crypto' | 'card'>('crypto');
+  const [selectedMethod, setSelectedMethod] = useState<'crypto' | 'card'>(
+    'crypto',
+  );
+  const router = useRouter();
 
   const handleQuickPay = () => {
     onPaymentStart?.();
@@ -40,7 +37,7 @@ export default function QuickPayButton({
   const handleInlinePayment = () => {
     if (selectedMethod === 'card') {
       // Redirect to card payment
-      window.location.href = `/payment/card?package=${packageId}&amount=${amount}`;
+      router.push(`/payment/card?package=${packageId}&amount=${amount}`);
     } else {
       // Open crypto payment
       handleQuickPay();
@@ -82,7 +79,7 @@ export default function QuickPayButton({
             <div className="text-sm font-medium text-center text-gray-900 dark:text-white">
               Choose Payment Method
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div
                 className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
@@ -95,7 +92,9 @@ export default function QuickPayButton({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Crypto</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      Crypto
+                    </span>
                   </div>
                   {selectedMethod === 'crypto' && (
                     <Check className="h-4 w-4 text-blue-500" />
@@ -117,7 +116,9 @@ export default function QuickPayButton({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Card</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      Card
+                    </span>
                   </div>
                   {selectedMethod === 'card' && (
                     <Check className="h-4 w-4 text-blue-500" />
@@ -130,8 +131,12 @@ export default function QuickPayButton({
             </div>
 
             <div className="flex items-center justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-3">
-              <span className="text-gray-600 dark:text-gray-300">Total for {packageName}:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">${amount}</span>
+              <span className="text-gray-600 dark:text-gray-300">
+                Total for {packageName}:
+              </span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                ${amount}
+              </span>
             </div>
 
             <Button
@@ -144,7 +149,10 @@ export default function QuickPayButton({
             </Button>
 
             <div className="text-xs text-center text-muted-foreground">
-              <Badge variant="outline" className="text-xs border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+              <Badge
+                variant="outline"
+                className="text-xs border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20"
+              >
                 <Check className="h-3 w-3 mr-1 text-green-600 dark:text-green-400" />
                 Secure & Instant
               </Badge>

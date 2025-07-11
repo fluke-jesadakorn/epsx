@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @custom-variant dark (&:is(.dark *));
 
 @layer base {
@@ -41,12 +41,28 @@
     --pancake-warning: 45 93% 47%;
     --pancake-error: 0 85% 60%;
     --pancake-info: 217 91% 60%;
-    
+
     /* Gradient colors */
-    --gradient-primary: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(184 93% 47%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(31 100% 50%) 100%);
-    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 80% 92%) 0%, hsl(42 90% 88%) 100%);
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(31 100% 50%) 0%,
+      hsl(42 100% 70%) 100%
+    );
+    --gradient-secondary: linear-gradient(
+      135deg,
+      hsl(217 91% 60%) 0%,
+      hsl(184 93% 47%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(142 71% 45%) 0%,
+      hsl(31 100% 50%) 100%
+    );
+    --gradient-soft-highlight: linear-gradient(
+      135deg,
+      hsl(31 80% 92%) 0%,
+      hsl(42 90% 88%) 100%
+    );
   }
 
   .dark {
@@ -86,12 +102,28 @@
     --pancake-warning: 45 93% 52%;
     --pancake-error: 0 85% 65%;
     --pancake-info: 217 91% 65%;
-    
+
     /* Gradient colors for dark mode */
-    --gradient-primary: linear-gradient(135deg, hsl(31 100% 55%) 0%, hsl(42 100% 75%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(184 93% 52%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(31 100% 55%) 100%);
-    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%);
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(31 100% 55%) 0%,
+      hsl(42 100% 75%) 100%
+    );
+    --gradient-secondary: linear-gradient(
+      135deg,
+      hsl(217 91% 65%) 0%,
+      hsl(184 93% 52%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(142 71% 50%) 0%,
+      hsl(31 100% 55%) 100%
+    );
+    --gradient-soft-highlight: linear-gradient(
+      135deg,
+      hsl(31 50% 20%) 0%,
+      hsl(42 60% 18%) 100%
+    );
   }
 }
 
@@ -102,7 +134,8 @@
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
-  button, a {
+  button,
+  a {
     @apply cursor-pointer;
   }
 }
@@ -112,80 +145,104 @@
   .pancake-gradient {
     background: var(--gradient-primary);
   }
-  
+
   .pancake-gradient-secondary {
     background: var(--gradient-secondary);
   }
-  
+
   .pancake-gradient-accent {
     background: var(--gradient-accent);
   }
-  
+
   .pancake-gradient-soft-highlight {
     background: var(--gradient-soft-highlight);
   }
-  
+
   /* Gradient text utilities that work with bg-clip-text */
   .pancake-gradient-text {
-    background: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(31 100% 50%) 0%,
+      hsl(42 100% 70%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .dark .pancake-gradient-text {
-    background: linear-gradient(135deg, hsl(31 100% 55%) 0%, hsl(42 100% 75%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(31 100% 55%) 0%,
+      hsl(42 100% 75%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .pancake-gradient-secondary-text {
-    background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(184 93% 47%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(217 91% 60%) 0%,
+      hsl(184 93% 47%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .dark .pancake-gradient-secondary-text {
-    background: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(184 93% 52%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(217 91% 65%) 0%,
+      hsl(184 93% 52%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .pancake-gradient-accent-text {
-    background: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(31 100% 50%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(142 71% 45%) 0%,
+      hsl(31 100% 50%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .dark .pancake-gradient-accent-text {
-    background: linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(31 100% 55%) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(142 71% 50%) 0%,
+      hsl(31 100% 55%) 100%
+    );
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .pancake-shadow {
     box-shadow: 0 4px 12px hsl(255 133 27 / 0.15);
   }
-  
+
   .dark .pancake-shadow {
     box-shadow: 0 4px 12px hsl(255 133 27 / 0.25);
   }
-  
+
   .pancake-glow {
     box-shadow: 0 0 20px hsl(255 133 27 / 0.3);
   }
-  
+
   .dark .pancake-glow {
     box-shadow: 0 0 25px hsl(255 133 27 / 0.4);
   }
@@ -199,7 +256,7 @@
     padding-right: 1rem;
     max-width: 80rem;
   }
-  
+
   .container-section {
     padding-top: 3rem;
     padding-bottom: 3rem;
@@ -214,18 +271,20 @@
     padding: 1.5rem;
     transition: all 300ms ease;
   }
-  
+
   .card-pancake:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border-color: hsl(var(--primary) / 0.2);
     transform: translateY(-0.25rem);
   }
-  
+
   .dark .card-pancake {
     background-color: hsl(var(--card) / 0.6);
     border-color: hsl(var(--border) / 0.3);
   }
-  
+
   .dark .card-pancake:hover {
     border-color: hsl(var(--primary) / 0.3);
   }
@@ -239,31 +298,35 @@
     transition: all 300ms ease;
     transform: scale(1);
   }
-  
+
   .btn-pancake:hover {
     transform: scale(1.05);
   }
-  
+
   .btn-pancake:active {
     transform: scale(0.95);
   }
-  
+
   .btn-pancake-primary {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
-  
+
   .btn-pancake-primary:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
-  
+
   .btn-pancake-secondary {
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
     background-color: hsl(var(--secondary) / 0.1);
   }
-  
+
   .btn-pancake-secondary:hover {
     background-color: hsl(var(--secondary) / 0.2);
     border-color: hsl(var(--primary) / 0.3);
@@ -286,31 +349,31 @@
   .animate-bounce-slow {
     animation: bounceSlow 3s ease-in-out infinite;
   }
-  
+
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
-  
+
   .animate-float-reverse {
     animation: floatReverse 5s ease-in-out infinite;
   }
-  
+
   .animate-float-gentle {
     animation: floatGentle 4s ease-in-out infinite;
   }
-  
+
   .animate-pulse-gentle {
     animation: pulseGentle 3s ease-in-out infinite;
   }
-  
+
   .animate-pulse-slow {
     animation: pulseSlow 4s ease-in-out infinite;
   }
-  
+
   .animate-spin-slow {
     animation: spinSlow 20s linear infinite;
   }
-  
+
   .animate-gradient-x {
     animation: gradientX 3s ease infinite;
     background-size: 200% 200%;
@@ -415,7 +478,7 @@
     animation-delay: 0.4s;
     animation-fill-mode: both;
   }
-  
+
   /* Hover effects */
   .hover-lift {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -434,16 +497,16 @@
   .ring-pancake-primary {
     box-shadow: 0 0 0 2px hsl(var(--pancake-primary) / 0.15);
   }
-  
+
   .dark .ring-pancake-primary {
     box-shadow: 0 0 0 2px hsl(var(--pancake-primary) / 0.2);
   }
-  
+
   /* Softer ring utility for better contrast */
   .ring-soft-orange {
     box-shadow: 0 0 0 2px hsl(31 70% 60% / 0.25);
   }
-  
+
   .dark .ring-soft-orange {
     box-shadow: 0 0 0 2px hsl(31 70% 70% / 0.3);
   }
@@ -471,7 +534,8 @@
 }
 
 @keyframes floatSmooth {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -480,7 +544,8 @@
 }
 
 @keyframes bounceGentle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -489,16 +554,20 @@
 }
 
 @keyframes pulseGlow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 5px hsl(255 133 27 / 0.3);
   }
   50% {
-    box-shadow: 0 0 25px hsl(255 133 27 / 0.6), 0 0 35px hsl(255 133 27 / 0.4);
+    box-shadow:
+      0 0 25px hsl(255 133 27 / 0.6),
+      0 0 35px hsl(255 133 27 / 0.4);
   }
 }
 
 @keyframes gradient-x {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -507,7 +576,8 @@
 }
 
 @keyframes gradient-y {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(-100%);
   }
   50% {
@@ -516,7 +586,8 @@
 }
 
 @keyframes gradient-xy {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(-100%, -100%);
   }
   25% {
@@ -552,7 +623,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.1;
   }
   50% {
@@ -561,7 +633,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -581,10 +654,18 @@
 }
 
 @keyframes wiggle {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(1deg); }
-  75% { transform: rotate(-1deg); }
-  100% { transform: rotate(0deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(1deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
 }
 
 @keyframes glow {
@@ -606,7 +687,8 @@
 }
 
 @keyframes scalePulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -620,12 +702,12 @@
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   .card-pancake {
     padding: 1rem;
     border-radius: 0.75rem;
   }
-  
+
   .container-section {
     padding-top: 2rem;
     padding-bottom: 2rem;
@@ -637,7 +719,7 @@
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  
+
   .container-section {
     padding-top: 4rem;
     padding-bottom: 4rem;
@@ -649,7 +731,7 @@
     padding-left: 2rem;
     padding-right: 2rem;
   }
-  
+
   .container-section {
     padding-top: 5rem;
     padding-bottom: 5rem;
@@ -707,7 +789,8 @@
 
 /* PancakeSwap-style keyframe animations */
 @keyframes bounceSlow {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -716,7 +799,8 @@
 }
 
 @keyframes bounceGentle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -725,7 +809,8 @@
 }
 
 @keyframes floatReverse {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
   50% {
@@ -734,7 +819,8 @@
 }
 
 @keyframes floatGentle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
   33% {
@@ -746,7 +832,8 @@
 }
 
 @keyframes pulseGentle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
     transform: scale(1);
   }
@@ -757,7 +844,8 @@
 }
 
 @keyframes pulseSlow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.4;
   }
   50% {
@@ -775,7 +863,8 @@
 }
 
 @keyframes gradientX {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -786,31 +875,61 @@
 /* --- PancakeSwap-inspired blob animations and font --- */
 
 .font-pancake {
-  font-family: 'Baloo 2', 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+  font-family:
+    'Baloo 2', 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
   letter-spacing: 0.01em;
 }
 
 @keyframes blob1 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.1, 0.9) translate(10px, -10px); }
-  66% { transform: scale(0.95, 1.05) translate(-10px, 10px); }
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    transform: scale(1.1, 0.9) translate(10px, -10px);
+  }
+  66% {
+    transform: scale(0.95, 1.05) translate(-10px, 10px);
+  }
 }
 @keyframes blob2 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.05, 0.95) translate(-12px, 8px); }
-  66% { transform: scale(0.9, 1.1) translate(12px, -8px); }
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    transform: scale(1.05, 0.95) translate(-12px, 8px);
+  }
+  66% {
+    transform: scale(0.9, 1.1) translate(12px, -8px);
+  }
 }
 @keyframes blob3 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.08, 0.92) translate(8px, 12px); }
-  66% { transform: scale(0.92, 1.08) translate(-8px, -12px); }
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    transform: scale(1.08, 0.92) translate(8px, 12px);
+  }
+  66% {
+    transform: scale(0.92, 1.08) translate(-8px, -12px);
+  }
 }
-.animate-blob1 { animation: blob1 12s ease-in-out infinite; }
-.animate-blob2 { animation: blob2 14s ease-in-out infinite; }
-.animate-blob3 { animation: blob3 16s ease-in-out infinite; }
+.animate-blob1 {
+  animation: blob1 12s ease-in-out infinite;
+}
+.animate-blob2 {
+  animation: blob2 14s ease-in-out infinite;
+}
+.animate-blob3 {
+  animation: blob3 16s ease-in-out infinite;
+}
 
 .nav-item-hover {
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition:
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 .nav-item-hover:hover {
   box-shadow: 0 2px 8px 0 rgba(31, 41, 55, 0.08);

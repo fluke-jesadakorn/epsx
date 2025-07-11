@@ -5,6 +5,7 @@ This folder contains home page components styled with a **PancakeSwap-inspired d
 ## 🎨 Design Philosophy
 
 The components follow PancakeSwap's design principles:
+
 - **Warm Color Palette**: Orange, yellow, and amber gradients
 - **Playful Elements**: Pancake emojis (🥞), money emojis (💰), and rocket emojis (🚀)
 - **Smooth Animations**: Gentle bouncing, floating, and pulsing effects
@@ -37,23 +38,27 @@ home/
 ## Key Improvements
 
 ### 1. **Separation of Concerns**
+
 - **UI Components**: Pure presentation components in `components/`
 - **Business Logic**: Extracted to custom hooks in `hooks/`
 - **Styling**: Centralized in `constants/styles.ts`
 
 ### 2. **Reusability**
+
 - `GrowthIndicator`: Reusable component for displaying growth metrics
 - `MetricCard`: Standardized metric display
 - `QuarterRow`: Consistent quarterly data presentation
 - Style constants can be reused across all components
 
 ### 3. **Maintainability**
+
 - Clear component boundaries
 - Consistent naming conventions
 - Type safety throughout
 - Easy to test individual components
 
 ### 4. **Performance**
+
 - Reduced re-renders through proper component splitting
 - Memoization opportunities for expensive calculations
 - Cleaner component trees
@@ -63,24 +68,28 @@ home/
 ### Style Constants (`constants/styles.ts`)
 
 #### Gradients
+
 - `GRADIENTS.primary`: Main brand gradient
 - `GRADIENTS.background`: Page background gradients
 - `GRADIENTS.card`: Card background gradients
 - `GRADIENTS.metric.*`: Specific metric color schemes
 
 #### Colors
+
 - `COLORS.positive`: Success/growth states
 - `COLORS.negative`: Error/decline states
 - `COLORS.neutral`: Neutral states
 - `COLORS.primary/secondary`: Brand colors
 
 #### Typography
+
 - `TYPOGRAPHY.hero`: Large headings
 - `TYPOGRAPHY.title`: Section titles
 - `TYPOGRAPHY.body`: Body text
 - `TYPOGRAPHY.caption`: Small text/labels
 
 #### Spacing & Layout
+
 - `SPACING.cardPadding`: Consistent card padding
 - `SPACING.gridGap`: Grid spacing
 - `SPACING.containerPadding`: Page margins
@@ -88,30 +97,37 @@ home/
 ## Components
 
 ### FinancialCard
+
 The main card component for displaying individual stock data.
 
 **Props:**
+
 - `data: StockFinancialData` - The stock data to display
 - `index: number` - Position in the list (for ranking)
 
 **Features:**
+
 - Interactive states (hover, press)
 - Growth indicators
 - TradingView integration
 - Quarterly performance table
 
 ### GrowthIndicator
+
 Displays growth percentages with visual indicators.
 
 **Props:**
+
 - `value: number | null` - The growth value
 - `size: 'sm' | 'md' | 'lg'` - Display size
 - `showIcon: boolean` - Whether to show the arrow icon
 
 ### MetricCard
+
 Standardized metric display component.
 
 **Props:**
+
 - `title: string` - Metric label
 - `value: string` - Formatted value
 - `type: 'price' | 'eps' | 'growth'` - Metric type (affects styling)
@@ -119,9 +135,11 @@ Standardized metric display component.
 ## Hooks
 
 ### useFinancialData
+
 Processes raw financial data into display-ready format.
 
 **Returns:**
+
 - `latestQuarter` - Most recent quarter data
 - `avgGrowth` - Calculated average EPS growth
 - `displayPrice` - Best available price to display
@@ -146,11 +164,13 @@ import { FinancialCard, GrowthIndicator } from '@/components/home';
 ## Migration from Original
 
 The original 473-line `FinancialDataTable.tsx` has been split into:
+
 - **Main component**: 50 lines (96% reduction)
 - **Sub-components**: Focused, single-responsibility components
 - **Reusable utilities**: Shared hooks and constants
 
 This makes the codebase much easier to:
+
 - Debug individual features
 - Test components in isolation
 - Modify styling system-wide

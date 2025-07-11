@@ -3,16 +3,11 @@
 // import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 import { EmailPasswordForm } from '@/components/auth/EmailPasswordForm';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-context';
 
 export default function LoginPage() {
@@ -20,6 +15,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/dashboard';
   const [redirecting, setRedirecting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // Only redirect if we have a confirmed authenticated user and we're not already redirecting
@@ -30,7 +26,7 @@ export default function LoginPage() {
         // Use window.location instead of redirect to ensure proper navigation
         // Append a query parameter to indicate this is a post-login redirect
         const redirectUrl = `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}postLogin=true`;
-        window.location.href = redirectUrl;
+        router.push(redirectUrl);
       }, 500);
     }
   }, [user, loading, returnUrl, redirecting]);
@@ -91,9 +87,7 @@ export default function LoginPage() {
                 className="min-h-[48px]"
                 asChild
               >
-                <Link href="/signup">
-                  Don&apos;t have an account? Sign up
-                </Link>
+                <Link href="/signup">Don&apos;t have an account? Sign up</Link>
               </Button>
             </div>
           </div>

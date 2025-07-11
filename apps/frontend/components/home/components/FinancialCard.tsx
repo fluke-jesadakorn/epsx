@@ -1,6 +1,12 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { GRADIENTS, COLORS, SPACING, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
+import {
+  GRADIENTS,
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  ANIMATIONS,
+} from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './GrowthIndicators';
 import { MetricCard, QuarterRow } from './MetricComponents';
 import { useFinancialData, getValidQuarters } from '../hooks/useFinancialData';
@@ -18,16 +24,15 @@ interface FinancialCardProps {
 /**
  * Individual financial data card component
  */
-export function FinancialCard({ data, index }: FinancialCardProps): React.JSX.Element {
+export function FinancialCard({
+  data,
+  index,
+}: FinancialCardProps): React.JSX.Element {
   const [isPressed, setIsPressed] = React.useState(false);
   const [isHovered, setIsHovered] = React.useState(false);
-  
-  const { 
-    latestQuarter, 
-    avgGrowth, 
-    displayPrice, 
-    hasGrowthData 
-  } = useFinancialData(data);
+
+  const { latestQuarter, avgGrowth, displayPrice, hasGrowthData } =
+    useFinancialData(data);
 
   const validQuarters = getValidQuarters(data.quarters);
 
@@ -101,23 +106,33 @@ export function FinancialCard({ data, index }: FinancialCardProps): React.JSX.El
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3 ml-12">
-            <div className={`${TYPOGRAPHY.title} text-slate-800 dark:text-white tracking-tight flex items-center gap-2`}>
+            <div
+              className={`${TYPOGRAPHY.title} text-slate-800 dark:text-white tracking-tight flex items-center gap-2`}
+            >
               <span className="text-2xl">📈</span>
               {data.symbol}
               <span className="text-sm opacity-60">🚀</span>
             </div>
             {hasGrowthData && (
-              <TrendIcon 
-                direction={data.quarters[0].eps_growth! > data.quarters[1].eps_growth! ? 'up' : 'down'}
+              <TrendIcon
+                direction={
+                  data.quarters[0].eps_growth! > data.quarters[1].eps_growth!
+                    ? 'up'
+                    : 'down'
+                }
               />
             )}
           </div>
           <div className="text-right">
-            <div className={`${TYPOGRAPHY.caption} ${COLORS.neutral.text} font-medium uppercase tracking-wider flex items-center gap-1`}>
+            <div
+              className={`${TYPOGRAPHY.caption} ${COLORS.neutral.text} font-medium uppercase tracking-wider flex items-center gap-1`}
+            >
               <span className="text-xs">📅</span>
               Latest Date
             </div>
-            <div className={`${TYPOGRAPHY.body} text-slate-700 dark:text-slate-300`}>
+            <div
+              className={`${TYPOGRAPHY.body} text-slate-700 dark:text-slate-300`}
+            >
               {latestQuarter?.date ? formatDate(latestQuarter.date) : 'N/A'}
             </div>
           </div>
@@ -133,12 +148,18 @@ export function FinancialCard({ data, index }: FinancialCardProps): React.JSX.El
           />
           <MetricCard
             title="Latest EPS"
-            value={latestQuarter?.eps !== undefined ? latestQuarter.eps.toFixed(4) : 'N/A'}
+            value={
+              latestQuarter?.eps !== undefined
+                ? latestQuarter.eps.toFixed(4)
+                : 'N/A'
+            }
             type="eps"
             className="p-4"
           />
           <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30">
-            <div className={`${TYPOGRAPHY.caption} text-emerald-600 dark:text-emerald-400 font-semibold tracking-wide uppercase mb-2`}>
+            <div
+              className={`${TYPOGRAPHY.caption} text-emerald-600 dark:text-emerald-400 font-semibold tracking-wide uppercase mb-2`}
+            >
               Avg Growth
             </div>
             <div className="flex items-center gap-2">
@@ -190,13 +211,17 @@ export function FinancialCard({ data, index }: FinancialCardProps): React.JSX.El
             <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center">
               <span className="text-white text-xs font-bold">📊</span>
             </div>
-            <h3 className={`${TYPOGRAPHY.body} text-slate-800 dark:text-white flex items-center gap-2`}>
+            <h3
+              className={`${TYPOGRAPHY.body} text-slate-800 dark:text-white flex items-center gap-2`}
+            >
               <span className="text-sm">🏆</span>
               Quarterly Performance
               <span className="text-sm">📈</span>
             </h3>
             <div className="ml-auto">
-              <span className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}>
+              <span
+                className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
+              >
                 <span className="text-xs">⏰</span>
                 {data.quarters.length - 1}Q
               </span>
@@ -206,7 +231,10 @@ export function FinancialCard({ data, index }: FinancialCardProps): React.JSX.El
           {/* Table Header */}
           <div className="hidden sm:grid grid-cols-5 gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
             {['Quarter', 'Price', 'EPS', 'EPS %', 'Price %'].map((header) => (
-              <div key={header} className={`${TYPOGRAPHY.caption} font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide ${header === 'Quarter' ? '' : 'text-right'}`}>
+              <div
+                key={header}
+                className={`${TYPOGRAPHY.caption} font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide ${header === 'Quarter' ? '' : 'text-right'}`}
+              >
                 {header}
               </div>
             ))}

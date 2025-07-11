@@ -7,11 +7,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, Wallet, ArrowRight, Shield, Clock, Star, AlertCircle, Loader2 } from 'lucide-react';
-import { PACKAGES, LEVEL_BENEFITS, validatePayment } from '@/app/constants/packages';
+import {
+  Check,
+  Wallet,
+  ArrowRight,
+  Shield,
+  Clock,
+  Star,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
+import {
+  PACKAGES,
+  LEVEL_BENEFITS,
+  validatePayment,
+} from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
+import { auth } from '@/lib/firebase';
 import PaymentDetails from './PaymentDetails';
-
 interface OneClickPaymentProps {
   preselectedPackage?: string;
   preselectedAmount?: string;
@@ -38,7 +51,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     processingTime: '1-3 min',
     fees: '$0.1',
     popular: true,
-    networks: ['TRC20']
+    networks: ['TRC20'],
   },
   {
     id: 'USDT_BSC',
@@ -47,7 +60,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Low fees',
     processingTime: '1-5 min',
     fees: '$0.2',
-    networks: ['BSC']
+    networks: ['BSC'],
   },
   {
     id: 'USDT_ERC20',
@@ -56,7 +69,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Most secure',
     processingTime: '2-10 min',
     fees: '$2-15',
-    networks: ['ERC20']
+    networks: ['ERC20'],
   },
   // Temporarily disabled as per request
   // {
@@ -79,10 +92,10 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   // }
 ];
 
-export default function OneClickPayment({ 
-  preselectedPackage = '', 
+export default function OneClickPayment({
+  preselectedPackage = '',
   preselectedAmount = '',
-  className = '' 
+  className = '',
 }: OneClickPaymentProps) {
   const router = useRouter();
   const paymentService = createPaymentService();
@@ -90,15 +103,16 @@ export default function OneClickPayment({
   // State management
   const [step, setStep] = useState<'select' | 'details' | 'success'>('select');
   const [selectedPackage, setSelectedPackage] = useState(preselectedPackage);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('USDT_TRC20');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    useState('USDT_TRC20');
   const [amount, setAmount] = useState(preselectedAmount);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
 
   // Get popular packages (skip free basic)
-  const popularPackages = PACKAGES.filter(pkg => 
-    pkg.price > 0 && !pkg.id.startsWith('api_')
+  const popularPackages = PACKAGES.filter(
+    (pkg) => pkg.price > 0 && !pkg.id.startsWith('api_'),
   ).slice(0, 3);
 
   // Auto-select first package if none selected
@@ -109,19 +123,84 @@ export default function OneClickPayment({
     }
   }, [selectedPackage, popularPackages]);
 
-  const selectedPackageData = PACKAGES.find(pkg => pkg.id === selectedPackage);
-  const selectedMethodData = PAYMENT_METHODS.find(method => method.id === selectedPaymentMethod);
+  const selectedPackageData = PACKAGES.find(
+    (pkg) => pkg.id === selectedPackage,
+  );
+  const selectedMethodData = PAYMENT_METHODS.find(
+    (method) => method.id === selectedPaymentMethod,
+  );
 
   const handleQuickPay = async () => {
     if (!selectedPackageData || !selectedMethodData) return;
 
-    // For crypto payments, go to details step
-    if (selectedPaymentMethod.startsWith('USDT_')) {
-      setStep('details');
+    const user = auth.currentUser;
+    if (!user) {
+      setError('Please login to continue with payment');
       return;
     }
 
-    // For card payments, process directly
+    // For crypto payments, initiate MusePay payment and go to details step
+    if (selectedPaymentMethod.startsWith('USDT_')) {
+      setIsProcessing(true);
+      setError('');
+
+      try {
+        // Create MusePay payment request via server-side API
+        const response = await fetch('/api/v1/musepay/create-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            packageId: selectedPackage,
+            userEmail: user.email || undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.message || 'Failed to create payment request',
+          );
+        }
+
+        const result = await response.json();
+        console.log('MusePay payment created:', result.data);
+
+        // Store payment data for webhook processing and return handling
+        sessionStorage.setItem(
+          'activePayment',
+          JSON.stringify({
+            ...result.data,
+            selectedPackage,
+            selectedMethod: selectedPaymentMethod,
+            amount,
+          }),
+        );
+
+        // Redirect directly to MusePay gateway
+        const checkoutUrl = result.data.paymentRequest.checkoutUrl;
+        if (checkoutUrl) {
+          console.log('Redirecting to MusePay gateway:', checkoutUrl);
+          router.push(checkoutUrl);
+        } else {
+          throw new Error('No checkout URL received from MusePay');
+        }
+      } catch (err) {
+        console.error('MusePay payment creation failed:', err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to create payment request',
+        );
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // For card payments, process directly (if implemented)
     setIsProcessing(true);
     setError('');
 
@@ -129,7 +208,7 @@ export default function OneClickPayment({
       // Validate payment
       const validationError = validatePayment(
         Number(amount),
-        selectedPaymentMethod as CurrencyType
+        selectedPaymentMethod as CurrencyType,
       );
 
       if (validationError) {
@@ -140,7 +219,7 @@ export default function OneClickPayment({
       const transactionId = await paymentService.recordPayment(
         Number(amount),
         selectedPaymentMethod,
-        `${selectedPackageData.name} purchase`
+        `${selectedPackageData.name} purchase`,
       );
 
       if (transactionId) {
@@ -175,7 +254,9 @@ export default function OneClickPayment({
 
   if (success) {
     return (
-      <Card className={`max-w-md mx-auto ${className} border-0 shadow-2xl bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 relative overflow-hidden`}>
+      <Card
+        className={`max-w-md mx-auto ${className} border-0 shadow-2xl bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 relative overflow-hidden`}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-teal-400/10"></div>
         <CardContent className="pt-8 text-center relative z-10">
           <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
@@ -243,37 +324,48 @@ export default function OneClickPayment({
                     }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-pink-400/10 via-purple-400/10 to-orange-400/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
+
                     <div className="relative z-10">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-gray-900 dark:text-white text-lg">{pkg.name}</h4>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-lg">
+                          {pkg.name}
+                        </h4>
                         {pkg.level === 'GOLD' && (
                           <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 shadow-lg animate-pulse">
                             🔥 Popular
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="mb-4">
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-black bg-gradient-to-r from-pink-600 via-purple-600 to-orange-600 bg-clip-text text-transparent">
                             ${pkg.price}
                           </span>
-                          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">/month</span>
+                          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                            /month
+                          </span>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
-                        {LEVEL_BENEFITS[pkg.level].slice(0, 3).map((benefit, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-sm">
-                            <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Check className="h-2.5 w-2.5 text-white" />
+                        {LEVEL_BENEFITS[pkg.level]
+                          .slice(0, 3)
+                          .map((benefit, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Check className="h-2.5 w-2.5 text-white" />
+                              </div>
+                              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                {benefit}
+                              </span>
                             </div>
-                            <span className="text-gray-700 dark:text-gray-300 font-medium">{benefit}</span>
-                          </div>
-                        ))}
+                          ))}
                       </div>
-                      
+
                       {selectedPackage === pkg.id && (
                         <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
                           <Check className="h-3 w-3 text-white" />
@@ -301,7 +393,7 @@ export default function OneClickPayment({
             <CardContent className="relative z-10">
               <div className="space-y-4">
                 {PAYMENT_METHODS.map((method) => (
-                  <div 
+                  <div
                     key={method.id}
                     className={`group relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${
                       selectedPaymentMethod === method.id
@@ -311,7 +403,7 @@ export default function OneClickPayment({
                     onClick={() => setSelectedPaymentMethod(method.id)}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-400/5 via-cyan-400/5 to-teal-400/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
+
                     <div className="relative z-10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -320,7 +412,9 @@ export default function OneClickPayment({
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-bold text-gray-900 dark:text-white text-lg">{method.name}</span>
+                              <span className="font-bold text-gray-900 dark:text-white text-lg">
+                                {method.name}
+                              </span>
                               {method.popular && (
                                 <Badge className="bg-gradient-to-r from-orange-400 to-red-500 text-white border-0 shadow-lg animate-pulse">
                                   🔥 Popular
@@ -339,7 +433,10 @@ export default function OneClickPayment({
                               {method.processingTime}
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Fee: <span className="font-semibold text-green-600 dark:text-green-400">{method.fees}</span>
+                              Fee:{' '}
+                              <span className="font-semibold text-green-600 dark:text-green-400">
+                                {method.fees}
+                              </span>
                             </div>
                           </div>
                           {selectedPaymentMethod === method.id && (
@@ -354,10 +451,15 @@ export default function OneClickPayment({
                         <div className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                             <Clock className="h-4 w-4" />
-                            <span className="font-medium">{method.processingTime}</span>
+                            <span className="font-medium">
+                              {method.processingTime}
+                            </span>
                           </div>
                           <div className="text-gray-500 dark:text-gray-400">
-                            Fee: <span className="font-semibold text-green-600 dark:text-green-400">{method.fees}</span>
+                            Fee:{' '}
+                            <span className="font-semibold text-green-600 dark:text-green-400">
+                              {method.fees}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -383,25 +485,37 @@ export default function OneClickPayment({
             <CardContent className="space-y-6 relative z-10">
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
-                  <span className="text-gray-600 dark:text-gray-300 font-medium">Package:</span>
-                  <span className="font-bold text-gray-900 dark:text-white text-lg">{selectedPackageData?.name}</span>
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">
+                    Package:
+                  </span>
+                  <span className="font-bold text-gray-900 dark:text-white text-lg">
+                    {selectedPackageData?.name}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
-                  <span className="text-gray-600 dark:text-gray-300 font-medium">Payment Method:</span>
-                  <span className="font-bold text-gray-900 dark:text-white text-lg">{selectedMethodData?.name}</span>
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">
+                    Payment Method:
+                  </span>
+                  <span className="font-bold text-gray-900 dark:text-white text-lg">
+                    {selectedMethodData?.name}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-4 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
-                  <span className="text-gray-600 dark:text-gray-300 font-medium">Processing Time:</span>
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">
+                    Processing Time:
+                  </span>
                   <span className="font-semibold text-blue-600 dark:text-blue-400">
                     {selectedMethodData?.processingTime}
                   </span>
                 </div>
               </div>
-              
+
               <div className="h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
-              
+
               <div className="flex justify-between items-center p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl border-2 border-green-200 dark:border-green-700">
-                <span className="text-gray-900 dark:text-white font-bold text-xl">Total:</span>
+                <span className="text-gray-900 dark:text-white font-bold text-xl">
+                  Total:
+                </span>
                 <span className="text-3xl font-black bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
                   ${amount}
                 </span>
@@ -430,7 +544,9 @@ export default function OneClickPayment({
                 ) : (
                   <div className="flex items-center gap-3">
                     <span>
-                      {selectedPaymentMethod.startsWith('USDT_') ? 'Continue Payment' : `Pay $${amount} Now`}
+                      {selectedPaymentMethod.startsWith('USDT_')
+                        ? 'Continue Payment'
+                        : `Pay $${amount} Now`}
                     </span>
                     <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     <span className="text-xl">🚀</span>
@@ -440,7 +556,9 @@ export default function OneClickPayment({
 
               <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400 bg-white/60 dark:bg-gray-700/60 rounded-xl p-3">
                 <Shield className="h-4 w-4 text-green-500" />
-                <span className="font-medium">Secure payment powered by blockchain technology</span>
+                <span className="font-medium">
+                  Secure payment powered by blockchain technology
+                </span>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
             </CardContent>

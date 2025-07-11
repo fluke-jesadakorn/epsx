@@ -4,25 +4,30 @@ import { useState } from 'react';
 import { SelectPackage } from '@/components/features/payment/SelectPackage';
 import { withPaymentAuth } from './withPaymentAuth';
 import { PACKAGES, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
+import { useRouter } from 'next/navigation';
 
 interface SelectPackageSectionProps {
   className?: string;
   showTitle?: boolean;
 }
 
-const BaseSelectPackageSection = ({ 
+const BaseSelectPackageSection = ({
   className = '',
 }: SelectPackageSectionProps) => {
-  const defaultPackage = PACKAGES.find(pkg => pkg.id === 'silver') || PACKAGES[0];
+  const router = useRouter();
+  const defaultPackage =
+    PACKAGES.find((pkg) => pkg.id === 'silver') || PACKAGES[0];
   const [amount, setAmount] = useState(defaultPackage.price.toString());
-  const [currency, setCurrency] = useState<string>(BLOCKCHAIN_CONFIG.BSC.currency);
+  const [currency, setCurrency] = useState<string>(
+    BLOCKCHAIN_CONFIG.BSC.currency,
+  );
 
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);
   };
 
   const getPackageType = (amount: string): string => {
-    const pkg = PACKAGES.find(p => p.price.toString() === amount);
+    const pkg = PACKAGES.find((p) => p.price.toString() === amount);
     return pkg?.id || 'silver';
   };
 
@@ -30,7 +35,9 @@ const BaseSelectPackageSection = ({
     // You can add navigation or payment processing logic here
     if (typeof window !== 'undefined') {
       const packageType = getPackageType(amount);
-      window.location.href = `/payment?amount=${amount}&currency=${currency}&packageType=${packageType}`;
+      router.push(
+        `/payment?amount=${amount}&currency=${currency}&packageType=${packageType}`,
+      );
     }
   };
 
