@@ -1,7 +1,7 @@
-import type { AxiosInstance } from "axios";
-import { AxiosError } from "axios";
-import type { ChatRequest, ChatResponse } from "@epsx/types";
-import { createAxiosInstance } from "./axios-instance";
+import type { AxiosInstance } from 'axios';
+import { AxiosError } from 'axios';
+import type { ChatRequest, ChatResponse } from '@epsx/types';
+import { createAxiosInstance } from './axios-instance';
 
 export class ApiClient {
   private axios: AxiosInstance;
@@ -13,31 +13,39 @@ export class ApiClient {
   // Generic request methods
   async get<T>(endpoint: string, headers = {}) {
     return this.handleRequest(
-      this.axios.get<T>(endpoint, { headers }).then(response => response.data)
+      this.axios
+        .get<T>(endpoint, { headers })
+        .then((response) => response.data),
     );
   }
 
   async post<T, TData = unknown>(endpoint: string, data: TData, headers = {}) {
     return this.handleRequest(
-      this.axios.post<T>(endpoint, data, { headers }).then(response => response.data)
+      this.axios
+        .post<T>(endpoint, data, { headers })
+        .then((response) => response.data),
     );
   }
 
   async put<T, TData = unknown>(endpoint: string, data: TData, headers = {}) {
     return this.handleRequest(
-      this.axios.put<T>(endpoint, data, { headers }).then(response => response.data)
+      this.axios
+        .put<T>(endpoint, data, { headers })
+        .then((response) => response.data),
     );
   }
 
   async delete<T>(endpoint: string, headers = {}) {
     return this.handleRequest(
-      this.axios.delete<T>(endpoint, { headers }).then(response => response.data)
+      this.axios
+        .delete<T>(endpoint, { headers })
+        .then((response) => response.data),
     );
   }
 
   // Specific API endpoints
   async textQuery(data: ChatRequest) {
-    return this.post<ChatResponse>("/text-query", data);
+    return this.post<ChatResponse>('/text-query', data);
   }
 
   // Error handling wrapper
@@ -46,7 +54,10 @@ export class ApiClient {
       return await request;
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
-        const message = error.response?.data?.message || error.message || "Server error occurred";
+        const message =
+          error.response?.data?.message ||
+          error.message ||
+          'Server error occurred';
         throw new Error(message);
       }
       throw error;
@@ -55,10 +66,10 @@ export class ApiClient {
 
   // Configuration methods
   setAuthToken(token: string) {
-    this.axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    this.axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   clearAuthToken() {
-    delete this.axios.defaults.headers.common["Authorization"];
+    delete this.axios.defaults.headers.common['Authorization'];
   }
 }

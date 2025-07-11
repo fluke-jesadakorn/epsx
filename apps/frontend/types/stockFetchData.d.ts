@@ -34,7 +34,7 @@ export interface TradingViewStock {
     string, // Fractional
     number, // Min Move 2
     string, // Currency
-    string  // Fundamental Currency
+    string, // Fundamental Currency
   ];
 }
 

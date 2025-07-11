@@ -7,7 +7,7 @@ import { SkeletonLoader } from '@/components/common/Skeleton';
 import ChatSection from '@/components/home/ChatSection';
 import DataRankTable from '@/components/home/DataRankTable';
 import DataTechSection from '@/components/home/DataTechSection';
-import EpsCardSection from '@/components/home/EpsCardSection';
+import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
 
@@ -122,7 +122,7 @@ function HomePage() {
             {/* Decorative background elements */}
             <div className="absolute -top-8 -left-8 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-xl" />
             <div className="absolute -bottom-8 -right-8 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl" />
-            <EpsCardSection initialData={data} />
+            <ClientEpsCardSection initialData={data} />
           </div>
         </div>
 

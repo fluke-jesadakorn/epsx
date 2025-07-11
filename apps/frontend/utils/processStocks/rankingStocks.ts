@@ -29,7 +29,10 @@ export async function rankStocksByEpsWithChart(
     const symbols = stockData.data.map((stock: any) => stock.s);
 
     // 3. Fetch financials from chart for these symbols with current prices
-    const financials = await getFinancialsWithCurrentPriceFromChart(symbols, quarters);
+    const financials = await getFinancialsWithCurrentPriceFromChart(
+      symbols,
+      quarters,
+    );
 
     // 4. Return result in required format
     return financials;
@@ -44,13 +47,10 @@ rankStocksByEpsWithChart(0, 10, MarketCountry)
   .then((data) => {
     console.log('Financials from chart with current prices:', data);
     // Log detailed quarters for each symbol
-    Object.entries(data).forEach(([symbol, financialData]) => {
-      console.log(`Symbol: ${symbol}`);
-      console.log(`Current Price: ${financialData.currentPrice}`);
-      console.log(`Current Price Date: ${financialData.currentPriceDate}`);
+    Object.entries(data).forEach(([_symbol, financialData]) => {
       financialData.quarters.forEach((q: any, idx: number) => {
         console.log(
-          `  Quarter ${idx}: date=${q.date}, price=${q.price}, eps=${q.eps}, quarter=${q.quarter}`
+          `  Quarter ${idx}: date=${q.date}, price=${q.price}, eps=${q.eps}, quarter=${q.quarter}`,
         );
       });
     });
