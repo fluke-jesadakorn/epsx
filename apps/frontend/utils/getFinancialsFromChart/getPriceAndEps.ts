@@ -102,7 +102,9 @@ const mapEpsToPrice = (
   });
 };
 
-// Adds eps_growth to each entry, calculated as percent change from sum of all previous eps values
+/**
+ * Adds eps_growth to each entry, calculated as percent change from sum of all previous eps values
+ */
 function addEpsGrowth(
   arr: FinancialsFromChart[],
 ): (FinancialsFromChart & { eps_growth?: number | null })[] {
@@ -118,6 +120,31 @@ function addEpsGrowth(
         : null;
     sumPrev += item.eps;
     return { ...item, eps_growth: growth };
+  });
+}
+
+/**
+ * Adds price_growth to each entry, calculated as percent change from previous price
+ */
+function addPriceGrowth<T extends { price: number | null }>(
+  arr: (T & { price_growth?: number | null })[],
+): (T & { price_growth?: number | null })[] {
+  let prevPrice: number | null = null;
+  return arr.map((item, idx) => {
+    if (
+      idx === 0 ||
+      prevPrice === null ||
+      item.price == null ||
+      prevPrice === 0
+    ) {
+      prevPrice = item.price;
+      return { ...item, price_growth: null };
+    }
+    const growth = Math.round(
+      ((item.price - prevPrice) / Math.abs(prevPrice)) * 100,
+    );
+    prevPrice = item.price;
+    return { ...item, price_growth: growth };
   });
 }
 
@@ -149,58 +176,103 @@ export async function getFinancialsFromChart(
   quarters = 2,
 ): Promise<Record<string, FinancialsFromChart[]>> {
   const results: Record<string, FinancialsFromChart[]> = {};
-  for (const symbol of symbols) {
-    results[symbol] = await new Promise<FinancialsFromChart[]>(
-      (resolve, reject) => {
-        const ws = new WebSocket(
-          'wss://data.tradingview.com/socket.io/websocket',
-          {
-            headers: {
-              Origin: 'https://www.tradingview.com',
-              'User-Agent': 'Mozilla/5.0',
-            },
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  console.log(`📊 Processing ${symbols.length} symbols for financial data`);
+  
+  // Process symbols with retry logic and rate limiting
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i];
+    
+    // Add delay between requests to avoid rate limiting (except for first symbol)
+    if (i > 0) {
+      await delay(2000); // 2 second delay between requests
+    }
+    
+    results[symbol] = await getFinancialsForSymbol(symbol, quarters);
+  }
+  
+  const totalSuccessful = Object.values(results).filter(data => data.length > 0).length;
+  console.log(`✅ Completed: ${totalSuccessful}/${symbols.length} symbols returned data`);
+  
+  return results;
+}
+
+async function getFinancialsForSymbol(
+  symbol: string,
+  quarters: number,
+  retryCount = 0,
+  maxRetries = 3,
+): Promise<FinancialsFromChart[]> {
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  try {
+    const data = await new Promise<FinancialsFromChart[]>((resolve, reject) => {
+      const ws = new WebSocket(
+        'wss://data.tradingview.com/socket.io/websocket',
+        {
+          headers: {
+            Origin: 'https://www.tradingview.com',
+            'User-Agent': 'Mozilla/5.0',
           },
-        );
+        },
+      );
 
-        const sendMsg = (method: string, params: any[]) => {
-          const msg = JSON.stringify({ m: method, p: params });
-          ws.send(`~m~${msg.length}~m~${msg}`);
-        };
+      const sendMsg = (method: string, params: any[]) => {
+        const msg = JSON.stringify({ m: method, p: params });
+        ws.send(`~m~${msg.length}~m~${msg}`);
+      };
 
-        const prices: PriceData[] = [];
-        const eps: EpsData[] = [];
+      const prices: PriceData[] = [];
+      const eps: EpsData[] = [];
 
-        const sessionId = `cs_${Math.abs(
-          Array.from(symbol).reduce(
-            (acc, char) => acc + char.charCodeAt(0),
-            0,
-          ) + Math.floor(Math.random() * 10000),
-        )}`;
-        const symbolKey = `symbol_1`;
-        const seriesKey = `series_1`;
-        const studyKey = `study_1`;
-        let resolved = false;
+      const sessionId = `cs_${Math.abs(
+        Array.from(symbol).reduce(
+          (acc, char) => acc + char.charCodeAt(0),
+          0,
+        ) + Math.floor(Math.random() * 10000),
+      )}`;
+      const symbolKey = `symbol_1`;
+      const seriesKey = `series_1`;
+      const studyKey = `study_1`;
+      let resolved = false;
+      
+      // Add timeout for WebSocket operations
+      const timeout = setTimeout(() => {
+        console.warn(`⏰ Timeout for ${symbol} after 30 seconds`);
+        ws.close();
+        reject(new Error(`Timeout after 30 seconds for symbol: ${symbol}`));
+      }, 30000);
 
-        const initSession = () => {
-          sendMsg('chart_create_session', [sessionId, '']);
-          sendMsg('resolve_symbol', [
-            sessionId,
-            symbolKey,
-            `={"adjustment":"splits","symbol":"${symbol}"}`,
-          ]);
-        };
+      const initSession = () => {
+        sendMsg('chart_create_session', [sessionId, '']);
+        sendMsg('resolve_symbol', [
+          sessionId,
+          symbolKey,
+          `={"adjustment":"splits","symbol":"${symbol}"}`,
+        ]);
+      };
 
-        const handleMessage = (data: any) => {
+      const handleMessage = (data: any) => {
+        try {
           const str = Buffer.isBuffer(data)
             ? data.toString('utf8')
             : String(data);
           const messages = parseMessages(str);
 
           messages.forEach((parsed) => {
+            if (parsed.m === 'symbol_error' || parsed.m === 'critical_error') {
+              console.error(`❌ ${symbol}: Symbol error:`, parsed);
+              clearTimeout(timeout);
+              ws.close();
+              reject(new Error(`Symbol error for ${symbol}: ${JSON.stringify(parsed)}`));
+              return;
+            }
+
             if (!resolved && parsed.m === 'symbol_resolved') {
               resolved = true;
+              
               // Request more historical data to cover multiple quarters
-              // Using 500 bars of daily data (~2 years) to ensure we have prices for EPS dates
               sendMsg('create_series', [
                 sessionId,
                 seriesKey,
@@ -220,43 +292,90 @@ export async function getFinancialsFromChart(
               ]);
             }
 
-            prices.push(...extractPrices(parsed));
-            eps.push(...extractEps(parsed));
+            const newPrices = extractPrices(parsed);
+            const newEps = extractEps(parsed);
+            
+            if (newPrices.length > 0) {
+              prices.push(...newPrices);
+            }
+            
+            if (newEps.length > 0) {
+              eps.push(...newEps);
+            }
 
-            if (parsed.m === 'study_completed' && eps.length > 0) {
+            if (parsed.m === 'study_completed') {
+              clearTimeout(timeout);
               ws.close();
-              // Filter out unofficial EPS values (e.g., 1e+100) and take last N quarters
+              
+              if (eps.length === 0) {
+                console.warn(`⚠️ ${symbol}: No EPS data found`);
+                resolve([]);
+                return;
+              }
+              
+              // Filter out unofficial or invalid EPS values and take last N quarters
               const mapped = mapEpsToPrice(prices, eps)
-                .filter((item) => item.eps !== 1e100)
+                .filter(
+                  (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
+                )
                 .slice(0, quarters);
-              const withGrowth = addEpsGrowth(mapped);
-              resolve(withGrowth);
+              
+              const withEpsGrowth = addEpsGrowth(mapped);
+              const withBothGrowths = addPriceGrowth(withEpsGrowth);
+              resolve(withBothGrowths);
             }
           });
-        };
-
-        ws.on('open', initSession);
-        ws.on('message', (data) => {
-          handleMessage(data);
-        });
-        ws.on('error', (err) => {
+        } catch (error) {
+          console.error(`🚨 ${symbol}: Error handling message:`, error);
+          clearTimeout(timeout);
           ws.close();
-          reject(err);
-        });
-        ws.on('close', () => {
-          if (eps.length === 0) {
-            reject(new Error('WebSocket closed before any data was received.'));
-          } else {
-            // Filter out unofficial EPS values (e.g., 1e+100) and take last N quarters
-            const mapped = mapEpsToPrice(prices, eps)
-              .filter((item) => item.eps !== 1e100)
-              .slice(0, quarters);
-            const withGrowth = addEpsGrowth(mapped);
-            resolve(withGrowth);
-          }
-        });
-      },
-    ).catch(() => []);
+          reject(error);
+        }
+      };
+
+      ws.on('open', initSession);
+      
+      ws.on('message', handleMessage);
+      
+      ws.on('error', (err) => {
+        console.error(`🚨 ${symbol}: WebSocket error:`, err);
+        clearTimeout(timeout);
+        ws.close();
+        reject(err);
+      });
+      
+      ws.on('close', (code, reason) => {
+        clearTimeout(timeout);
+        
+        if (eps.length === 0) {
+          console.warn(`⚠️ ${symbol}: No EPS data received before close (Code: ${code})`);
+          reject(new Error(`WebSocket closed before any EPS data was received for ${symbol}. Code: ${code}`));
+        } else {
+          // Filter out unofficial or invalid EPS values and take last N quarters
+          const mapped = mapEpsToPrice(prices, eps)
+            .filter((item) => item.eps !== 1e100 && Number.isFinite(item.eps))
+            .slice(0, quarters);
+          const withEpsGrowth = addEpsGrowth(mapped);
+          const withBothGrowths = addPriceGrowth(withEpsGrowth);
+          resolve(withBothGrowths);
+        }
+      });
+    });
+
+    return data;
+    
+  } catch (error) {
+    console.error(`❌ ${symbol}: Attempt ${retryCount + 1} failed:`, error);
+    
+    // Retry with exponential backoff
+    if (retryCount < maxRetries) {
+      const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Cap at 10 seconds
+      console.log(`🔄 ${symbol}: Retrying in ${backoffDelay}ms...`);
+      await delay(backoffDelay);
+      return getFinancialsForSymbol(symbol, quarters, retryCount + 1, maxRetries);
+    }
+    
+    console.error(`💥 ${symbol}: All retry attempts failed. Returning empty array.`);
+    return [];
   }
-  return results;
 }

@@ -78,38 +78,56 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
         {index + 1}
       </div>
       <CardContent className="p-6 pt-8">
-        {/* Primary Information */}
-        <div className="flex justify-between items-start mb-3">
+        {/* Unified Data Fields (match table) */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <div>
+            <div className="text-xs text-muted-foreground font-semibold">Symbol</div>
             <div className="text-xl font-extrabold text-primary dark:text-white drop-shadow-sm tracking-wide">
               {data.symbol}
             </div>
-            <div className="text-sm text-muted-foreground line-clamp-1 font-medium">
-              {formatDate(latestQuarter.date)}
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">Latest Date</div>
+            <div className="text-sm font-medium">
+              {latestQuarter?.date ? formatDate(latestQuarter.date) : 'N/A'}
             </div>
           </div>
-          <div className="text-right">
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">Latest Price</div>
             <div className="font-bold text-lg text-blue-600 dark:text-blue-300 drop-shadow">
-              {formatPrice(latestQuarter.price)}
+              {latestQuarter?.price !== undefined ? formatPrice(latestQuarter.price) : 'N/A'}
             </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">Latest EPS</div>
+            <div className="font-bold">
+              {latestQuarter?.eps !== undefined ? latestQuarter.eps.toFixed(4) : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">EPS Growth %</div>
             <div
-              className={`text-sm font-bold ${
-                (latestQuarter.eps_growth || 0) >= 0
+              className={`font-bold ${
+                (latestQuarter?.eps_growth || 0) >= 0
                   ? 'text-green-500'
                   : 'text-rose-400 dark:text-rose-300'
               }`}
             >
-              {formatEpsGrowth(latestQuarter.eps_growth)}
+              {latestQuarter?.eps_growth !== undefined ? formatEpsGrowth(latestQuarter.eps_growth) : 'N/A'}
             </div>
           </div>
-        </div>
-
-        {/* EPS Information */}
-        <div className="text-xs sm:text-sm text-muted-foreground mb-2 flex items-center gap-2">
-          <span className="font-semibold text-purple-500 dark:text-purple-300">
-            Latest EPS:
-          </span>
-          <span className="font-bold">{latestQuarter.eps.toFixed(4)}</span>
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">Avg Growth %</div>
+            <div
+              className={`font-bold ${(avgGrowth || 0) >= 0 ? 'text-green-500' : 'text-rose-500'}`}
+            >
+              {formatEpsGrowth(avgGrowth)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground font-semibold">Quarters</div>
+            <div className="font-bold">{data.quarters.length}</div>
+          </div>
         </div>
 
         {/* Action Buttons Row */}
@@ -166,11 +184,11 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
             <div className="text-muted-foreground font-semibold">Historical Data</div>
             {data.quarters.map((quarter, idx) => (
               <div key={idx} className="flex justify-between items-center text-xs bg-white/50 dark:bg-black/20 rounded-lg p-2">
-                <span>Q{quarter.quarter} {formatDate(quarter.date)}</span>
+                <span>Q{quarter.quarter} {quarter?.date ? formatDate(quarter.date) : 'N/A'}</span>
                 <div className="text-right">
-                  <div>{formatPrice(quarter.price)}</div>
-                  <div className={`${(quarter.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-400'}`}>
-                    {formatEpsGrowth(quarter.eps_growth)}
+                  <div>{quarter?.price !== undefined ? formatPrice(quarter.price) : 'N/A'}</div>
+                  <div className={`${(quarter?.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-400'}`}>
+                    {quarter?.eps_growth !== undefined ? formatEpsGrowth(quarter.eps_growth) : 'N/A'}
                   </div>
                 </div>
               </div>
@@ -293,19 +311,19 @@ function FinancialDataTable({
       case 'symbol':
         return row.symbol;
       case 'latestPrice':
-        return formatPrice(latestQuarter.price);
+        return latestQuarter?.price !== undefined ? formatPrice(latestQuarter.price) : 'N/A';
       case 'latestEps':
-        return latestQuarter.eps.toFixed(4);
+        return latestQuarter?.eps !== undefined ? latestQuarter.eps.toFixed(4) : 'N/A';
       case 'latestGrowth':
         return (
           <span
-            className={`font-medium ${(latestQuarterWithGrowth.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-500'}`}
+            className={`font-medium ${(latestQuarterWithGrowth?.eps_growth || 0) >= 0 ? 'text-green-500' : 'text-rose-500'}`}
           >
-            {formatEpsGrowth(latestQuarterWithGrowth.eps_growth)}
+            {latestQuarterWithGrowth?.eps_growth !== undefined ? formatEpsGrowth(latestQuarterWithGrowth.eps_growth) : 'N/A'}
           </span>
         );
       case 'latestDate':
-        return formatDate(latestQuarter.date);
+        return latestQuarter?.date ? formatDate(latestQuarter.date) : 'N/A';
       case 'avgGrowth':
         return (
           <span

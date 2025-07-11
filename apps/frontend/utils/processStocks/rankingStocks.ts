@@ -14,7 +14,7 @@ export async function rankStocksByEpsWithChart(
   skip = 0,
   limit = 10,
   country: typeof MarketCountry = MarketCountry,
-  quarters = 3,
+  quarters = 4,
 ) {
   try {
     // 1. Fetch top ranked stocks
@@ -43,6 +43,15 @@ export async function rankStocksByEpsWithChart(
 rankStocksByEpsWithChart(0, 10, MarketCountry)
   .then((data) => {
     console.log('Financials from chart:', data);
+    // Log detailed quarters for each symbol
+    Object.entries(data).forEach(([symbol, quarters]) => {
+      console.log(`Symbol: ${symbol}`);
+      quarters.forEach((q, idx) => {
+        console.log(
+          `  Quarter ${idx}: date=${q.date}, price=${q.price}, eps=${q.eps}, quarter=${q.quarter}`
+        );
+      });
+    });
   })
   .catch((error) => {
     console.error('Error fetching financials from chart:', error);

@@ -18,7 +18,7 @@ export async function fetchStockFinancialData(
   skip = 0,
   limit = 10,
   country: typeof MarketCountry = MarketCountry,
-  quarters = 3,
+  quarters = 4,
 ): Promise<StockFinancialData[]> {
   try {
     console.log('Fetching stock financial data with params:', {
@@ -58,7 +58,7 @@ export async function fetchStockFinancialData(
       ttl: CACHE_TTL,
     };
 
-    console.log('Transformed and cached financial data:', transformedData);
+    console.log(transformedData);
     return transformedData;
   } catch (error) {
     console.error('Error in fetchStockFinancialData:', error);
