@@ -1,5 +1,5 @@
 import type { StockFinancialData } from '@/types/financialChartData';
-import type { FinancialsFromChart } from '@/utils/getFinancialsFromChart/getPriceAndEps';
+import type { FinancialsFromChart, FinancialsWithCurrentPrice } from '@/utils/getFinancialsFromChart/getPriceAndEps';
 
 /**
  * Transforms financial chart data from the rankingStocks utility format
@@ -36,6 +36,47 @@ export function transformFinancialData(
     return {
       symbol,
       quarters: mappedQuarters,
+    };
+  });
+}
+
+/**
+ * Transforms financial chart data with current price information
+ * to the new StockFinancialData format for the analytics page
+ */
+export function transformFinancialDataWithCurrentPrice(
+  chartData: Record<string, FinancialsWithCurrentPrice>,
+): StockFinancialData[] {
+  return Object.entries(chartData).map(([symbol, data]) => {
+    const mappedQuarters = data.quarters.map((q) => ({
+      price: q.price,
+      date: q.date,
+      eps: q.eps,
+      quarter: q.quarter,
+      eps_growth: (q as any).eps_growth, // Cast to any since eps_growth is added dynamically
+    }));
+
+    // Fix: If latest quarter price is null, use average of previous 4 quarters' prices
+    if (
+      mappedQuarters.length > 1 &&
+      (mappedQuarters[0].price === null || mappedQuarters[0].price === undefined)
+    ) {
+      const previousPrices = mappedQuarters
+        .slice(1, 5)
+        .map((q) => q.price)
+        .filter((p) => p !== null && p !== undefined) as number[];
+      if (previousPrices.length > 0) {
+        const avgPrice =
+          previousPrices.reduce((sum, p) => sum + p, 0) / previousPrices.length;
+        mappedQuarters[0].price = avgPrice;
+      }
+    }
+
+    return {
+      symbol,
+      quarters: mappedQuarters,
+      currentPrice: data.currentPrice,
+      currentPriceDate: data.currentPriceDate,
     };
   });
 }

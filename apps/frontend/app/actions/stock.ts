@@ -1,7 +1,7 @@
 'use server';
 
 import { rankStocksByEpsWithChart } from '@/utils/processStocks/rankingStocks';
-import { transformFinancialData } from '@/utils/transformers/stockDataTransformer';
+import { transformFinancialDataWithCurrentPrice } from '@/utils/transformers/stockDataTransformer';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../../../types/marketCountries';
 
@@ -48,8 +48,8 @@ export async function fetchStockFinancialData(
       return [];
     }
 
-    // Transform the data to the new format
-    const transformedData = transformFinancialData(chartData);
+    // Transform the data to the new format with current prices
+    const transformedData = transformFinancialDataWithCurrentPrice(chartData);
 
     // Cache the result
     serverCache = {

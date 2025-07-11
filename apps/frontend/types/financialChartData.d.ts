@@ -9,6 +9,8 @@ export interface QuarterData {
 export interface StockFinancialData {
   symbol: string;
   quarters: QuarterData[];
+  currentPrice?: number | null;
+  currentPriceDate?: string | null;
 }
 
 export interface CacheData<T> {

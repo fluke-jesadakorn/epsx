@@ -95,7 +95,13 @@ function FinancialDataCard({ data, index }: FinancialDataCardProps): React.JSX.E
           <div>
             <div className="text-xs text-muted-foreground font-semibold">Latest Price</div>
             <div className="font-bold text-lg text-blue-600 dark:text-blue-300 drop-shadow">
-              {latestQuarter?.price !== undefined ? formatPrice(latestQuarter.price) : 'N/A'}
+              {(() => {
+                // Use current price if available, otherwise fall back to latest quarter price
+                const priceToShow = data.currentPrice !== undefined && data.currentPrice !== null 
+                  ? data.currentPrice 
+                  : latestQuarter?.price;
+                return priceToShow !== undefined && priceToShow !== null ? formatPrice(priceToShow) : 'N/A';
+              })()}
             </div>
           </div>
           <div>
@@ -311,7 +317,11 @@ function FinancialDataTable({
       case 'symbol':
         return row.symbol;
       case 'latestPrice':
-        return latestQuarter?.price !== undefined ? formatPrice(latestQuarter.price) : 'N/A';
+        // Use current price if available, otherwise fall back to latest quarter price
+        const priceToShow = row.currentPrice !== undefined && row.currentPrice !== null 
+          ? row.currentPrice 
+          : latestQuarter?.price;
+        return priceToShow !== undefined && priceToShow !== null ? formatPrice(priceToShow) : 'N/A';
       case 'latestEps':
         return latestQuarter?.eps !== undefined ? latestQuarter.eps.toFixed(4) : 'N/A';
       case 'latestGrowth':

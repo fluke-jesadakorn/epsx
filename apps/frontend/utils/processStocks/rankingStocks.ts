@@ -1,14 +1,14 @@
 import fetchScreenerStock from './fetchRankScreenedStock';
 import { MarketCountry } from '../../../../types/marketCountries';
-import { getFinancialsFromChart } from '../getFinancialsFromChart/getPriceAndEps';
+import { getFinancialsWithCurrentPriceFromChart } from '../getFinancialsFromChart/getPriceAndEps';
 
 /**
- * Fetches top ranked stocks and returns their price and EPS data from chart.
+ * Fetches top ranked stocks and returns their price and EPS data from chart with current prices.
  * @param {number} skip - Number of stocks to skip (default: 0).
  * @param {number} limit - Maximum number of stocks to fetch (default: 10).
  * @param {string|string[]} country - Market country or countries to filter stocks (default: all markets).
  * @param {number} quarters - Number of quarters to fetch (default: 2).
- * @returns {Promise<Record<string, FinancialsFromChart[]>>} - Mapping of stock symbols to their financials.
+ * @returns {Promise<Record<string, FinancialsWithCurrentPrice>>} - Mapping of stock symbols to their financials with current prices.
  */
 export async function rankStocksByEpsWithChart(
   skip = 0,
@@ -28,8 +28,8 @@ export async function rankStocksByEpsWithChart(
     // 2. Extract symbols in correct format
     const symbols = stockData.data.map((stock: any) => stock.s);
 
-    // 3. Fetch financials from chart for these symbols
-    const financials = await getFinancialsFromChart(symbols, quarters);
+    // 3. Fetch financials from chart for these symbols with current prices
+    const financials = await getFinancialsWithCurrentPriceFromChart(symbols, quarters);
 
     // 4. Return result in required format
     return financials;
@@ -42,11 +42,13 @@ export async function rankStocksByEpsWithChart(
 // Example usage:
 rankStocksByEpsWithChart(0, 10, MarketCountry)
   .then((data) => {
-    console.log('Financials from chart:', data);
+    console.log('Financials from chart with current prices:', data);
     // Log detailed quarters for each symbol
-    Object.entries(data).forEach(([symbol, quarters]) => {
+    Object.entries(data).forEach(([symbol, financialData]) => {
       console.log(`Symbol: ${symbol}`);
-      quarters.forEach((q, idx) => {
+      console.log(`Current Price: ${financialData.currentPrice}`);
+      console.log(`Current Price Date: ${financialData.currentPriceDate}`);
+      financialData.quarters.forEach((q: any, idx: number) => {
         console.log(
           `  Quarter ${idx}: date=${q.date}, price=${q.price}, eps=${q.eps}, quarter=${q.quarter}`
         );
