@@ -344,15 +344,25 @@ function FinancialDataTable({
         );
       case 'quarters':
         return (
-          <Button asChild size="sm" variant="secondary">
-            <a
-              href={`https://www.tradingview.com/chart?symbol=${row.symbol}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View Chart
-            </a>
-          </Button>
+          <div className="space-y-1 min-w-[220px]">
+            <div className="text-xs font-semibold text-muted-foreground mb-1">
+              Quarter | Date | Price | EPS | EPS Growth % | Price Growth %
+            </div>
+            {row.quarters.map((q, idx) => (
+              <div key={idx} className="flex flex-wrap items-center gap-2 text-xs bg-white/60 dark:bg-black/20 rounded px-2 py-1 mb-1">
+                <span className="font-bold">Q{q.quarter}</span>
+                <span>{q.date ? formatDate(q.date) : 'N/A'}</span>
+                <span>{q.price !== null && q.price !== undefined ? formatPrice(q.price) : 'N/A'}</span>
+                <span>{q.eps !== undefined ? q.eps.toFixed(4) : 'N/A'}</span>
+                <span className={q.eps_growth !== undefined && q.eps_growth >= 0 ? 'text-green-500' : 'text-rose-500'}>
+                  {q.eps_growth !== undefined ? formatEpsGrowth(q.eps_growth) : 'N/A'}
+                </span>
+                <span className={q.price_growth !== undefined && q.price_growth !== null && q.price_growth >= 0 ? 'text-green-500' : 'text-rose-500'}>
+                  {q.price_growth === null || q.price_growth === undefined ? '-' : `${q.price_growth}%`}
+                </span>
+              </div>
+            ))}
+          </div>
         );
       default:
         return null;

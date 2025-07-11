@@ -4,6 +4,7 @@ export interface QuarterData {
   eps: number;
   quarter: number;
   eps_growth?: number;
+  price_growth?: number;
 }
 
 export interface StockFinancialData {

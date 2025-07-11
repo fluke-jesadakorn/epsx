@@ -54,6 +54,7 @@ export function transformFinancialDataWithCurrentPrice(
       eps: q.eps,
       quarter: q.quarter,
       eps_growth: (q as any).eps_growth, // Cast to any since eps_growth is added dynamically
+      price_growth: (q as any).price_growth, // Cast to any since price_growth is added dynamically
     }));
 
     // Fix: If latest quarter price is null, use average of previous 4 quarters' prices
