@@ -47,26 +47,53 @@ export default function SettingsPage() {
   }, [user]);
 
   const SettingsSkeleton = () => (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="flex flex-col gap-6">
-        <div className="border rounded-lg shadow-sm">
-          <div className="p-4 border-b">
-            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/4 dark:bg-gray-700"></div>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      {/* Header Skeleton */}
+      <div className="mb-6 sm:mb-8 text-center">
+        <div className="h-8 sm:h-10 md:h-12 bg-gray-200 rounded-md animate-pulse w-48 mx-auto mb-2 dark:bg-gray-700"></div>
+        <div className="h-4 bg-gray-200 rounded-md animate-pulse w-64 mx-auto dark:bg-gray-700"></div>
+      </div>
+
+      <div className="flex flex-col gap-6 sm:gap-8">
+        {/* User Level Display Skeleton */}
+        <div className="border rounded-lg shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+            <div className="flex-1 space-y-2 text-center sm:text-left">
+              <div className="h-6 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+              <div className="h-4 bg-gray-200 rounded-md animate-pulse w-24 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+            </div>
           </div>
-          <div className="p-4 space-y-4">
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
+          <div className="space-y-3">
             <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
             <div className="h-4 bg-gray-200 rounded-md animate-pulse w-3/4 dark:bg-gray-700"></div>
-            <div className="h-10 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
+            <div className="h-2 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+          </div>
+        </div>
+
+        {/* Profile Settings Skeleton */}
+        <div className="border rounded-lg shadow-sm">
+          <div className="p-3 sm:p-4 border-b">
+            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/4 dark:bg-gray-700"></div>
+          </div>
+          <div className="p-3 sm:p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+              <div className="flex-1 space-y-2 text-center sm:text-left">
+                <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+                <div className="h-4 bg-gray-200 rounded-md animate-pulse w-40 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+              </div>
+            </div>
+            <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
           </div>
         </div>
 
         {/* Authentication Providers Card Skeleton */}
         <div className="border rounded-lg shadow-sm">
-          <div className="p-4 border-b">
+          <div className="p-3 sm:p-4 border-b">
             <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/3 dark:bg-gray-700"></div>
           </div>
-          <div className="p-4 space-y-4">
+          <div className="p-3 sm:p-4 space-y-4">
             <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
             <div className="h-4 bg-gray-200 rounded-md animate-pulse w-5/6 dark:bg-gray-700"></div>
             <div className="h-10 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
@@ -75,15 +102,17 @@ export default function SettingsPage() {
 
         {/* Payment Settings Card Skeleton */}
         <div className="border rounded-lg shadow-sm">
-          <div className="p-4 border-b">
-            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/4 dark:bg-gray-700"></div>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse w-2/3 dark:bg-gray-700"></div>
-            <div className="h-10 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-            <div className="h-10 bg-gray-200 rounded-md animate-pulse w-1/3 dark:bg-gray-700"></div>
+          <div className="p-3 sm:p-4 border-b">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 dark:bg-gray-700"></div>
+                  <div className="h-4 bg-gray-200 rounded-md animate-pulse w-48 dark:bg-gray-700"></div>
+                </div>
+              </div>
+              <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -92,13 +121,13 @@ export default function SettingsPage() {
 
   return (
     <Suspense fallback={<SettingsSkeleton />}>
-      <div className="max-w-3xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
         {/* Page Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-primary mb-2 flex items-center justify-center gap-2">
+        <div className="mb-6 sm:mb-8 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-primary mb-2 flex flex-col sm:flex-row items-center justify-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8 text-primary"
+              className="h-6 w-6 sm:h-8 sm:w-8 text-primary"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -112,12 +141,12 @@ export default function SettingsPage() {
             </svg>
             Settings
           </h1>
-          <p className="text-muted-foreground text-base max-w-xl mx-auto">
+          <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto px-4">
             Manage your profile, track your progress, and unlock premium
             features.
           </p>
         </div>
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6 sm:gap-8">
           {/* User Level Display - New Enhanced Section */}
           <UserLevelDisplay className="animate-fade-in" />
 
@@ -141,11 +170,11 @@ export default function SettingsPage() {
 
           {/* Authentication Providers */}
           <Card className="transition-shadow hover:shadow-lg border bg-background/80">
-            <CardHeader className="flex flex-row items-center gap-2 pb-2">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-2 pb-2">
               <span className="bg-primary/10 rounded-full p-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-primary"
+                  className="h-5 w-5 sm:h-6 sm:w-6 text-primary"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -158,7 +187,7 @@ export default function SettingsPage() {
                   />
                 </svg>
               </span>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg sm:text-xl font-semibold">
                 Authentication Providers
               </h2>
             </CardHeader>
@@ -169,12 +198,12 @@ export default function SettingsPage() {
 
           {/* Payment Settings Link */}
           <Card className="transition-shadow hover:shadow-lg border border-primary bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-primary/10 rounded-full p-2">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
+              <div className="flex items-start sm:items-center gap-2 flex-1">
+                <span className="bg-primary/10 rounded-full p-2 flex-shrink-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-primary"
+                    className="h-5 w-5 sm:h-6 sm:w-6 text-primary"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -187,8 +216,8 @@ export default function SettingsPage() {
                     />
                   </svg>
                 </span>
-                <div>
-                  <h2 className="text-xl font-semibold">Payment Settings</h2>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-semibold">Payment Settings</h2>
                   <p className="text-sm text-muted-foreground">
                     View payment status and manage subscription
                   </p>
@@ -196,7 +225,8 @@ export default function SettingsPage() {
               </div>
               <Button
                 onClick={() => router.push('/payment')}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
+                size="sm"
               >
                 Manage Payment
               </Button>

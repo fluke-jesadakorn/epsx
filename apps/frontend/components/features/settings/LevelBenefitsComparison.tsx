@@ -88,10 +88,10 @@ export function LevelBenefitsComparison({
       
       <CardContent>
         <div className="overflow-x-auto">
-          <div className="min-w-full">
+          <div className="min-w-[800px] sm:min-w-full">
             {/* Level Headers */}
-            <div className="grid grid-cols-5 gap-3 mb-6">
-              <div className="text-sm font-medium text-muted-foreground">
+            <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">
+              <div className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Features
               </div>
               {mainLevels.map((pkg) => {
@@ -101,24 +101,24 @@ export function LevelBenefitsComparison({
                 return (
                   <div 
                     key={pkg.level}
-                    className={`relative p-3 rounded-xl border-2 transition-all duration-300 ${
+                    className={`relative p-2 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
                       isCurrentLevel 
                         ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20` 
                         : levelBorders[pkg.level as MainLevelType]
                     }`}
                   >
-                    <div className="text-center space-y-2">
-                      <div className={`mx-auto flex justify-center text-white p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}>
+                    <div className="text-center space-y-1 sm:space-y-2">
+                      <div className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}>
                         {levelIcons[pkg.level as MainLevelType]}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-sm">{pkg.name}</h3>
+                        <h3 className="font-semibold text-xs sm:text-sm">{pkg.name}</h3>
                         <div className="flex items-center justify-center gap-1 mt-1">
-                          <span className="text-lg font-bold">${pkg.price}</span>
+                          <span className="text-sm sm:text-lg font-bold">${pkg.price}</span>
                           <span className="text-xs text-muted-foreground">/mo</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {pkg.rankingLimit} stocks limit
+                          {pkg.rankingLimit} stocks
                         </p>
                       </div>
                       
@@ -134,7 +134,9 @@ export function LevelBenefitsComparison({
                           onClick={() => router.push('/payment')}
                           className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0`}
                         >
-                          Upgrade <ArrowRight className="h-3 w-3 ml-1" />
+                          <span className="hidden sm:inline">Upgrade</span>
+                          <span className="sm:hidden">Up</span>
+                          <ArrowRight className="h-3 w-3 ml-1" />
                         </Button>
                       )}
                     </div>
@@ -149,13 +151,13 @@ export function LevelBenefitsComparison({
             </div>
 
             {/* Benefits Grid */}
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               {allBenefits.map((benefit, index) => (
                 <div 
                   key={index}
-                  className="grid grid-cols-5 gap-3 py-3 px-2 rounded-lg hover:bg-muted/30 transition-colors"
+                  className="grid grid-cols-5 gap-2 sm:gap-3 py-2 sm:py-3 px-1 sm:px-2 rounded-lg hover:bg-muted/30 transition-colors"
                 >
-                  <div className="text-sm font-medium text-left">
+                  <div className="text-xs sm:text-sm font-medium text-left">
                     {benefit}
                   </div>
                   {mainLevels.map((pkg) => {
@@ -165,11 +167,11 @@ export function LevelBenefitsComparison({
                       <div key={pkg.level} className="flex justify-center">
                         {hasFeature ? (
                           <div className={`p-1 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}>
-                            <Check className="h-4 w-4 text-white" />
+                            <Check className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                           </div>
                         ) : (
                           <div className="p-1 rounded-full bg-gray-200 dark:bg-gray-700">
-                            <X className="h-4 w-4 text-gray-400" />
+                            <X className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                           </div>
                         )}
                       </div>
@@ -180,30 +182,30 @@ export function LevelBenefitsComparison({
             </div>
 
             {/* Additional Features by Level */}
-            <div className="mt-8 pt-6 border-t border-muted/30">
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-muted/30">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                 Level-Specific Limits
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {mainLevels.map((pkg) => {
                   const isCurrentLevel = pkg.level === currentLevel;
                   
                   return (
                     <div 
                       key={pkg.level}
-                      className={`p-4 rounded-xl border transition-all duration-300 ${
+                      className={`p-3 sm:p-4 rounded-xl border transition-all duration-300 ${
                         isCurrentLevel 
                           ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20` 
                           : `${levelBorders[pkg.level as MainLevelType]} hover:shadow-md`
                       }`}
                     >
                       <div className="text-center space-y-2">
-                        <div className={`mx-auto flex justify-center text-white p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} w-fit`}>
+                        <div className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} w-fit`}>
                           {levelIcons[pkg.level as MainLevelType]}
                         </div>
                         <div>
-                          <h5 className="font-semibold text-sm">{pkg.level}</h5>
-                          <p className="text-2xl font-bold text-primary">
+                          <h5 className="font-semibold text-xs sm:text-sm">{pkg.level}</h5>
+                          <p className="text-xl sm:text-2xl font-bold text-primary">
                             {pkg.rankingLimit}
                           </p>
                           <p className="text-xs text-muted-foreground">
@@ -227,18 +229,18 @@ export function LevelBenefitsComparison({
 
             {/* Call to Action */}
             {currentLevelNumeric < 3 && (
-              <div className="mt-8 p-6 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
-                <div className="text-center space-y-4">
+              <div className="mt-6 sm:mt-8 p-4 sm:p-6 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+                <div className="text-center space-y-3 sm:space-y-4">
                   <div>
-                    <h4 className="text-lg font-semibold">Ready to Upgrade?</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <h4 className="text-base sm:text-lg font-semibold">Ready to Upgrade?</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                       Unlock more features and higher limits with a premium plan
                     </p>
                   </div>
                   <Button
                     onClick={() => router.push('/payment')}
                     size="lg"
-                    className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all"
+                    className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
                   >
                     View Upgrade Options <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>

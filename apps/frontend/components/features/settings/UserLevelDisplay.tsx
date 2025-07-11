@@ -164,32 +164,34 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
       </div>
 
       <CardHeader className="relative pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`relative p-3 rounded-2xl bg-gradient-to-br ${levelGradients[currentLevel]} shadow-lg transform transition-transform hover:scale-105`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            <div className={`relative p-2 sm:p-3 rounded-2xl bg-gradient-to-br ${levelGradients[currentLevel]} shadow-lg transform transition-transform hover:scale-105 flex-shrink-0`}>
               <div className="text-white">
                 {levelIcons[currentLevel]}
               </div>
               {(currentLevel === 'GOLD' || currentLevel === 'PLATINUM') && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-pulse">
-                  <Star className="h-3 w-3 text-yellow-800 m-0.5" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full animate-pulse">
+                  <Star className="h-2 w-2 sm:h-3 sm:w-3 text-yellow-800 m-0.5" />
                 </div>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-bold truncate">
                   {currentPackage?.name || `${currentLevel} Level`}
                 </h2>
                 <Badge 
                   variant="secondary" 
-                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-semibold animate-shimmer`}
+                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-semibold animate-shimmer text-xs w-fit`}
                 >
                   {currentLevel}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {userStatus?.isExpired ? "Expired" : "Active"} • 
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                <span className={userStatus?.isExpired ? "text-destructive" : "text-green-600"}>
+                  {userStatus?.isExpired ? "Expired" : "Active"}
+                </span> • 
                 {currentPackage?.rankingLimit} stocks limit
               </p>
             </div>
@@ -199,7 +201,7 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
             <Button
               onClick={() => router.push('/payment')}
               size="sm"
-              className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all`}
+              className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto`}
             >
               Renew <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
@@ -210,14 +212,14 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
       <CardContent className="relative space-y-4">
         {/* Current Level Benefits */}
         <div>
-          <h4 className="font-semibold mb-2 text-sm text-muted-foreground uppercase tracking-wider">
+          <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wider">
             Your Benefits
           </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {LEVEL_BENEFITS[currentLevel].slice(0, 4).map((benefit, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm">
-                <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${levelGradients[currentLevel]} animate-pulse`}></div>
-                <span>{benefit}</span>
+              <div key={index} className="flex items-start gap-2 text-sm">
+                <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${levelGradients[currentLevel]} animate-pulse mt-1 flex-shrink-0`}></div>
+                <span className="flex-1">{benefit}</span>
               </div>
             ))}
           </div>
@@ -247,9 +249,9 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
 
         {/* Upgrade Options */}
         {nextLevelOptions.length > 0 && (
-          <div className="pt-2 border-t border-muted/30">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="pt-4 border-t border-muted/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex-1">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
                   Upgrade Available
                 </h4>
@@ -261,7 +263,7 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => router.push('/payment')}
-                className="hover:bg-primary/10 border-primary/30"
+                className="hover:bg-primary/10 border-primary/30 w-full sm:w-auto"
               >
                 Upgrade
               </Button>

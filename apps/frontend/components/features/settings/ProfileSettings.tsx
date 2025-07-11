@@ -227,16 +227,16 @@ export function ProfileSettings() {
       </div>
 
       {/* Enhanced Profile Header */}
-      <div className="relative flex items-center gap-4 p-4 rounded-lg bg-background/60 backdrop-blur-sm border border-muted/30">
-        <div className="relative">
+      <div className="relative flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-background/60 backdrop-blur-sm border border-muted/30">
+        <div className="relative flex-shrink-0">
           <Avatar
-            className={`w-20 h-20 ring-2 ring-offset-2 transition-all duration-300 ${
+            className={`w-16 h-16 sm:w-20 sm:h-20 ring-2 ring-offset-2 transition-all duration-300 ${
               isLoadingLevel ? 'ring-muted' : `ring-[hsl(var(--primary))]/30`
             }`}
           >
             <AvatarImage src={photoURL} alt={displayName || 'User'} />
             <AvatarFallback
-              className={`text-lg font-semibold ${
+              className={`text-base sm:text-lg font-semibold ${
                 !isLoadingLevel
                   ? `bg-gradient-to-br ${levelGradients[userLevel]} text-white`
                   : ''
@@ -249,28 +249,28 @@ export function ProfileSettings() {
           {/* Level Badge on Avatar */}
           {!isLoadingLevel && (
             <div
-              className={`absolute -bottom-1 -right-1 p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
+              className={`absolute -bottom-1 -right-1 p-1 sm:p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
             >
               <div className="text-white">{levelIcons[userLevel]}</div>
             </div>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold truncate">
+        <div className="flex-1 min-w-0 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+            <h3 className="text-base sm:text-lg font-semibold truncate">
               {displayName || 'User'}
             </h3>
             {!isLoadingLevel && (
               <Badge
                 variant="secondary"
-                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold animate-shimmer text-xs`}
+                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold animate-shimmer text-xs w-fit mx-auto sm:mx-0`}
               >
                 {userLevel}
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.email}</p>
           {!isLoadingLevel && currentPackage && (
             <p className="text-xs text-muted-foreground mt-1">
               {currentPackage.rankingLimit} stocks access •{' '}
@@ -289,10 +289,10 @@ export function ProfileSettings() {
           )}
       </div>
       {/* Enhanced Profile Form */}
-      <div className="relative space-y-6">
+      <div className="relative space-y-4 sm:space-y-6">
         <Button
           variant="outline"
-          className="mb-2"
+          className="mb-2 w-full sm:w-auto"
           onClick={() => setShowProfileForm((v) => !v)}
         >
           {showProfileForm ? 'Hide Name Section' : 'Set Name'}
@@ -350,10 +350,10 @@ export function ProfileSettings() {
       </div>
 
       {/* Enhanced Password Form */}
-      <div className="relative space-y-6 pt-6 border-t border-muted/30">
+      <div className="relative space-y-4 sm:space-y-6 pt-4 sm:pt-6 border-t border-muted/30">
         <Button
           variant="outline"
-          className="mb-2"
+          className="mb-2 w-full sm:w-auto"
           onClick={() => setShowPasswordForm((v) => !v)}
         >
           {showPasswordForm ? 'Hide Change Password' : 'Change Password'}
@@ -364,9 +364,9 @@ export function ProfileSettings() {
               <div
                 className={`p-2 rounded-lg bg-gradient-to-br ${levelGradients[userLevel]} text-white`}
               >
-                <Key className="h-5 w-5" />
+                <Key className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <h4 className="text-lg font-semibold">Security Settings</h4>
+              <h4 className="text-base sm:text-lg font-semibold">Security Settings</h4>
             </div>
 
             <form onSubmit={handleChangePassword} className="space-y-4">
