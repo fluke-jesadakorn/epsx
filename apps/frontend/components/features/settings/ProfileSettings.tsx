@@ -270,7 +270,9 @@ export function ProfileSettings() {
               </Badge>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.email}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
+            {user.email}
+          </p>
           {!isLoadingLevel && currentPackage && (
             <p className="text-xs text-muted-foreground mt-1">
               {currentPackage.rankingLimit} stocks access •{' '}
@@ -366,7 +368,9 @@ export function ProfileSettings() {
               >
                 <Key className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <h4 className="text-base sm:text-lg font-semibold">Security Settings</h4>
+              <h4 className="text-base sm:text-lg font-semibold">
+                Security Settings
+              </h4>
             </div>
 
             <form onSubmit={handleChangePassword} className="space-y-4">
@@ -388,7 +392,10 @@ export function ProfileSettings() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="newPassword" className="flex items-center gap-2">
+                <Label
+                  htmlFor="newPassword"
+                  className="flex items-center gap-2"
+                >
                   <Key className="h-4 w-4 text-muted-foreground" />
                   New Password
                 </Label>

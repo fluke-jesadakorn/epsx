@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AuthProviders } from '@/components/features/settings/AuthProviders';
 import { ProfileSettings } from '@/components/features/settings/ProfileSettings';
 import { UserLevelDisplay } from '@/components/features/settings/UserLevelDisplay';
-import { AchievementBadges } from '@/components/features/settings/AchievementBadges';
 import { LevelBenefitsComparison } from '@/components/features/settings/LevelBenefitsComparison';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [userLevel, setUserLevel] = useState<UserLevelType>('BASIC');
-  const [paymentCount, setPaymentCount] = useState(0);
   const [isLoadingUserData, setIsLoadingUserData] = useState(true);
 
   useEffect(() => {
@@ -33,11 +31,9 @@ export default function SettingsPage() {
         const userStatus = await status();
         setUserLevel(userStatus.level as UserLevelType);
         // In a real app, you'd fetch payment count from transaction history
-        setPaymentCount(0); // Placeholder
       } catch (error) {
         console.error('Failed to fetch user data:', error);
         setUserLevel('BASIC');
-        setPaymentCount(0);
       } finally {
         setIsLoadingUserData(false);
       }
@@ -150,14 +146,6 @@ export default function SettingsPage() {
           {/* User Level Display - New Enhanced Section */}
           <UserLevelDisplay className="animate-fade-in" />
 
-          {/* Achievements Section */}
-          {!isLoadingUserData && (
-            <AchievementBadges
-              currentLevel={userLevel}
-              paymentCount={paymentCount}
-              className="animate-fade-in-delayed"
-            />
-          )}
 
           {/* Level Benefits Comparison */}
           {!isLoadingUserData && (
@@ -217,7 +205,9 @@ export default function SettingsPage() {
                   </svg>
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-semibold">Payment Settings</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold">
+                    Payment Settings
+                  </h2>
                   <p className="text-sm text-muted-foreground">
                     View payment status and manage subscription
                   </p>

@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
-import { PACKAGES, LEVEL_BENEFITS } from "@/app/constants/packages";
-import type { UserLevelType } from "@/app/constants/packages";
-import { 
-  Check, 
-  X, 
-  Star, 
-  Trophy, 
-  Crown, 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
+import type { UserLevelType } from '@/app/constants/packages';
+import {
+  Check,
+  X,
+  Star,
+  Trophy,
+  Crown,
   Gem,
   ArrowRight,
-  Sparkles
-} from "lucide-react";
+  Sparkles,
+} from 'lucide-react';
 
 interface LevelBenefitsComparisonProps {
   currentLevel: UserLevelType;
@@ -32,32 +32,32 @@ const levelIcons: Record<MainLevelType, React.ReactNode> = {
 };
 
 const levelGradients: Record<MainLevelType, string> = {
-  BASIC: "from-gray-400 to-gray-600",
-  SILVER: "from-slate-400 to-slate-600",
-  GOLD: "from-yellow-400 to-orange-500",
-  PLATINUM: "from-purple-500 to-pink-600",
+  BASIC: 'from-gray-400 to-gray-600',
+  SILVER: 'from-slate-400 to-slate-600',
+  GOLD: 'from-yellow-400 to-orange-500',
+  PLATINUM: 'from-purple-500 to-pink-600',
 };
 
 const levelBorders: Record<MainLevelType, string> = {
-  BASIC: "border-gray-200 dark:border-gray-700",
-  SILVER: "border-slate-200 dark:border-slate-700",
-  GOLD: "border-yellow-200 dark:border-yellow-800",
-  PLATINUM: "border-purple-200 dark:border-purple-800",
+  BASIC: 'border-gray-200 dark:border-gray-700',
+  SILVER: 'border-slate-200 dark:border-slate-700',
+  GOLD: 'border-yellow-200 dark:border-yellow-800',
+  PLATINUM: 'border-purple-200 dark:border-purple-800',
 };
 
-export function LevelBenefitsComparison({ 
-  currentLevel, 
-  className 
+export function LevelBenefitsComparison({
+  currentLevel,
+  className,
 }: LevelBenefitsComparisonProps) {
   const router = useRouter();
-  
+
   // Filter to main subscription levels
-  const mainLevels = PACKAGES.filter(pkg => 
-    ['BASIC', 'SILVER', 'GOLD', 'PLATINUM'].includes(pkg.level)
+  const mainLevels = PACKAGES.filter((pkg) =>
+    ['BASIC', 'SILVER', 'GOLD', 'PLATINUM'].includes(pkg.level),
   );
 
   const getCurrentLevelNumeric = () => {
-    const pkg = PACKAGES.find(p => p.level === currentLevel);
+    const pkg = PACKAGES.find((p) => p.level === currentLevel);
     return pkg?.numericLevel || 0;
   };
 
@@ -65,12 +65,13 @@ export function LevelBenefitsComparison({
 
   // Get all unique benefits across all levels
   const allBenefits = Array.from(
-    new Set(
-      mainLevels.flatMap(pkg => LEVEL_BENEFITS[pkg.level])
-    )
+    new Set(mainLevels.flatMap((pkg) => LEVEL_BENEFITS[pkg.level])),
   );
 
-  const getPackageBenefitStatus = (packageLevel: UserLevelType, benefit: string) => {
+  const getPackageBenefitStatus = (
+    packageLevel: UserLevelType,
+    benefit: string,
+  ) => {
     return LEVEL_BENEFITS[packageLevel].includes(benefit);
   };
 
@@ -85,7 +86,7 @@ export function LevelBenefitsComparison({
           See what features are available at each level
         </p>
       </CardHeader>
-      
+
       <CardContent>
         <div className="overflow-x-auto">
           <div className="min-w-[800px] sm:min-w-full">
@@ -97,37 +98,45 @@ export function LevelBenefitsComparison({
               {mainLevels.map((pkg) => {
                 const isCurrentLevel = pkg.level === currentLevel;
                 const isHigherLevel = pkg.numericLevel > currentLevelNumeric;
-                
+
                 return (
-                  <div 
+                  <div
                     key={pkg.level}
                     className={`relative p-2 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
-                      isCurrentLevel 
-                        ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20` 
+                      isCurrentLevel
+                        ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20`
                         : levelBorders[pkg.level as MainLevelType]
                     }`}
                   >
                     <div className="text-center space-y-1 sm:space-y-2">
-                      <div className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}>
+                      <div
+                        className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}
+                      >
                         {levelIcons[pkg.level as MainLevelType]}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-xs sm:text-sm">{pkg.name}</h3>
+                        <h3 className="font-semibold text-xs sm:text-sm">
+                          {pkg.name}
+                        </h3>
                         <div className="flex items-center justify-center gap-1 mt-1">
-                          <span className="text-sm sm:text-lg font-bold">${pkg.price}</span>
-                          <span className="text-xs text-muted-foreground">/mo</span>
+                          <span className="text-sm sm:text-lg font-bold">
+                            ${pkg.price}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            /mo
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {pkg.rankingLimit} stocks
                         </p>
                       </div>
-                      
+
                       {isCurrentLevel && (
                         <Badge className="text-xs bg-primary text-primary-foreground">
                           Current
                         </Badge>
                       )}
-                      
+
                       {isHigherLevel && (
                         <Button
                           size="sm"
@@ -140,7 +149,7 @@ export function LevelBenefitsComparison({
                         </Button>
                       )}
                     </div>
-                    
+
                     {/* Special effects for premium levels */}
                     {(pkg.level === 'GOLD' || pkg.level === 'PLATINUM') && (
                       <div className="absolute top-2 right-2 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
@@ -153,7 +162,7 @@ export function LevelBenefitsComparison({
             {/* Benefits Grid */}
             <div className="space-y-1 sm:space-y-2">
               {allBenefits.map((benefit, index) => (
-                <div 
+                <div
                   key={index}
                   className="grid grid-cols-5 gap-2 sm:gap-3 py-2 sm:py-3 px-1 sm:px-2 rounded-lg hover:bg-muted/30 transition-colors"
                 >
@@ -161,12 +170,17 @@ export function LevelBenefitsComparison({
                     {benefit}
                   </div>
                   {mainLevels.map((pkg) => {
-                    const hasFeature = getPackageBenefitStatus(pkg.level, benefit);
-                    
+                    const hasFeature = getPackageBenefitStatus(
+                      pkg.level,
+                      benefit,
+                    );
+
                     return (
                       <div key={pkg.level} className="flex justify-center">
                         {hasFeature ? (
-                          <div className={`p-1 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}>
+                          <div
+                            className={`p-1 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}`}
+                          >
                             <Check className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                           </div>
                         ) : (
@@ -189,22 +203,26 @@ export function LevelBenefitsComparison({
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {mainLevels.map((pkg) => {
                   const isCurrentLevel = pkg.level === currentLevel;
-                  
+
                   return (
-                    <div 
+                    <div
                       key={pkg.level}
                       className={`p-3 sm:p-4 rounded-xl border transition-all duration-300 ${
-                        isCurrentLevel 
-                          ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20` 
+                        isCurrentLevel
+                          ? `${levelBorders[pkg.level as MainLevelType]} bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10 ring-2 ring-primary/20`
                           : `${levelBorders[pkg.level as MainLevelType]} hover:shadow-md`
                       }`}
                     >
                       <div className="text-center space-y-2">
-                        <div className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} w-fit`}>
+                        <div
+                          className={`mx-auto flex justify-center text-white p-1.5 sm:p-2 rounded-lg bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} w-fit`}
+                        >
                           {levelIcons[pkg.level as MainLevelType]}
                         </div>
                         <div>
-                          <h5 className="font-semibold text-xs sm:text-sm">{pkg.level}</h5>
+                          <h5 className="font-semibold text-xs sm:text-sm">
+                            {pkg.level}
+                          </h5>
                           <p className="text-xl sm:text-2xl font-bold text-primary">
                             {pkg.rankingLimit}
                           </p>
@@ -212,7 +230,7 @@ export function LevelBenefitsComparison({
                             stocks visible
                           </p>
                         </div>
-                        
+
                         {pkg.minPayments > 0 && (
                           <div className="mt-2 pt-2 border-t border-muted/30">
                             <p className="text-xs text-muted-foreground">
@@ -232,7 +250,9 @@ export function LevelBenefitsComparison({
               <div className="mt-6 sm:mt-8 p-4 sm:p-6 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
                 <div className="text-center space-y-3 sm:space-y-4">
                   <div>
-                    <h4 className="text-base sm:text-lg font-semibold">Ready to Upgrade?</h4>
+                    <h4 className="text-base sm:text-lg font-semibold">
+                      Ready to Upgrade?
+                    </h4>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                       Unlock more features and higher limits with a premium plan
                     </p>
