@@ -14,9 +14,82 @@ import { status } from '@/services/pay';
 import { useState, useEffect } from 'react';
 import type { UserLevelType } from '@/app/constants/packages';
 
+const SettingsSkeleton = () => (
+  <div className="max-w-4xl mx-auto p-4 sm:p-6">
+    {/* Header Skeleton */}
+    <div className="mb-6 sm:mb-8 text-center">
+      <div className="h-8 sm:h-10 md:h-12 bg-gray-200 rounded-md animate-pulse w-48 mx-auto mb-2 dark:bg-gray-700"></div>
+      <div className="h-4 bg-gray-200 rounded-md animate-pulse w-64 mx-auto dark:bg-gray-700"></div>
+    </div>
+
+    <div className="flex flex-col gap-6 sm:gap-8">
+      {/* User Level Display Skeleton */}
+      <div className="border rounded-lg shadow-sm p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+          <div className="flex-1 space-y-2 text-center sm:text-left">
+            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+            <div className="h-4 bg-gray-200 rounded-md animate-pulse w-24 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
+          <div className="h-4 bg-gray-200 rounded-md animate-pulse w-3/4 dark:bg-gray-700"></div>
+          <div className="h-2 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+        </div>
+      </div>
+
+      {/* Profile Settings Skeleton */}
+      <div className="border rounded-lg shadow-sm">
+        <div className="p-3 sm:p-4 border-b">
+          <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/4 dark:bg-gray-700"></div>
+        </div>
+        <div className="p-3 sm:p-4 space-y-4">
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+            <div className="flex-1 space-y-2 text-center sm:text-left">
+              <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+              <div className="h-4 bg-gray-200 rounded-md animate-pulse w-40 mx-auto sm:mx-0 dark:bg-gray-700"></div>
+            </div>
+          </div>
+          <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
+        </div>
+      </div>
+
+      {/* Authentication Providers Card Skeleton */}
+      <div className="border rounded-lg shadow-sm">
+        <div className="p-3 sm:p-4 border-b">
+          <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/3 dark:bg-gray-700"></div>
+        </div>
+        <div className="p-3 sm:p-4 space-y-4">
+          <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
+          <div className="h-4 bg-gray-200 rounded-md animate-pulse w-5/6 dark:bg-gray-700"></div>
+          <div className="h-10 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
+        </div>
+      </div>
+
+      {/* Payment Settings Card Skeleton */}
+      <div className="border rounded-lg shadow-sm">
+        <div className="p-3 sm:p-4 border-b">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
+              <div className="space-y-2 flex-1">
+                <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 dark:bg-gray-700"></div>
+                <div className="h-4 bg-gray-200 rounded-md animate-pulse w-48 dark:bg-gray-700"></div>
+              </div>
+            </div>
+            <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [userLevel, setUserLevel] = useState<UserLevelType>('BASIC');
   const [isLoadingUserData, setIsLoadingUserData] = useState(true);
 
@@ -42,78 +115,9 @@ export default function SettingsPage() {
     fetchUserData();
   }, [user]);
 
-  const SettingsSkeleton = () => (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      {/* Header Skeleton */}
-      <div className="mb-6 sm:mb-8 text-center">
-        <div className="h-8 sm:h-10 md:h-12 bg-gray-200 rounded-md animate-pulse w-48 mx-auto mb-2 dark:bg-gray-700"></div>
-        <div className="h-4 bg-gray-200 rounded-md animate-pulse w-64 mx-auto dark:bg-gray-700"></div>
-      </div>
-
-      <div className="flex flex-col gap-6 sm:gap-8">
-        {/* User Level Display Skeleton */}
-        <div className="border rounded-lg shadow-sm p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
-            <div className="flex-1 space-y-2 text-center sm:text-left">
-              <div className="h-6 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
-              <div className="h-4 bg-gray-200 rounded-md animate-pulse w-24 mx-auto sm:mx-0 dark:bg-gray-700"></div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse w-3/4 dark:bg-gray-700"></div>
-            <div className="h-2 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
-          </div>
-        </div>
-
-        {/* Profile Settings Skeleton */}
-        <div className="border rounded-lg shadow-sm">
-          <div className="p-3 sm:p-4 border-b">
-            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/4 dark:bg-gray-700"></div>
-          </div>
-          <div className="p-3 sm:p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
-              <div className="flex-1 space-y-2 text-center sm:text-left">
-                <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 mx-auto sm:mx-0 dark:bg-gray-700"></div>
-                <div className="h-4 bg-gray-200 rounded-md animate-pulse w-40 mx-auto sm:mx-0 dark:bg-gray-700"></div>
-              </div>
-            </div>
-            <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
-          </div>
-        </div>
-
-        {/* Authentication Providers Card Skeleton */}
-        <div className="border rounded-lg shadow-sm">
-          <div className="p-3 sm:p-4 border-b">
-            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-1/3 dark:bg-gray-700"></div>
-          </div>
-          <div className="p-3 sm:p-4 space-y-4">
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-            <div className="h-4 bg-gray-200 rounded-md animate-pulse w-5/6 dark:bg-gray-700"></div>
-            <div className="h-10 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700"></div>
-          </div>
-        </div>
-
-        {/* Payment Settings Card Skeleton */}
-        <div className="border rounded-lg shadow-sm">
-          <div className="p-3 sm:p-4 border-b">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse dark:bg-gray-700"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-5 bg-gray-200 rounded-md animate-pulse w-32 dark:bg-gray-700"></div>
-                  <div className="h-4 bg-gray-200 rounded-md animate-pulse w-48 dark:bg-gray-700"></div>
-                </div>
-              </div>
-              <div className="h-10 bg-gray-200 rounded-md animate-pulse w-full sm:w-32 dark:bg-gray-700"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  if (loading) {
+    return <SettingsSkeleton />;
+  }
 
   return (
     <Suspense fallback={<SettingsSkeleton />}>
@@ -137,15 +141,16 @@ export default function SettingsPage() {
             </svg>
             Settings
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto px-4">
-            Manage your profile, track your progress, and unlock premium
-            features.
-          </p>
+          <div className="overflow-hidden whitespace-nowrap max-w-xl mx-auto px-4">
+            <span className="inline-block animate-marquee text-muted-foreground text-sm sm:text-base">
+              Manage your profile, track your progress, and unlock premium
+              features.
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-6 sm:gap-8">
           {/* User Level Display - New Enhanced Section */}
           <UserLevelDisplay className="animate-fade-in" />
-
 
           {/* Level Benefits Comparison */}
           {!isLoadingUserData && (

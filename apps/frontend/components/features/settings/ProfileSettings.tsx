@@ -264,7 +264,7 @@ export function ProfileSettings() {
             {!isLoadingLevel && (
               <Badge
                 variant="secondary"
-                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold animate-shimmer text-xs w-fit mx-auto sm:mx-0`}
+                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold text-xs w-fit mx-auto sm:mx-0`}
               >
                 {userLevel}
               </Badge>

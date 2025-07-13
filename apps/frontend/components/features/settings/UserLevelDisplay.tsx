@@ -199,7 +199,7 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
                 </h2>
                 <Badge
                   variant="secondary"
-                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-semibold animate-shimmer text-xs w-fit`}
+                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-semibold text-xs w-fit`}
                 >
                   {currentLevel}
                 </Badge>
@@ -257,10 +257,12 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
                   Progress to {nextLevelOptions[0].level}
                 </h4>
-                <span className="text-xs text-muted-foreground">
-                  {userStatus.paymentCount}/{nextLevelOptions[0].minPayments}{' '}
-                  payments
-                </span>
+<span className="text-xs text-muted-foreground">
+  <span className="whitespace-nowrap">
+    {userStatus.paymentCount}/{nextLevelOptions[0].minPayments}
+  </span>{' '}
+  payments
+</span>
               </div>
               <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
                 <div
