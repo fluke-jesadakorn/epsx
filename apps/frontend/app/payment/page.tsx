@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { PaymentStatusSection } from '@/components/sections/payment/PaymentStatusSection';
+import { PACKAGES } from '@/app/constants/packages';
+import { useSearchParams } from 'next/navigation';
 
 const OneClickPayment = dynamic(
   () => import('@/components/features/payment/OneClickPayment'),
@@ -10,6 +12,9 @@ const OneClickPayment = dynamic(
 );
 
 export default function PaymentPage() {
+  const searchParams = useSearchParams();
+  const selectedPackageId = searchParams.get('package') || '';
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -42,6 +47,7 @@ export default function PaymentPage() {
           </p>
         </div>
 
+        {/* OneClickPayment handles package selection UI */}
         <Suspense
           fallback={
             <div className="flex justify-center items-center min-h-[400px]">
@@ -52,7 +58,7 @@ export default function PaymentPage() {
             </div>
           }
         >
-          <OneClickPayment className="mb-12" />
+          <OneClickPayment className="mb-12" preselectedPackage={selectedPackageId} />
         </Suspense>
 
         <div className="mb-12">

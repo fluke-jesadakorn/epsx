@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createPaymentService } from '@/services/payment.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -99,6 +99,7 @@ export default function OneClickPayment({
   className = '',
 }: OneClickPaymentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const paymentService = createPaymentService();
 
   // State management
@@ -117,13 +118,28 @@ export default function OneClickPayment({
     (pkg) => pkg.price > 0 && !pkg.id.startsWith('api_'),
   ).slice(0, 3);
 
-  // Auto-select first package if none selected
+  // Sync selectedPackage with query string on mount and when query changes
   useEffect(() => {
-    if (!selectedPackage && popularPackages.length > 0) {
+    const pkgFromQuery = searchParams.get('package');
+    if (pkgFromQuery && pkgFromQuery !== selectedPackage) {
+      setSelectedPackage(pkgFromQuery);
+      const pkg = PACKAGES.find((p) => p.id === pkgFromQuery);
+      if (pkg) setAmount(pkg.price.toString());
+    } else if (!pkgFromQuery && !selectedPackage && popularPackages.length > 0) {
       setSelectedPackage(popularPackages[0].id);
       setAmount(popularPackages[0].price.toString());
     }
-  }, [selectedPackage, popularPackages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, popularPackages]);
+
+  // Update query string when user selects a package
+  const handleSelectPackage = (pkgId: string, price: number) => {
+    setSelectedPackage(pkgId);
+    setAmount(price.toString());
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set('package', pkgId);
+    router.replace(`?${params.toString()}`);
+  };
 
   const selectedPackageData = PACKAGES.find(
     (pkg) => pkg.id === selectedPackage,
@@ -360,10 +376,7 @@ export default function OneClickPayment({
                         ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/30 dark:to-purple-900/30 shadow-xl scale-105'
                         : 'border-gray-200 dark:border-gray-600 hover:border-pink-300 dark:hover:border-pink-500 bg-white dark:bg-gray-700 hover:bg-gradient-to-br hover:from-pink-50 hover:to-purple-50 dark:hover:from-pink-900/20 dark:hover:to-purple-900/20'
                     }`}
-                    onClick={() => {
-                      setSelectedPackage(pkg.id);
-                      setAmount(pkg.price.toString());
-                    }}
+                    onClick={() => handleSelectPackage(pkg.id, pkg.price)}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-pink-400/10 via-purple-400/10 to-orange-400/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
