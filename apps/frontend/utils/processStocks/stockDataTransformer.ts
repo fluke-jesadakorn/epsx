@@ -1,5 +1,8 @@
 import type { StockFinancialData } from '@/types/financialChartData';
-import type { FinancialsFromChart, FinancialsWithCurrentPrice } from '@/utils/processStocks/getPriceAndEps';
+import type {
+  FinancialsFromChart,
+  FinancialsWithCurrentPrice,
+} from '@/utils/processStocks/getPriceAndEps';
 
 /**
  * Transforms financial chart data from the rankingStocks utility format
@@ -17,13 +20,14 @@ export function transformFinancialData(
       eps_growth: (q as any).eps_growth, // Cast to any since eps_growth is added dynamically
     }));
 
-    // Fix: If latest quarter price is null, use average of previous 4 quarters' prices
+    // Fix: If latest quarter price is null, use average of last 4 previous quarters' prices
     if (
       mappedQuarters.length > 1 &&
-      (mappedQuarters[0].price === null || mappedQuarters[0].price === undefined)
+      (mappedQuarters[0].price === null ||
+        mappedQuarters[0].price === undefined)
     ) {
       const previousPrices = mappedQuarters
-        .slice(1, 5)
+        .slice(Math.max(1, mappedQuarters.length - 4))
         .map((q) => q.price)
         .filter((p) => p !== null && p !== undefined) as number[];
       if (previousPrices.length > 0) {
@@ -57,13 +61,14 @@ export function transformFinancialDataWithCurrentPrice(
       price_growth: (q as any).price_growth, // Cast to any since price_growth is added dynamically
     }));
 
-    // Fix: If latest quarter price is null, use average of previous 4 quarters' prices
+    // Fix: If latest quarter price is null, use average of last 4 previous quarters' prices
     if (
       mappedQuarters.length > 1 &&
-      (mappedQuarters[0].price === null || mappedQuarters[0].price === undefined)
+      (mappedQuarters[0].price === null ||
+        mappedQuarters[0].price === undefined)
     ) {
       const previousPrices = mappedQuarters
-        .slice(1, 5)
+        .slice(Math.max(1, mappedQuarters.length - 4))
         .map((q) => q.price)
         .filter((p) => p !== null && p !== undefined) as number[];
       if (previousPrices.length > 0) {

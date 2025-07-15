@@ -108,7 +108,10 @@ const getPartition = (eps: number): string => {
 const mapEpsToPrice = (
   prices: PriceData[],
   eps: EpsData[],
-): (FinancialsFromChart & { partition: string; zone: 'upper' | 'lower' | null })[] => {
+): (FinancialsFromChart & {
+  partition: string;
+  zone: 'upper' | 'lower' | null;
+})[] => {
   return eps.map((epsItem) => {
     const closestPrice = findClosestPrice(prices, epsItem.date);
     return {
@@ -188,29 +191,37 @@ const parseMessages = (str: string): any[] => {
 
 export async function getFinancialsFromChart(
   symbols: string[],
-  quarters = 2,
+  quarters = 4,
 ): Promise<Record<string, FinancialsFromChart[]>> {
   const results: Record<string, FinancialsFromChart[]> = {};
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   console.log(`📊 Processing ${symbols.length} symbols for financial data`);
-  
+
   // Process symbols with retry logic and rate limiting
   for (let i = 0; i < symbols.length; i++) {
     const symbol = symbols[i];
-    
+
     // Add delay between requests to avoid rate limiting (except for first symbol)
     if (i > 0) {
       await delay(2000); // 2 second delay between requests
     }
-    
-    const financialData = await getFinancialsWithCurrentPriceForSymbol(symbol, quarters);
+
+    const financialData = await getFinancialsWithCurrentPriceForSymbol(
+      symbol,
+      quarters,
+    );
     results[symbol] = financialData.quarters;
   }
-  
-  const totalSuccessful = Object.values(results).filter(data => data.length > 0).length;
-  console.log(`✅ Completed: ${totalSuccessful}/${symbols.length} symbols returned data`);
-  
+
+  const totalSuccessful = Object.values(results).filter(
+    (data) => data.length > 0,
+  ).length;
+  console.log(
+    `✅ Completed: ${totalSuccessful}/${symbols.length} symbols returned data`,
+  );
+
   return results;
 }
 
@@ -219,41 +230,55 @@ export async function getFinancialsFromChart(
  */
 export async function getFinancialsWithCurrentPriceFromChart(
   symbols: string[],
-  quarters = 2,
+  quarters = 4,
 ): Promise<Record<string, FinancialsWithCurrentPrice>> {
   const results: Record<string, FinancialsWithCurrentPrice> = {};
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  console.log(`💰 Processing ${symbols.length} symbols for financial data with current prices`);
-  
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  console.log(
+    `💰 Processing ${symbols.length} symbols for financial data with current prices`,
+  );
+
   // Process symbols with retry logic and rate limiting
   for (let i = 0; i < symbols.length; i++) {
     const symbol = symbols[i];
-    
+
     // Add delay between requests to avoid rate limiting (except for first symbol)
     if (i > 0) {
       await delay(2000); // 2 second delay between requests
     }
-    
-    results[symbol] = await getFinancialsWithCurrentPriceForSymbol(symbol, quarters);
+
+    results[symbol] = await getFinancialsWithCurrentPriceForSymbol(
+      symbol,
+      quarters,
+    );
   }
-  
-  const totalSuccessful = Object.values(results).filter(data => data.quarters.length > 0).length;
-  console.log(`✅ Completed: ${totalSuccessful}/${symbols.length} symbols returned data with current prices`);
-  
+
+  const totalSuccessful = Object.values(results).filter(
+    (data) => data.quarters.length > 0,
+  ).length;
+  console.log(
+    `✅ Completed: ${totalSuccessful}/${symbols.length} symbols returned data with current prices`,
+  );
+
   return results;
 }
 
 /**
  * Helper function to find the most recent price from price data
  */
-const findMostRecentPrice = (prices: PriceData[]): { price: number | null; date: string | null } => {
+const findMostRecentPrice = (
+  prices: PriceData[],
+): { price: number | null; date: string | null } => {
   if (!prices.length) return { price: null, date: null };
-  
+
   // Sort prices by date descending to get the most recent first
-  const sortedPrices = [...prices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortedPrices = [...prices].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
   const mostRecent = sortedPrices[0];
-  
+
   return {
     price: mostRecent.price,
     date: mostRecent.date,
@@ -266,203 +291,223 @@ async function getFinancialsWithCurrentPriceForSymbol(
   retryCount = 0,
   maxRetries = 3,
 ): Promise<FinancialsWithCurrentPrice> {
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   try {
-    const data = await new Promise<FinancialsWithCurrentPrice>((resolve, reject) => {
-      const ws = new WebSocket(
-        'wss://data.tradingview.com/socket.io/websocket',
-        {
-          headers: {
-            Origin: 'https://www.tradingview.com',
-            'User-Agent': 'Mozilla/5.0',
+    const data = await new Promise<FinancialsWithCurrentPrice>(
+      (resolve, reject) => {
+        const ws = new WebSocket(
+          'wss://data.tradingview.com/socket.io/websocket',
+          {
+            headers: {
+              Origin: 'https://www.tradingview.com',
+              'User-Agent': 'Mozilla/5.0',
+            },
           },
-        },
-      );
+        );
 
-      const sendMsg = (method: string, params: any[]) => {
-        const msg = JSON.stringify({ m: method, p: params });
-        ws.send(`~m~${msg.length}~m~${msg}`);
-      };
+        const sendMsg = (method: string, params: any[]) => {
+          const msg = JSON.stringify({ m: method, p: params });
+          ws.send(`~m~${msg.length}~m~${msg}`);
+        };
 
-      const prices: PriceData[] = [];
-      const eps: EpsData[] = [];
+        const prices: PriceData[] = [];
+        const eps: EpsData[] = [];
 
-      const sessionId = `cs_${Math.abs(
-        Array.from(symbol).reduce(
-          (acc, char) => acc + char.charCodeAt(0),
-          0,
-        ) + Math.floor(Math.random() * 10000),
-      )}`;
-      const symbolKey = `symbol_1`;
-      const seriesKey = `series_1`;
-      const studyKey = `study_1`;
-      let resolved = false;
-      
-      // Add timeout for WebSocket operations
-      const timeout = setTimeout(() => {
-        console.warn(`⏰ Timeout for ${symbol} after 30 seconds`);
-        ws.close();
-        reject(new Error(`Timeout after 30 seconds for symbol: ${symbol}`));
-      }, 30000);
+        const sessionId = `cs_${Math.abs(
+          Array.from(symbol).reduce(
+            (acc, char) => acc + char.charCodeAt(0),
+            0,
+          ) + Math.floor(Math.random() * 10000),
+        )}`;
+        const symbolKey = `symbol_1`;
+        const seriesKey = `series_1`;
+        const studyKey = `study_1`;
+        let resolved = false;
 
-      const initSession = () => {
-        sendMsg('chart_create_session', [sessionId, '']);
-        sendMsg('resolve_symbol', [
-          sessionId,
-          symbolKey,
-          `={"adjustment":"splits","symbol":"${symbol}"}`,
-        ]);
-      };
+        // Add timeout for WebSocket operations
+        const timeout = setTimeout(() => {
+          console.warn(`⏰ Timeout for ${symbol} after 30 seconds`);
+          ws.close();
+          reject(new Error(`Timeout after 30 seconds for symbol: ${symbol}`));
+        }, 30000);
 
-      const handleMessage = (data: any) => {
-        try {
-          const str = Buffer.isBuffer(data)
-            ? data.toString('utf8')
-            : String(data);
-          const messages = parseMessages(str);
+        const initSession = () => {
+          sendMsg('chart_create_session', [sessionId, '']);
+          sendMsg('resolve_symbol', [
+            sessionId,
+            symbolKey,
+            `={"adjustment":"splits","symbol":"${symbol}"}`,
+          ]);
+        };
 
-          messages.forEach((parsed) => {
-            if (parsed.m === 'symbol_error' || parsed.m === 'critical_error') {
-              console.error(`❌ ${symbol}: Symbol error:`, parsed);
-              clearTimeout(timeout);
-              ws.close();
-              reject(new Error(`Symbol error for ${symbol}: ${JSON.stringify(parsed)}`));
-              return;
-            }
+        const handleMessage = (data: any) => {
+          try {
+            const str = Buffer.isBuffer(data)
+              ? data.toString('utf8')
+              : String(data);
+            const messages = parseMessages(str);
 
-            if (!resolved && parsed.m === 'symbol_resolved') {
-              resolved = true;
-              
-              // Request more historical data to cover multiple quarters
-              sendMsg('create_series', [
-                sessionId,
-                seriesKey,
-                's1',
-                symbolKey,
-                '1D',
-                500,
-                '',
-              ]);
-              sendMsg('create_study', [
-                sessionId,
-                studyKey,
-                's1_study',
-                seriesKey,
-                'Earnings@tv-basicstudies-251',
-                {},
-              ]);
-            }
-
-            const newPrices = extractPrices(parsed);
-            const newEps = extractEps(parsed);
-            
-            if (newPrices.length > 0) {
-              prices.push(...newPrices);
-            }
-            
-            if (newEps.length > 0) {
-              eps.push(...newEps);
-            }
-
-            if (parsed.m === 'study_completed') {
-              clearTimeout(timeout);
-              ws.close();
-              
-              if (eps.length === 0) {
-                console.warn(`⚠️ ${symbol}: No EPS data found`);
-                resolve({
-                  quarters: [],
-                  currentPrice: null,
-                  currentPriceDate: null,
-                });
+            messages.forEach((parsed) => {
+              if (
+                parsed.m === 'symbol_error' ||
+                parsed.m === 'critical_error'
+              ) {
+                console.error(`❌ ${symbol}: Symbol error:`, parsed);
+                clearTimeout(timeout);
+                ws.close();
+                reject(
+                  new Error(
+                    `Symbol error for ${symbol}: ${JSON.stringify(parsed)}`,
+                  ),
+                );
                 return;
               }
-              
-              // Get the most recent price from all price data
-              const { price: currentPrice, date: currentPriceDate } = findMostRecentPrice(prices);
-              
-              // Filter out unofficial or invalid EPS values and take last N quarters
-              const mapped = mapEpsToPrice(prices, eps)
-                .filter(
-                  (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
-                )
-                .slice(0, quarters);
-              
-              const withEpsGrowth = addEpsGrowth(mapped);
-              const withBothGrowths = addPriceGrowth(withEpsGrowth);
-              
-              resolve({
-                quarters: withBothGrowths,
-                currentPrice,
-                currentPriceDate,
-              });
-            }
-          });
-        } catch (error) {
-          console.error(`🚨 ${symbol}: Error handling message:`, error);
+
+              if (!resolved && parsed.m === 'symbol_resolved') {
+                resolved = true;
+
+                // Request more historical data to cover multiple quarters
+                sendMsg('create_series', [
+                  sessionId,
+                  seriesKey,
+                  's1',
+                  symbolKey,
+                  '1D',
+                  1000,
+                  '',
+                ]);
+                sendMsg('create_study', [
+                  sessionId,
+                  studyKey,
+                  's1_study',
+                  seriesKey,
+                  'Earnings@tv-basicstudies-251',
+                  {},
+                ]);
+              }
+
+              const newPrices = extractPrices(parsed);
+              const newEps = extractEps(parsed);
+
+              if (newPrices.length > 0) {
+                prices.push(...newPrices);
+              }
+
+              if (newEps.length > 0) {
+                eps.push(...newEps);
+              }
+
+              if (parsed.m === 'study_completed') {
+                clearTimeout(timeout);
+                ws.close();
+
+                if (eps.length === 0) {
+                  console.warn(`⚠️ ${symbol}: No EPS data found`);
+                  resolve({
+                    quarters: [],
+                    currentPrice: null,
+                    currentPriceDate: null,
+                  });
+                  return;
+                }
+
+                // Get the most recent price from all price data
+                const { price: currentPrice, date: currentPriceDate } =
+                  findMostRecentPrice(prices);
+
+                // Filter out unofficial or invalid EPS values and take last N quarters
+                const mapped = mapEpsToPrice(prices, eps)
+                  .filter(
+                    (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
+                  )
+                  .slice(0, quarters);
+
+                const withEpsGrowth = addEpsGrowth(mapped);
+                const withBothGrowths = addPriceGrowth(withEpsGrowth);
+
+                resolve({
+                  quarters: withBothGrowths,
+                  currentPrice,
+                  currentPriceDate,
+                });
+              }
+            });
+          } catch (error) {
+            console.error(`🚨 ${symbol}: Error handling message:`, error);
+            clearTimeout(timeout);
+            ws.close();
+            reject(error);
+          }
+        };
+
+        ws.on('open', initSession);
+
+        ws.on('message', handleMessage);
+
+        ws.on('error', (err) => {
+          console.error(`🚨 ${symbol}: WebSocket error:`, err);
           clearTimeout(timeout);
           ws.close();
-          reject(error);
-        }
-      };
+          reject(err);
+        });
 
-      ws.on('open', initSession);
-      
-      ws.on('message', handleMessage);
-      
-      ws.on('error', (err) => {
-        console.error(`🚨 ${symbol}: WebSocket error:`, err);
-        clearTimeout(timeout);
-        ws.close();
-        reject(err);
-      });
-      
-      // Remove unused 'reason' parameter in ws.on('close')
-      ws.on('close', (code) => {
-        clearTimeout(timeout);
-        
-        if (eps.length === 0) {
-          console.warn(`⚠️ ${symbol}: No EPS data received before close (Code: ${code})`);
-          resolve({
-            quarters: [],
-            currentPrice: null,
-            currentPriceDate: null,
-          });
-        } else {
-          // Get the most recent price from all price data
-          const { price: currentPrice, date: currentPriceDate } = findMostRecentPrice(prices);
-          
-          // Filter out unofficial or invalid EPS values and take last N quarters
-          const mapped = mapEpsToPrice(prices, eps)
-            .filter((item) => item.eps !== 1e100 && Number.isFinite(item.eps))
-            .slice(0, quarters);
-          const withEpsGrowth = addEpsGrowth(mapped);
-          const withBothGrowths = addPriceGrowth(withEpsGrowth);
-          
-          resolve({
-            quarters: withBothGrowths,
-            currentPrice,
-            currentPriceDate,
-          });
-        }
-      });
-    });
+        // Remove unused 'reason' parameter in ws.on('close')
+        ws.on('close', (code) => {
+          clearTimeout(timeout);
+
+          if (eps.length === 0) {
+            console.warn(
+              `⚠️ ${symbol}: No EPS data received before close (Code: ${code})`,
+            );
+            resolve({
+              quarters: [],
+              currentPrice: null,
+              currentPriceDate: null,
+            });
+          } else {
+            // Get the most recent price from all price data
+            const { price: currentPrice, date: currentPriceDate } =
+              findMostRecentPrice(prices);
+
+            // Filter out unofficial or invalid EPS values and take last N quarters
+            const mapped = mapEpsToPrice(prices, eps)
+              .filter((item) => item.eps !== 1e100 && Number.isFinite(item.eps))
+              .slice(0, quarters);
+            const withEpsGrowth = addEpsGrowth(mapped);
+            const withBothGrowths = addPriceGrowth(withEpsGrowth);
+
+            resolve({
+              quarters: withBothGrowths,
+              currentPrice,
+              currentPriceDate,
+            });
+          }
+        });
+      },
+    );
 
     return data;
-    
   } catch (error) {
     console.error(`❌ ${symbol}: Attempt ${retryCount + 1} failed:`, error);
-    
+
     // Retry with exponential backoff
     if (retryCount < maxRetries) {
       const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Cap at 10 seconds
       console.log(`🔄 ${symbol}: Retrying in ${backoffDelay}ms...`);
       await delay(backoffDelay);
-      return getFinancialsWithCurrentPriceForSymbol(symbol, quarters, retryCount + 1, maxRetries);
+      return getFinancialsWithCurrentPriceForSymbol(
+        symbol,
+        quarters,
+        retryCount + 1,
+        maxRetries,
+      );
     }
-    
-    console.error(`💥 ${symbol}: All retry attempts failed. Returning empty data.`);
+
+    console.error(
+      `💥 ${symbol}: All retry attempts failed. Returning empty data.`,
+    );
     return {
       quarters: [],
       currentPrice: null,

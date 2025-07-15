@@ -2,7 +2,7 @@ import type { StockFinancialData, QuarterData } from '@/types/financialChartData
 import { 
   getLatestQuarterData, 
   calculateAverageEpsGrowth as calculateAvgEpsGrowth 
-} from '@/utils/transformers/stockDataTransformer';
+} from '@/utils/processStocks/stockDataTransformer';
 
 /**
  * Business logic hooks for financial data processing

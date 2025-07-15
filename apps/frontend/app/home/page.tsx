@@ -2,47 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
-import { fetchStockScreenerData } from '@/app/actions/stock';
+import { fetchStockFinancialData } from '@/app/actions/stock';
 import { SkeletonLoader } from '@/components/common/Skeleton';
 import ChatSection from '@/components/home/ChatSection';
-import DataRankTable from '@/components/home/DataRankTable';
+import StockRankingTable from '@/components/shared/StockRankingTable';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import DataTechSection from '@/components/home/DataTechSection';
-import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
-
-// Define columns for home page - showing a compact view
-const homeColumns = [
-  { key: 'number' as const, header: 'No.' },
-  { key: 'symbol' as const, header: 'Symbol' },
-  { key: 'name' as const, header: 'Name' },
-  {
-    key: 'growthRate' as const,
-    header: 'Growth Rate',
-    tooltip: 'Value Change Percentage',
-  },
-  {
-    key: 'marketSize' as const,
-    header: 'Market Size',
-    tooltip: 'Total Market Presence',
-  },
-  {
-    key: 'entryPhase' as const,
-    header: 'Entry Phase',
-    tooltip: 'Optimal Entry Time',
-  },
-  {
-    key: 'phaseStatus' as const,
-    header: 'Phase Status',
-    tooltip: 'Current Phase Status',
-  },
-  {
-    key: 'chart' as const,
-    header: 'Analytics',
-    tooltip: 'Open Analytics View',
-  },
-];
 
 function HomePage() {
   const [data, setData] = useState<any[]>([]);
@@ -52,7 +19,7 @@ function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const result = await fetchStockScreenerData();
+        const result = await fetchStockFinancialData();
         setData(result);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -70,7 +37,9 @@ function HomePage() {
 
   // Ensure data is always an array before slicing
   const safeData = Array.isArray(data) ? data : [];
-  const lastTenItems = safeData.slice(-10);
+  const limitedData = profile?.rankingLimit
+    ? safeData.slice(0, profile.rankingLimit)
+    : safeData.slice(0, 10);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -118,15 +87,15 @@ function HomePage() {
           <DataTechSection />
         </div>
 
-        {/* EPS Cards Section with PancakeSwap-style container */}
+        {/* EPS Cards Section - Temporarily commented out to use same data format as analytics
         <div className="container mx-auto px-4 py-12 animate-fade-in-delayed">
           <div className="relative">
-            {/* Decorative background elements */}
             <div className="absolute -top-8 -left-8 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-xl" />
             <div className="absolute -bottom-8 -right-8 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl" />
             <ClientEpsCardSection initialData={data} />
           </div>
         </div>
+        */}
 
         {/* Pricing Section with enhanced PancakeSwap styling */}
         <div className="animate-fade-in-delayed-2 relative">
@@ -175,11 +144,10 @@ function HomePage() {
                   </div>
                 </div>
 
-                <DataRankTable
-                  data={lastTenItems}
-                  columns={homeColumns}
-                  defaultView="card"
-                  rankingLimit={profile?.rankingLimit}
+                <StockRankingTable
+                  data={limitedData}
+                  title="🥞 Top Performing Stocks"
+                  subtitle="Discover the sweetest data opportunities with our advanced analytics and real-time data insights"
                 />
               </div>
             </div>

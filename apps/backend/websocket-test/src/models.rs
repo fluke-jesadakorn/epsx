@@ -181,8 +181,8 @@ impl WebSocketMessage {
         // Sort by date descending (most recent first)
         combined_data.sort_by(|a, b| b.0.cmp(&a.0));
 
-        // Take the top 2
-        combined_data.truncate(2);
+        // Take the top 4 (last 4 EPS values)
+        combined_data.truncate(4);
 
         if combined_data.is_empty() {
             debug!("No valid earnings data found in QSD message");

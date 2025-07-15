@@ -14,7 +14,7 @@ import type { StockFinancialData } from '@/types/financialChartData';
 import {
   formatPrice,
   formatDate,
-} from '@/utils/transformers/stockDataTransformer';
+} from '@/utils/processStocks/stockDataTransformer';
 
 interface FinancialCardProps {
   data: StockFinancialData;

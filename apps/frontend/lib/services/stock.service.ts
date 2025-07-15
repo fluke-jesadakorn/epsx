@@ -1,7 +1,7 @@
 // Shared stock data service
 
 import { rankStocksByEpsWithChart } from '@/utils/processStocks/rankingStocks';
-import { transformFinancialDataWithCurrentPrice } from '@/utils/transformers/stockDataTransformer';
+import { transformFinancialDataWithCurrentPrice } from '@/utils/processStocks/stockDataTransformer';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../../../types/marketCountries';
 
