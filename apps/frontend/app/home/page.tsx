@@ -1,45 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-import { fetchStockFinancialData } from '@/app/actions/stock';
-import { SkeletonLoader } from '@/components/common/Skeleton';
 import ChatSection from '@/components/home/ChatSection';
-import StockRankingTable from '@/components/shared/StockRankingTable';
+import LazyStockRankingTable from '@/components/shared/LazyStockRankingTable';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import DataTechSection from '@/components/home/DataTechSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
 
 function HomePage() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const { profile } = useUserProfile();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await fetchStockFinancialData();
-        setData(result);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return <SkeletonLoader />;
-  }
-
-  // Ensure data is always an array before slicing
-  const safeData = Array.isArray(data) ? data : [];
-  const limitedData = profile?.rankingLimit
-    ? safeData.slice(0, profile.rankingLimit)
-    : safeData.slice(0, 10);
+  // Get the ranking limit from user profile, default to 10
+  const maxCards = profile?.rankingLimit || 10;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -144,8 +116,9 @@ function HomePage() {
                   </div>
                 </div>
 
-                <StockRankingTable
-                  data={limitedData}
+                <LazyStockRankingTable
+                  useLazyLoading={true}
+                  maxCards={maxCards}
                   title="🥞 Top Performing Stocks"
                   subtitle="Discover the sweetest data opportunities with our advanced analytics and real-time data insights"
                 />

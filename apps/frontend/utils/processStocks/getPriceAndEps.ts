@@ -21,8 +21,14 @@ export function extractEpsWithDatesFromSocketData(
   const indexToDate: Record<number, string> = {};
   for (const entry of vArray) {
     // entry.i is the index, entry.v[0] is the timestamp (in seconds)
-    if (typeof entry.i === 'number' && Array.isArray(entry.v) && typeof entry.v[0] === 'number') {
-      indexToDate[entry.i] = new Date(entry.v[0] * 1000).toISOString().slice(0, 10);
+    if (
+      typeof entry.i === 'number' &&
+      Array.isArray(entry.v) &&
+      typeof entry.v[0] === 'number'
+    ) {
+      indexToDate[entry.i] = new Date(entry.v[0] * 1000)
+        .toISOString()
+        .slice(0, 10);
     }
   }
 
@@ -87,7 +93,11 @@ const extractEps = (data: any): EpsData[] => {
   const result: EpsData[] = [];
 
   // Check for different message types that might contain earnings data
-  if (data.m === 'timescale_update' || data.m === 'qsd' || data.m === 'study_update') {
+  if (
+    data.m === 'timescale_update' ||
+    data.m === 'qsd' ||
+    data.m === 'study_update'
+  ) {
     // Look for earnings data in the message parameters
     if (data.p && Array.isArray(data.p)) {
       data.p.forEach((param: any) => {
@@ -96,15 +106,17 @@ const extractEps = (data: any): EpsData[] => {
           param.st.forEach((st: any) => {
             if (st.v && Array.isArray(st.v) && st.v.length >= 3) {
               const timestamp = st.v[0];
-              const actualEps = st.v[1];  // Reported/Actual EPS
+              const actualEps = st.v[1]; // Reported/Actual EPS
               // st.v[2] contains estimate EPS if needed later
-              
+
               // Use the actual/reported EPS value (st.v[1]) for our main EPS data
               // Filter out invalid EPS values (like 1e+100 which indicates no data)
-              if (typeof timestamp === 'number' && 
-                  typeof actualEps === 'number' && 
-                  actualEps !== 1e+100 && 
-                  Number.isFinite(actualEps)) {
+              if (
+                typeof timestamp === 'number' &&
+                typeof actualEps === 'number' &&
+                actualEps !== 1e100 &&
+                Number.isFinite(actualEps)
+              ) {
                 result.push({
                   date: formatDate(timestamp),
                   eps: actualEps,
@@ -113,16 +125,24 @@ const extractEps = (data: any): EpsData[] => {
             }
           });
         }
-        
+
         // Also check for earnings_fq_h structure if present
-        if (param && param.earnings_fq_h && Array.isArray(param.earnings_fq_h)) {
+        if (
+          param &&
+          param.earnings_fq_h &&
+          Array.isArray(param.earnings_fq_h)
+        ) {
           param.earnings_fq_h.forEach((earning: any) => {
-            if (earning.Actual !== null && earning.Actual !== undefined && 
-                Number.isFinite(earning.Actual) && earning.IsReported) {
+            if (
+              earning.Actual !== null &&
+              earning.Actual !== undefined &&
+              Number.isFinite(earning.Actual) &&
+              earning.IsReported
+            ) {
               // Try to extract date from fiscal period or use index-based mapping
               const fiscalPeriod = earning.FiscalPeriod;
               let date: string;
-              
+
               if (fiscalPeriod && typeof fiscalPeriod === 'string') {
                 // Parse fiscal period like "2024-Q3" to approximate date
                 const match = fiscalPeriod.match(/(\d{4})-Q(\d)/);
@@ -137,7 +157,7 @@ const extractEps = (data: any): EpsData[] => {
               } else {
                 date = new Date().toISOString().slice(0, 10); // Fallback to current date
               }
-              
+
               result.push({
                 date: date,
                 eps: earning.Actual,
@@ -432,12 +452,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
         const studyKey = `study_1`;
         let resolved = false;
 
-        // Add timeout for WebSocket operations
-        const timeout = setTimeout(() => {
-          console.warn(`⏰ Timeout for ${symbol} after 30 seconds`);
-          ws.close();
-          reject(new Error(`Timeout after 30 seconds for symbol: ${symbol}`));
-        }, 30000);
 
         const initSession = () => {
           sendMsg('chart_create_session', [sessionId, '']);
@@ -461,7 +475,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
                 parsed.m === 'critical_error'
               ) {
                 console.error(`❌ ${symbol}: Symbol error:`, parsed);
-                clearTimeout(timeout);
                 ws.close();
                 reject(
                   new Error(
@@ -499,18 +512,24 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
               if (newPrices.length > 0) {
                 prices.push(...newPrices);
-                console.log(`📈 ${symbol}: Found ${newPrices.length} price data points`);
+                console.log(
+                  `📈 ${symbol}: Found ${newPrices.length} price data points`,
+                );
               }
 
               if (newEps.length > 0) {
                 eps.push(...newEps);
-                console.log(`📊 ${symbol}: Found ${newEps.length} EPS data points from ${parsed.m} message`);
+                console.log(
+                  `📊 ${symbol}: Found ${newEps.length} EPS data points from ${parsed.m} message`,
+                );
                 // Debug: Log all EPS entries to see what values we're getting
-                console.log(`📊 ${symbol}: EPS values:`, newEps.map(e => `${e.date}: ${e.eps}`));
+                console.log(
+                  `📊 ${symbol}: EPS values:`,
+                  newEps.map((e) => `${e.date}: ${e.eps}`),
+                );
               }
 
               if (parsed.m === 'study_completed') {
-                clearTimeout(timeout);
                 ws.close();
 
                 if (eps.length === 0) {
@@ -535,7 +554,10 @@ async function getFinancialsWithCurrentPriceForSymbol(
                   .slice(-quarters); // Take the last N quarters instead of first N
 
                 // Debug: Log the final mapped results
-                console.log(`📊 ${symbol}: Final mapped EPS data:`, mapped.map(m => `${m.date}: ${m.eps} (Q${m.quarter})`));
+                console.log(
+                  `📊 ${symbol}: Final mapped EPS data:`,
+                  mapped.map((m) => `${m.date}: ${m.eps} (Q${m.quarter})`),
+                );
 
                 const withEpsGrowth = addEpsGrowth(mapped);
                 const withBothGrowths = addPriceGrowth(withEpsGrowth);
@@ -549,7 +571,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
             });
           } catch (error) {
             console.error(`🚨 ${symbol}: Error handling message:`, error);
-            clearTimeout(timeout);
             ws.close();
             reject(error);
           }
@@ -561,14 +582,12 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
         ws.on('error', (err) => {
           console.error(`🚨 ${symbol}: WebSocket error:`, err);
-          clearTimeout(timeout);
           ws.close();
           reject(err);
         });
 
         // Remove unused 'reason' parameter in ws.on('close')
         ws.on('close', (code) => {
-          clearTimeout(timeout);
 
           if (eps.length === 0) {
             console.warn(
