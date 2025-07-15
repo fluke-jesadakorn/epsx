@@ -94,19 +94,21 @@ function NavbarComponent() {
     item: ReturnType<typeof navigationService.getNavItems>[0],
   ) => (
     <NavigationMenuItem key={item.key}>
-      <Link href={item.href}>
-        <NavigationMenuLink
-          className={`flex items-center gap-2 rounded-full px-4 py-2 transition-colors hover:bg-primary/10
-          ${
-            pathname === item.href
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:text-primary'
-          }`}
-        >
+      <NavigationMenuLink
+        asChild
+        href={item.href}
+        className={`flex items-center gap-2 rounded-full px-4 py-2 transition-colors hover:bg-primary/10
+        ${
+          pathname === item.href
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:text-primary'
+        }`}
+      >
+        <Link href={item.href}>
           {iconMap[item.key as keyof typeof iconMap]}
           {item.label}
-        </NavigationMenuLink>
-      </Link>
+        </Link>
+      </NavigationMenuLink>
     </NavigationMenuItem>
   );
 
