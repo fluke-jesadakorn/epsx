@@ -1,3 +1,46 @@
+/**
+ * Extracts EPS data from TradingView socket data, mapping each EPS entry from "earnings_fq_h"
+ * to its corresponding date from the price/earnings value array (the "v" array in the socket data).
+ *
+ * @param earningsFqH The array from "earnings_fq_h" (parsed JSON)
+ * @param vArray The array of objects like {i, v: [timestamp, ...]} from the socket data
+ * @returns Array of EPS entries with mapped dates
+ */
+export function extractEpsWithDatesFromSocketData(
+  earningsFqH: Array<any>,
+  vArray: Array<{ i: number; v: any[] }>,
+): Array<{
+  actual: number | null;
+  estimate: number | null;
+  fiscalPeriod: string;
+  isReported: boolean;
+  type: number;
+  date: string | null;
+}> {
+  // Map index to date from vArray (using the first value in v as the timestamp)
+  const indexToDate: Record<number, string> = {};
+  for (const entry of vArray) {
+    // entry.i is the index, entry.v[0] is the timestamp (in seconds)
+    if (typeof entry.i === 'number' && Array.isArray(entry.v) && typeof entry.v[0] === 'number') {
+      indexToDate[entry.i] = new Date(entry.v[0] * 1000).toISOString().slice(0, 10);
+    }
+  }
+
+  // Map EPS entries to their dates
+  return earningsFqH.map((epsEntry, idx) => {
+    // Try to find the date by index (idx or by Type)
+    // If "Type" matches entry.v[8], you could use that, but usually order matches
+    const date = indexToDate[idx] || null;
+    return {
+      actual: epsEntry.Actual ?? null,
+      estimate: epsEntry.Estimate ?? null,
+      fiscalPeriod: epsEntry.FiscalPeriod ?? '',
+      isReported: epsEntry.IsReported ?? false,
+      type: epsEntry.Type ?? null,
+      date,
+    };
+  });
+}
 import WebSocket from 'ws';
 
 export type FinancialsFromChart = {
@@ -43,7 +86,70 @@ const extractPrices = (data: any): PriceData[] => {
 const extractEps = (data: any): EpsData[] => {
   const result: EpsData[] = [];
 
-  // TradingView puts EPS under p[1].study_1.st
+  // Check for different message types that might contain earnings data
+  if (data.m === 'timescale_update' || data.m === 'qsd' || data.m === 'study_update') {
+    // Look for earnings data in the message parameters
+    if (data.p && Array.isArray(data.p)) {
+      data.p.forEach((param: any) => {
+        // Check for study data with earnings information
+        if (param && param.st && Array.isArray(param.st)) {
+          param.st.forEach((st: any) => {
+            if (st.v && Array.isArray(st.v) && st.v.length >= 3) {
+              const timestamp = st.v[0];
+              const actualEps = st.v[1];  // Reported/Actual EPS
+              // st.v[2] contains estimate EPS if needed later
+              
+              // Use the actual/reported EPS value (st.v[1]) for our main EPS data
+              // Filter out invalid EPS values (like 1e+100 which indicates no data)
+              if (typeof timestamp === 'number' && 
+                  typeof actualEps === 'number' && 
+                  actualEps !== 1e+100 && 
+                  Number.isFinite(actualEps)) {
+                result.push({
+                  date: formatDate(timestamp),
+                  eps: actualEps,
+                });
+              }
+            }
+          });
+        }
+        
+        // Also check for earnings_fq_h structure if present
+        if (param && param.earnings_fq_h && Array.isArray(param.earnings_fq_h)) {
+          param.earnings_fq_h.forEach((earning: any) => {
+            if (earning.Actual !== null && earning.Actual !== undefined && 
+                Number.isFinite(earning.Actual) && earning.IsReported) {
+              // Try to extract date from fiscal period or use index-based mapping
+              const fiscalPeriod = earning.FiscalPeriod;
+              let date: string;
+              
+              if (fiscalPeriod && typeof fiscalPeriod === 'string') {
+                // Parse fiscal period like "2024-Q3" to approximate date
+                const match = fiscalPeriod.match(/(\d{4})-Q(\d)/);
+                if (match) {
+                  const year = parseInt(match[1]);
+                  const quarter = parseInt(match[2]);
+                  const month = (quarter - 1) * 3 + 2; // Approximate middle of quarter
+                  date = new Date(year, month, 15).toISOString().slice(0, 10);
+                } else {
+                  date = new Date().toISOString().slice(0, 10); // Fallback to current date
+                }
+              } else {
+                date = new Date().toISOString().slice(0, 10); // Fallback to current date
+              }
+              
+              result.push({
+                date: date,
+                eps: earning.Actual,
+              });
+            }
+          });
+        }
+      });
+    }
+  }
+
+  // Fallback: Also check the old structure for backwards compatibility
   const study = data.p?.[1]?.study_1?.st;
   if (study) {
     study.forEach((st: any) => {
@@ -393,10 +499,14 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
               if (newPrices.length > 0) {
                 prices.push(...newPrices);
+                console.log(`📈 ${symbol}: Found ${newPrices.length} price data points`);
               }
 
               if (newEps.length > 0) {
                 eps.push(...newEps);
+                console.log(`📊 ${symbol}: Found ${newEps.length} EPS data points from ${parsed.m} message`);
+                // Debug: Log all EPS entries to see what values we're getting
+                console.log(`📊 ${symbol}: EPS values:`, newEps.map(e => `${e.date}: ${e.eps}`));
               }
 
               if (parsed.m === 'study_completed') {
@@ -422,7 +532,10 @@ async function getFinancialsWithCurrentPriceForSymbol(
                   .filter(
                     (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
                   )
-                  .slice(0, quarters);
+                  .slice(-quarters); // Take the last N quarters instead of first N
+
+                // Debug: Log the final mapped results
+                console.log(`📊 ${symbol}: Final mapped EPS data:`, mapped.map(m => `${m.date}: ${m.eps} (Q${m.quarter})`));
 
                 const withEpsGrowth = addEpsGrowth(mapped);
                 const withBothGrowths = addPriceGrowth(withEpsGrowth);
@@ -474,7 +587,7 @@ async function getFinancialsWithCurrentPriceForSymbol(
             // Filter out unofficial or invalid EPS values and take last N quarters
             const mapped = mapEpsToPrice(prices, eps)
               .filter((item) => item.eps !== 1e100 && Number.isFinite(item.eps))
-              .slice(0, quarters);
+              .slice(-quarters); // Take the last N quarters instead of first N
             const withEpsGrowth = addEpsGrowth(mapped);
             const withBothGrowths = addPriceGrowth(withEpsGrowth);
 
