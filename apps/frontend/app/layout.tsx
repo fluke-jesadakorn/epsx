@@ -1,6 +1,7 @@
 import { AuthProvider } from "@/context/auth-context";
 import { LoadingProvider } from "@/context/loading-context";
 import { ThemeProvider } from "next-themes";
+import NavbarComponent from "@/components/features/navigation/Navbar";
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -21,7 +22,14 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <LoadingProvider>
-              {children}
+              <div>
+                <header>
+                  <NavbarComponent />
+                </header>
+                <main>
+                  {children}
+                </main>
+              </div>
             </LoadingProvider>
           </AuthProvider>
         </ThemeProvider>

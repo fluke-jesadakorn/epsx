@@ -71,8 +71,8 @@ export default function DashboardPaymentSection({
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{currentPlan}</span>
                 {!isBasicPlan && (
-                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                    <Crown className="h-3 w-3 mr-1" />
+                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white flex items-center gap-1">
+                    <Crown className="h-3 w-3" />
                     Premium
                   </Badge>
                 )}
@@ -95,18 +95,18 @@ export default function DashboardPaymentSection({
               {isBasicPlan ? (
                 <Button
                   onClick={() => setShowUpgrade(true)}
-                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 flex items-center gap-2"
                 >
-                  <TrendingUp className="h-4 w-4 mr-2" />
+                  <TrendingUp className="h-4 w-4" />
                   Upgrade Now
                 </Button>
               ) : (
                 <Button
                   variant="outline"
                   onClick={() => setShowUpgrade(true)}
-                  className="w-full sm:w-auto border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="w-full sm:w-auto border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
                 >
-                  <Zap className="h-4 w-4 mr-2" />
+                  <Zap className="h-4 w-4" />
                   Extend Plan
                 </Button>
               )}
@@ -163,11 +163,11 @@ export default function DashboardPaymentSection({
               </div>
               <Button
                 size="sm"
-                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600"
+                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600 flex items-center gap-1"
                 onClick={() => setShowUpgrade(true)}
               >
                 Renew
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>

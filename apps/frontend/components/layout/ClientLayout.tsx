@@ -28,7 +28,15 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
           <footer className="py-8 px-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="max-w-7xl mx-auto grid gap-8 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold">EPSx</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                      <path d="M3 3v18h18"/>
+                      <path d="m19 9-5 5-4-4-3 3"/>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 bg-clip-text text-transparent">EPSx</h3>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Tech Insights and Data Management
                 </p>

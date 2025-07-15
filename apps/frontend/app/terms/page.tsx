@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { InputWithIcon } from "@/components/ui/input-with-icon";
+import { Send } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -72,8 +73,9 @@ function SubscribeForm() {
 
         <Button 
           type="submit"
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold"
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold flex items-center gap-2"
         >
+          <Send className="h-4 w-4" />
           Subscribe
         </Button>
       </form>

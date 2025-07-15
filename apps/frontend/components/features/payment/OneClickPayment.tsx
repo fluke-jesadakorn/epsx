@@ -16,6 +16,7 @@ import {
   Star,
   AlertCircle,
   Loader2,
+  Copy,
 } from 'lucide-react';
 import {
   PACKAGES,
@@ -318,8 +319,9 @@ export default function OneClickPayment({
                     onClick={() => {
                       navigator.clipboard.writeText(deposit.address);
                     }}
-                    className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                    className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm flex items-center gap-2"
                   >
+                    <Copy className="h-4 w-4" />
                     Copy
                   </Button>
                 </div>

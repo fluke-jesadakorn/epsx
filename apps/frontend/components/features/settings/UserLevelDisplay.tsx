@@ -288,11 +288,11 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
             <div className="pt-2">
               <Button
                 onClick={() => router.push('/payment')}
-                className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 w-full xs:w-auto animate-pulse h-9 xs:h-10 sm:h-11 text-sm xs:text-base`}
+                className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 w-full xs:w-auto animate-pulse h-9 xs:h-10 sm:h-11 text-sm xs:text-base flex items-center gap-2`}
               >
-                <Crown className="h-4 w-4 mr-2" />
+                <Crown className="h-4 w-4" />
                 Renew Now
-                <ArrowRight className="h-4 w-4 ml-2" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           )}
@@ -381,11 +381,11 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
               <Button
                 variant="outline"
                 onClick={() => router.push('/payment')}
-                className="border-primary/40 hover:bg-primary/10 hover:border-primary/60 transition-all transform hover:scale-105 w-full shadow-lg hover:shadow-xl h-9 xs:h-10 sm:h-11 text-sm xs:text-base"
+                className="border-primary/40 hover:bg-primary/10 hover:border-primary/60 transition-all transform hover:scale-105 w-full shadow-lg hover:shadow-xl h-9 xs:h-10 sm:h-11 text-sm xs:text-base flex items-center gap-2"
               >
-                <Crown className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
+                <Crown className="h-3 w-3 xs:h-4 xs:w-4" />
                 Upgrade Now
-                <ArrowRight className="h-3 w-3 xs:h-4 xs:w-4 ml-2" />
+                <ArrowRight className="h-3 w-3 xs:h-4 xs:w-4" />
               </Button>
             </div>
           </div>

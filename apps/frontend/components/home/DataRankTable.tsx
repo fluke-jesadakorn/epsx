@@ -154,13 +154,13 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
           <Button
             size="sm"
             variant="ghost"
-            className="w-full rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-[#232946] dark:to-[#1a1a2e] text-primary dark:text-white font-bold shadow hover:scale-105 transition"
+            className="w-full rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-[#232946] dark:to-[#1a1a2e] text-primary dark:text-white font-bold shadow hover:scale-105 transition flex items-center gap-1"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
-              <ChevronUp className="h-4 w-4 mr-1" />
+              <ChevronUp className="h-4 w-4" />
             ) : (
-              <ChevronDown className="h-4 w-4 mr-1" />
+              <ChevronDown className="h-4 w-4" />
             )}
             {expanded ? 'Less' : 'More'}
           </Button>
@@ -467,18 +467,18 @@ function DataRankTable({
               variant={viewMode === 'table' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('table')}
-              className="w-[100px] rounded-full font-bold shadow"
+              className="w-[100px] rounded-full font-bold shadow flex items-center gap-2"
             >
-              <Table2 className="h-4 w-4 mr-2" />
+              <Table2 className="h-4 w-4" />
               Table
             </Button>
             <Button
               variant={viewMode === 'card' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('card')}
-              className="w-[100px] rounded-full font-bold shadow"
+              className="w-[100px] rounded-full font-bold shadow flex items-center gap-2"
             >
-              <LayoutGrid className="h-4 w-4 mr-2" />
+              <LayoutGrid className="h-4 w-4" />
               Cards
             </Button>
           </div>

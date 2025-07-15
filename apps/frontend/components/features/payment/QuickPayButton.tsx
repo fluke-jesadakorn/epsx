@@ -49,9 +49,9 @@ export default function QuickPayButton({
       {/* Main quick pay button */}
       <Button
         onClick={handleQuickPay}
-        className="w-full h-12 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300"
+        className="w-full h-12 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
       >
-        <Zap className="mr-2 h-5 w-5" />
+        <Zap className="h-5 w-5" />
         Quick Pay ${amount}
       </Button>
 

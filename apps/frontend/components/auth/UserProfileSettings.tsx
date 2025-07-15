@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, useAuthUtils } from '@/hooks/useAuth';
+import { Save, Mail, Lock } from 'lucide-react';
 
 // Validation schemas
 const profileSchema = z.object({
@@ -260,14 +261,17 @@ function ProfileTab({
               )}
             />
 
-            <Button type="submit" disabled={isUpdating}>
+            <Button type="submit" disabled={isUpdating} className="flex items-center gap-2">
               {isUpdating ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner size="sm" />
                   Updating...
                 </>
               ) : (
-                'Update Profile'
+                <>
+                  <Save className="h-4 w-4" />
+                  Update Profile
+                </>
               )}
             </Button>
           </form>
@@ -291,14 +295,18 @@ function ProfileTab({
                 size="sm"
                 onClick={handleSendVerification}
                 disabled={isUpdating}
+                className="flex items-center gap-2"
               >
                 {isUpdating ? (
                   <>
-                    <LoadingSpinner size="sm" className="mr-2" />
+                    <LoadingSpinner size="sm" />
                     Sending...
                   </>
                 ) : (
-                  'Send Verification Email'
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Send Verification Email
+                  </>
                 )}
               </Button>
             )}
@@ -448,14 +456,17 @@ function SecurityTab({
               )}
             />
 
-            <Button type="submit" disabled={isUpdating}>
+            <Button type="submit" disabled={isUpdating} className="flex items-center gap-2">
               {isUpdating ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner size="sm" />
                   Changing Password...
                 </>
               ) : (
-                'Change Password'
+                <>
+                  <Lock className="h-4 w-4" />
+                  Change Password
+                </>
               )}
             </Button>
           </form>

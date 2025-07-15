@@ -1,21 +1,29 @@
-export const dynamic = 'force-dynamic'
+'use client';
 
-import { getCurrentUser } from "@/app/actions/auth"
 import { DashboardView } from "@/components/dashboard/DashboardView"
-import { redirect } from 'next/navigation'
+import { ClientAuthGuard } from "@/components/auth/ClientAuthGuard"
+import { useAuth } from "@/context/auth-context"
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser()
+export default function DashboardPage() {
+  const { user } = useAuth();
 
-  // If no user is found, this should not redirect here as middleware should handle it
-  // But if we somehow get here without a user, redirect to login
-  if (!user) {
-    redirect('/login?returnUrl=/dashboard')
-  }
+  // Convert Firebase user to app User type
+  const appUser = user ? {
+    id: user.uid,
+    email: user.email || '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    emailVerified: user.emailVerified,
+    role: 'USER' as const,
+    displayName: user.displayName || undefined,
+    photoURL: user.photoURL || undefined,
+  } : null;
 
   return (
-    <main>
-      <DashboardView user={user} />
-    </main>
+    <ClientAuthGuard>
+      <main>
+        {appUser && <DashboardView user={appUser} />}
+      </main>
+    </ClientAuthGuard>
   )
 }

@@ -161,9 +161,9 @@ export default function PaymentReturnPage() {
               <Button
                 onClick={handleReturnToDashboard}
                 variant="outline"
-                className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 font-semibold"
+                className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 font-semibold flex items-center gap-2"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="h-4 w-4" />
                 Return to Dashboard
               </Button>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -201,9 +201,9 @@ export default function PaymentReturnPage() {
             <Button
               onClick={handleReturnToDashboard}
               variant="outline"
-              className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500 font-semibold"
+              className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500 font-semibold flex items-center gap-2"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4" />
               Return to Dashboard
             </Button>
           </div>

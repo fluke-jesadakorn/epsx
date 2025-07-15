@@ -90,8 +90,8 @@ export default function PaymentWidget({
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{pkg.name}</span>
                       {pkg.popular && (
-                        <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                          <Star className="h-3 w-3 mr-1" />
+                        <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center gap-1">
+                          <Star className="h-3 w-3" />
                           Popular
                         </Badge>
                       )}
@@ -133,11 +133,11 @@ export default function PaymentWidget({
         <div className="space-y-3">
           <Button
             onClick={handlePayNow}
-            className="w-full h-12 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300"
+            className="w-full h-12 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
           >
-            <Zap className="mr-2 h-5 w-5" />
+            <Zap className="h-5 w-5" />
             Pay ${selectedPkg?.price} Now
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <ArrowRight className="h-4 w-4" />
           </Button>
 
           <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">

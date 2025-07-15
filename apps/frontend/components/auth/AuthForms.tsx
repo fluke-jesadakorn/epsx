@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuth } from '@/context/auth-context-improved';
+import { LogIn, UserPlus, Send, ArrowLeft } from 'lucide-react';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -186,14 +187,17 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               </Button>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full flex items-center gap-2" disabled={loading}>
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner size="sm" />
                   Signing in...
                 </>
               ) : (
-                'Sign In'
+                <>
+                  <LogIn className="h-4 w-4" />
+                  Sign In
+                </>
               )}
             </Button>
           </form>
@@ -387,14 +391,17 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full flex items-center gap-2" disabled={loading}>
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner size="sm" />
                   Creating account...
                 </>
               ) : (
-                'Create Account'
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  Create Account
+                </>
               )}
             </Button>
           </form>
@@ -448,7 +455,8 @@ function ResetPasswordForm({ onBack }: ResetPasswordFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full" onClick={onBack}>
+          <Button variant="outline" className="w-full flex items-center gap-2" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
             Back to Sign In
           </Button>
         </CardContent>
@@ -492,20 +500,24 @@ function ResetPasswordForm({ onBack }: ResetPasswordFormProps) {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full flex items-center gap-2" disabled={loading}>
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner size="sm" />
                   Sending...
                 </>
               ) : (
-                'Send Reset Link'
+                <>
+                  <Send className="h-4 w-4" />
+                  Send Reset Link
+                </>
               )}
             </Button>
           </form>
         </Form>
 
-        <Button variant="outline" className="w-full" onClick={onBack}>
+        <Button variant="outline" className="w-full flex items-center gap-2" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" />
           Back to Sign In
         </Button>
       </CardContent>

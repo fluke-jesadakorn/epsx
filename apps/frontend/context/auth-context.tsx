@@ -13,7 +13,7 @@ import {
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 
-import { handleSignIn, handleSignOut, refreshSession as _refreshSession } from '@/app/actions/auth';
+import { handleSignOut, refreshSession as _refreshSession } from '@/app/actions/auth';
 import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -44,6 +44,7 @@ export function AuthProvider({
     let hasHandledInitialAuth = false;
     let lastTokenTime = 0; // Track last token processing time to avoid rapid updates
     let authChangeCount = 0; // Track rapid auth changes to prevent loops
+    let sessionCreatedSuccessfully = false; // Track if session was successfully created
 
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
       authChangeCount++;
@@ -51,7 +52,8 @@ export function AuthProvider({
         user: user ? user.email : 'null',
         hasHandledInitialAuth,
         isInitialized,
-        authChangeCount
+        authChangeCount,
+        sessionCreatedSuccessfully
       });
 
       // Prevent excessive auth state changes that might indicate a loop
@@ -69,21 +71,35 @@ export function AuthProvider({
           const now = Date.now();
           const shouldProcessToken = !hasHandledInitialAuth || (now - lastTokenTime > 5000); // 5 second minimum between updates
           
-          if (shouldProcessToken) {
-            console.log('Auth context: User found, getting ID token');
+          if (shouldProcessToken && !sessionCreatedSuccessfully) {
+            console.log('Auth context: User found, storing auth state client-side');
             const idToken = await user.getIdToken();
-            console.log('Auth context: Got ID token, calling handleSignIn');
-            await handleSignIn(idToken);
-            console.log('Auth context: handleSignIn completed successfully');
+            
+            // Store authentication state client-side only
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('authToken', idToken);
+              localStorage.setItem('userEmail', user.email || '');
+              localStorage.setItem('userId', user.uid);
+              localStorage.setItem('sessionJustCreated', 'true');
+            }
+            
+            console.log('Auth context: Client-side auth state set successfully');
             lastTokenTime = now;
+            sessionCreatedSuccessfully = true;
           } else {
-            console.log('Auth context: Skipping token update (too recent)');
+            console.log('Auth context: Skipping token update (too recent or session already created)');
           }
         } else {
-          // Handle sign-out with server action
-          console.log('Auth context: No user, calling handleSignOut');
+          // Handle sign-out - clear client-side auth state
+          console.log('Auth context: No user, clearing client-side auth state');
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('sessionJustCreated');
+          }
           await handleSignOut();
-          console.log('Auth context: handleSignOut completed successfully');
+          console.log('Auth context: Client-side auth state cleared');
         }
       } catch (error) {
         console.error('Auth context: Error in auth flow', error);
@@ -186,8 +202,17 @@ export function AuthProvider({
     try {
       setError(null);
       setLoading(true);
+      
+      // Clear client-side auth state first
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('sessionJustCreated');
+      }
+      
       await firebaseSignOut(auth);
-      // Use server action to clear session
+      // Use server action to clear any remaining session
       await handleSignOut();
     } catch (error) {
       console.error('Sign-out error:', error);
@@ -202,6 +227,16 @@ export function AuthProvider({
     try {
       setError(null);
       setLoading(true);
+      console.log('Auth context: Clearing session - clearing localStorage');
+      
+      // Clear client-side auth state
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('sessionJustCreated');
+      }
+      
       console.log('Auth context: Clearing session - signing out from Firebase');
       await firebaseSignOut(auth);
       console.log('Auth context: Clearing session - calling handleSignOut');

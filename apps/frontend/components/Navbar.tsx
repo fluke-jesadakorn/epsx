@@ -87,9 +87,9 @@ export default function Navbar({ userEmail }: NavbarProps) {
         <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-xl group"
+            className="flex items-center gap-3 group"
           >
-            <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:animate-pulse-glow transition-all duration-300">
+            <span className="font-bold text-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 bg-clip-text text-transparent group-hover:animate-pulse-glow transition-all duration-300">
               EPSX
             </span>
           </Link>
@@ -151,7 +151,7 @@ export default function Navbar({ userEmail }: NavbarProps) {
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right">

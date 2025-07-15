@@ -298,11 +298,11 @@ export function LevelBenefitsComparison({
                         <Button
                           onClick={() => router.push(`/payment?package=${pkg.id}`)}
                           size="sm"
-                          className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105`}
+                          className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center gap-1`}
                         >
                           <span className="hidden sm:inline">Upgrade Now</span>
                           <span className="sm:hidden">Upgrade</span>
-                          <ArrowRight className="h-3 w-3 ml-1" />
+                          <ArrowRight className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
@@ -550,11 +550,11 @@ export function LevelBenefitsComparison({
                       <Button
                         onClick={() => router.push('/payment')}
                         size="lg"
-                        className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white border-0 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 w-full sm:w-auto"
+                        className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white border-0 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 w-full sm:w-auto flex items-center gap-2"
                       >
-                        <Crown className="h-5 w-5 mr-2" />
+                        <Crown className="h-5 w-5" />
                         Explore Upgrade Options
-                        <ArrowRight className="h-5 w-5 ml-2" />
+                        <ArrowRight className="h-5 w-5" />
                       </Button>
                       
                       <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">

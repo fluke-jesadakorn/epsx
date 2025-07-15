@@ -6,6 +6,8 @@ const MAX_AGE = 60 * 60 * 24 * 5; // 5 days in seconds
 
 export async function createSession(token: string) {
   const cookieStore = await cookies();
+  
+  // Set the session cookie with explicit configuration
   cookieStore.set(SESSION_KEY, token, {
     maxAge: MAX_AGE,
     httpOnly: true,
@@ -14,6 +16,7 @@ export async function createSession(token: string) {
     path: '/',
   });
 
+  console.log('Session cookie set with token length:', token.length);
   return { success: true };
 }
 
@@ -26,7 +29,7 @@ export async function verifySession(): Promise<SessionClaims | null> {
       return null;
     }
 
-    console.log('Verifying session token');
+    console.log('Verifying session token, length:', token.length);
     // Verify the Firebase ID token without checkRevoked to avoid API calls that can cause loops
     const auth = getAuthAdmin();
     const decodedToken = await auth.verifyIdToken(token, false); // checkRevoked = false for better performance
@@ -42,13 +45,19 @@ export async function verifySession(): Promise<SessionClaims | null> {
     };
   } catch (error) {
     console.error('Session verification failed:', error);
-    // Clear invalid session cookie
-    try {
-      const cookieStore = await cookies();
-      cookieStore.delete(SESSION_KEY);
-      console.log('Cleared invalid session cookie');
-    } catch (deleteError) {
-      console.error('Failed to clear invalid session cookie:', deleteError);
+    // Only clear invalid session cookie if the error is not a network/temporary issue
+    if (error && typeof error === 'object' && 'code' in error) {
+      const errorCode = (error as any).code;
+      // Don't clear session for temporary network issues
+      if (errorCode !== 'auth/network-request-failed' && errorCode !== 'auth/internal-error') {
+        try {
+          const cookieStore = await cookies();
+          cookieStore.delete(SESSION_KEY);
+          console.log('Cleared invalid session cookie');
+        } catch (deleteError) {
+          console.error('Failed to clear invalid session cookie:', deleteError);
+        }
+      }
     }
     return null;
   }

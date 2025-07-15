@@ -29,38 +29,34 @@ export default function LoginPage() {
     
     // Only redirect if we have a confirmed authenticated user, not loading, not already redirecting, and not preventing redirect
     if (user && !loading && !redirecting && !preventRedirect) {
-      console.log('Login page: User authenticated, starting redirect to:', returnUrl);
+      console.log('Login page: User authenticated, starting immediate redirect to:', returnUrl);
       setRedirecting(true);
       
-      // Use Next.js router for better navigation handling with a shorter timeout
-      const timeoutId = setTimeout(() => {
-        console.log('Login page: Executing redirect to:', returnUrl);
-        // Use window.location.replace for immediate redirect without adding to history
-        window.location.replace(returnUrl);
-      }, 500); // Reduced timeout to 0.5 seconds
-
-      // Cleanup timeout on unmount
-      return () => {
-        console.log('Login page: Cleaning up redirect timeout');
-        clearTimeout(timeoutId);
-      };
+      // Clear the session flag
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sessionJustCreated');
+      }
+      
+      // Immediate redirect since we're using client-side auth only
+      console.log('Login page: Executing immediate redirect to:', returnUrl);
+      window.location.href = returnUrl;
     }
   }, [user, loading, returnUrl, redirecting, preventRedirect]);
 
-  // Additional effect to handle edge cases where redirect might not trigger
+  // Simplified fallback - only needed if the main redirect somehow fails
   useEffect(() => {
-    if (user && !loading && !preventRedirect) {
-      // Fallback redirect mechanism with shorter timeout
+    if (user && !loading && !preventRedirect && !redirecting) {
+      // Emergency fallback redirect
       const fallbackTimeoutId = setTimeout(() => {
         if (user && !preventRedirect) {
-          console.log('Login page: Fallback redirect triggered');
-          window.location.replace(returnUrl);
+          console.log('Login page: Emergency fallback redirect triggered');
+          window.location.href = returnUrl;
         }
-      }, 2000); // Reduced to 2 seconds
+      }, 1000); // 1 second fallback
 
       return () => clearTimeout(fallbackTimeoutId);
     }
-  }, [user, loading, preventRedirect, returnUrl]);
+  }, [user, loading, preventRedirect, returnUrl, redirecting]);
 
   // Add timeout to prevent infinite loading
   useEffect(() => {
@@ -122,7 +118,7 @@ export default function LoginPage() {
                         className="flex-1 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-medium"
                         onClick={() => {
                           console.log('Login page: Manual redirect to dashboard');
-                          window.location.replace(returnUrl);
+                          window.location.href = returnUrl;
                         }}
                       >
                         Go to Dashboard Now

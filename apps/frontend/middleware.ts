@@ -1,27 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SESSION_KEY = '__session';
-
-// List of paths that don't require authentication
-const publicPaths = [
-  '/',
-  '/login',
-  '/signup',
-  '/register',
-  '/privacy',
-  '/terms',
-  '/reset-password'
-];
-
-// List of paths that require session but allow public access
-const semiPublicPaths = [
-  '/payment',
-  '/checkout' // Include checkout for redirection handling
-];
-
 export function middleware(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   // Handle redirection from /checkout to /payment
   if (pathname === '/checkout') {
@@ -31,70 +12,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Check for session cookie on login page - if user has session, redirect to return URL or dashboard
-  if (pathname === '/login') {
-    const sessionCookie = request.cookies.get(SESSION_KEY);
-    console.log('Middleware: Login page accessed', { 
-      hasSession: !!sessionCookie?.value,
-      sessionLength: sessionCookie?.value?.length || 0,
-      postLogin: searchParams.get('postLogin')
-    });
-    
-    if (sessionCookie?.value) {
-      // Do not validate token in middleware to avoid using Firebase Admin in Edge runtime
-      // Just check if token exists and is not obviously invalid - detailed validation happens server-side
-      if (sessionCookie.value.length > 10) { // Basic sanity check
-        const returnUrl = searchParams.get('returnUrl') || '/dashboard';
-        // Check if this is a post-login redirect to avoid loops
-        if (searchParams.get('postLogin') === 'true') {
-          console.log('Middleware: Post-login flag detected, allowing access to login page');
-          return NextResponse.next();
-        }
-        // Add a small delay parameter to help avoid immediate redirects that might cause loops
-        if (searchParams.get('skipRedirect') === 'true') {
-          console.log('Middleware: Skip redirect flag detected, allowing access to login page');
-          return NextResponse.next();
-        }
-        console.log('Middleware: Valid session found, redirecting to:', returnUrl);
-        return NextResponse.redirect(new URL(returnUrl, request.url));
-      }
-    }
-    console.log('Middleware: No valid session, allowing access to login page');
-    return NextResponse.next();
-  }
-
-  // Allow other public paths
-  if (publicPaths.includes(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Allow semi-public paths but attach session if available
-  if (semiPublicPaths.includes(pathname)) {
-    const sessionCookie = request.cookies.get(SESSION_KEY);
-    const response = NextResponse.next();
-    
-    if (sessionCookie?.value) {
-      response.cookies.set(SESSION_KEY, sessionCookie.value, {
-        httpOnly: true,
-        secure: true, // Always use secure cookies; adjust if needed for local development
-        sameSite: 'lax'
-      });
-    }
-    
-    return response;
-  }
-
-  // Check for session cookie presence for protected routes
-  const sessionCookie = request.cookies.get(SESSION_KEY);
-  
-  if (!sessionCookie?.value) {
-    // Redirect to login with return URL
-    const searchParams = new URLSearchParams({
-      returnUrl: pathname,
-    });
-    return NextResponse.redirect(new URL(`/login?${searchParams}`, request.url));
-  }
-
+  // For client-side auth, let pages handle their own authentication logic
+  // Middleware will only handle route redirects, not authentication
+  console.log('Middleware: Allowing access to:', pathname);
   return NextResponse.next();
 }
 

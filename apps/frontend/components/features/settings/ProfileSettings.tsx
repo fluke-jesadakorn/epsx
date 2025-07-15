@@ -345,9 +345,9 @@ export function ProfileSettings() {
             <Button
               type="submit"
               disabled={isLoading}
-              className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base`}
+              className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base flex items-center gap-2`}
             >
-              <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+              <Save className="h-3 w-3 sm:h-4 sm:w-4" />
               {isLoading ? 'Updating...' : 'Save Changes'}
             </Button>
           </form>
@@ -358,9 +358,10 @@ export function ProfileSettings() {
       <div className="relative space-y-3 sm:space-y-4 lg:space-y-6 pt-3 sm:pt-4 lg:pt-6 border-t border-muted/30">
         <Button
           variant="outline"
-          className="mb-2 w-full xs:w-auto h-9 sm:h-10 text-sm sm:text-base"
+          className="mb-2 w-full xs:w-auto h-9 sm:h-10 text-sm sm:text-base flex items-center gap-2"
           onClick={() => setShowPasswordForm((v) => !v)}
         >
+          <Key className="h-4 w-4" />
           {showPasswordForm ? 'Hide Change Password' : 'Change Password'}
         </Button>
         {showPasswordForm && (
@@ -431,9 +432,9 @@ export function ProfileSettings() {
               <Button
                 type="submit"
                 disabled={isPasswordLoading}
-                className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base`}
+                className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base flex items-center gap-2`}
               >
-                <Key className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                <Key className="h-3 w-3 sm:h-4 sm:w-4" />
                 {isPasswordLoading ? 'Changing...' : 'Change Password'}
               </Button>
             </form>
