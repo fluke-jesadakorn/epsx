@@ -514,6 +514,11 @@
   .dark .ring-soft-orange {
     box-shadow: 0 0 0 2px hsl(31 70% 70% / 0.3);
   }
+
+  /* Custom shadow utilities */
+  .shadow-3xl {
+    box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+  }
 }
 
 /* Chat bubble clip paths */
@@ -701,6 +706,47 @@
 }
 
 /* Responsive design improvements */
+@media (max-width: 475px) {
+  /* Extra small screens */
+  .container-responsive {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .card-pancake {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+  }
+
+  .container-section {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  /* Very small screen optimizations */
+  .xs-text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .xs-text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .xs-spacing-tight {
+    gap: 0.5rem;
+  }
+
+  .xs-p-2 {
+    padding: 0.5rem;
+  }
+
+  .xs-rounded {
+    border-radius: 0.375rem;
+  }
+}
+
 @media (max-width: 640px) {
   .container-responsive {
     padding-left: 1rem;
@@ -756,6 +802,65 @@
 
   .mobile-spacing-loose {
     gap: 1.5rem;
+  }
+
+  /* Mobile form improvements */
+  .mobile-form-input {
+    height: 2.25rem;
+    font-size: 0.875rem;
+  }
+
+  .mobile-form-button {
+    height: 2.25rem;
+    font-size: 0.875rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Mobile avatar size */
+  .mobile-avatar-sm {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .mobile-avatar-md {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
+  /* Mobile card improvements */
+  .mobile-card-compact {
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .mobile-card-header {
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Mobile flex improvements */
+  .mobile-flex-col {
+    flex-direction: column;
+  }
+
+  .mobile-items-start {
+    align-items: flex-start;
+  }
+
+  .mobile-text-center {
+    text-align: center;
+  }
+
+  /* Mobile overflow improvements */
+  .mobile-overflow-hidden {
+    overflow: hidden;
+  }
+
+  .mobile-text-ellipsis {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
 }
 

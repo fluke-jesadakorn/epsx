@@ -7,6 +7,7 @@ export enum ErrorCode {
   NETWORK_ERROR = 'NETWORK_ERROR',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  USER_CANCELLED = 'USER_CANCELLED',
 }
 
 export class AuthError extends Error {

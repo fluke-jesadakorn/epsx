@@ -34,6 +34,12 @@ export function middleware(request: NextRequest) {
   // Check for session cookie on login page - if user has session, redirect to return URL or dashboard
   if (pathname === '/login') {
     const sessionCookie = request.cookies.get(SESSION_KEY);
+    console.log('Middleware: Login page accessed', { 
+      hasSession: !!sessionCookie?.value,
+      sessionLength: sessionCookie?.value?.length || 0,
+      postLogin: searchParams.get('postLogin')
+    });
+    
     if (sessionCookie?.value) {
       // Do not validate token in middleware to avoid using Firebase Admin in Edge runtime
       // Just check if token exists and is not obviously invalid - detailed validation happens server-side
@@ -41,11 +47,19 @@ export function middleware(request: NextRequest) {
         const returnUrl = searchParams.get('returnUrl') || '/dashboard';
         // Check if this is a post-login redirect to avoid loops
         if (searchParams.get('postLogin') === 'true') {
+          console.log('Middleware: Post-login flag detected, allowing access to login page');
           return NextResponse.next();
         }
+        // Add a small delay parameter to help avoid immediate redirects that might cause loops
+        if (searchParams.get('skipRedirect') === 'true') {
+          console.log('Middleware: Skip redirect flag detected, allowing access to login page');
+          return NextResponse.next();
+        }
+        console.log('Middleware: Valid session found, redirecting to:', returnUrl);
         return NextResponse.redirect(new URL(returnUrl, request.url));
       }
     }
+    console.log('Middleware: No valid session, allowing access to login page');
     return NextResponse.next();
   }
 

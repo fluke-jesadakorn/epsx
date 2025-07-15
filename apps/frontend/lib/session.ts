@@ -27,9 +27,9 @@ export async function verifySession(): Promise<SessionClaims | null> {
     }
 
     console.log('Verifying session token');
-    // Verify the Firebase ID token
+    // Verify the Firebase ID token without checkRevoked to avoid API calls that can cause loops
     const auth = getAuthAdmin();
-    const decodedToken = await auth.verifyIdToken(token, true); // checkRevoked = true
+    const decodedToken = await auth.verifyIdToken(token, false); // checkRevoked = false for better performance
     console.log('Session verified successfully for user:', decodedToken.uid);
     
     return {

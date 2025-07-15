@@ -24,6 +24,7 @@ interface AuthContextType {
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  clearSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,64 +37,99 @@ export function AuthProvider({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Listen for token changes and implement token refresh
   useEffect(() => {
+    console.log('Auth context: Setting up onIdTokenChanged listener');
+    let hasHandledInitialAuth = false;
+    let lastTokenTime = 0; // Track last token processing time to avoid rapid updates
+    let authChangeCount = 0; // Track rapid auth changes to prevent loops
+
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Force token refresh to get a fresh token
-          const idToken = await user.getIdToken(true);
-          // Use server action to create session
-          await handleSignIn(idToken);
-          setUser(user);
-        } catch (error) {
-          console.error('Session sync error:', error);
-          setError('Failed to sync session');
-          setUser(null);
-        }
-      } else {
-        // User signed out - clear session
-        try {
-          await handleSignOut();
-        } catch (error) {
-          console.error('Session cleanup error:', error);
-        }
-        setUser(null);
+      authChangeCount++;
+      console.log('Auth context: onIdTokenChanged fired', { 
+        user: user ? user.email : 'null',
+        hasHandledInitialAuth,
+        isInitialized,
+        authChangeCount
+      });
+
+      // Prevent excessive auth state changes that might indicate a loop
+      if (authChangeCount > 10) {
+        console.warn('Auth context: Too many auth state changes detected, potential loop. Stopping processing.');
+        setLoading(false);
+        return;
       }
+      
+      try {
+        setUser(user);
+        
+        if (user) {
+          // Only handle sign-in if this is the initial auth or if enough time has passed since last update
+          const now = Date.now();
+          const shouldProcessToken = !hasHandledInitialAuth || (now - lastTokenTime > 5000); // 5 second minimum between updates
+          
+          if (shouldProcessToken) {
+            console.log('Auth context: User found, getting ID token');
+            const idToken = await user.getIdToken();
+            console.log('Auth context: Got ID token, calling handleSignIn');
+            await handleSignIn(idToken);
+            console.log('Auth context: handleSignIn completed successfully');
+            lastTokenTime = now;
+          } else {
+            console.log('Auth context: Skipping token update (too recent)');
+          }
+        } else {
+          // Handle sign-out with server action
+          console.log('Auth context: No user, calling handleSignOut');
+          await handleSignOut();
+          console.log('Auth context: handleSignOut completed successfully');
+        }
+      } catch (error) {
+        console.error('Auth context: Error in auth flow', error);
+        if (user) {
+          setError('Failed to create session');
+        }
+      }
+
+      // Mark as initialized after first auth state change
+      if (!hasHandledInitialAuth) {
+        hasHandledInitialAuth = true;
+        setIsInitialized(true);
+        console.log('Auth context: Marking as initialized');
+      }
+      
+      // Always set loading to false after processing
       setLoading(false);
     });
 
-    // Set up token refresh interval (refresh every 50 minutes, tokens expire after 1 hour)
-    const tokenRefreshInterval = setInterval(async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        try {
-          console.log('Refreshing token...');
-          const freshToken = await currentUser.getIdToken(true);
-          await handleSignIn(freshToken);
-          console.log('Token refreshed successfully');
-        } catch (error) {
-          console.error('Token refresh failed:', error);
-        }
+    // Reset auth change counter after a period to allow for legitimate auth changes
+    const resetCounterInterval = setInterval(() => {
+      if (authChangeCount > 0) {
+        console.log('Auth context: Resetting auth change counter');
+        authChangeCount = 0;
       }
-    }, 50 * 60 * 1000); // 50 minutes
+    }, 30000); // Reset every 30 seconds
 
     return () => {
+      console.log('Auth context: Cleaning up onIdTokenChanged listener');
       unsubscribe();
-      clearInterval(tokenRefreshInterval);
+      clearInterval(resetCounterInterval);
     };
   }, []);
 
   const signInWithGoogle = async (): Promise<void> => {
     try {
       setError(null);
+      setLoading(true);
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error('Google sign-in error:', error);
       setError('Failed to sign in with Google');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,17 +139,21 @@ export function AuthProvider({
   ): Promise<void> => {
     try {
       setError(null);
+      setLoading(true);
       await signInWithEmailPwd(auth, email, password);
     } catch (error) {
       console.error('Email/Password sign-in error:', error);
       setError('Failed to sign in with email/password');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string): Promise<void> => {
     try {
       setError(null);
+      setLoading(true);
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       console.error('Sign-up error:', error);
@@ -137,12 +177,15 @@ export function AuthProvider({
       
       setError(errorMessage);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async (): Promise<void> => {
     try {
       setError(null);
+      setLoading(true);
       await firebaseSignOut(auth);
       // Use server action to clear session
       await handleSignOut();
@@ -150,6 +193,27 @@ export function AuthProvider({
       console.error('Sign-out error:', error);
       setError('Failed to sign out');
       throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearSession = async (): Promise<void> => {
+    try {
+      setError(null);
+      setLoading(true);
+      console.log('Auth context: Clearing session - signing out from Firebase');
+      await firebaseSignOut(auth);
+      console.log('Auth context: Clearing session - calling handleSignOut');
+      await handleSignOut();
+      console.log('Auth context: Session cleared successfully');
+      setUser(null);
+    } catch (error) {
+      console.error('Clear session error:', error);
+      setError('Failed to clear session');
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,6 +225,7 @@ export function AuthProvider({
     signInWithEmailPassword,
     signUp,
     signOut,
+    clearSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

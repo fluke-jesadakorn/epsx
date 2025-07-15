@@ -239,9 +239,9 @@ export default function SettingsPage() {
             </div>
 
             {/* Enhanced Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
               {/* Main Content Area */}
-              <div className="lg:col-span-8 space-y-6 lg:space-y-8">
+              <div className="lg:col-span-8 space-y-4 sm:space-y-6 lg:space-y-8">
                 {/* User Level Display - Enhanced */}
                 <div className="relative">
                   <UserLevelDisplay className="animate-fade-in hover-lift" />
@@ -267,23 +267,23 @@ export default function SettingsPage() {
                   <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-float-gentle" />
                   <div className="absolute -bottom-4 -right-4 w-8 h-8 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-lg animate-bounce-gentle" />
 
-                  <div className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-purple-200/50 dark:border-purple-400/20 overflow-hidden hover-lift">
+                  <div className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-purple-200/50 dark:border-purple-400/20 overflow-hidden hover-lift">
                     {/* Card background pattern */}
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-pink-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-pink-900/10" />
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl" />
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full blur-2xl" />
 
                     <div className="relative z-10">
-                      <div className="mb-6">
-                        <h3 className="text-2xl sm:text-3xl font-bold mb-3 flex items-center gap-3">
-                          <div className="p-3 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50 rounded-2xl shadow-lg">
-                            <span className="text-2xl animate-wiggle">👤</span>
+                      <div className="mb-4 sm:mb-6">
+                        <h3 className="text-lg sm:text-2xl lg:text-3xl font-bold mb-2 sm:mb-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                          <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50 rounded-xl sm:rounded-2xl shadow-lg">
+                            <span className="text-lg sm:text-2xl animate-wiggle">👤</span>
                           </div>
                           <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
                             🎨 Profile Management
                           </span>
                         </h3>
-                        <p className="text-sm text-muted-foreground ml-14">
+                        <p className="text-xs sm:text-sm text-muted-foreground sm:ml-14">
                           Update your personal information and customize your
                           experience ✨
                         </p>
@@ -295,9 +295,9 @@ export default function SettingsPage() {
               </div>
 
               {/* Sidebar Content */}
-              <div className="lg:col-span-4 space-y-6 animate-slide-up-delayed">
+              <div className="lg:col-span-4 space-y-4 sm:space-y-6 animate-slide-up-delayed">
                 {/* Quick Actions Card - Enhanced with PancakeSwap style */}
-                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-orange-200/50 dark:border-orange-400/20 hover-lift">
+                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-orange-200/50 dark:border-orange-400/20 hover-lift">
                   {/* Card background pattern */}
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 via-transparent to-blue-50/50 dark:from-orange-900/10 dark:via-transparent dark:to-blue-900/10" />
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full blur-2xl" />
@@ -315,21 +315,21 @@ export default function SettingsPage() {
                       </span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="relative z-10 space-y-4">
+                  <CardContent className="relative z-10 space-y-3 sm:space-y-4">
                     <Button
                       onClick={() => router.push('/payment')}
-                      className="w-full h-12 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl hover:shadow-orange-300/50 hover:scale-105 transition-all duration-300 group font-bold text-lg"
+                      className="w-full h-10 sm:h-12 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-orange-300/50 hover:scale-105 transition-all duration-300 group font-bold text-sm sm:text-base lg:text-lg"
                     >
-                      <span className="mr-3 text-xl group-hover:animate-bounce-gentle">
+                      <span className="mr-2 sm:mr-3 text-base sm:text-xl group-hover:animate-bounce-gentle">
                         💎
                       </span>
                       Upgrade Plan
                     </Button>
                     <Button
                       onClick={() => router.push('/dashboard')}
-                      className="w-full h-12 bg-white/10 backdrop-blur-sm border-2 border-orange-300/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-2xl shadow-xl hover:shadow-orange-300/30 hover:scale-105 transition-all duration-300 group font-bold"
+                      className="w-full h-10 sm:h-12 bg-white/10 backdrop-blur-sm border-2 border-orange-300/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-orange-300/30 hover:scale-105 transition-all duration-300 group font-bold text-sm sm:text-base"
                     >
-                      <span className="mr-3 text-xl group-hover:animate-wiggle">
+                      <span className="mr-2 sm:mr-3 text-base sm:text-xl group-hover:animate-wiggle">
                         📊
                       </span>
                       Go to Dashboard
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                 </Card>
 
                 {/* Authentication Providers - Enhanced PancakeSwap style */}
-                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-blue-200/50 dark:border-blue-400/20 hover-lift">
+                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-blue-200/50 dark:border-blue-400/20 hover-lift">
                   {/* Card background pattern */}
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 dark:from-blue-900/10 dark:via-transparent dark:to-purple-900/10" />
                   <div className="absolute top-0 left-0 w-28 h-28 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-2xl" />
@@ -365,7 +365,7 @@ export default function SettingsPage() {
                 </Card>
 
                 {/* Help & Support Card - Enhanced PancakeSwap style */}
-                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-green-200/50 dark:border-green-400/20 hover-lift">
+                <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-green-200/50 dark:border-green-400/20 hover-lift">
                   {/* Card background pattern */}
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/50 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/10" />
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full blur-2xl" />
@@ -387,21 +387,21 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">
                       Need assistance? We're here to help! 🥞✨
                     </p>
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       <Button
                         variant="outline"
-                        className="w-full justify-start h-11 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 rounded-xl group transition-all duration-300"
+                        className="w-full justify-start h-9 sm:h-11 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 rounded-lg sm:rounded-xl group transition-all duration-300 text-sm sm:text-base"
                       >
-                        <span className="mr-3 text-lg group-hover:animate-bounce-gentle">
+                        <span className="mr-2 sm:mr-3 text-sm sm:text-lg group-hover:animate-bounce-gentle">
                           📚
                         </span>
                         Documentation
                       </Button>
                       <Button
                         variant="outline"
-                        className="w-full justify-start h-11 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 rounded-xl group transition-all duration-300"
+                        className="w-full justify-start h-9 sm:h-11 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 rounded-lg sm:rounded-xl group transition-all duration-300 text-sm sm:text-base"
                       >
-                        <span className="mr-3 text-lg group-hover:animate-wiggle">
+                        <span className="mr-2 sm:mr-3 text-sm sm:text-lg group-hover:animate-wiggle">
                           💬
                         </span>
                         Contact Support

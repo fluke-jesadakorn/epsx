@@ -208,112 +208,118 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
         )}
       </div>
 
-      <CardHeader className="relative pb-4 border-b border-primary/10">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 lg:gap-6">
-          <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
-            {/* Enhanced Level Icon */}
-            <div className="relative group">
+      <CardHeader className="relative pb-3 sm:pb-4 border-b border-primary/10">
+        {/* Mobile-First Design with Stacked Layout */}
+        <div className="space-y-4">
+          {/* Top Row: Icon + Title + Badge */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Enhanced Level Icon - Responsive Sizing */}
+            <div className="relative group flex-shrink-0">
               <div
-                className={`relative p-3 sm:p-4 lg:p-5 rounded-3xl bg-gradient-to-br ${levelGradients[currentLevel]} shadow-xl transform transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 flex-shrink-0`}
+                className={`relative p-2.5 xs:p-3 sm:p-4 rounded-2xl xs:rounded-3xl bg-gradient-to-br ${levelGradients[currentLevel]} shadow-lg xs:shadow-xl transform transition-all duration-300 group-hover:scale-105 group-hover:rotate-2`}
               >
                 <div className="text-white transform transition-transform duration-300 group-hover:scale-110">
-                  {levelIcons[currentLevel]}
+                  <div className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7">
+                    {levelIcons[currentLevel]}
+                  </div>
                 </div>
                 
                 {/* Premium Level Indicators */}
                 {(currentLevel === 'GOLD' || currentLevel === 'PLATINUM') && (
                   <>
-                    <div className="absolute -top-2 -right-2 w-4 h-4 sm:w-5 sm:h-5 bg-yellow-400 rounded-full animate-bounce shadow-lg">
-                      <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-800 m-0.5 sm:m-1" />
+                    <div className="absolute -top-1 -right-1 xs:-top-2 xs:-right-2 w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 bg-yellow-400 rounded-full animate-bounce shadow-md">
+                      <Star className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 text-yellow-800 m-0.5" />
                     </div>
-                    <div className="absolute inset-0 rounded-3xl bg-yellow-400/20 blur-sm animate-pulse"></div>
+                    <div className="absolute inset-0 rounded-2xl xs:rounded-3xl bg-yellow-400/20 blur-sm animate-pulse"></div>
                   </>
                 )}
                 
                 {/* Glow Effect */}
-                <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${levelGradients[currentLevel]} opacity-0 group-hover:opacity-30 blur-lg transition-opacity duration-300`}></div>
+                <div className={`absolute inset-0 rounded-2xl xs:rounded-3xl bg-gradient-to-br ${levelGradients[currentLevel]} opacity-0 group-hover:opacity-30 blur-lg transition-opacity duration-300`}></div>
               </div>
-              
-              {/* Level Ring Indicator */}
-              <div className={`absolute inset-0 rounded-3xl border-2 border-transparent bg-gradient-to-br ${levelGradients[currentLevel]} opacity-20 blur-sm animate-pulse`}></div>
             </div>
             
-            {/* Level Information */}
-            <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+            {/* Level Information - Responsive Layout */}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 sm:gap-3">
+                <h2 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-bold truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent leading-tight">
                   {currentPackage?.name || `${currentLevel} Level`}
                 </h2>
                 <Badge
                   variant="secondary"
-                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-bold text-xs sm:text-sm px-3 py-1 shadow-lg animate-pulse w-fit`}
+                  className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-bold text-xs px-2 py-0.5 xs:px-3 xs:py-1 shadow-lg animate-pulse w-fit`}
                 >
                   {currentLevel}
                 </Badge>
               </div>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm sm:text-base">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full animate-pulse ${
-                    userStatus?.isExpired ? 'bg-red-500' : 'bg-green-500'
-                  }`}></div>
-                  <span className={`font-semibold ${
-                    userStatus?.isExpired ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                  }`}>
-                    {userStatus?.isExpired ? 'Expired' : 'Active'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-1 h-1 bg-muted-foreground rounded-full"></div>
-                  <span className="font-medium">{currentPackage?.rankingLimit} stocks access</span>
-                </div>
-                
-                {userStatus?.expirationDate && (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <div className="w-1 h-1 bg-muted-foreground rounded-full"></div>
-                    <span>Expires {new Date(userStatus.expirationDate).toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Middle Row: Status Information - Responsive Stack */}
+          <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3 sm:gap-4 text-xs xs:text-sm sm:text-base">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                userStatus?.isExpired ? 'bg-red-500' : 'bg-green-500'
+              }`}></div>
+              <span className={`font-semibold ${
+                userStatus?.isExpired ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+              }`}>
+                {userStatus?.isExpired ? 'Expired' : 'Active'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-1 h-1 bg-muted-foreground rounded-full hidden xs:block"></div>
+              <span className="font-medium">{currentPackage?.rankingLimit} stocks access</span>
+            </div>
+            
+            {userStatus?.expirationDate && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="w-1 h-1 bg-muted-foreground rounded-full hidden xs:block"></div>
+                <span className="text-xs xs:text-sm">
+                  Expires {new Date(userStatus.expirationDate).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Row: Action Button - Full Width on Mobile */}
           {userStatus?.isExpired && (
-            <Button
-              onClick={() => router.push('/payment')}
-              size="lg"
-              className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 w-full sm:w-auto animate-pulse`}
-            >
-              <Crown className="h-5 w-5 mr-2" />
-              Renew Now
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
+            <div className="pt-2">
+              <Button
+                onClick={() => router.push('/payment')}
+                className={`bg-gradient-to-r ${levelGradients[currentLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 w-full xs:w-auto animate-pulse h-9 xs:h-10 sm:h-11 text-sm xs:text-base`}
+              >
+                <Crown className="h-4 w-4 mr-2" />
+                Renew Now
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="relative space-y-6 sm:space-y-8">
-        {/* Enhanced Current Level Benefits */}
-        <div className="space-y-4">
+      <CardContent className="relative space-y-4 sm:space-y-6">
+        {/* Enhanced Current Level Benefits - Mobile Optimized */}
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg bg-gradient-to-r ${levelGradients[currentLevel]}/10`}>
-              <Gem className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <div className={`p-1.5 sm:p-2 rounded-lg bg-gradient-to-r ${levelGradients[currentLevel]}/10`}>
+              <Gem className="h-3 w-3 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-primary" />
             </div>
-            <h4 className="font-bold text-base sm:text-lg">Your Premium Benefits</h4>
+            <h4 className="font-bold text-sm xs:text-base sm:text-lg">Your Premium Benefits</h4>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          {/* Responsive Grid - Single Column on Mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {LEVEL_BENEFITS[currentLevel].slice(0, 6).map((benefit, index) => (
               <div 
                 key={index} 
-                className="flex items-start gap-3 p-3 sm:p-4 rounded-xl bg-gradient-to-r from-primary/5 to-transparent hover:from-primary/10 transition-all duration-300 group"
+                className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-primary/5 to-transparent hover:from-primary/10 transition-all duration-300 group"
               >
                 <div
-                  className={`w-3 h-3 rounded-full bg-gradient-to-r ${levelGradients[currentLevel]} animate-pulse mt-1 flex-shrink-0 group-hover:scale-125 transition-transform`}
+                  className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-gradient-to-r ${levelGradients[currentLevel]} animate-pulse mt-1 flex-shrink-0 group-hover:scale-125 transition-transform`}
                 ></div>
-                <span className="flex-1 text-sm sm:text-base text-foreground/90 group-hover:text-foreground transition-colors">
+                <span className="flex-1 text-xs xs:text-sm sm:text-base text-foreground/90 group-hover:text-foreground transition-colors leading-tight">
                   {benefit}
                 </span>
               </div>
@@ -321,27 +327,27 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
           </div>
         </div>
 
-        {/* Enhanced Progress to Next Level */}
+        {/* Enhanced Progress to Next Level - Mobile Optimized */}
         {nextLevelOptions.length > 0 && userStatus?.paymentCount !== undefined && (
-          <div className="space-y-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-primary/5 via-background/50 to-secondary/5 border border-primary/10">
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 sm:space-y-4 p-3 sm:p-4 lg:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-primary/5 via-background/50 to-secondary/5 border border-primary/10">
+            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                <h4 className="font-bold text-base sm:text-lg">
+                <Trophy className="h-3 w-3 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+                <h4 className="font-bold text-xs xs:text-sm sm:text-base lg:text-lg">
                   Progress to {nextLevelOptions[0].name}
                 </h4>
               </div>
-              <Badge variant="outline" className="text-xs sm:text-sm">
+              <Badge variant="outline" className="text-xs w-fit">
                 {userStatus.paymentCount}/{nextLevelOptions[0].minPayments} payments
               </Badge>
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-sm text-muted-foreground">
+              <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
                 <span>Progress</span>
                 <span>{Math.round(getProgressToNextLevel())}%</span>
               </div>
-              <div className="w-full bg-muted/30 rounded-full h-3 sm:h-4 overflow-hidden shadow-inner">
+              <div className="w-full bg-muted/30 rounded-full h-2.5 sm:h-3 lg:h-4 overflow-hidden shadow-inner">
                 <div
                   className={`h-full bg-gradient-to-r ${levelGradients[nextLevelOptions[0].level]} transition-all duration-1000 ease-out rounded-full relative overflow-hidden`}
                   style={{ width: `${getProgressToNextLevel()}%` }}
@@ -354,33 +360,32 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
           </div>
         )}
 
-        {/* Enhanced Upgrade Options */}
+        {/* Enhanced Upgrade Options - Mobile First */}
         {nextLevelOptions.length > 0 && (
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/5 to-primary/10 border border-primary/20 backdrop-blur-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-3 sm:p-4 lg:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/5 to-primary/10 border border-primary/20 backdrop-blur-sm">
+            <div className="space-y-3 sm:space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-primary animate-bounce-gentle" />
-                  <h4 className="font-bold text-base sm:text-lg">Upgrade Available</h4>
+                  <ArrowRight className="h-3 w-3 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-primary animate-bounce-gentle flex-shrink-0" />
+                  <h4 className="font-bold text-sm xs:text-base sm:text-lg">Upgrade Available</h4>
                 </div>
-                <p className="text-sm sm:text-base text-muted-foreground">
+                <p className="text-xs xs:text-sm sm:text-base text-muted-foreground leading-tight">
                   Unlock premium features with <span className="font-semibold text-primary">{nextLevelOptions[0].name}</span>
                 </p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Star className="h-3 w-3 text-yellow-500" />
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <Star className="h-3 w-3 text-yellow-500 flex-shrink-0" />
                   <span>30-day money-back guarantee</span>
                 </div>
               </div>
               
               <Button
                 variant="outline"
-                size="lg"
                 onClick={() => router.push('/payment')}
-                className="border-primary/40 hover:bg-primary/10 hover:border-primary/60 transition-all transform hover:scale-105 w-full sm:w-auto shadow-lg hover:shadow-xl"
+                className="border-primary/40 hover:bg-primary/10 hover:border-primary/60 transition-all transform hover:scale-105 w-full shadow-lg hover:shadow-xl h-9 xs:h-10 sm:h-11 text-sm xs:text-base"
               >
-                <Crown className="h-4 w-4 mr-2" />
+                <Crown className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                 Upgrade Now
-                <ArrowRight className="h-4 w-4 ml-2" />
+                <ArrowRight className="h-3 w-3 xs:h-4 xs:w-4 ml-2" />
               </Button>
             </div>
           </div>

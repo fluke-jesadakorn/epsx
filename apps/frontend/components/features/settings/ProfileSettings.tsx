@@ -172,25 +172,28 @@ export function ProfileSettings() {
   const currentPackage = getPackageByLevel(userLevel);
 
   return (
-    <div
-      className={`relative space-y-6 ${levelBackgrounds[userLevel]} rounded-xl p-4 border border-muted/30 transition-all duration-300`}
-    >
-      {!isLoadingLevel && (
-        <>
-          <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
-            <div
-              className={`w-full h-full bg-gradient-to-br ${levelGradients[userLevel]} rounded-full blur-2xl animate-pulse-slow`}
-            ></div>
-          </div>
-          <div className="absolute bottom-0 left-0 w-16 h-16 opacity-5 pointer-events-none">
-            <div
-              className={`w-full h-full bg-gradient-to-tr ${levelGradients[userLevel]} rounded-full blur-xl animate-float`}
-            ></div>
-          </div>
-        </>
-      )}
+    <div className="relative">
+      {/* Decorative background elements */}
+      <div className="absolute -top-8 -left-8 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-2xl pointer-events-none z-0" />
+      <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-xl pointer-events-none z-0" />
 
-      {error && (
+      {/* Main content */}
+      {!isLoadingLevel && (
+          <>
+            <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
+              <div
+                className={`w-full h-full bg-gradient-to-br ${levelGradients[userLevel]} rounded-full blur-2xl animate-pulse-slow`}
+              ></div>
+            </div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 opacity-5 pointer-events-none">
+              <div
+                className={`w-full h-full bg-gradient-to-tr ${levelGradients[userLevel]} rounded-full blur-xl animate-float`}
+              ></div>
+            </div>
+          </>
+        )}
+
+        {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -227,16 +230,16 @@ export function ProfileSettings() {
       </div>
 
       {/* Enhanced Profile Header */}
-      <div className="relative flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-background/60 backdrop-blur-sm border border-muted/30">
+      <div className="relative flex flex-col xs:flex-row items-center gap-3 xs:gap-4 p-3 sm:p-4 rounded-lg bg-background/60 backdrop-blur-sm border border-muted/30">
         <div className="relative flex-shrink-0">
           <Avatar
-            className={`w-16 h-16 sm:w-20 sm:h-20 ring-2 ring-offset-2 transition-all duration-300 ${
+            className={`w-14 h-14 xs:w-16 xs:h-16 sm:w-20 sm:h-20 ring-2 ring-offset-2 transition-all duration-300 ${
               isLoadingLevel ? 'ring-muted' : `ring-[hsl(var(--primary))]/30`
             }`}
           >
             <AvatarImage src={photoURL} alt={displayName || 'User'} />
             <AvatarFallback
-              className={`text-base sm:text-lg font-semibold ${
+              className={`text-sm xs:text-base sm:text-lg font-semibold ${
                 !isLoadingLevel
                   ? `bg-gradient-to-br ${levelGradients[userLevel]} text-white`
                   : ''
@@ -249,22 +252,22 @@ export function ProfileSettings() {
           {/* Level Badge on Avatar */}
           {!isLoadingLevel && (
             <div
-              className={`absolute -bottom-1 -right-1 p-1 sm:p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
+              className={`absolute -bottom-1 -right-1 p-1 xs:p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
             >
-              <div className="text-white">{levelIcons[userLevel]}</div>
+              <div className="text-white text-xs xs:text-sm">{levelIcons[userLevel]}</div>
             </div>
           )}
         </div>
 
-        <div className="flex-1 min-w-0 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-            <h3 className="text-base sm:text-lg font-semibold truncate">
+        <div className="flex-1 min-w-0 text-center xs:text-left">
+          <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 mb-1">
+            <h3 className="text-sm xs:text-base sm:text-lg font-semibold truncate">
               {displayName || 'User'}
             </h3>
             {!isLoadingLevel && (
               <Badge
                 variant="secondary"
-                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold text-xs w-fit mx-auto sm:mx-0`}
+                className={`bg-gradient-to-r ${levelGradients[userLevel]} text-white border-0 font-semibold text-xs w-fit mx-auto xs:mx-0`}
               >
                 {userLevel}
               </Badge>
@@ -274,7 +277,7 @@ export function ProfileSettings() {
             {user.email}
           </p>
           {!isLoadingLevel && currentPackage && (
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1 hidden xs:block">
               {currentPackage.rankingLimit} stocks access •{' '}
               {currentPackage.name}
             </p>
@@ -291,19 +294,19 @@ export function ProfileSettings() {
           )}
       </div>
       {/* Enhanced Profile Form */}
-      <div className="relative space-y-4 sm:space-y-6">
+      <div className="relative space-y-3 sm:space-y-4 lg:space-y-6">
         <Button
           variant="outline"
-          className="mb-2 w-full sm:w-auto"
+          className="mb-2 w-full xs:w-auto h-9 sm:h-10 text-sm sm:text-base"
           onClick={() => setShowProfileForm((v) => !v)}
         >
           {showProfileForm ? 'Hide Name Section' : 'Set Name'}
         </Button>
         {showProfileForm && (
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <form onSubmit={handleUpdateProfile} className="space-y-3 sm:space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="displayName" className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="displayName" className="flex items-center gap-2 text-sm sm:text-base">
+                <User className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                 Name
               </Label>
               <Input
@@ -311,13 +314,13 @@ export function ProfileSettings() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter your name"
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="photoURL" className="flex items-center gap-2">
+              <Label htmlFor="photoURL" className="flex items-center gap-2 text-sm sm:text-base">
                 <svg
-                  className="h-4 w-4 text-muted-foreground"
+                  className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -336,15 +339,15 @@ export function ProfileSettings() {
                 value={photoURL}
                 onChange={(e) => setPhotoURL(e.target.value)}
                 placeholder="Enter URL for profile picture"
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
               />
             </div>
             <Button
               type="submit"
               disabled={isLoading}
-              className={`w-full bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}
+              className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base`}
             >
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
               {isLoading ? 'Updating...' : 'Save Changes'}
             </Button>
           </form>
@@ -352,34 +355,34 @@ export function ProfileSettings() {
       </div>
 
       {/* Enhanced Password Form */}
-      <div className="relative space-y-4 sm:space-y-6 pt-4 sm:pt-6 border-t border-muted/30">
+      <div className="relative space-y-3 sm:space-y-4 lg:space-y-6 pt-3 sm:pt-4 lg:pt-6 border-t border-muted/30">
         <Button
           variant="outline"
-          className="mb-2 w-full sm:w-auto"
+          className="mb-2 w-full xs:w-auto h-9 sm:h-10 text-sm sm:text-base"
           onClick={() => setShowPasswordForm((v) => !v)}
         >
           {showPasswordForm ? 'Hide Change Password' : 'Change Password'}
         </Button>
         {showPasswordForm && (
           <>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 mb-3 sm:mb-4">
               <div
                 className={`p-2 rounded-lg bg-gradient-to-br ${levelGradients[userLevel]} text-white`}
               >
-                <Key className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Key className="h-3 w-3 xs:h-4 xs:w-4 sm:h-5 sm:w-5" />
               </div>
-              <h4 className="text-base sm:text-lg font-semibold">
+              <h4 className="text-sm xs:text-base sm:text-lg font-semibold">
                 Security Settings
               </h4>
             </div>
 
-            <form onSubmit={handleChangePassword} className="space-y-4">
+            <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
               <div className="grid gap-2">
                 <Label
                   htmlFor="currentPassword"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm sm:text-base"
                 >
-                  <Key className="h-4 w-4 text-muted-foreground" />
+                  <Key className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   Current Password
                 </Label>
                 <Input
@@ -388,15 +391,15 @@ export function ProfileSettings() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
-                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
                 />
               </div>
               <div className="grid gap-2">
                 <Label
                   htmlFor="newPassword"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm sm:text-base"
                 >
-                  <Key className="h-4 w-4 text-muted-foreground" />
+                  <Key className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   New Password
                 </Label>
                 <Input
@@ -405,15 +408,15 @@ export function ProfileSettings() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
                 />
               </div>
               <div className="grid gap-2">
                 <Label
                   htmlFor="confirmPassword"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm sm:text-base"
                 >
-                  <Key className="h-4 w-4 text-muted-foreground" />
+                  <Key className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   Confirm New Password
                 </Label>
                 <Input
@@ -422,15 +425,15 @@ export function ProfileSettings() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
                 />
               </div>
               <Button
                 type="submit"
                 disabled={isPasswordLoading}
-                className={`w-full bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}
+                className={`w-full h-9 sm:h-10 bg-gradient-to-r ${levelGradients[userLevel]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base`}
               >
-                <Key className="h-4 w-4 mr-2" />
+                <Key className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                 {isPasswordLoading ? 'Changing...' : 'Change Password'}
               </Button>
             </form>
