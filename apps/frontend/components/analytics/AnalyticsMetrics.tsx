@@ -15,14 +15,12 @@ import {
 interface AnalyticsMetricsProps {
   userLevel: string;
   maxRankings: number;
-  totalAccessible: number;
   isExpired: boolean;
 }
 
 export function AnalyticsMetrics({ 
   userLevel, 
   maxRankings, 
-  totalAccessible, 
   isExpired 
 }: AnalyticsMetricsProps) {
   const getUpgradeInfo = () => {

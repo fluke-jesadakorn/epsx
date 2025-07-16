@@ -121,7 +121,6 @@ export function AnalyticsRankingDashboard() {
       <AnalyticsMetrics 
         userLevel={userLevel}
         maxRankings={maxRankings}
-        totalAccessible={premiumData.length}
         isExpired={isExpired}
       />
 

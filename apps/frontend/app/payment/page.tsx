@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { PaymentStatusSection } from '@/components/sections/payment/PaymentStatusSection';
-import { PACKAGES } from '@/app/constants/packages';
 import { useSearchParams } from 'next/navigation';
 
 const OneClickPayment = dynamic(

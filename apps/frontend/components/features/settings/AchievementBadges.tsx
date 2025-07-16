@@ -2,14 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PACKAGES, LEVEL_REQUIREMENTS } from "@/app/constants/packages";
+import { PACKAGES } from "@/app/constants/packages";
 import type { UserLevelType } from "@/app/constants/packages";
 import { 
   Trophy, 
   Crown, 
   Star, 
   Gem, 
-  Zap, 
   Shield, 
   Award,
   Target,

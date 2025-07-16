@@ -261,7 +261,7 @@ function DataRankTable({
   rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
   const router = useRouter();
-  const { maxRankings, canViewRanking, upgradeRequired, userLevel, isLoading } = useRankingAccess();
+  const { maxRankings, canViewRanking, upgradeRequired, userLevel } = useRankingAccess();
   
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];

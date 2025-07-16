@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
 import { onSnapshot, collection, query, where } from 'firebase/firestore';
@@ -10,7 +10,6 @@ import { db } from '@/lib/firebase';
 
 export default function PaymentReturnPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'pending' | 'failed'>('checking');
   const [paymentData, setPaymentData] = useState<any>(null);
   const [countdown, setCountdown] = useState(10);

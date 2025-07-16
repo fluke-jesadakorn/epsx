@@ -47,22 +47,6 @@ const levelGradients = {
   API_PARTNER: 'from-purple-600 to-indigo-700',
 };
 
-const levelBackgrounds = {
-  BASIC:
-    'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800',
-  SILVER:
-    'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
-  GOLD: 'bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20',
-  PLATINUM:
-    'bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20',
-  API_PERSONAL:
-    'bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20',
-  API_COMPANY:
-    'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20',
-  API_PARTNER:
-    'bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20',
-};
-
 export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
   const { user } = useAuth();
   const router = useRouter();
