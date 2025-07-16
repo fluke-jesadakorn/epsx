@@ -33,12 +33,13 @@ export function MetricCard({ title, value, type, className = '' }: MetricCardPro
       rounded-xl 
       bg-gradient-to-br ${gradient} 
       border ${colors.border}
+      min-w-0 w-full overflow-hidden
       ${className}
     `}>
-      <div className={`${TYPOGRAPHY.caption} ${colors.text} font-semibold tracking-wide uppercase mb-2`}>
+      <div className={`${TYPOGRAPHY.caption} ${colors.text} font-semibold tracking-wide uppercase mb-2 truncate`}>
         {title}
       </div>
-      <div className={`${TYPOGRAPHY.metric} ${colors.text}`}>
+      <div className={`${TYPOGRAPHY.metric} ${colors.text} truncate`}>
         {value}
       </div>
     </div>

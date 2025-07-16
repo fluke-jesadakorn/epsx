@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GRADIENTS, SPACING, ANIMATIONS } from './constants/styles';
+import { GRADIENTS, SPACING } from './constants/styles';
 import { FinancialCard } from './components/FinancialCard';
 import {
   FinancialDataLoading,
@@ -90,20 +90,22 @@ function FinancialDataTable({
 
           {/* Responsive Cards Grid */}
           <div
-            className={`
+            className="
               grid 
               grid-cols-1 
               sm:grid-cols-1 
               md:grid-cols-2 
               xl:grid-cols-3 
-              ${SPACING.responsiveGap}
+              gap-4 sm:gap-6
               auto-rows-max
-            `}
+              w-full
+              max-w-full
+            "
           >
             {safeData.map((item, index) => (
               <div
                 key={`${item.symbol}-${index}`}
-                className={`${ANIMATIONS.fadeIn} relative w-full`}
+                className="relative w-full max-w-full overflow-hidden"
                 style={{
                   animationDelay: `${index * 150}ms`,
                   animationDuration: '600ms',

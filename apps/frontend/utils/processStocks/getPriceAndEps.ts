@@ -292,6 +292,42 @@ function addPriceGrowth<T extends { price: number | null }>(
   });
 }
 
+/**
+ * Adds comparison between last EPS growth and current price growth
+ */
+function addLastEpsVsCurrentPrice<T extends { eps_growth?: number | null; price_growth?: number | null }>(
+  arr: (T & { last_eps_vs_current_price?: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } })[],
+): (T & { last_eps_vs_current_price?: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } })[] {
+  if (arr.length < 2) {
+    return arr.map(item => ({ 
+      ...item, 
+      last_eps_vs_current_price: { lastEpsGrowth: null, currentPriceGrowth: null }
+    }));
+  }
+
+  // Get the most recent available EPS growth and price growth
+  // Since index 0 typically has null growth values, look at index 1
+  const lastEpsGrowth = arr[1]?.eps_growth || null;
+  const currentPriceGrowth = arr[1]?.price_growth || null;
+
+  return arr.map((item, index) => {
+    // Only add to the latest quarter (index 0)
+    if (index === 0) {
+      return {
+        ...item,
+        last_eps_vs_current_price: {
+          lastEpsGrowth,
+          currentPriceGrowth
+        }
+      };
+    }
+    return {
+      ...item,
+      last_eps_vs_current_price: { lastEpsGrowth: null, currentPriceGrowth: null }
+    };
+  });
+}
+
 const parseMessages = (str: string): any[] => {
   const messages: any[] = [];
   let i = 0;
@@ -561,9 +597,10 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
                 const withEpsGrowth = addEpsGrowth(mapped);
                 const withBothGrowths = addPriceGrowth(withEpsGrowth);
+                const withComparison = addLastEpsVsCurrentPrice(withBothGrowths);
 
                 resolve({
-                  quarters: withBothGrowths,
+                  quarters: withComparison,
                   currentPrice,
                   currentPriceDate,
                 });
@@ -609,9 +646,10 @@ async function getFinancialsWithCurrentPriceForSymbol(
               .slice(-quarters); // Take the last N quarters instead of first N
             const withEpsGrowth = addEpsGrowth(mapped);
             const withBothGrowths = addPriceGrowth(withEpsGrowth);
+            const withComparison = addLastEpsVsCurrentPrice(withBothGrowths);
 
             resolve({
-              quarters: withBothGrowths,
+              quarters: withComparison,
               currentPrice,
               currentPriceDate,
             });

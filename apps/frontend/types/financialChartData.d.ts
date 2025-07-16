@@ -5,6 +5,10 @@ export interface QuarterData {
   quarter: number;
   eps_growth?: number;
   price_growth?: number;
+  last_eps_vs_current_price?: {
+    lastEpsGrowth: number | null;
+    currentPriceGrowth: number | null;
+  };
 }
 
 export interface StockFinancialData {

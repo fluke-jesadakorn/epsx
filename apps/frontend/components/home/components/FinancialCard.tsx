@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   GRADIENTS,
   COLORS,
-  SPACING,
   TYPOGRAPHY,
   ANIMATIONS,
 } from '../constants/styles';
@@ -14,6 +13,8 @@ import type { StockFinancialData } from '@/types/financialChartData';
 import {
   formatPrice,
   formatDate,
+  getLastEpsVsCurrentPriceComparison,
+  getPriceEpsAlignment,
 } from '@/utils/processStocks/stockDataTransformer';
 
 interface FinancialCardProps {
@@ -105,7 +106,7 @@ export function FinancialCard({
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/20 via-yellow-500/20 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />
 
       {/* Content */}
-      <CardContent className={`relative ${SPACING.responsivePadding} z-10`}>
+      <CardContent className="relative p-3 sm:p-4 md:p-6 z-10 w-full overflow-hidden">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start justify-between mb-4 sm:mb-5 gap-3 sm:gap-0">
           <div className="flex items-center gap-2 sm:gap-3 ml-8 sm:ml-12">
@@ -142,31 +143,77 @@ export function FinancialCard({
         </div>
 
         {/* Key Metrics */}
-        <div className={`grid grid-cols-1 sm:grid-cols-3 ${SPACING.responsiveGap} mb-4 sm:mb-6`}>
-          <MetricCard
-            title="Latest Price"
-            value={displayPrice !== null ? formatPrice(displayPrice) : 'N/A'}
-            type="price"
-            className="p-3 sm:p-4"
-          />
-          <MetricCard
-            title="Latest EPS"
-            value={
-              latestQuarter?.eps !== undefined
-                ? latestQuarter.eps.toFixed(4)
-                : 'N/A'
-            }
-            type="eps"
-            className="p-3 sm:p-4"
-          />
-          <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30">
-            <div
-              className={`${TYPOGRAPHY.caption} text-emerald-600 dark:text-emerald-400 font-semibold tracking-wide uppercase mb-2`}
-            >
-              Avg Growth
+        <div className="space-y-3 mb-4 sm:mb-6">
+          {/* First Row: Price and EPS */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <MetricCard
+              title="Price"
+              value={displayPrice !== null ? formatPrice(displayPrice) : 'N/A'}
+              type="price"
+              className="p-2 sm:p-3 min-w-0 w-full"
+            />
+            <MetricCard
+              title="EPS"
+              value={
+                latestQuarter?.eps !== undefined
+                  ? latestQuarter.eps.toFixed(4)
+                  : 'N/A'
+              }
+              type="eps"
+              className="p-2 sm:p-3 min-w-0 w-full"
+            />
+          </div>
+          
+          {/* Second Row: Growth and EPS→Price */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30 min-w-0 w-full">
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase mb-1 truncate">
+                Avg Growth
+              </div>
+              <div className="flex items-center justify-center">
+                <GrowthIndicator value={avgGrowth} size="sm" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <GrowthIndicator value={avgGrowth} size="md" />
+
+            {/* EPS vs Price Comparison */}
+            <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200/50 dark:border-purple-700/30 min-w-0 w-full">
+              <div className="text-xs text-purple-600 dark:text-purple-400 font-semibold uppercase mb-1 truncate">
+                EPS→Price
+              </div>
+              <div className="text-xs text-purple-700 dark:text-purple-300">
+                {(() => {
+                  const comparison = getLastEpsVsCurrentPriceComparison(data);
+                  const alignment = getPriceEpsAlignment(comparison);
+                  
+                  if (!comparison || comparison.lastEpsGrowth === null || comparison.currentPriceGrowth === null) {
+                    return (
+                      <div className="text-center py-1 text-gray-500 text-xs">
+                        N/A
+                      </div>
+                    );
+                  }
+                  
+                  const alignmentEmoji = alignment === 'positive' ? '✅' : alignment === 'negative' ? '❌' : '⚖️';
+                  const epsText = `${comparison.lastEpsGrowth > 0 ? '+' : ''}${comparison.lastEpsGrowth}%`;
+                  const priceText = `${comparison.currentPriceGrowth > 0 ? '+' : ''}${comparison.currentPriceGrowth}%`;
+                  
+                  return (
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="opacity-75">E:</span>
+                        <span className="font-medium">{epsText}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="opacity-75">P:</span>
+                        <span className="font-medium">{priceText}</span>
+                      </div>
+                      <div className="flex justify-center">
+                        <span className="text-sm">{alignmentEmoji}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>

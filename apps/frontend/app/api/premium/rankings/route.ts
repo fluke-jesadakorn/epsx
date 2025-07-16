@@ -3,7 +3,7 @@ import { withPaymentAccess, withApiLimits } from '@/middleware/paymentAccess';
 import { PaymentTier } from '@/types/payment/plans';
 
 // Example: Premium ranking API
-async function handler(req: NextRequest) {
+async function handler(_req: NextRequest) {
   try {
     // This endpoint requires Gold tier or higher
     const rankings = [
