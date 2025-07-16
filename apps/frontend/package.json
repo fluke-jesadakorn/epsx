@@ -12,6 +12,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@epsx/auth": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "5.1.1",

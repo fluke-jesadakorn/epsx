@@ -12,6 +12,7 @@
     "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
+    "@epsx/auth": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
