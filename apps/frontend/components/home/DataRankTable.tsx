@@ -17,6 +17,7 @@ import {
 import { Button } from '../ui/button';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { UpgradePrompt, LockedRankingCard } from '@/components/ui/upgrade-prompt';
+import { getNextLevelLimit, getLockedRankings } from '@/app/constants/packages';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 
@@ -382,7 +383,7 @@ function DataRankTable({
                 <Crown className="h-8 w-8 text-yellow-500 mx-auto" />
                 <h3 className="font-semibold text-lg">Unlock More Rankings</h3>
                 <p className="text-sm text-muted-foreground">
-                  Upgrade to see up to {userLevel === 'BASIC' ? '25' : '50'} top-ranked stocks
+                  Upgrade to see up to {getNextLevelLimit(userLevel)} top-ranked stocks
                 </p>
                 <Button className="gap-2" onClick={handleUpgrade}>
                   <Crown className="h-4 w-4" />
@@ -431,7 +432,7 @@ function DataRankTable({
       {upgradeRequired && (
         <UpgradePrompt 
           currentLevel={userLevel} 
-          lockedRankings={userLevel === 'BASIC' ? 20 : 50} 
+          lockedRankings={getLockedRankings(userLevel)} 
           className="mt-6"
         />
       )}

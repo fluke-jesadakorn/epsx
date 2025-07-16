@@ -4,6 +4,7 @@ import React from 'react';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import FinancialDataTable from '@/components/home/FinancialDataTable';
+import { getLevelColor, getLockedRankings } from '@/app/constants/packages';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleBasedFinancialTableProps {
@@ -62,7 +63,7 @@ export default function RoleBasedFinancialTable({
       {!isPublicPreview && upgradeRequired && (
         <UpgradePrompt 
           currentLevel={userLevel} 
-          lockedRankings={userLevel === 'BASIC' ? 20 : 50} 
+          lockedRankings={getLockedRankings(userLevel)} 
           className="max-w-2xl mx-auto"
         />
       )}
@@ -81,12 +82,7 @@ export default function RoleBasedFinancialTable({
           ) : (
             <>
               <span className="font-medium">Current Plan:</span>
-              <span className={`font-bold ${
-                userLevel === 'BASIC' ? 'text-gray-600' : 
-                userLevel === 'SILVER' ? 'text-blue-600' : 
-                userLevel === 'GOLD' ? 'text-yellow-600' : 
-                'text-purple-600'
-              }`}>
+              <span className={`font-bold ${getLevelColor(userLevel)}`}>
                 {userLevel}
               </span>
               <span className="text-muted-foreground">

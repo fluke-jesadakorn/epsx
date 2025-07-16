@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
 import { status } from '@/services/pay';
-import { getPackageByLevel } from '@/app/constants/packages';
+import { getPackageByLevel, canAccessLevel } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
 import { User, Key, Save, Crown, Star, Trophy, Gem } from 'lucide-react';
 
@@ -56,22 +56,6 @@ export function ProfileSettings() {
     API_PERSONAL: 'from-indigo-500 to-blue-600',
     API_COMPANY: 'from-blue-600 to-cyan-600',
     API_PARTNER: 'from-purple-600 to-indigo-700',
-  };
-
-  const levelBackgrounds = {
-    BASIC:
-      'bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50',
-    SILVER:
-      'bg-gradient-to-br from-slate-50/50 to-slate-100/50 dark:from-slate-900/50 dark:to-slate-800/50',
-    GOLD: 'bg-gradient-to-br from-yellow-50/50 to-orange-50/50 dark:from-yellow-900/20 dark:to-orange-900/20',
-    PLATINUM:
-      'bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20',
-    API_PERSONAL:
-      'bg-gradient-to-br from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/20 dark:to-blue-900/20',
-    API_COMPANY:
-      'bg-gradient-to-br from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20',
-    API_PARTNER:
-      'bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/20',
   };
 
   useEffect(() => {
@@ -286,7 +270,7 @@ export function ProfileSettings() {
 
         {/* Special Effects for Premium Levels */}
         {!isLoadingLevel &&
-          (userLevel === 'GOLD' || userLevel === 'PLATINUM') && (
+          canAccessLevel(userLevel, 'GOLD') && (
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping"></div>
               <div className="absolute bottom-2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-pulse delay-300"></div>

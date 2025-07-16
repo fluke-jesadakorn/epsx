@@ -7,6 +7,84 @@ export type UserLevelType =
   | 'API_PERSONAL'
   | 'API_COMPANY'
   | 'API_PARTNER';
+
+// Level Configuration - Centralized level definitions
+export interface LevelConfig {
+  name: string;
+  level: UserLevelType;
+  numericLevel: number;
+  rankingLimit: number;
+  minPayments: number;
+  color: string;
+  features: string[];
+}
+
+// Core Level Definitions - Easy to extend
+export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
+  BASIC: {
+    name: 'Basic',
+    level: 'BASIC',
+    numericLevel: 0,
+    rankingLimit: 5,
+    minPayments: 0,
+    color: 'gray-500',
+    features: ['Limited access', 'Basic features', 'Community support'],
+  },
+  SILVER: {
+    name: 'Silver',
+    level: 'SILVER',
+    numericLevel: 1,
+    rankingLimit: 25,
+    minPayments: 1,
+    color: 'slate-400',
+    features: ['Full access for 1 month', 'Priority support', 'Advanced features'],
+  },
+  GOLD: {
+    name: 'Gold',
+    level: 'GOLD',
+    numericLevel: 2,
+    rankingLimit: 50,
+    minPayments: 3,
+    color: 'yellow-500',
+    features: ['Extended access', 'Premium features', 'Priority support', 'Early access to new features'],
+  },
+  PLATINUM: {
+    name: 'Platinum',
+    level: 'PLATINUM',
+    numericLevel: 3,
+    rankingLimit: 100,
+    minPayments: 6,
+    color: 'purple-500',
+    features: ['Unlimited access', 'All premium features', 'VIP support', 'Early access to new features', 'Custom analytics'],
+  },
+  API_PERSONAL: {
+    name: 'API Personal',
+    level: 'API_PERSONAL',
+    numericLevel: 4,
+    rankingLimit: 25,
+    minPayments: 1,
+    color: 'indigo-500',
+    features: ['25 Data sets', 'Country Selection', 'Unlimited Accounts'],
+  },
+  API_COMPANY: {
+    name: 'API Company',
+    level: 'API_COMPANY',
+    numericLevel: 5,
+    rankingLimit: 100,
+    minPayments: 1,
+    color: 'blue-600',
+    features: ['100 Data sets', 'Country Selection', 'Unlimited Accounts', 'Priority Support'],
+  },
+  API_PARTNER: {
+    name: 'API Partner',
+    level: 'API_PARTNER',
+    numericLevel: 6,
+    rankingLimit: 100,
+    minPayments: 0,
+    color: 'purple-600',
+    features: ['100 Data sets', 'Country Selection', 'Industry Selection', '15% Revenue Share', 'Unlimited Accounts', 'Custom Integration'],
+  },
+} as const;
 export type CurrencyType =
   | 'USDT'
   | 'USDT_TRC20'
@@ -46,13 +124,63 @@ export interface Package {
   icon: string; // path to icon
 }
 
-// Level Requirements
-export const LEVEL_REQUIREMENTS = {
-  BASIC: { minPayments: 0, color: 'gray' },
-  SILVER: { minPayments: 1, color: 'silver' },
-  GOLD: { minPayments: 3, color: 'gold' },
-  PLATINUM: { minPayments: 6, color: 'purple' },
-} as const;
+// Helper Functions for Level-based Logic
+export const getLevelConfig = (level: UserLevelType): LevelConfig => {
+  return LEVEL_CONFIGS[level];
+};
+
+export const getRankingLimitByLevel = (level: UserLevelType): number => {
+  return LEVEL_CONFIGS[level].rankingLimit;
+};
+
+export const getNumericLevelByLevel = (level: UserLevelType): number => {
+  return LEVEL_CONFIGS[level].numericLevel;
+};
+
+export const getLevelByNumeric = (numericLevel: number): UserLevelType => {
+  const level = Object.values(LEVEL_CONFIGS).find(config => config.numericLevel === numericLevel);
+  return level?.level || 'BASIC';
+};
+
+export const canAccessLevel = (currentLevel: UserLevelType, requiredLevel: UserLevelType): boolean => {
+  return LEVEL_CONFIGS[currentLevel].numericLevel >= LEVEL_CONFIGS[requiredLevel].numericLevel;
+};
+
+export const getLevelColor = (level: UserLevelType): string => {
+  const colorMap: Record<UserLevelType, string> = {
+    BASIC: 'text-gray-600',
+    SILVER: 'text-blue-600',
+    GOLD: 'text-yellow-600',
+    PLATINUM: 'text-purple-600',
+    API_PERSONAL: 'text-indigo-600',
+    API_COMPANY: 'text-blue-700',
+    API_PARTNER: 'text-purple-700',
+  };
+  return colorMap[level] || 'text-gray-600';
+};
+
+export const getNextLevelLimit = (currentLevel: UserLevelType): number => {
+  const currentNumeric = LEVEL_CONFIGS[currentLevel].numericLevel;
+  const nextLevel = Object.values(LEVEL_CONFIGS).find(
+    config => config.numericLevel === currentNumeric + 1
+  );
+  return nextLevel?.rankingLimit || LEVEL_CONFIGS.PLATINUM.rankingLimit;
+};
+
+export const getLockedRankings = (userLevel: UserLevelType): number => {
+  // Calculate how many rankings should appear locked/blurred
+  const maxRankings = getRankingLimitByLevel(userLevel);
+  const nextLevelLimit = getNextLevelLimit(userLevel);
+  return Math.min(nextLevelLimit - maxRankings, 50); // Cap at 50 locked rankings
+};
+
+// Level Requirements - Now derived from LEVEL_CONFIGS
+export const LEVEL_REQUIREMENTS = Object.fromEntries(
+  Object.entries(LEVEL_CONFIGS).map(([key, config]) => [
+    key,
+    { minPayments: config.minPayments, color: config.color.split('-')[0] }
+  ])
+) as Record<UserLevelType, { minPayments: number; color: string }>;
 
 // Available Packages
 export const PACKAGES: Package[] = [
@@ -61,71 +189,56 @@ export const PACKAGES: Package[] = [
     id: 'basic',
     name: 'Basic Plan',
     level: 'BASIC',
-    numericLevel: 0,
-    rankingLimit: 5,
+    numericLevel: LEVEL_CONFIGS.BASIC.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.BASIC.rankingLimit,
     price: 0,
     currency: 'USDT',
-    features: ['Limited access', 'Basic features', 'Community support'],
-    minPayments: 0,
+    features: LEVEL_CONFIGS.BASIC.features,
+    minPayments: LEVEL_CONFIGS.BASIC.minPayments,
     duration: 1,
-    color: 'gray-500',
+    color: LEVEL_CONFIGS.BASIC.color,
     icon: '/icons/basic.svg',
   },
   {
     id: 'silver',
     name: 'Silver Plan',
     level: 'SILVER',
-    numericLevel: 1,
-    rankingLimit: 25,
+    numericLevel: LEVEL_CONFIGS.SILVER.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.SILVER.rankingLimit,
     price: 1,
     currency: 'USDT',
-    features: [
-      'Full access for 1 month',
-      'Priority support',
-      'Advanced features',
-    ],
-    minPayments: 1,
+    features: LEVEL_CONFIGS.SILVER.features,
+    minPayments: LEVEL_CONFIGS.SILVER.minPayments,
     duration: 1,
-    color: 'slate-400',
+    color: LEVEL_CONFIGS.SILVER.color,
     icon: '/icons/silver.svg',
   },
   {
     id: 'gold',
     name: 'Gold Plan',
     level: 'GOLD',
-    numericLevel: 2,
-    rankingLimit: 50,
+    numericLevel: LEVEL_CONFIGS.GOLD.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.GOLD.rankingLimit,
     price: 9.9,
     currency: 'USDT',
-    features: [
-      'Extended access',
-      'Premium features',
-      'Priority support',
-      'Early access to new features',
-    ],
-    minPayments: 3,
+    features: LEVEL_CONFIGS.GOLD.features,
+    minPayments: LEVEL_CONFIGS.GOLD.minPayments,
     duration: 1,
-    color: 'yellow-500',
+    color: LEVEL_CONFIGS.GOLD.color,
     icon: '/icons/gold.svg',
   },
   {
     id: 'platinum',
     name: 'Platinum Plan',
     level: 'PLATINUM',
-    numericLevel: 3,
-    rankingLimit: 100,
+    numericLevel: LEVEL_CONFIGS.PLATINUM.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.PLATINUM.rankingLimit,
     price: 9.9,
     currency: 'USDT',
-    features: [
-      'Unlimited access',
-      'All premium features',
-      'VIP support',
-      'Early access to new features',
-      'Custom analytics',
-    ],
-    minPayments: 6,
+    features: LEVEL_CONFIGS.PLATINUM.features,
+    minPayments: LEVEL_CONFIGS.PLATINUM.minPayments,
     duration: 1,
-    color: 'purple-500',
+    color: LEVEL_CONFIGS.PLATINUM.color,
     icon: '/icons/platinum.svg',
   },
   // API Plans
@@ -133,64 +246,58 @@ export const PACKAGES: Package[] = [
     id: 'api_personal',
     name: 'API Personal',
     level: 'API_PERSONAL',
-    numericLevel: 4,
-    rankingLimit: 25,
+    numericLevel: LEVEL_CONFIGS.API_PERSONAL.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.API_PERSONAL.rankingLimit,
     price: 999,
     currency: 'USDT',
-    features: ['25 Data sets', 'Country Selection', 'Unlimited Accounts'],
-    minPayments: 1,
+    features: LEVEL_CONFIGS.API_PERSONAL.features,
+    minPayments: LEVEL_CONFIGS.API_PERSONAL.minPayments,
     duration: 1,
-    color: 'indigo-500',
+    color: LEVEL_CONFIGS.API_PERSONAL.color,
     icon: '/icons/api.svg',
   },
   {
     id: 'api_company',
     name: 'API Company',
     level: 'API_COMPANY',
-    numericLevel: 5,
-    rankingLimit: 100,
+    numericLevel: LEVEL_CONFIGS.API_COMPANY.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.API_COMPANY.rankingLimit,
     price: 2999,
     currency: 'USDT',
-    features: [
-      '100 Data sets',
-      'Country Selection',
-      'Unlimited Accounts',
-      'Priority Support',
-    ],
-    minPayments: 1,
+    features: LEVEL_CONFIGS.API_COMPANY.features,
+    minPayments: LEVEL_CONFIGS.API_COMPANY.minPayments,
     duration: 1,
-    color: 'blue-600',
+    color: LEVEL_CONFIGS.API_COMPANY.color,
     icon: '/icons/enterprise.svg',
   },
   {
     id: 'api_partner',
     name: 'API Partner',
     level: 'API_PARTNER',
-    numericLevel: 6,
-    rankingLimit: 100,
+    numericLevel: LEVEL_CONFIGS.API_PARTNER.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.API_PARTNER.rankingLimit,
     price: 0,
     currency: 'USDT',
-    features: [
-      '100 Data sets',
-      'Country Selection',
-      'Industry Selection',
-      '15% Revenue Share',
-      'Unlimited Accounts',
-      'Custom Integration',
-    ],
-    minPayments: 0,
+    features: LEVEL_CONFIGS.API_PARTNER.features,
+    minPayments: LEVEL_CONFIGS.API_PARTNER.minPayments,
     duration: 1,
-    color: 'purple-600',
+    color: LEVEL_CONFIGS.API_PARTNER.color,
     icon: '/icons/partner.svg',
   },
 ] as const;
 
 // Helper Functions
 export const getUserLevel = (paymentCount: number): UserLevelType => {
-  if (paymentCount >= LEVEL_REQUIREMENTS.PLATINUM.minPayments)
-    return 'PLATINUM';
-  if (paymentCount >= LEVEL_REQUIREMENTS.GOLD.minPayments) return 'GOLD';
-  if (paymentCount >= LEVEL_REQUIREMENTS.SILVER.minPayments) return 'SILVER';
+  // Sort levels by minPayments descending to check highest levels first
+  const sortedLevels = Object.entries(LEVEL_CONFIGS)
+    .sort(([, a], [, b]) => b.minPayments - a.minPayments);
+  
+  for (const [, config] of sortedLevels) {
+    if (paymentCount >= config.minPayments) {
+      return config.level;
+    }
+  }
+  
   return 'BASIC';
 };
 
@@ -256,52 +363,13 @@ export type PaymentLoadingState =
   | { state: 'success' }
   | { state: 'error'; error: PaymentError };
 
-// User Level Benefits
+// User Level Benefits - Now derived from LEVEL_CONFIGS
 export const LEVEL_BENEFITS: Record<UserLevelType, readonly string[]> = {
-  BASIC: ['Limited access to features', 'Community support', 'Basic analytics'],
-  SILVER: [
-    'Full access for 1 month',
-    'Priority support',
-    'Advanced features',
-    'Standard analytics',
-  ],
-  GOLD: [
-    'Extended access',
-    'Premium features',
-    'Priority support',
-    'Early access to new features',
-    'Advanced analytics',
-  ],
-  PLATINUM: [
-    'Unlimited access',
-    'All premium features',
-    'VIP support',
-    'Early access to new features',
-    'Custom analytics',
-    'Dedicated account manager',
-  ],
-  API_PERSONAL: [
-    '25 Data sets',
-    'Country Selection',
-    'Unlimited Accounts',
-    'Developer Support',
-    'Testing Environment',
-  ],
-  API_COMPANY: [
-    '100 Data sets',
-    'Country Selection',
-    'Unlimited Accounts',
-    'Priority Support',
-    'Custom Features',
-    'Enterprise SLA',
-  ],
-  API_PARTNER: [
-    '100 Data sets',
-    'Country Selection',
-    'Industry Selection',
-    '15% Revenue Share',
-    'Custom Integration',
-    'Dedicated Support',
-    'White Label Option',
-  ],
+  BASIC: LEVEL_CONFIGS.BASIC.features,
+  SILVER: LEVEL_CONFIGS.SILVER.features,
+  GOLD: LEVEL_CONFIGS.GOLD.features,
+  PLATINUM: LEVEL_CONFIGS.PLATINUM.features,
+  API_PERSONAL: LEVEL_CONFIGS.API_PERSONAL.features,
+  API_COMPANY: LEVEL_CONFIGS.API_COMPANY.features,
+  API_PARTNER: LEVEL_CONFIGS.API_PARTNER.features,
 } as const;

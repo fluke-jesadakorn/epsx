@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { status } from '@/services/pay';
-import { getPackageByLevel } from '@/app/constants/packages';
+import { getRankingLimitByLevel } from '@/app/constants/packages';
 import { updateUserAccessCookies } from '@/middleware/userAccess';
 import type { UserLevelType } from '@/app/constants/packages';
 
@@ -56,8 +56,8 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
     fetchUserAccess();
   }, [user]);
 
-  const currentPackage = getPackageByLevel(userLevel);
-  const maxRankings = isExpired ? 5 : (currentPackage?.rankingLimit || 5);
+  const rankingLimit = getRankingLimitByLevel(userLevel);
+  const maxRankings = isExpired ? getRankingLimitByLevel('BASIC') : rankingLimit;
 
   return {
     maxRankings,

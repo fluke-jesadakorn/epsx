@@ -4,6 +4,7 @@ import React from 'react';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import LazyStockRankingTable from '@/components/shared/LazyStockRankingTable';
+import { getLevelColor, getLockedRankings } from '@/app/constants/packages';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleAwareLazyStockRankingTableProps {
@@ -60,7 +61,7 @@ export default function RoleAwareLazyStockRankingTable({
         <div className="max-w-4xl mx-auto px-4">
           <UpgradePrompt 
             currentLevel={userLevel} 
-            lockedRankings={userLevel === 'BASIC' ? 20 : userLevel === 'SILVER' ? 30 : 50} 
+            lockedRankings={getLockedRankings(userLevel)} 
           />
         </div>
       )}
@@ -69,12 +70,7 @@ export default function RoleAwareLazyStockRankingTable({
       <div className="text-center py-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-full text-sm">
           <span className="font-medium">Current Plan:</span>
-          <span className={`font-bold ${
-            userLevel === 'BASIC' ? 'text-gray-600' : 
-            userLevel === 'SILVER' ? 'text-blue-600' : 
-            userLevel === 'GOLD' ? 'text-yellow-600' : 
-            'text-purple-600'
-          }`}>
+          <span className={`font-bold ${getLevelColor(userLevel)}`}>
             {userLevel}
           </span>
           <span className="text-muted-foreground">
