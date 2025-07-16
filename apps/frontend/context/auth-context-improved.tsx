@@ -8,6 +8,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { authService } from '@/services/auth/auth.service';
 import { handleSignIn, handleSignOut } from '@/app/actions/auth';
+import { initializeUserClaims } from '@/lib/custom-claims';
 import { AuthError, ErrorCode } from '@/types/auth/errors';
 import type { SignInCredentials, SignUpData } from '@/types/auth/service';
 
@@ -80,9 +81,23 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
       try {
         if (user) {
+          // Check if this is a new user (just created) by checking metadata
+          const isNewUser = user.metadata.creationTime === user.metadata.lastSignInTime;
+          
           // User signed in - create session
           const idToken = await user.getIdToken();
           await handleSignIn(idToken);
+          
+          // Initialize custom claims for new users
+          if (isNewUser && user.email) {
+            try {
+              await initializeUserClaims(user.uid, user.email);
+              console.log('Custom claims initialized for new user:', user.uid);
+            } catch (error) {
+              console.error('Failed to initialize custom claims:', error);
+              // Don't block sign up for this error
+            }
+          }
         } else {
           // User signed out - clear session
           await handleSignOut();

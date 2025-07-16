@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { FirebaseUser } from '@/lib/firebase';
 import { watchAuthState } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 
 export function useFirebaseAuth() {
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);

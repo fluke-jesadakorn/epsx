@@ -1,20 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
+  
   // Handle redirection from /checkout to /payment
   if (pathname === '/checkout') {
     const url = request.nextUrl.clone();
     url.pathname = '/payment';
-    // Preserve all query parameters
     return NextResponse.redirect(url);
   }
 
-  // For client-side auth, let pages handle their own authentication logic
-  // Middleware will only handle route redirects, not authentication
-  console.log('Middleware: Allowing access to:', pathname);
+  // Skip API routes and static files
+  if (
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next/') ||
+    pathname.includes('.') // Static files
+  ) {
+    return NextResponse.next();
+  }
+
+  // Temporarily disable auth middleware to debug the google-logging-utils error
+  // TODO: Re-enable auth middleware once Edge Runtime compatibility is resolved
   return NextResponse.next();
 }
 

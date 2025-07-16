@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 
 export default function SignupPage() {
   const { user } = useAuth();

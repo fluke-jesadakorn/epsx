@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { navigationService } from '@/services/navigation.service';
 
 const iconMap = {

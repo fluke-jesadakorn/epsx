@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { useState, useEffect } from 'react';
 
 export function AuthDebugger() {

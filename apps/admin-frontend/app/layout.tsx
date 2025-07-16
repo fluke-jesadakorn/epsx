@@ -1,6 +1,7 @@
 import './globals.css';
 import { Geist, Geist_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
+import { AdminAuthProvider } from '@/context/admin-auth';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -38,7 +39,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen bg-background font-sans antialiased">
-        <div className="relative flex min-h-screen flex-col">{children}</div>
+        <AdminAuthProvider>
+          <div className="relative flex min-h-screen flex-col">{children}</div>
+        </AdminAuthProvider>
       </body>
     </html>
   );

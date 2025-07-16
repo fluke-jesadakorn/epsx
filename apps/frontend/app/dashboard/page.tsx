@@ -2,7 +2,7 @@
 
 import { DashboardView } from "@/components/dashboard/DashboardView"
 import { ClientAuthGuard } from "@/components/auth/ClientAuthGuard"
-import { useAuth } from "@/context/auth-context"
+import { useAuth } from "@/context/auth-context-improved";
 
 export default function DashboardPage() {
   const { user } = useAuth();

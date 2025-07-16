@@ -9,7 +9,7 @@ import { LevelBenefitsComparison } from '@/components/features/settings/LevelBen
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { status } from '@/services/pay';
 import { useState, useEffect } from 'react';
 import type { UserLevelType } from '@/app/constants/packages';

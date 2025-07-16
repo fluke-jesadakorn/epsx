@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { status } from '@/services/pay';
 import { getPackageByLevel, canAccessLevel } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';

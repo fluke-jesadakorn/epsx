@@ -1,7 +1,8 @@
-import { AuthProvider } from "@/context/auth-context";
+import { AuthProvider } from "@/context/auth-context-improved";
 import { LoadingProvider } from "@/context/loading-context";
 import { ThemeProvider } from "next-themes";
 import NavbarComponent from "@/components/features/navigation/Navbar";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -25,6 +26,7 @@ export default function RootLayout({
               <div>
                 <header>
                   <NavbarComponent />
+                  <EmailVerificationBanner />
                 </header>
                 <main>
                   {children}

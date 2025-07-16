@@ -42,6 +42,10 @@ export async function verifySession(): Promise<SessionClaims | null> {
       name: decodedToken.name,
       picture: decodedToken.picture,
       exp: decodedToken.exp,
+      // Include custom claims in session
+      role: decodedToken.role,
+      permissions: decodedToken.permissions,
+      custom_claims: decodedToken,
     };
   } catch (error) {
     console.error('Session verification failed:', error);
@@ -76,4 +80,7 @@ export interface SessionClaims {
   name?: string;
   picture?: string;
   exp?: number;
+  role?: string;
+  permissions?: string[];
+  custom_claims?: any;
 }

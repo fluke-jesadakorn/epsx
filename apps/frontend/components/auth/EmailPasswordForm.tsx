@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 
 const formSchema = z
   .object({
@@ -43,18 +43,18 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
     },
   });
 
-  const { signInWithEmailPassword, signUp, error } = useAuth();
+  const { signInWithEmailAndPassword, signUp, error } = useAuth();
 
   const onSubmit = async (data: FormValues) => {
     console.log('Form submission triggered', data);
     try {
       if (isSignUp) {
         console.log('Attempting sign up with email:', data.email);
-        await signUp(data.email, data.password);
+        await signUp({ email: data.email, password: data.password });
         console.log('Sign up successful for email:', data.email);
       } else {
         console.log('Attempting sign in with email:', data.email);
-        await signInWithEmailPassword(data.email, data.password);
+        await signInWithEmailAndPassword({ email: data.email, password: data.password });
         console.log('Sign in successful for email:', data.email);
         // Add a small delay to ensure auth state is updated
         setTimeout(() => {

@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from "@/context/auth-context-improved";
 
 const publicRoutes = ["/login", "/register", "/privacy", "/terms"];
 

@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuth } from '@/context/auth-context-improved';
 import { LogIn, UserPlus, Send, ArrowLeft } from 'lucide-react';
+import { SignupSuccess } from './SignupSuccess';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -218,10 +219,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
 interface SignupFormProps {
   onSuccess?: () => void;
+  onBackToLogin?: () => void;
 }
 
-export function SignupForm({ onSuccess }: SignupFormProps) {
+export function SignupForm({ onSuccess, onBackToLogin }: SignupFormProps) {
   const { signUp, signInWithGoogle, loading, error, clearError } = useAuth();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
@@ -241,11 +245,25 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         password: data.password,
         displayName: data.displayName || undefined,
       });
+      
+      // Store email and show success message
+      setUserEmail(data.email);
+      setShowSuccess(true);
       onSuccess?.();
     } catch (error) {
       // Error is handled by auth context
     }
   };
+
+  const handleBackToLogin = () => {
+    setShowSuccess(false);
+    onBackToLogin?.();
+  };
+
+  // Show success message after signup
+  if (showSuccess) {
+    return <SignupSuccess email={userEmail} onBackToLogin={handleBackToLogin} />;
+  }
 
   const handleGoogleSignIn = async () => {
     try {

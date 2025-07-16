@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { TokenFeature, Permission } from '@/types/auth/features';
 import type { FeatureAccess, UpgradeRequirement, User } from '@/types/auth/features';
 import { UserRole } from '@/types/auth/roles';

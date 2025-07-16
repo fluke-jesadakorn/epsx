@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 import { status } from '@/services/pay';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
 import { updateUserAccessCookies } from '@/middleware/userAccess';

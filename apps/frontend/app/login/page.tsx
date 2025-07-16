@@ -9,10 +9,10 @@ import { EmailPasswordForm } from '@/components/auth/EmailPasswordForm';
 import { AuthDebugger } from '@/components/auth/AuthDebugger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context-improved';
 
 export default function LoginPage() {
-  const { user, loading, clearSession } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/dashboard';
   const [redirecting, setRedirecting] = useState(false);
@@ -147,10 +147,7 @@ export default function LoginPage() {
                         try {
                           setPreventRedirect(true);
                           setRedirecting(false);
-                          await clearSession();
-                          // Also clear Firebase auth state
-                          const { auth } = await import('@/lib/firebase');
-                          await auth.signOut();
+                          await signOut();
                           // Force reload to clear all cached state
                           window.location.reload();
                         } catch (error) {
