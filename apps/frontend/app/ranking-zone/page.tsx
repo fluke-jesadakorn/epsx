@@ -5,21 +5,20 @@ import { SkeletonLoader } from '@/components/common/Skeleton';
 import StockRankingClient from '@/components/shared/StockRankingClient';
 
 /**
- * Example page showing how to use the copied table from /analytics
- * Uses the same API for caching support
- * Only difference is rank shift (as mentioned in requirements)
+ * Role-based ranking page showing stocks based on user subscription level
+ * Uses the same API for caching support with role-based access control
  */
 async function StockRankingZonePage() {
-  // Use the same data fetching as /analytics page
-  const initialData = await fetchStockRankingData();
+  // Fetch more data for premium users (filtering happens on client based on user role)
+  const initialData = await fetchStockRankingData(0, 100);
 
   return (
     <React.Suspense fallback={<SkeletonLoader />}>
       <StockRankingClient 
         initialData={initialData}
-        title="📊 Alternative Stock Rankings 🚀"
-        subtitle="The same comprehensive analytics with a different perspective"
-        rankShift={0} // Future: can be adjusted for different ranking views
+        title="📊 Role-Based Stock Rankings 🚀"
+        subtitle="Your personalized view based on your subscription level"
+        rankShift={0}
         showRank={true}
       />
     </React.Suspense>

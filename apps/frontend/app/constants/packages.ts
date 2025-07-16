@@ -62,7 +62,7 @@ export const PACKAGES: Package[] = [
     name: 'Basic Plan',
     level: 'BASIC',
     numericLevel: 0,
-    rankingLimit: 10,
+    rankingLimit: 5,
     price: 0,
     currency: 'USDT',
     features: ['Limited access', 'Basic features', 'Community support'],

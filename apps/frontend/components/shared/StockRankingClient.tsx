@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import StockRankingTable from '@/components/shared/StockRankingTable';
+import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface StockRankingClientProps {
@@ -13,9 +13,8 @@ interface StockRankingClientProps {
 }
 
 /**
- * Client component for Stock Ranking Table
- * Reuses the same table structure as /analytics page
- * Supports different configurations for different zones
+ * Client component for Stock Ranking Table with role-based access control
+ * Integrates user subscription levels with stock ranking visibility
  */
 export default function StockRankingClient({
   initialData,
@@ -24,13 +23,48 @@ export default function StockRankingClient({
   rankShift = 0,
   showRank = true,
 }: StockRankingClientProps): React.JSX.Element {
+  
+  // Apply rank shift if needed (for future use)
+  const processedData = React.useMemo(() => {
+    if (rankShift === 0) return initialData;
+    
+    return initialData.map((item, index) => ({
+      ...item,
+      displayRank: index + 1 + rankShift,
+    }));
+  }, [initialData, rankShift]);
+
   return (
-    <StockRankingTable
-      data={initialData}
-      title={title}
-      subtitle={subtitle}
-      rankShift={rankShift}
-      showRank={showRank}
-    />
+    <div className="w-full">
+      {/* Custom header section */}
+      {(title || subtitle) && (
+        <div className="text-center py-8">
+          {title && (
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600 bg-clip-text text-transparent">
+                {title}
+              </span>
+            </h2>
+          )}
+          {subtitle && (
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+              {subtitle}
+            </p>
+          )}
+          {showRank && (
+            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {rankShift !== 0 && `Ranking shifted by ${rankShift} positions`}
+              {" • Role-based access control enabled"}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Role-based financial table */}
+      <RoleBasedFinancialTable
+        data={processedData}
+        className="min-h-screen"
+      />
+    </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { ChevronDown, ChevronUp, LayoutGrid, Table2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, LayoutGrid, Table2, Lock, Crown } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/table';
 
 import { Button } from '../ui/button';
+import { useRankingAccess } from '@/hooks/useRankingAccess';
+import { UpgradePrompt, LockedRankingCard } from '@/components/ui/upgrade-prompt';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 
@@ -256,14 +259,26 @@ function DataRankTable({
   defaultView = 'card',
   rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
+  const router = useRouter();
+  const { maxRankings, canViewRanking, upgradeRequired, userLevel, isLoading } = useRankingAccess();
+  
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];
-  if (typeof rankingLimit === 'number' && rankingLimit > 0) {
-    safeData = safeData.slice(0, rankingLimit);
-  }
+  
+  // Apply user-based ranking limit (override rankingLimit prop if user limit is lower)
+  const effectiveLimit = rankingLimit 
+    ? Math.min(rankingLimit, maxRankings) 
+    : maxRankings;
+  
+  safeData = safeData.slice(0, effectiveLimit);
+  
   const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
+
+  const handleUpgrade = () => {
+    router.push('/payment');
+  };
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -309,7 +324,9 @@ function DataRankTable({
               {safeData.map((row, index) => (
                 <TableRow
                   key={`${row.symbol}-${index}`}
-                  className="hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors"
+                  className={`hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors ${
+                    !canViewRanking(index) ? 'opacity-50 pointer-events-none' : ''
+                  }`}
                 >
                   {columns.map((column) => (
                     <TableCell
@@ -326,13 +343,54 @@ function DataRankTable({
                             : ''
                       }
                     >
-                      {renderCell(row, column, index)}
+                      {canViewRanking(index) ? (
+                        renderCell(row, column, index)
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-4 w-4 text-gray-400" />
+                          <span className="text-gray-400">Locked</span>
+                        </div>
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+              
+              {/* Show locked rows for premium content */}
+              {upgradeRequired && Array.from({ length: Math.min(3, 15 - safeData.length) }).map((_, index) => (
+                <TableRow 
+                  key={`locked-row-${index}`}
+                  className="opacity-50 pointer-events-none bg-gray-50 dark:bg-gray-900/50"
+                >
+                  {columns.map((column) => (
+                    <TableCell key={column.key}>
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-400">Locked</span>
+                      </div>
                     </TableCell>
                   ))}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          
+          {/* Table upgrade prompt */}
+          {upgradeRequired && (
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-t">
+              <div className="text-center space-y-3">
+                <Crown className="h-8 w-8 text-yellow-500 mx-auto" />
+                <h3 className="font-semibold text-lg">Unlock More Rankings</h3>
+                <p className="text-sm text-muted-foreground">
+                  Upgrade to see up to {userLevel === 'BASIC' ? '25' : '50'} top-ranked stocks
+                </p>
+                <Button className="gap-2" onClick={handleUpgrade}>
+                  <Crown className="h-4 w-4" />
+                  Upgrade Now
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {isNarrow && (
@@ -344,10 +402,39 @@ function DataRankTable({
   );
 
   const renderCardView = () => (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {safeData.map((item, index) => (
-        <DataCard key={`${item.symbol}-${index}`} data={item} index={index} />
-      ))}
+    <div className="space-y-6">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {safeData.map((item, index) => 
+          canViewRanking(index) ? (
+            <DataCard key={`${item.symbol}-${index}`} data={item} index={index} />
+          ) : (
+            <LockedRankingCard 
+              key={`locked-${index}`} 
+              index={index} 
+              userLevel={userLevel} 
+              onUpgrade={handleUpgrade} 
+            />
+          )
+        )}
+        {/* Show additional locked cards for premium tiers */}
+        {upgradeRequired && Array.from({ length: Math.min(5, 20 - safeData.length) }).map((_, index) => (
+          <LockedRankingCard 
+            key={`extra-locked-${index}`} 
+            index={safeData.length + index} 
+            userLevel={userLevel} 
+            onUpgrade={handleUpgrade} 
+          />
+        ))}
+      </div>
+      
+      {/* Upgrade prompt at bottom */}
+      {upgradeRequired && (
+        <UpgradePrompt 
+          currentLevel={userLevel} 
+          lockedRankings={userLevel === 'BASIC' ? 20 : 50} 
+          className="mt-6"
+        />
+      )}
     </div>
   );
 

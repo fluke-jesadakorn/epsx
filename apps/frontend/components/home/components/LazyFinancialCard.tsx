@@ -31,13 +31,19 @@ export function LazyFinancialCard({
           await new Promise(resolve => setTimeout(resolve, Math.min(delay, 300))); // Max 300ms delay
         }
 
-        // Fetch individual card data
+        // Use the new individual API with server-side cache
         const response = await fetch(`/api/stock/individual?symbol=${symbol}`);
         if (!response.ok) {
           throw new Error('Failed to fetch data');
         }
 
         const result = await response.json();
+        
+        // Check if we got an error response
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        
         setData(result);
       } catch (err) {
         console.error(`Error fetching data for ${symbol}:`, err);

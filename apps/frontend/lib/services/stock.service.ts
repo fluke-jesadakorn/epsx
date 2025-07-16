@@ -4,6 +4,7 @@ import { rankStocksByEpsWithChart } from '@/utils/processStocks/rankingStocks';
 import { transformFinancialDataWithCurrentPrice } from '@/utils/processStocks/stockDataTransformer';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../../../types/marketCountries';
+import { StockDataCache } from '@/utils/cache/stockDataCache';
 
 // Server-side cache to store data temporarily
 let serverCache: {
@@ -42,12 +43,17 @@ export async function getStockFinancialData(
     // Transform the data to the new format with current prices
     const transformedData = transformFinancialDataWithCurrentPrice(chartData);
 
-    // Cache the result
+    // Cache the result in server memory
     serverCache = {
       data: transformedData,
       timestamp: now,
       ttl: CACHE_TTL,
     };
+
+    // Also cache individual symbols for per-card requests
+    transformedData.forEach(stockData => {
+      StockDataCache.set(stockData.symbol, stockData);
+    });
 
     return transformedData;
   } catch (error) {
