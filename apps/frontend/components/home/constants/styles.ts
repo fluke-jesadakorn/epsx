@@ -75,16 +75,21 @@ export const SPACING = {
   itemGap: 'gap-3',
   containerPadding: 'px-6 sm:px-12',
   verticalSpacing: 'py-12',
+  responsiveGap: 'gap-4 sm:gap-6 md:gap-8',
+  responsivePadding: 'p-4 sm:p-6 md:p-8',
+  mobileContainer: 'px-4 sm:px-6 md:px-12',
 } as const;
 
 export const TYPOGRAPHY = {
-  hero: 'text-4xl sm:text-6xl lg:text-7xl font-black',
-  title: 'text-2xl font-black',
-  subtitle: 'text-lg sm:text-xl',
+  hero: 'text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black',
+  title: 'text-xl sm:text-2xl md:text-3xl font-black',
+  subtitle: 'text-base sm:text-lg md:text-xl',
   body: 'text-sm font-semibold',
-  caption: 'text-xs',
-  price: 'text-sm font-bold',
-  metric: 'text-lg font-bold',
+  caption: 'text-xs sm:text-sm',
+  price: 'text-sm sm:text-base font-bold',
+  metric: 'text-base sm:text-lg md:text-xl font-bold',
+  cardTitle: 'text-lg sm:text-xl md:text-2xl font-bold',
+  sectionTitle: 'text-2xl sm:text-3xl md:text-4xl font-bold',
 } as const;
 
 export const BREAKPOINTS = {

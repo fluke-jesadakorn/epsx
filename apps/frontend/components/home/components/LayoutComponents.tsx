@@ -20,22 +20,22 @@ export function FinancialDataLoading(): React.JSX.Element {
     >
       {/* PancakeSwap-style floating elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
-        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
-        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse" />
+        <div className="absolute top-20 left-4 sm:left-10 w-12 sm:w-16 h-12 sm:h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
+        <div className="absolute top-32 right-8 sm:right-20 w-8 sm:w-12 h-8 sm:h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
+        <div className="absolute bottom-40 left-8 sm:left-20 w-6 sm:w-8 h-6 sm:h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse" />
 
         {/* Floating emojis */}
-        <div className="absolute top-1/4 left-1/4 text-4xl opacity-10 animate-spin-slow">
+        <div className="absolute top-1/4 left-1/4 text-3xl sm:text-4xl opacity-10 animate-spin-slow">
           🥞
         </div>
-        <div className="absolute bottom-1/4 right-1/4 text-3xl opacity-15 animate-bounce-gentle">
+        <div className="absolute bottom-1/4 right-1/4 text-2xl sm:text-3xl opacity-15 animate-bounce-gentle">
           💰
         </div>
       </div>
 
-      <div className="text-center space-y-4 relative z-10">
-        <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center animate-pulse">
-          <span className="text-white text-2xl">🥞</span>
+      <div className="text-center space-y-4 relative z-10 px-4 sm:px-0">
+        <div className="w-12 sm:w-16 h-12 sm:h-16 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center animate-pulse">
+          <span className="text-white text-xl sm:text-2xl">🥞</span>
         </div>
         <h3
           className={`${TYPOGRAPHY.subtitle} font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2`}
@@ -44,7 +44,7 @@ export function FinancialDataLoading(): React.JSX.Element {
           Loading Sweet Data...
           <span className="animate-pulse">✨</span>
         </h3>
-        <p className="text-slate-500 dark:text-slate-500">
+        <p className="text-sm sm:text-base text-slate-500 dark:text-slate-500">
           🚀 Please wait while we fetch the most delicious financial rankings 🍯
         </p>
       </div>
@@ -61,50 +61,50 @@ export function FinancialDataHeader(): React.JSX.Element {
       <div className="absolute inset-0 bg-gradient-to-r from-orange-600/5 via-yellow-600/5 to-amber-600/5 dark:from-orange-500/10 dark:via-yellow-500/10 dark:to-amber-500/10" />
 
       {/* Floating background elements with PancakeSwap colors */}
-      <div className="absolute top-10 left-10 w-20 h-20 bg-orange-400/10 rounded-full blur-xl animate-pulse"></div>
+      <div className="absolute top-6 sm:top-10 left-4 sm:left-10 w-16 sm:w-20 h-16 sm:h-20 bg-orange-400/10 rounded-full blur-xl animate-pulse"></div>
       <div
-        className="absolute top-20 right-20 w-32 h-32 bg-yellow-400/10 rounded-full blur-xl animate-pulse"
+        className="absolute top-12 sm:top-20 right-8 sm:right-20 w-24 sm:w-32 h-24 sm:h-32 bg-yellow-400/10 rounded-full blur-xl animate-pulse"
         style={{ animationDelay: '1s' }}
       ></div>
       <div
-        className="absolute bottom-10 left-1/3 w-24 h-24 bg-amber-400/10 rounded-full blur-xl animate-pulse"
+        className="absolute bottom-6 sm:bottom-10 left-1/4 sm:left-1/3 w-20 sm:w-24 h-20 sm:h-24 bg-amber-400/10 rounded-full blur-xl animate-pulse"
         style={{ animationDelay: '2s' }}
       ></div>
 
       {/* Floating emojis */}
-      <div className="absolute top-8 right-8 text-3xl opacity-20 animate-bounce-gentle">
+      <div className="absolute top-4 sm:top-8 right-4 sm:right-8 text-2xl sm:text-3xl opacity-20 animate-bounce-gentle">
         🥞
       </div>
-      <div className="absolute top-16 left-16 text-2xl opacity-15 animate-float">
+      <div className="absolute top-8 sm:top-16 left-8 sm:left-16 text-xl sm:text-2xl opacity-15 animate-float">
         💰
       </div>
-      <div className="absolute bottom-8 right-1/4 text-2xl opacity-10 animate-pulse">
+      <div className="absolute bottom-4 sm:bottom-8 right-1/4 text-xl sm:text-2xl opacity-10 animate-pulse">
         🚀
       </div>
 
-      <div className={`relative ${SPACING.containerPadding} pt-8 pb-12`}>
+      <div className={`relative ${SPACING.mobileContainer} pt-6 sm:pt-8 pb-8 sm:pb-10 md:pb-12`}>
         <div className="max-w-7xl mx-auto">
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-4 sm:space-y-6">
             <h1
               className={`
               ${TYPOGRAPHY.hero} 
               bg-gradient-to-r ${GRADIENTS.primary} 
               bg-clip-text text-transparent leading-tight 
               ${ANIMATIONS.fadeIn} duration-1000
-              flex items-center justify-center gap-4
+              flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4
             `}
             >
-              <span className="text-6xl animate-bounce-gentle">🍯</span>
-              Financial Rankings
-              <span className="text-6xl animate-float">🚀</span>
+              <span className="text-4xl sm:text-5xl md:text-6xl animate-bounce-gentle">🍯</span>
+              <span className="text-center">Financial Rankings</span>
+              <span className="text-4xl sm:text-5xl md:text-6xl animate-float">🚀</span>
             </h1>
 
             <p
               className={`
                 ${TYPOGRAPHY.subtitle} 
                 text-slate-600 dark:text-slate-400 
-                max-w-3xl mx-auto leading-relaxed 
-                ${ANIMATIONS.fadeIn} duration-1000
+                max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto leading-relaxed 
+                ${ANIMATIONS.fadeIn} duration-1000 px-4 sm:px-0
               `}
               style={{ animationDelay: '200ms' }}
             >
@@ -118,8 +118,8 @@ export function FinancialDataHeader(): React.JSX.Element {
 
             <div
               className={`
-                flex flex-wrap items-center justify-center gap-6 sm:gap-8 mt-8 
-                ${ANIMATIONS.fadeIn} duration-1000
+                flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 mt-6 sm:mt-8 
+                ${ANIMATIONS.fadeIn} duration-1000 px-4 sm:px-0
               `}
               style={{ animationDelay: '400ms' }}
             >
@@ -189,16 +189,16 @@ function StatusBadge({
   return (
     <div
       className={`
-      flex items-center gap-3 px-4 py-2 rounded-full 
+      flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-full 
       ${colors.bg} 
       transition-colors duration-200
     `}
     >
       <div
-        className={`w-4 h-4 rounded-full ${colors.dot} animate-pulse`}
+        className={`w-3 sm:w-4 h-3 sm:h-4 rounded-full ${colors.dot} animate-pulse`}
         style={{ animationDelay: delay }}
       />
-      <span className={`${TYPOGRAPHY.caption} font-semibold ${colors.text}`}>
+      <span className={`text-xs sm:text-sm font-semibold ${colors.text}`}>
         {label}
       </span>
     </div>

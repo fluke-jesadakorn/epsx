@@ -232,83 +232,159 @@ export function LevelBenefitsComparison({
 
       <CardContent className="relative p-4 sm:p-6">
         <div className="overflow-x-auto custom-scrollbar">
-          <div className="min-w-[900px] lg:min-w-full">
-            {/* Enhanced Level Headers */}
-            <div className="grid grid-cols-5 gap-3 sm:gap-4 mb-8 items-end">
-              <div className="text-sm sm:text-base font-semibold text-muted-foreground min-w-[220px] flex items-center gap-2">
-                <div className="w-3 h-3 bg-primary/20 rounded-full"></div>
-                Features
-              </div>
-              {mainLevels.map((pkg, index) => {
-                const isCurrentLevel = pkg.level === currentLevel;
-                const isHigherLevel = pkg.numericLevel > currentLevelNumeric;
+          <div className="w-full">
+            {/* Enhanced Level Headers - Responsive Layout */}
+            <div className="space-y-6 md:space-y-8">
+              {/* Mobile: Stack plan cards vertically */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:hidden">
+                {mainLevels.map((pkg, index) => {
+                  const isCurrentLevel = pkg.level === currentLevel;
+                  const isHigherLevel = pkg.numericLevel > currentLevelNumeric;
 
-                return (
-                  <div
-                    key={pkg.level}
-                    className={`relative p-3 sm:p-4 rounded-2xl border-2 transition-all duration-500 hover:scale-105 ${
-                      isCurrentLevel 
-                        ? `border-primary/50 bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10` 
-                        : 'border-muted/30 hover:border-primary/30'
-                    } backdrop-blur-sm`}
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <div className="text-center space-y-3">
-                      {/* Enhanced Icon */}
-                      <div className="relative">
-                        <div
-                          className={`mx-auto flex justify-center text-white p-3 sm:p-4 rounded-2xl bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg transform transition-transform hover:scale-110`}
-                        >
-                          {levelIcons[pkg.level as MainLevelType]}
-                        </div>
-                        {(pkg.level === 'GOLD' || pkg.level === 'PLATINUM') && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-bounce">
-                            <Star className="h-2.5 w-2.5 text-yellow-800 m-0.5" />
+                  return (
+                    <div
+                      key={pkg.level}
+                      className={`relative p-4 rounded-2xl border-2 transition-all duration-500 hover:scale-105 ${
+                        isCurrentLevel 
+                          ? `border-primary/50 bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10` 
+                          : 'border-muted/30 hover:border-primary/30'
+                      } backdrop-blur-sm`}
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      <div className="text-center space-y-3">
+                        {/* Enhanced Icon */}
+                        <div className="relative">
+                          <div
+                            className={`mx-auto flex justify-center text-white p-3 rounded-2xl bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg transform transition-transform hover:scale-110`}
+                          >
+                            {levelIcons[pkg.level as MainLevelType]}
                           </div>
+                          {(pkg.level === 'GOLD' || pkg.level === 'PLATINUM') && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-bounce">
+                              <Star className="h-2.5 w-2.5 text-yellow-800 m-0.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Package Info */}
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-base text-foreground">
+                            {pkg.name}
+                          </h3>
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="text-xl font-bold text-foreground">
+                              ${pkg.price}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              /mo
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {pkg.rankingLimit} stocks access
+                          </p>
+                        </div>
+
+                        {/* Status Badge */}
+                        {isCurrentLevel && (
+                          <Badge className={`text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} text-white border-0 animate-pulse`}>
+                            Current Plan
+                          </Badge>
+                        )}
+
+                        {/* Upgrade Button */}
+                        {isHigherLevel && (
+                          <Button
+                            onClick={() => router.push(`/payment?package=${pkg.id}`)}
+                            size="sm"
+                            className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center gap-1`}
+                          >
+                            Upgrade Now
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
-
-                      {/* Package Info */}
-                      <div className="space-y-2">
-                        <h3 className="font-bold text-sm sm:text-base text-foreground">
-                          {pkg.name}
-                        </h3>
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-lg sm:text-2xl font-bold text-foreground">
-                            ${pkg.price}
-                          </span>
-                          <span className="text-xs sm:text-sm text-muted-foreground">
-                            /mo
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground px-2">
-                          {pkg.rankingLimit} stocks access
-                        </p>
-                      </div>
-
-                      {/* Status Badge */}
-                      {isCurrentLevel && (
-                        <Badge className={`text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} text-white border-0 animate-pulse`}>
-                          Current Plan
-                        </Badge>
-                      )}
-
-                      {/* Upgrade Button */}
-                      {isHigherLevel && (
-                        <Button
-                          onClick={() => router.push(`/payment?package=${pkg.id}`)}
-                          size="sm"
-                          className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center gap-1`}
-                        >
-                          <span className="hidden sm:inline">Upgrade Now</span>
-                          <span className="sm:hidden">Upgrade</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </Button>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              
+              {/* Desktop: Horizontal layout with features label */}
+              <div className="hidden md:grid md:grid-cols-5 gap-4 items-end">
+                <div className="text-sm font-semibold text-muted-foreground min-w-[220px] flex items-center gap-2">
+                  <div className="w-3 h-3 bg-primary/20 rounded-full"></div>
+                  Features
+                </div>
+                {mainLevels.map((pkg, index) => {
+                  const isCurrentLevel = pkg.level === currentLevel;
+                  const isHigherLevel = pkg.numericLevel > currentLevelNumeric;
+
+                  return (
+                    <div
+                      key={pkg.level}
+                      className={`relative p-3 sm:p-4 rounded-2xl border-2 transition-all duration-500 hover:scale-105 ${
+                        isCurrentLevel 
+                          ? `border-primary/50 bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]}/10` 
+                          : 'border-muted/30 hover:border-primary/30'
+                      } backdrop-blur-sm`}
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      <div className="text-center space-y-3">
+                        {/* Enhanced Icon */}
+                        <div className="relative">
+                          <div
+                            className={`mx-auto flex justify-center text-white p-3 sm:p-4 rounded-2xl bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg transform transition-transform hover:scale-110`}
+                          >
+                            {levelIcons[pkg.level as MainLevelType]}
+                          </div>
+                          {(pkg.level === 'GOLD' || pkg.level === 'PLATINUM') && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-bounce">
+                              <Star className="h-2.5 w-2.5 text-yellow-800 m-0.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Package Info */}
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-sm sm:text-base text-foreground">
+                            {pkg.name}
+                          </h3>
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="text-lg sm:text-2xl font-bold text-foreground">
+                              ${pkg.price}
+                            </span>
+                            <span className="text-xs sm:text-sm text-muted-foreground">
+                              /mo
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-muted-foreground px-2">
+                            {pkg.rankingLimit} stocks access
+                          </p>
+                        </div>
+
+                        {/* Status Badge */}
+                        {isCurrentLevel && (
+                          <Badge className={`text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} text-white border-0 animate-pulse`}>
+                            Current Plan
+                          </Badge>
+                        )}
+
+                        {/* Upgrade Button */}
+                        {isHigherLevel && (
+                          <Button
+                            onClick={() => router.push(`/payment?package=${pkg.id}`)}
+                            size="sm"
+                            className={`w-full text-xs bg-gradient-to-r ${levelGradients[pkg.level as MainLevelType]} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center gap-1`}
+                          >
+                            <span className="hidden sm:inline">Upgrade Now</span>
+                            <span className="sm:hidden">Upgrade</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Enhanced Tab Buttons */}
@@ -462,9 +538,10 @@ export function LevelBenefitsComparison({
                           {category.benefits.map((benefit, benefitIndex) => (
                             <div
                               key={benefitIndex}
-                              className="grid grid-cols-5 gap-3 sm:gap-4 p-3 rounded-lg hover:bg-primary/5 transition-all duration-300 items-center group border border-muted/20"
+                              className="p-3 rounded-lg hover:bg-primary/5 transition-all duration-300 group border border-muted/20"
                             >
-                              <div className="col-span-1 space-y-1">
+                              {/* Mobile Layout */}
+                              <div className="block md:hidden space-y-3">
                                 <div className="flex items-start gap-2">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -478,48 +555,96 @@ export function LevelBenefitsComparison({
                                     </TooltipContent>
                                   </Tooltip>
                                 </div>
-                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                <p className="text-xs text-muted-foreground">
                                   {benefit.description}
                                 </p>
+                                
+                                {/* Mobile plan availability grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  {mainLevels.map((pkg) => {
+                                    const hasFeature = getPackageBenefitStatus(pkg.level, benefit);
+                                    
+                                    return (
+                                      <div key={pkg.level} className="text-center space-y-1">
+                                        <div className="text-xs font-medium text-muted-foreground">{pkg.name}</div>
+                                        <div className="flex justify-center">
+                                          {hasFeature ? (
+                                            <div
+                                              className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg`}
+                                            >
+                                              <Check className="h-3 w-3 text-white" />
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700">
+                                              <X className="h-3 w-3 text-gray-400" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                               
-                              {mainLevels.map((pkg) => {
-                                const hasFeature = getPackageBenefitStatus(pkg.level, benefit);
-
-                                return (
-                                  <div
-                                    key={pkg.level}
-                                    className="flex items-center justify-center"
-                                  >
-                                    {hasFeature ? (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div
-                                            className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg transform transition-all hover:scale-110 group-hover:shadow-xl cursor-pointer`}
-                                          >
-                                            <Check className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                                            <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100"></div>
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Available in {pkg.name}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    ) : (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-200 dark:bg-gray-700 transition-all group-hover:bg-gray-300 dark:group-hover:bg-gray-600 cursor-pointer">
-                                            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Not available in {pkg.name}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
+                              {/* Desktop Layout */}
+                              <div className="hidden md:grid md:grid-cols-5 gap-3 sm:gap-4 items-center">
+                                <div className="col-span-1 space-y-1">
+                                  <div className="flex items-start gap-2">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2 cursor-help">
+                                          <span className="font-medium text-sm">{benefit.name}</span>
+                                          <Info className="h-3 w-3 text-muted-foreground" />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        <p className="text-sm">{benefit.description}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
                                   </div>
-                                );
-                              })}
+                                  <p className="text-xs text-muted-foreground line-clamp-2">
+                                    {benefit.description}
+                                  </p>
+                                </div>
+                                
+                                {mainLevels.map((pkg) => {
+                                  const hasFeature = getPackageBenefitStatus(pkg.level, benefit);
+
+                                  return (
+                                    <div
+                                      key={pkg.level}
+                                      className="flex items-center justify-center"
+                                    >
+                                      {hasFeature ? (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div
+                                              className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br ${levelGradients[pkg.level as MainLevelType]} shadow-lg transform transition-all hover:scale-110 group-hover:shadow-xl cursor-pointer`}
+                                            >
+                                              <Check className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                              <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100"></div>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Available in {pkg.name}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      ) : (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-200 dark:bg-gray-700 transition-all group-hover:bg-gray-300 dark:group-hover:bg-gray-600 cursor-pointer">
+                                              <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Not available in {pkg.name}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ))}
                         </div>
