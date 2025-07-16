@@ -204,19 +204,19 @@ function NavbarComponent() {
                       setIsOpen(false);
                       handleLogout();
                     }}
-                    className="flex items-center gap-2 w-full justify-start p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                    className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary mt-4"
                   >
-                    <LogOut className="h-4 w-4" />
-                    Logout
+                    <span className="block"><LogOut className="h-4 w-4" /></span>
+                    <span className="mt-1">Logout</span>
                   </Button>
                 ) : (
                   <Link
                     href="/login"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary mt-4"
+                    className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary mt-4"
                   >
-                    <LogIn className="h-4 w-4" />
-                    Login
+                    <span className="block"><LogIn className="h-4 w-4" /></span>
+                    <span className="mt-1">Login</span>
                   </Link>
                 )}
               </div>
@@ -228,19 +228,19 @@ function NavbarComponent() {
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="flex items-center gap-2 rounded-full hover:bg-primary/10"
+                className="flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
               >
-                <LogOut className="h-4 w-4" />
-                Logout
+                <span className="block"><LogOut className="h-4 w-4" /></span>
+                <span className="mt-1">Logout</span>
               </Button>
             ) : (
               <Link href="/login">
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 rounded-full hover:bg-primary/10"
+                  className="flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
                 >
-                  <LogIn className="h-4 w-4" />
-                  Login
+                  <span className="block"><LogIn className="h-4 w-4" /></span>
+                  <span className="mt-1">Login</span>
                 </Button>
               </Link>
             )}
