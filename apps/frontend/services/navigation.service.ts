@@ -20,9 +20,9 @@ class NavigationService {
         key: 'analytics',
       },
       {
-        label: 'Market Data Sync',
-        href: '/market-data-sync',
-        key: 'market-data-sync',
+        label: 'My Data',
+        href: '/my-data',
+        key: 'my-data',
       },
     ];
 

@@ -128,16 +128,20 @@ function NavigationMenuLink({
   asChild,
   ...props
 }: React.ComponentProps<typeof NavigationMenuPrimitive.Link> & { asChild?: boolean }) {
+  // Force vertical stack for all children, even when asChild is used
   return (
     <NavigationMenuPrimitive.Link
       data-slot="navigation-menu-link"
       className={cn(
-        "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[active=true]:bg-accent/50 data-[active=true]:text-accent-foreground ring-ring/10 dark:ring-ring/20 dark:outline-ring/40 outline-ring/50 [&_svg:not([class*='text-'])]:text-muted-foreground flex flex-col gap-1 rounded-sm p-2 text-sm transition-[color,box-shadow] focus-visible:ring-4 focus-visible:outline-1 [&_svg:not([class*='size-'])]:size-4",
+        "flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       asChild={asChild}
       {...props}
-    />
+    >
+      {/* If asChild, ensure the child also has flex-col if needed */}
+      {props.children}
+    </NavigationMenuPrimitive.Link>
   )
 }
 

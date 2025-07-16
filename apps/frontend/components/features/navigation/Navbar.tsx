@@ -9,6 +9,7 @@ import {
   File,
   Menu,
   Settings,
+  Database,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -44,7 +45,7 @@ const iconMap = {
   ranking: <LineChart className="h-4 w-4" />,
   analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
-  'market-data-sync': <LineChart className="h-4 w-4" />,
+  'my-data': <Database className="h-4 w-4" />,
 };
 
 function NavbarComponent() {
@@ -99,16 +100,15 @@ function NavbarComponent() {
       <NavigationMenuLink
         asChild
         href={item.href}
-        className={`flex items-center gap-2 rounded-full px-4 py-2 transition-colors hover:bg-primary/10
-        ${
+        className={`${
           pathname === item.href
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:text-primary'
         }`}
       >
-        <Link href={item.href}>
+        <Link href={item.href} className="flex flex-col items-center gap-1">
           {iconMap[item.key as keyof typeof iconMap]}
-          {item.label}
+          <span className="mt-1">{item.label}</span>
         </Link>
       </NavigationMenuLink>
     </NavigationMenuItem>
@@ -123,10 +123,22 @@ function NavbarComponent() {
               EPSX
             </span>
           </Link>
-          <NavigationMenu className="hidden md:block">
-            <NavigationMenuList className="flex space-x-2">
-              {navItems.map(renderNavItem)}
-            </NavigationMenuList>
+          <nav className="hidden md:flex gap-2">
+            {navItems.map(item => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${
+                  pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+                }`}
+              >
+                <span className="block">{iconMap[item.key as keyof typeof iconMap]}</span>
+                <span className="mt-1">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+          <NavigationMenu className="hidden">
+            {/* Keep for structure, but hidden since we use custom nav above */}
           </NavigationMenu>
         </div>
 
@@ -176,11 +188,12 @@ function NavbarComponent() {
                     key={item.key}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-2 p-2 rounded-lg hover:bg-primary/10
-                      ${pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                    className={`flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${
+                      pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+                    }`}
                   >
                     {iconMap[item.key as keyof typeof iconMap]}
-                    {item.label}
+                    <span className="mt-1">{item.label}</span>
                   </Link>
                 ))}
 
