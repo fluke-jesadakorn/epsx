@@ -113,21 +113,21 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16 animate-fade-in-delayed-3">
             {[
               {
-                number: '10K+',
-                label: '👥 Active Users',
-                icon: Users,
+                number: '24/7',
+                label: '🔄 Latest Updates',
+                icon: Zap,
                 gradient: 'from-blue-500 to-cyan-500',
               },
               {
-                number: '99.9%',
-                label: '⚡ Uptime',
-                icon: Zap,
+                number: '100+',
+                label: '📊 Stock Analytics',
+                icon: TrendingUp,
                 gradient: 'from-yellow-500 to-orange-500',
               },
               {
-                number: '50M+',
-                label: '📈 Data Points Processed',
-                icon: TrendingUp,
+                number: '< 1s',
+                label: '⚡ Response Time',
+                icon: Users,
                 gradient: 'from-green-500 to-emerald-500',
               },
             ].map((stat, index) => {
