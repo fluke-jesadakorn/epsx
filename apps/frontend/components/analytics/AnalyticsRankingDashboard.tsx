@@ -27,7 +27,7 @@ export function AnalyticsRankingDashboard() {
   const [premiumData, setPremiumData] = useState<StockFinancialData[]>([]);
   const [publicData, setPublicData] = useState<StockFinancialData[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('premium');
 
   useEffect(() => {
     const loadAnalyticsData = async () => {
@@ -127,13 +127,13 @@ export function AnalyticsRankingDashboard() {
       {/* Main Analytics Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="gap-2">
-            <Eye className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
           <TabsTrigger value="premium" className="gap-2">
             <Star className="h-4 w-4" />
             Your Rankings
+          </TabsTrigger>
+          <TabsTrigger value="overview" className="gap-2">
+            <Eye className="h-4 w-4" />
+            Overview
           </TabsTrigger>
           <TabsTrigger value="public" className="gap-2">
             <Users className="h-4 w-4" />

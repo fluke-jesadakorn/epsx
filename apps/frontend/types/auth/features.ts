@@ -1,11 +1,13 @@
 import { UserRole } from './roles';
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { UserSubscription } from '@/types/payment/plans';
 
 export interface User extends FirebaseUser {
   role: UserRole;
   token_balance: number;
   features: TokenFeature[];
   permissions: Permission[];
+  subscription?: UserSubscription; // New payment system
 }
 
 export enum TokenFeature {

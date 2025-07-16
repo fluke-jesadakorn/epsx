@@ -1,3 +1,6 @@
+import { PaymentTier, UserSubscription } from './payment/plans';
+
+// Legacy enum - keep for backward compatibility
 export enum UserLevel {
   Basic = 'Basic',
   Premium = 'Premium',
@@ -18,5 +21,28 @@ export interface USDTDetails {
   qrCodePath?: string
   tag?: string
   paymentStatus: PaymentStatus
-  userLevel: UserLevel
+  userLevel: UserLevel // Legacy field
+  paymentTier?: PaymentTier // New payment tier field
+  subscription?: UserSubscription // New subscription field
+}
+
+// Helper function to convert legacy UserLevel to PaymentTier
+export function convertUserLevelToPaymentTier(userLevel: UserLevel): PaymentTier {
+  const mapping = {
+    [UserLevel.Basic]: PaymentTier.BASIC,
+    [UserLevel.Premium]: PaymentTier.SILVER,
+    [UserLevel.VIP]: PaymentTier.GOLD
+  };
+  return mapping[userLevel] || PaymentTier.BASIC;
+}
+
+// Helper function to convert PaymentTier to legacy UserLevel
+export function convertPaymentTierToUserLevel(paymentTier: PaymentTier): UserLevel {
+  const mapping = {
+    [PaymentTier.BASIC]: UserLevel.Basic,
+    [PaymentTier.SILVER]: UserLevel.Premium,
+    [PaymentTier.GOLD]: UserLevel.VIP,
+    [PaymentTier.PLATINUM]: UserLevel.VIP
+  };
+  return mapping[paymentTier] || UserLevel.Basic;
 }

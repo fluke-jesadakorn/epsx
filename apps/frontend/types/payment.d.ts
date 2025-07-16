@@ -1,4 +1,4 @@
-import { UserLevel } from "./userLevel.d.ts";
+import { PaymentTier, UserSubscription } from './payment/plans';
 
 export interface CreatePaymentRequest {
   currency: string;
@@ -36,7 +36,7 @@ export interface PaymentResponse {
   created_at: string;
   updated_at: string;
   expiration_date: string;
-  user_level: UserLevel;
+  payment_tier: PaymentTier; // Changed from user_level to payment_tier
   qr_code?: string;
   checkout_url?: string;
   payment_method: string;

@@ -4,6 +4,8 @@ import { useAuth } from '@/context/auth-context';
 import { TokenFeature, Permission } from '@/types/auth/features';
 import type { FeatureAccess, UpgradeRequirement, User } from '@/types/auth/features';
 import { UserRole } from '@/types/auth/roles';
+import { PaymentTier } from '@/types/payment/plans';
+import { PaymentService } from '@/services/paymentService';
 
 export function useFeatureAccess() {
   const { user: firebaseUser } = useAuth();
@@ -12,6 +14,21 @@ export function useFeatureAccess() {
   const tokenBalance = user?.token_balance ?? 0;
   const features = user?.features ?? [];
   const permissions = user?.permissions ?? [];
+  
+  // Get user's payment tier (new payment system)
+  const userTier = user?.subscription?.tier || PaymentTier.BASIC;
+
+  const hasPaymentFeature = (feature: string): boolean => {
+    return PaymentService.hasFeatureAccess(userTier, feature);
+  };
+
+  const getApiLimits = () => {
+    return PaymentService.getApiLimitsByTier(userTier);
+  };
+
+  const canAccessRankings = (count: number): boolean => {
+    return PaymentService.canAccessRankings(userTier, count);
+  };
 
   const checkFeatureAccess = (feature: TokenFeature): FeatureAccess => {
     // Feature requirements would be imported from a shared config
@@ -61,13 +78,20 @@ export function useFeatureAccess() {
   };
 
   return {
+    // Legacy token-based features
     hasFeature: (feature: TokenFeature) => features.includes(feature),
     checkFeatureAccess,
     getUpgradeRequirements,
     canAccessFeature: (feature: TokenFeature) => checkFeatureAccess(feature).hasAccess,
     availableFeatures: features,
     tokenBalance,
-    role
+    role,
+    
+    // New payment-based features
+    userTier,
+    hasPaymentFeature,
+    getApiLimits,
+    canAccessRankings
   };
 }
 

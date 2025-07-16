@@ -1,4 +1,6 @@
-// User Level Types
+import { PaymentTier, type PaymentPlan } from '@/types/payment/plans';
+
+// Legacy Types - Keep for backward compatibility
 export type UserLevelType =
   | 'BASIC'
   | 'SILVER'
@@ -8,7 +10,7 @@ export type UserLevelType =
   | 'API_COMPANY'
   | 'API_PARTNER';
 
-// Level Configuration - Centralized level definitions
+// Legacy Level Configuration - Keep for backward compatibility
 export interface LevelConfig {
   name: string;
   level: UserLevelType;
@@ -19,7 +21,79 @@ export interface LevelConfig {
   features: string[];
 }
 
-// Core Level Definitions - Easy to extend
+// New Payment Plans Configuration
+export const PAYMENT_PLANS: Record<PaymentTier, PaymentPlan> = {
+  [PaymentTier.BASIC]: {
+    id: 'basic',
+    tier: PaymentTier.BASIC,
+    name: 'Basic',
+    price: 0,
+    currency: 'USDT',
+    features: ['Limited access', 'Basic features', 'Community support'],
+    apiLimits: {
+      requestsPerMinute: 10,
+      requestsPerDay: 100,
+      maxRankings: 5,
+      maxFileSize: 1024 * 1024 // 1MB
+    },
+    duration: 1,
+    numericLevel: 0,
+    color: 'gray-500'
+  },
+  [PaymentTier.SILVER]: {
+    id: 'silver',
+    tier: PaymentTier.SILVER,
+    name: 'Silver',
+    price: 9.9,
+    currency: 'USDT',
+    features: ['Full access for 1 month', 'Priority support', 'Advanced features'],
+    apiLimits: {
+      requestsPerMinute: 50,
+      requestsPerDay: 5000,
+      maxRankings: 25,
+      maxFileSize: 10 * 1024 * 1024 // 10MB
+    },
+    duration: 1,
+    numericLevel: 1,
+    color: 'slate-400'
+  },
+  [PaymentTier.GOLD]: {
+    id: 'gold',
+    tier: PaymentTier.GOLD,
+    name: 'Gold',
+    price: 19.9,
+    currency: 'USDT',
+    features: ['Extended access', 'Premium features', 'Priority support', 'Early access to new features'],
+    apiLimits: {
+      requestsPerMinute: 100,
+      requestsPerDay: 10000,
+      maxRankings: 50,
+      maxFileSize: 50 * 1024 * 1024 // 50MB
+    },
+    duration: 1,
+    numericLevel: 2,
+    color: 'yellow-500'
+  },
+  [PaymentTier.PLATINUM]: {
+    id: 'platinum',
+    tier: PaymentTier.PLATINUM,
+    name: 'Platinum',
+    price: 29.9,
+    currency: 'USDT',
+    features: ['Unlimited access', 'All premium features', 'VIP support', 'Early access to new features', 'Custom analytics'],
+    apiLimits: {
+      requestsPerMinute: 500,
+      requestsPerDay: 100000,
+      maxRankings: 100,
+      maxFileSize: 100 * 1024 * 1024 // 100MB
+    },
+    duration: 1,
+    numericLevel: 3,
+    color: 'purple-500'
+  }
+};
+
+// Legacy Level Configurations - Keep for backward compatibility
 export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
   BASIC: {
     name: 'Basic',
