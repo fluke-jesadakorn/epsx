@@ -295,13 +295,28 @@ function addPriceGrowth<T extends { price: number | null }>(
 /**
  * Adds comparison between last EPS growth and current price growth
  */
-function addLastEpsVsCurrentPrice<T extends { eps_growth?: number | null; price_growth?: number | null }>(
-  arr: (T & { last_eps_vs_current_price?: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } })[],
-): (T & { last_eps_vs_current_price?: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } })[] {
+function addLastEpsVsCurrentPrice<
+  T extends { eps_growth?: number | null; price_growth?: number | null },
+>(
+  arr: (T & {
+    last_eps_vs_current_price?: {
+      lastEpsGrowth: number | null;
+      currentPriceGrowth: number | null;
+    };
+  })[],
+): (T & {
+  last_eps_vs_current_price?: {
+    lastEpsGrowth: number | null;
+    currentPriceGrowth: number | null;
+  };
+})[] {
   if (arr.length < 2) {
-    return arr.map(item => ({ 
-      ...item, 
-      last_eps_vs_current_price: { lastEpsGrowth: null, currentPriceGrowth: null }
+    return arr.map((item) => ({
+      ...item,
+      last_eps_vs_current_price: {
+        lastEpsGrowth: null,
+        currentPriceGrowth: null,
+      },
     }));
   }
 
@@ -317,13 +332,16 @@ function addLastEpsVsCurrentPrice<T extends { eps_growth?: number | null; price_
         ...item,
         last_eps_vs_current_price: {
           lastEpsGrowth,
-          currentPriceGrowth
-        }
+          currentPriceGrowth,
+        },
       };
     }
     return {
       ...item,
-      last_eps_vs_current_price: { lastEpsGrowth: null, currentPriceGrowth: null }
+      last_eps_vs_current_price: {
+        lastEpsGrowth: null,
+        currentPriceGrowth: null,
+      },
     };
   });
 }
@@ -353,7 +371,7 @@ const parseMessages = (str: string): any[] => {
 
 export async function getFinancialsFromChart(
   symbols: string[],
-  quarters = 4,
+  quarters = 2,
 ): Promise<Record<string, FinancialsFromChart[]>> {
   const results: Record<string, FinancialsFromChart[]> = {};
   const delay = (ms: number) =>
@@ -388,11 +406,19 @@ export async function getFinancialsFromChart(
 }
 
 /**
- * New function that returns both quarterly data and current price
+ * Fetches financial data with current prices for multiple symbols.
+ *
+ * @param symbols - Array of stock symbols to fetch data for
+ * @param quarters - Number of quarters to return for frontend display (default: 2 - current and previous quarter)
+ * @returns Promise with mapping of symbol to financial data with current prices
+ *
+ * Note: For accurate growth calculations, the function internally fetches at least
+ * 4 quarters of data but only returns the requested number to the frontend.
+ * This ensures proper EPS growth and price/EPS alignment calculations.
  */
 export async function getFinancialsWithCurrentPriceFromChart(
   symbols: string[],
-  quarters = 4,
+  quarters = 2,
 ): Promise<Record<string, FinancialsWithCurrentPrice>> {
   const results: Record<string, FinancialsWithCurrentPrice> = {};
   const delay = (ms: number) =>
@@ -447,6 +473,23 @@ const findMostRecentPrice = (
   };
 };
 
+/**
+ * Fetches financial data for a single symbol, ensuring proper growth calculations
+ * while returning only the requested number of quarters for frontend display.
+ *
+ * @param symbol - Stock symbol to fetch data for
+ * @param quarters - Number of quarters to return (frontend display)
+ * @param retryCount - Current retry attempt (for internal use)
+ * @param maxRetries - Maximum retry attempts
+ * @returns Promise with quarters data, current price, and current price date
+ *
+ * Note: For proper EPS and price growth calculations, the function internally
+ * fetches at least 4 quarters of data, but only returns the requested number
+ * of quarters to the frontend. This ensures:
+ * - EPS growth can be calculated (requires previous quarter)
+ * - Price growth can be calculated (requires previous quarter)
+ * - Last EPS vs Current Price comparison works (requires 2+ quarters with growth data)
+ */
 async function getFinancialsWithCurrentPriceForSymbol(
   symbol: string,
   quarters: number,
@@ -487,7 +530,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
         const seriesKey = `series_1`;
         const studyKey = `study_1`;
         let resolved = false;
-
 
         const initSession = () => {
           sendMsg('chart_create_session', [sessionId, '']);
@@ -582,25 +624,45 @@ async function getFinancialsWithCurrentPriceForSymbol(
                 const { price: currentPrice, date: currentPriceDate } =
                   findMostRecentPrice(prices);
 
-                // Filter out unofficial or invalid EPS values and take last N quarters
-                const mapped = mapEpsToPrice(prices, eps)
-                  .filter(
-                    (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
-                  )
-                  .slice(-quarters); // Take the last N quarters instead of first N
-
-                // Debug: Log the final mapped results
-                console.log(
-                  `📊 ${symbol}: Final mapped EPS data:`,
-                  mapped.map((m) => `${m.date}: ${m.eps} (Q${m.quarter})`),
+                // Filter out unofficial or invalid EPS values
+                const filteredEps = mapEpsToPrice(prices, eps).filter(
+                  (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
                 );
 
-                const withEpsGrowth = addEpsGrowth(mapped);
+                // For calculations, we need at least 4 quarters to get proper growth metrics
+                // But we'll only return the requested number of quarters to the frontend
+                const minQuartersForCalculation = Math.max(4, quarters);
+                const quartersForCalculation = filteredEps.slice(
+                  -minQuartersForCalculation,
+                );
+
+                // Debug: Log the calculation data
+                console.log(
+                  `📊 ${symbol}: EPS data for calculation (${quartersForCalculation.length} quarters):`,
+                  quartersForCalculation.map(
+                    (m) => `${m.date}: ${m.eps} (Q${m.quarter})`,
+                  ),
+                );
+
+                // Perform calculations on the full dataset
+                const withEpsGrowth = addEpsGrowth(quartersForCalculation);
                 const withBothGrowths = addPriceGrowth(withEpsGrowth);
-                const withComparison = addLastEpsVsCurrentPrice(withBothGrowths);
+                const withComparison =
+                  addLastEpsVsCurrentPrice(withBothGrowths);
+
+                // Now take only the requested number of quarters for frontend display
+                const finalQuarters = withComparison.slice(-quarters);
+
+                // Debug: Log the final returned results
+                console.log(
+                  `📊 ${symbol}: Final EPS data returned (${finalQuarters.length} quarters):`,
+                  finalQuarters.map(
+                    (m) => `${m.date}: ${m.eps} (Q${m.quarter})`,
+                  ),
+                );
 
                 resolve({
-                  quarters: withComparison,
+                  quarters: finalQuarters,
                   currentPrice,
                   currentPriceDate,
                 });
@@ -625,7 +687,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
         // Remove unused 'reason' parameter in ws.on('close')
         ws.on('close', (code) => {
-
           if (eps.length === 0) {
             console.warn(
               `⚠️ ${symbol}: No EPS data received before close (Code: ${code})`,
@@ -640,16 +701,27 @@ async function getFinancialsWithCurrentPriceForSymbol(
             const { price: currentPrice, date: currentPriceDate } =
               findMostRecentPrice(prices);
 
-            // Filter out unofficial or invalid EPS values and take last N quarters
-            const mapped = mapEpsToPrice(prices, eps)
-              .filter((item) => item.eps !== 1e100 && Number.isFinite(item.eps))
-              .slice(-quarters); // Take the last N quarters instead of first N
-            const withEpsGrowth = addEpsGrowth(mapped);
+            // Filter out unofficial or invalid EPS values
+            const filteredEps = mapEpsToPrice(prices, eps).filter(
+              (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
+            );
+
+            // For calculations, we need at least 4 quarters to get proper growth metrics
+            const minQuartersForCalculation = Math.max(4, quarters);
+            const quartersForCalculation = filteredEps.slice(
+              -minQuartersForCalculation,
+            );
+
+            // Perform calculations on the full dataset
+            const withEpsGrowth = addEpsGrowth(quartersForCalculation);
             const withBothGrowths = addPriceGrowth(withEpsGrowth);
             const withComparison = addLastEpsVsCurrentPrice(withBothGrowths);
 
+            // Now take only the requested number of quarters for frontend display
+            const finalQuarters = withComparison.slice(-quarters);
+
             resolve({
-              quarters: withComparison,
+              quarters: finalQuarters,
               currentPrice,
               currentPriceDate,
             });

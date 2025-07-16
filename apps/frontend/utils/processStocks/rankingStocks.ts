@@ -7,14 +7,14 @@ import { getFinancialsWithCurrentPriceFromChart } from './getPriceAndEps';
  * @param {number} skip - Number of stocks to skip (default: 0).
  * @param {number} limit - Maximum number of stocks to fetch (default: 10).
  * @param {string|string[]} country - Market country or countries to filter stocks (default: all markets).
- * @param {number} quarters - Number of quarters to fetch (default: 2).
+ * @param {number} quarters - Number of quarters to return in frontend (default: 2 - current and previous quarter). Note: For growth calculations, the system fetches at least 4 quarters internally, but only returns the requested number.
  * @returns {Promise<Record<string, FinancialsWithCurrentPrice>>} - Mapping of stock symbols to their financials with current prices.
  */
 export async function rankStocksByEpsWithChart(
   skip = 0,
   limit = 10,
   country: typeof MarketCountry = MarketCountry,
-  quarters = 4,
+  quarters = 2,
 ) {
   try {
     // 1. Fetch top ranked stocks

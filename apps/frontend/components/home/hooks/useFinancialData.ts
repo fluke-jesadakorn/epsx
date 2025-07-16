@@ -44,10 +44,10 @@ export function useFinancialData(data: StockFinancialData): UseFinancialDataResu
 }
 
 /**
- * Filter quarters to exclude invalid data
+ * Filter quarters to exclude invalid data and limit to only the first 2 quarters
  */
 export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
-  return quarters.filter((quarter, idx) => {
+  const filtered = quarters.filter((quarter, idx) => {
     // Skip first quarter if it has no growth data
     if (
       idx === 0 &&
@@ -58,6 +58,9 @@ export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
     }
     return true;
   });
+  
+  // Limit to only 2 quarters (current + previous)
+  return filtered.slice(0, 2);
 }
 
 /**

@@ -14,7 +14,7 @@ export async function fetchStockRankingData(
   skip = 0,
   limit = 10,
   country?: any,
-  quarters = 4,
+  quarters = 2,
 ): Promise<StockFinancialData[]> {
   // Use the same service as analytics page to leverage caching
   return getStockFinancialData(skip, limit, country, quarters);
@@ -29,7 +29,7 @@ export async function fetchStockRankingDataForUser(
   isExpired: boolean = true,
   skip = 0,
   country?: any,
-  quarters = 4,
+  quarters = 2,
 ): Promise<StockFinancialData[]> {
   const currentPackage = getPackageByLevel(userLevel);
   const maxLimit = isExpired ? 5 : (currentPackage?.rankingLimit || 5);
@@ -49,7 +49,7 @@ export async function fetchStockRankingDataWithOffset(
   skip = 0,
   limit = 10,
   country?: any,
-  quarters = 4,
+  quarters = 2,
 ): Promise<{ data: StockFinancialData[]; rankOffset: number }> {
   const data = await getStockFinancialData(skip, limit, country, quarters);
   

@@ -11,7 +11,7 @@ export async function fetchPublicRankingData(
   startRank: number = 100,
   limit: number = 10,
   country?: any,
-  quarters: number = 4,
+  quarters: number = 2,
 ): Promise<StockFinancialData[]> {
   try {
     // Fetch data starting from the specified rank

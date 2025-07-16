@@ -8,7 +8,7 @@ export async function fetchStockFinancialData(
   skip = 0,
   limit = 10,
   country?: any,
-  quarters = 4,
+  quarters = 2,
 ): Promise<StockFinancialData[]> {
   return getStockFinancialData(skip, limit, country, quarters);
 }

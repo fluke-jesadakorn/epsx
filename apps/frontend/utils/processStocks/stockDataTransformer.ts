@@ -176,15 +176,22 @@ export function getLastEpsVsCurrentPriceComparison(
  * Formats the comparison for display
  */
 export function formatEpsVsPriceComparison(
-  comparison: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null,
+  comparison: {
+    lastEpsGrowth: number | null;
+    currentPriceGrowth: number | null;
+  } | null,
 ): string {
-  if (!comparison || comparison.lastEpsGrowth === null || comparison.currentPriceGrowth === null) {
+  if (
+    !comparison ||
+    comparison.lastEpsGrowth === null ||
+    comparison.currentPriceGrowth === null
+  ) {
     return 'N/A';
   }
-  
+
   const epsText = `${comparison.lastEpsGrowth > 0 ? '+' : ''}${comparison.lastEpsGrowth}%`;
   const priceText = `${comparison.currentPriceGrowth > 0 ? '+' : ''}${comparison.currentPriceGrowth}%`;
-  
+
   return `Last EPS: ${epsText} → Current Price: ${priceText}`;
 }
 
@@ -192,20 +199,31 @@ export function formatEpsVsPriceComparison(
  * Determines if the price movement aligns with previous EPS performance
  */
 export function getPriceEpsAlignment(
-  comparison: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null,
+  comparison: {
+    lastEpsGrowth: number | null;
+    currentPriceGrowth: number | null;
+  } | null,
 ): 'positive' | 'negative' | 'neutral' | null {
-  if (!comparison || comparison.lastEpsGrowth === null || comparison.currentPriceGrowth === null) {
+  if (
+    !comparison ||
+    comparison.lastEpsGrowth === null ||
+    comparison.currentPriceGrowth === null
+  ) {
     return null;
   }
 
   // Both positive or both negative = positive alignment
-  if ((comparison.lastEpsGrowth > 0 && comparison.currentPriceGrowth > 0) ||
-      (comparison.lastEpsGrowth < 0 && comparison.currentPriceGrowth < 0)) {
+  if (
+    (comparison.lastEpsGrowth > 0 && comparison.currentPriceGrowth > 0) ||
+    (comparison.lastEpsGrowth < 0 && comparison.currentPriceGrowth < 0)
+  ) {
     return 'positive';
   }
-  // One positive, one negative = negative alignment  
-  else if ((comparison.lastEpsGrowth > 0 && comparison.currentPriceGrowth < 0) ||
-           (comparison.lastEpsGrowth < 0 && comparison.currentPriceGrowth > 0)) {
+  // One positive, one negative = negative alignment
+  else if (
+    (comparison.lastEpsGrowth > 0 && comparison.currentPriceGrowth < 0) ||
+    (comparison.lastEpsGrowth < 0 && comparison.currentPriceGrowth > 0)
+  ) {
     return 'negative';
   }
   // Both zero or very small = neutral

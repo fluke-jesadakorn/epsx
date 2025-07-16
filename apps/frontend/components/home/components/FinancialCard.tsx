@@ -1,11 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  GRADIENTS,
-  COLORS,
-  TYPOGRAPHY,
-  ANIMATIONS,
-} from '../constants/styles';
+import { GRADIENTS, COLORS, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './GrowthIndicators';
 import { MetricCard, QuarterRow } from './MetricComponents';
 import { useFinancialData, getValidQuarters } from '../hooks/useFinancialData';
@@ -89,10 +84,10 @@ export function FinancialCard({
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-200/70 via-yellow-100/60 to-amber-100/50 dark:from-orange-900/40 dark:via-yellow-900/30 dark:to-amber-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1 text-xs sm:text-sm">
-        #{index + 1}
-        {index === 0 && <span className="text-xs">🏆</span>}
-        {index === 1 && <span className="text-xs">🥈</span>}
-        {index === 2 && <span className="text-xs">🥉</span>}
+            #{index + 1}
+            {index === 0 && <span className="text-xs">🏆</span>}
+            {index === 1 && <span className="text-xs">🥈</span>}
+            {index === 2 && <span className="text-xs">🥉</span>}
           </span>
         </AnimatedBadge>
       </div>
@@ -163,7 +158,7 @@ export function FinancialCard({
               className="p-2 sm:p-3 min-w-0 w-full"
             />
           </div>
-          
+
           {/* Second Row: Growth and EPS→Price */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200/50 dark:border-emerald-700/30 min-w-0 w-full">
@@ -184,19 +179,28 @@ export function FinancialCard({
                 {(() => {
                   const comparison = getLastEpsVsCurrentPriceComparison(data);
                   const alignment = getPriceEpsAlignment(comparison);
-                  
-                  if (!comparison || comparison.lastEpsGrowth === null || comparison.currentPriceGrowth === null) {
+
+                  if (
+                    !comparison ||
+                    comparison.lastEpsGrowth === null ||
+                    comparison.currentPriceGrowth === null
+                  ) {
                     return (
                       <div className="text-center py-1 text-gray-500 text-xs">
                         N/A
                       </div>
                     );
                   }
-                  
-                  const alignmentEmoji = alignment === 'positive' ? '✅' : alignment === 'negative' ? '❌' : '⚖️';
+
+                  const alignmentEmoji =
+                    alignment === 'positive'
+                      ? '✅'
+                      : alignment === 'negative'
+                        ? '❌'
+                        : '⚖️';
                   const epsText = `${comparison.lastEpsGrowth > 0 ? '+' : ''}${comparison.lastEpsGrowth}%`;
                   const priceText = `${comparison.currentPriceGrowth > 0 ? '+' : ''}${comparison.currentPriceGrowth}%`;
-                  
+
                   return (
                     <div className="space-y-0.5">
                       <div className="flex justify-between text-xs">
@@ -235,7 +239,9 @@ export function FinancialCard({
               group text-sm sm:text-base
             `}
           >
-            <span className="text-base sm:text-lg group-hover:animate-bounce">📊</span>
+            <span className="text-base sm:text-lg group-hover:animate-bounce">
+              📊
+            </span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -252,7 +258,9 @@ export function FinancialCard({
             </svg>
             <span className="hidden sm:inline">View Chart on TradingView</span>
             <span className="sm:hidden">View Chart</span>
-            <span className="text-base sm:text-lg group-hover:animate-pulse">🚀</span>
+            <span className="text-base sm:text-lg group-hover:animate-pulse">
+              🚀
+            </span>
           </a>
         </div>
 
@@ -266,7 +274,9 @@ export function FinancialCard({
               className={`${TYPOGRAPHY.body} text-slate-800 dark:text-white flex items-center gap-1 sm:gap-2`}
             >
               <span className="text-xs sm:text-sm">🏆</span>
-              <span className="text-sm sm:text-base">Quarterly Performance</span>
+              <span className="text-sm sm:text-base">
+                Quarterly Performance
+              </span>
               <span className="text-xs sm:text-sm">📈</span>
             </h3>
             <div className="ml-auto">

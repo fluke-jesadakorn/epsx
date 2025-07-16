@@ -19,7 +19,7 @@ export async function getStockFinancialData(
   skip = 0,
   limit = 10,
   country: typeof MarketCountry = MarketCountry,
-  quarters = 4,
+  quarters = 2,
 ): Promise<StockFinancialData[]> {
   try {
     // Check server-side cache first
