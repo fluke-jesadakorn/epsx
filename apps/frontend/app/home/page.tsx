@@ -1,18 +1,12 @@
 'use client';
 
 import ChatSection from '@/components/home/ChatSection';
-import LazyStockRankingTable from '@/components/shared/LazyStockRankingTable';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 import DataTechSection from '@/components/home/DataTechSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
 
 function HomePage() {
-  const { profile } = useUserProfile();
-
-  // Get the ranking limit from user profile, default to 10
-  const maxCards = profile?.rankingLimit || 10;
-
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}
@@ -93,13 +87,15 @@ function HomePage() {
 
               <div className="relative z-10">
                 <div className="text-center mb-10">
-                  {/* PancakeSwap-style title with gradient */}
+                  {/* Updated title for public rankings */}
                   <h2 className="text-4xl sm:text-5xl font-bold mb-6 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
-                    🥞 Top Performing Stocks
+                    📊 Stock Rankings Preview
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                    Discover the sweetest data opportunities with our advanced
-                    analytics and real-time data insights
+                    See what our premium ranking system offers - Rankings #100-110
+                  </p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                    🔒 Upgrade to access Top 100 rankings with advanced insights
                   </p>
 
                   {/* Decorative elements */}
@@ -116,12 +112,7 @@ function HomePage() {
                   </div>
                 </div>
 
-                <LazyStockRankingTable
-                  useLazyLoading={true}
-                  maxCards={maxCards}
-                  title="🥞 Top Performing Stocks"
-                  subtitle="Discover the sweetest data opportunities with our advanced analytics and real-time data insights"
-                />
+                <PublicRankingPreview />
               </div>
             </div>
           </div>
