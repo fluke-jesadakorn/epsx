@@ -82,7 +82,9 @@ export function FinancialDataHeader(): React.JSX.Element {
         🚀
       </div>
 
-      <div className={`relative ${SPACING.mobileContainer} pt-6 sm:pt-8 pb-8 sm:pb-10 md:pb-12`}>
+      <div
+        className={`relative ${SPACING.mobileContainer} pt-6 sm:pt-8 pb-8 sm:pb-10 md:pb-12`}
+      >
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-4 sm:space-y-6">
             <h1
@@ -94,9 +96,13 @@ export function FinancialDataHeader(): React.JSX.Element {
               flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4
             `}
             >
-              <span className="text-4xl sm:text-5xl md:text-6xl animate-bounce-gentle">🍯</span>
+              <span className="text-4xl sm:text-5xl md:text-6xl animate-bounce-gentle">
+                🍯
+              </span>
               <span className="text-center">Financial Rankings</span>
-              <span className="text-4xl sm:text-5xl md:text-6xl animate-float">🚀</span>
+              <span className="text-4xl sm:text-5xl md:text-6xl animate-float">
+                🚀
+              </span>
             </h1>
 
             <p

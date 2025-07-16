@@ -9,11 +9,11 @@ interface NavItem {
 class NavigationService {
   getNavItems(isLoggedIn: boolean): NavItem[] {
     const items: NavItem[] = [
-      {
-        label: 'Docs',
-        href: 'https://your-gitbook-url.com',
-        key: 'docs',
-      },
+      // {
+      //   label: 'Docs',
+      //   href: 'https://your-gitbook-url.com',
+      //   key: 'docs',
+      // },
       {
         label: 'Analytics',
         href: '/analytics',

@@ -2,6 +2,7 @@
 
 import {
   LineChart,
+  BarChart,
   User,
   LogOut,
   LogIn,
@@ -41,6 +42,7 @@ import { navigationService } from '@/services/navigation.service';
 const iconMap = {
   docs: <File className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
+  analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
   'market-data-sync': <LineChart className="h-4 w-4" />,
 };

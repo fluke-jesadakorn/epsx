@@ -1,15 +1,15 @@
-import { AuthProvider } from "@/context/auth-context-improved";
-import { LoadingProvider } from "@/context/loading-context";
-import { ThemeProvider } from "next-themes";
-import NavbarComponent from "@/components/features/navigation/Navbar";
-import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
+import { AuthProvider } from '@/context/auth-context-improved';
+import { LoadingProvider } from '@/context/loading-context';
+import { ThemeProvider } from 'next-themes';
+import NavbarComponent from '@/components/features/navigation/Navbar';
+import { EmailVerificationBanner } from '@/components/auth/EmailVerificationBanner';
 
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "EPSX",
-  description: "Your data analytics companion",
+  title: 'EPSX',
+  description: 'Your data analytics companion',
 };
 
 export default function RootLayout({
@@ -20,7 +20,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
             <LoadingProvider>
               <div>
@@ -28,9 +33,7 @@ export default function RootLayout({
                   <NavbarComponent />
                   <EmailVerificationBanner />
                 </header>
-                <main>
-                  {children}
-                </main>
+                <main>{children}</main>
               </div>
             </LoadingProvider>
           </AuthProvider>
