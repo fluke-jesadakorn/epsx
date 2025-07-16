@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const skip = parseInt(searchParams.get('skip') || '0', 10);
   const limit = parseInt(searchParams.get('limit') || '10', 10);
   const countryParam = searchParams.get('country');
-  const quarters = parseInt(searchParams.get('quarters') || '4', 10);
+  const quarters = parseInt(searchParams.get('quarters') || '2', 10);
 
   // Map string to MarketCountry value if valid
   let country: typeof MarketCountry | undefined = MarketCountry;

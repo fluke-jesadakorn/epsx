@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     // If not in cache, fetch from server
     // We'll get all data and filter for the specific symbol
-    const allData = await getStockFinancialData(0, 100); // Get enough data to find the symbol
+    const allData = await getStockFinancialData(0, 20); // Get enough data to find the symbol
     const symbolData = allData.find(item => item.symbol === symbol);
 
     if (!symbolData) {

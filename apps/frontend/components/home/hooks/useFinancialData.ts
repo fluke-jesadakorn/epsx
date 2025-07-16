@@ -22,6 +22,8 @@ export interface UseFinancialDataResult {
 export function useFinancialData(data: StockFinancialData): UseFinancialDataResult {
   const latestQuarter = getLatestQuarterData(data);
   
+  // Calculate average growth using ALL available quarters for accuracy
+  // This is intentionally NOT limited to display quarters
   const avgGrowth = calculateAvgEpsGrowth(data);
   
   const displayPrice = data.currentPrice !== undefined && data.currentPrice !== null
@@ -44,23 +46,17 @@ export function useFinancialData(data: StockFinancialData): UseFinancialDataResu
 }
 
 /**
- * Filter quarters to exclude invalid data and limit to only the first 2 quarters
+ * Filter quarters to only show exactly 2 quarters FOR DISPLAY
+ * Note: This is only for frontend display. Backend calculations use all available quarters.
  */
 export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
-  const filtered = quarters.filter((quarter, idx) => {
-    // Skip first quarter if it has no growth data
-    if (
-      idx === 0 &&
-      (quarter.eps_growth === undefined || quarter.eps_growth === null) &&
-      (quarter.price_growth === undefined || quarter.price_growth === null)
-    ) {
-      return false;
-    }
-    return true;
-  });
-  
-  // Limit to only 2 quarters (current + previous)
-  return filtered.slice(0, 2);
+  if (!quarters || quarters.length === 0) {
+    return [];
+  }
+
+  // FORCE exactly 2 quarters for display, regardless of what data contains
+  // Take the first 2 quarters (most recent)
+  return quarters.slice(0, 2);
 }
 
 /**

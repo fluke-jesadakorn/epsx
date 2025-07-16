@@ -109,11 +109,13 @@ export function getLatestQuarterWithGrowth(stock: StockFinancialData) {
 }
 
 /**
- * Calculates average EPS growth for a stock
+ * Calculates average EPS growth for a stock using ALL available quarters
+ * This ensures accurate calculations regardless of display limitations
  */
 export function calculateAverageEpsGrowth(
   stock: StockFinancialData,
 ): number | null {
+  // Use ALL quarters for accurate average calculation
   const growthValues = stock.quarters
     .map((q) => q.eps_growth)
     .filter((growth) => growth !== undefined && growth !== null) as number[];

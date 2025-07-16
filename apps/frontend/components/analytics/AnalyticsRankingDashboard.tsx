@@ -40,7 +40,7 @@ export function AnalyticsRankingDashboard() {
           isExpired,
           0,
           undefined,
-          4
+          2
         );
         
         // Load public preview data

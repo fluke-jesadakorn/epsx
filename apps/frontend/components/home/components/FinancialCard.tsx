@@ -30,6 +30,7 @@ export function FinancialCard({
   const { latestQuarter, avgGrowth, displayPrice, hasGrowthData } =
     useFinancialData(data);
 
+  // This will only return 2 quarters for display (current + previous)
   const validQuarters = getValidQuarters(data.quarters);
 
   const handleInteractionStart = () => setIsPressed(true);
@@ -284,7 +285,8 @@ export function FinancialCard({
                 className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
               >
                 <span className="text-xs">⏰</span>
-                {data.quarters.length - 1}Q
+                {/* Show actual quarters used for calculations, not display count */}
+                {data.quarters.length > 0 ? data.quarters.length - 1 : 0}Q
               </span>
             </div>
           </div>

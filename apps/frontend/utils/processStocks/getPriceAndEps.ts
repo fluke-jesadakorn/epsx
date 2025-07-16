@@ -111,16 +111,21 @@ const extractEps = (data: any): EpsData[] => {
 
               // Use the actual/reported EPS value (st.v[1]) for our main EPS data
               // Filter out invalid EPS values (like 1e+100 which indicates no data)
-              if (
+              const isValidEps = 
                 typeof timestamp === 'number' &&
                 typeof actualEps === 'number' &&
                 actualEps !== 1e100 &&
-                Number.isFinite(actualEps)
-              ) {
+                actualEps < 1e50 && // Additional check for extremely large values
+                Number.isFinite(actualEps) &&
+                actualEps > 0; // EPS should be positive in most cases
+              
+              if (isValidEps) {
                 result.push({
                   date: formatDate(timestamp),
                   eps: actualEps,
                 });
+              } else if (typeof actualEps === 'number') {
+                console.log(`🚫 Filtering out invalid EPS: ${actualEps} for timestamp ${timestamp}`);
               }
             }
           });
@@ -626,7 +631,16 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
                 // Filter out unofficial or invalid EPS values
                 const filteredEps = mapEpsToPrice(prices, eps).filter(
-                  (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
+                  (item) => {
+                    const isValid = item.eps !== 1e100 && 
+                                   item.eps < 1e50 && 
+                                   Number.isFinite(item.eps) && 
+                                   item.eps > 0;
+                    if (!isValid) {
+                      console.log(`🚫 Filtering EPS value: ${item.eps} on ${item.date}`);
+                    }
+                    return isValid;
+                  },
                 );
 
                 // For calculations, we need at least 4 quarters to get proper growth metrics
@@ -703,7 +717,16 @@ async function getFinancialsWithCurrentPriceForSymbol(
 
             // Filter out unofficial or invalid EPS values
             const filteredEps = mapEpsToPrice(prices, eps).filter(
-              (item) => item.eps !== 1e100 && Number.isFinite(item.eps),
+              (item) => {
+                const isValid = item.eps !== 1e100 && 
+                               item.eps < 1e50 && 
+                               Number.isFinite(item.eps) && 
+                               item.eps > 0;
+                if (!isValid) {
+                  console.log(`🚫 Filtering EPS value: ${item.eps} on ${item.date}`);
+                }
+                return isValid;
+              },
             );
 
             // For calculations, we need at least 4 quarters to get proper growth metrics
