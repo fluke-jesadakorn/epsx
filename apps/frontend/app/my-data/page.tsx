@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from "react";
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 type Asset = {
   symbol: string;
@@ -39,9 +40,10 @@ export default function MarketDataSyncPage() {
     MOCK_MARKET_DATA.find((d) => d.symbol === symbol);
 
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4">
-      <h1 className="text-2xl font-bold mb-6">My Data</h1>
-      {step === 1 && (
+    <AuthGuard requireAuth={true}>
+      <div className="max-w-2xl mx-auto py-10 px-4">
+        <h1 className="text-2xl font-bold mb-6">My Data</h1>
+        {step === 1 && (
         <div>
           <h2 className="text-lg font-semibold mb-2">Step 1: Fill My Asset</h2>
           <div className="flex gap-2 mb-4">
@@ -124,5 +126,6 @@ export default function MarketDataSyncPage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }

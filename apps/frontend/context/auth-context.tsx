@@ -1,269 +1,195 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 
-import type { User } from 'firebase/auth';
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  onIdTokenChanged,
-  signInWithEmailAndPassword as signInWithEmailPwd,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-} from 'firebase/auth';
-
-import { handleSignOut, refreshSession as _refreshSession } from '@/app/actions/auth';
 import { auth } from '@/lib/firebase';
+import { authService } from '@/services/auth/auth.service';
+import { handleSignIn, handleSignOut } from '@/app/actions/auth';
+import { initializeUserClaims } from '@/lib/custom-claims';
+import { AuthError, ErrorCode } from '@/types/auth/errors';
+import type { SignInCredentials, SignUpData } from '@/types/auth/service';
 
-interface AuthContextType {
-  user: User | null;
+export interface AuthState {
+  user: FirebaseUser | null;
   loading: boolean;
   error: string | null;
-  signInWithGoogle: () => Promise<void>;
-  signInWithEmailPassword: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  clearSession: () => Promise<void>;
+  isInitialized: boolean;
 }
+
+export interface AuthActions {
+  signInWithEmailAndPassword: (credentials: SignInCredentials) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signUp: (data: SignUpData) => Promise<void>;
+  signOut: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
+  sendEmailVerification: () => Promise<void>;
+  clearError: () => void;
+  refreshSession: () => Promise<void>;
+}
+
+export type AuthContextType = AuthState & AuthActions;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({
-  children,
-}: {
+interface AuthProviderProps {
   children: ReactNode;
-}): React.ReactElement {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+}
 
-  useEffect(() => {
-    console.log('Auth context: Setting up onIdTokenChanged listener');
-    let hasHandledInitialAuth = false;
-    let lastTokenTime = 0; // Track last token processing time to avoid rapid updates
-    let authChangeCount = 0; // Track rapid auth changes to prevent loops
-    let sessionCreatedSuccessfully = false; // Track if session was successfully created
+export function AuthProvider({ children }: AuthProviderProps): React.ReactElement {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    error: null,
+    isInitialized: false,
+  });
 
-    const unsubscribe = onIdTokenChanged(auth, async (user) => {
-      authChangeCount++;
-      console.log('Auth context: onIdTokenChanged fired', { 
-        user: user ? user.email : 'null',
-        hasHandledInitialAuth,
-        isInitialized,
-        authChangeCount,
-        sessionCreatedSuccessfully
-      });
-
-      // Prevent excessive auth state changes that might indicate a loop
-      if (authChangeCount > 10) {
-        console.warn('Auth context: Too many auth state changes detected, potential loop. Stopping processing.');
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        setUser(user);
-        
-        if (user) {
-          // Only handle sign-in if this is the initial auth or if enough time has passed since last update
-          const now = Date.now();
-          const shouldProcessToken = !hasHandledInitialAuth || (now - lastTokenTime > 5000); // 5 second minimum between updates
-          
-          if (shouldProcessToken && !sessionCreatedSuccessfully) {
-            console.log('Auth context: User found, storing auth state client-side');
-            const idToken = await user.getIdToken();
-            
-            // Store authentication state client-side only
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('authToken', idToken);
-              localStorage.setItem('userEmail', user.email || '');
-              localStorage.setItem('userId', user.uid);
-              localStorage.setItem('sessionJustCreated', 'true');
-            }
-            
-            console.log('Auth context: Client-side auth state set successfully');
-            lastTokenTime = now;
-            sessionCreatedSuccessfully = true;
-          } else {
-            console.log('Auth context: Skipping token update (too recent or session already created)');
-          }
-        } else {
-          // Handle sign-out - clear client-side auth state
-          console.log('Auth context: No user, clearing client-side auth state');
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('userEmail');
-            localStorage.removeItem('userId');
-            localStorage.removeItem('sessionJustCreated');
-          }
-          await handleSignOut();
-          console.log('Auth context: Client-side auth state cleared');
-        }
-      } catch (error) {
-        console.error('Auth context: Error in auth flow', error);
-        if (user) {
-          setError('Failed to create session');
-        }
-      }
-
-      // Mark as initialized after first auth state change
-      if (!hasHandledInitialAuth) {
-        hasHandledInitialAuth = true;
-        setIsInitialized(true);
-        console.log('Auth context: Marking as initialized');
-      }
-      
-      // Always set loading to false after processing
-      setLoading(false);
-    });
-
-    // Reset auth change counter after a period to allow for legitimate auth changes
-    const resetCounterInterval = setInterval(() => {
-      if (authChangeCount > 0) {
-        console.log('Auth context: Resetting auth change counter');
-        authChangeCount = 0;
-      }
-    }, 30000); // Reset every 30 seconds
-
-    return () => {
-      console.log('Auth context: Cleaning up onIdTokenChanged listener');
-      unsubscribe();
-      clearInterval(resetCounterInterval);
-    };
+  // Helper function to update state
+  const updateState = useCallback((updates: Partial<AuthState>) => {
+    setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  const signInWithGoogle = async (): Promise<void> => {
+  // Helper function to handle async operations
+  const handleAsyncOperation = useCallback(async (
+    operation: () => Promise<any>,
+    onSuccess?: (result: any) => void
+  ): Promise<any> => {
     try {
-      setError(null);
-      setLoading(true);
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      updateState({ loading: true, error: null });
+      const result = await operation();
+      onSuccess?.(result);
+      return result;
     } catch (error) {
-      console.error('Google sign-in error:', error);
-      setError('Failed to sign in with Google');
+      const errorMessage = error instanceof AuthError 
+        ? error.message 
+        : 'An unexpected error occurred';
+      updateState({ error: errorMessage });
       throw error;
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [updateState]);
 
-  const signInWithEmailPassword = async (
-    email: string,
-    password: string,
-  ): Promise<void> => {
-    try {
-      setError(null);
-      setLoading(true);
-      await signInWithEmailPwd(auth, email, password);
-    } catch (error) {
-      console.error('Email/Password sign-in error:', error);
-      setError('Failed to sign in with email/password');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Initialize auth listener
+  useEffect(() => {
+    let mounted = true;
 
-  const signUp = async (email: string, password: string): Promise<void> => {
-    try {
-      setError(null);
-      setLoading(true);
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
-      console.error('Sign-up error:', error);
-      let errorMessage = 'Failed to create account';
-      
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/email-already-in-use':
-            errorMessage = 'This email is already in use';
-            break;
-          case 'auth/invalid-email':
-            errorMessage = 'Please enter a valid email address';
-            break;
-          case 'auth/weak-password':
-            errorMessage = 'Password should be at least 6 characters';
-            break;
-          default:
-            errorMessage = error.message || 'Failed to create account';
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!mounted) return;
+
+      try {
+        if (user) {
+          // Check if this is a new user (just created) by checking metadata
+          const isNewUser = user.metadata.creationTime === user.metadata.lastSignInTime;
+          
+          // User signed in - create session
+          const idToken = await user.getIdToken();
+          await handleSignIn(idToken);
+          
+          // Initialize custom claims for new users
+          if (isNewUser && user.email) {
+            try {
+              await initializeUserClaims(user.uid, user.email);
+              console.log('Custom claims initialized for new user:', user.uid);
+            } catch (error) {
+              console.error('Failed to initialize custom claims:', error);
+              // Don't block sign up for this error
+            }
+          }
+        } else {
+          // User signed out - clear session
+          await handleSignOut();
+        }
+
+        if (mounted) {
+          updateState({
+            user,
+            loading: false,
+            isInitialized: true,
+            error: null,
+          });
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error);
+        if (mounted) {
+          updateState({
+            user,
+            loading: false,
+            isInitialized: true,
+            error: 'Failed to sync authentication state',
+          });
         }
       }
-      
-      setError(errorMessage);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
 
-  const signOut = async (): Promise<void> => {
-    try {
-      setError(null);
-      setLoading(true);
-      
-      // Clear client-side auth state first
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('sessionJustCreated');
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [updateState]);
+
+  // Auth actions
+  const signInWithEmailAndPassword = useCallback(async (credentials: SignInCredentials) => {
+    await handleAsyncOperation(() => authService.signInWithEmailAndPassword(credentials));
+  }, [handleAsyncOperation]);
+
+  const signInWithGoogle = useCallback(async () => {
+    await handleAsyncOperation(() => authService.signInWithGoogle());
+  }, [handleAsyncOperation]);
+
+  const signUp = useCallback(async (data: SignUpData) => {
+    await handleAsyncOperation(() => authService.signUp(data));
+  }, [handleAsyncOperation]);
+
+  const signOut = useCallback(async () => {
+    await handleAsyncOperation(() => authService.signOut());
+  }, [handleAsyncOperation]);
+
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    await handleAsyncOperation(() => authService.sendPasswordResetEmail(email));
+  }, [handleAsyncOperation]);
+
+  const sendEmailVerification = useCallback(async () => {
+    if (!state.user) {
+      throw new AuthError(ErrorCode.USER_NOT_FOUND, 'No user found');
+    }
+    await handleAsyncOperation(() => authService.sendEmailVerification(state.user!));
+  }, [handleAsyncOperation, state.user]);
+
+  const clearError = useCallback(() => {
+    updateState({ error: null });
+  }, [updateState]);
+
+  const refreshSession = useCallback(async () => {
+    if (!state.user) return;
+    
+    await handleAsyncOperation(async () => {
+      const token = await authService.getCurrentUserToken(true);
+      if (token) {
+        await handleSignIn(token);
       }
-      
-      await firebaseSignOut(auth);
-      // Use server action to clear any remaining session
-      await handleSignOut();
-    } catch (error) {
-      console.error('Sign-out error:', error);
-      setError('Failed to sign out');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+  }, [handleAsyncOperation, state.user]);
 
-  const clearSession = async (): Promise<void> => {
-    try {
-      setError(null);
-      setLoading(true);
-      console.log('Auth context: Clearing session - clearing localStorage');
-      
-      // Clear client-side auth state
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('sessionJustCreated');
-      }
-      
-      console.log('Auth context: Clearing session - signing out from Firebase');
-      await firebaseSignOut(auth);
-      console.log('Auth context: Clearing session - calling handleSignOut');
-      await handleSignOut();
-      console.log('Auth context: Session cleared successfully');
-      setUser(null);
-    } catch (error) {
-      console.error('Clear session error:', error);
-      setError('Failed to clear session');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const value = {
-    user,
-    loading,
-    error,
+  const contextValue: AuthContextType = {
+    ...state,
+    signInWithEmailAndPassword,
     signInWithGoogle,
-    signInWithEmailPassword,
     signUp,
     signOut,
-    clearSession,
+    sendPasswordResetEmail,
+    sendEmailVerification,
+    clearError,
+    refreshSession,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextType {

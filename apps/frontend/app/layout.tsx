@@ -1,15 +1,13 @@
-import { AuthProvider } from '@/context/auth-context-improved';
-import { LoadingProvider } from '@/context/loading-context';
+import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from 'next-themes';
-import NavbarComponent from '@/components/features/navigation/Navbar';
-import { EmailVerificationBanner } from '@/components/auth/EmailVerificationBanner';
-
-import type { Metadata } from 'next';
+import { ToastProvider } from '@/components/ui/toaster';
+import { Navigation } from '@/components/nav';
+import { AuthDebugger } from '@/components/debug/AuthDebugger';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'EPSX',
-  description: 'Your data analytics companion',
+export const metadata = {
+  title: 'EPSX - Stock Trading Platform',
+  description: 'Advanced stock trading and analytics platform',
 };
 
 export default function RootLayout({
@@ -20,22 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <LoadingProvider>
-              <div>
-                <header>
-                  <NavbarComponent />
-                  <EmailVerificationBanner />
-                </header>
-                <main>{children}</main>
-              </div>
-            </LoadingProvider>
+            <ToastProvider>
+              <Navigation />
+              {children}
+              <AuthDebugger />
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

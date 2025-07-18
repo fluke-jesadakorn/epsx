@@ -1,39 +1,27 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LogoutPage() {
-  const router = useRouter();
   const { signOut } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     const performLogout = async () => {
-      try {
-        await signOut();
-        
-        // Clear auth cookies
-        document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-
-        router.push('/login');
-      } catch (error) {
-        console.error('Logout failed:', error);
-        router.push('/');
-      }
+      await signOut();
+      router.push('/');
     };
-
+    
     performLogout();
   }, [signOut, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
-        <h2 className="text-center text-3xl font-extrabold text-gray-900">
-          Logging out...
-        </h2>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold mb-2">Logging out...</h1>
+        <p className="text-muted-foreground">Please wait while we sign you out.</p>
       </div>
     </div>
   );

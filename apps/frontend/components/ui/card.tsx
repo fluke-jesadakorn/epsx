@@ -1,7 +1,4 @@
-'use client';
-
 import * as React from 'react';
-
 import { cn } from '@/lib/utils';
 
 const Card = React.forwardRef<
@@ -11,13 +8,9 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      'rounded-2xl border bg-card backdrop-blur-sm text-card-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1',
+      'rounded-lg border bg-card text-card-foreground shadow-sm',
       className
     )}
-    style={{
-      backgroundColor: 'hsl(var(--card) / 0.8)',
-      borderColor: 'hsl(var(--border) / 0.5)'
-    }}
     {...props}
   />
 ));
@@ -82,11 +75,4 @@ const CardFooter = React.forwardRef<
 ));
 CardFooter.displayName = 'CardFooter';
 
-export {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-  CardContent,
-};
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };

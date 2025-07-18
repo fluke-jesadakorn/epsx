@@ -1,29 +1,53 @@
 'use client';
 
-import { DashboardView } from "@/components/dashboard/DashboardView"
-import { ClientAuthGuard } from "@/components/auth/ClientAuthGuard"
-import { useAuth } from "@/context/auth-context-improved";
+import { useAuth } from '@/lib/auth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const router = useRouter();
 
-  // Convert Firebase user to app User type
-  const appUser = user ? {
-    id: user.uid,
-    email: user.email || '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    emailVerified: user.emailVerified,
-    role: 'USER' as const,
-    displayName: user.displayName || undefined,
-    photoURL: user.photoURL || undefined,
-  } : null;
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
+
+  if (!user) {
+    router.push('/login');
+    return null;
+  }
 
   return (
-    <ClientAuthGuard>
-      <main>
-        {appUser && <DashboardView user={appUser} />}
-      </main>
-    </ClientAuthGuard>
-  )
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <Button onClick={handleSignOut} variant="outline">
+          Sign Out
+        </Button>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Welcome</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Welcome to EPSX, {user.email}!</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Email: {user.email}</p>
+            <p>Verified: {user.emailVerified ? 'Yes' : 'No'}</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }

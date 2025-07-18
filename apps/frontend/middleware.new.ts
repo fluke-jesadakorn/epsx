@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SESSION_KEY = '__session';
-
 // Configuration for different route types
 const routeConfig = {
   // Routes that don't require authentication
@@ -15,13 +13,6 @@ const routeConfig = {
     '/terms',
     '/reset-password',
     '/verify-email',
-  ],
-  
-  // Routes that should redirect authenticated users
-  guestOnly: [
-    '/login',
-    '/signup',
-    '/register',
   ],
   
   // Routes that allow both authenticated and unauthenticated users
@@ -55,30 +46,10 @@ function isRouteType(pathname: string, routeType: keyof typeof routeConfig): boo
   });
 }
 
-function hasValidSession(request: NextRequest): boolean {
-  const sessionCookie = request.cookies.get(SESSION_KEY);
-  
-  if (!sessionCookie?.value) {
-    return false;
-  }
-  
-  // Basic validation - check if token looks like a JWT
-  const token = sessionCookie.value;
-  const parts = token.split('.');
-  
-  // JWT should have 3 parts
-  if (parts.length !== 3) {
-    return false;
-  }
-  
-  // Additional basic checks could be added here
-  return token.length > 100; // Minimum reasonable token length
-}
-
 export function middleware(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
   
-  // Skip middleware for excluded routes
+  // Skip middleware for excluded routes and API routes
   if (isRouteType(pathname, 'excluded') || isRouteType(pathname, 'apiRoutes')) {
     return NextResponse.next();
   }
@@ -90,36 +61,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   
-  const hasSession = hasValidSession(request);
-  
-  // Handle guest-only routes (login, signup)
-  if (isRouteType(pathname, 'guestOnly')) {
-    if (hasSession) {
-      // User has session but trying to access guest-only page
-      const returnUrl = searchParams.get('returnUrl') || '/dashboard';
-      
-      // Prevent redirect loops
-      if (searchParams.get('postLogin') === 'true') {
-        return NextResponse.next();
-      }
-      
-      return NextResponse.redirect(new URL(returnUrl, request.url));
-    }
-    return NextResponse.next();
-  }
-  
-  // Handle public/optional routes
-  if (isRouteType(pathname, 'public') || isRouteType(pathname, 'optional')) {
-    return NextResponse.next();
-  }
-  
-  // All other routes require authentication
-  if (!hasSession) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('returnUrl', pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
-  }
-  
+  // Allow all requests to pass through - authentication will be handled client-side
   return NextResponse.next();
 }
 
