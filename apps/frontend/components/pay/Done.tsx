@@ -29,7 +29,7 @@ export function Done() {
       </p>
       
       <p className="text-sm text-gray-500">
-        Redirecting to dashboard...
+        Redirecting to my data...
       </p>
     </div>
   );

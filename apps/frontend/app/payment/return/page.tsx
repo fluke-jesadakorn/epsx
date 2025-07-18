@@ -71,15 +71,15 @@ export default function PaymentReturnPage() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (paymentStatus === 'success' && countdown === 0) {
-      router.push('/dashboard?payment=success');
+      router.push('/my-data?payment=success');
     }
   }, [paymentStatus, countdown, router]);
 
-  const handleReturnToDashboard = () => {
+  const handleReturnToMyData = () => {
     if (paymentStatus === 'success') {
-      router.push('/dashboard?payment=success');
+      router.push('/my-data?payment=success');
     } else {
-      router.push('/dashboard');
+      router.push('/my-data');
     }
   };
 
@@ -126,14 +126,14 @@ export default function PaymentReturnPage() {
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-4 py-2 rounded-full">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                Redirecting to dashboard in {countdown}s...
+                Redirecting to my data in {countdown}s...
               </div>
             </div>
             <Button
-              onClick={handleReturnToDashboard}
+              onClick={handleReturnToMyData}
               className="w-full h-12 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white border-0 shadow-xl transition-all duration-300 hover:scale-[1.02]"
             >
-              Go to Dashboard Now
+              Go to My Data Now
             </Button>
           </CardContent>
         </Card>
@@ -158,12 +158,12 @@ export default function PaymentReturnPage() {
             </p>
             <div className="space-y-3">
               <Button
-                onClick={handleReturnToDashboard}
+                onClick={handleReturnToMyData}
                 variant="outline"
                 className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 font-semibold flex items-center gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Return to Dashboard
+                Return to My Data
               </Button>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 We'll notify you once the payment is confirmed
@@ -198,12 +198,12 @@ export default function PaymentReturnPage() {
               Try Again
             </Button>
             <Button
-              onClick={handleReturnToDashboard}
+              onClick={handleReturnToMyData}
               variant="outline"
               className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500 font-semibold flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Return to Dashboard
+              Return to My Data
             </Button>
           </div>
         </CardContent>

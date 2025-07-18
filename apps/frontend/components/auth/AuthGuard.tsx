@@ -46,7 +46,7 @@ export function AuthGuard({
     }
 
     if (!requireAuth && user) {
-      router.push(redirectTo || '/dashboard');
+      router.push(redirectTo || '/my-data');
       return;
     }
 

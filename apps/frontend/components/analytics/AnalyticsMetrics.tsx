@@ -11,6 +11,7 @@ import {
   Lock,
   Star
 } from 'lucide-react';
+import { formatLevelAsNumber } from '@/utils/level-utils';
 
 interface AnalyticsMetricsProps {
   userLevel: string;
@@ -49,7 +50,7 @@ export function AnalyticsMetrics({
           <div className="flex items-center gap-2">
             <div className="text-2xl font-bold">{maxRankings}</div>
             <Badge variant={isExpired ? "destructive" : "default"} className="text-xs">
-              {userLevel}
+              {formatLevelAsNumber(userLevel)}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">

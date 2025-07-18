@@ -7,12 +7,12 @@ import { MarketCountry } from '../../../../types/marketCountries';
 import { StockDataCache } from '@/utils/cache/stockDataCache';
 import fetchScreenerStock from '@/utils/processStocks/fetchRankScreenedStock';
 
-// Server-side cache to store data temporarily
-let serverCache: {
+// Server-side cache to store data temporarily with pagination-aware keys
+let serverCache: Map<string, {
   data: StockFinancialData[];
   timestamp: number;
   ttl: number;
-} | null = null;
+}> = new Map();
 
 // Count cache for pagination
 let countCache: {
@@ -30,10 +30,14 @@ export async function getStockFinancialData(
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   try {
+    // Create a cache key that includes pagination parameters
+    const cacheKey = `${skip}-${limit}-${country}-${quarters}`;
+    
     // Check server-side cache first
     const now = Date.now();
-    if (serverCache && now - serverCache.timestamp < serverCache.ttl * 1000) {
-      return serverCache.data;
+    const cachedData = serverCache.get(cacheKey);
+    if (cachedData && now - cachedData.timestamp < cachedData.ttl * 1000) {
+      return cachedData.data;
     }
 
     // Fetch data using the utility function
@@ -51,12 +55,12 @@ export async function getStockFinancialData(
     // Transform the data to the new format with current prices
     const transformedData = transformFinancialDataWithCurrentPrice(chartData);
 
-    // Cache the result in server memory
-    serverCache = {
+    // Cache the result in server memory with pagination-aware key
+    serverCache.set(cacheKey, {
       data: transformedData,
       timestamp: now,
       ttl: CACHE_TTL,
-    };
+    });
 
     // Also cache individual symbols for per-card requests
     transformedData.forEach(stockData => {
@@ -66,8 +70,10 @@ export async function getStockFinancialData(
     return transformedData;
   } catch (error) {
     // Return cached data if available, even if expired, as fallback
-    if (serverCache) {
-      return serverCache.data;
+    const cacheKey = `${skip}-${limit}-${country}-${quarters}`;
+    const cachedData = serverCache.get(cacheKey);
+    if (cachedData) {
+      return cachedData.data;
     }
     return [];
   }
@@ -78,7 +84,7 @@ export async function getStockFinancialData(
  */
 export async function getStockFinancialDataCount(
   country: typeof MarketCountry = MarketCountry,
-  quarters = 2,
+  quarters = 2, // Currently unused but kept for future enhancements
 ): Promise<number> {
   try {
     // Check count cache first

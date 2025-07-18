@@ -11,8 +11,8 @@ export function EmailVerificationPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const handleBackToDashboard = () => {
-    router.push('/dashboard');
+  const handleBackToMyData = () => {
+    router.push('/my-data');
   };
 
   const handleResendSuccess = () => {
@@ -44,10 +44,10 @@ export function EmailVerificationPage() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={handleBackToDashboard}
+                onClick={handleBackToMyData}
                 className="w-full"
               >
-                Continue to Dashboard
+                Continue to My Data
               </Button>
             </CardContent>
           </Card>
@@ -56,7 +56,7 @@ export function EmailVerificationPage() {
         <div className="text-center">
           <Button
             variant="ghost"
-            onClick={handleBackToDashboard}
+            onClick={handleBackToMyData}
             className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

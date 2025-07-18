@@ -16,6 +16,6 @@ export async function checkGuest() {
   const user = await getCurrentUser();
 
   if (user) {
-    redirect('/dashboard');
+    redirect('/my-data');
   }
 }

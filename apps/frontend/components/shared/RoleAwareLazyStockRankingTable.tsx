@@ -5,6 +5,7 @@ import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import LazyStockRankingTable from '@/components/shared/LazyStockRankingTable';
 import { getLevelColor, getLockedRankings } from '@/app/constants/packages';
+import { formatLevelAsNumber } from '@/utils/level-utils';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleAwareLazyStockRankingTableProps {
@@ -49,7 +50,7 @@ export default function RoleAwareLazyStockRankingTable({
       <LazyStockRankingTable
         data={data}
         title={title}
-        subtitle={`${subtitle} • Showing ${effectiveMaxCards} rankings for ${userLevel} plan`}
+        subtitle={`${subtitle} • Showing ${effectiveMaxCards} rankings for ${formatLevelAsNumber(userLevel)} plan`}
         showRank={showRank}
         rankShift={rankShift}
         maxCards={effectiveMaxCards}
@@ -71,7 +72,7 @@ export default function RoleAwareLazyStockRankingTable({
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-full text-sm">
           <span className="font-medium">Current Plan:</span>
           <span className={`font-bold ${getLevelColor(userLevel)}`}>
-            {userLevel}
+            {formatLevelAsNumber(userLevel)}
           </span>
           <span className="text-muted-foreground">
             • Access to {maxRankings} rankings

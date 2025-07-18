@@ -14,7 +14,7 @@ import { useAuth } from '@/context/auth-context-improved';
 export default function LoginPage() {
   const { user, loading, signOut } = useAuth();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+  const returnUrl = searchParams.get('returnUrl') || '/my-data';
   const [redirecting, setRedirecting] = useState(false);
   const [preventRedirect, setPreventRedirect] = useState(false);
 
@@ -104,7 +104,7 @@ export default function LoginPage() {
                   <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-orange-500 dark:border-t-orange-400 absolute top-0 left-1/2 transform -translate-x-1/2"></div>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 font-medium mb-2">
-                  {redirecting ? '🥞 Redirecting to dashboard...' : '🔍 Checking authentication...'}
+                  {redirecting ? '🥞 Redirecting to my data...' : '🔍 Checking authentication...'}
                 </p>
                 {redirecting && (
                   <>
@@ -121,7 +121,7 @@ export default function LoginPage() {
                           window.location.href = returnUrl;
                         }}
                       >
-                        Go to Dashboard Now
+                        Go to My Data Now
                       </Button>
                       <Button 
                         variant="outline" 

@@ -26,15 +26,6 @@ class NavigationService {
       },
     ];
 
-    if (isLoggedIn) {
-      items.push({
-        label: 'Settings',
-        href: '/settings',
-        key: 'settings',
-        requireAuth: true,
-      });
-    }
-
     return items;
   }
 

@@ -231,13 +231,13 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 sm:gap-3">
                 <h2 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-bold truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent leading-tight">
-                  {currentPackage?.name || `${currentLevel} Level`}
+                  Level {currentPackage?.numericLevel || 0}
                 </h2>
                 <Badge
                   variant="secondary"
                   className={`bg-gradient-to-r ${levelGradients[currentLevel]} text-white border-0 font-bold text-xs px-2 py-0.5 xs:px-3 xs:py-1 shadow-lg animate-pulse w-fit`}
                 >
-                  {currentLevel}
+                  {currentPackage?.name || currentLevel}
                 </Badge>
               </div>
             </div>

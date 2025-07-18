@@ -4,10 +4,6 @@ import { redirect } from 'next/navigation';
 import { createSession, destroySession, verifySession, refreshSession as refreshSessionInternal } from '@/lib/session-improved';
 import { getPaymentDetails } from './payment';
 import type { User } from '@/types/auth/user';
-
-/**
- * Handle user sign in - create session from Firebase ID token
- */
 export async function handleSignIn(idToken: string): Promise<{ success: boolean; error?: string }> {
   try {
     const result = await createSession(idToken);
@@ -152,10 +148,10 @@ export async function requireAuth(redirectTo?: string): Promise<User> {
 /**
  * Require guest (unauthenticated) - redirect to dashboard if authenticated
  */
-export async function requireGuest(redirectTo: string = '/dashboard'): Promise<void> {
+export async function requireGuest(): Promise<void> {
   const user = await getCurrentUser();
   
   if (user) {
-    redirect(redirectTo);
+    redirect('/my-data');
   }
 }

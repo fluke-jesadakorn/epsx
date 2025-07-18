@@ -16,17 +16,18 @@ export function UpgradePrompt({ currentLevel, lockedRankings, className }: Upgra
   const router = useRouter();
   
   const getNextLevel = () => {
-    switch (currentLevel) {
-      case 'BASIC': return 'SILVER';
-      case 'SILVER': return 'GOLD';
-      case 'GOLD': return 'PLATINUM';
-      default: return 'SILVER';
-    }
+    const levelMap = {
+      'BRONZE': 'Level 1',
+      'SILVER': 'Level 2', 
+      'GOLD': 'Level 3',
+      'PLATINUM': 'Level 4'
+    };
+    return levelMap[currentLevel as keyof typeof levelMap] || 'Level 1';
   };
 
   const getNextLevelBenefits = () => {
     switch (currentLevel) {
-      case 'BASIC': return '25 rankings + Priority support';
+      case 'BRONZE': return '25 rankings + Priority support';
       case 'SILVER': return '50 rankings + Premium features';
       case 'GOLD': return '100 rankings + Custom analytics';
       default: return 'Full access + VIP support';
@@ -73,10 +74,10 @@ interface LockedRankingCardProps {
 export function LockedRankingCard({ index, userLevel, onUpgrade }: LockedRankingCardProps) {
   const getNextLevel = () => {
     switch (userLevel) {
-      case 'BASIC': return 'SILVER';
-      case 'SILVER': return 'GOLD';
-      case 'GOLD': return 'PLATINUM';
-      default: return 'PREMIUM';
+      case 'BRONZE': return 'Level 1';
+      case 'SILVER': return 'Level 2';
+      case 'GOLD': return 'Level 3';
+      default: return 'Level 1';
     }
   };
 

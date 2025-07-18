@@ -5,6 +5,7 @@ import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import FinancialDataTable from '@/components/home/FinancialDataTable';
 import { getLevelColor, getLockedRankings } from '@/app/constants/packages';
+import { formatLevelAsNumber } from '@/utils/level-utils';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleBasedFinancialTableProps {
@@ -83,7 +84,7 @@ export default function RoleBasedFinancialTable({
             <>
               <span className="font-medium">Current Plan:</span>
               <span className={`font-bold ${getLevelColor(userLevel)}`}>
-                {userLevel}
+                {formatLevelAsNumber(userLevel)}
               </span>
               <span className="text-muted-foreground">
                 • Showing {filteredData.length} of {data.length} rankings
