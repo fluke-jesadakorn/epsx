@@ -10,6 +10,7 @@ import {
   Menu,
   Settings,
   Database,
+  Crown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,6 +19,7 @@ import { useState, memo, useEffect } from 'react';
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   NavigationMenu,
 } from '@/components/ui/navigation-menu';
@@ -36,6 +38,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/auth-context-improved';
 import { navigationService } from '@/services/navigation.service';
+import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
+import { useRankingAccess } from '@/hooks/useRankingAccess';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -48,6 +52,7 @@ const iconMap = {
 function NavbarComponent() {
   const pathname = usePathname();
   const { user, signOut, loading } = useAuth();
+  const { userLevel, isLoading: levelLoading } = useRankingAccess();
   // Get user email and admin status from user object
   const userEmail = user?.email;
   const [isOpen, setIsOpen] = useState(false);
@@ -131,6 +136,28 @@ function NavbarComponent() {
         <div className="flex items-center gap-4 md:gap-6">
           <ThemeToggle />
 
+          {/* User Level Display */}
+          {user && !levelLoading && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className={`${getLevelColor(userLevel)} border-current bg-current/10 text-current font-bold text-xs px-2 py-1`}
+                    >
+                      <Crown className="h-3 w-3 mr-1" />
+                      {formatLevelAsNumber(userLevel)}
+                    </Badge>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your current level: {formatLevelAsNumber(userLevel)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {user?.email && (
             <TooltipProvider>
               <Tooltip>
@@ -169,6 +196,19 @@ function NavbarComponent() {
                 <SheetTitle className="text-left">Menu</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-4 mt-6">
+                {/* User Level Display - Mobile */}
+                {user && !levelLoading && (
+                  <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 rounded-lg">
+                    <Badge
+                      variant="secondary"
+                      className={`${getLevelColor(userLevel)} border-current bg-current/10 text-current font-bold text-sm px-3 py-1`}
+                    >
+                      <Crown className="h-3 w-3 mr-1" />
+                      {formatLevelAsNumber(userLevel)}
+                    </Badge>
+                  </div>
+                )}
+
                 {navItems.map((item) => (
                   <Link
                     key={item.key}
