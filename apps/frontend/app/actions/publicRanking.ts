@@ -8,19 +8,22 @@ import type { StockFinancialData } from '@/types/financialChartData';
  * This is always accessible regardless of user authentication status
  */
 export async function fetchPublicRankingData(
-  startRank: number = 100,
+  startRank: number = 0,
   limit: number = 10,
   country?: any,
   quarters: number = 2,
 ): Promise<StockFinancialData[]> {
   try {
+    // Ensure startRank is reasonable
+    const safeStartRank = Math.max(0, Math.min(startRank, 100)); // Limit starting rank to prevent API errors
+    
     // Fetch data starting from the specified rank
-    const data = await getStockFinancialData(startRank, limit, country, quarters);
+    const data = await getStockFinancialData(safeStartRank, limit, country, quarters);
     
     // Add public ranking metadata
     return data.map((stock, index) => ({
       ...stock,
-      publicRank: startRank + index + 1,
+      publicRank: safeStartRank + index + 1,
       isPublicPreview: true,
     }));
   } catch (error) {
@@ -34,10 +37,10 @@ export async function fetchPublicRankingData(
  */
 export async function getFeaturedPublicStocks(count: number = 6): Promise<StockFinancialData[]> {
   try {
-    // Get a mix of rankings for variety (e.g., 100-102, 105-107, 108-110)
+    // Get a mix of rankings for variety (e.g., 0-2, 5-7, 8-10)
     const featured = await Promise.all([
-      fetchPublicRankingData(100, 3),
-      fetchPublicRankingData(105, 3),
+      fetchPublicRankingData(0, 3),
+      fetchPublicRankingData(5, 3),
     ]);
     
     return featured.flat().slice(0, count);

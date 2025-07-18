@@ -22,7 +22,7 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
     const loadData = async () => {
       try {
         // Fetch rankings 100-110 for public preview
-        const publicData = await fetchPublicRankingData(100, 10);
+        const publicData = await fetchPublicRankingData(10, 10);
         setData(publicData);
       } catch (error) {
         console.error('Failed to load public ranking data:', error);

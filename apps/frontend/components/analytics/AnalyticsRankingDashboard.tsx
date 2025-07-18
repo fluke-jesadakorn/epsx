@@ -44,7 +44,7 @@ export function AnalyticsRankingDashboard() {
         );
         
         // Load public preview data
-        const publicDataPromise = fetchPublicRankingData(100, 10);
+        const publicDataPromise = fetchPublicRankingData(10, 10);
         
         const [userData, publicData] = await Promise.all([
           userDataPromise,

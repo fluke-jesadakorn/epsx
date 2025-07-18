@@ -5,6 +5,10 @@ const fetchScreenerStock = async (
   limit = 5,
   country = MarketCountry,
 ) => {
+  // Ensure skip and limit are reasonable for the API
+  const safeSkip = Math.max(0, Math.min(skip, 1000)); // Reduce max skip to prevent API errors
+  const safeLimit = Math.max(1, Math.min(limit, 50)); // Reduce max limit to prevent API errors
+
   const customBody = () =>
     JSON.stringify({
       columns: [
@@ -44,7 +48,7 @@ const fetchScreenerStock = async (
       ignore_unknown_fields: false,
       options: { lang: 'en' },
       price_conversion: { to_currency: 'usd' },
-      range: [skip, limit],
+      range: [safeSkip, safeSkip + safeLimit],
       sort: {
         sortBy: 'market_cap_basic',
         sortOrder: 'desc',
@@ -142,6 +146,8 @@ const fetchScreenerStock = async (
       },
     });
 
+  const requestBody = customBody();
+  
   const response = await fetch(
     'https://scanner.tradingview.com/global/scan?label-product=screener-stock',
     {
@@ -161,11 +167,15 @@ const fetchScreenerStock = async (
         cookie: 'cookiePrivacyPreferenceBannerProduction=notApplicable; cookiesSettings={"analytics":true,"advertising":true}; _ga=GA1.1.287998567.1737519655; device_t=Yk1Fb0FROjI.o614l3RjSdzzD_nBlfv7bHmRO9SLuSg8Jdc5C8_Cfyg; sessionid=8muioxxaoyz3d8lvyqey7wa6fnmhzx4f; sessionid_sign=v3:snfqsmVt+TvwXS43RnT/4MEx8OEh36wZ7gWDGEFK+BY=; tv_ecuid=e538a49d-5181-4179-b95f-35fc057358a6; __gads=ID=a2dce82dea5f6034:T=1741599088:RT=1746415506:S=ALNI_MZVTo4XKZH5jxKH9m9ofmqw5e75WQ; __gpi=UID=0000105bb6af1052:T=1741599088:RT=1746415506:S=ALNI_MZae1ihNv6rQ0C6ewUUoX6UxQjcgg; __eoi=ID=c798787be475c469:T=1741599088:RT=1746415506:S=AA-AfjbGRWxAkTkVM-VaX35P2o4H; _sp_ses.cf1a=*; _ga_YVVRYGL0E0=GS2.1.s1752193235$o314$g1$t1752196268$j43$l0$h0; _sp_id.cf1a=b0388acf-1e28-423e-9d8e-0d5a55fad2e9.1737519655.197.1752196303.1752191132.afe82221-1b0e-4654-8e22-e8aa7494e904.1ad57957-27a4-4b7c-89ee-8e996803b5cf.8a1335d9-728f-405e-b586-5c71cf473d5f.1752193235131.46',
         Referer: 'https://www.tradingview.com/',
       },
-      body: customBody(),
+      body: requestBody,
       method: 'POST',
     },
   );
+  
   if (!response.ok) {
+    // Log response body for debugging
+    const errorText = await response.text();
+    console.error('📡 TradingView API Error Response:', errorText);
     throw new Error(
       `Failed to fetch screener stock data: ${response.statusText}`,
     );

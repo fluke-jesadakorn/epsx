@@ -636,9 +636,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
                                    item.eps < 1e50 && 
                                    Number.isFinite(item.eps) && 
                                    item.eps > 0;
-                    if (!isValid) {
-                      console.log(`🚫 Filtering EPS value: ${item.eps} on ${item.date}`);
-                    }
                     return isValid;
                   },
                 );
@@ -722,9 +719,6 @@ async function getFinancialsWithCurrentPriceForSymbol(
                                item.eps < 1e50 && 
                                Number.isFinite(item.eps) && 
                                item.eps > 0;
-                if (!isValid) {
-                  console.log(`🚫 Filtering EPS value: ${item.eps} on ${item.date}`);
-                }
                 return isValid;
               },
             );
