@@ -1,11 +1,13 @@
 import { PaymentTier, type PaymentPlan } from '@/types/payment/plans';
 
-// Legacy Types - Keep for backward compatibility
+// Updated Types - Aligned with admin-frontend
 export type UserLevelType =
-  | 'BASIC'
+  | 'BRONZE'
   | 'SILVER'
   | 'GOLD'
   | 'PLATINUM'
+  | 'DIAMOND'
+  | 'VIP'
   | 'API_PERSONAL'
   | 'API_COMPANY'
   | 'API_PARTNER';
@@ -23,10 +25,10 @@ export interface LevelConfig {
 
 // New Payment Plans Configuration
 export const PAYMENT_PLANS: Record<PaymentTier, PaymentPlan> = {
-  [PaymentTier.BASIC]: {
-    id: 'basic',
-    tier: PaymentTier.BASIC,
-    name: 'Basic',
+  [PaymentTier.BRONZE]: {
+    id: 'bronze',
+    tier: PaymentTier.BRONZE,
+    name: 'Bronze',
     price: 0,
     currency: 'USDT',
     features: ['Limited access', 'Basic features', 'Community support'],
@@ -38,7 +40,7 @@ export const PAYMENT_PLANS: Record<PaymentTier, PaymentPlan> = {
     },
     duration: 1,
     numericLevel: 0,
-    color: 'gray-500'
+    color: 'amber-600'
   },
   [PaymentTier.SILVER]: {
     id: 'silver',
@@ -93,15 +95,15 @@ export const PAYMENT_PLANS: Record<PaymentTier, PaymentPlan> = {
   }
 };
 
-// Legacy Level Configurations - Keep for backward compatibility
+// Updated Level Configurations - Aligned with admin-frontend
 export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
-  BASIC: {
-    name: 'Basic',
-    level: 'BASIC',
+  BRONZE: {
+    name: 'Bronze',
+    level: 'BRONZE',
     numericLevel: 0,
     rankingLimit: 5,
     minPayments: 0,
-    color: 'gray-500',
+    color: 'amber-600',
     features: ['Limited access', 'Basic features', 'Community support'],
   },
   SILVER: {
@@ -131,10 +133,28 @@ export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
     color: 'purple-500',
     features: ['Unlimited access', 'All premium features', 'VIP support', 'Early access to new features', 'Custom analytics'],
   },
+  DIAMOND: {
+    name: 'Diamond',
+    level: 'DIAMOND',
+    numericLevel: 4,
+    rankingLimit: 200,
+    minPayments: 12,
+    color: 'blue-500',
+    features: ['Enterprise features', '24/7 support', 'White-label options', 'Custom integrations', 'Bulk operations'],
+  },
+  VIP: {
+    name: 'VIP',
+    level: 'VIP',
+    numericLevel: 5,
+    rankingLimit: -1, // Unlimited
+    minPayments: 24,
+    color: 'red-500',
+    features: ['Unlimited features', 'Personal account manager', 'Custom solutions', 'Priority development', 'Dedicated infrastructure'],
+  },
   API_PERSONAL: {
     name: 'API Personal',
     level: 'API_PERSONAL',
-    numericLevel: 4,
+    numericLevel: 6,
     rankingLimit: 25,
     minPayments: 1,
     color: 'indigo-500',
@@ -143,7 +163,7 @@ export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
   API_COMPANY: {
     name: 'API Company',
     level: 'API_COMPANY',
-    numericLevel: 5,
+    numericLevel: 7,
     rankingLimit: 100,
     minPayments: 1,
     color: 'blue-600',
@@ -213,7 +233,7 @@ export const getNumericLevelByLevel = (level: UserLevelType): number => {
 
 export const getLevelByNumeric = (numericLevel: number): UserLevelType => {
   const level = Object.values(LEVEL_CONFIGS).find(config => config.numericLevel === numericLevel);
-  return level?.level || 'BASIC';
+  return level?.level || 'BRONZE';
 };
 
 export const canAccessLevel = (currentLevel: UserLevelType, requiredLevel: UserLevelType): boolean => {
@@ -222,12 +242,14 @@ export const canAccessLevel = (currentLevel: UserLevelType, requiredLevel: UserL
 
 export const getLevelColor = (level: UserLevelType): string => {
   const colorMap: Record<UserLevelType, string> = {
-    BASIC: 'text-gray-600',
-    SILVER: 'text-blue-600',
-    GOLD: 'text-yellow-600',
-    PLATINUM: 'text-purple-600',
-    API_PERSONAL: 'text-indigo-600',
-    API_COMPANY: 'text-blue-700',
+    BRONZE: 'text-amber-600',
+    SILVER: 'text-slate-400',
+    GOLD: 'text-yellow-500',
+    PLATINUM: 'text-purple-500',
+    DIAMOND: 'text-blue-500',
+    VIP: 'text-red-500',
+    API_PERSONAL: 'text-indigo-500',
+    API_COMPANY: 'text-blue-600',
     API_PARTNER: 'text-purple-700',
   };
   return colorMap[level] || 'text-gray-600';
@@ -260,18 +282,18 @@ export const LEVEL_REQUIREMENTS = Object.fromEntries(
 export const PACKAGES: Package[] = [
   // Personal Plans
   {
-    id: 'basic',
-    name: 'Basic Plan',
-    level: 'BASIC',
-    numericLevel: LEVEL_CONFIGS.BASIC.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.BASIC.rankingLimit,
+    id: 'bronze',
+    name: 'Bronze Plan',
+    level: 'BRONZE',
+    numericLevel: LEVEL_CONFIGS.BRONZE.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.BRONZE.rankingLimit,
     price: 0,
     currency: 'USDT',
-    features: LEVEL_CONFIGS.BASIC.features,
-    minPayments: LEVEL_CONFIGS.BASIC.minPayments,
+    features: LEVEL_CONFIGS.BRONZE.features,
+    minPayments: LEVEL_CONFIGS.BRONZE.minPayments,
     duration: 1,
-    color: LEVEL_CONFIGS.BASIC.color,
-    icon: '/icons/basic.svg',
+    color: LEVEL_CONFIGS.BRONZE.color,
+    icon: '/icons/bronze.svg',
   },
   {
     id: 'silver',
@@ -307,13 +329,41 @@ export const PACKAGES: Package[] = [
     level: 'PLATINUM',
     numericLevel: LEVEL_CONFIGS.PLATINUM.numericLevel,
     rankingLimit: LEVEL_CONFIGS.PLATINUM.rankingLimit,
-    price: 9.9,
+    price: 29.9,
     currency: 'USDT',
     features: LEVEL_CONFIGS.PLATINUM.features,
     minPayments: LEVEL_CONFIGS.PLATINUM.minPayments,
     duration: 1,
     color: LEVEL_CONFIGS.PLATINUM.color,
     icon: '/icons/platinum.svg',
+  },
+  {
+    id: 'diamond',
+    name: 'Diamond Plan',
+    level: 'DIAMOND',
+    numericLevel: LEVEL_CONFIGS.DIAMOND.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.DIAMOND.rankingLimit,
+    price: 99.9,
+    currency: 'USDT',
+    features: LEVEL_CONFIGS.DIAMOND.features,
+    minPayments: LEVEL_CONFIGS.DIAMOND.minPayments,
+    duration: 1,
+    color: LEVEL_CONFIGS.DIAMOND.color,
+    icon: '/icons/diamond.svg',
+  },
+  {
+    id: 'vip',
+    name: 'VIP Plan',
+    level: 'VIP',
+    numericLevel: LEVEL_CONFIGS.VIP.numericLevel,
+    rankingLimit: LEVEL_CONFIGS.VIP.rankingLimit,
+    price: 499.9,
+    currency: 'USDT',
+    features: LEVEL_CONFIGS.VIP.features,
+    minPayments: LEVEL_CONFIGS.VIP.minPayments,
+    duration: 1,
+    color: LEVEL_CONFIGS.VIP.color,
+    icon: '/icons/vip.svg',
   },
   // API Plans
   {
@@ -372,7 +422,7 @@ export const getUserLevel = (paymentCount: number): UserLevelType => {
     }
   }
   
-  return 'BASIC';
+  return 'BRONZE';
 };
 
 export const getPackageById = (id: string): Package | undefined => {
@@ -439,10 +489,12 @@ export type PaymentLoadingState =
 
 // User Level Benefits - Now derived from LEVEL_CONFIGS
 export const LEVEL_BENEFITS: Record<UserLevelType, readonly string[]> = {
-  BASIC: LEVEL_CONFIGS.BASIC.features,
+  BRONZE: LEVEL_CONFIGS.BRONZE.features,
   SILVER: LEVEL_CONFIGS.SILVER.features,
   GOLD: LEVEL_CONFIGS.GOLD.features,
   PLATINUM: LEVEL_CONFIGS.PLATINUM.features,
+  DIAMOND: LEVEL_CONFIGS.DIAMOND.features,
+  VIP: LEVEL_CONFIGS.VIP.features,
   API_PERSONAL: LEVEL_CONFIGS.API_PERSONAL.features,
   API_COMPANY: LEVEL_CONFIGS.API_COMPANY.features,
   API_PARTNER: LEVEL_CONFIGS.API_PARTNER.features,

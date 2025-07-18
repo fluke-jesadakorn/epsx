@@ -1,5 +1,5 @@
 export enum PaymentTier {
-  BASIC = 'BASIC',
+  BRONZE = 'BRONZE',
   SILVER = 'SILVER',
   GOLD = 'GOLD',
   PLATINUM = 'PLATINUM'

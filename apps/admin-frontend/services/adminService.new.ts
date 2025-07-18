@@ -1,4 +1,6 @@
 // Client-side admin service - makes API calls to server endpoints
+import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
+
 export interface AdminUser {
   uid: string;
   email: string;
@@ -7,6 +9,11 @@ export interface AdminUser {
   disabled: boolean;
   customClaims?: {
     role?: string;
+    userLevel?: UserLevel;
+    tokenBalance?: number;
+    maxTokens?: number;
+    levelAssignedBy?: string;
+    levelAssignedAt?: string;
     emailVerified?: boolean;
     permissions?: string[];
     createdAt?: number;
@@ -187,6 +194,67 @@ export class AdminService {
       return await response.json();
     } catch (error) {
       console.error('Failed to get user stats:', error);
+      throw error;
+    }
+  }
+
+  // Set user level
+  static async setUserLevel(uid: string, userLevel: UserLevel, reason?: string): Promise<void> {
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateUserLevel',
+          uid,
+          data: { userLevel, reason }
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update user level');
+      }
+    } catch (error) {
+      console.error(`Failed to set user level for user ${uid}:`, error);
+      throw error;
+    }
+  }
+
+  // Get user level history
+  static async getUserLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
+    try {
+      const response = await fetch(`/api/admin/users/${uid}/level-history`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch user level history');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Failed to get user level history for ${uid}:`, error);
+      throw error;
+    }
+  }
+
+  // Bulk update user levels
+  static async bulkUpdateUserLevels(updates: Array<{uid: string, userLevel: UserLevel, reason?: string}>): Promise<void> {
+    try {
+      const response = await fetch('/api/admin/users/bulk-update-levels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to bulk update user levels');
+      }
+    } catch (error) {
+      console.error('Failed to bulk update user levels:', error);
       throw error;
     }
   }

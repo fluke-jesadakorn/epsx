@@ -83,12 +83,12 @@ export function AnalyticsRankingDashboard() {
 
   const getLevelInfo = () => {
     const levels = {
-      BASIC: { color: 'bg-gray-500', name: 'Basic', maxRank: 5 },
+      BRONZE: { color: 'bg-amber-500', name: 'Bronze', maxRank: 5 },
       SILVER: { color: 'bg-gray-400', name: 'Silver', maxRank: 25 },
       GOLD: { color: 'bg-yellow-500', name: 'Gold', maxRank: 50 },
       PLATINUM: { color: 'bg-purple-500', name: 'Platinum', maxRank: 100 },
     };
-    return levels[userLevel as keyof typeof levels] || levels.BASIC;
+    return levels[userLevel as keyof typeof levels] || levels.BRONZE;
   };
 
   const levelInfo = getLevelInfo();

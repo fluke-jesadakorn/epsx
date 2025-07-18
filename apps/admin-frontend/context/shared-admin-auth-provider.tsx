@@ -1,10 +1,28 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { AdminAuthState, AdminAuthContextType } from '@epsx/auth';
-import { handleSignIn, handleSignOut } from '@epsx/auth/actions';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+
+// Local types for admin auth
+export interface AdminAuthState {
+  user: any | null;
+  loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  claims: any;
+  isInitialized: boolean;
+  isAdmin: boolean;
+}
+
+export interface AdminAuthContextType {
+  state: AdminAuthState;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  refreshToken: () => Promise<void>;
+  checkAdminStatus: () => Promise<boolean>;
+  clearError: () => void;
+}
 
 // Create the admin auth context
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -22,6 +40,8 @@ export function AppAdminAuthProvider({ children }: AppAdminAuthProviderProps) {
     user: null,
     loading: true,
     error: null,
+    isAuthenticated: false,
+    claims: null,
     isInitialized: false,
     isAdmin: false,
   });
@@ -47,14 +67,13 @@ export function AppAdminAuthProvider({ children }: AppAdminAuthProviderProps) {
       }
       
       // Create session using shared session management
-      const idToken = await user.getIdToken();
-      await handleSignIn(idToken);
-      
       updateState({
         user,
         loading: false,
         isAdmin: true,
         error: null,
+        isAuthenticated: true,
+        claims: await user.getIdTokenResult(),
       });
     } catch (error: any) {
       console.error('Admin sign in failed:', error);
@@ -66,16 +85,18 @@ export function AppAdminAuthProvider({ children }: AppAdminAuthProviderProps) {
     }
   }, [updateState]);
 
-  const signOutAdmin = useCallback(async () => {
+    const signOutAdmin = useCallback(async () => {
     try {
       updateState({ loading: true, error: null });
       await firebaseSignOut(auth);
-      await handleSignOut();
+      
       updateState({
         user: null,
         loading: false,
         isAdmin: false,
         error: null,
+        isAuthenticated: false,
+        claims: null,
       });
     } catch (error: any) {
       console.error('Sign out failed:', error);
@@ -83,6 +104,7 @@ export function AppAdminAuthProvider({ children }: AppAdminAuthProviderProps) {
         loading: false,
         error: error.message || 'Sign out failed',
       });
+      throw error;
     }
   }, [updateState]);
 
@@ -102,9 +124,16 @@ export function AppAdminAuthProvider({ children }: AppAdminAuthProviderProps) {
   }, [updateState]);
 
   const contextValue: AdminAuthContextType = {
-    ...state,
+    state,
     signIn,
     signOut: signOutAdmin,
+    refreshToken: async () => {
+      // Implement refresh token logic if needed
+      const user = auth.currentUser;
+      if (user) {
+        await user.getIdToken(true);
+      }
+    },
     checkAdminStatus,
     clearError,
   };

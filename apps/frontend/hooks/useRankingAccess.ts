@@ -19,17 +19,17 @@ interface RankingAccess {
 export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
   const { user } = useAuth();
   // const { getApiLimits } = useFeatureAccess(); // For future subscription integration
-  const [userLevel, setUserLevel] = useState<UserLevelType>('BASIC');
+  const [userLevel, setUserLevel] = useState<UserLevelType>('BRONZE');
   const [isExpired, setIsExpired] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserAccess = async () => {
       if (!user) {
-        setUserLevel('BASIC');
+        setUserLevel('BRONZE');
         setIsExpired(true);
         setIsLoading(false);
-        updateUserAccessCookies('BASIC', true);
+        updateUserAccessCookies('BRONZE', true);
         return;
       }
 
@@ -37,7 +37,7 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
         // For now, use legacy payment system since Firebase User doesn't have subscription
         // TODO: Integrate subscription data from user profile/database
         const paymentStatus = await status();
-        const level = (paymentStatus.level as UserLevelType) || 'BASIC';
+        const level = (paymentStatus.level as UserLevelType) || 'BRONZE';
         const expired = paymentStatus.expire
           ? new Date() > paymentStatus.expire
           : !paymentStatus.paid;
@@ -47,9 +47,9 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
         updateUserAccessCookies(level, expired);
       } catch (error) {
         console.error('Failed to fetch user access:', error);
-        setUserLevel('BASIC');
+        setUserLevel('BRONZE');
         setIsExpired(true);
-        updateUserAccessCookies('BASIC', true);
+        updateUserAccessCookies('BRONZE', true);
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +65,7 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
   // Legacy system limits (currently used)
   const rankingLimit = getRankingLimitByLevel(userLevel);
   const legacyMaxRankings = isExpired
-    ? getRankingLimitByLevel('BASIC')
+    ? getRankingLimitByLevel('BRONZE')
     : rankingLimit;
 
   // Use legacy system until subscription integration is complete
@@ -77,6 +77,6 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
     isExpired,
     isLoading,
     canViewRanking: (index: number) => index < finalMaxRankings,
-    upgradeRequired: isExpired || userLevel === 'BASIC',
+    upgradeRequired: isExpired || userLevel === 'BRONZE',
   };
 }

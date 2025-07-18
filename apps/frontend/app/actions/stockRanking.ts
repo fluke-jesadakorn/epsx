@@ -25,7 +25,7 @@ export async function fetchStockRankingData(
  * Respects user subscription level for ranking limits
  */
 export async function fetchStockRankingDataForUser(
-  userLevel: UserLevelType = 'BASIC',
+  userLevel: UserLevelType = 'BRONZE',
   isExpired: boolean = true,
   skip = 0,
   country?: any,
@@ -35,7 +35,7 @@ export async function fetchStockRankingDataForUser(
   const maxLimit = isExpired ? 5 : (currentPackage?.rankingLimit || 5);
   
   // Always fetch a bit more for premium users to show locked items
-  const fetchLimit = userLevel === 'BASIC' ? maxLimit : Math.min(maxLimit + 10, 100);
+  const fetchLimit = userLevel === 'BRONZE' ? maxLimit : Math.min(maxLimit + 10, 100);
   
   return getStockFinancialData(skip, fetchLimit, country, quarters);
 }

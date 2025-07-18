@@ -4,7 +4,7 @@ import type { UserLevelType } from '@/app/constants/packages';
 
 export function validateRankingAccess(
   request: NextRequest,
-  userLevel: UserLevelType = 'BASIC',
+  userLevel: UserLevelType = 'BRONZE',
   isExpired: boolean = true
 ) {
   const url = new URL(request.url);

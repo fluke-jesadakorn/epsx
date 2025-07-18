@@ -28,20 +28,24 @@ interface UserStatus {
 }
 
 const levelIcons = {
-  BASIC: <Star className="h-6 w-6" />,
+  BRONZE: <Star className="h-6 w-6" />,
   SILVER: <Trophy className="h-6 w-6" />,
   GOLD: <Crown className="h-6 w-6" />,
   PLATINUM: <Gem className="h-6 w-6" />,
+  DIAMOND: <Zap className="h-6 w-6" />,
+  VIP: <Crown className="h-6 w-6" />,
   API_PERSONAL: <Zap className="h-6 w-6" />,
   API_COMPANY: <Zap className="h-6 w-6" />,
   API_PARTNER: <Zap className="h-6 w-6" />,
 };
 
 const levelGradients = {
-  BASIC: 'from-gray-400 to-gray-600',
+  BRONZE: 'from-amber-400 to-amber-600',
   SILVER: 'from-slate-400 to-slate-600',
   GOLD: 'from-yellow-400 to-orange-500',
   PLATINUM: 'from-purple-500 to-pink-600',
+  DIAMOND: 'from-blue-500 to-cyan-600',
+  VIP: 'from-red-500 to-pink-600',
   API_PERSONAL: 'from-indigo-500 to-blue-600',
   API_COMPANY: 'from-blue-600 to-cyan-600',
   API_PARTNER: 'from-purple-600 to-indigo-700',
@@ -73,7 +77,7 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
       } catch (error) {
         console.error('Failed to fetch user status:', error);
         setUserStatus({
-          level: 'BASIC',
+          level: 'BRONZE',
           paymentCount: 0,
           isExpired: true,
         });
@@ -125,7 +129,7 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
     );
   }
 
-  const currentLevel = userStatus?.level || 'BASIC';
+  const currentLevel = userStatus?.level || 'BRONZE';
   const currentPackage = getPackageByLevel(currentLevel);
   const nextLevelOptions = PACKAGES.filter(
     (pkg) =>

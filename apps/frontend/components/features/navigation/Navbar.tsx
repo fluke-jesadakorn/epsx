@@ -20,9 +20,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
 } from '@/components/ui/navigation-menu';
 import {
   Sheet,
@@ -75,7 +72,17 @@ function NavbarComponent() {
             </Link>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-            <ThemeToggle />
+            {/* Render a placeholder button with same structure to prevent layout shift */}
+            <Button
+              variant="ghost"
+              disabled
+              className="flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+            >
+              <span className="block relative">
+                <Settings className="h-4 w-4" />
+              </span>
+              <span className="mt-1">Theme</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -92,27 +99,6 @@ function NavbarComponent() {
       console.error('Error signing out:', error);
     }
   };
-
-  const renderNavItem = (
-    item: ReturnType<typeof navigationService.getNavItems>[0],
-  ) => (
-    <NavigationMenuItem key={item.key}>
-      <NavigationMenuLink
-        asChild
-        href={item.href}
-        className={`${
-          pathname === item.href
-            ? 'bg-primary/10 text-primary'
-            : 'text-muted-foreground hover:text-primary'
-        }`}
-      >
-        <Link href={item.href} className="flex flex-col items-center gap-1">
-          {iconMap[item.key as keyof typeof iconMap]}
-          <span className="mt-1">{item.label}</span>
-        </Link>
-      </NavigationMenuLink>
-    </NavigationMenuItem>
-  );
 
   return (
     <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">

@@ -28,7 +28,16 @@ export default function ThemeToggle() {
   }, [resolvedTheme, setDarkMode]);
 
   if (!mounted) {
-    return null;
+    return (
+      <button
+        disabled
+        className="w-16 h-8 rounded-full bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 transition-all duration-300 relative z-50 shadow-lg hover:shadow-xl hover:scale-105 pancake-shadow"
+      >
+        <div className="absolute top-0.5 left-0.5 w-7 h-7 rounded-full bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 transform translate-x-0 flex items-center justify-center group">
+          <Sun className="h-4 w-4 text-pancake-primary group-hover:animate-wiggle" />
+        </div>
+      </button>
+    );
   }
 
   return (
@@ -56,9 +65,7 @@ export default function ThemeToggle() {
           </button>
         </TooltipTrigger>
         <TooltipContent className="z-100 bg-card border border-border text-foreground">
-          <p>
-            {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          </p>
+          <p>Toggle theme</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

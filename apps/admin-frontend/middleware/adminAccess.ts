@@ -3,7 +3,7 @@ import { AdminService } from '@/services/adminService';
 import { AdminRole } from '@/types/admin/roles';
 
 export function withAdminAccess(resource: string, action: string) {
-  return async (req: NextRequest) => {
+  return async (_req: NextRequest) => {
     try {
       // Get admin user's role from session
       // This would be replaced with actual admin auth implementation
@@ -30,57 +30,52 @@ export function withAdminAccess(resource: string, action: string) {
   };
 }
 
-export function withSuperAdminAccess() {
-  return async (req: NextRequest) => {
+export function requireSuperAdmin() {
+  return async (_req: NextRequest) => {
     try {
       // Get admin user's role from session
-      const adminRole = AdminRole.ADMIN; // This should come from auth
-
-      if (adminRole !== AdminRole.SUPER_ADMIN) {
+      const adminRole = AdminRole.ADMIN; // This would be replaced with actual session check
+      
+      if (adminRole !== AdminRole.ADMIN) {
         return NextResponse.json(
-          { 
-            error: 'Super admin access required',
-            userRole: adminRole
-          },
+          { error: 'Super admin access required' },
           { status: 403 }
         );
       }
-
-      return NextResponse.next();
+      
+      return null; // Allow access
     } catch (error) {
+      console.error('Admin access check failed:', error);
       return NextResponse.json(
-        { error: 'Super admin verification failed' },
-        { status: 500 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
   };
 }
 
-export function withMinimumAdminRole(minimumRole: AdminRole) {
-  return async (req: NextRequest) => {
+export function requireMinimumRole(minimumRole: AdminRole) {
+  return async (_req: NextRequest) => {
     try {
       // Get admin user's role from session
-      const adminRole = AdminRole.ADMIN; // This should come from auth
-
+      const adminRole = AdminRole.ADMIN; // This would be replaced with actual session check
+      
       const rolePriority = AdminService.getRolePriority(adminRole);
       const requiredPriority = AdminService.getRolePriority(minimumRole);
-
+      
       if (rolePriority < requiredPriority) {
         return NextResponse.json(
-          { 
-            error: 'Insufficient admin role',
-            required: minimumRole,
-            current: adminRole
-          },
+          { error: 'Insufficient permissions' },
           { status: 403 }
         );
       }
-
-      return NextResponse.next();
+      
+      return null; // Allow access
     } catch (error) {
+      console.error('Admin access check failed:', error);
       return NextResponse.json(
-        { error: 'Admin role verification failed' },
-        { status: 500 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
   };

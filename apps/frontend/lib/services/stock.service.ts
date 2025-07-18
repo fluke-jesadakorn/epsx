@@ -5,10 +5,18 @@ import { transformFinancialDataWithCurrentPrice } from '@/utils/processStocks/st
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../../../types/marketCountries';
 import { StockDataCache } from '@/utils/cache/stockDataCache';
+import fetchScreenerStock from '@/utils/processStocks/fetchRankScreenedStock';
 
 // Server-side cache to store data temporarily
 let serverCache: {
   data: StockFinancialData[];
+  timestamp: number;
+  ttl: number;
+} | null = null;
+
+// Count cache for pagination
+let countCache: {
+  count: number;
   timestamp: number;
   ttl: number;
 } | null = null;
@@ -62,5 +70,40 @@ export async function getStockFinancialData(
       return serverCache.data;
     }
     return [];
+  }
+}
+
+/**
+ * Get total count of stocks for pagination
+ */
+export async function getStockFinancialDataCount(
+  country: typeof MarketCountry = MarketCountry,
+  quarters = 2,
+): Promise<number> {
+  try {
+    // Check count cache first
+    const now = Date.now();
+    if (countCache && now - countCache.timestamp < countCache.ttl * 1000) {
+      return countCache.count;
+    }
+
+    // For simplicity, we'll fetch a large number to get the total count
+    // In production, you might want to implement a dedicated count endpoint
+    const stockData = await fetchScreenerStock(0, 1000, country);
+    
+    const count = stockData?.data?.length || 0;
+
+    // Cache the count
+    countCache = {
+      count,
+      timestamp: now,
+      ttl: CACHE_TTL,
+    };
+
+    return count;
+  } catch (error) {
+    console.error('Error getting stock count:', error);
+    // Return cached count if available, or fallback to 0
+    return countCache?.count || 0;
   }
 }

@@ -70,7 +70,7 @@ export const createPaymentService = () => {
         console.warn('User not authenticated yet, returning default status');
         return {
           paid: false,
-          userLevel: 'BASIC',
+          userLevel: 'BRONZE',
           isNewUser: true,
         };
       }
@@ -79,7 +79,7 @@ export const createPaymentService = () => {
       if (!userDoc.exists()) {
         return {
           paid: false,
-          userLevel: 'BASIC',
+          userLevel: 'BRONZE',
           isNewUser: true,
         };
       }
@@ -91,7 +91,7 @@ export const createPaymentService = () => {
         paid: hasPaid,
         lastPayDate: userData.paymentStatus?.lastPaymentDate?.toDate(),
         expireDate: userData.paymentStatus?.expirationDate?.toDate(),
-        userLevel: userData.userLevel || 'BASIC',
+        userLevel: userData.userLevel || 'BRONZE',
         isNewUser: !hasPaid,
       };
     } catch (error) {

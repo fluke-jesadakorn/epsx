@@ -31,20 +31,24 @@ interface LevelBenefitsComparisonProps {
   className?: string;
 }
 
-type MainLevelType = 'BASIC' | 'SILVER' | 'GOLD' | 'PLATINUM';
+type MainLevelType = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND' | 'VIP';
 
 const levelIcons: Record<MainLevelType, React.ReactNode> = {
-  BASIC: <Star className="h-5 w-5" />,
+  BRONZE: <Star className="h-5 w-5" />,
   SILVER: <Trophy className="h-5 w-5" />,
   GOLD: <Crown className="h-5 w-5" />,
   PLATINUM: <Gem className="h-5 w-5" />,
+  DIAMOND: <Zap className="h-5 w-5" />,
+  VIP: <Crown className="h-5 w-5" />,
 };
 
 const levelGradients: Record<MainLevelType, string> = {
-  BASIC: 'from-gray-400 to-gray-600',
+  BRONZE: 'from-amber-400 to-amber-600',
   SILVER: 'from-slate-400 to-slate-600',
   GOLD: 'from-yellow-400 to-orange-500',
   PLATINUM: 'from-purple-500 to-pink-600',
+  DIAMOND: 'from-blue-500 to-cyan-600',
+  VIP: 'from-red-500 to-pink-600',
 };
 
 
@@ -58,7 +62,7 @@ export function LevelBenefitsComparison({
 
   // Filter to main subscription levels
   const mainLevels = PACKAGES.filter((pkg) =>
-    ['BASIC', 'SILVER', 'GOLD', 'PLATINUM'].includes(pkg.level),
+    ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP'].includes(pkg.level),
   );
 
   const getCurrentLevelNumeric = () => {
@@ -76,24 +80,34 @@ export function LevelBenefitsComparison({
       bgColor: 'bg-green-50 dark:bg-green-950/30',
       benefits: [
         {
-          name: 'Basic Data Screening',
-          description: 'Access to fundamental data screening tools and basic filters',
-          levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
+          name: 'Basic Export Options',
+          description: 'Export data in CSV and Excel formats',
+          levels: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
-          name: 'Advanced Analytics',
-          description: 'In-depth data analysis with advanced charting and technical indicators',
-          levels: ['SILVER', 'GOLD', 'PLATINUM']
+          name: 'Advanced Export Features',
+          description: 'Export with custom filters, automated reports, and scheduling',
+          levels: ['SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
-          name: 'Real-time Data',
-          description: 'Live data feeds and real-time updates',
-          levels: ['GOLD', 'PLATINUM']
+          name: 'API Access',
+          description: 'Direct API access for custom integrations',
+          levels: ['GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
-          name: 'AI-Powered Insights',
-          description: 'Machine learning-based predictions and data sentiment analysis',
-          levels: ['PLATINUM']
+          name: 'Bulk Data Operations',
+          description: 'Handle large datasets with bulk processing capabilities',
+          levels: ['PLATINUM', 'DIAMOND', 'VIP']
+        },
+        {
+          name: 'Real-time Streaming',
+          description: 'Live data streaming for real-time applications',
+          levels: ['DIAMOND', 'VIP']
+        },
+        {
+          name: 'Custom Data Sources',
+          description: 'Connect and integrate your own data sources',
+          levels: ['VIP']
         }
       ]
     },
@@ -105,7 +119,7 @@ export function LevelBenefitsComparison({
         {
           name: 'Historical Data (1 Year)',
           description: 'Access to 12 months of historical entity data and trends',
-          levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
+          levels: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Extended Historical Data (5 Years)',
@@ -132,22 +146,32 @@ export function LevelBenefitsComparison({
         {
           name: 'Basic Performance Tracking',
           description: 'Track your analytics with basic performance management tools',
-          levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
+          levels: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
           name: 'Advanced Performance Analytics',
           description: 'Detailed performance metrics, risk analysis, and optimization suggestions',
-          levels: ['SILVER', 'GOLD', 'PLATINUM']
+          levels: ['SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
           name: 'Custom Alerts & Notifications',
           description: 'Set personalized value alerts and data event notifications',
-          levels: ['GOLD', 'PLATINUM']
+          levels: ['GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
           name: 'Backtesting Platform',
           description: 'Test your analysis strategies against historical data',
-          levels: ['PLATINUM']
+          levels: ['PLATINUM', 'DIAMOND', 'VIP']
+        },
+        {
+          name: 'AI-Powered Optimization',
+          description: 'Machine learning-based strategy optimization and recommendations',
+          levels: ['DIAMOND', 'VIP']
+        },
+        {
+          name: 'Custom Dashboard Builder',
+          description: 'Build personalized dashboards with drag-and-drop interface',
+          levels: ['VIP']
         }
       ]
     },
@@ -159,22 +183,27 @@ export function LevelBenefitsComparison({
         {
           name: 'Community Access',
           description: 'Join our analyst community forums and discussion groups',
-          levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
+          levels: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
           name: 'Priority Support',
           description: 'Get faster response times and dedicated customer support',
-          levels: ['SILVER', 'GOLD', 'PLATINUM']
+          levels: ['SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
         },
         {
           name: 'Expert Webinars',
           description: 'Access to monthly webinars with data experts and analysts',
-          levels: ['GOLD', 'PLATINUM']
+          levels: ['GOLD', 'PLATINUM', 'DIAMOND', 'VIP']
+        },
+        {
+          name: '24/7 Support',
+          description: 'Round-the-clock support with guaranteed response times',
+          levels: ['DIAMOND', 'VIP']
         },
         {
           name: 'Personal Account Manager',
           description: 'Dedicated account manager for personalized data guidance',
-          levels: ['PLATINUM']
+          levels: ['VIP']
         }
       ]
     }
@@ -196,6 +225,8 @@ export function LevelBenefitsComparison({
     if (currentLevelNumeric === 0) return 'SILVER';
     if (currentLevelNumeric === 1) return 'GOLD';
     if (currentLevelNumeric === 2) return 'PLATINUM';
+    if (currentLevelNumeric === 3) return 'DIAMOND';
+    if (currentLevelNumeric === 4) return 'VIP';
     return null;
   };
 

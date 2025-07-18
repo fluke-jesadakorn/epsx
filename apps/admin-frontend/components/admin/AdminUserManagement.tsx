@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { AdminService, type AdminUser } from '@/services/adminService';
+import { UserLevel, USER_LEVEL_CONFIGS } from '@/types/admin/userLevels';
 import { 
   Users, 
   Search, 
   CheckCircle, 
   AlertTriangle,
   UserX,
-  RefreshCw
+  RefreshCw,
+  Crown,
+  History,
+  Star
 } from 'lucide-react';
 
 export function AdminUserManagement() {
@@ -19,6 +23,14 @@ export function AdminUserManagement() {
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // User level assignment state
+  const [showLevelModal, setShowLevelModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<UserLevel>(UserLevel.BRONZE);
+  const [levelReason, setLevelReason] = useState('');
+  const [showLevelHistory, setShowLevelHistory] = useState(false);
+  const [levelHistory, setLevelHistory] = useState<any[]>([]);
 
   useEffect(() => {
     loadUsers();
@@ -92,6 +104,51 @@ export function AdminUserManagement() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  // User level assignment functions
+  const handleLevelChange = async (uid: string, newLevel: UserLevel, reason?: string) => {
+    try {
+      setActionLoading(uid);
+      await AdminService.setUserLevel(uid, newLevel, reason);
+      await loadUsers(); // Refresh the list
+      setShowLevelModal(false);
+      setLevelReason('');
+    } catch (err: any) {
+      console.error('Failed to change user level:', err);
+      alert('Failed to change user level: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openLevelModal = (user: AdminUser) => {
+    setSelectedUser(user);
+    setSelectedLevel(user.customClaims?.userLevel || UserLevel.BRONZE);
+    setShowLevelModal(true);
+  };
+
+  const handleShowLevelHistory = async (uid: string) => {
+    try {
+      const history = await AdminService.getUserLevelHistory(uid);
+      setLevelHistory(history);
+      setShowLevelHistory(true);
+    } catch (err: any) {
+      console.error('Failed to fetch level history:', err);
+      alert('Failed to fetch level history: ' + err.message);
+    }
+  };
+
+  const getUserLevelBadge = (user: AdminUser) => {
+    const userLevel = user.customClaims?.userLevel || UserLevel.BRONZE;
+    const config = USER_LEVEL_CONFIGS[userLevel];
+    
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+        <Crown className="h-3 w-3 mr-1" />
+        {config.name}
+      </span>
+    );
   };
 
   // Filter users based on search and filters
@@ -224,6 +281,9 @@ export function AdminUserManagement() {
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  User Level
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -267,6 +327,27 @@ export function AdminUserManagement() {
                       <option value="USER">User</option>
                       <option value="ADMIN">Admin</option>
                     </select>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      {getUserLevelBadge(user)}
+                      <button
+                        onClick={() => openLevelModal(user)}
+                        disabled={actionLoading === user.uid}
+                        className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        title="Assign Level"
+                      >
+                        <Star className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleShowLevelHistory(user.uid)}
+                        disabled={actionLoading === user.uid}
+                        className="text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                        title="View History"
+                      >
+                        <History className="h-3 w-3" />
+                      </button>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
@@ -340,6 +421,117 @@ export function AdminUserManagement() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Try adjusting your search or filter criteria.
           </p>
+        </div>
+      )}
+
+      {/* User Level Assignment Modal */}
+      {showLevelModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Assign User Level</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">User</label>
+                <p className="text-sm text-gray-600">{selectedUser.email}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Select Level</label>
+                <select
+                  value={selectedLevel}
+                  onChange={(e) => setSelectedLevel(e.target.value as UserLevel)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  {Object.values(UserLevel).map((level) => {
+                    const config = USER_LEVEL_CONFIGS[level];
+                    return (
+                      <option key={level} value={level}>
+                        {config.name} - {config.description}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Level Details</label>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>Token Multiplier: {USER_LEVEL_CONFIGS[selectedLevel].tokenMultiplier}x</p>
+                  <p>Max Tokens: {USER_LEVEL_CONFIGS[selectedLevel].maxTokens === -1 ? 'Unlimited' : USER_LEVEL_CONFIGS[selectedLevel].maxTokens}</p>
+                  <p>Benefits: {USER_LEVEL_CONFIGS[selectedLevel].benefits.join(', ')}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason (Optional)</label>
+                <textarea
+                  value={levelReason}
+                  onChange={(e) => setLevelReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  rows={3}
+                  placeholder="Enter reason for level change..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowLevelModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleLevelChange(selectedUser.uid, selectedLevel, levelReason)}
+                disabled={actionLoading === selectedUser.uid}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                Assign Level
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Level History Modal */}
+      {showLevelHistory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+            <h3 className="text-lg font-semibold mb-4">User Level History</h3>
+            
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {levelHistory.map((entry, index) => (
+                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].color}`}>
+                      {USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].name}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {new Date(entry.assignedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Assigned by: {entry.assignedBy}
+                  </p>
+                  {entry.reason && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Reason: {entry.reason}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowLevelHistory(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

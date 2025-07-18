@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         level: accessValidation.userLevel,
         maxAllowed: accessValidation.maxAllowed,
         wasLimited: accessValidation.wasLimited,
-        upgradeAvailable: accessValidation.userLevel === 'BASIC' || accessValidation.isExpired
+        upgradeAvailable: accessValidation.userLevel === 'BRONZE' || accessValidation.isExpired
       }
     });
   } catch (error) {

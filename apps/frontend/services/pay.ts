@@ -39,23 +39,23 @@ export async function confirm(_txId: string, _method: string, _level: string) {
 export async function status() {
   try {
     const user = auth.currentUser;
-    if (!user) return { paid: false, level: 'BASIC' };
+    if (!user) return { paid: false, level: 'BRONZE' };
     
     const snap = await getDoc(doc(db, 'users', user.uid));
     if (!snap.exists()) {
-      return { paid: false, level: 'BASIC', isNew: true };
+      return { paid: false, level: 'BRONZE', isNew: true };
     }
     
     const data = snap.data();
     return {
       paid: data?.paymentStatus?.hasPaid || false,
-      level: data?.userLevel || 'BASIC',
+      level: data?.userLevel || 'BRONZE',
       expire: data?.paymentStatus?.expirationDate?.toDate(),
       lastPay: data?.paymentStatus?.lastPaymentDate?.toDate()
     };
   } catch (error) {
     console.error('Status error:', error);
-    return { paid: false, level: 'BASIC' };
+    return { paid: false, level: 'BRONZE' };
   }
 }
 

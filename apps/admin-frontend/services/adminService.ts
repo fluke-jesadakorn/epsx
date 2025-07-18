@@ -1,4 +1,6 @@
 // Client-side admin service - makes API calls to server endpoints
+import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
+
 export interface AdminUser {
   uid: string;
   email: string;
@@ -7,6 +9,11 @@ export interface AdminUser {
   disabled: boolean;
   customClaims?: {
     role?: string;
+    userLevel?: UserLevel;
+    tokenBalance?: number;
+    maxTokens?: number;
+    levelAssignedBy?: string;
+    levelAssignedAt?: string;
     emailVerified?: boolean;
     permissions?: string[];
     createdAt?: number;
@@ -188,6 +195,139 @@ export class AdminService {
     } catch (error) {
       console.error('Failed to get user stats:', error);
       throw error;
+    }
+  }
+
+  // Set user level
+  static async setUserLevel(uid: string, userLevel: UserLevel, reason?: string): Promise<void> {
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateUserLevel',
+          uid,
+          data: { userLevel, reason }
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update user level');
+      }
+    } catch (error) {
+      console.error(`Failed to set user level for user ${uid}:`, error);
+      throw error;
+    }
+  }
+
+  // Get user level history
+  static async getUserLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
+    try {
+      const response = await fetch(`/api/admin/users/${uid}/level-history`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch user level history');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Failed to get user level history for ${uid}:`, error);
+      throw error;
+    }
+  }
+
+  // Bulk update user levels
+  static async bulkUpdateUserLevels(updates: Array<{uid: string, userLevel: UserLevel, reason?: string}>): Promise<any> {
+    try {
+      const response = await fetch('/api/admin/users/bulk-update-levels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to bulk update user levels');
+      }
+      
+      const result = await response.json();
+      
+      // Ensure the result has the expected structure
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response from server');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to bulk update user levels:', error);
+      throw error;
+    }
+  }
+
+  // Permission checking methods
+  static hasPermission(role: string, _resource: string, _action: string): boolean {
+    // Simple role-based permission check
+    if (role === 'ADMIN') {
+      return true; // Admins have all permissions
+    }
+    
+    // For other roles, implement specific permission logic
+    return false;
+  }
+
+  static canManageUsers(role: string): boolean {
+    return this.hasPermission(role, 'users', 'manage');
+  }
+
+  static canAssignUserLevels(role: string): boolean {
+    return this.hasPermission(role, 'users', 'assign_levels');
+  }
+
+  static canViewAnalytics(role: string): boolean {
+    return this.hasPermission(role, 'analytics', 'view');
+  }
+
+  static canViewPayments(role: string): boolean {
+    return this.hasPermission(role, 'payments', 'view');
+  }
+
+  static canManageSystem(role: string): boolean {
+    return this.hasPermission(role, 'system', 'manage');
+  }
+
+  static getAvailableActions(role: string, resource: string): string[] {
+    if (role === 'ADMIN') {
+      // Admins can do everything
+      switch (resource) {
+        case 'users':
+          return ['create', 'read', 'update', 'delete', 'assign_levels'];
+        case 'payments':
+          return ['read', 'refund', 'process'];
+        case 'system':
+          return ['configure', 'backup', 'restore'];
+        case 'analytics':
+          return ['view', 'export'];
+        default:
+          return [];
+      }
+    }
+    
+    // For other roles, return empty array or specific permissions
+    return [];
+  }
+
+  static getRolePriority(role: string): number {
+    switch (role) {
+      case 'ADMIN':
+        return 100;
+      case 'USER':
+        return 1;
+      default:
+        return 0;
     }
   }
 }

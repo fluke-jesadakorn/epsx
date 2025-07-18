@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAdmin } from '@/lib/firebase-admin';
+import { USER_LEVEL_CONFIGS, type UserLevel } from '@/types/admin/userLevels';
 
 // Interface for server-side operations
 interface AdminUser {
@@ -19,6 +20,11 @@ interface AdminUser {
 interface UserListResult {
   users: AdminUser[];
   pageToken?: string;
+}
+
+interface UpdateUserLevelData {
+  userLevel: UserLevel;
+  reason?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -75,6 +81,33 @@ export async function POST(request: NextRequest) {
           lastUpdated: Date.now(),
         };
         await auth.setCustomUserClaims(uid, updatedClaims);
+        return NextResponse.json({ success: true });
+
+      case 'updateUserLevel':
+        // Get current user claims
+        const currentUserForLevel = await auth.getUser(uid);
+        const currentClaims = currentUserForLevel.customClaims || {};
+        const levelData = data as UpdateUserLevelData;
+        const levelConfig = USER_LEVEL_CONFIGS[levelData.userLevel];
+        
+        const updatedClaimsForLevel = {
+          ...currentClaims,
+          userLevel: levelData.userLevel,
+          maxTokens: levelConfig.maxTokens,
+          levelAssignedBy: 'admin', // Should be the actual admin ID
+          levelAssignedAt: new Date().toISOString(),
+          lastUpdated: Date.now(),
+        };
+
+        await auth.setCustomUserClaims(uid, updatedClaimsForLevel);
+        
+        // Log the level assignment (you might want to store this in a database)
+        console.log(`User level updated: ${uid} -> ${levelData.userLevel}`, {
+          reason: levelData.reason,
+          assignedBy: 'admin',
+          assignedAt: new Date().toISOString()
+        });
+        
         return NextResponse.json({ success: true });
 
       case 'updateStatus':
