@@ -9,11 +9,16 @@ import { FeatureErrorBoundary } from './FeatureErrorBoundary';
 
 import type { TokenFeature } from '@/types/auth/features';
 import { useRouter } from 'next/navigation';
+// TODO: Enable when permission service is fully integrated
+// import { usePermission } from '@epsx/auth/permission-service';
 
 interface TokenGatedFeatureProps {
   feature: TokenFeature;
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  // New: Allow resource-based access control
+  resource?: string;
+  action?: string;
 }
 
 interface UpgradeCardProps {
@@ -22,6 +27,8 @@ interface UpgradeCardProps {
   requiredTokens: number;
   currentRole: UserRole;
   requiredRole: UserRole;
+  // New: Permission-based requirements
+  missingPermissions?: string[];
 }
 
 const UpgradeCard: React.FC<UpgradeCardProps> = ({
@@ -29,6 +36,7 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
   requiredTokens,
   currentRole,
   requiredRole,
+  missingPermissions = [],
 }) => {
   const router = useRouter();
   return (
@@ -42,6 +50,16 @@ const UpgradeCard: React.FC<UpgradeCardProps> = ({
           <div className="flex justify-between items-center">
             <span>Required Role:</span>
             <span className="font-medium">{requiredRole}</span>
+          </div>
+        )}
+        {missingPermissions.length > 0 && (
+          <div>
+            <span className="text-sm font-medium">Missing Permissions:</span>
+            <ul className="text-sm text-gray-600 dark:text-gray-300 ml-4">
+              {missingPermissions.map((permission, index) => (
+                <li key={index}>• {permission}</li>
+              ))}
+            </ul>
           </div>
         )}
         {currentTokens < requiredTokens && (
@@ -83,10 +101,18 @@ export const TokenGatedFeature: React.FC<TokenGatedFeatureProps> = ({
   feature,
   children,
   fallback,
+  // TODO: Enable when permission service is fully integrated
+  // resource,
+  // action,
 }) => {
   return (
     <FeatureErrorBoundary feature={feature} fallback={fallback}>
-      <TokenGatedContent feature={feature} fallback={fallback}>
+      <TokenGatedContent 
+        feature={feature} 
+        fallback={fallback}
+        // resource={resource}
+        // action={action}
+      >
         {children}
       </TokenGatedContent>
     </FeatureErrorBoundary>
@@ -97,11 +123,22 @@ const TokenGatedContent: React.FC<TokenGatedFeatureProps> = ({
   feature,
   children,
   fallback,
+  // TODO: Enable when permission service is fully integrated
+  // resource,
+  // action,
 }) => {
   const { checkFeatureAccess } = useFeatureAccess();
   const access = checkFeatureAccess(feature);
+  
+  // New: Check resource-based permissions if provided
+  // TODO: Enable when permission service is fully integrated
+  // const { hasPermission } = usePermission();
+  // const hasResourceAccess = resource && action ? hasPermission(resource, action) : true;
+  
+  // For now, use legacy access control
+  const hasResourceAccess = true;
 
-  if (access.hasAccess) {
+  if (access.hasAccess && hasResourceAccess) {
     return <>{children}</>;
   }
 
@@ -116,6 +153,7 @@ const TokenGatedContent: React.FC<TokenGatedFeatureProps> = ({
       requiredTokens={access.requiredTokens || 0}
       currentRole={access.currentRole}
       requiredRole={access.requiredRole || UserRole.USER}
+      missingPermissions={access.missingPermissions?.map(p => p.toString()) || []}
     />
   );
 };

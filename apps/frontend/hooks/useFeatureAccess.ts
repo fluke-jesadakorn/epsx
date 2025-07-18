@@ -6,6 +6,8 @@ import type { FeatureAccess, UpgradeRequirement, User } from '@/types/auth/featu
 import { UserRole } from '@/types/auth/roles';
 import { PaymentTier } from '@/types/payment/plans';
 import { PaymentService } from '@/services/paymentService';
+// TODO: Enable when permission service is fully integrated
+// import { usePermission } from '@epsx/auth/permission-service';
 
 export function useFeatureAccess() {
   const { user: firebaseUser } = useAuth();
@@ -16,7 +18,7 @@ export function useFeatureAccess() {
   const permissions = user?.permissions ?? [];
   
   // Get user's payment tier (new payment system)
-  const userTier = user?.subscription?.tier || PaymentTier.BASIC;
+  const userTier = user?.subscription?.tier || PaymentTier.BRONZE;
 
   const hasPaymentFeature = (feature: string): boolean => {
     return PaymentService.hasFeatureAccess(userTier, feature);

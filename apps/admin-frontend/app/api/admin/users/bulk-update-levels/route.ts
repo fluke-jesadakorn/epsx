@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebase-admin';
+import { getAuthAdmin, getFirestoreAdmin } from '@/lib/firebase-admin';
 import { USER_LEVEL_CONFIGS } from '@/types/admin/userLevels';
 
 export async function POST(request: NextRequest) {
   try {
     const auth = getAuthAdmin();
+    const db = getFirestoreAdmin();
     const body = await request.json();
     const { updates } = body;
 
@@ -38,19 +39,33 @@ export async function POST(request: NextRequest) {
           currentUser = await auth.getUser(uid);
         }
         
-        const currentClaims = currentUser.customClaims || {};
         const levelConfig = USER_LEVEL_CONFIGS[userLevel as keyof typeof USER_LEVEL_CONFIGS];
         
-        const updatedClaims = {
-          ...currentClaims,
+        // Update user level in Firestore instead of custom claims
+        const userDocRef = db.collection('users').doc(actualUid);
+        const userDoc = await userDocRef.get();
+        const existingData = userDoc.exists ? userDoc.data() : {};
+        
+        const userLevelData = {
+          ...existingData,
+          // User level information
           userLevel: userLevel,
-          maxTokens: levelConfig.maxTokens,
+          numericLevel: levelConfig.priority || 1,
+          
+          // Level assignment metadata
           levelAssignedBy: 'admin', // Should be the actual admin ID
           levelAssignedAt: new Date().toISOString(),
-          lastUpdated: Date.now(),
+          levelUpdateReason: reason || 'Bulk assignment',
+          
+          // Level configuration data
+          maxTokens: levelConfig.maxTokens,
+          tokenMultiplier: levelConfig.tokenMultiplier,
+          
+          // Update metadata
+          lastUpdated: new Date().toISOString(),
         };
 
-        await auth.setCustomUserClaims(actualUid, updatedClaims);
+        await userDocRef.set(userLevelData, { merge: true });
         
         results.push({ 
           uid: actualUid, 
@@ -64,7 +79,8 @@ export async function POST(request: NextRequest) {
         console.log(`Bulk user level updated: ${actualUid} (${currentUser.email}) -> ${userLevel}`, {
           reason: reason || 'Bulk assignment',
           assignedBy: 'admin',
-          assignedAt: new Date().toISOString()
+          assignedAt: new Date().toISOString(),
+          storage: 'firestore'
         });
         
       } catch (error: any) {

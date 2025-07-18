@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context-improved';
 import { status } from '@/services/pay';
-import { getRankingLimitByLevel } from '@/app/constants/packages';
+import { getRankingLimitByLevel, getNumericLevelByLevel } from '@/app/constants/packages';
 import { updateUserAccessCookies } from '@/middleware/userAccess';
 import type { UserLevelType } from '@/app/constants/packages';
-// import { useFeatureAccess } from './useFeatureAccess'; // For future subscription integration
+// TODO: Enable when permission service is fully integrated
+// import { useStockAnalyticsPermissions } from '@epsx/auth/permission-service';
 
 interface RankingAccess {
   maxRankings: number;
@@ -14,6 +15,13 @@ interface RankingAccess {
   isExpired: boolean;
   canViewRanking: (index: number) => boolean;
   upgradeRequired: boolean;
+  // New: Preserve level number for display even when expired
+  displayLevel: UserLevelType;
+  displayNumericLevel: number;
+  // New: Permission service integration
+  canAnalyze: boolean;
+  canExport: boolean;
+  canScreen: boolean;
 }
 
 export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
@@ -65,7 +73,7 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
   // Legacy system limits (currently used)
   const rankingLimit = getRankingLimitByLevel(userLevel);
   const legacyMaxRankings = isExpired
-    ? getRankingLimitByLevel('BRONZE')
+    ? getRankingLimitByLevel('BRONZE')  // Expired users get Bronze access
     : rankingLimit;
 
   // Use legacy system until subscription integration is complete
@@ -78,5 +86,12 @@ export function useRankingAccess(): RankingAccess & { isLoading: boolean } {
     isLoading,
     canViewRanking: (index: number) => index < finalMaxRankings,
     upgradeRequired: isExpired || userLevel === 'BRONZE',
+    // New: Preserve level number for display even when expired
+    displayLevel: userLevel,
+    displayNumericLevel: getNumericLevelByLevel(userLevel),
+    // New: Permission service integration (temporary implementation)
+    canAnalyze: userLevel !== 'BRONZE' && !isExpired,
+    canExport: (userLevel === 'GOLD' || userLevel === 'PLATINUM') && !isExpired,
+    canScreen: userLevel === 'PLATINUM' && !isExpired,
   };
 }

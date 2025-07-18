@@ -9,16 +9,21 @@ export interface AdminUser {
   disabled: boolean;
   customClaims?: {
     role?: string;
-    userLevel?: UserLevel;
     tokenBalance?: number;
-    maxTokens?: number;
-    levelAssignedBy?: string;
-    levelAssignedAt?: string;
     emailVerified?: boolean;
     permissions?: string[];
     createdAt?: number;
     lastUpdated?: number;
   };
+  // User level data from Firestore
+  userLevel?: UserLevel;
+  numericLevel?: number;
+  levelAssignedBy?: string;
+  levelAssignedAt?: string;
+  levelUpdateReason?: string;
+  maxTokens?: number;
+  tokenMultiplier?: number;
+  lastUpdated?: string;
   metadata: {
     creationTime?: string;
     lastSignInTime?: string;
@@ -328,6 +333,67 @@ export class AdminService {
         return 1;
       default:
         return 0;
+    }
+  }
+
+  // IAM Methods
+  static async listRoles(): Promise<{ roles: any[] }> {
+    try {
+      const response = await fetch('/api/admin/iam/roles', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch roles');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to list roles:', error);
+      throw error;
+    }
+  }
+
+  static async listPolicies(): Promise<{ policies: any[] }> {
+    try {
+      const response = await fetch('/api/admin/iam/policies', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch policies');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to list policies:', error);
+      throw error;
+    }
+  }
+
+  static async listGroups(): Promise<{ groups: any[] }> {
+    try {
+      const response = await fetch('/api/admin/iam/groups', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch groups');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to list groups:', error);
+      throw error;
     }
   }
 }

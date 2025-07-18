@@ -231,7 +231,8 @@ export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 sm:gap-3">
                 <h2 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-bold truncate bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent leading-tight">
-                  Level {currentPackage?.numericLevel || 0}
+                  Level {currentPackage?.numericLevel !== undefined ? currentPackage.numericLevel : 0}
+                  {userStatus?.isExpired && <span className="text-sm text-red-500 ml-2">(Expired)</span>}
                 </h2>
                 <Badge
                   variant="secondary"

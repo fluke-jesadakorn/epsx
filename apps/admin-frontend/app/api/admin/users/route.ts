@@ -1,65 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebase-admin';
+import { getAuthAdmin, getFirestoreAdmin } from '@/lib/firebase-admin';
 import { USER_LEVEL_CONFIGS, type UserLevel } from '@/types/admin/userLevels';
-
-// Interface for server-side operations
-interface AdminUser {
-  uid: string;
-  email: string;
-  emailVerified: boolean;
-  displayName?: string;
-  disabled: boolean;
-  customClaims?: any;
-  metadata: {
-    creationTime?: string;
-    lastSignInTime?: string;
-    lastRefreshTime?: string | null;
-  };
-}
-
-interface UserListResult {
-  users: AdminUser[];
-  pageToken?: string;
-}
+import { ensureUserLevelInFirestore } from '@/lib/userLevelFirestore';
 
 interface UpdateUserLevelData {
   userLevel: UserLevel;
   reason?: string;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const auth = getAuthAdmin();
-    const { searchParams } = new URL(request.url);
-    const maxResults = parseInt(searchParams.get('maxResults') || '100');
-    const pageToken = searchParams.get('pageToken') || undefined;
-
-    const result = await auth.listUsers(maxResults, pageToken);
+    const db = getFirestoreAdmin();
     
-    const users: AdminUser[] = result.users.map((userRecord) => ({
-      uid: userRecord.uid,
-      email: userRecord.email || '',
-      emailVerified: userRecord.emailVerified,
-      displayName: userRecord.displayName,
-      disabled: userRecord.disabled,
-      customClaims: userRecord.customClaims,
-      metadata: {
-        creationTime: userRecord.metadata.creationTime,
-        lastSignInTime: userRecord.metadata.lastSignInTime,
-        lastRefreshTime: userRecord.metadata.lastRefreshTime,
-      },
-    }));
-
-    const response: UserListResult = {
-      users,
-      pageToken: result.pageToken,
-    };
-
-    return NextResponse.json(response);
-  } catch (error: any) {
-    console.error('Failed to list users:', error);
+    // Get all users from Firebase Auth
+    const listUsersResult = await auth.listUsers();
+    const users = [];
+    
+    for (const userRecord of listUsersResult.users) {
+      try {
+        // Get user data from Firestore
+        const userDocRef = db.collection('users').doc(userRecord.uid);
+        const userDoc = await userDocRef.get();
+        
+        let firestoreData = userDoc.exists ? userDoc.data() : {};
+        
+        // If no user level in Firestore, create default entry
+        if (!firestoreData?.userLevel) {
+          const userData = await ensureUserLevelInFirestore(userRecord.uid);
+          firestoreData = { ...firestoreData, ...userData };
+        }
+        
+        // Merge Firebase Auth data with Firestore data
+        const userData = {
+          uid: userRecord.uid,
+          email: userRecord.email || '',
+          emailVerified: userRecord.emailVerified,
+          displayName: userRecord.displayName,
+          disabled: userRecord.disabled,
+          customClaims: userRecord.customClaims || {},
+          metadata: {
+            creationTime: userRecord.metadata.creationTime,
+            lastSignInTime: userRecord.metadata.lastSignInTime,
+            lastRefreshTime: userRecord.metadata.lastRefreshTime,
+          },
+          
+          // Firestore user level data
+          userLevel: firestoreData.userLevel || 'BRONZE',
+          numericLevel: firestoreData.numericLevel || 0,
+          levelAssignedBy: firestoreData.levelAssignedBy || 'system',
+          levelAssignedAt: firestoreData.levelAssignedAt || userRecord.metadata.creationTime,
+          levelUpdateReason: firestoreData.levelUpdateReason || 'Default assignment',
+          maxTokens: firestoreData.maxTokens || 1000,
+          tokenMultiplier: firestoreData.tokenMultiplier || 1,
+          lastUpdated: firestoreData.lastUpdated || userRecord.metadata.creationTime,
+        };
+        
+        users.push(userData);
+      } catch (error) {
+        console.error(`Failed to fetch Firestore data for user ${userRecord.uid}:`, error);
+        // Fallback to Firebase Auth data only
+        users.push({
+          uid: userRecord.uid,
+          email: userRecord.email || '',
+          emailVerified: userRecord.emailVerified,
+          displayName: userRecord.displayName,
+          disabled: userRecord.disabled,
+          customClaims: userRecord.customClaims || {},
+          metadata: {
+            creationTime: userRecord.metadata.creationTime,
+            lastSignInTime: userRecord.metadata.lastSignInTime,
+            lastRefreshTime: userRecord.metadata.lastRefreshTime,
+          },
+          userLevel: 'BRONZE',
+          numericLevel: 0,
+        });
+      }
+    }
+    
+    return NextResponse.json({ users });
+  } catch (error) {
+    console.error('Failed to fetch users:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch users' },
+      { error: 'Failed to fetch users' },
       { status: 500 }
     );
   }
@@ -84,28 +107,43 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
 
       case 'updateUserLevel':
-        // Get current user claims
-        const currentUserForLevel = await auth.getUser(uid);
-        const currentClaims = currentUserForLevel.customClaims || {};
+        // Get level data
         const levelData = data as UpdateUserLevelData;
         const levelConfig = USER_LEVEL_CONFIGS[levelData.userLevel];
         
-        const updatedClaimsForLevel = {
-          ...currentClaims,
+        // Update user level in Firestore instead of custom claims
+        const db = getFirestoreAdmin();
+        const userDocRef = db.collection('users').doc(uid);
+        const userDoc = await userDocRef.get();
+        const existingData = userDoc.exists ? userDoc.data() : {};
+        
+        const userLevelData = {
+          ...existingData,
+          // User level information
           userLevel: levelData.userLevel,
-          maxTokens: levelConfig.maxTokens,
+          numericLevel: levelConfig.priority || 1,
+          
+          // Level assignment metadata
           levelAssignedBy: 'admin', // Should be the actual admin ID
           levelAssignedAt: new Date().toISOString(),
-          lastUpdated: Date.now(),
+          levelUpdateReason: levelData.reason || 'Individual assignment',
+          
+          // Level configuration data
+          maxTokens: levelConfig.maxTokens,
+          tokenMultiplier: levelConfig.tokenMultiplier,
+          
+          // Update metadata
+          lastUpdated: new Date().toISOString(),
         };
 
-        await auth.setCustomUserClaims(uid, updatedClaimsForLevel);
+        await userDocRef.set(userLevelData, { merge: true });
         
-        // Log the level assignment (you might want to store this in a database)
+        // Log the level assignment
         console.log(`User level updated: ${uid} -> ${levelData.userLevel}`, {
           reason: levelData.reason,
           assignedBy: 'admin',
-          assignedAt: new Date().toISOString()
+          assignedAt: new Date().toISOString(),
+          storage: 'firestore'
         });
         
         return NextResponse.json({ success: true });

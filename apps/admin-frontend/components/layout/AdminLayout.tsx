@@ -45,6 +45,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'User Management', href: '/users', icon: Users },
+    { name: 'IAM & Permissions', href: '/iam', icon: Shield },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];

@@ -124,7 +124,7 @@ export function AdminUserManagement() {
 
   const openLevelModal = (user: AdminUser) => {
     setSelectedUser(user);
-    setSelectedLevel(user.customClaims?.userLevel || UserLevel.BRONZE);
+    setSelectedLevel(user.userLevel || UserLevel.BRONZE);
     setShowLevelModal(true);
   };
 
@@ -140,7 +140,7 @@ export function AdminUserManagement() {
   };
 
   const getUserLevelBadge = (user: AdminUser) => {
-    const userLevel = user.customClaims?.userLevel || UserLevel.BRONZE;
+    const userLevel = user.userLevel || UserLevel.BRONZE;
     const config = USER_LEVEL_CONFIGS[userLevel];
     
     return (

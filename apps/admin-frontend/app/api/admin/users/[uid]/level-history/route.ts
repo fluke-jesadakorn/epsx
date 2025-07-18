@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebase-admin';
+import { getAuthAdmin, getFirestoreAdmin } from '@/lib/firebase-admin';
 
 export async function GET(
   _request: NextRequest,
@@ -8,19 +8,39 @@ export async function GET(
   try {
     const { uid } = params;
     
-    // In a real implementation, you would fetch from a database
-    // For now, we'll return mock data based on the user's current level
-    const auth = getAuthAdmin();
-    const user = await auth.getUser(uid);
-    const currentLevel = user.customClaims?.userLevel || 'BRONZE';
+    // Get user data from Firestore
+    const db = getFirestoreAdmin();
+    const userDocRef = db.collection('users').doc(uid);
+    const userDoc = await userDocRef.get();
+    
+    if (!userDoc.exists) {
+      // Fallback to Firebase Auth data if no Firestore document
+      const auth = getAuthAdmin();
+      const user = await auth.getUser(uid);
+      
+      const history = [
+        {
+          uid,
+          userLevel: 'BRONZE',
+          assignedBy: 'system',
+          assignedAt: new Date(user.metadata.creationTime),
+          reason: 'Default level',
+          previousLevel: null
+        }
+      ];
+      return NextResponse.json(history);
+    }
+    
+    const userData = userDoc.data();
+    const currentLevel = userData?.userLevel || 'BRONZE';
     
     const history = [
       {
         uid,
         userLevel: currentLevel,
-        assignedBy: user.customClaims?.levelAssignedBy || 'system',
-        assignedAt: new Date(user.customClaims?.levelAssignedAt || user.metadata.creationTime || Date.now()),
-        reason: 'Current level',
+        assignedBy: userData?.levelAssignedBy || 'system',
+        assignedAt: new Date(userData?.levelAssignedAt || userData?.lastUpdated || Date.now()),
+        reason: userData?.levelUpdateReason || 'Current level',
         previousLevel: null
       }
     ];
