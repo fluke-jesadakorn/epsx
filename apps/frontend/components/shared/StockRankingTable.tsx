@@ -19,8 +19,8 @@ interface StockRankingTableProps {
  */
 export default function StockRankingTable({
   data,
-  title = "🍯 Sweet Financial Rankings 📊",
-  subtitle = "Discover the most delicious investment opportunities with our comprehensive analytics",
+  title = "🍯 Sweet Performance Rankings 📊",
+  subtitle = "Discover the most delicious data insights with our comprehensive analytics",
   showRank = true,
   rankShift = 0,
 }: StockRankingTableProps): React.JSX.Element {

@@ -70,29 +70,29 @@ export function LevelBenefitsComparison({
 
   // Categorized benefits with descriptions and icons
   const benefitCategories = {
-    'Trading Features': {
+    'Analytics Features': {
       icon: <TrendingUp className="h-4 w-4" />,
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-950/30',
       benefits: [
         {
-          name: 'Basic Stock Screening',
-          description: 'Access to fundamental stock screening tools and basic filters',
+          name: 'Basic Data Screening',
+          description: 'Access to fundamental data screening tools and basic filters',
           levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Advanced Analytics',
-          description: 'In-depth market analysis with advanced charting and technical indicators',
+          description: 'In-depth data analysis with advanced charting and technical indicators',
           levels: ['SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Real-time Data',
-          description: 'Live market data and real-time price updates',
+          description: 'Live data feeds and real-time updates',
           levels: ['GOLD', 'PLATINUM']
         },
         {
           name: 'AI-Powered Insights',
-          description: 'Machine learning-based stock predictions and market sentiment analysis',
+          description: 'Machine learning-based predictions and data sentiment analysis',
           levels: ['PLATINUM']
         }
       ]
@@ -104,17 +104,17 @@ export function LevelBenefitsComparison({
       benefits: [
         {
           name: 'Historical Data (1 Year)',
-          description: 'Access to 12 months of historical stock data and trends',
+          description: 'Access to 12 months of historical entity data and trends',
           levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Extended Historical Data (5 Years)',
-          description: 'Access to 5 years of comprehensive historical market data',
+          description: 'Access to 5 years of comprehensive historical data',
           levels: ['SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Full Historical Data (10+ Years)',
-          description: 'Complete historical dataset with decades of market information',
+          description: 'Complete historical dataset with decades of information',
           levels: ['GOLD', 'PLATINUM']
         },
         {
@@ -130,23 +130,23 @@ export function LevelBenefitsComparison({
       bgColor: 'bg-purple-50 dark:bg-purple-950/30',
       benefits: [
         {
-          name: 'Basic Portfolio Tracking',
-          description: 'Track your investments with basic portfolio management tools',
+          name: 'Basic Performance Tracking',
+          description: 'Track your analytics with basic performance management tools',
           levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
         },
         {
-          name: 'Advanced Portfolio Analytics',
+          name: 'Advanced Performance Analytics',
           description: 'Detailed performance metrics, risk analysis, and optimization suggestions',
           levels: ['SILVER', 'GOLD', 'PLATINUM']
         },
         {
           name: 'Custom Alerts & Notifications',
-          description: 'Set personalized price alerts and market event notifications',
+          description: 'Set personalized value alerts and data event notifications',
           levels: ['GOLD', 'PLATINUM']
         },
         {
           name: 'Backtesting Platform',
-          description: 'Test your investment strategies against historical data',
+          description: 'Test your analysis strategies against historical data',
           levels: ['PLATINUM']
         }
       ]
@@ -158,7 +158,7 @@ export function LevelBenefitsComparison({
       benefits: [
         {
           name: 'Community Access',
-          description: 'Join our investor community forums and discussion groups',
+          description: 'Join our analyst community forums and discussion groups',
           levels: ['BASIC', 'SILVER', 'GOLD', 'PLATINUM']
         },
         {
@@ -168,12 +168,12 @@ export function LevelBenefitsComparison({
         },
         {
           name: 'Expert Webinars',
-          description: 'Access to monthly webinars with market experts and analysts',
+          description: 'Access to monthly webinars with data experts and analysts',
           levels: ['GOLD', 'PLATINUM']
         },
         {
           name: 'Personal Account Manager',
-          description: 'Dedicated account manager for personalized investment guidance',
+          description: 'Dedicated account manager for personalized data guidance',
           levels: ['PLATINUM']
         }
       ]

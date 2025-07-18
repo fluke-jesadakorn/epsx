@@ -74,7 +74,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
                   Performance Growth
                 </span>
                 <span className="block sm:inline mt-2 sm:mt-0">
-                  Rankings ✨
+                  Metrics ✨
                 </span>
               </h1>
             </div>
@@ -85,7 +85,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
                 🚀 Discover the sweetest data insights with our comprehensive
                 analytics platform!
                 <span className="block mt-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent font-bold">
-                  Make informed analytics decisions with real-time data 📈
+                  Make informed decisions with real-time insights 📈
                 </span>
               </p>
             </div>
@@ -96,7 +96,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
             <Link href="/trading" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl hover:shadow-orange-300/50 hover:scale-105 transition-all duration-300 group">
                 <LineChart className="mr-3 h-6 w-6 group-hover:animate-bounce-gentle" />
-                🚀 Start Analytics
+                🚀 Start Exploration
               </Button>
             </Link>
 

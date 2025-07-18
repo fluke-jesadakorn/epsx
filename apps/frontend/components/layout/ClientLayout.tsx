@@ -54,7 +54,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
                 <h3 className="text-lg font-semibold">Services</h3>
                 <nav className="flex flex-col space-y-2">
                   <Link href="/research" className="text-sm text-muted-foreground hover:text-primary transition-colors">Research</Link>
-                  <Link href="/trading" className="text-sm text-muted-foreground hover:text-primary transition-colors">Data Processing</Link>
+                  <Link href="/trading" className="text-sm text-muted-foreground hover:text-primary transition-colors">Analytics</Link>
                   <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">All Services</Link>
                 </nav>
               </div>

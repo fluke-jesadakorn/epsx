@@ -19,12 +19,12 @@ interface RoleAwareLazyStockRankingTableProps {
 
 /**
  * Enhanced LazyStockRankingTable with role-based access control
- * Integrates user subscription levels with stock ranking visibility
+ * Integrates user subscription levels with data ranking visibility
  */
 export default function RoleAwareLazyStockRankingTable({
   data = [],
-  title = "🍯 Sweet Financial Rankings 📊",
-  subtitle = "Discover the most delicious investment opportunities with our comprehensive analytics",
+  title = "🍯 Sweet Performance Rankings 📊",
+  subtitle = "Discover the most delicious data insights with our comprehensive analytics",
   showRank = true,
   rankShift = 0,
   maxCards = 20,

@@ -95,7 +95,7 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">EPS Growth</span>
+                    <span className="text-sm text-muted-foreground">Index Growth</span>
                     <span className={`font-semibold ${
                       epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
@@ -103,13 +103,13 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Current Price</span>
+                    <span className="text-sm text-muted-foreground">Current Value</span>
                     <span className="font-medium">
                       ${stock.currentPrice ? stock.currentPrice.toFixed(2) : latestQuarter?.price?.toFixed(2) || 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Latest EPS</span>
+                    <span className="text-sm text-muted-foreground">Latest Index</span>
                     <span className="text-sm font-medium">
                       ${latestQuarter?.eps?.toFixed(2) || 'N/A'}
                     </span>
@@ -141,10 +141,10 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
                   You're seeing rankings #100-110. Unlock the top performers!
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 text-sm">
-                  <Badge variant="secondary">✨ Top 100 Stocks</Badge>
+                  <Badge variant="secondary">✨ Top 100 Entities</Badge>
                   <Badge variant="secondary">📊 Advanced Analytics</Badge>
                   <Badge variant="secondary">📈 Growth Insights</Badge>
-                  <Badge variant="secondary">🎯 Portfolio Optimization</Badge>
+                  <Badge variant="secondary">🎯 Performance Optimization</Badge>
                 </div>
               </div>
 

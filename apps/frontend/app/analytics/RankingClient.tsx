@@ -14,8 +14,8 @@ export default function RankingClient({
       data={initialData}
       useLazyLoading={true}
       maxCards={initialData.length || 20}
-      title="🍯 Sweet Financial Rankings 📊"
-      subtitle="Discover the most delicious investment opportunities with our comprehensive analytics"
+      title="🍯 Sweet Performance Rankings 📊"
+      subtitle="Discover the most delicious data insights with our comprehensive analytics"
       showRank={true}
       rankShift={0}
     />

@@ -16,13 +16,13 @@ interface LazyStockRankingTableProps {
 }
 
 /**
- * Stock Ranking Table with lazy loading support
+ * Performance Ranking Table with lazy loading support
  * Can work with pre-loaded data or fetch symbols and load cards progressively
  */
 export default function LazyStockRankingTable({
   data = [],
-  title = "🍯 Sweet Financial Rankings 📊",
-  subtitle = "Discover the most delicious investment opportunities with our comprehensive analytics",
+  title = "🍯 Sweet Performance Rankings 📊",
+  subtitle = "Discover the most delicious data insights with our comprehensive analytics",
   showRank = true,
   rankShift = 0,
   maxCards = 10,

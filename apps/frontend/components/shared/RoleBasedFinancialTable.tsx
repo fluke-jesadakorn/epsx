@@ -16,7 +16,7 @@ interface RoleBasedFinancialTableProps {
 
 /**
  * Enhanced FinancialDataTable with role-based access control
- * Integrates user subscription levels with stock ranking visibility
+ * Integrates user subscription levels with data ranking visibility
  */
 export default function RoleBasedFinancialTable({
   data,
@@ -76,7 +76,7 @@ export default function RoleBasedFinancialTable({
               <span className="font-medium">Public Preview:</span>
               <span className="font-bold text-blue-600">Rankings #100-110</span>
               <span className="text-muted-foreground">
-                • {filteredData.length} stocks shown
+                • {filteredData.length} entities shown
               </span>
             </>
           ) : (

@@ -16,7 +16,7 @@ async function StockRankingZonePage() {
     <React.Suspense fallback={<SkeletonLoader />}>
       <StockRankingClient 
         initialData={initialData}
-        title="📊 Role-Based Stock Rankings 🚀"
+        title="📊 Role-Based Data Rankings 🚀"
         subtitle="Your personalized view based on your subscription level"
         rankShift={0}
         showRank={true}

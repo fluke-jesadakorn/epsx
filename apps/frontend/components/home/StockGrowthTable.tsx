@@ -45,19 +45,19 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                 Growth %
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                Current EPS
+                Current Index
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                Next EPS
+                Next Index
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                Price
+                Value
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                <span title="Price Change Percentage">Change %</span>
+                <span title="Value Change Percentage">Change %</span>
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                <span title="Trading Volume">Volume</span>
+                <span title="Data Volume">Volume</span>
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
                 Sector
@@ -66,13 +66,13 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                 Country
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                Last Earnings
+                Last Report
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                Next Earnings
+                Next Report
               </TableHead>
               <TableHead className="font-semibold text-primary/70">
-                <span title="Open TradingView Chart">Chart</span>
+                <span title="Open Analytics View">Chart</span>
               </TableHead>
             </TableRow>
           </TableHeader>

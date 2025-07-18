@@ -143,13 +143,13 @@ export function FinancialCard({
           {/* First Row: Price and EPS */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <MetricCard
-              title="Price"
+              title="Value"
               value={displayPrice !== null ? formatPrice(displayPrice) : 'N/A'}
               type="price"
               className="p-2 sm:p-3 min-w-0 w-full"
             />
             <MetricCard
-              title="EPS"
+              title="Index"
               value={
                 latestQuarter?.eps !== undefined
                   ? latestQuarter.eps.toFixed(4)

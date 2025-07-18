@@ -209,7 +209,7 @@ const PricingSection = () => {
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
               🚀 Choose the perfect plan for individual use and start your
-              analytics journey
+              data journey
             </p>
             <div className="w-32 sm:w-40 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 mx-auto rounded-full" />
 
