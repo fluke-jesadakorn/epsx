@@ -1,69 +1,99 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
-import { fetchStockRankingDataForUser } from '@/app/actions/stockRanking';
-import { fetchPublicRankingData } from '@/app/actions/publicRanking';
+import { usePagination } from '@/hooks/usePagination';
+import { usePaginatedFeatureAccess } from '@/hooks/usePaginatedFeatureAccess';
+import { fetchPaginatedStockData } from '@/app/actions/stockRankingPaginated';
+import { Pagination } from '@/components/ui/pagination';
 import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
 import { AnalyticsMetrics } from '@/components/analytics/AnalyticsMetrics';
-import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { 
   BarChart3, 
-  TrendingUp, 
   Crown, 
-  Users, 
   Lock,
-  Eye,
-  Star,
-  Target
+  AlertCircle
 } from 'lucide-react';
-import type { StockFinancialData } from '@/types/financialChartData';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 
 export function AnalyticsRankingDashboard() {
-  const { maxRankings, userLevel, isExpired, upgradeRequired, isLoading } = useRankingAccess();
-  const [premiumData, setPremiumData] = useState<StockFinancialData[]>([]);
-  const [publicData, setPublicData] = useState<StockFinancialData[]>([]);
+  const router = useRouter();
+  const { maxRankings, userLevel, isExpired, isLoading } = useRankingAccess();
+  const { 
+    getMaxAllowedLimit, 
+    canAccessPage, 
+    getAvailablePageSizes,
+    userTier 
+  } = usePaginatedFeatureAccess();
+  
+  const [stockData, setStockData] = useState<PaginatedStockData>({
+    data: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false }
+  });
   const [dataLoading, setDataLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('premium');
+  const [error, setError] = useState<string | null>(null);
+
+  const {
+    currentPage,
+    limit,
+    isLoading: paginationLoading,
+    setIsLoading: setPaginationLoading,
+    handlePageChange,
+    handleLimitChange
+  } = usePagination({
+    initialPage: 1,
+    initialLimit: 10,
+    onPageChange: async (page, limit) => {
+      setPaginationLoading(true);
+      setError(null);
+      
+      try {
+        const newData = await fetchPaginatedStockData(page, limit);
+        setStockData(newData);
+      } catch (error) {
+        console.error('Error fetching paginated data:', error);
+        setError('Failed to load stock data. Please try again.');
+      } finally {
+        setPaginationLoading(false);
+      }
+    }
+  });
 
   useEffect(() => {
-    const loadAnalyticsData = async () => {
+    const loadInitialData = async () => {
       try {
         setDataLoading(true);
-        
-        // Load user-specific premium data
-        const userDataPromise = fetchStockRankingDataForUser(
-          userLevel,
-          isExpired,
-          0,
-          undefined,
-          2
-        );
-        
-        // Load public preview data
-        const publicDataPromise = fetchPublicRankingData(10, 10);
-        
-        const [userData, publicData] = await Promise.all([
-          userDataPromise,
-          publicDataPromise
-        ]);
-        
-        setPremiumData(userData);
-        setPublicData(publicData);
+        const initialData = await fetchPaginatedStockData(1, 10);
+        setStockData(initialData);
       } catch (error) {
-        console.error('Failed to load analytics data:', error);
+        console.error('Failed to load initial analytics data:', error);
+        setError('Failed to load initial data. Please try again.');
       } finally {
         setDataLoading(false);
       }
     };
 
     if (!isLoading) {
-      loadAnalyticsData();
+      loadInitialData();
     }
-  }, [userLevel, isExpired, isLoading]);
+  }, [isLoading]);
+
+  const maxAllowedLimit = getMaxAllowedLimit();
+  const availablePageSizes = getAvailablePageSizes();
+  const currentPageAccessible = canAccessPage(currentPage, limit);
+
+  const handleUpgrade = () => {
+    router.push('/payment');
+  };
+
+  const handleRetry = () => {
+    handlePageChange(currentPage);
+  };
 
   if (isLoading || dataLoading) {
     return (
@@ -124,133 +154,140 @@ export function AnalyticsRankingDashboard() {
         isExpired={isExpired}
       />
 
-      {/* Main Analytics Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="premium" className="gap-2">
-            <Star className="h-4 w-4" />
-            Your Rankings
-          </TabsTrigger>
-          <TabsTrigger value="overview" className="gap-2">
-            <Eye className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="public" className="gap-2">
-            <Users className="h-4 w-4" />
-            Public Preview
-          </TabsTrigger>
-          <TabsTrigger value="upgrade" className="gap-2">
-            <Target className="h-4 w-4" />
-            Upgrade
-          </TabsTrigger>
-        </TabsList>
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card p-4 rounded-lg border">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Items per page:</span>
+          <Select value={limit.toString()} onValueChange={(value) => handleLimitChange(parseInt(value))}>
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePageSizes.map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Badge variant="outline" className="ml-2">
+            {userTier} Plan
+          </Badge>
+        </div>
+        
+        <div className="text-sm text-muted-foreground">
+          Showing {Math.min(((currentPage - 1) * limit) + 1, stockData.pagination.total)} to {Math.min(currentPage * limit, stockData.pagination.total)} of {stockData.pagination.total} results
+        </div>
+      </div>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Access Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Your Access Level
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Rankings Available:</span>
-                  <Badge variant="outline">{maxRankings} stocks</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Subscription Status:</span>
-                  <Badge variant={isExpired ? "destructive" : "default"}>
-                    {isExpired ? "Expired" : "Active"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Current Level:</span>
-                  <Badge className={levelInfo.color}>{levelInfo.name}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Quick Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Top Stocks Accessible:</span>
-                  <span className="font-semibold">{premiumData.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Public Preview Available:</span>
-                  <span className="font-semibold">{publicData.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Premium Features:</span>
-                  <Badge variant={upgradeRequired ? "outline" : "default"}>
-                    {upgradeRequired ? "Limited" : "Full Access"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="premium" className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-bold">Your Premium Rankings</h3>
-              <Badge className={levelInfo.color}>
-                Top {maxRankings} Available
-              </Badge>
+      {/* Error Message */}
+      {error && (
+        <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">{error}</span>
+              <Button variant="outline" size="sm" onClick={handleRetry} className="ml-auto">
+                Retry
+              </Button>
             </div>
-            
-            {premiumData.length > 0 ? (
-              <RoleBasedFinancialTable data={premiumData} />
-            ) : (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Premium Access</h3>
-                  <p className="text-muted-foreground">
-                    Upgrade your subscription to access premium rankings
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="public" className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-bold">Public Preview Rankings</h3>
-              <Badge variant="outline">Rankings #100-110</Badge>
+      {/* Access Restriction Message */}
+      {!currentPageAccessible && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
+              <Lock className="h-4 w-4" />
+              <span className="text-sm">
+                Your {userTier} plan allows access to only {maxAllowedLimit} items. 
+                <Button variant="link" onClick={handleUpgrade} className="p-0 h-auto font-semibold">
+                  Upgrade now
+                </Button>
+                {' '}to see more results.
+              </span>
             </div>
-            <p className="text-muted-foreground">
-              These rankings are available to everyone as a preview of our ranking system.
-            </p>
-            
-            <RoleBasedFinancialTable 
-              data={publicData} 
-              isPublicPreview={true}
-            />
-          </div>
-        </TabsContent>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="upgrade" className="space-y-6">
-          <UpgradePrompt
-            currentLevel={userLevel}
-            lockedRankings={100 - maxRankings}
-            className="max-w-4xl mx-auto"
+      {/* Main Table */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-2xl font-bold">Stock Rankings</h3>
+          <Badge className={levelInfo.color}>
+            {currentPageAccessible ? `Page ${currentPage}` : 'Limited Access'}
+          </Badge>
+        </div>
+        
+        {stockData.data.length > 0 ? (
+          <RoleBasedFinancialTable data={stockData.data} />
+        ) : (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+              <p className="text-muted-foreground">
+                No stock data available for the current selection.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Loading state */}
+      {paginationLoading && (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {stockData.pagination.totalPages > 1 && (
+        <div className="space-y-4">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={stockData.pagination.totalPages}
+            onPageChange={handlePageChange}
+            hasNext={stockData.pagination.hasNext}
+            hasPrev={stockData.pagination.hasPrev}
+            isLoading={paginationLoading}
+            className="mt-8"
           />
-        </TabsContent>
-      </Tabs>
+          
+          {/* Upgrade prompt for pagination */}
+          {stockData.pagination.totalPages > 1 && userTier === 'BASIC' && (
+            <Card className="border-2 border-dashed border-yellow-300 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20">
+              <CardContent className="p-6 text-center">
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <Crown className="h-12 w-12 text-yellow-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold mb-2">
+                      🚀 Unlock Full Pagination Access
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      You're seeing limited results. Upgrade to access all {stockData.pagination.total} stocks!
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 text-xs">
+                      <Badge variant="secondary">📊 Full Stock List</Badge>
+                      <Badge variant="secondary">🎯 Advanced Filtering</Badge>
+                      <Badge variant="secondary">💎 Premium Features</Badge>
+                    </div>
+                  </div>
+                  <Button onClick={handleUpgrade} className="gap-2">
+                    <Crown className="h-4 w-4" />
+                    Upgrade Now
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }
