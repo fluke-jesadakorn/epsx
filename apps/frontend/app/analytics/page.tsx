@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AnalyticsPage() {
   return (
-    <AuthGuard requireAuth={true}>
+    <AuthGuard requireAuth>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">

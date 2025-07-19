@@ -12,11 +12,11 @@ export default function RankingClient({
   return (
     <LazyStockRankingTable 
       data={initialData}
-      useLazyLoading={true}
+      useLazyLoading
       maxCards={initialData.length || 20}
       title="🍯 Sweet Performance Rankings 📊"
       subtitle="Discover the most delicious data insights with our comprehensive analytics"
-      showRank={true}
+      showRank
       rankShift={0}
     />
   );

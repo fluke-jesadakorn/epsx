@@ -19,7 +19,7 @@ async function StockRankingZonePage() {
         title="📊 Role-Based Data Rankings 🚀"
         subtitle="Your personalized view based on your subscription level"
         rankShift={0}
-        showRank={true}
+        showRank
       />
     </React.Suspense>
   );

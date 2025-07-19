@@ -1,4 +1,5 @@
-import { PaymentTier, type PaymentPlan } from '@/types/payment/plans';
+import type { PaymentPlan } from '@/types/payment/plans';
+import { PaymentTier } from '@/types/payment/plans';
 
 // Updated Types - Aligned with admin-frontend
 export type UserLevelType =

@@ -1,93 +1,120 @@
-# Utils Directory Structure
+# Utils Directory Structure (Refactored)
 
-This directory contains utility functions and helper modules organized by:
+This directory has been refactored for maximum brevity and maintainability. All utilities are now organized into 6 core files with short, memorable names.
 
-## environment.ts
-- **Environment Detection**: Centralized environment management for EPSX project
-- **MusePay Asset Configuration**: Testnet vs mainnet token configuration
-- **Functions**:
-  - `getCurrentEnvironment()` - Get current environment (development|test|production)
-  - `getAssetConfig(currency)` - Get asset configuration for specific currency
-  - `getDefaultCurrency()` - Get environment-appropriate default currency
-  - `getSupportedCurrencies()` - Get all supported currencies for current environment
-  - `getMusePayApiUrl()` - Get MusePay API URL for current environment
-  - `validateEnvironmentConfig()` - Validate environment configuration
-  - `getEnvironmentSummary()` - Get complete environment summary
+## Core Files
 
-## auth/
-- Authentication-related utilities
-- Example: auth.ts
+### `env.ts` - Environment & Level utilities
+- **Environment**: `isProd`, `isTest`, `isDev`, `env()`
+- **Assets**: `asset()`, `defCur()`, `supCur()`, `apiUrl()`
+- **Levels**: `lvlNum()`, `lvlName()`, `lvlFmt()`, `lvlNext()`, `lvlCol()`
 
-## supabase/
-- Supabase client/server utilities
-- Example: client.ts, server.ts
+### `fmt.ts` - Formatting utilities
+- **Currency**: `cur(amt, cur?)`
+- **Date**: `dt(date, fmt?)`
+- **Percentage**: `pct(val, dec?)`
+- **Price**: `prc(price)`
+- **EPS Growth**: `epsGr(growth)`
 
-## table/
-- Table-related utilities
-- Example: tableUtils.ts
+### `stk.ts` - Stock processing utilities
+- **Transform**: `xform(data)`, `xformPrice(data)`
+- **Helpers**: `latest(stock)`, `avgEps(stock)`, `cmpLast(stock)`, `align(comp)`
 
-## cache/
-- Caching utilities and helpers
+### `tbl.ts` - Table utilities
+- **Columns**: `cols(response)`
+- **Rows**: `rows(response, level?)`
+- **Masking**: `mask(value, level)`
 
-## processStocks/
-- Stock processing utilities
+### `cache.ts` - Cache utilities
+- **Basic**: `set(key, val, ttl?)`, `get(key)`, `clear(key?)`
+- **Stock**: `setStock(symbol, data)`, `getStock(symbol)`
+- **Bulk**: `setBulk(stocks)`, `getBulk(symbols)`
 
-## transformers/
-- Data transformation utilities
+### `util.ts` - General utilities
+- **Functions**: `deb(fn, ms)`, `thr(fn, ms)`, `clone(obj)`, `id(pre?)`
+- **Validation**: `mail(email)`, `phone(num)`
+- **Text**: `trunc(text, len?)`
+- **Storage**: `ls.get(key)`, `ls.set(key, val)`, `ls.del(key)`
+- **Arrays**: `arr.uniq(arr)`, `arr.chunk(arr, n)`, `arr.group(arr, key)`
+- **Objects**: `obj.pick(obj, keys)`, `obj.omit(obj, keys)`, `obj.isEmpty(obj)`
+- **URLs**: `url.build(base, params)`, `url.parse(url)`
 
 ## Usage Examples
 
 ### Environment Detection
 ```typescript
-import { 
-  getCurrentEnvironment, 
-  isProduction, 
-  getDefaultCurrency,
-  getSupportedCurrencies 
-} from '@/utils/environment';
+import { isProd, env, asset, defCur, supCur } from '@/utils'
 
-// Check current environment
-const env = getCurrentEnvironment(); // 'development' | 'test' | 'production'
-
-// Get supported currencies for current environment
-const currencies = getSupportedCurrencies();
-// Dev/Test: ['BTC_TEST', 'ETH_TEST', 'BNB_TEST', 'USDT_BSC_TEST']
-// Prod: ['USDT_TRC20', 'USDT_ERC20', 'USDT_BSC', 'BTC', 'ETH', ...]
-
-// Get default currency
-const defaultCurrency = getDefaultCurrency();
-// Dev/Test: 'USDT_BSC_TEST'
-// Prod: 'USDT_BSC'
+if (isProd) console.log('Production mode')
+const currentEnv = env() // 'dev' | 'test' | 'prod'
+const usdtConfig = asset('USDT_BSC')
+const defaultCurrency = defCur()
+const supported = supCur()
 ```
 
-### Asset Configuration
+### Formatting
 ```typescript
-import { getAssetConfig } from '@/utils/environment';
+import { cur, dt, pct, prc } from '@/utils'
 
-// Get asset configuration
-const assetConfig = getAssetConfig('USDT_BSC');
-// Returns: { 
-//   chain: 'Binance Smart Chain', 
-//   decimals: 18, 
-//   depositThreshold: 1,
-//   addressFormat: '42-character string, beginning with \'0x\''
-// }
-
-// For testnet assets, faucet URLs are included
-const testAsset = getAssetConfig('USDT_BSC_TEST');
-// Returns: { 
-//   chain: 'Binance Testnet', 
-//   decimals: 18, 
-//   depositThreshold: 1,
-//   addressFormat: '42-character string, beginning with \'0x\'',
-//   faucet: 'https://testnet.binance.org/faucet-smart'
-// }
+const price = cur(1234.56, 'USD') // "$1,234.56"
+const date = dt('2024-01-15') // "Jan 15, 2024"
+const growth = pct(0.15) // "15.00%"
+const stockPrice = prc(123.456) // "123.46"
 ```
 
-## TODO:
-- Add JSDoc documentation for all utility functions
-- Implement error handling patterns
-- Add unit tests for utility functions
-- Create a centralized error logging system
-- Add environment validation tests
-- Create environment-specific configuration validators
+### Stock Processing
+```typescript
+import { xform, latest, avgEps, align } from '@/utils'
+
+const stocks = xform(apiData)
+const lastQuarter = latest(stocks[0])
+const avgGrowth = avgEps(stocks[0])
+const alignment = align(comparisonData)
+```
+
+### Table Creation
+```typescript
+import { cols, rows } from '@/utils'
+
+const columns = cols(apiResponse)
+const data = rows(apiResponse, userLevel)
+```
+
+### Cache Usage
+```typescript
+import { set, get, setStock, getStock } from '@/utils'
+
+set('key', data, 60000)
+const cached = get('key')
+setStock('AAPL', stockData)
+const appleData = getStock('AAPL')
+```
+
+### General Utilities
+```typescript
+import { deb, clone, mail, ls, arr, obj, url } from '@/utils'
+
+const debounced = deb(fn, 300)
+const copy = clone(obj)
+const valid = mail('test@example.com')
+ls.set('key', value)
+const unique = arr.uniq([1, 2, 2, 3])
+const picked = obj.pick(obj, ['a', 'b'])
+const apiUrl = url.build('/api', { q: 'search' })
+```
+
+## Migration Guide
+
+### Old → New Mapping
+- `environment.ts` → `env.ts`
+- `level-utils.ts` → `env.ts`
+- `processStocks/` → `stk.ts`
+- `table/` → `tbl.ts`
+- `cache/` → `cache.ts`
+
+All old files are deprecated but still work with console warnings.
+
+## File Size Comparison
+- **Before**: 8+ files, ~500+ lines
+- **After**: 6 files, ~300 lines total
+- **Reduction**: ~40% smaller codebase

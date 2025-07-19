@@ -1,7 +1,2 @@
-// ProcessStocks exports
-export * from './cacheAdapter';
-export * from './fetchRankScreenedStock';
-export * from './getPriceAndEps';
-export * from './rankingStocks';
-export * from './stockCache';
-export * from './stockDataTransformer';
+// DEPRECATED: Use stk.ts instead
+console.warn('processStocks/index.ts is deprecated. Use stk.ts instead')

@@ -10,7 +10,6 @@ import { usePaginatedFeatureAccess } from '@/hooks/usePaginatedFeatureAccess';
 import { fetchPaginatedStockData } from '@/app/actions/stockRankingPaginated';
 import { Pagination } from '@/components/ui/pagination';
 import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
-import { AnalyticsMetrics } from '@/components/analytics/AnalyticsMetrics';
 import { 
   BarChart3, 
   Crown, 
@@ -23,7 +22,7 @@ import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 
 export function AnalyticsRankingDashboard() {
   const router = useRouter();
-  const { maxRankings, userLevel, isExpired, isLoading } = useRankingAccess();
+  const { canAccessRankings, loading } = useRankingAccess();
   const { 
     getMaxAllowedLimit, 
     canAccessPage, 
@@ -78,10 +77,10 @@ export function AnalyticsRankingDashboard() {
       }
     };
 
-    if (!isLoading) {
+    if (!loading) {
       loadInitialData();
     }
-  }, [isLoading]);
+  }, [loading]);
 
   const maxAllowedLimit = getMaxAllowedLimit();
   const availablePageSizes = getAvailablePageSizes();
@@ -95,7 +94,7 @@ export function AnalyticsRankingDashboard() {
     handlePageChange(currentPage);
   };
 
-  if (isLoading || dataLoading) {
+  if (loading || dataLoading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -118,7 +117,7 @@ export function AnalyticsRankingDashboard() {
       GOLD: { color: 'bg-yellow-500', name: 'Gold', maxRank: 50 },
       PLATINUM: { color: 'bg-purple-500', name: 'Platinum', maxRank: 100 },
     };
-    return levels[userLevel as keyof typeof levels] || levels.BRONZE;
+    return levels.BRONZE;
   };
 
   const levelInfo = getLevelInfo();
@@ -142,17 +141,9 @@ export function AnalyticsRankingDashboard() {
           >
             <Crown className="h-5 w-5" />
             {levelInfo.name} Member
-            {isExpired && <span className="text-xs">(Expired)</span>}
           </Badge>
         </div>
       </div>
-
-      {/* Analytics Metrics */}
-      <AnalyticsMetrics 
-        userLevel={userLevel}
-        maxRankings={maxRankings}
-        isExpired={isExpired}
-      />
 
       {/* Pagination Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card p-4 rounded-lg border">
@@ -269,9 +260,9 @@ export function AnalyticsRankingDashboard() {
                     <h3 className="text-lg font-bold mb-2">
                       🚀 Unlock Full Pagination Access
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      You're seeing limited results. Upgrade to access all {stockData.pagination.total} stocks!
-                    </p>
+              <p className="text-sm text-muted-foreground mb-2">
+                You're seeing limited results. Upgrade to access all {stockData.pagination.total} stocks!
+              </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">
                       <Badge variant="secondary">📊 Full Stock List</Badge>
                       <Badge variant="secondary">🎯 Advanced Filtering</Badge>

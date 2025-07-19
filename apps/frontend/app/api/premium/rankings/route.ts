@@ -17,7 +17,7 @@ async function handler(_req: NextRequest) {
       data: rankings,
       message: 'Premium rankings accessed successfully'
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Failed to fetch premium rankings' },
       { status: 500 }

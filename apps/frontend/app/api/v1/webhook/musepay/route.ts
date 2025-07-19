@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { musePayService, type WebhookPayload } from '@/lib/musepay.service';
+import type { WebhookPayload } from '@/lib/musepay.service';
+import { musePayService } from '@/lib/musepay.service';
 
 export async function POST(req: Request) {
   try {
