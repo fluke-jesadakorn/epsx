@@ -10,7 +10,9 @@ import { db } from '@/lib/firebase';
 
 export default function PaymentReturnPage() {
   const router = useRouter();
-  const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'pending' | 'failed'>('checking');
+  const [paymentStatus, setPaymentStatus] = useState<
+    'checking' | 'success' | 'pending' | 'failed'
+  >('checking');
   const [paymentData, setPaymentData] = useState<any>(null);
   const [countdown, setCountdown] = useState(10);
 
@@ -21,19 +23,23 @@ export default function PaymentReturnPage() {
       try {
         const payment = JSON.parse(storedPayment);
         setPaymentData(payment);
-        
+
         // Monitor payment status in real-time
         if (payment.paymentRequest?.customerRefId) {
           const unsubscribe = onSnapshot(
             query(
               collection(db, 'payment_requests'),
-              where('customerRefId', '==', payment.paymentRequest.customerRefId)
+              where(
+                'customerRefId',
+                '==',
+                payment.paymentRequest.customerRefId,
+              ),
             ),
             (snapshot) => {
               if (!snapshot.empty) {
                 const paymentRequest = snapshot.docs[0].data();
                 console.log('Payment status update:', paymentRequest.status);
-                
+
                 if (paymentRequest.status === 'completed') {
                   setPaymentStatus('success');
                   // Clear session storage
@@ -48,7 +54,7 @@ export default function PaymentReturnPage() {
             (error) => {
               console.error('Error monitoring payment:', error);
               setPaymentStatus('failed');
-            }
+            },
           );
 
           return () => unsubscribe();
@@ -121,7 +127,8 @@ export default function PaymentReturnPage() {
               Payment Successful! 🎉
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6 text-lg">
-              Your {paymentData?.paymentRequest?.packageName} has been activated successfully.
+              Your {paymentData?.paymentRequest?.packageName} has been activated
+              successfully.
             </p>
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-4 py-2 rounded-full">
@@ -188,7 +195,8 @@ export default function PaymentReturnPage() {
             Payment Issue ❌
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-6 text-lg">
-            There was an issue with your payment. Please try again or contact support.
+            There was an issue with your payment. Please try again or contact
+            support.
           </p>
           <div className="space-y-3">
             <Button

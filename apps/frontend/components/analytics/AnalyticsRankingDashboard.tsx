@@ -3,19 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { usePagination } from '@/hooks/usePagination';
 import { usePaginatedFeatureAccess } from '@/hooks/usePaginatedFeatureAccess';
 import { fetchPaginatedStockData } from '@/app/actions/stockRankingPaginated';
 import { Pagination } from '@/components/ui/pagination';
 import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
-import { 
-  BarChart3, 
-  Crown, 
-  Lock,
-  AlertCircle
-} from 'lucide-react';
+import { BarChart3, Crown, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
@@ -23,16 +24,19 @@ import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 export function AnalyticsRankingDashboard() {
   const router = useRouter();
   const { canAccessRankings, loading } = useRankingAccess();
-  const { 
-    getMaxAllowedLimit, 
-    canAccessPage, 
-    getAvailablePageSizes,
-    userTier 
-  } = usePaginatedFeatureAccess();
-  
+  const { getMaxAllowedLimit, canAccessPage, getAvailablePageSizes, userTier } =
+    usePaginatedFeatureAccess();
+
   const [stockData, setStockData] = useState<PaginatedStockData>({
     data: [],
-    pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false }
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false,
+    },
   });
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +47,14 @@ export function AnalyticsRankingDashboard() {
     isLoading: paginationLoading,
     setIsLoading: setPaginationLoading,
     handlePageChange,
-    handleLimitChange
+    handleLimitChange,
   } = usePagination({
     initialPage: 1,
     initialLimit: 10,
     onPageChange: async (page, limit) => {
       setPaginationLoading(true);
       setError(null);
-      
+
       try {
         const newData = await fetchPaginatedStockData(page, limit);
         setStockData(newData);
@@ -60,7 +64,7 @@ export function AnalyticsRankingDashboard() {
       } finally {
         setPaginationLoading(false);
       }
-    }
+    },
   });
 
   useEffect(() => {
@@ -133,10 +137,10 @@ export function AnalyticsRankingDashboard() {
         <p className="text-xl text-muted-foreground">
           Advanced stock ranking analytics based on your subscription
         </p>
-        
+
         {/* User Level Badge */}
         <div className="flex justify-center">
-          <Badge 
+          <Badge
             className={`${levelInfo.color} text-white px-6 py-2 text-lg gap-2`}
           >
             <Crown className="h-5 w-5" />
@@ -149,7 +153,10 @@ export function AnalyticsRankingDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card p-4 rounded-lg border">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Items per page:</span>
-          <Select value={limit.toString()} onValueChange={(value) => handleLimitChange(parseInt(value))}>
+          <Select
+            value={limit.toString()}
+            onValueChange={(value) => handleLimitChange(parseInt(value))}
+          >
             <SelectTrigger className="w-20">
               <SelectValue />
             </SelectTrigger>
@@ -165,9 +172,12 @@ export function AnalyticsRankingDashboard() {
             {userTier} Plan
           </Badge>
         </div>
-        
+
         <div className="text-sm text-muted-foreground">
-          Showing {Math.min(((currentPage - 1) * limit) + 1, stockData.pagination.total)} to {Math.min(currentPage * limit, stockData.pagination.total)} of {stockData.pagination.total} results
+          Showing{' '}
+          {Math.min((currentPage - 1) * limit + 1, stockData.pagination.total)}{' '}
+          to {Math.min(currentPage * limit, stockData.pagination.total)} of{' '}
+          {stockData.pagination.total} results
         </div>
       </div>
 
@@ -178,7 +188,12 @@ export function AnalyticsRankingDashboard() {
             <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
               <AlertCircle className="h-4 w-4" />
               <span className="text-sm">{error}</span>
-              <Button variant="outline" size="sm" onClick={handleRetry} className="ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetry}
+                className="ml-auto"
+              >
                 Retry
               </Button>
             </div>
@@ -193,11 +208,16 @@ export function AnalyticsRankingDashboard() {
             <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
               <Lock className="h-4 w-4" />
               <span className="text-sm">
-                Your {userTier} plan allows access to only {maxAllowedLimit} items. 
-                <Button variant="link" onClick={handleUpgrade} className="p-0 h-auto font-semibold">
+                Your {userTier} plan allows access to only {maxAllowedLimit}{' '}
+                items.
+                <Button
+                  variant="link"
+                  onClick={handleUpgrade}
+                  className="p-0 h-auto font-semibold"
+                >
                   Upgrade now
-                </Button>
-                {' '}to see more results.
+                </Button>{' '}
+                to see more results.
               </span>
             </div>
           </CardContent>
@@ -212,7 +232,7 @@ export function AnalyticsRankingDashboard() {
             {currentPageAccessible ? `Page ${currentPage}` : 'Limited Access'}
           </Badge>
         </div>
-        
+
         {stockData.data.length > 0 ? (
           <RoleBasedFinancialTable data={stockData.data} />
         ) : (
@@ -247,7 +267,7 @@ export function AnalyticsRankingDashboard() {
             isLoading={paginationLoading}
             className="mt-8"
           />
-          
+
           {/* Upgrade prompt for pagination */}
           {stockData.pagination.totalPages > 1 && userTier === 'BASIC' && (
             <Card className="border-2 border-dashed border-yellow-300 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20">
@@ -260,9 +280,10 @@ export function AnalyticsRankingDashboard() {
                     <h3 className="text-lg font-bold mb-2">
                       🚀 Unlock Full Pagination Access
                     </h3>
-              <p className="text-sm text-muted-foreground mb-2">
-                You're seeing limited results. Upgrade to access all {stockData.pagination.total} stocks!
-              </p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      You're seeing limited results. Upgrade to access all{' '}
+                      {stockData.pagination.total} stocks!
+                    </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">
                       <Badge variant="secondary">📊 Full Stock List</Badge>
                       <Badge variant="secondary">🎯 Advanced Filtering</Badge>

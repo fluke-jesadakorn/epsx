@@ -3,18 +3,18 @@ import type {
   ChatResponse,
   Message,
   ChatHistoryResponse,
-} from "@/types/chat";
+} from '@/types/chat';
 
 export class ChatApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
   }
 
   private buildReq(
     messages: Message[],
-    opts?: { temp?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number },
   ): ChatRequest {
     return {
       messages,
@@ -25,13 +25,13 @@ export class ChatApiService {
 
   async sendMsg(
     messages: Message[],
-    opts?: { temp?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number },
   ): Promise<ChatResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/chat`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(this.buildReq(messages, opts)),
       });
@@ -43,7 +43,7 @@ export class ChatApiService {
       const result = await response.json();
       return {
         message: {
-          role: "assistant",
+          role: 'assistant',
           content: result.message.content,
         },
         usage: result.usage || {
@@ -60,9 +60,7 @@ export class ChatApiService {
 
   async getHistory(convId: string): Promise<Message[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/chat/history/${convId}`
-      );
+      const response = await fetch(`${this.baseUrl}/chat/history/${convId}`);
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -78,13 +76,13 @@ export class ChatApiService {
 
   async streamMsg(
     messages: Message[],
-    opts?: { temp?: number; maxTokens?: number }
+    opts?: { temp?: number; maxTokens?: number },
   ): Promise<ReadableStream<Uint8Array>> {
     try {
       const response = await fetch(`${this.baseUrl}/chat/stream`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(this.buildReq(messages, opts)),
       });
@@ -94,7 +92,7 @@ export class ChatApiService {
       }
 
       if (!response.body) {
-        throw new Error("No response body received");
+        throw new Error('No response body received');
       }
 
       return response.body;

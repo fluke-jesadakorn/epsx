@@ -4,7 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Lock, Crown, ArrowRight } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Lock,
+  Crown,
+  ArrowRight,
+} from 'lucide-react';
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { useRouter } from 'next/navigation';
@@ -69,12 +75,17 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
         {data.slice(0, 6).map((stock, index) => {
           const latestQuarter = stock.quarters[stock.quarters.length - 1];
           const previousQuarter = stock.quarters[stock.quarters.length - 2];
-          const epsGrowth = previousQuarter 
-            ? ((latestQuarter?.eps - previousQuarter.eps) / previousQuarter.eps * 100)
+          const epsGrowth = previousQuarter
+            ? ((latestQuarter?.eps - previousQuarter.eps) /
+                previousQuarter.eps) *
+              100
             : 0;
 
           return (
-            <Card key={stock.symbol} className="relative group hover:shadow-lg transition-all duration-300">
+            <Card
+              key={stock.symbol}
+              className="relative group hover:shadow-lg transition-all duration-300"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -95,21 +106,32 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Index Growth</span>
-                    <span className={`font-semibold ${
-                      epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <span className="text-sm text-muted-foreground">
+                      Index Growth
+                    </span>
+                    <span
+                      className={`font-semibold ${
+                        epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
                       {epsGrowth ? `${epsGrowth.toFixed(2)}%` : 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Current Value</span>
+                    <span className="text-sm text-muted-foreground">
+                      Current Value
+                    </span>
                     <span className="font-medium">
-                      ${stock.currentPrice ? stock.currentPrice.toFixed(2) : latestQuarter?.price?.toFixed(2) || 'N/A'}
+                      $
+                      {stock.currentPrice
+                        ? stock.currentPrice.toFixed(2)
+                        : latestQuarter?.price?.toFixed(2) || 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Latest Index</span>
+                    <span className="text-sm text-muted-foreground">
+                      Latest Index
+                    </span>
                     <span className="text-sm font-medium">
                       ${latestQuarter?.eps?.toFixed(2) || 'N/A'}
                     </span>
@@ -132,7 +154,7 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
                   <Lock className="h-6 w-6 text-gray-600 absolute -top-1 -right-1 bg-white rounded-full p-1" />
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-2xl font-bold mb-3">
                   🚀 Access Top 100 Rankings
@@ -154,7 +176,12 @@ export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
                   Upgrade to Premium
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-                <Button size="lg" variant="outline" onClick={handleViewMore} className="gap-2">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={handleViewMore}
+                  className="gap-2"
+                >
                   View Analytics Demo
                   <ArrowRight className="h-4 w-4" />
                 </Button>

@@ -1,6 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Mail, ArrowLeft } from 'lucide-react';
@@ -24,18 +30,22 @@ export function SignupSuccess({ email, onBackToLogin }: SignupSuccessProps) {
           Welcome to EPSX! Your account has been created.
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
           <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <AlertDescription className="text-amber-800 dark:text-amber-300">
-            <strong>Important:</strong> Please verify your email address to access all features.
-            We've sent a verification email to <strong>{email}</strong>.
+            <strong>Important:</strong> Please verify your email address to
+            access all features. We've sent a verification email to{' '}
+            <strong>{email}</strong>. We've sent a verification email to{' '}
+            <strong>{email}</strong>.
           </AlertDescription>
         </Alert>
 
         <div className="space-y-3 text-sm text-muted-foreground">
-          <p><strong>Next steps:</strong></p>
+          <p>
+            <strong>Next steps:</strong>
+          </p>
           <ul className="space-y-1 list-disc list-inside">
             <li>Check your email inbox for a verification message</li>
             <li>Click the verification link in the email</li>
@@ -47,7 +57,7 @@ export function SignupSuccess({ email, onBackToLogin }: SignupSuccessProps) {
           <Button onClick={onBackToLogin} className="w-full">
             Continue to Sign In
           </Button>
-          
+
           <Button variant="ghost" onClick={onBackToLogin} className="w-full">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Login
@@ -55,7 +65,9 @@ export function SignupSuccess({ email, onBackToLogin }: SignupSuccessProps) {
         </div>
 
         <div className="text-xs text-muted-foreground">
-          <p><strong>Didn't receive the email?</strong></p>
+          <p>
+            <strong>Didn't receive the email?</strong>
+          </p>
           <p>• Check your spam/junk folder</p>
           <p>• Make sure you entered the correct email address</p>
           <p>• Wait a few minutes and check again</p>

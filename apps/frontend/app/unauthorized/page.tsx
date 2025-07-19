@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShieldX, ArrowLeft, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -24,11 +30,16 @@ export default function UnauthorizedPage() {
             You don't have permission to access this page
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           <div className="text-sm text-muted-foreground">
-            <p>This page requires special permissions that your account doesn't have.</p>
-            <p className="mt-2">If you believe this is an error, please contact an administrator.</p>
+            <p>
+              This page requires special permissions that your account doesn't
+              have.
+            </p>
+            <p className="mt-2">
+              If you believe this is an error, please contact an administrator.
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -38,7 +49,7 @@ export default function UnauthorizedPage() {
                 Go to Dashboard
               </Button>
             </Link>
-            
+
             <Link href="/">
               <Button variant="outline" className="w-full">
                 <ArrowLeft className="mr-2 h-4 w-4" />

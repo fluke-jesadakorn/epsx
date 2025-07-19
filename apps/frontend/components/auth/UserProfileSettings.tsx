@@ -6,8 +6,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,26 +31,31 @@ import { Save, Mail, Lock } from 'lucide-react';
 
 // Validation schemas
 const profileSchema = z.object({
-  displayName: z.string().min(2, 'Display name must be at least 2 characters').optional(),
+  displayName: z
+    .string()
+    .min(2, 'Display name must be at least 2 characters')
+    .optional(),
   email: z.string().email('Please enter a valid email address'),
 });
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Please confirm your password'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Please confirm your password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function UserProfileSettings() {
-  const { 
-    user, 
-    error, 
+  const {
+    user,
+    error,
     clearError,
     updateProfile,
     changePassword,
@@ -48,17 +66,21 @@ export function UserProfileSettings() {
     hasGoogle,
     providers,
   } = useAuth();
-  
+
   const { getUserInitials, getUserDisplayName } = useAuthUtils();
-  
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'providers'>('profile');
+
+  const [activeTab, setActiveTab] = useState<
+    'profile' | 'security' | 'providers'
+  >('profile');
   const [isUpdating, setIsUpdating] = useState(false);
 
   if (!user) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">Please sign in to view your profile settings.</p>
+          <p className="text-center text-muted-foreground">
+            Please sign in to view your profile settings.
+          </p>
         </CardContent>
       </Card>
     );
@@ -84,8 +106,13 @@ export function UserProfileSettings() {
         <CardContent className="p-6">
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={user.photoURL || undefined} alt={getUserDisplayName()} />
-              <AvatarFallback className="text-lg">{getUserInitials()}</AvatarFallback>
+              <AvatarImage
+                src={user.photoURL || undefined}
+                alt={getUserDisplayName()}
+              />
+              <AvatarFallback className="text-lg">
+                {getUserInitials()}
+              </AvatarFallback>
             </Avatar>
             <div className="space-y-1">
               <h2 className="text-2xl font-bold">{getUserDisplayName()}</h2>
@@ -96,9 +123,7 @@ export function UserProfileSettings() {
                     Email Verified
                   </Badge>
                 ) : (
-                  <Badge variant="destructive">
-                    Email Not Verified
-                  </Badge>
+                  <Badge variant="destructive">Email Not Verified</Badge>
                 )}
               </div>
             </div>
@@ -123,7 +148,7 @@ export function UserProfileSettings() {
 
       {/* Tab Content */}
       {activeTab === 'profile' && (
-        <ProfileTab 
+        <ProfileTab
           user={user}
           isUpdating={isUpdating}
           setIsUpdating={setIsUpdating}
@@ -162,18 +187,21 @@ interface ProfileTabProps {
   user: any;
   isUpdating: boolean;
   setIsUpdating: (updating: boolean) => void;
-  updateProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>;
+  updateProfile: (data: {
+    displayName?: string;
+    photoURL?: string;
+  }) => Promise<void>;
   sendEmailVerification: () => Promise<void>;
   clearError: () => void;
 }
 
-function ProfileTab({ 
-  user, 
-  isUpdating, 
-  setIsUpdating, 
-  updateProfile, 
+function ProfileTab({
+  user,
+  isUpdating,
+  setIsUpdating,
+  updateProfile,
   sendEmailVerification,
-  clearError 
+  clearError,
 }: ProfileTabProps) {
   const [emailSent, setEmailSent] = useState(false);
 
@@ -249,7 +277,7 @@ function ProfileTab({
                     <Input
                       {...field}
                       type="email"
-                      disabled={true}
+                      disabled
                       className="bg-muted"
                     />
                   </FormControl>
@@ -261,7 +289,11 @@ function ProfileTab({
               )}
             />
 
-            <Button type="submit" disabled={isUpdating} className="flex items-center gap-2">
+            <Button
+              type="submit"
+              disabled={isUpdating}
+              className="flex items-center gap-2"
+            >
               {isUpdating ? (
                 <>
                   <LoadingSpinner size="sm" />
@@ -283,7 +315,8 @@ function ProfileTab({
               Email Verification Required
             </h4>
             <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-              Please verify your email address to secure your account and enable all features.
+              Please verify your email address to secure your account and enable
+              all features.
             </p>
             {emailSent ? (
               <p className="text-sm text-green-600 dark:text-green-400">
@@ -321,16 +354,19 @@ interface SecurityTabProps {
   hasPassword: boolean;
   isUpdating: boolean;
   setIsUpdating: (updating: boolean) => void;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   clearError: () => void;
 }
 
-function SecurityTab({ 
-  hasPassword, 
-  isUpdating, 
-  setIsUpdating, 
-  changePassword, 
-  clearError 
+function SecurityTab({
+  hasPassword,
+  isUpdating,
+  setIsUpdating,
+  changePassword,
+  clearError,
 }: SecurityTabProps) {
   const [passwordChanged, setPasswordChanged] = useState(false);
 
@@ -372,7 +408,8 @@ function SecurityTab({
               No Password Set
             </h4>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              You're currently signed in with Google. You can set a password to enable email/password login.
+              You're currently signed in with Google. You can set a password to
+              enable email/password login.
             </p>
           </div>
         </CardContent>
@@ -456,7 +493,11 @@ function SecurityTab({
               )}
             />
 
-            <Button type="submit" disabled={isUpdating} className="flex items-center gap-2">
+            <Button
+              type="submit"
+              disabled={isUpdating}
+              className="flex items-center gap-2"
+            >
               {isUpdating ? (
                 <>
                   <LoadingSpinner size="sm" />
@@ -486,14 +527,14 @@ interface ProvidersTabProps {
   clearError: () => void;
 }
 
-function ProvidersTab({ 
-  providers, 
-  hasGoogle, 
-  isUpdating, 
-  setIsUpdating, 
-  linkGoogleAccount, 
+function ProvidersTab({
+  providers,
+  hasGoogle,
+  isUpdating,
+  setIsUpdating,
+  linkGoogleAccount,
   unlinkProvider,
-  clearError 
+  clearError,
 }: ProvidersTabProps) {
   const handleLinkGoogle = async () => {
     try {
@@ -567,11 +608,7 @@ function ProvidersTab({
                       onClick={() => handleUnlinkProvider('google.com')}
                       disabled={isUpdating}
                     >
-                      {isUpdating ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        'Disconnect'
-                      )}
+                      {isUpdating ? <LoadingSpinner size="sm" /> : 'Disconnect'}
                     </Button>
                   )}
                 </div>
@@ -582,11 +619,7 @@ function ProvidersTab({
                   onClick={handleLinkGoogle}
                   disabled={isUpdating}
                 >
-                  {isUpdating ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    'Connect'
-                  )}
+                  {isUpdating ? <LoadingSpinner size="sm" /> : 'Connect'}
                 </Button>
               )}
             </div>
@@ -596,8 +629,9 @@ function ProvidersTab({
         {providers.length > 1 && (
           <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
             <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              <strong>Note:</strong> You need at least one sign-in method connected to your account.
-              You cannot disconnect your last remaining sign-in method.
+              <strong>Note:</strong> You need at least one sign-in method
+              connected to your account. You cannot disconnect your last
+              remaining sign-in method.
             </p>
           </div>
         )}
