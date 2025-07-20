@@ -1,0 +1,413 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
+import { PackageTier } from '../../types/admin/iam-enhanced';
+import { iamService } from '../../services/iamService';
+import { PERMISSION_TEMPLATES } from '../../config/packagePermissions';
+
+interface UserPermissionManagerProps {
+  userId: string;
+  onClose: () => void;
+}
+
+export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ userId, onClose }) => {
+  const [user, setUser] = useState<UserWithPermissions | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [customPermissionForm, setCustomPermissionForm] = useState({
+    featureId: '',
+    action: '',
+    resource: '',
+    reason: '',
+    expiresAt: '',
+  });
+  const [isGranting, setIsGranting] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  
+  useEffect(() => {
+    loadUserDetails();
+  }, [userId]);
+  
+  const loadUserDetails = async () => {
+    try {
+      setLoading(true);
+      const userData = await iamService.getUserWithPermissions(userId);
+      setUser(userData);
+    } catch (error) {
+      console.error('Failed to load user details:', error);
+      alert('Failed to load user details');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handlePackageUpgrade = async (newTier: PackageTier) => {
+    if (!user) return;
+    
+    try {
+      setIsUpgrading(true);
+      // Preview the upgrade first
+      const preview = await iamService.previewPackageUpgrade(userId, newTier);
+      
+      if (confirm(`This will add ${preview.addedPermissions.length} new permissions. Continue?`)) {
+        await iamService.updateUserPackageTier(userId, newTier, 'current-admin-id'); // Get from auth context
+        await loadUserDetails();
+        alert('Package upgraded successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to upgrade package:', error);
+      alert('Failed to upgrade package permissions');
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+  
+  const handleGrantCustomPermission = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    try {
+      setIsGranting(true);
+      await iamService.grantCustomPermission(
+        userId,
+        customPermissionForm.featureId,
+        {
+          action: customPermissionForm.action,
+          resource: customPermissionForm.resource,
+        },
+        'current-admin-id', // Get from auth context
+        {
+          reason: customPermissionForm.reason,
+          expiresAt: customPermissionForm.expiresAt ? new Date(customPermissionForm.expiresAt) : undefined,
+        }
+      );
+      
+      // Reset form
+      setCustomPermissionForm({
+        featureId: '',
+        action: '',
+        resource: '',
+        reason: '',
+        expiresAt: '',
+      });
+      
+      await loadUserDetails();
+      alert('Custom permission granted successfully!');
+    } catch (error) {
+      console.error('Failed to grant custom permission:', error);
+      alert('Failed to grant custom permission');
+    } finally {
+      setIsGranting(false);
+    }
+  };
+  
+  const handleRevokeCustomPermission = async (permissionId: string) => {
+    const reason = prompt('Reason for revoking this permission:');
+    if (!reason) return;
+    
+    try {
+      await iamService.revokeCustomPermission(permissionId, 'current-admin-id', reason);
+      await loadUserDetails();
+      alert('Permission revoked successfully!');
+    } catch (error) {
+      console.error('Failed to revoke permission:', error);
+      alert('Failed to revoke permission');
+    }
+  };
+  
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplate || !user) return;
+    
+    try {
+      await iamService.bulkApplyTemplate([userId], selectedTemplate, 'current-admin-id');
+      await loadUserDetails();
+      setSelectedTemplate('');
+      alert('Template applied successfully!');
+    } catch (error) {
+      console.error('Failed to apply template:', error);
+      alert('Failed to apply template');
+    }
+  };
+  
+  if (loading) return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-xl">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading user permissions...</p>
+      </div>
+    </div>
+  );
+  
+  if (!user) return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-xl">
+        <p className="text-red-600">User not found</p>
+        <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 my-8 max-h-[90vh] overflow-auto">
+        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Permission Management - {user.email}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+          <div className="mt-2 flex items-center space-x-4">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              user.subscriptionStatus === 'active' 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {user.subscriptionStatus}
+            </span>
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              {user.packageTier}
+            </span>
+          </div>
+        </div>
+        
+        <div className="p-6 space-y-8">
+          {/* Package Upgrade Section */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Package Management</h3>
+            <div className="flex flex-wrap gap-2">
+              {Object.values(PackageTier).map((tier) => (
+                <button
+                  key={tier}
+                  onClick={() => handlePackageUpgrade(tier)}
+                  disabled={user.packageTier === tier || isUpgrading}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    user.packageTier === tier
+                      ? 'bg-blue-100 text-blue-800 cursor-not-allowed'
+                      : isUpgrading
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                  {user.packageTier === tier && ' (Current)'}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Template Application Section */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Apply Permission Template</h3>
+            <div className="flex gap-4">
+              <select
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+              >
+                <option value="">Select a template...</option>
+                {PERMISSION_TEMPLATES.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} - {template.description}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleApplyTemplate}
+                disabled={!selectedTemplate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Apply Template
+              </button>
+            </div>
+          </div>
+          
+          {/* Custom Permission Grant Section */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Grant Custom Permission</h3>
+            <form onSubmit={handleGrantCustomPermission} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Feature ID
+                  </label>
+                  <input
+                    type="text"
+                    value={customPermissionForm.featureId}
+                    onChange={(e) => setCustomPermissionForm({
+                      ...customPermissionForm,
+                      featureId: e.target.value
+                    })}
+                    placeholder="e.g., api_boost"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Action
+                  </label>
+                  <select
+                    value={customPermissionForm.action}
+                    onChange={(e) => setCustomPermissionForm({
+                      ...customPermissionForm,
+                      action: e.target.value
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    required
+                  >
+                    <option value="">Select action...</option>
+                    <option value="view">View</option>
+                    <option value="create">Create</option>
+                    <option value="edit">Edit</option>
+                    <option value="delete">Delete</option>
+                    <option value="execute">Execute</option>
+                    <option value="*">All Actions</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Resource
+                  </label>
+                  <input
+                    type="text"
+                    value={customPermissionForm.resource}
+                    onChange={(e) => setCustomPermissionForm({
+                      ...customPermissionForm,
+                      resource: e.target.value
+                    })}
+                    placeholder="e.g., api:special_feature"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expires At (Optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={customPermissionForm.expiresAt}
+                    onChange={(e) => setCustomPermissionForm({
+                      ...customPermissionForm,
+                      expiresAt: e.target.value
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason
+                </label>
+                <textarea
+                  value={customPermissionForm.reason}
+                  onChange={(e) => setCustomPermissionForm({
+                    ...customPermissionForm,
+                    reason: e.target.value
+                  })}
+                  placeholder="Reason for granting this permission..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 rows-2"
+                  required
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={isGranting}
+                className="w-full bg-green-600 text-white rounded-lg py-2 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGranting ? 'Granting...' : 'Grant Custom Permission'}
+              </button>
+            </form>
+          </div>
+          
+          {/* Current Permissions Display */}
+          <div className="space-y-6">
+            {/* Package Permissions */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Package Permissions</h3>
+              <div className="bg-green-50 rounded-lg p-4">
+                {user.packagePermissions?.length > 0 ? (
+                  <div className="space-y-2">
+                    {user.packagePermissions.map((permission, index) => (
+                      <div key={index} className="flex justify-between items-center py-2 px-3 bg-white rounded border">
+                        <div>
+                          <span className="font-medium">{permission.featureId}</span>
+                          <span className="text-gray-500 ml-2">
+                            {permission.permission.action} on {permission.permission.resource}
+                          </span>
+                        </div>
+                        <span className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded">
+                          Package
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No package permissions found</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Custom Permissions */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Custom Permissions</h3>
+              <div className="bg-blue-50 rounded-lg p-4">
+                {user.customPermissions?.length > 0 ? (
+                  <div className="space-y-2">
+                    {user.customPermissions.map((permission) => (
+                      <div key={permission.id} className="flex justify-between items-center py-2 px-3 bg-white rounded border">
+                        <div>
+                          <span className="font-medium">{permission.featureId}</span>
+                          <span className="text-gray-500 ml-2">
+                            {permission.permission.action} on {permission.permission.resource}
+                          </span>
+                          {permission.expiresAt && (
+                            <span className="text-sm text-orange-600 ml-2">
+                              (Expires: {new Date(permission.expiresAt).toLocaleDateString()})
+                            </span>
+                          )}
+                          {permission.reason && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              Reason: {permission.reason}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                            Custom
+                          </span>
+                          <button
+                            onClick={() => handleRevokeCustomPermission(permission.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No custom permissions granted</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

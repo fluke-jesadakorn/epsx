@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .next out node_modules",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests specified\" && exit 0",
+    "firebase-init": "tsx scripts/run-firebase-init.ts"
   },
   "dependencies": {
     "@epsx/auth": "workspace:*",

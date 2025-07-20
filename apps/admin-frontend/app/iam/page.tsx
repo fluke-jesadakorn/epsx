@@ -2,13 +2,13 @@
 
 import { AdminGuard } from '@/components/auth/AdminGuard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { PermissionManagement } from '@/components/admin/PermissionManagement';
+import { IAMDashboard } from '@/components/admin/IAMDashboard';
 
 export default function IAMPage() {
   return (
     <AdminGuard>
       <AdminLayout>
-        <PermissionManagement />
+        <IAMDashboard />
       </AdminLayout>
     </AdminGuard>
   );
