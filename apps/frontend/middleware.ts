@@ -1,67 +1,31 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Configuration for different route types
-const routeConfig = {
-  // Routes that don't require authentication
-  public: [
-    '/',
-    '/login',
-    '/signup',
-    '/register', 
-    '/privacy',
-    '/terms',
-    '/reset-password',
-    '/verify-email',
-  ],
-  
-  // Routes that allow both authenticated and unauthenticated users
-  optional: [
-    '/',
-    '/privacy',
-    '/terms',
-  ],
-  
-  // API routes that should pass through
-  apiRoutes: [
-    '/api',
-  ],
-  
-  // Static assets and internal Next.js routes
-  excluded: [
-    '/_next',
-    '/favicon.ico',
-    '/robots.txt',
-    '/sitemap.xml',
-  ],
-};
-
-function isRouteType(pathname: string, routeType: keyof typeof routeConfig): boolean {
-  const routes = routeConfig[routeType];
-  return routes.some(route => {
-    if (route.endsWith('*')) {
-      return pathname.startsWith(route.slice(0, -1));
-    }
-    return pathname === route || pathname.startsWith(route + '/');
-  });
-}
+const protectedRoutes = ['/dashboard', '/analytics', '/my-data'];
+const authRoutes = ['/login', '/register'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Skip middleware for excluded routes and API routes
-  if (isRouteType(pathname, 'excluded') || isRouteType(pathname, 'apiRoutes')) {
-    return NextResponse.next();
+  // Check if the route is protected
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
+  
+  // Get the auth token from cookies
+  const token = request.cookies.get('auth-token')?.value;
+  
+  // Redirect to login if accessing protected route without token
+  if (isProtectedRoute && !token) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
   }
   
-  // Handle special redirects
-  if (pathname === '/checkout') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/payment';
-    return NextResponse.redirect(url);
+  // Redirect to dashboard if accessing auth routes with token
+  if (isAuthRoute && token) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
-  // Allow all requests to pass through - authentication will be handled client-side
   return NextResponse.next();
 }
 
@@ -73,8 +37,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (robots.txt, sitemap.xml, etc.)
+     * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

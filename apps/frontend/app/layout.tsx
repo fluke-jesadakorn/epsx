@@ -1,4 +1,5 @@
-import { AuthProvider } from '@/lib/auth';
+import { IAMProvider } from '@/context/IAMContext';
+import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from 'next-themes';
 import { ToastProvider } from '@/components/ui/toaster';
 import { Navigation } from '@/components/nav';
@@ -20,11 +21,13 @@ export default function RootLayout({
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <ToastProvider>
-              <Navigation />
-              {children}
-              <AuthDebugger />
-            </ToastProvider>
+            <IAMProvider>
+              <ToastProvider>
+                <Navigation />
+                {children}
+                <AuthDebugger />
+              </ToastProvider>
+            </IAMProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
