@@ -1,6 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -9,16 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from 'react';
 
 interface Transaction {
   orderNo: string;
@@ -38,43 +38,84 @@ interface TransactionHistoryProps {
   className?: string;
 }
 
-export function TransactionHistory({ transactions, className = '' }: TransactionHistoryProps) {
+export function TransactionHistory({
+  transactions,
+  className = '',
+}: TransactionHistoryProps) {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isMobile, setIsMobile] = useState(() => {
+    // Check if we're in browser environment and get initial mobile state
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false; // Default for SSR
+  });
   const itemsPerPage = 5;
 
+  // Check screen size for mobile responsiveness
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const isMobileCheck = window.innerWidth < 768;
+      console.log('Screen size check:', {
+        width: window.innerWidth,
+        isMobile: isMobileCheck,
+      });
+      setIsMobile(isMobileCheck);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   // Filter transactions based on search and status
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.blockchainData.txHash.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || transaction.status.toLowerCase() === statusFilter.toLowerCase();
-    
+  const filteredTransactions = transactions.filter((transaction) => {
+    const matchesSearch =
+      transaction.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.blockchainData.txHash
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      transaction.status.toLowerCase() === statusFilter.toLowerCase();
+
     return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const currentTransactions = filteredTransactions.slice(
     (page - 1) * itemsPerPage,
-    page * itemsPerPage
+    page * itemsPerPage,
   );
 
   const exportToCSV = () => {
     const csvContent = [
-      ['Order No', 'Amount', 'Currency', 'Status', 'Date', 'Network', 'TX Hash'].join(','),
-      ...filteredTransactions.map(tx => [
-        tx.orderNo,
-        tx.actualAmount,
-        tx.currency,
-        tx.status,
-        new Date(tx.finishTime).toLocaleDateString(),
-        tx.blockchainData.network,
-        tx.blockchainData.txHash
-      ].join(','))
+      [
+        'Order No',
+        'Amount',
+        'Currency',
+        'Status',
+        'Date',
+        'Network',
+        'TX Hash',
+      ].join(','),
+      ...filteredTransactions.map((tx) =>
+        [
+          tx.orderNo,
+          tx.actualAmount,
+          tx.currency,
+          tx.status,
+          new Date(tx.finishTime).toLocaleDateString(),
+          tx.blockchainData.network,
+          tx.blockchainData.txHash,
+        ].join(','),
+      ),
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -96,18 +137,93 @@ export function TransactionHistory({ transactions, className = '' }: Transaction
     switch (statusLower) {
       case 'succeeded':
       case 'completed':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">✅ {status}</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            ✅ {status}
+          </Badge>
+        );
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">⏳ {status}</Badge>;
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            ⏳ {status}
+          </Badge>
+        );
       case 'failed':
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">❌ {status}</Badge>;
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            ❌ {status}
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300">{status}</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+          >
+            {status}
+          </Badge>
+        );
     }
   };
 
+  // Mobile Transaction Card Component
+  const TransactionCard = ({ transaction }: { transaction: Transaction }) => (
+    <Card className="mb-4 shadow-sm hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {formatAmount(transaction.actualAmount)} {transaction.currency}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Order: {transaction.orderNo}
+            </p>
+          </div>
+          {getStatusBadge(transaction.status)}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Date:</span>
+            <div className="text-right">
+              <div className="text-gray-900 dark:text-white">
+                {new Date(transaction.finishTime).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(transaction.finishTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </div>
+            </div>
+          </div>
+
+          {transaction.blockchainData.txHash && (
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+              <Button
+                variant="link"
+                className="p-0 h-auto font-normal underline-offset-4 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm w-full"
+                onClick={() =>
+                  window.open(transaction.blockExplorerUrl, '_blank')
+                }
+              >
+                View on {transaction.blockchainData.network || 'BSC'} Explorer →
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <Card className={`${className} transition-shadow hover:shadow-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800`}>
+    <Card
+      className={`${className} transition-shadow hover:shadow-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800`}
+    >
       <CardHeader>
         <CardTitle className="text-xl font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
           <svg
@@ -175,69 +291,137 @@ export function TransactionHistory({ transactions, className = '' }: Transaction
           </Button>
         </div>
 
-        <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-700">
-                  <TableHead className="text-gray-900 dark:text-white">Date</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Amount</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Status</TableHead>
-                  <TableHead className="text-gray-900 dark:text-white">Transaction</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentTransactions.length > 0 ? (
-                  currentTransactions.map((tx) => (
-                    <TableRow key={tx.orderNo} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <TableCell className="text-gray-900 dark:text-white">
-                        <div className="text-sm">
-                          {new Date(tx.finishTime).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(tx.finishTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">
-                        <div className="font-medium">
-                          {formatAmount(tx.actualAmount)} {tx.currency}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(tx.status)}
-                      </TableCell>
-                      <TableCell>
-                        {tx.blockchainData.txHash && (
-                          <Button
-                            variant="link"
-                            className="p-0 h-auto font-normal underline-offset-4 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                            onClick={() => window.open(tx.blockExplorerUrl, '_blank')}
-                          >
-                            <span className="hidden sm:inline">View on {tx.blockchainData.network || 'BSC'} Explorer</span>
-                            <span className="sm:hidden">View TX</span>
-                          </Button>
-                        )}
+        {/* Responsive transaction display */}
+        {/* Debug: Current screen state - Window width: {typeof window !== 'undefined' ? window.innerWidth : 'SSR'}, isMobile: {isMobile.toString()} */}
+        {(() => {
+          console.log('Rendering decision:', {
+            isMobile,
+            currentTransactions: currentTransactions.length,
+          });
+          return null;
+        })()}
+        {isMobile ? (
+          // Mobile Card View
+          <div className="mobile-view">
+            <div
+              style={{
+                backgroundColor: 'rgba(0,255,0,0.1)',
+                padding: '4px',
+                fontSize: '12px',
+              }}
+            >
+              DEBUG: Mobile Cards View (isMobile={isMobile.toString()})
+            </div>
+            {currentTransactions.length > 0 ? (
+              currentTransactions.map((tx) => (
+                <TransactionCard key={tx.orderNo} transaction={tx} />
+              ))
+            ) : (
+              <Card className="text-center py-8">
+                <CardContent>
+                  <p className="text-muted-foreground">No transactions found</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          // Desktop Table View
+          <div className="desktop-view rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div
+              style={{
+                backgroundColor: 'rgba(255,0,0,0.1)',
+                padding: '4px',
+                fontSize: '12px',
+              }}
+            >
+              DEBUG: Desktop Table View (isMobile={isMobile.toString()})
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-700">
+                    <TableHead className="text-gray-900 dark:text-white">
+                      Date
+                    </TableHead>
+                    <TableHead className="text-gray-900 dark:text-white">
+                      Amount
+                    </TableHead>
+                    <TableHead className="text-gray-900 dark:text-white">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-gray-900 dark:text-white">
+                      Transaction
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentTransactions.length > 0 ? (
+                    currentTransactions.map((tx) => (
+                      <TableRow
+                        key={tx.orderNo}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <TableCell className="text-gray-900 dark:text-white">
+                          <div className="text-sm">
+                            {new Date(tx.finishTime).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(tx.finishTime).toLocaleTimeString(
+                              'en-US',
+                              {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              },
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-gray-900 dark:text-white">
+                          <div className="font-medium">
+                            {formatAmount(tx.actualAmount)} {tx.currency}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(tx.status)}</TableCell>
+                        <TableCell>
+                          {tx.blockchainData.txHash && (
+                            <Button
+                              variant="link"
+                              className="p-0 h-auto font-normal underline-offset-4 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                              onClick={() =>
+                                window.open(tx.blockExplorerUrl, '_blank')
+                              }
+                            >
+                              <span className="hidden sm:inline">
+                                View on {tx.blockchainData.network || 'BSC'}{' '}
+                                Explorer
+                              </span>
+                              <span className="sm:hidden">View TX</span>
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No transactions found
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No transactions found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
+        )}
 
         {totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">

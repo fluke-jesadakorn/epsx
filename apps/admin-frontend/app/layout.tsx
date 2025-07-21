@@ -41,12 +41,18 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body
+        className="min-h-screen font-sans antialiased"
+        style={{
+          background: 'linear-gradient(135deg, #f3b9ff 0%, #53dee9 100%)',
+          color: 'var(--color-text)',
+        }}
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AdminAuthProvider>
             <ToastProvider>
               <Navigation />
-              <div className="relative flex min-h-screen flex-col">
+              <div className="relative flex min-h-screen flex-col card">
                 {children}
               </div>
             </ToastProvider>

@@ -2,7 +2,7 @@
 
 import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { WithLoading } from '@/components/common/withLoading';
@@ -68,14 +68,18 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
           {/* Main heading with enhanced PancakeSwap-style typography */}
           <div className="space-y-6">
             <div className="inline-block animate-slide-up">
+              <div className="mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 backdrop-blur-sm">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Performance Analytics Platform
+                </span>
+              </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight">
-                📈 Track
-                <span className="block sm:inline bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent mx-0 sm:mx-3 animate-gradient-x">
+                <span className="block">📈 Track Your</span>
+                <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-gradient-x">
                   Performance Growth
                 </span>
-                <span className="block sm:inline mt-2 sm:mt-0">
-                  Metrics ✨
-                </span>
+                <span className="block mt-2">Metrics ✨</span>
               </h1>
             </div>
 

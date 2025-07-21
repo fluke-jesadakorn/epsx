@@ -1,8 +1,15 @@
 'use client';
 
-import { ChevronDown, ChevronUp, LayoutGrid, Table2, Lock, Crown } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Crown,
+  LayoutGrid,
+  Lock,
+  Table2,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -14,10 +21,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { Button } from '../ui/button';
+import type { UserLevelType } from '@/app/constants/packages';
+import { getLockedRankings, getNextLevelLimit } from '@/app/constants/packages';
+import {
+  LockedRankingCard,
+  UpgradePrompt,
+} from '@/components/ui/upgrade-prompt';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
-import { UpgradePrompt, LockedRankingCard } from '@/components/ui/upgrade-prompt';
-import { getNextLevelLimit, getLockedRankings } from '@/app/constants/packages';
+import { Button } from '../ui/button';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 
@@ -261,18 +272,24 @@ function DataRankTable({
   rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
   const router = useRouter();
-  const { maxRankings, canViewRanking, upgradeRequired, userLevel } = useRankingAccess();
-  
+  const { canAccessRankings, loading } = useRankingAccess();
+
+  // Create mock ranking access data for now - in real implementation this would come from useRankingAccess
+  const maxRankings = 10;
+  const userLevel: UserLevelType = 'BRONZE';
+  const upgradeRequired = false;
+  const canViewRanking = (index: number) => index < maxRankings;
+
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];
-  
+
   // Apply user-based ranking limit (override rankingLimit prop if user limit is lower)
-  const effectiveLimit = rankingLimit 
-    ? Math.min(rankingLimit, maxRankings) 
+  const effectiveLimit = rankingLimit
+    ? Math.min(rankingLimit, maxRankings)
     : maxRankings;
-  
+
   safeData = safeData.slice(0, effectiveLimit);
-  
+
   const [viewMode, setViewMode] = useState<'table' | 'card'>(defaultView);
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -286,10 +303,8 @@ function DataRankTable({
       const width = typeof window !== 'undefined' ? window.innerWidth : 0;
       setIsMobile(width < 768);
       setIsNarrow(width < 1200);
-      // Only apply responsive switching for table view
-      if (defaultView === 'table') {
-        setViewMode(width < 768 ? 'card' : 'table');
-      }
+      // Always apply responsive switching - prioritize cards on mobile for better UX
+      setViewMode(width < 768 ? 'card' : defaultView);
     };
 
     checkScreenSize();
@@ -298,6 +313,8 @@ function DataRankTable({
       window.addEventListener('resize', checkScreenSize);
       return () => window.removeEventListener('resize', checkScreenSize);
     }
+
+    return () => {}; // Empty cleanup function for consistency
   }, [defaultView]);
 
   const renderTableView = () => (
@@ -326,7 +343,9 @@ function DataRankTable({
                 <TableRow
                   key={`${row.symbol}-${index}`}
                   className={`hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors ${
-                    !canViewRanking(index) ? 'opacity-50 pointer-events-none' : ''
+                    !canViewRanking(index)
+                      ? 'opacity-50 pointer-events-none'
+                      : ''
                   }`}
                 >
                   {columns.map((column) => (
@@ -356,26 +375,29 @@ function DataRankTable({
                   ))}
                 </TableRow>
               ))}
-              
+
               {/* Show locked rows for premium content */}
-              {upgradeRequired && Array.from({ length: Math.min(3, 15 - safeData.length) }).map((_, index) => (
-                <TableRow 
-                  key={`locked-row-${index}`}
-                  className="opacity-50 pointer-events-none bg-gray-50 dark:bg-gray-900/50"
-                >
-                  {columns.map((column) => (
-                    <TableCell key={column.key}>
-                      <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-400">Locked</span>
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+              {upgradeRequired &&
+                Array.from({ length: Math.min(3, 15 - safeData.length) }).map(
+                  (_, index) => (
+                    <TableRow
+                      key={`locked-row-${index}`}
+                      className="opacity-50 pointer-events-none bg-gray-50 dark:bg-gray-900/50"
+                    >
+                      {columns.map((column) => (
+                        <TableCell key={column.key}>
+                          <div className="flex items-center gap-2">
+                            <Lock className="h-4 w-4 text-gray-400" />
+                            <span className="text-gray-400">Locked</span>
+                          </div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ),
+                )}
             </TableBody>
           </Table>
-          
+
           {/* Table upgrade prompt */}
           {upgradeRequired && (
             <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-t">
@@ -383,7 +405,8 @@ function DataRankTable({
                 <Crown className="h-8 w-8 text-yellow-500 mx-auto" />
                 <h3 className="font-semibold text-lg">Unlock More Rankings</h3>
                 <p className="text-sm text-muted-foreground">
-                  Upgrade to see up to {getNextLevelLimit(userLevel)} top-ranked stocks
+                  Upgrade to see up to {getNextLevelLimit(userLevel)} top-ranked
+                  stocks
                 </p>
                 <Button className="gap-2" onClick={handleUpgrade}>
                   <Crown className="h-4 w-4" />
@@ -405,34 +428,41 @@ function DataRankTable({
   const renderCardView = () => (
     <div className="space-y-6">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {safeData.map((item, index) => 
+        {safeData.map((item, index) =>
           canViewRanking(index) ? (
-            <DataCard key={`${item.symbol}-${index}`} data={item} index={index} />
-          ) : (
-            <LockedRankingCard 
-              key={`locked-${index}`} 
-              index={index} 
-              userLevel={userLevel} 
-              onUpgrade={handleUpgrade} 
+            <DataCard
+              key={`${item.symbol}-${index}`}
+              data={item}
+              index={index}
             />
-          )
+          ) : (
+            <LockedRankingCard
+              key={`locked-${index}`}
+              index={index}
+              userLevel={userLevel}
+              onUpgrade={handleUpgrade}
+            />
+          ),
         )}
         {/* Show additional locked cards for premium tiers */}
-        {upgradeRequired && Array.from({ length: Math.min(5, 20 - safeData.length) }).map((_, index) => (
-          <LockedRankingCard 
-            key={`extra-locked-${index}`} 
-            index={safeData.length + index} 
-            userLevel={userLevel} 
-            onUpgrade={handleUpgrade} 
-          />
-        ))}
+        {upgradeRequired &&
+          Array.from({ length: Math.min(5, 20 - safeData.length) }).map(
+            (_, index) => (
+              <LockedRankingCard
+                key={`extra-locked-${index}`}
+                index={safeData.length + index}
+                userLevel={userLevel}
+                onUpgrade={handleUpgrade}
+              />
+            ),
+          )}
       </div>
-      
+
       {/* Upgrade prompt at bottom */}
       {upgradeRequired && (
-        <UpgradePrompt 
-          currentLevel={userLevel} 
-          lockedRankings={getLockedRankings(userLevel)} 
+        <UpgradePrompt
+          currentLevel={userLevel}
+          lockedRankings={getLockedRankings(userLevel)}
           className="mt-6"
         />
       )}

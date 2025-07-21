@@ -5,6 +5,7 @@ import { ButtonIcon } from '@/components/ui/button-icon';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAdminAuth } from '@/context/admin-auth';
 import { BarChart, Database, Home, LogIn, LogOut } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -24,14 +25,26 @@ export function Navigation() {
 
   if (loading) {
     return (
-      <nav className="relative z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4">
+      <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+        <div className="container mx-auto px-4 lg:px-6">
           <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="text-xl font-bold">
-              ESPX
-            </Link>
+            <div className="flex items-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="EPSX Logo"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 object-contain"
+                  priority
+                />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                EPSX Admin
+              </span>
+            </div>
             <div className="flex items-center gap-4">
-              <div className="animate-pulse bg-gray-300 h-8 w-16 rounded"></div>
+              <div className="animate-pulse bg-muted h-8 w-16 rounded-md"></div>
             </div>
           </div>
         </div>
@@ -40,13 +53,28 @@ export function Navigation() {
   }
 
   return (
-    <nav className="relative z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
+    <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+      <div className="container mx-auto px-4 lg:px-6">
         <div className="flex h-16 items-center justify-between">
+          {/* Brand Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="flex h-12 w-12 items-center justify-center transition-transform group-hover:scale-105">
+              <Image
+                src="/logo.png"
+                alt="EPSX Logo"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-contain"
+                priority
+              />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              EPSX Admin
+            </span>
+          </Link>
+
           <div className="flex items-center gap-4">
             <ThemeSwitch />
-          </div>
-          <div className="flex items-center gap-4">
             {filteredItems.map((item, idx) =>
               idx === 0 ? (
                 <Link
