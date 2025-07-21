@@ -1,9 +1,9 @@
-import { IAMProvider } from '@/context/IAMContext';
-import { AuthProvider } from '@/context/auth-context';
+import { IAMProvider } from '@/context/iam-context';
 import { ThemeProvider } from 'next-themes';
 import { ToastProvider } from '@/components/ui/toaster';
 import { Navigation } from '@/components/nav';
 import { AuthDebugger } from '@/components/debug/AuthDebugger';
+import { AppAuthProvider } from '@/context/shared-auth-provider';
 import './globals.css';
 
 export const metadata = {
@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>
+          <AppAuthProvider>
             <IAMProvider>
               <ToastProvider>
                 <Navigation />
@@ -28,7 +28,7 @@ export default function RootLayout({
                 <AuthDebugger />
               </ToastProvider>
             </IAMProvider>
-          </AuthProvider>
+          </AppAuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import type { SessionClaims, SessionResult, SessionConfig } from './types';
+import type { SessionClaims, SessionConfig, SessionResult } from './types';
 
 // Default session configuration
 export const DEFAULT_SESSION_CONFIG: SessionConfig = {
@@ -27,17 +27,17 @@ async function getAuthAdmin() {
  */
 export async function createSession(
   token: string,
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const sessionConfig = { ...DEFAULT_SESSION_CONFIG, ...config };
-    
+
     // Verify the token first
     const auth = await getAuthAdmin();
     await auth.verifyIdToken(token, true); // checkRevoked = true
-    
+
     const cookieStore = await cookies();
-    
+
     // Set the session cookie with explicit configuration
     cookieStore.set(sessionConfig.sessionKey, token, {
       maxAge: sessionConfig.maxAge,
@@ -51,9 +51,9 @@ export async function createSession(
     return { success: true };
   } catch (error) {
     console.error('Failed to create session:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -62,13 +62,13 @@ export async function createSession(
  * Verify the current session and return claims
  */
 export async function verifySession(
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<SessionResult> {
   try {
     const sessionConfig = { ...DEFAULT_SESSION_CONFIG, ...config };
     const cookieStore = await cookies();
     const token = cookieStore.get(sessionConfig.sessionKey)?.value;
-    
+
     if (!token) {
       return { success: false };
     }
@@ -76,42 +76,48 @@ export async function verifySession(
     // Verify the Firebase ID token
     const auth = await getAuthAdmin();
     const decodedToken = await auth.verifyIdToken(token, true); // checkRevoked = true
-    
+
     const claims: SessionClaims = {
       uid: decodedToken.uid,
-      email: decodedToken.email,
-      email_verified: decodedToken.email_verified,
-      name: decodedToken.name,
-      picture: decodedToken.picture,
-      exp: decodedToken.exp,
-      iat: decodedToken.iat,
-      role: decodedToken.role,
-      permissions: decodedToken.permissions,
+      ...(decodedToken.email && { email: decodedToken.email }),
+      ...(decodedToken.email_verified !== undefined && {
+        email_verified: decodedToken.email_verified,
+      }),
+      ...(decodedToken.name && { name: decodedToken.name }),
+      ...(decodedToken.picture && { picture: decodedToken.picture }),
+      ...(decodedToken.exp && { exp: decodedToken.exp }),
+      ...(decodedToken.iat && { iat: decodedToken.iat }),
+      ...(decodedToken.role && { role: decodedToken.role }),
+      ...(decodedToken.permissions && {
+        permissions: decodedToken.permissions,
+      }),
       custom_claims: decodedToken,
     };
 
     // Check if token needs refresh (within threshold of expiry)
-    const needsRefresh = decodedToken.exp ? 
-      (decodedToken.exp - Math.floor(Date.now() / 1000)) < sessionConfig.refreshThreshold : false;
+    const needsRefresh = decodedToken.exp
+      ? decodedToken.exp - Math.floor(Date.now() / 1000) <
+        sessionConfig.refreshThreshold
+      : false;
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       claims,
-      needsRefresh 
+      needsRefresh,
     };
   } catch (error) {
     console.error('Session verification failed:', error);
-    
+
     // Clear invalid session cookie
     try {
       await destroySession(config);
     } catch (destroyError) {
       console.error('Failed to clear invalid session:', destroyError);
     }
-    
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -121,20 +127,20 @@ export async function verifySession(
  */
 export async function refreshSession(
   newToken: string,
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Verify the new token before updating
     const auth = await getAuthAdmin();
     await auth.verifyIdToken(newToken, true);
-    
+
     // Update the session cookie
     return await createSession(newToken, config);
   } catch (error) {
     console.error('Session refresh failed:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -143,7 +149,7 @@ export async function refreshSession(
  * Destroy the current session
  */
 export async function destroySession(
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<void> {
   const sessionConfig = { ...DEFAULT_SESSION_CONFIG, ...config };
   const cookieStore = await cookies();
@@ -155,7 +161,7 @@ export async function destroySession(
  * Check if a session exists (without verification)
  */
 export async function hasSession(
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<boolean> {
   const sessionConfig = { ...DEFAULT_SESSION_CONFIG, ...config };
   const cookieStore = await cookies();
@@ -166,7 +172,7 @@ export async function hasSession(
  * Get session info for client-side use (minimal data)
  */
 export async function getSessionInfo(
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<{
   isAuthenticated: boolean;
   email?: string;
@@ -174,16 +180,18 @@ export async function getSessionInfo(
   displayName?: string;
 }> {
   const result = await verifySession(config);
-  
+
   if (!result.success || !result.claims) {
     return { isAuthenticated: false };
   }
 
   return {
     isAuthenticated: true,
-    email: result.claims.email,
-    emailVerified: result.claims.email_verified,
-    displayName: result.claims.name,
+    ...(result.claims.email && { email: result.claims.email }),
+    ...(result.claims.email_verified !== undefined && {
+      emailVerified: result.claims.email_verified,
+    }),
+    ...(result.claims.name && { displayName: result.claims.name }),
   };
 }
 
@@ -191,21 +199,21 @@ export async function getSessionInfo(
  * Edge runtime compatible session verification (basic parsing without verification)
  */
 export async function verifySessionEdge(
-  config: Partial<SessionConfig> = {}
+  config: Partial<SessionConfig> = {},
 ): Promise<SessionClaims | null> {
   try {
     const sessionConfig = { ...DEFAULT_SESSION_CONFIG, ...config };
     const cookieStore = await cookies();
     const token = cookieStore.get(sessionConfig.sessionKey)?.value || null;
-    
+
     if (!token) {
       return null;
     }
-    
+
     // Parse the token (basic parsing without cryptographic verification)
     // Full verification should be done in API routes using Firebase Admin SDK
     const claims = parseJWT(token);
-    
+
     return claims;
   } catch (error) {
     console.error('Edge session verification failed:', error);
@@ -221,21 +229,26 @@ function parseJWT(token: string): SessionClaims | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    
+
     const payload = JSON.parse(
-      Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+      Buffer.from(
+        parts[1]?.replace(/-/g, '+').replace(/_/g, '/') || '',
+        'base64',
+      ).toString(),
     );
-    
+
     return {
       uid: payload.user_id || payload.sub,
-      email: payload.email,
-      email_verified: payload.email_verified,
-      name: payload.name,
-      picture: payload.picture,
-      exp: payload.exp,
-      iat: payload.iat,
-      role: payload.role,
-      permissions: payload.permissions,
+      ...(payload.email && { email: payload.email }),
+      ...(payload.email_verified !== undefined && {
+        email_verified: payload.email_verified,
+      }),
+      ...(payload.name && { name: payload.name }),
+      ...(payload.picture && { picture: payload.picture }),
+      ...(payload.exp && { exp: payload.exp }),
+      ...(payload.iat && { iat: payload.iat }),
+      ...(payload.role && { role: payload.role }),
+      ...(payload.permissions && { permissions: payload.permissions }),
       custom_claims: payload,
     };
   } catch (error) {

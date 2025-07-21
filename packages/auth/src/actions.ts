@@ -1,12 +1,12 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { 
-  createSession, 
-  destroySession, 
-  verifySession, 
+import {
+  createSession,
+  destroySession,
+  getSessionInfo,
   refreshSession as refreshSessionInternal,
-  getSessionInfo
+  verifySession,
 } from './session';
 import type { SessionClaims, SessionConfig } from './types';
 
@@ -15,7 +15,7 @@ import type { SessionClaims, SessionConfig } from './types';
  */
 export async function handleSignIn(
   idToken: string,
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('Creating session with token');
@@ -27,9 +27,9 @@ export async function handleSignIn(
     return { success: true };
   } catch (error) {
     console.error('Sign-in error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Authentication failed' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Authentication failed',
     };
   }
 }
@@ -38,7 +38,7 @@ export async function handleSignIn(
  * Handle user sign out - destroy session
  */
 export async function handleSignOut(
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('Destroying session');
@@ -47,9 +47,9 @@ export async function handleSignOut(
     return { success: true };
   } catch (error) {
     console.error('Sign-out error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to sign out' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to sign out',
     };
   }
 }
@@ -59,7 +59,7 @@ export async function handleSignOut(
  */
 export async function refreshSession(
   newToken: string,
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('Refreshing session with new token');
@@ -71,9 +71,10 @@ export async function refreshSession(
     return { success: true };
   } catch (error) {
     console.error('Session refresh error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to refresh session' 
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to refresh session',
     };
   }
 }
@@ -82,7 +83,7 @@ export async function refreshSession(
  * Get current authenticated user with session claims
  */
 export async function getCurrentUser(
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<SessionClaims | null> {
   try {
     const result = await verifySession(config);
@@ -96,9 +97,7 @@ export async function getCurrentUser(
 /**
  * Check authentication status (lightweight)
  */
-export async function getAuthStatus(
-  config?: Partial<SessionConfig>
-): Promise<{
+export async function getAuthStatus(config?: Partial<SessionConfig>): Promise<{
   isAuthenticated: boolean;
   needsRefresh?: boolean;
   user?: {
@@ -110,19 +109,23 @@ export async function getAuthStatus(
 }> {
   try {
     const result = await verifySession(config);
-    
+
     if (!result.success || !result.claims) {
       return { isAuthenticated: false };
     }
 
     return {
       isAuthenticated: true,
-      needsRefresh: result.needsRefresh,
+      ...(result.needsRefresh !== undefined && {
+        needsRefresh: result.needsRefresh,
+      }),
       user: {
         id: result.claims.uid,
-        email: result.claims.email,
-        emailVerified: result.claims.email_verified,
-        displayName: result.claims.name,
+        ...(result.claims.email && { email: result.claims.email }),
+        ...(result.claims.email_verified !== undefined && {
+          emailVerified: result.claims.email_verified,
+        }),
+        ...(result.claims.name && { displayName: result.claims.name }),
       },
     };
   } catch (error) {
@@ -136,14 +139,14 @@ export async function getAuthStatus(
  */
 export async function requireAuth(
   redirectTo?: string,
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<SessionClaims> {
   const user = await getCurrentUser(config);
-  
+
   if (!user) {
     redirect(redirectTo || '/login');
   }
-  
+
   return user;
 }
 
@@ -152,10 +155,10 @@ export async function requireAuth(
  */
 export async function requireGuest(
   redirectTo: string = '/dashboard',
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<void> {
   const user = await getCurrentUser(config);
-  
+
   if (user) {
     redirect(redirectTo);
   }
@@ -165,7 +168,7 @@ export async function requireGuest(
  * Get session info (lightweight version)
  */
 export async function getSessionInfoAction(
-  config?: Partial<SessionConfig>
+  config?: Partial<SessionConfig>,
 ): Promise<{
   isAuthenticated: boolean;
   email?: string;

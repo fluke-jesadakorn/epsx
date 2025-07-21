@@ -1,12 +1,12 @@
 'use client';
 
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/shared-auth-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
 
   if (!user) {
@@ -15,7 +15,7 @@ export default function SettingsPage() {
   }
 
   const handleSignOut = async () => {
-    await logout();
+    await signOut();
     router.push('/');
   };
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, BarChart, Database, LogIn, LogOut, Menu } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/shared-auth-provider';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export function Navigation() {
-  const { user, logout, loading } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -70,7 +70,7 @@ export function Navigation() {
             {user ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">{user.email}</span>
-                <Button variant="ghost" size="sm" onClick={() => logout()}>
+                <Button variant="ghost" size="sm" onClick={() => signOut()}>
                   <LogOut className="h-4 w-4" />
                 </Button>
               </div>

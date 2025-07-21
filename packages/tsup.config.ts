@@ -3,14 +3,16 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['cjs', 'esm'],
-  dts: {
-    resolve: true,
-  },
-  splitting: false,
+  dts: true,
   sourcemap: true,
   clean: true,
+  splitting: false,
   treeshake: true,
   minify: false,
-  tsconfig: './tsconfig.build.json',
-  external: ['@epsx/types'],
+  external: ['react', 'react-dom', 'next', '@next/*', 'zod'],
+  esbuildOptions(options) {
+    options.banner = {
+      js: '"use client";',
+    };
+  },
 });

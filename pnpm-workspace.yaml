@@ -1,12 +1,9 @@
 packages:
-  - 'apps/frontend'
-  - 'apps/admin-frontend'
-  - 'packages/*'
-  # - 'apps/backend'  # Rust backend temporarily disabled from monorepo
+  # Apps
+  - 'apps/*'
 
-ignoredBuiltDependencies:
-  - '@firebase/util'
-  - esbuild
-  - protobufjs
-  - sharp
-  - unrs-resolver
+  # Packages
+  - 'packages/*'
+
+  # Backend (Rust) - commented out for now
+  # - 'apps/backend'

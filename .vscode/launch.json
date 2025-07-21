@@ -11,6 +11,72 @@
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/apps/frontend/utils/processStocks/fetchScreenerStock.ts",
       "outFiles": ["${workspaceFolder}/**/*.js"]
+    },
+    {
+      "name": "Next.js: debug frontend",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/frontend/node_modules/.bin/next",
+      "args": ["dev", "-p", "3000"],
+      "cwd": "${workspaceFolder}/apps/frontend",
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "- Local:.*https?://localhost:([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Next.js: debug admin",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/admin-frontend/node_modules/.bin/next",
+      "args": ["dev", "-p", "3001"],
+      "cwd": "${workspaceFolder}/apps/admin-frontend",
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "- Local:.*https?://localhost:([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Debug Jest Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": ["--runInBand", "--no-cache", "--watchAll=false"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug Current Jest Test",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": [
+        "--runInBand",
+        "--no-cache",
+        "--watchAll=false",
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Attach to Chrome",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Full Stack",
+      "configurations": ["Next.js: debug frontend", "Next.js: debug admin"]
     }
   ]
 }

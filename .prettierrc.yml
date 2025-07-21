@@ -1,0 +1,61 @@
+# Prettier Configuration for EPSX Monorepo
+
+# Formatting options
+semi: true
+singleQuote: true
+trailingComma: 'es5'
+tabWidth: 2
+useTabs: false
+printWidth: 80
+bracketSpacing: true
+bracketSameLine: false
+arrowParens: 'avoid'
+endOfLine: 'lf'
+
+# File specific overrides
+overrides:
+  # TypeScript files
+  - files: '*.{ts,tsx}'
+    options:
+      parser: 'typescript'
+
+  # JSON files
+  - files: '*.json'
+    options:
+      parser: 'json'
+      tabWidth: 2
+
+  # Markdown files
+  - files: '*.md'
+    options:
+      parser: 'markdown'
+      proseWrap: 'preserve'
+
+  # YAML files
+  - files: '*.{yml,yaml}'
+    options:
+      parser: 'yaml'
+      tabWidth: 2
+
+  # Configuration files
+  - files: '*.config.{js,ts}'
+    options:
+      singleQuote: true
+
+  # Package.json files
+  - files: 'package.json'
+    options:
+      tabWidth: 2
+
+# Ignore patterns
+ignore:
+  - 'node_modules'
+  - 'dist'
+  - 'build'
+  - '.next'
+  - 'target'
+  - 'coverage'
+  - '.turbo'
+  - 'generated'
+  - '*.min.js'
+  - '*.bundle.js'

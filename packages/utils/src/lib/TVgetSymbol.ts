@@ -1,4 +1,4 @@
-const a = {
+const _a = {
   nextQuarterDate: new Date('2025-04-30T10:59:00.000ZZ'),
   currentQuarterEarningsPerShare: 2.4,
   currentEpsGrowth: 0.2,

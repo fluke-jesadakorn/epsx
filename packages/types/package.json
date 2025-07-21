@@ -2,18 +2,41 @@
   "name": "@epsx/types",
   "version": "0.1.0",
   "private": true,
+  "description": "Shared TypeScript types for EPSX platform",
+  "keywords": [
+    "types",
+    "typescript",
+    "epsx"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
+    "build:packages": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint src",
-    "clean": "rm -rf dist node_modules/.cache",
-    "type-check": "tsc --noEmit"
+    "dev:packages": "tsup --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.cache .turbo"
   },
   "devDependencies": {
+    "@epsx/config": "workspace:*",
     "tsup": "^8.0.2",
     "typescript": "^5.4.2",
     "@types/node": "22.13.11"

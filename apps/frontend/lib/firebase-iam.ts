@@ -315,7 +315,7 @@ export const iamService = FirebaseIAMService.getInstance();
 export const authService = new FirebaseAuthService();
 
 // React hooks for IAM
-export const useIAM = () => {
+export const useIAMServices = () => {
   return {
     iamService,
     authService,

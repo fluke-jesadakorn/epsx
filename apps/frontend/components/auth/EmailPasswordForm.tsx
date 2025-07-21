@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/shared-auth-provider';
 
 const formSchema = z
   .object({
@@ -90,8 +90,7 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
               id="email"
               type="email"
               placeholder="name@example.com"
-              error={!!errors.email}
-              className="border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200"
+              className={`border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200 ${errors.email ? 'border-red-500' : ''}`}
             />
           )}
         />
@@ -111,8 +110,7 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
               {...field}
               id="password"
               type="password"
-              error={!!errors.password}
-              className="border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200"
+              className={`border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200 ${errors.password ? 'border-red-500' : ''}`}
             />
           )}
         />
@@ -129,13 +127,12 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
             name="confirmPassword"
             control={control}
             render={({ field }) => (
-              <Input
-                {...field}
-                id="confirmPassword"
-                type="password"
-                error={!!errors.confirmPassword}
-                className="border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200"
-              />
+            <Input
+              {...field}
+              id="confirmPassword"
+              type="password"
+              className={`border-gray-300 dark:border-gray-600 focus:border-orange-400 focus:ring-orange-400 rounded-lg py-3 px-4 text-base transition-colors duration-200 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+            />
             )}
           />
           {errors.confirmPassword && (

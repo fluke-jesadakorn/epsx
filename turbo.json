@@ -1,81 +1,230 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env"],
+  "ui": "tui",
+  "globalDependencies": [
+    "**/.env*",
+    "tsconfig.base.json",
+    "turbo.json",
+    "pnpm-workspace.yaml"
+  ],
   "globalEnv": [
     "NODE_ENV",
+    "CI",
+    "VERCEL",
     "NEXT_PUBLIC_*",
     "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET"
+    "GOOGLE_CLIENT_SECRET",
+    "FIREBASE_*"
   ],
   "tasks": {
+    "//#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "target/**", "build/**"]
+      "outputs": ["dist/**", ".next/**", "target/**", "build/**"],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "package.json",
+        "tsconfig.json",
+        "next.config.*",
+        "tailwind.config.*",
+        "postcss.config.*"
+      ]
+    },
+    "build:packages": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.*"]
+    },
+    "build:apps": {
+      "dependsOn": ["^build", "build:packages"],
+      "outputs": [".next/**"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "package.json",
+        "tsconfig.json",
+        "next.config.*"
+      ]
+    },
+    "build:frontend": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"],
+      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "package.json",
+        "tsconfig.json",
+        "next.config.*"
+      ]
     },
     "build:admin": {
       "dependsOn": ["^build"],
       "outputs": [".next/**"],
-      "env": ["NEXT_PUBLIC_*"]
+      "env": ["NEXT_PUBLIC_*"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "package.json",
+        "tsconfig.json",
+        "next.config.*"
+      ]
     },
-    "build:fe": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**"],
-      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
-    },
-    "# build:be": {
-      "dependsOn": ["^build"],
-      "outputs": ["target/**"]
-    },
-    "build:pkg": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
-    },
-    "build:auth": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+    "build:backend": {
+      "dependsOn": [],
+      "outputs": ["target/**"],
+      "inputs": ["src/**", "Cargo.toml", "Cargo.lock"]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["^build:packages"]
+    },
+    "dev:packages": {
+      "cache": false,
+      "persistent": true,
+      "outputs": ["dist/**"]
+    },
+    "dev:frontend": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build:packages"],
+      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
     "dev:admin": {
       "cache": false,
-      "persistent": true
-    },
-    "dev:fe": {
-      "cache": false,
       "persistent": true,
-      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
+      "dependsOn": ["^build:packages"],
+      "env": ["NEXT_PUBLIC_*"]
     },
-    "# dev:be": {
+    "dev:backend": {
       "cache": false,
       "persistent": true
     },
     "start": {
-      "dependsOn": ["^build", "build"],
+      "dependsOn": ["build"],
       "cache": false
     },
-    "start:fe": {
-      "dependsOn": ["build:fe"],
-      "cache": false
+    "start:frontend": {
+      "dependsOn": ["build:frontend"],
+      "cache": false,
+      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
-    "# start:be": {
-      "dependsOn": ["build:be"],
+    "start:admin": {
+      "dependsOn": ["build:admin"],
+      "cache": false,
+      "env": ["NEXT_PUBLIC_*"]
+    },
+    "start:backend": {
+      "dependsOn": ["build:backend"],
       "cache": false
     },
     "lint": {
-      "outputs": ["node_modules/.cache/.eslintcache"]
+      "dependsOn": ["^build:packages"],
+      "outputs": ["node_modules/.cache/.eslintcache"],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        ".eslintrc.*",
+        "eslint.config.*"
+      ]
     },
     "lint:fix": {
-      "outputs": ["node_modules/.cache/.eslintcache"]
+      "dependsOn": ["^build:packages"],
+      "outputs": ["node_modules/.cache/.eslintcache"],
+      "cache": false
     },
     "type-check": {
-      "dependsOn": ["^build"],
-      "outputs": ["node_modules/.cache/tsbuildinfo.json"]
+      "dependsOn": ["^build:packages"],
+      "outputs": ["**/.tsbuildinfo", "node_modules/.cache/tsbuildinfo.json"],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "package.json",
+        "tsconfig.json"
+      ]
     },
     "test": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "dependsOn": ["^build:packages"],
+      "outputs": ["coverage/**", "test-results/**"],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "jest.config.*",
+        "playwright.config.*"
+      ]
+    },
+    "test:unit": {
+      "dependsOn": ["^build:packages"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**", "**/*.test.*", "**/*.spec.*", "jest.config.*"]
+    },
+    "test:e2e": {
+      "dependsOn": ["build:apps"],
+      "outputs": ["test-results/**", "playwright-report/**"],
+      "inputs": ["e2e/**", "playwright.config.*"]
+    },
+    "format": {
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "**/*.{js,ts,tsx,json,md,yml,yaml}",
+        ".prettierrc*",
+        "prettier.config.*"
+      ]
+    },
+    "format:check": {
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "**/*.{js,ts,tsx,json,md,yml,yaml}",
+        ".prettierrc*",
+        "prettier.config.*"
+      ]
     },
     "clean": {
       "cache": false

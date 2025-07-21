@@ -1,37 +1,88 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Default",
+  "display": "EPSX Monorepo Base Config",
   "compilerOptions": {
+    // Language and Environment
     "target": "ES2022",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noEmit": true,
-    "esModuleInterop": true,
+    "checkJs": false,
+
+    // Module Resolution
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
+
+    // Type Checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": false,
+
+    // Emit
+    "noEmit": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true,
+    "removeComments": false,
+    "importHelpers": true,
+
+    // Interop Constraints
     "forceConsistentCasingInFileNames": true,
-    "verbatimModuleSyntax": true,
-    "preserveWatchOutput": true
+    "verbatimModuleSyntax": false,
+
+    // Completeness
+    "skipLibCheck": true,
+
+    // Advanced
+    "incremental": true,
+    "composite": false,
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "preserveWatchOutput": true,
+
+    // JSX (for React apps)
+    "jsx": "preserve",
+    "jsxImportSource": "react",
+
+    // Path Mapping for Monorepo
+    "baseUrl": ".",
+    "paths": {
+      "@epsx/types": ["./packages/types/src"],
+      "@epsx/types/*": ["./packages/types/src/*"],
+      "@epsx/utils": ["./packages/utils/src"],
+      "@epsx/utils/*": ["./packages/utils/src/*"],
+      "@epsx/ui": ["./packages/ui/src"],
+      "@epsx/ui/*": ["./packages/ui/src/*"],
+      "@epsx/config": ["./packages/config/src"],
+      "@epsx/config/*": ["./packages/config/src/*"],
+      "@epsx/auth": ["./packages/auth/src"],
+      "@epsx/auth/*": ["./packages/auth/src/*"],
+      "@epsx/api-client": ["./packages/api-client/src"],
+      "@epsx/api-client/*": ["./packages/api-client/src/*"],
+      "@epsx/shared": ["./packages/shared/src"],
+      "@epsx/shared/*": ["./packages/shared/src/*"],
+      "@/*": ["./src/*"],
+      "~/*": ["./*"]
+    }
   },
-  "exclude": ["node_modules"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "target",
+    "coverage",
+    "test-results",
+    "playwright-report",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ],
   "include": [],
   "references": []
 }

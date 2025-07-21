@@ -2,14 +2,23 @@
   "name": "@epsx/frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "EPSX Trading Platform Frontend",
   "scripts": {
     "dev": "next dev --turbo -p ${PORT:-3000}",
+    "dev:frontend": "next dev --turbo -p ${PORT:-3000}",
     "build": "next build",
-    "build:fe": "next build",
+    "build:frontend": "next build",
     "start": "next start -p ${PORT:-3000}",
+    "start:frontend": "next start -p ${PORT:-3000}",
     "lint": "next lint --dir app --dir components --dir context --dir hooks --dir middleware --dir services --dir types --dir utils",
-    "clean": "rm -rf .next out node_modules",
-    "test": "jest"
+    "lint:fix": "next lint --fix --dir app --dir components --dir context --dir hooks --dir middleware --dir services --dir types --dir utils",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:unit": "jest",
+    "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "clean": "rm -rf .next out node_modules .turbo"
   },
   "dependencies": {
     "@epsx/auth": "workspace:*",

@@ -2,16 +2,22 @@
   "name": "@epsx/admin-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "EPSX Admin Dashboard",
   "scripts": {
     "dev": "next dev --turbo -p ${PORT:-3001}",
+    "dev:admin": "next dev --turbo -p ${PORT:-3001}",
     "build": "next build",
     "build:admin": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-3001}",
+    "start:admin": "next start -p ${PORT:-3001}",
     "lint": "next lint",
-    "clean": "rm -rf .next out node_modules",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
     "test": "playwright test",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "clean": "rm -rf .next out node_modules .turbo",
     "firebase-init": "tsx scripts/run-firebase-init.ts"
   },
   "dependencies": {
@@ -49,7 +55,8 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "3.25.67",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "firebase": "^11.9.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

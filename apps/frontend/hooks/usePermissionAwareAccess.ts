@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/auth-context';
-import { status } from '@/services/pay';
+import { useAuth } from '@/context/shared-auth-provider';
+import { createPaymentService } from '@/services/payment.service';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
 
@@ -52,11 +52,12 @@ export function usePermissionAwareAccess(): PermissionAwareAccess {
 
       try {
         // Legacy payment system integration
-        const paymentStatus = await status();
-        const level = (paymentStatus.level as UserLevelType) || 'BRONZE';
-        const expired = paymentStatus.expire
-          ? new Date() > paymentStatus.expire
-          : !paymentStatus.paid;
+        const paymentService = createPaymentService();
+        const paymentStatus = await paymentService.getPaymentStatus();
+        const level = (paymentStatus?.userLevel as UserLevelType) || 'BRONZE';
+        const expired = paymentStatus?.expireDate
+          ? new Date() > paymentStatus.expireDate
+          : !paymentStatus?.paid;
 
         setUserLevel(level);
         setIsExpired(expired);

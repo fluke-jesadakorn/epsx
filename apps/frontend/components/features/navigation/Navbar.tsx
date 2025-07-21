@@ -36,10 +36,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/shared-auth-provider';
 import { navigationService } from '@/services/navigation.service';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
-import { useRankingAccess } from '@/hooks/useRankingAccess';
+import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -52,7 +52,7 @@ const iconMap = {
 function NavbarComponent() {
   const pathname = usePathname();
   const { user, signOut, loading } = useAuth();
-  const { userLevel, isLoading: levelLoading } = useRankingAccess();
+  const { userLevel, isLoading: levelLoading } = usePermissionAwareAccess();
   // Get user email and admin status from user object
   const userEmail = user?.email;
   const [isOpen, setIsOpen] = useState(false);
