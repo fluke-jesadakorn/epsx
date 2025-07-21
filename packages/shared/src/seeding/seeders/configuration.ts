@@ -1,6 +1,11 @@
 import { Timestamp } from 'firebase/firestore';
+import type {
+  FeatureFlag,
+  Integration,
+  SeedResult,
+  SystemSettings,
+} from '../types';
 import { BaseSeeder } from './base';
-import type { SystemSettings, FeatureFlag, Integration, SeedResult } from '../types';
 
 export class ConfigurationSeeder extends BaseSeeder {
   get collectionName(): string {
@@ -16,21 +21,21 @@ export class ConfigurationSeeder extends BaseSeeder {
       return {
         success: true,
         collection: 'configuration',
-        count: 6 + 8 + 5 // settings + flags + integrations
+        count: 6 + 8 + 5, // settings + flags + integrations
       };
     } catch (error) {
       return {
         success: false,
         collection: 'configuration',
         count: 0,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
   private async seedSystemSettings() {
     this.log('Seeding system settings...');
-    
+
     const systemSettings: SystemSettings[] = [
       {
         id: 'general',
@@ -48,13 +53,13 @@ export class ConfigurationSeeder extends BaseSeeder {
           allowRegistration: true,
           requireEmailVerification: true,
           defaultUserRole: 'viewer',
-          maintenanceMode: false
+          maintenanceMode: false,
         },
         isPublic: true,
         description: 'General platform settings and configuration',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
       },
       {
         id: 'security',
@@ -73,14 +78,14 @@ export class ConfigurationSeeder extends BaseSeeder {
           apiRateLimit: {
             windowMs: 900000, // 15 minutes
             maxRequests: 100,
-            skipSuccessfulRequests: false
-          }
+            skipSuccessfulRequests: false,
+          },
         },
         isPublic: false,
         description: 'Security and authentication settings',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
       },
       {
         id: 'email',
@@ -97,13 +102,13 @@ export class ConfigurationSeeder extends BaseSeeder {
           emailRetryAttempts: 3,
           emailRetryDelay: 300, // 5 minutes in seconds
           bounceHandling: true,
-          unsubscribeUrl: 'https://epsx.com/unsubscribe'
+          unsubscribeUrl: 'https://epsx.com/unsubscribe',
         },
         isPublic: false,
         description: 'Email service configuration and SMTP settings',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
       },
       {
         id: 'storage',
@@ -114,23 +119,28 @@ export class ConfigurationSeeder extends BaseSeeder {
           region: 'us-west-2',
           maxFileSize: 52428800, // 50MB in bytes
           allowedFileTypes: [
-            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-            'application/pdf', 'text/csv', 'application/json',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'application/pdf',
+            'text/csv',
+            'application/json',
             'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           ],
           imageResizing: true,
           thumbnailSizes: [150, 300, 600],
           compressionEnabled: true,
           compressionQuality: 85,
           cdnEnabled: true,
-          cdnUrl: 'https://cdn.epsx.com'
+          cdnUrl: 'https://cdn.epsx.com',
         },
         isPublic: false,
         description: 'File storage and CDN configuration',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
       },
       {
         id: 'analytics',
@@ -148,15 +158,15 @@ export class ConfigurationSeeder extends BaseSeeder {
             errorRate: 5, // percentage
             responseTime: 2000, // milliseconds
             cpuUsage: 80, // percentage
-            memoryUsage: 85 // percentage
+            memoryUsage: 85, // percentage
           },
-          customDimensions: ['user_role', 'package_level', 'organization']
+          customDimensions: ['user_role', 'package_level', 'organization'],
         },
         isPublic: false,
         description: 'Analytics and monitoring configuration',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
       },
       {
         id: 'billing',
@@ -173,19 +183,39 @@ export class ConfigurationSeeder extends BaseSeeder {
           webhookRetries: 3,
           paymentMethods: ['card', 'bank_transfer'],
           plans: {
-            FREE: { price: 0, features: ['basic_analytics'], limits: { users: 3, apiCalls: 100 } },
-            BRONZE: { price: 29, features: ['basic_analytics', 'reports'], limits: { users: 10, apiCalls: 1000 } },
-            SILVER: { price: 79, features: ['basic_analytics', 'reports', 'beta_features'], limits: { users: 25, apiCalls: 5000 } },
-            GOLD: { price: 199, features: ['all'], limits: { users: 100, apiCalls: 25000 } },
-            ENTERPRISE: { price: 499, features: ['all', 'white_label', 'priority_support'], limits: { users: -1, apiCalls: -1 } }
-          }
+            FREE: {
+              price: 0,
+              features: ['basic_analytics'],
+              limits: { users: 3, apiCalls: 100 },
+            },
+            BRONZE: {
+              price: 29,
+              features: ['basic_analytics', 'reports'],
+              limits: { users: 10, apiCalls: 1000 },
+            },
+            SILVER: {
+              price: 79,
+              features: ['basic_analytics', 'reports', 'beta_features'],
+              limits: { users: 25, apiCalls: 5000 },
+            },
+            GOLD: {
+              price: 199,
+              features: ['all'],
+              limits: { users: 100, apiCalls: 25000 },
+            },
+            ENTERPRISE: {
+              price: 499,
+              features: ['all', 'white_label', 'priority_support'],
+              limits: { users: -1, apiCalls: -1 },
+            },
+          },
         },
         isPublic: false,
         description: 'Billing and subscription management settings',
         updatedBy: 'admin-001',
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      }
+        updatedAt: Timestamp.now(),
+      },
     ];
 
     await this.seedCollection('systemSettings', systemSettings, 'id');
@@ -193,7 +223,7 @@ export class ConfigurationSeeder extends BaseSeeder {
 
   private async seedFeatureFlags() {
     this.log('Seeding feature flags...');
-    
+
     const now = new Date();
     const featureFlags: FeatureFlag[] = [
       {
@@ -204,15 +234,15 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 100,
         conditions: {
           userRoles: ['beta-tester', 'admin'],
-          packageLevels: ['SILVER', 'GOLD', 'ENTERPRISE']
+          packageLevels: ['SILVER', 'GOLD', 'ENTERPRISE'],
         },
         metadata: {
           owner: 'product-team',
           jiraTicket: 'EPSX-1234',
-          expiresAt: Timestamp.fromDate(this.addDays(now, 90))
+          expiresAt: Timestamp.fromDate(this.addDays(now, 90)),
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -30)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -5))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -5)),
       },
       {
         id: 'advanced_analytics',
@@ -222,14 +252,14 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 75,
         conditions: {
           packageLevels: ['SILVER', 'GOLD', 'ENTERPRISE'],
-          environment: ['production']
+          environment: ['production'],
         },
         metadata: {
           owner: 'analytics-team',
-          jiraTicket: 'EPSX-2345'
+          jiraTicket: 'EPSX-2345',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -20)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -2))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -2)),
       },
       {
         id: 'new_dashboard_ui',
@@ -239,15 +269,15 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 25,
         conditions: {
           userRoles: ['beta-tester'],
-          users: ['admin-001', 'beta-001']
+          users: ['admin-001', 'beta-001'],
         },
         metadata: {
           owner: 'ui-team',
           jiraTicket: 'EPSX-3456',
-          expiresAt: Timestamp.fromDate(this.addDays(now, 60))
+          expiresAt: Timestamp.fromDate(this.addDays(now, 60)),
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -10)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -1))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -1)),
       },
       {
         id: 'real_time_collaboration',
@@ -257,14 +287,14 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 10,
         conditions: {
           packageLevels: ['GOLD', 'ENTERPRISE'],
-          organizations: ['org_001']
+          organizations: ['org_001'],
         },
         metadata: {
           owner: 'collaboration-team',
-          jiraTicket: 'EPSX-4567'
+          jiraTicket: 'EPSX-4567',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -15)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -3))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -3)),
       },
       {
         id: 'mobile_app_access',
@@ -273,14 +303,14 @@ export class ConfigurationSeeder extends BaseSeeder {
         isEnabled: true,
         rolloutPercentage: 100,
         conditions: {
-          packageLevels: ['BRONZE', 'SILVER', 'GOLD', 'ENTERPRISE']
+          packageLevels: ['BRONZE', 'SILVER', 'GOLD', 'ENTERPRISE'],
         },
         metadata: {
           owner: 'mobile-team',
-          jiraTicket: 'EPSX-5678'
+          jiraTicket: 'EPSX-5678',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -45)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -10))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -10)),
       },
       {
         id: 'api_v2',
@@ -290,14 +320,14 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 90,
         conditions: {
           userRoles: ['api-user', 'admin'],
-          packageLevels: ['SILVER', 'GOLD', 'ENTERPRISE']
+          packageLevels: ['SILVER', 'GOLD', 'ENTERPRISE'],
         },
         metadata: {
           owner: 'api-team',
-          jiraTicket: 'EPSX-6789'
+          jiraTicket: 'EPSX-6789',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -25)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -7))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -7)),
       },
       {
         id: 'white_label_branding',
@@ -306,14 +336,14 @@ export class ConfigurationSeeder extends BaseSeeder {
         isEnabled: true,
         rolloutPercentage: 100,
         conditions: {
-          packageLevels: ['ENTERPRISE']
+          packageLevels: ['ENTERPRISE'],
         },
         metadata: {
           owner: 'enterprise-team',
-          jiraTicket: 'EPSX-7890'
+          jiraTicket: 'EPSX-7890',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -60)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -20))
+        updatedAt: Timestamp.fromDate(this.addDays(now, -20)),
       },
       {
         id: 'enhanced_security',
@@ -323,16 +353,16 @@ export class ConfigurationSeeder extends BaseSeeder {
         rolloutPercentage: 0,
         conditions: {
           packageLevels: ['ENTERPRISE'],
-          organizations: ['org_001']
+          organizations: ['org_001'],
         },
         metadata: {
           owner: 'security-team',
           jiraTicket: 'EPSX-8901',
-          expiresAt: Timestamp.fromDate(this.addDays(now, 120))
+          expiresAt: Timestamp.fromDate(this.addDays(now, 120)),
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -5)),
-        updatedAt: Timestamp.now()
-      }
+        updatedAt: Timestamp.now(),
+      },
     ];
 
     await this.seedCollection('featureFlags', featureFlags, 'id');
@@ -340,7 +370,7 @@ export class ConfigurationSeeder extends BaseSeeder {
 
   private async seedIntegrations() {
     this.log('Seeding integrations...');
-    
+
     const now = new Date();
     const integrations: Integration[] = [
       {
@@ -353,21 +383,21 @@ export class ConfigurationSeeder extends BaseSeeder {
           webhookSecret: 'whsec_test_1234567890abcdef',
           isLive: false,
           supportedCurrencies: ['USD', 'EUR', 'GBP'],
-          paymentMethods: ['card', 'bank_transfer']
+          paymentMethods: ['card', 'bank_transfer'],
         },
         isActive: true,
         healthCheck: {
           lastChecked: Timestamp.fromDate(this.addHours(now, -1)),
           status: 'healthy',
-          message: 'All systems operational'
+          message: 'All systems operational',
         },
         metadata: {
           version: '2023-10-16',
           documentation: 'https://stripe.com/docs',
-          supportContact: 'stripe-support@epsx.com'
+          supportContact: 'stripe-support@epsx.com',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -90)),
-        updatedAt: Timestamp.fromDate(this.addHours(now, -1))
+        updatedAt: Timestamp.fromDate(this.addHours(now, -1)),
       },
       {
         id: 'sendgrid_integration',
@@ -381,21 +411,21 @@ export class ConfigurationSeeder extends BaseSeeder {
           trackingEnabled: true,
           clickTracking: true,
           openTracking: true,
-          unsubscribeTracking: true
+          unsubscribeTracking: true,
         },
         isActive: true,
         healthCheck: {
           lastChecked: Timestamp.fromDate(this.addHours(now, -2)),
           status: 'healthy',
-          message: 'Email delivery operational'
+          message: 'Email delivery operational',
         },
         metadata: {
           version: 'v3',
           documentation: 'https://sendgrid.com/docs',
-          supportContact: 'sendgrid-support@epsx.com'
+          supportContact: 'sendgrid-support@epsx.com',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -60)),
-        updatedAt: Timestamp.fromDate(this.addHours(now, -2))
+        updatedAt: Timestamp.fromDate(this.addHours(now, -2)),
       },
       {
         id: 'aws_s3_integration',
@@ -412,22 +442,22 @@ export class ConfigurationSeeder extends BaseSeeder {
           lifecycleRules: {
             transitionToIA: 30, // days
             transitionToGlacier: 90, // days
-            expiration: 2555 // days (7 years)
-          }
+            expiration: 2555, // days (7 years)
+          },
         },
         isActive: true,
         healthCheck: {
           lastChecked: Timestamp.fromDate(this.addHours(now, -3)),
           status: 'healthy',
-          message: 'Storage service operational'
+          message: 'Storage service operational',
         },
         metadata: {
           version: '2006-03-01',
           documentation: 'https://docs.aws.amazon.com/s3/',
-          supportContact: 'aws-support@epsx.com'
+          supportContact: 'aws-support@epsx.com',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -75)),
-        updatedAt: Timestamp.fromDate(this.addHours(now, -3))
+        updatedAt: Timestamp.fromDate(this.addHours(now, -3)),
       },
       {
         id: 'google_analytics',
@@ -442,58 +472,28 @@ export class ConfigurationSeeder extends BaseSeeder {
           customDimensions: [
             { name: 'user_role', scope: 'user' },
             { name: 'package_level', scope: 'user' },
-            { name: 'organization_id', scope: 'user' }
+            { name: 'organization_id', scope: 'user' },
           ],
           customMetrics: [
             { name: 'api_calls', type: 'integer' },
-            { name: 'report_exports', type: 'integer' }
-          ]
+            { name: 'report_exports', type: 'integer' },
+          ],
         },
         isActive: true,
         healthCheck: {
           lastChecked: Timestamp.fromDate(this.addHours(now, -4)),
           status: 'healthy',
-          message: 'Analytics tracking active'
+          message: 'Analytics tracking active',
         },
         metadata: {
           version: 'GA4',
-          documentation: 'https://developers.google.com/analytics/devguides/collection/ga4',
-          supportContact: 'analytics-support@epsx.com'
+          documentation:
+            'https://developers.google.com/analytics/devguides/collection/ga4',
+          supportContact: 'analytics-support@epsx.com',
         },
         createdAt: Timestamp.fromDate(this.addDays(now, -50)),
-        updatedAt: Timestamp.fromDate(this.addHours(now, -4))
+        updatedAt: Timestamp.fromDate(this.addHours(now, -4)),
       },
-      {
-        id: 'slack_integration',
-        name: 'Slack Notifications',
-        type: 'communication',
-        config: {
-          botToken: 'xoxb-1234567890-abcdefghijklmnop',
-          signingSecret: '1234567890abcdef',
-          channels: {
-            alerts: '#alerts',
-            general: '#general',
-            support: '#support'
-          },
-          enableMentions: true,
-          enableThreads: true,
-          messageFormat: 'blocks',
-          enableEmojis: true
-        },
-        isActive: false,
-        healthCheck: {
-          lastChecked: Timestamp.fromDate(this.addDays(now, -1)),
-          status: 'down',
-          message: 'Bot token expired'
-        },
-        metadata: {
-          version: '1.0',
-          documentation: 'https://api.slack.com/start',
-          supportContact: 'slack-support@epsx.com'
-        },
-        createdAt: Timestamp.fromDate(this.addDays(now, -30)),
-        updatedAt: Timestamp.fromDate(this.addDays(now, -1))
-      }
     ];
 
     await this.seedCollection('integrations', integrations, 'id');
