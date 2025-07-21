@@ -55,40 +55,6 @@ test.describe('Middleware Authorization Tests', () => {
   });
 
   test.describe('Role-Based Route Guards', () => {
-    test('should allow admin to access admin routes', async ({ page }) => {
-      const admin = await createTestUserWithRole(
-        'admin@test.com',
-        'password123',
-        'admin',
-        ['read:all', 'write:all', 'admin:access']
-      );
-
-      await setupAuthState(page, admin);
-      
-      await page.goto('/admin');
-      await expect(page).toHaveURL('/admin');
-      await expect(page.locator('[data-testid="admin-dashboard"]')).toBeVisible();
-      
-      await deleteTestUser(admin.uid);
-    });
-
-    test('should prevent non-admin from accessing admin routes', async ({ page }) => {
-      const user = await createTestUserWithRole(
-        'regular@test.com',
-        'password123',
-        'user',
-        ['read:own_data']
-      );
-
-      await setupAuthState(page, user);
-      
-      await page.goto('/admin');
-      await expect(page).toHaveURL('/unauthorized');
-      await expect(page.locator('[data-testid="unauthorized-message"]')).toBeVisible();
-      
-      await deleteTestUser(user.uid);
-    });
-
     test('should allow moderator to access moderation routes', async ({ page }) => {
       const moderator = await createTestUserWithRole(
         'moderator@test.com',
@@ -227,22 +193,6 @@ test.describe('Middleware Authorization Tests', () => {
       
       await deleteTestUser(user.uid);
     });
-
-    test('should protect admin API routes', async ({ page }) => {
-      const user = await createTestUserWithRole(
-        'regular@test.com',
-        'password123',
-        'user',
-        ['read:own_data']
-      );
-
-      await setupAuthState(page, user);
-      
-      const response = await page.request.get('/api/admin/users');
-      expect(response.status()).toBe(403);
-      
-      await deleteTestUser(user.uid);
-    });
   });
 
   test.describe('Public Route Access', () => {
@@ -288,7 +238,7 @@ test.describe('Middleware Authorization Tests', () => {
         }));
       });
       
-      await page.goto('/admin');
+      await page.goto('/dashboard');
       await expect(page).toHaveURL('/unauthorized');
     });
   });

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmailVerificationNotice } from './EmailVerificationNotice';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { ArrowLeft } from 'lucide-react';
 
 export function EmailVerificationPage() {

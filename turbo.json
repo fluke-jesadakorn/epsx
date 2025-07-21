@@ -22,7 +22,8 @@
       "outputs": [".next/**"],
       "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
-    "build:be": {
+    "# build:be": {
+      "comment": "Rust backend temporarily disabled from monorepo",
       "dependsOn": ["^build"],
       "outputs": ["target/**"]
     },
@@ -47,7 +48,8 @@
       "persistent": true,
       "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
-    "dev:be": {
+    "# dev:be": {
+      "comment": "Rust backend temporarily disabled from monorepo",
       "cache": false,
       "persistent": true
     },
@@ -59,7 +61,8 @@
       "dependsOn": ["build:fe"],
       "cache": false
     },
-    "start:be": {
+    "# start:be": {
+      "comment": "Rust backend temporarily disabled from monorepo",
       "dependsOn": ["build:be"],
       "cache": false
     },

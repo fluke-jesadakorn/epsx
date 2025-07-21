@@ -12,7 +12,7 @@ import {
   getPackageByLevel,
 } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { status } from '@/services/pay';
 import { Crown, Star, Trophy, Gem, Zap, Lock, ArrowRight } from 'lucide-react';
 

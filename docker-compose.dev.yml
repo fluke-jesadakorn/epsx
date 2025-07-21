@@ -20,23 +20,24 @@ services:
     networks:
       - epsx-dev
 
-  backend-dev:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: builder
-    ports:
-      - "3002:3002"
-    environment:
-      - RUST_ENV=development
-      - PORT=3002
-    env_file:
-      - apps/backend/.env.example
-    volumes:
-      - ./apps/backend:/app
-    command: ["cargo", "run"]
-    networks:
-      - epsx-dev
+  # backend-dev service temporarily disabled
+  # backend-dev:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/backend/Dockerfile
+  #     target: builder
+  #   ports:
+  #     - "3002:3002"
+  #   environment:
+  #     - RUST_ENV=development
+  #     - PORT=3002
+  #   env_file:
+  #     - apps/backend/.env.example
+  #   volumes:
+  #     - ./apps/backend:/app
+  #   command: ["cargo", "run"]
+  #   networks:
+  #     - epsx-dev
 
   admin-dev:
     build:

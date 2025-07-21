@@ -1,6 +1,8 @@
 packages:
-  - apps/*
-  - packages/*
+  - 'apps/frontend'
+  - 'apps/admin-frontend'
+  - 'packages/*'
+  # - 'apps/backend'  # Rust backend temporarily disabled from monorepo
 
 ignoredBuiltDependencies:
   - '@firebase/util'

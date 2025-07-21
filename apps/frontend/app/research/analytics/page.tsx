@@ -5,10 +5,7 @@ import { SkeletonLoader } from '@/components/common/Skeleton';
 import StockGrowthTable from '@/components/home/StockGrowthTable';
 
 async function AnalyticsPage() {
-  const { data } = await fetchEpsGrowthRanking({
-    sortBy: 'growthIndicator',
-    limit: 1000, // Show more results for analysis
-  });
+  const data = await fetchEpsGrowthRanking();
 
   return (
     <Suspense fallback={<SkeletonLoader />}>

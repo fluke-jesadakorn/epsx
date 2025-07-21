@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { UserRole } from '@/types/auth/roles';
 import { getUserCustomClaims, type CustomClaims } from '@/lib/custom-claims';
 

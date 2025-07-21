@@ -1,10 +1,10 @@
 'use client';
 
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { useState, useEffect } from 'react';
 
 export function AuthDebugger() {
-  const { user, loading, error } = useAuth();
+  const { user, loading } = useAuth();
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [showDebug, setShowDebug] = useState(false);
 
@@ -52,7 +52,7 @@ export function AuthDebugger() {
       <div className="space-y-1">
         <div>User: {user ? user.email : 'null'}</div>
         <div>Loading: {loading ? 'true' : 'false'}</div>
-        <div>Error: {error || 'none'}</div>
+        <div>Error: none</div>
         <div>Session Cookie: {sessionInfo?.hasSessionCookie ? 'present' : 'missing'}</div>
         <div>Cookie Length: {sessionInfo?.sessionLength || 0}</div>
         <div>URL: {sessionInfo?.url}</div>

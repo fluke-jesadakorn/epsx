@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 
 interface UserProfile {
   userLevel?: string;

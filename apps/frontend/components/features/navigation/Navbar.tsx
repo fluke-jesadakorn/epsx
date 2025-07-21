@@ -36,7 +36,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { navigationService } from '@/services/navigation.service';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
 import { useRankingAccess } from '@/hooks/useRankingAccess';

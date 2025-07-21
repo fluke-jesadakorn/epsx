@@ -5,11 +5,9 @@
     "prepare": "turbo run build:pkg",
     "dev": "turbo run dev",
     "dev:fe": "turbo run dev:fe",
-    "dev:be": "turbo run dev:be",
     "dev:admin": "turbo run dev:admin",
     "build": "turbo run build",
     "build:fe": "turbo run build:fe",
-    "build:be": "turbo run build:be",
     "build:admin": "turbo run build:admin",
     "build:pkg": "turbo run build:pkg",
     "build:types": "turbo run build --filter=@epsx/types",
@@ -18,7 +16,6 @@
     "build:auth": "turbo run build --filter=@epsx/auth",
     "start": "turbo run start",
     "start:fe": "turbo run start:fe",
-    "start:be": "turbo run start:be",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "type-check": "turbo run type-check",
@@ -70,7 +67,8 @@
     "typescript": "^5.8.3"
   },
   "workspaces": [
-    "apps/*",
+    "apps/frontend",
+    "apps/admin-frontend",
     "packages/*"
   ],
   "packageManager": "pnpm@10.13.1",

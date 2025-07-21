@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context-improved";
+import { useAuth } from "@/context/auth-context";
 
 export function AuthProviders() {
   const { user } = useAuth();

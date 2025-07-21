@@ -13,8 +13,8 @@ services:
       - apps/frontend/.env.production
     networks:
       - epsx-prod
-    depends_on:
-      - backend-prod
+    # depends_on:
+    #   - backend-prod
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
@@ -22,25 +22,26 @@ services:
       timeout: 10s
       retries: 3
 
-  backend-prod:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - RUST_ENV=production
-      - PORT=8080
-    env_file:
-      - apps/backend/.env.production
-    networks:
-      - epsx-prod
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # backend-prod service temporarily disabled
+  # backend-prod:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/backend/Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - RUST_ENV=production
+  #     - PORT=8080
+  #   env_file:
+  #     - apps/backend/.env.production
+  #   networks:
+  #     - epsx-prod
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   admin-prod:
     build:
@@ -52,8 +53,8 @@ services:
       - NODE_ENV=production
     networks:
       - epsx-prod
-    depends_on:
-      - backend-prod
+    # depends_on:
+    #   - backend-prod
     restart: unless-stopped
 
   nginx:
@@ -68,7 +69,7 @@ services:
       - epsx-prod
     depends_on:
       - frontend-prod
-      - backend-prod
+      # - backend-prod
     restart: unless-stopped
 
 networks:

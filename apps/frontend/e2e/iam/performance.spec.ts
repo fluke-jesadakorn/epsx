@@ -75,13 +75,15 @@ test.describe('IAM Performance Tests', () => {
         'deny@test.com',
         'password123',
         'user',
-        ['read:own_data'] // No admin access
+        ['read:own_data'] // No super user access
       );
 
       await loginAsUser(page, 'deny@test.com', 'password123');
       
       const startTime = Date.now();
-      await page.goto('/admin');
+      // Access should be denied for protected route
+      await page.goto('/dashboard');
+      await expect(page).toHaveURL('/unauthorized');
       const endTime = Date.now();
       
       const denialTime = endTime - startTime;

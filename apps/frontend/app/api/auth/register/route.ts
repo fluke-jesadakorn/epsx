@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, displayName } = await request.json();
+    const { email, password, displayName: _displayName } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json(

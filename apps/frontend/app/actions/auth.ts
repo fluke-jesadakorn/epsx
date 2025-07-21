@@ -51,9 +51,10 @@ export async function handleSignOut() {
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const token = await verifySession();
-    if (!token) return null;
+    const sessionResult = await verifySession();
+    if (!sessionResult.success || !sessionResult.claims) return null;
 
+    const token = sessionResult.claims;
     // Use token properties directly as it is a SessionClaims object
     const user: User = {
       id: token.uid,

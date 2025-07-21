@@ -23,7 +23,7 @@ import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 
 export function AnalyticsRankingDashboard() {
   const router = useRouter();
-  const { canAccessRankings, loading } = useRankingAccess();
+  const { loading } = useRankingAccess();
   const { getMaxAllowedLimit, canAccessPage, getAvailablePageSizes, userTier } =
     usePaginatedFeatureAccess();
 

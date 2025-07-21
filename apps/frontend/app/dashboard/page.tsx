@@ -1,10 +1,10 @@
 'use client';
 
-import { useIAM, PermissionGate, RoleGate } from '@/context/iam-context';
+import { useIAM, PermissionGate } from '@/context/iam-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, User, Settings, BarChart3, Users, Lock } from 'lucide-react';
+import { Shield, User, Settings, BarChart3, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -123,42 +123,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </PermissionGate>
-
-          {/* Admin Panel */}
-          <RoleGate role="admin">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Shield className="mr-2 h-5 w-5" />
-                  Admin Panel
-                </CardTitle>
-                <CardDescription>Manage system and users</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/admin">
-                  <Button className="w-full">Open Admin Panel</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </RoleGate>
-
-          {/* User Management */}
-          <RoleGate role="admin">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="mr-2 h-5 w-5" />
-                  User Management
-                </CardTitle>
-                <CardDescription>Manage users and permissions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/admin/users">
-                  <Button className="w-full">Manage Users</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </RoleGate>
         </div>
 
         <div className="mt-8">

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { StockDataCache } from '@/utils/cache/stockDataCache';
-import { CacheManager } from '@/utils/cache/cacheManager';
+import * as cache from '@/utils/cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,25 +8,25 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case 'stats':
-        return NextResponse.json(CacheManager.getCacheMetrics());
+        return NextResponse.json(cache.stats());
         
       case 'symbols':
         return NextResponse.json({ 
-          symbols: StockDataCache.getCachedSymbols() 
+          symbols: cache.stats().keys.filter(key => key.startsWith('stock_'))
         });
         
       case 'health':
-        const stats = CacheManager.getStats();
-        const metrics = CacheManager.getCacheMetrics();
-        const isHealthy = stats.totalEntries > 0 && metrics.hitRate > 0.7;
+        const stats = cache.stats();
+        const isHealthy = stats.size > 0;
         
         return NextResponse.json({
-          status: isHealthy ? 'healthy' : 'degraded',
-          ...metrics,
+          status: isHealthy ? 'healthy' : 'empty',
+          totalKeys: stats.size,
+          symbols: stats.keys.filter(key => key.startsWith('stock_')).length
         });
         
       default:
-        return NextResponse.json(CacheManager.getCacheMetrics());
+        return NextResponse.json(cache.stats());
     }
   } catch (error) {
     console.error('Error in cache management API:', error);
@@ -45,26 +44,22 @@ export async function DELETE(request: NextRequest) {
     const action = searchParams.get('action');
 
     if (action === 'cleanup') {
-      const beforeSize = StockDataCache.size();
-      StockDataCache.cleanup();
-      const afterSize = StockDataCache.size();
-      
+      // Basic cleanup - current cache doesn't support this
       return NextResponse.json({
-        message: 'Cache cleanup completed',
-        entriesRemoved: beforeSize - afterSize,
-        remainingEntries: afterSize,
+        message: 'Cache cleanup not supported with current implementation',
+        totalKeys: cache.stats().size,
       });
     }
 
     if (symbol) {
-      StockDataCache.clear(symbol);
+      // Clear specific symbol - current cache doesn't support this
       return NextResponse.json({
-        message: `Cache cleared for symbol: ${symbol}`,
+        message: `Symbol-specific cache clear not supported: ${symbol}`,
       });
     } else {
-      StockDataCache.clear();
+      // Clear all cache - current cache doesn't support this
       return NextResponse.json({
-        message: 'All cache cleared',
+        message: 'Global cache clear not supported with current implementation',
       });
     }
   } catch (error) {

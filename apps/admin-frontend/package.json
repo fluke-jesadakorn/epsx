@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .next out node_modules",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
     "firebase-init": "tsx scripts/run-firebase-init.ts"
   },
   "dependencies": {
@@ -50,6 +52,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "@tailwindcss/postcss": "4.0.15",
     "@types/node": "24.0.3",
     "@types/react": "19.0.0",

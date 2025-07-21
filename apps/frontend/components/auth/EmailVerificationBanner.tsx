@@ -3,7 +3,7 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Mail, X } from 'lucide-react';
-import { useAuth } from '@/context/auth-context-improved';
+import { useAuth } from '@/context/auth-context';
 import { useState } from 'react';
 
 export function EmailVerificationBanner() {

@@ -30,12 +30,8 @@ export const IAM_CONFIG = {
     // Protected routes with required permissions
     protected: {
       '/dashboard': ['read:own_data'],
-      '/admin': ['admin:access'],
-      '/admin/users': ['manage:users'],
-      '/admin/roles': ['manage:roles'],
       '/premium': ['read:premium_content'],
       '/moderator': ['moderate:content'],
-      '/api/admin': ['admin:access'],
       '/api/moderator': ['moderate:content'],
       '/api/users': ['manage:users'],
     },

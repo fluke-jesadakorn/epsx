@@ -3,38 +3,6 @@ import { createTestUserWithRole, deleteTestUser, loginAsUser, logoutUser } from 
 
 test.describe('Authorization Tests', () => {
   test.describe('Role-Based Access Control', () => {
-    test('should allow admin to access admin dashboard', async ({ page }) => {
-      const admin = await createTestUserWithRole(
-        'admin@test.com',
-        'password123',
-        'admin',
-        ['read:all', 'write:all', 'admin:access']
-      );
-
-      await loginAsUser(page, 'admin@test.com', 'password123');
-      
-      await page.goto('/admin');
-      await expect(page.locator('[data-testid="admin-dashboard"]')).toBeVisible();
-      
-      await deleteTestUser(admin.uid);
-    });
-
-    test('should prevent user from accessing admin dashboard', async ({ page }) => {
-      const user = await createTestUserWithRole(
-        'user@test.com',
-        'password123',
-        'user',
-        ['read:own_data']
-      );
-
-      await loginAsUser(page, 'user@test.com', 'password123');
-      
-      await page.goto('/admin');
-      await expect(page.locator('[data-testid="access-denied"]')).toBeVisible();
-      
-      await deleteTestUser(user.uid);
-    });
-
     test('should allow moderator to access moderation tools', async ({ page }) => {
       const moderator = await createTestUserWithRole(
         'moderator@test.com',
@@ -153,22 +121,6 @@ test.describe('Authorization Tests', () => {
       
       await deleteTestUser(user.uid);
     });
-
-    test('should allow admins to access any user data', async ({ page }) => {
-      const admin = await createTestUserWithRole(
-        'superadmin@test.com',
-        'password123',
-        'admin',
-        ['read:all', 'write:all']
-      );
-
-      await loginAsUser(page, 'superadmin@test.com', 'password123');
-      
-      await page.goto('/users/any-user-id/data');
-      await expect(page.locator('[data-testid="user-data"]')).toBeVisible();
-      
-      await deleteTestUser(admin.uid);
-    });
   });
 
   test.describe('Dynamic Permission Updates', () => {
@@ -186,7 +138,7 @@ test.describe('Authorization Tests', () => {
       await page.goto('/analytics');
       await expect(page.locator('[data-testid="access-denied"]')).toBeVisible();
       
-      // Simulate permission update (in real app, this would be via admin panel)
+      // Simulate permission update (in real app, this would be via system panel)
       await page.evaluate(() => {
         sessionStorage.setItem('updated-permissions', JSON.stringify(['read:own_data', 'read:analytics']));
       });
@@ -230,28 +182,28 @@ test.describe('Authorization Tests', () => {
 
       await loginAsUser(page, 'api@test.com', 'password123');
       
-      // Try to access admin API
-      const response = await page.request.get('/api/admin/users');
+      // Try to access protected API
+      const response = await page.request.get('/api/protected/users');
       expect(response.status()).toBe(403);
       
       await deleteTestUser(user.uid);
     });
 
     test('should allow authorized API access', async ({ page }) => {
-      const admin = await createTestUserWithRole(
-        'apiadmin@test.com',
+      const moderator = await createTestUserWithRole(
+        'apimoderator@test.com',
         'password123',
-        'admin',
-        ['read:all']
+        'moderator',
+        ['read:all', 'moderate:content']
       );
 
-      await loginAsUser(page, 'apiadmin@test.com', 'password123');
+      await loginAsUser(page, 'apimoderator@test.com', 'password123');
       
-      // Should be able to access admin API
-      const response = await page.request.get('/api/admin/users');
+      // Should be able to access moderator API
+      const response = await page.request.get('/api/moderator/content');
       expect(response.status()).toBe(200);
       
-      await deleteTestUser(admin.uid);
+      await deleteTestUser(moderator.uid);
     });
   });
 });

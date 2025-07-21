@@ -246,6 +246,12 @@ class IAMService {
   // Role Management
   async getRole(roleId: string): Promise<UserRole | null> {
     try {
+      // Return null if roleId is undefined or empty
+      if (!roleId) {
+        console.warn('No role ID provided to getRole method');
+        return null;
+      }
+
       const roleDoc = await getDoc(doc(db, 'roles', roleId));
       if (roleDoc.exists()) {
         return roleDoc.data() as UserRole;
@@ -344,6 +350,14 @@ class IAMService {
   // Private methods
   private async loadUserRoleAndPermissions(roleId: string): Promise<void> {
     try {
+      // Skip if roleId is undefined or empty
+      if (!roleId) {
+        console.warn('No role ID provided, skipping role and permissions loading');
+        this.currentRole = null;
+        this.currentPermissions = [];
+        return;
+      }
+
       const role = await this.getRole(roleId);
       if (role) {
         this.currentRole = role;

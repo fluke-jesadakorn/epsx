@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rankStocksByEpsWithChart } from '@/utils/processStocks/rankingStocks';
+import { getStockFinancialData } from '@/lib/services/stock.service';
 import { validateRankingAccess } from '@/middleware/rankingAccess';
 import { cookies } from 'next/headers';
 
@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = parseInt(searchParams.get('skip') || '0');
     
-    // Get the ranking data but only return symbols
-    const rankingData = await rankStocksByEpsWithChart(skip, limit);
+    // Get stock data and extract symbols
+    const stockData = await getStockFinancialData(skip, limit);
     
-    // Extract just the symbols in ranked order
-    const symbols = Object.keys(rankingData);
+    // Extract just the symbols
+    const symbols = stockData.map(item => item.symbol);
     
     return NextResponse.json({ 
       symbols, 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         level: accessValidation.userLevel,
         maxAllowed: accessValidation.maxAllowed,
         wasLimited: accessValidation.wasLimited,
-        upgradeAvailable: accessValidation.userLevel === 'BRONZE' || accessValidation.isExpired
+        upgradeAvailable: accessValidation.userLevel === 'BRONZE' || isExpired
       }
     });
   } catch (error) {

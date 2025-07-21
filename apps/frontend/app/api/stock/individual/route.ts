@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { StockDataCache } from '@/utils/cache/stockDataCache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,15 +13,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check per-card cache first
-    const cachedData = StockDataCache.get(symbol);
-    if (cachedData) {
-      return NextResponse.json(cachedData);
-    }
-
-    // If not in cache, fetch from server
+    // Fetch from server directly (no caching for now)
     // We'll get all data and filter for the specific symbol
-    const allData = await getStockFinancialData(0, 20); // Get enough data to find the symbol
+    const allData = await getStockFinancialData(0, 200); // Get enough data to find the symbol
     const symbolData = allData.find(item => item.symbol === symbol);
 
     if (!symbolData) {
@@ -31,9 +24,6 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Cache the individual symbol data
-    StockDataCache.set(symbol, symbolData);
 
     return NextResponse.json(symbolData);
   } catch (error) {

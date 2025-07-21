@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { createSession, destroySession, verifySession, refreshSession as refreshSessionInternal } from '@/lib/session-improved';
+import { createSession, destroySession, verifySession, refreshSession as refreshSessionInternal } from '@/lib/session';
 import { getPaymentDetails } from './payment';
 import type { User } from '@/types/auth/user';
 export async function handleSignIn(idToken: string): Promise<{ success: boolean; error?: string }> {

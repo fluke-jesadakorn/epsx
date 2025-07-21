@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPaymentAccess, withApiLimits } from '@/middleware/paymentAccess';
-import { PaymentTier } from '@/types/payment/plans';
+import { withPaymentAccess, withApiLimits, PaymentTier } from '@/middleware/paymentAccess';
 
 // Example: Premium ranking API
 async function handler(_req: NextRequest) {

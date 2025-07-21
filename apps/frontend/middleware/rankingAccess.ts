@@ -1,35 +1,25 @@
 import { NextRequest } from 'next/server';
-import { getPackageByLevel } from '@/app/constants/packages';
-import type { UserLevelType } from '@/app/constants/packages';
+
+interface RankingAccessResult {
+  userLevel: string;
+  maxAllowed: number;
+  wasLimited: boolean;
+  modifiedUrl?: string;
+}
 
 export function validateRankingAccess(
-  request: NextRequest,
-  userLevel: UserLevelType = 'BRONZE',
-  isExpired: boolean = true
-) {
-  const url = new URL(request.url);
-  const requestedLimit = parseInt(url.searchParams.get('limit') || '10');
-  
-  const currentPackage = getPackageByLevel(userLevel);
-  const maxAllowed = isExpired ? 5 : (currentPackage?.rankingLimit || 5);
-  
-  // Limit the request to user's maximum allowed
-  if (requestedLimit > maxAllowed) {
-    url.searchParams.set('limit', maxAllowed.toString());
-    return {
-      modifiedUrl: url.toString(),
-      wasLimited: true,
-      maxAllowed,
-      userLevel,
-      isExpired
-    };
-  }
+  request: NextRequest, 
+  userLevel: string, 
+  isExpired: boolean
+): RankingAccessResult {
+  // Basic implementation - can be expanded later
+  const maxAllowed = userLevel === 'GOLD' ? 100 : userLevel === 'SILVER' ? 50 : 10;
+  const effectiveLevel = isExpired ? 'BASIC' : userLevel;
   
   return {
-    modifiedUrl: null,
-    wasLimited: false,
+    userLevel: effectiveLevel,
     maxAllowed,
-    userLevel,
-    isExpired
+    wasLimited: false,
+    modifiedUrl: request.url
   };
 }
