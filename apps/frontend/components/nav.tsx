@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart, Database, User, LogIn, LogOut, Menu } from 'lucide-react';
+import { Home, BarChart, Database, LogIn, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';

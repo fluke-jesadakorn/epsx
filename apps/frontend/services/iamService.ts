@@ -16,17 +16,11 @@ import {
   setDoc, 
   updateDoc, 
   collection, 
-  query, 
-  where, 
   getDocs,
-  serverTimestamp,
-  type Timestamp
+  serverTimestamp
 } from 'firebase/firestore';
 import { 
-  getStorage, 
-  ref, 
-  uploadBytes, 
-  getDownloadURL 
+  getStorage
 } from 'firebase/storage';
 import { 
   DEFAULT_ROLES, 

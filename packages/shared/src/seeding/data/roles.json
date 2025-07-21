@@ -1,0 +1,85 @@
+[
+  {
+    "id": "admin",
+    "name": "Administrator",
+    "description": "Full system access with all permissions",
+    "permissions": ["*"],
+    "isSystem": true
+  },
+  {
+    "id": "manager",
+    "name": "Manager",
+    "description": "Management level access with team oversight capabilities",
+    "permissions": [
+      "user:read",
+      "user:write",
+      "content:read",
+      "content:write",
+      "analytics:read",
+      "organization:read"
+    ],
+    "isSystem": false
+  },
+  {
+    "id": "editor",
+    "name": "Content Editor",
+    "description": "Content creation and editing permissions",
+    "permissions": [
+      "content:read",
+      "content:write",
+      "media:read",
+      "media:write",
+      "category:read"
+    ],
+    "isSystem": false
+  },
+  {
+    "id": "viewer",
+    "name": "Viewer",
+    "description": "Read-only access to basic features",
+    "permissions": [
+      "content:read",
+      "media:read",
+      "category:read",
+      "analytics:read"
+    ],
+    "isSystem": false
+  },
+  {
+    "id": "beta-tester",
+    "name": "Beta Tester",
+    "description": "Access to beta features and testing capabilities",
+    "permissions": [
+      "content:read",
+      "content:write",
+      "feature:beta",
+      "feature:advanced-analytics",
+      "analytics:read"
+    ],
+    "isSystem": false
+  },
+  {
+    "id": "support",
+    "name": "Support Agent",
+    "description": "Customer support and user assistance permissions",
+    "permissions": [
+      "user:read",
+      "organization:read",
+      "ticket:read",
+      "ticket:write",
+      "notification:send"
+    ],
+    "isSystem": false
+  },
+  {
+    "id": "api-user",
+    "name": "API User",
+    "description": "Programmatic access for integrations",
+    "permissions": [
+      "api:read",
+      "api:write",
+      "webhook:manage"
+    ],
+    "isSystem": false
+  }
+]

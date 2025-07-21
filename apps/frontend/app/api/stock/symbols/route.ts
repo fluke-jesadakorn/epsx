@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { validateRankingAccess } from '@/middleware/rankingAccess';
+import { validateRankingAccess } from '@/lib/middleware/rankingAccess';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
