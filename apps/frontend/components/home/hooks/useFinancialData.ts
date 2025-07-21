@@ -1,8 +1,7 @@
-import type { StockFinancialData, QuarterData } from '@/types/financialChartData';
-import { 
-  getLatestQuarterData, 
-  calculateAverageEpsGrowth as calculateAvgEpsGrowth 
-} from '@/utils/processStocks/stockDataTransformer';
+import type {
+  StockFinancialData,
+  QuarterData,
+} from '@/types/financialChartData';
 
 /**
  * Business logic hooks for financial data processing
@@ -17,25 +16,49 @@ export interface UseFinancialDataResult {
 }
 
 /**
+ * Get the latest quarter data from stock financial data
+ */
+function getLatestQuarterData(data: StockFinancialData): QuarterData | null {
+  return data.quarters.length > 0 ? data.quarters[0] : null;
+}
+
+/**
+ * Calculate average EPS growth from all available quarters
+ */
+function calculateAvgEpsGrowth(data: StockFinancialData): number | null {
+  const growth = data.quarters
+    .map((q) => q.eps_growth)
+    .filter((g) => g !== undefined && g !== null) as number[];
+
+  return growth.length
+    ? Math.round(growth.reduce((a, b) => a + b, 0) / growth.length)
+    : null;
+}
+
+/**
  * Hook to process financial data for a single stock
  */
-export function useFinancialData(data: StockFinancialData): UseFinancialDataResult {
+export function useFinancialData(
+  data: StockFinancialData,
+): UseFinancialDataResult {
   const latestQuarter = getLatestQuarterData(data);
-  
+
   // Calculate average growth using ALL available quarters for accuracy
   // This is intentionally NOT limited to display quarters
   const avgGrowth = calculateAvgEpsGrowth(data);
-  
-  const displayPrice = data.currentPrice !== undefined && data.currentPrice !== null
-    ? data.currentPrice
-    : latestQuarter?.price ?? null;
-  
-  const hasGrowthData = data.quarters.length >= 2 &&
+
+  const displayPrice =
+    data.currentPrice !== undefined && data.currentPrice !== null
+      ? data.currentPrice
+      : (latestQuarter?.price ?? null);
+
+  const hasGrowthData =
+    data.quarters.length >= 2 &&
     data.quarters[0].eps_growth !== undefined &&
     data.quarters[1].eps_growth !== undefined;
-  
+
   const hasValidData = data.quarters.length > 0 && latestQuarter !== null;
-  
+
   return {
     latestQuarter,
     avgGrowth,
@@ -69,6 +92,9 @@ export function isPositiveGrowth(value: number | undefined | null): boolean {
 /**
  * Get growth indicator based on comparison
  */
-export function getGrowthIndicator(current: number, previous: number): 'up' | 'down' {
+export function getGrowthIndicator(
+  current: number,
+  previous: number,
+): 'up' | 'down' {
   return current > previous ? 'up' : 'down';
 }

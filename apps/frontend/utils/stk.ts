@@ -3,7 +3,7 @@ export interface Quarter {
   price: number | null
   date: string
   eps: number
-  quarter: string
+  quarter: string | number
   eps_growth?: number
   price_growth?: number
   last_eps_vs_current_price?: {
@@ -15,8 +15,8 @@ export interface Quarter {
 export interface StockData {
   symbol: string
   quarters: Quarter[]
-  currentPrice?: number
-  currentPriceDate?: string
+  currentPrice?: number | null
+  currentPriceDate?: string | null
 }
 
 // Transform financial data

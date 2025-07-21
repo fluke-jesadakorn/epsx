@@ -43,38 +43,18 @@ export function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Create debounced function
- */
-export function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  
-  return function (...args: Parameters<T>) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
-}
+// Import utilities from centralized location
+import { deb, thr, clone as deepClone, id as generateId } from '@/utils/util';
 
 /**
- * Create throttled function
+ * Create debounced function (re-export)
  */
-export function throttle<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean = false;
-  
-  return function (...args: Parameters<T>) {
-    if (!inThrottle) {
-      fn(...args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, delay);
-    }
-  };
-}
+export const debounce = deb;
+
+/**
+ * Create throttled function (re-export) 
+ */
+export const throttle = thr;
 
 /**
  * Check if client side
@@ -87,21 +67,14 @@ export const isClient = typeof window !== 'undefined';
 export const isServer = !isClient;
 
 /**
- * Deep clone object
+ * Deep clone object (re-export)
  */
-export function clone<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
+export const clone = deepClone;
 
-  if (Array.isArray(obj)) {
-    return obj.map(clone) as unknown as T;
-  }
-
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, clone(value)])
-  ) as T;
-}
+/**
+ * Generate random string (re-export)
+ */
+export const genId = generateId;
 
 /**
  * Parse URL query to object
@@ -109,17 +82,6 @@ export function clone<T>(obj: T): T {
 export function parseQuery(queryString: string): Record<string, string> {
   const params = new URLSearchParams(queryString.startsWith('?') ? queryString.slice(1) : queryString);
   return Object.fromEntries(params.entries());
-}
-
-/**
- * Generate random string
- */
-export function genId(len: number = 16): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from(
-    { length: len }, 
-    () => chars.charAt(Math.floor(Math.random() * chars.length))
-  ).join('');
 }
 
 /**

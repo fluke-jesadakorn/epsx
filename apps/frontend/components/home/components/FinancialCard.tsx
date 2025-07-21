@@ -8,9 +8,11 @@ import type { StockFinancialData } from '@/types/financialChartData';
 import {
   formatPrice,
   formatDate,
+} from '@/utils/fmt';
+import {
   getLastEpsVsCurrentPriceComparison,
   getPriceEpsAlignment,
-} from '@/utils/processStocks/stockDataTransformer';
+} from '@/utils/stk';
 
 interface FinancialCardProps {
   data: StockFinancialData;
@@ -194,9 +196,9 @@ export function FinancialCard({
                   }
 
                   const alignmentEmoji =
-                    alignment === 'positive'
+                    alignment === 'pos'
                       ? '✅'
-                      : alignment === 'negative'
+                      : alignment === 'neg'
                         ? '❌'
                         : '⚖️';
                   const epsText = `${comparison.lastEpsGrowth > 0 ? '+' : ''}${comparison.lastEpsGrowth}%`;

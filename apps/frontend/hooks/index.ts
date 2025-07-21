@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/services/api';
-import { useAuth as useAuthContext } from '@/lib/auth';
+import { useAuth as useAuthContext } from '@/context/auth-context';
 
 // Generic data fetching hook
 export function useApi<T>(
@@ -89,7 +89,7 @@ export function useForm<T extends Record<string, any>>(
   };
 }
 
-// Debounced search hook
+// Debounced value hook (different from utility debounce function)
 export function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
