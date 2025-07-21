@@ -4,23 +4,23 @@
 @layer base {
   :root {
     /* Light theme - PancakeSwap inspired */
-    --background: 252 100% 99%;
-    --foreground: 223 84% 10%;
+    --background: 251 100% 98%; /* Softer white */
+    --foreground: 220 26% 14%; /* Dark blue-gray */
 
     --card: 0 0% 100%;
-    --card-foreground: 223 84% 10%;
+    --card-foreground: 220 26% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 223 84% 10%;
+    --popover-foreground: 220 26% 14%;
 
     --primary: 31 100% 50%; /* PancakeSwap orange */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 42 100% 70%; /* Light golden */
-    --secondary-foreground: 223 84% 10%;
+    --secondary-foreground: 220 26% 14%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 217 32% 96%; /* Light blue-gray */
+    --muted-foreground: 215 16% 47%;
 
     --accent: 31 100% 95%; /* Very light orange */
     --accent-foreground: 31 100% 40%;
@@ -28,73 +28,95 @@
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
+    --border: 217 32% 91%; /* Light border */
+    --input: 217 32% 91%;
     --ring: 31 100% 50%;
 
     --radius: 1rem;
 
     /* PancakeSwap specific colors */
-    --pancake-primary: 31 100% 50%;
-    --pancake-secondary: 42 100% 70%;
-    --pancake-success: 142 71% 45%;
-    --pancake-warning: 45 93% 47%;
-    --pancake-error: 0 85% 60%;
-    --pancake-info: 217 91% 60%;
+    --pancake-primary: 31 100% 50%; /* Orange */
+    --pancake-secondary: 42 100% 70%; /* Yellow */
+    --pancake-success: 142 71% 45%; /* Green */
+    --pancake-warning: 45 93% 47%; /* Amber */
+    --pancake-error: 0 85% 60%; /* Red */
+    --pancake-info: 217 91% 60%; /* Blue */
+    --pancake-purple: 250 84% 54%; /* Purple accent */
 
-    /* Gradient colors */
+    /* Enhanced gradient colors */
     --gradient-primary: linear-gradient(
       135deg,
       hsl(31 100% 50%) 0%,
       hsl(42 100% 70%) 100%
     );
+    --gradient-secondary: linear-gradient(
+      135deg,
+      hsl(250 84% 54%) 0%,
+      hsl(217 91% 60%) 100%
+    );
+    --gradient-card: linear-gradient(
+      135deg,
+      hsla(31 100% 50% / 0.05) 0%,
+      hsla(42 100% 70% / 0.05) 100%
+    );
   }
 
   .dark {
     /* Dark theme - PancakeSwap inspired */
-    --background: 223 84% 10%;
-    --foreground: 252 100% 99%;
+    --background: 220 26% 8%; /* Deep dark blue-gray */
+    --foreground: 210 40% 90%; /* Light blue-gray */
 
-    --card: 223 84% 10%;
-    --card-foreground: 252 100% 99%;
+    --card: 220 26% 10%; /* Slightly lighter dark */
+    --card-foreground: 210 40% 90%;
 
-    --popover: 223 84% 10%;
-    --popover-foreground: 252 100% 99%;
+    --popover: 220 26% 10%;
+    --popover-foreground: 210 40% 90%;
 
-    --primary: 31 100% 50%;
+    --primary: 31 100% 50%; /* Keep orange vibrant */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 42 100% 70%;
-    --secondary-foreground: 223 84% 10%;
+    --secondary: 42 100% 70%; /* Keep yellow vibrant */
+    --secondary-foreground: 220 26% 8%;
 
-    --muted: 240 5% 16%;
-    --muted-foreground: 240 4% 76%;
+    --muted: 215 28% 17%; /* Darker muted */
+    --muted-foreground: 217 9% 61%;
 
-    --accent: 31 100% 25%;
-    --accent-foreground: 31 100% 90%;
+    --accent: 31 100% 25%; /* Darker orange accent */
+    --accent-foreground: 31 100% 85%;
 
-    --destructive: 0 85% 40%;
+    --destructive: 0 85% 55%; /* Slightly darker red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 30%;
-    --input: 240 6% 30%;
+    --border: 215 28% 18%; /* Dark border */
+    --input: 215 28% 18%;
     --ring: 31 100% 50%;
 
     --radius: 1rem;
 
-    /* PancakeSwap specific colors */
-    --pancake-primary: 31 100% 50%;
-    --pancake-secondary: 42 100% 70%;
-    --pancake-success: 142 71% 45%;
-    --pancake-warning: 45 93% 47%;
-    --pancake-error: 0 85% 60%;
-    --pancake-info: 217 91% 60%;
+    /* PancakeSwap specific colors - adjusted for dark mode */
+    --pancake-primary: 31 100% 50%; /* Orange */
+    --pancake-secondary: 42 100% 70%; /* Yellow */
+    --pancake-success: 142 71% 45%; /* Green */
+    --pancake-warning: 45 93% 47%; /* Amber */
+    --pancake-error: 0 85% 55%; /* Red */
+    --pancake-info: 217 91% 65%; /* Blue */
+    --pancake-purple: 250 84% 60%; /* Purple accent */
 
-    /* Gradient colors */
+    /* Enhanced gradient colors for dark mode */
     --gradient-primary: linear-gradient(
       135deg,
       hsl(31 100% 50%) 0%,
       hsl(42 100% 70%) 100%
+    );
+    --gradient-secondary: linear-gradient(
+      135deg,
+      hsl(250 84% 60%) 0%,
+      hsl(217 91% 65%) 100%
+    );
+    --gradient-card: linear-gradient(
+      135deg,
+      hsla(31 100% 50% / 0.1) 0%,
+      hsla(42 100% 70% / 0.1) 100%
     );
   }
 }
@@ -109,31 +131,51 @@
 }
 
 @layer utilities {
-  /* Simple, clean backgrounds */
-  .admin-bg {
-    background-color: #f9fafb;
+  /* PancakeSwap-inspired backgrounds */
+  .pancake-bg-gradient {
+    background: var(--gradient-primary);
   }
 
-  .admin-bg-dark {
-    background-color: #111827;
+  .pancake-bg-gradient-secondary {
+    background: var(--gradient-secondary);
   }
 
-  /* Clean card styling */
-  .card-clean {
-    @apply bg-white border border-gray-200 shadow-sm rounded-lg;
+  .pancake-card-gradient {
+    background: var(--gradient-card);
   }
 
-  .card-clean-dark {
-    @apply bg-gray-800 border border-gray-700 shadow-sm rounded-lg;
+  /* Enhanced card styling with PancakeSwap feel */
+  .pancake-card {
+    @apply border shadow-lg rounded-2xl backdrop-blur-sm;
+    background: linear-gradient(135deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--card)) 100%);
+    border-color: hsl(var(--border));
   }
 
-  /* Simple modal styling */
-  .modal-overlay {
-    background-color: rgba(0, 0, 0, 0.5);
+  .pancake-card-hover {
+    @apply transition-all duration-300 hover:shadow-xl hover:scale-[1.02];
   }
 
-  .modal-enter {
-    animation: slideUp 0.2s ease-out;
+  /* PancakeSwap button styles */
+  .pancake-button {
+    background: linear-gradient(135deg, hsl(var(--pancake-primary)) 0%, hsl(var(--pancake-secondary)) 100%);
+    @apply text-white font-semibold px-6 py-3 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105;
+  }
+
+  .pancake-button-secondary {
+    background: linear-gradient(135deg, hsl(var(--pancake-info)) 0%, hsl(var(--pancake-purple)) 100%);
+    @apply text-white font-semibold px-6 py-3 rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105;
+  }
+
+  /* Enhanced modal with blur effect */
+  .modal-overlay-pancake {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+  }
+
+  .modal-enter-pancake {
+    animation: pancakeSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* Animation utilities */
@@ -187,6 +229,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes pancakeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

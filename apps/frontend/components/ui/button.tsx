@@ -20,6 +20,12 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
         gradient:
           'bg-gradient-to-r from-primary via-secondary to-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105',
+        pancake:
+          'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-yellow-600 hover:scale-105 transition-all duration-300',
+        'pancake-secondary':
+          'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-purple-600 hover:scale-105 transition-all duration-300',
+        'pancake-outline':
+          'border-2 border-orange-500 text-orange-600 dark:text-orange-400 hover:bg-orange-500 hover:text-white shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300',
       },
       size: {
         default: 'h-10 px-4 py-2',

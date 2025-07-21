@@ -41,13 +41,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body
-        className="min-h-screen font-sans antialiased"
-        style={{
-          background: 'linear-gradient(135deg, #f3b9ff 0%, #53dee9 100%)',
-          color: 'var(--color-text)',
-        }}
-      >
+      <body className="min-h-screen font-sans antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AdminAuthProvider>
             <ToastProvider>
