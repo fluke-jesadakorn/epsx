@@ -1,9 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { AuthState, AuthContextType } from '@epsx/auth';
-import { handleSignIn, handleSignOut } from '@epsx/auth/actions';
+import { auth } from '@/lib/firebase';
 import { authService } from '@/services/auth/auth.service';
+import type { AuthContextType, AuthState } from '@epsx/auth';
+import { handleSignIn, handleSignOut } from '@epsx/auth/actions';
+import { onAuthStateChanged } from 'firebase/auth';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 // Create the auth context
 const AppAuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,30 +33,37 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
   });
 
   const updateState = useCallback((updates: Partial<AuthState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  const handleAsyncOperation = useCallback(async (operation: () => Promise<any>) => {
-    try {
-      updateState({ loading: true, error: null });
-      const result = await operation();
-      updateState({ loading: false });
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      updateState({ loading: false, error: message });
-      throw error;
-    }
-  }, [updateState]);
+  const handleAsyncOperation = useCallback(
+    async (operation: () => Promise<any>) => {
+      try {
+        updateState({ loading: true, error: null });
+        const result = await operation();
+        updateState({ loading: false });
+        return result;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'An error occurred';
+        updateState({ loading: false, error: message });
+        throw error;
+      }
+    },
+    [updateState],
+  );
 
   // Implement auth actions using shared session management
-  const signInWithEmailAndPassword = useCallback(async (credentials: { email: string; password: string }) => {
-    await handleAsyncOperation(async () => {
-      const user = await authService.signInWithEmailAndPassword(credentials);
-      const idToken = await user.getIdToken();
-      await handleSignIn(idToken);
-    });
-  }, [handleAsyncOperation]);
+  const signInWithEmailAndPassword = useCallback(
+    async (credentials: { email: string; password: string }) => {
+      await handleAsyncOperation(async () => {
+        const user = await authService.signInWithEmailAndPassword(credentials);
+        const idToken = await user.getIdToken();
+        await handleSignIn(idToken);
+      });
+    },
+    [handleAsyncOperation],
+  );
 
   const signInWithGoogle = useCallback(async () => {
     await handleAsyncOperation(async () => {
@@ -58,13 +73,16 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
     });
   }, [handleAsyncOperation]);
 
-  const signUp = useCallback(async (data: { email: string; password: string; displayName?: string }) => {
-    await handleAsyncOperation(async () => {
-      const user = await authService.signUp(data);
-      const idToken = await user.getIdToken();
-      await handleSignIn(idToken);
-    });
-  }, [handleAsyncOperation]);
+  const signUp = useCallback(
+    async (data: { email: string; password: string; displayName?: string }) => {
+      await handleAsyncOperation(async () => {
+        const user = await authService.signUp(data);
+        const idToken = await user.getIdToken();
+        await handleSignIn(idToken);
+      });
+    },
+    [handleAsyncOperation],
+  );
 
   const signOut = useCallback(async () => {
     await handleAsyncOperation(async () => {
@@ -73,15 +91,22 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
     });
   }, [handleAsyncOperation]);
 
-  const sendPasswordResetEmail = useCallback(async (email: string) => {
-    await handleAsyncOperation(() => authService.sendPasswordResetEmail(email));
-  }, [handleAsyncOperation]);
+  const sendPasswordResetEmail = useCallback(
+    async (email: string) => {
+      await handleAsyncOperation(() =>
+        authService.sendPasswordResetEmail(email),
+      );
+    },
+    [handleAsyncOperation],
+  );
 
   const sendEmailVerification = useCallback(async () => {
     if (!state.user) {
       throw new Error('No user found');
     }
-    await handleAsyncOperation(() => authService.sendEmailVerification(state.user));
+    await handleAsyncOperation(() =>
+      authService.sendEmailVerification(state.user),
+    );
   }, [state.user, handleAsyncOperation]);
 
   const refreshSession = useCallback(async () => {
@@ -96,6 +121,39 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
 
   const clearError = useCallback(() => {
     updateState({ error: null });
+  }, [updateState]);
+
+  // Initialize auth state by listening to Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          updateState({
+            user,
+            loading: false,
+            isInitialized: true,
+            error: null,
+          });
+        } catch (error) {
+          console.error('Failed to initialize user state:', error);
+          updateState({
+            user,
+            loading: false,
+            isInitialized: true,
+            error: 'Failed to initialize user session',
+          });
+        }
+      } else {
+        updateState({
+          user: null,
+          loading: false,
+          isInitialized: true,
+          error: null,
+        });
+      }
+    });
+
+    return unsubscribe;
   }, [updateState]);
 
   const contextValue: AuthContextType = {

@@ -1,27 +1,31 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit as firestoreLimit,
-  Timestamp,
-  writeBatch
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { 
-  UserWithPermissions, 
-  CustomPermission, 
-  PackagePermission, 
-  EffectivePermission,
-  PermissionAuditLog,
-  Permission
-} from '../types/admin/iam-enhanced';
-import { PackageTier, SubscriptionStatus, PermissionSource } from '../types/admin/iam-enhanced';
+import {
+  addDoc,
+  collection,
+  doc,
+  limit as firestoreLimit,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  Timestamp,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
 import { buildPackagePermissions } from '../config/packagePermissions';
+import type {
+  CustomPermission,
+  EffectivePermission,
+  PackagePermission,
+  Permission,
+  PermissionAuditLog,
+  UserWithPermissions,
+} from '../types/admin/iam-enhanced';
+import {
+  PackageTier,
+  PermissionSource,
+  SubscriptionStatus,
+} from '../types/admin/iam-enhanced';
 
 export class FirebaseIAMService {
   private readonly collections = {
@@ -29,7 +33,7 @@ export class FirebaseIAMService {
     customPermissions: 'custom_permissions',
     packagePermissions: 'package_permissions',
     auditLogs: 'permission_audit_logs',
-    effectivePermissions: 'effective_permissions'
+    effectivePermissions: 'effective_permissions',
   };
 
   /**
@@ -51,17 +55,25 @@ export class FirebaseIAMService {
 
       // Apply filters
       if (filters?.packageTier) {
-        userQuery = query(userQuery, where('packageTier', '==', filters.packageTier));
+        userQuery = query(
+          userQuery,
+          where('packageTier', '==', filters.packageTier),
+        );
       }
       if (filters?.subscriptionStatus) {
-        userQuery = query(userQuery, where('subscriptionStatus', '==', filters.subscriptionStatus));
+        userQuery = query(
+          userQuery,
+          where('subscriptionStatus', '==', filters.subscriptionStatus),
+        );
       }
 
       const usersSnapshot = await getDocs(userQuery);
-      
+
       // If no users found in Firestore, return mock data for development
       if (usersSnapshot.empty) {
-        console.warn('No users found in Firestore, returning mock data for development');
+        console.warn(
+          'No users found in Firestore, returning mock data for development',
+        );
         return this.getMockUsers(filters);
       }
 
@@ -70,13 +82,19 @@ export class FirebaseIAMService {
       for (const userDoc of usersSnapshot.docs) {
         try {
           const userData = userDoc.data();
-          const user = await this.buildUserWithPermissions(userDoc.id, userData);
-          
+          const user = await this.buildUserWithPermissions(
+            userDoc.id,
+            userData,
+          );
+
           // Apply hasCustomPermissions filter
-          if (filters?.hasCustomPermissions && user.customPermissions.length === 0) {
+          if (
+            filters?.hasCustomPermissions &&
+            user.customPermissions.length === 0
+          ) {
             continue;
           }
-          
+
           users.push(user);
         } catch (userError) {
           console.warn(`Failed to build user ${userDoc.id}:`, userError);
@@ -99,37 +117,49 @@ export class FirebaseIAMService {
     try {
       if (!db) {
         console.warn('Firebase not initialized, returning mock user');
-        return this.getMockUsers().find(u => u.id === userId) || this.getMockUsers()[0];
+        const mockUsers = this.getMockUsers();
+        const mockUser = mockUsers.find((u) => u.id === userId);
+        return mockUser || mockUsers[0]!; // Safe assertion since getMockUsers always returns at least one user
       }
 
       const userDoc = await getDoc(doc(db, this.collections.users, userId));
-      
+
       if (!userDoc.exists()) {
-        console.warn(`User ${userId} not found in Firestore, returning mock user`);
-        return this.getMockUsers().find(u => u.id === userId) || this.getMockUsers()[0];
+        console.warn(
+          `User ${userId} not found in Firestore, returning mock user`,
+        );
+        const mockUsers = this.getMockUsers();
+        const mockUser = mockUsers.find((u) => u.id === userId);
+        return mockUser || mockUsers[0]!;
       }
 
       return await this.buildUserWithPermissions(userId, userDoc.data());
     } catch (error) {
       console.error('Error fetching user with permissions:', error);
       console.warn('Falling back to mock user data');
-      return this.getMockUsers().find(u => u.id === userId) || this.getMockUsers()[0];
+      const mockUsers = this.getMockUsers();
+      const mockUser = mockUsers.find((u) => u.id === userId);
+      return mockUser || mockUsers[0]!;
     }
   }
 
   /**
    * Update user package tier
    */
-  async updateUserPackageTier(userId: string, newTier: PackageTier, updatedBy: string): Promise<void> {
+  async updateUserPackageTier(
+    userId: string,
+    newTier: PackageTier,
+    updatedBy: string,
+  ): Promise<void> {
     try {
       const batch = writeBatch(db);
-      
+
       // Update user document
       const userRef = doc(db, this.collections.users, userId);
       batch.update(userRef, {
         packageTier: newTier,
         updatedAt: Timestamp.now(),
-        updatedBy
+        updatedBy,
       });
 
       // Apply new package permissions
@@ -142,7 +172,7 @@ export class FirebaseIAMService {
         resource: 'user:package_tier',
         performedBy: updatedBy,
         timestamp: new Date(),
-        metadata: { newTier, oldTier: 'unknown' }
+        metadata: { newTier, oldTier: 'unknown' },
       });
 
       await batch.commit();
@@ -155,7 +185,11 @@ export class FirebaseIAMService {
   /**
    * Apply package permissions to user
    */
-  async applyPackagePermissions(userId: string, packageTier: PackageTier, batch?: any): Promise<void> {
+  async applyPackagePermissions(
+    userId: string,
+    packageTier: PackageTier,
+    batch?: any,
+  ): Promise<void> {
     try {
       const shouldCommit = !batch;
       if (!batch) {
@@ -169,11 +203,11 @@ export class FirebaseIAMService {
       const existingPermissionsQuery = query(
         collection(db, this.collections.effectivePermissions),
         where('userId', '==', userId),
-        where('source', '==', PermissionSource.PACKAGE)
+        where('source', '==', PermissionSource.PACKAGE),
       );
       const existingSnapshot = await getDocs(existingPermissionsQuery);
-      
-      existingSnapshot.forEach(doc => {
+
+      existingSnapshot.forEach((doc) => {
         batch.delete(doc.ref);
       });
 
@@ -184,14 +218,16 @@ export class FirebaseIAMService {
           permission: permission.permission,
           source: PermissionSource.PACKAGE,
           grantedAt: new Date(),
-          grantedBy: 'SYSTEM'
+          grantedBy: 'SYSTEM',
         };
 
-        const permissionRef = doc(collection(db, this.collections.effectivePermissions));
+        const permissionRef = doc(
+          collection(db, this.collections.effectivePermissions),
+        );
         batch.set(permissionRef, {
           ...effectivePermission,
           userId,
-          grantedAt: Timestamp.now()
+          grantedAt: Timestamp.now(),
         });
       }
 
@@ -212,7 +248,7 @@ export class FirebaseIAMService {
     featureId: string,
     permission: Permission,
     grantedBy: string,
-    options?: { expiresAt?: Date; reason?: string }
+    options?: { expiresAt?: Date; reason?: string },
   ): Promise<CustomPermission> {
     try {
       const customPermission: Omit<CustomPermission, 'id'> = {
@@ -221,17 +257,22 @@ export class FirebaseIAMService {
         permission,
         grantedBy,
         grantedAt: new Date(),
-        expiresAt: options?.expiresAt,
-        reason: options?.reason,
-        isActive: true
+        ...(options?.expiresAt && { expiresAt: options.expiresAt }),
+        ...(options?.reason && { reason: options.reason }),
+        isActive: true,
       };
 
       // Add to custom permissions collection
-      const customPermRef = await addDoc(collection(db, this.collections.customPermissions), {
-        ...customPermission,
-        grantedAt: Timestamp.now(),
-        expiresAt: options?.expiresAt ? Timestamp.fromDate(options.expiresAt) : null
-      });
+      const customPermRef = await addDoc(
+        collection(db, this.collections.customPermissions),
+        {
+          ...customPermission,
+          grantedAt: Timestamp.now(),
+          expiresAt: options?.expiresAt
+            ? Timestamp.fromDate(options.expiresAt)
+            : null,
+        },
+      );
 
       // Add to effective permissions
       const effectivePermission: Omit<EffectivePermission, 'id'> = {
@@ -239,16 +280,18 @@ export class FirebaseIAMService {
         permission,
         source: PermissionSource.CUSTOM,
         grantedAt: new Date(),
-        expiresAt: options?.expiresAt,
-        grantedBy
+        ...(options?.expiresAt && { expiresAt: options.expiresAt }),
+        grantedBy,
       };
 
       await addDoc(collection(db, this.collections.effectivePermissions), {
         ...effectivePermission,
         userId,
         grantedAt: Timestamp.now(),
-        expiresAt: options?.expiresAt ? Timestamp.fromDate(options.expiresAt) : null,
-        customPermissionId: customPermRef.id
+        expiresAt: options?.expiresAt
+          ? Timestamp.fromDate(options.expiresAt)
+          : null,
+        customPermissionId: customPermRef.id,
       });
 
       // Create audit log
@@ -257,14 +300,14 @@ export class FirebaseIAMService {
         action: `Granted custom permission: ${featureId}`,
         resource: `permission:${featureId}`,
         performedBy: grantedBy,
-        reason: options?.reason,
+        ...(options?.reason && { reason: options.reason }),
         timestamp: new Date(),
-        metadata: { featureId, permission }
+        metadata: { featureId, permission },
       });
 
       return {
         id: customPermRef.id,
-        ...customPermission
+        ...customPermission,
       };
     } catch (error) {
       console.error('Error granting custom permission:', error);
@@ -275,12 +318,18 @@ export class FirebaseIAMService {
   /**
    * Revoke custom permission
    */
-  async revokeCustomPermission(permissionId: string, revokedBy: string, reason?: string): Promise<void> {
+  async revokeCustomPermission(
+    permissionId: string,
+    revokedBy: string,
+    reason?: string,
+  ): Promise<void> {
     try {
       const batch = writeBatch(db);
 
       // Get custom permission details
-      const customPermDoc = await getDoc(doc(db, this.collections.customPermissions, permissionId));
+      const customPermDoc = await getDoc(
+        doc(db, this.collections.customPermissions, permissionId),
+      );
       if (!customPermDoc.exists()) {
         throw new Error('Custom permission not found');
       }
@@ -292,18 +341,18 @@ export class FirebaseIAMService {
         isActive: false,
         revokedAt: Timestamp.now(),
         revokedBy,
-        revokeReason: reason
+        revokeReason: reason,
       });
 
       // Remove from effective permissions
       const effectivePermQuery = query(
         collection(db, this.collections.effectivePermissions),
         where('userId', '==', customPermData.userId),
-        where('customPermissionId', '==', permissionId)
+        where('customPermissionId', '==', permissionId),
       );
       const effectiveSnapshot = await getDocs(effectivePermQuery);
-      
-      effectiveSnapshot.forEach(doc => {
+
+      effectiveSnapshot.forEach((doc) => {
         batch.delete(doc.ref);
       });
 
@@ -313,9 +362,9 @@ export class FirebaseIAMService {
         action: `Revoked custom permission: ${customPermData.featureId}`,
         resource: `permission:${customPermData.featureId}`,
         performedBy: revokedBy,
-        reason,
+        ...(reason && { reason }),
         timestamp: new Date(),
-        metadata: { permissionId, featureId: customPermData.featureId }
+        metadata: { permissionId, featureId: customPermData.featureId },
       });
 
       await batch.commit();
@@ -332,31 +381,33 @@ export class FirebaseIAMService {
     try {
       if (!db) {
         console.warn('Firebase not initialized, checking mock permissions');
-        const mockUser = this.getMockUsers().find(u => u.id === userId);
+        const mockUser = this.getMockUsers().find((u) => u.id === userId);
         if (!mockUser) return false;
-        
+
         // Check if the feature is in package permissions
-        return mockUser.packagePermissions.some(perm => perm.featureId === featureId);
+        return mockUser.packagePermissions.some(
+          (perm) => perm.featureId === featureId,
+        );
       }
 
       const effectivePermQuery = query(
         collection(db, this.collections.effectivePermissions),
         where('userId', '==', userId),
-        where('featureId', '==', featureId)
+        where('featureId', '==', featureId),
       );
 
       const snapshot = await getDocs(effectivePermQuery);
-      
+
       // Check if any non-expired permission exists
       const now = new Date();
       for (const doc of snapshot.docs) {
         const permission = doc.data();
-        
+
         // Check if permission is expired
         if (permission.expiresAt && permission.expiresAt.toDate() < now) {
           continue;
         }
-        
+
         return true;
       }
 
@@ -371,21 +422,23 @@ export class FirebaseIAMService {
   /**
    * Get user's effective permissions
    */
-  async getUserEffectivePermissions(userId: string): Promise<EffectivePermission[]> {
+  async getUserEffectivePermissions(
+    userId: string,
+  ): Promise<EffectivePermission[]> {
     try {
       const effectivePermQuery = query(
         collection(db, this.collections.effectivePermissions),
         where('userId', '==', userId),
-        orderBy('grantedAt', 'desc')
+        orderBy('grantedAt', 'desc'),
       );
 
       const snapshot = await getDocs(effectivePermQuery);
       const permissions: EffectivePermission[] = [];
       const now = new Date();
 
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         const data = doc.data();
-        
+
         // Skip expired permissions
         if (data.expiresAt && data.expiresAt.toDate() < now) {
           return;
@@ -397,7 +450,7 @@ export class FirebaseIAMService {
           source: data.source,
           grantedAt: data.grantedAt.toDate(),
           expiresAt: data.expiresAt?.toDate(),
-          grantedBy: data.grantedBy
+          grantedBy: data.grantedBy,
         });
       });
 
@@ -411,7 +464,11 @@ export class FirebaseIAMService {
   /**
    * Bulk apply template permissions
    */
-  async bulkApplyTemplate(userIds: string[], templateId: string, appliedBy: string): Promise<void> {
+  async bulkApplyTemplate(
+    userIds: string[],
+    templateId: string,
+    appliedBy: string,
+  ): Promise<void> {
     try {
       // This would require template definitions in Firestore
       // For now, implement as a placeholder
@@ -424,7 +481,7 @@ export class FirebaseIAMService {
           resource: `template:${templateId}`,
           performedBy: appliedBy,
           timestamp: new Date(),
-          metadata: { templateId }
+          metadata: { templateId },
         });
       }
 
@@ -438,11 +495,13 @@ export class FirebaseIAMService {
   /**
    * Create audit log entry
    */
-  async createAuditLog(logEntry: Omit<PermissionAuditLog, 'id'>): Promise<void> {
+  async createAuditLog(
+    logEntry: Omit<PermissionAuditLog, 'id'>,
+  ): Promise<void> {
     try {
       await addDoc(collection(db, this.collections.auditLogs), {
         ...logEntry,
-        timestamp: Timestamp.now()
+        timestamp: Timestamp.now(),
       });
     } catch (error) {
       console.error('Error creating audit log:', error);
@@ -453,19 +512,22 @@ export class FirebaseIAMService {
   /**
    * Get user audit logs
    */
-  async getUserAuditLogs(userId: string, limitCount: number = 50): Promise<PermissionAuditLog[]> {
+  async getUserAuditLogs(
+    userId: string,
+    limitCount: number = 50,
+  ): Promise<PermissionAuditLog[]> {
     try {
       const auditQuery = query(
         collection(db, this.collections.auditLogs),
         where('userId', '==', userId),
         orderBy('timestamp', 'desc'),
-        firestoreLimit(limitCount)
+        firestoreLimit(limitCount),
       );
 
       const snapshot = await getDocs(auditQuery);
       const logs: PermissionAuditLog[] = [];
 
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         const data = doc.data();
         logs.push({
           id: doc.id,
@@ -475,7 +537,7 @@ export class FirebaseIAMService {
           performedBy: data.performedBy,
           reason: data.reason,
           timestamp: data.timestamp.toDate(),
-          metadata: data.metadata
+          metadata: data.metadata,
         });
       });
 
@@ -487,9 +549,50 @@ export class FirebaseIAMService {
   }
 
   /**
+   * Get all audit logs with optional filters
+   */
+  async getAllAuditLogs(
+    limitCount: number = 100,
+  ): Promise<PermissionAuditLog[]> {
+    try {
+      const auditQuery = query(
+        collection(db, this.collections.auditLogs),
+        orderBy('timestamp', 'desc'),
+        firestoreLimit(limitCount),
+      );
+
+      const snapshot = await getDocs(auditQuery);
+      const logs: PermissionAuditLog[] = [];
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        logs.push({
+          id: doc.id,
+          userId: data.userId,
+          action: data.action,
+          resource: data.resource,
+          performedBy: data.performedBy,
+          reason: data.reason,
+          timestamp: data.timestamp.toDate(),
+          metadata: data.metadata,
+        });
+      });
+
+      return logs;
+    } catch (error) {
+      console.error('Error fetching all audit logs:', error);
+      // Return empty array instead of throwing to allow fallback to mock data
+      return [];
+    }
+  }
+
+  /**
    * Preview package upgrade effects
    */
-  async previewPackageUpgrade(userId: string, newTier: PackageTier): Promise<{
+  async previewPackageUpgrade(
+    userId: string,
+    newTier: PackageTier,
+  ): Promise<{
     currentPermissions: EffectivePermission[];
     newPermissions: PackagePermission[];
     addedPermissions: PackagePermission[];
@@ -498,7 +601,7 @@ export class FirebaseIAMService {
     try {
       const currentPermissions = await this.getUserEffectivePermissions(userId);
       const newPermissions = buildPackagePermissions()[newTier];
-      
+
       // Calculate added permissions (simplified - in real implementation, compare with current package permissions)
       const addedPermissions = newPermissions;
       const removedPermissions: PackagePermission[] = [];
@@ -507,7 +610,7 @@ export class FirebaseIAMService {
         currentPermissions,
         newPermissions,
         addedPermissions,
-        removedPermissions
+        removedPermissions,
       };
     } catch (error) {
       console.error('Error previewing package upgrade:', error);
@@ -523,13 +626,13 @@ export class FirebaseIAMService {
       const now = Timestamp.now();
       const expiredQuery = query(
         collection(db, this.collections.effectivePermissions),
-        where('expiresAt', '<', now)
+        where('expiresAt', '<', now),
       );
 
       const snapshot = await getDocs(expiredQuery);
       const batch = writeBatch(db);
 
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         batch.delete(doc.ref);
       });
 
@@ -543,18 +646,21 @@ export class FirebaseIAMService {
   /**
    * Private helper to build user with all permissions
    */
-  private async buildUserWithPermissions(userId: string, userData: any): Promise<UserWithPermissions> {
+  private async buildUserWithPermissions(
+    userId: string,
+    userData: any,
+  ): Promise<UserWithPermissions> {
     try {
       // Get custom permissions
       const customPermQuery = query(
         collection(db, this.collections.customPermissions),
         where('userId', '==', userId),
-        where('isActive', '==', true)
+        where('isActive', '==', true),
       );
       const customPermSnapshot = await getDocs(customPermQuery);
       const customPermissions: CustomPermission[] = [];
 
-      customPermSnapshot.forEach(doc => {
+      customPermSnapshot.forEach((doc) => {
         const data = doc.data();
         customPermissions.push({
           id: doc.id,
@@ -565,15 +671,17 @@ export class FirebaseIAMService {
           grantedAt: data.grantedAt.toDate(),
           expiresAt: data.expiresAt?.toDate(),
           reason: data.reason,
-          isActive: data.isActive
+          isActive: data.isActive,
         });
       });
 
       // Get effective permissions
-      const effectivePermissions = await this.getUserEffectivePermissions(userId);
+      const effectivePermissions =
+        await this.getUserEffectivePermissions(userId);
 
       // Get package permissions for current tier
-      const packageTier = userData.packageTier as PackageTier || PackageTier.FREE;
+      const packageTier =
+        (userData.packageTier as PackageTier) || PackageTier.FREE;
       const packagePermissions = buildPackagePermissions()[packageTier];
 
       return {
@@ -588,14 +696,21 @@ export class FirebaseIAMService {
         attachedPolicies: userData.attachedPolicies || [],
         status: userData.status || 'active',
         lastActivity: userData.lastActivity,
-        createdAt: userData.createdAt?.toDate?.()?.toISOString() || userData.createdAt || new Date().toISOString(),
-        updatedAt: userData.updatedAt?.toDate?.()?.toISOString() || userData.updatedAt || new Date().toISOString(),
+        createdAt:
+          userData.createdAt?.toDate?.()?.toISOString() ||
+          userData.createdAt ||
+          new Date().toISOString(),
+        updatedAt:
+          userData.updatedAt?.toDate?.()?.toISOString() ||
+          userData.updatedAt ||
+          new Date().toISOString(),
         packageTier,
-        subscriptionStatus: userData.subscriptionStatus || SubscriptionStatus.PENDING,
+        subscriptionStatus:
+          userData.subscriptionStatus || SubscriptionStatus.PENDING,
         lastPaymentDate: userData.lastPaymentDate?.toDate?.(),
         customPermissions,
         effectivePermissions,
-        packagePermissions
+        packagePermissions,
       };
     } catch (error) {
       console.error('Error building user with permissions:', error);
@@ -631,7 +746,7 @@ export class FirebaseIAMService {
         lastPaymentDate: new Date(),
         customPermissions: [],
         effectivePermissions: [],
-        packagePermissions: buildPackagePermissions()[PackageTier.ENTERPRISE]
+        packagePermissions: buildPackagePermissions()[PackageTier.ENTERPRISE],
       },
       {
         id: 'mock-user-2',
@@ -652,7 +767,7 @@ export class FirebaseIAMService {
         lastPaymentDate: new Date(),
         customPermissions: [],
         effectivePermissions: [],
-        packagePermissions: buildPackagePermissions()[PackageTier.GOLD]
+        packagePermissions: buildPackagePermissions()[PackageTier.GOLD],
       },
       {
         id: 'mock-user-3',
@@ -670,22 +785,28 @@ export class FirebaseIAMService {
         updatedAt: new Date().toISOString(),
         packageTier: PackageTier.FREE,
         subscriptionStatus: SubscriptionStatus.PENDING,
-        lastPaymentDate: undefined,
+        // lastPaymentDate is intentionally omitted for free users
         customPermissions: [],
         effectivePermissions: [],
-        packagePermissions: buildPackagePermissions()[PackageTier.FREE]
-      }
+        packagePermissions: buildPackagePermissions()[PackageTier.FREE],
+      } as UserWithPermissions,
     ];
 
     // Apply filters to mock data
-    return mockUsers.filter(user => {
+    return mockUsers.filter((user) => {
       if (filters?.packageTier && user.packageTier !== filters.packageTier) {
         return false;
       }
-      if (filters?.subscriptionStatus && user.subscriptionStatus !== filters.subscriptionStatus) {
+      if (
+        filters?.subscriptionStatus &&
+        user.subscriptionStatus !== filters.subscriptionStatus
+      ) {
         return false;
       }
-      if (filters?.hasCustomPermissions && user.customPermissions.length === 0) {
+      if (
+        filters?.hasCustomPermissions &&
+        user.customPermissions.length === 0
+      ) {
         return false;
       }
       return true;

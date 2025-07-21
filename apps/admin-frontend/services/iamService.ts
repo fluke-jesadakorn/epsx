@@ -1,15 +1,14 @@
-import type { 
-  UserWithPermissions, 
-  CustomPermission, 
+import { buildPackagePermissions } from '../config/packagePermissions';
+import type {
+  CustomPermission,
   EffectivePermission,
-  Permission
+  Permission,
+  UserWithPermissions,
 } from '../types/admin/iam-enhanced';
 import { PackageTier } from '../types/admin/iam-enhanced';
-import { buildPackagePermissions } from '../config/packagePermissions';
 import { firebaseIAMService } from './firebaseIAMService';
 
 export class IAMService {
-  
   /**
    * Get all users with IAM information
    */
@@ -31,14 +30,21 @@ export class IAMService {
   /**
    * Update user's package tier
    */
-  async updateUserPackageTier(userId: string, newTier: PackageTier, updatedBy: string): Promise<void> {
+  async updateUserPackageTier(
+    userId: string,
+    newTier: PackageTier,
+    updatedBy: string,
+  ): Promise<void> {
     return firebaseIAMService.updateUserPackageTier(userId, newTier, updatedBy);
   }
 
   /**
    * Apply package permissions to a user
    */
-  async applyPackagePermissions(userId: string, packageTier: PackageTier): Promise<void> {
+  async applyPackagePermissions(
+    userId: string,
+    packageTier: PackageTier,
+  ): Promise<void> {
     return firebaseIAMService.applyPackagePermissions(userId, packageTier);
   }
 
@@ -50,16 +56,30 @@ export class IAMService {
     featureId: string,
     permission: Permission,
     grantedBy: string,
-    options?: { expiresAt?: Date; reason?: string }
+    options?: { expiresAt?: Date; reason?: string },
   ): Promise<CustomPermission> {
-    return firebaseIAMService.grantCustomPermission(userId, featureId, permission, grantedBy, options);
+    return firebaseIAMService.grantCustomPermission(
+      userId,
+      featureId,
+      permission,
+      grantedBy,
+      options,
+    );
   }
 
   /**
    * Revoke custom permission
    */
-  async revokeCustomPermission(permissionId: string, revokedBy: string, reason?: string): Promise<void> {
-    return firebaseIAMService.revokeCustomPermission(permissionId, revokedBy, reason);
+  async revokeCustomPermission(
+    permissionId: string,
+    revokedBy: string,
+    reason?: string,
+  ): Promise<void> {
+    return firebaseIAMService.revokeCustomPermission(
+      permissionId,
+      revokedBy,
+      reason,
+    );
   }
 
   /**
@@ -72,21 +92,30 @@ export class IAMService {
   /**
    * Get user's effective permissions
    */
-  async getUserEffectivePermissions(userId: string): Promise<EffectivePermission[]> {
+  async getUserEffectivePermissions(
+    userId: string,
+  ): Promise<EffectivePermission[]> {
     return firebaseIAMService.getUserEffectivePermissions(userId);
   }
 
   /**
    * Bulk apply permission template to multiple users
    */
-  async bulkApplyTemplate(userIds: string[], templateId: string, appliedBy: string): Promise<void> {
+  async bulkApplyTemplate(
+    userIds: string[],
+    templateId: string,
+    appliedBy: string,
+  ): Promise<void> {
     return firebaseIAMService.bulkApplyTemplate(userIds, templateId, appliedBy);
   }
 
   /**
    * Preview what would happen if user upgrades package
    */
-  async previewPackageUpgrade(userId: string, newTier: PackageTier): Promise<{
+  async previewPackageUpgrade(
+    userId: string,
+    newTier: PackageTier,
+  ): Promise<{
     currentPermissions: EffectivePermission[];
     newPermissions: any[];
     addedPermissions: any[];
@@ -100,6 +129,13 @@ export class IAMService {
    */
   async getUserAuditLogs(userId: string, limit: number = 50): Promise<any[]> {
     return firebaseIAMService.getUserAuditLogs(userId, limit);
+  }
+
+  /**
+   * Get all audit logs with optional filters
+   */
+  async getAllAuditLogs(limit: number = 100): Promise<any[]> {
+    return firebaseIAMService.getAllAuditLogs(limit);
   }
 
   /**
