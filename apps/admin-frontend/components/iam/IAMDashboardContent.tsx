@@ -1,14 +1,17 @@
 'use client';
 
 import { Activity, BarChart3, ChevronRight, Shield, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import React from 'react';
 import { DashboardOverview } from './dashboard/DashboardOverview';
 import { ActivityLogs } from './logs/ActivityLogs';
 import { PermissionTemplates } from './templates/PermissionTemplates';
 import { UserManagement } from './users/UserManagement';
 
 export const IAMDashboardContent: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('overview');
+  const searchParams = useSearchParams();
+  const activeSection = searchParams.get('section') || 'overview';
 
   const sections = [
     {
@@ -79,11 +82,11 @@ export const IAMDashboardContent: React.FC = () => {
             const isActive = activeSection === section.id;
 
             return (
-              <button
+              <Link
                 key={section.id}
-                onClick={() => setActiveSection(section.id)}
+                href={`/iam?section=${section.id}`}
                 className={`
-                  submenu-item group p-4 rounded-lg text-left transition-all duration-200 border
+                  submenu-item group p-4 rounded-lg text-left transition-all duration-200 border block
                   ${
                     isActive
                       ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-md'
@@ -126,7 +129,7 @@ export const IAMDashboardContent: React.FC = () => {
                     {section.description}
                   </div>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
