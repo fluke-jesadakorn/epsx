@@ -48,6 +48,8 @@ module.exports = {
           success: 'hsl(var(--pancake-success))',
           warning: 'hsl(var(--pancake-warning))',
           error: 'hsl(var(--pancake-error))',
+          info: 'hsl(var(--pancake-info))',
+          purple: 'hsl(var(--pancake-purple))',
         },
       },
       borderRadius: {
