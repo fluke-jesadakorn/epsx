@@ -27,35 +27,32 @@ export const useToast = () => {
   return context;
 };
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+export const ToastProvider: React.FC<{ children: React.ReactNode }> =
+  function ToastProvider({ children }) {
+    const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast = { ...toast, id };
+    const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      const newToast = { ...toast, id };
+      setToasts((prev) => [...prev, newToast]);
+      // Auto remove after duration
+      const duration = toast.duration || 5000;
+      setTimeout(() => {
+        removeToast(id);
+      }, duration);
+    }, []);
 
-    setToasts((prev) => [...prev, newToast]);
+    const removeToast = useCallback((id: string) => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, []);
 
-    // Auto remove after duration
-    const duration = toast.duration || 5000;
-    setTimeout(() => {
-      removeToast(id);
-    }, duration);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
-
-  return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
-      {children}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-    </ToastContext.Provider>
-  );
-};
+    return (
+      <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+        {children}
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </ToastContext.Provider>
+    );
+  };
 
 const ToastContainer: React.FC<{
   toasts: Toast[];
@@ -64,7 +61,7 @@ const ToastContainer: React.FC<{
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       {toasts.map((toast) => (
         <ToastItem
           key={toast.id}
@@ -112,19 +109,26 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({
 
   return (
     <div
-      className={`max-w-sm w-full bg-white border ${getBorderColor()} rounded-lg shadow-lg p-4 animate-in slide-in-from-right duration-300`}
+      className={`card max-w-sm w-full border-l-4 p-4 animate-in slide-in-from-right duration-300 ${getBorderColor()}`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0">{getIcon()}</div>
         <div className="ml-3 flex-1">
-          <p className="text-sm font-medium text-gray-900">{toast.title}</p>
+          <p
+            className="text-sm font-medium"
+            style={{ color: 'var(--color-text)' }}
+          >
+            {toast.title}
+          </p>
           {toast.description && (
-            <p className="mt-1 text-sm text-gray-500">{toast.description}</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
+              {toast.description}
+            </p>
           )}
         </div>
         <div className="ml-4 flex-shrink-0">
           <button
-            className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+            className="inline-flex text-muted hover:text-primary focus:outline-none"
             onClick={onRemove}
           >
             <X className="h-4 w-4" />
