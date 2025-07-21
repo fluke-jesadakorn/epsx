@@ -1,30 +1,34 @@
 'use client';
 
+import {
+  Eye,
+  HeadphonesIcon,
+  Plus,
+  Search,
+  Settings,
+  Shield,
+  Users,
+} from 'lucide-react';
 import React, { useState } from 'react';
+import {
+  PermissionTemplate,
+  usePermissionTemplates,
+} from '../../../hooks/iam/usePermissionTemplates';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Input, Button, Badge } from '../../ui/form-components';
-import { Search, Eye, Users, Shield, Settings, HeadphonesIcon } from 'lucide-react';
+import { Badge, Button, Input } from '../../ui/form-components';
+import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplatePreviewModal } from './TemplatePreviewModal';
-import { usePermissionTemplates } from '../../../hooks/iam/usePermissionTemplates';
-
-interface PermissionTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: 'User' | 'Admin' | 'Support' | 'Manager';
-  permissions: string[];
-  usageCount: number;
-  isActive: boolean;
-}
 
 const CategoryIcon = ({ category }: { category: string }) => {
   const icons = {
     User: <Users className="h-4 w-4" />,
     Admin: <Shield className="h-4 w-4" />,
     Support: <HeadphonesIcon className="h-4 w-4" />,
-    Manager: <Settings className="h-4 w-4" />
+    Manager: <Settings className="h-4 w-4" />,
   };
-  return icons[category as keyof typeof icons] || <Shield className="h-4 w-4" />;
+  return (
+    icons[category as keyof typeof icons] || <Shield className="h-4 w-4" />
+  );
 };
 
 interface TemplateCardProps {
@@ -61,7 +65,12 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onPreview }) => (
           <span>{template.usageCount}</span>
         </div>
         <div className="flex gap-2 pt-2">
-          <Button variant="outline" size="sm" className="flex-1" onClick={onPreview}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={onPreview}
+          >
             <Eye className="h-4 w-4 mr-1" />
             Preview
           </Button>
@@ -77,14 +86,30 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onPreview }) => (
 export const PermissionTemplates: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [selectedTemplate, setSelectedTemplate] = useState<PermissionTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<PermissionTemplate | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const { templates, loading } = usePermissionTemplates({ searchTerm, categoryFilter });
+  const { templates, loading, refetch } = usePermissionTemplates({
+    searchTerm,
+    categoryFilter,
+  });
 
   const handlePreview = (template: PermissionTemplate) => {
     setSelectedTemplate(template);
     setShowPreviewModal(true);
+  };
+
+  const handleCreateTemplate = async (templateData: any) => {
+    try {
+      // TODO: Implement template creation via service
+      console.log('Creating template:', templateData);
+      refetch();
+    } catch (error) {
+      console.error('Error creating template:', error);
+      throw error;
+    }
   };
 
   const categories = ['all', 'User', 'Admin', 'Support', 'Manager'];
@@ -93,7 +118,16 @@ export const PermissionTemplates: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Permission Templates</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Permission Templates</CardTitle>
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Template
+            </Button>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -110,7 +144,7 @@ export const PermissionTemplates: React.FC = () => {
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="h-10 px-3 py-2 border border-gray-300 rounded-md text-sm"
               >
-                {categories.map(category => (
+                {categories.map((category) => (
                   <option key={category} value={category}>
                     {category === 'all' ? 'All Categories' : category}
                   </option>
@@ -127,7 +161,7 @@ export const PermissionTemplates: React.FC = () => {
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map(i => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="space-y-2">
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -162,6 +196,12 @@ export const PermissionTemplates: React.FC = () => {
           onClose={() => setShowPreviewModal(false)}
         />
       )}
+
+      <CreateTemplateModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateTemplate}
+      />
     </div>
   );
 };

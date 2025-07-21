@@ -1,19 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/context/admin-auth';
-import Link from 'next/link';
-import { 
-  Users, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
-  Menu, 
-  X,
+import {
+  Activity,
+  BarChart3,
+  Bell,
+  ChevronRight,
+  Database,
+  Eye,
+  FileText,
+  Globe,
+  HardDrive,
+  Home,
+  Key,
+  Lock,
+  LogOut,
+  Menu,
+  Palette,
+  Search,
+  Server,
+  Settings,
   Shield,
-  Home
+  UserCheck,
+  Users,
+  X,
 } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -22,7 +36,9 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, loading, signOut } = useAdminAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['dashboard']);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -42,13 +58,186 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return null;
   }
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'User Management', href: '/users', icon: Users },
-    { name: 'IAM & Permissions', href: '/iam', icon: Shield },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  const menuGroups = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: Home,
+      href: '/',
+      type: 'single' as const,
+    },
+    {
+      id: 'users',
+      label: 'User Management',
+      icon: Users,
+      type: 'group' as const,
+      items: [
+        {
+          id: 'user-list',
+          label: 'User Accounts',
+          href: '/users',
+          icon: Users,
+          description: 'Manage user accounts and profiles',
+        },
+        {
+          id: 'user-roles',
+          label: 'User Roles',
+          href: '/users/roles',
+          icon: UserCheck,
+          description: 'Define and assign user roles',
+        },
+        {
+          id: 'user-permissions',
+          label: 'User Permissions',
+          href: '/users/permissions',
+          icon: Lock,
+          description: 'Configure user permissions',
+        },
+      ],
+    },
+    {
+      id: 'security',
+      label: 'Security & Access',
+      icon: Shield,
+      type: 'group' as const,
+      items: [
+        {
+          id: 'iam',
+          label: 'IAM Console',
+          href: '/iam',
+          icon: Shield,
+          description: 'Identity and access management',
+        },
+        {
+          id: 'auth',
+          label: 'Authentication',
+          href: '/auth',
+          icon: Key,
+          description: 'Login and authentication settings',
+        },
+        {
+          id: 'audit',
+          label: 'Audit Logs',
+          href: '/audit',
+          icon: FileText,
+          description: 'Security audit and compliance logs',
+        },
+      ],
+    },
+    {
+      id: 'analytics',
+      label: 'Analytics & Reports',
+      icon: BarChart3,
+      type: 'group' as const,
+      items: [
+        {
+          id: 'analytics-overview',
+          label: 'Analytics Dashboard',
+          href: '/analytics',
+          icon: BarChart3,
+          description: 'Performance metrics and insights',
+        },
+        {
+          id: 'user-analytics',
+          label: 'User Analytics',
+          href: '/analytics/users',
+          icon: Eye,
+          description: 'User behavior and engagement',
+        },
+        {
+          id: 'activity-logs',
+          label: 'Activity Logs',
+          href: '/logs',
+          icon: Activity,
+          description: 'System and user activity monitoring',
+        },
+      ],
+    },
+    {
+      id: 'system',
+      label: 'System Management',
+      icon: Server,
+      type: 'group' as const,
+      items: [
+        {
+          id: 'database',
+          label: 'Database',
+          href: '/database',
+          icon: Database,
+          description: 'Database management and monitoring',
+        },
+        {
+          id: 'servers',
+          label: 'Server Status',
+          href: '/servers',
+          icon: Server,
+          description: 'Server health and performance',
+        },
+        {
+          id: 'storage',
+          label: 'Storage',
+          href: '/storage',
+          icon: HardDrive,
+          description: 'File storage and backups',
+        },
+      ],
+    },
+    {
+      id: 'settings',
+      label: 'Configuration',
+      icon: Settings,
+      type: 'group' as const,
+      items: [
+        {
+          id: 'general-settings',
+          label: 'General Settings',
+          href: '/settings',
+          icon: Settings,
+          description: 'Basic system configuration',
+        },
+        {
+          id: 'appearance',
+          label: 'Appearance',
+          href: '/settings/appearance',
+          icon: Palette,
+          description: 'Theme and display settings',
+        },
+        {
+          id: 'notifications',
+          label: 'Notifications',
+          href: '/settings/notifications',
+          icon: Bell,
+          description: 'Alert and notification preferences',
+        },
+        {
+          id: 'integrations',
+          label: 'Integrations',
+          href: '/settings/integrations',
+          icon: Globe,
+          description: 'Third-party integrations',
+        },
+      ],
+    },
   ];
+
+  const toggleMenu = (menuId: string) => {
+    setExpandedMenus((prev) =>
+      prev.includes(menuId)
+        ? prev.filter((id) => id !== menuId)
+        : [...prev, menuId],
+    );
+  };
+
+  const isMenuExpanded = (menuId: string) => expandedMenus.includes(menuId);
+
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname.startsWith(href);
+  };
+
+  const isGroupActive = (items: any[]) => {
+    return items.some((item) => isActive(item.href));
+  };
 
   const handleLogout = async () => {
     try {
@@ -59,108 +248,359 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
   };
 
+  const getCurrentPageTitle = () => {
+    for (const group of menuGroups) {
+      if (group.type === 'single' && isActive(group.href!)) {
+        return group.label;
+      }
+      if (group.type === 'group') {
+        const activeItem = group.items?.find((item) => isActive(item.href));
+        if (activeItem) {
+          return activeItem.label;
+        }
+      }
+    }
+    return 'Dashboard';
+  };
+
   return (
-    <div className="min-h-screen admin-bg dark:admin-bg-dark">
-      {/* Mobile sidebar backdrop */}
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+        >
+          <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        </button>
+      </div>
+
+      {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-gray-600/75 lg:hidden"
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+      <div
+        className={`
+        w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col
+        lg:relative lg:translate-x-0 
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                Admin Panel
-              </span>
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Admin Console
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  v2.0.1
+                </p>
+              </div>
             </div>
+            {/* Mobile close button */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <X className="h-6 w-6" />
             </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search admin features..."
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 p-4 space-y-2 submenu-scroll overflow-y-auto">
+          {menuGroups.map((group, index) => {
+            const Icon = group.icon;
+
+            if (group.type === 'single') {
+              // Single menu item (like Dashboard)
+              const isActiveItem = isActive(group.href!);
+
               return (
                 <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  key={group.id}
+                  href={group.href!}
                   onClick={() => setSidebarOpen(false)}
+                  className={`
+                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
+                    ${
+                      isActiveItem
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                    }
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                  `}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                  }}
                 >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
+                  <div
+                    className={`
+                    p-2.5 rounded-lg transition-all duration-200
+                    ${
+                      isActiveItem
+                        ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
+                        : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
+                    }
+                  `}
+                  >
+                    <Icon
+                      className={`h-5 w-5 transition-colors ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className={`font-medium text-sm transition-colors ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                    >
+                      {group.label}
+                    </div>
+                  </div>
                 </Link>
               );
-            })}
-          </nav>
+            }
 
-          {/* User info and logout */}
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                <span className="text-sm font-medium text-blue-600 dark:text-blue-300">
-                  {user.email?.charAt(0).toUpperCase()}
-                </span>
+            // Expandable group menu
+            const isGroupActiveState = group.items
+              ? isGroupActive(group.items)
+              : false;
+            const isExpanded = isMenuExpanded(group.id);
+
+            return (
+              <div key={group.id} className="space-y-1">
+                {/* Group Header */}
+                <button
+                  onClick={() => toggleMenu(group.id)}
+                  className={`
+                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
+                    ${
+                      isGroupActiveState
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                    }
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                  `}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                  }}
+                >
+                  <div
+                    className={`
+                    p-2.5 rounded-lg transition-all duration-200
+                    ${
+                      isGroupActiveState
+                        ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
+                        : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
+                    }
+                  `}
+                  >
+                    <Icon
+                      className={`h-5 w-5 transition-colors ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className={`font-medium text-sm transition-colors ${isGroupActiveState ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                    >
+                      {group.label}
+                    </div>
+                    <div
+                      className={`text-xs mt-0.5 transition-colors ${isGroupActiveState ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                      {group.items?.length} items
+                    </div>
+                  </div>
+                  <div
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                  >
+                    <ChevronRight
+                      className={`h-4 w-4 transition-colors ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+                    />
+                  </div>
+                </button>
+
+                {/* Expandable Items */}
+                <div
+                  className={`
+                  transition-all duration-300 ease-in-out overflow-hidden
+                  ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+                `}
+                >
+                  <div className="pl-6 space-y-1">
+                    {group.items?.map((item, itemIndex) => {
+                      const ItemIcon = item.icon;
+                      const isActiveItem = isActive(item.href);
+
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`
+                            submenu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200
+                            ${
+                              isActiveItem
+                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                            }
+                            transform hover:scale-[1.01] active:scale-[0.99]
+                          `}
+                          style={{
+                            animationDelay: `${index * 50 + itemIndex * 25}ms`,
+                          }}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <div
+                              className={`w-1 h-6 rounded-full transition-colors ${isActiveItem ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            ></div>
+                            <div
+                              className={`
+                              p-2 rounded-lg transition-all duration-200
+                              ${
+                                isActiveItem
+                                  ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
+                                  : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
+                              }
+                            `}
+                            >
+                              <ItemIcon
+                                className={`h-4 w-4 transition-colors ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className={`font-medium text-sm transition-colors ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                              >
+                                {item.label}
+                              </div>
+                              <div
+                                className={`text-xs mt-0.5 truncate transition-colors ${isActiveItem ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
+                              >
+                                {item.description}
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user.displayName || 'Admin User'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user.email}
-                </p>
-              </div>
+            );
+          })}
+        </nav>
+
+        {/* User Profile & Logout */}
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
+          {/* User Profile */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+              <span className="text-sm font-bold text-white">
+                {user.email?.charAt(0).toUpperCase()}
+              </span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {user.displayName || 'Admin User'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {user.email}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-green-600 dark:text-green-400">
+                Online
+              </span>
+            </div>
+          </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200 dark:hover:border-red-800"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+
+          {/* Footer Info */}
+          <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <Shield className="h-3 w-3" />
+              <span>Admin Console v2.0</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="lg:ml-64">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-            
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Welcome back, {user.displayName || user.email}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header Bar */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Home className="h-4 w-4" />
+              <ChevronRight className="h-3 w-3" />
+              <span className="text-gray-900 dark:text-white font-medium">
+                Admin
               </span>
+              <ChevronRight className="h-3 w-3" />
+              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                {getCurrentPageTitle()}
+              </span>
+            </div>
+
+            {/* Header Actions */}
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {new Date().toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </div>
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+              <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+              </button>
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Live</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Page content */}
-        <main className="p-6">
-          {children}
-        </main>
+        {/* Page Content */}
+        <div className="flex-1 p-6 overflow-auto bg-gray-50 dark:bg-gray-900">
+          <div className="max-w-7xl mx-auto">
+            <div className="animate-fade-in">{children}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

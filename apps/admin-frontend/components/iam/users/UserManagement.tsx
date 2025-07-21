@@ -1,11 +1,12 @@
 'use client';
 
+import { Edit, MoreHorizontal, Plus, Search, Shield } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Input, Button, Badge } from '../../ui/form-components';
-import { Search, Edit, Shield, MoreHorizontal } from 'lucide-react';
-import { UserDetailsModal } from './UserDetailsModal';
 import { useUsers } from '../../../hooks/iam/useUsers';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Badge, Button, Input } from '../../ui/form-components';
+import { CreateUserModal } from './CreateUserModal';
+import { UserDetailsModal } from './UserDetailsModal';
 
 interface User {
   id: string;
@@ -22,20 +23,23 @@ interface InlineActionsProps {
   onViewDetails: () => void;
 }
 
-const InlineActions: React.FC<InlineActionsProps> = ({ onEdit, onViewDetails }) => {
+const InlineActions: React.FC<InlineActionsProps> = ({
+  onEdit,
+  onViewDetails,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className="relative">
-      <Button 
-        variant="ghost" 
-        size="sm" 
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setIsOpen(!isOpen)}
         className="h-8 w-8 p-0"
       >
         <MoreHorizontal className="h-4 w-4" />
       </Button>
-      
+
       {isOpen && (
         <div className="absolute right-0 top-8 z-10 w-48 rounded-md border bg-white shadow-lg">
           <div className="py-1">
@@ -90,12 +94,8 @@ const UserRow: React.FC<UserRowProps> = ({ user, onEdit, onViewDetails }) => (
         {user.status}
       </Badge>
     </td>
-    <td className="px-4 py-3 text-sm text-gray-500">
-      {user.lastActive}
-    </td>
-    <td className="px-4 py-3 text-sm">
-      {user.permissions.length} permissions
-    </td>
+    <td className="px-4 py-3 text-sm text-gray-500">{user.lastActive}</td>
+    <td className="px-4 py-3 text-sm">{user.permissions.length} permissions</td>
     <td className="px-4 py-3">
       <InlineActions onEdit={onEdit} onViewDetails={onViewDetails} />
     </td>
@@ -108,8 +108,13 @@ export const UserManagement: React.FC = () => {
   const [packageFilter, setPackageFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const { users, loading } = useUsers({ searchTerm, statusFilter, packageFilter });
+  const { users, loading, refetch } = useUsers({
+    searchTerm,
+    statusFilter,
+    packageFilter,
+  });
 
   const handleViewDetails = (user: User) => {
     setSelectedUser(user);
@@ -121,10 +126,31 @@ export const UserManagement: React.FC = () => {
     console.log('Edit user:', user);
   };
 
+  const handleCreateUser = async (userData: any) => {
+    try {
+      // TODO: Implement user creation via iamService
+      console.log('Creating user:', userData);
+      // await iamService.createUser(userData);
+      refetch();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>User Management</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>User Management</CardTitle>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add User
+          </Button>
+        </div>
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -135,11 +161,11 @@ export const UserManagement: React.FC = () => {
               className="pl-10"
             />
           </div>
-          
+
           {/* Simple select dropdowns */}
           <div className="flex gap-2">
-            <select 
-              value={statusFilter} 
+            <select
+              value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-10 px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
@@ -148,9 +174,9 @@ export const UserManagement: React.FC = () => {
               <option value="inactive">Inactive</option>
               <option value="suspended">Suspended</option>
             </select>
-            
-            <select 
-              value={packageFilter} 
+
+            <select
+              value={packageFilter}
               onChange={(e) => setPackageFilter(e.target.value)}
               className="h-10 px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
@@ -165,7 +191,7 @@ export const UserManagement: React.FC = () => {
       <CardContent>
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <div key={i} className="h-16 bg-gray-100 animate-pulse rounded" />
             ))}
           </div>
@@ -177,8 +203,12 @@ export const UserManagement: React.FC = () => {
                   <th className="text-left px-4 py-3 font-medium">User</th>
                   <th className="text-left px-4 py-3 font-medium">Package</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium">Last Active</th>
-                  <th className="text-left px-4 py-3 font-medium">Permissions</th>
+                  <th className="text-left px-4 py-3 font-medium">
+                    Last Active
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium">
+                    Permissions
+                  </th>
                   <th className="text-left px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -204,6 +234,12 @@ export const UserManagement: React.FC = () => {
           onClose={() => setShowUserModal(false)}
         />
       )}
+
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateUser}
+      />
     </Card>
   );
 };

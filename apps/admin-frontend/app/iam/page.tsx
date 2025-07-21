@@ -1,15 +1,18 @@
 'use client';
 
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { IAMGuard } from '@/components/auth/IAMGuard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { IAMDashboardNew } from '@/components/admin/IAMDashboardNew';
+import { ToastProvider } from '@/components/ui/toast';
+import { IAMDashboardContent } from '../../components/iam/IAMDashboardContent';
 
 export default function IAMPage() {
   return (
-    <AdminGuard>
+    <IAMGuard>
       <AdminLayout>
-        <IAMDashboardNew />
+        <ToastProvider>
+          <IAMDashboardContent />
+        </ToastProvider>
       </AdminLayout>
-    </AdminGuard>
+    </IAMGuard>
   );
 }

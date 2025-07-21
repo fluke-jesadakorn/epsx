@@ -1,14 +1,12 @@
-'use client';
-
+import { DatabaseDashboard } from '@/components/admin/DatabaseDashboard';
 import { AdminGuard } from '@/components/auth/AdminGuard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { IAMDashboardNew } from '@/components/admin/IAMDashboardNew';
 
-export default function IAMPage() {
+export default function DatabasePage() {
   return (
     <AdminGuard>
       <AdminLayout>
-        <IAMDashboardNew />
+        <DatabaseDashboard />
       </AdminLayout>
     </AdminGuard>
   );

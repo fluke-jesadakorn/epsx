@@ -1,0 +1,204 @@
+'use client';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Bell,
+  ChevronRight,
+  Globe,
+  Palette,
+  RotateCcw,
+  Save,
+  Settings,
+  Shield,
+} from 'lucide-react';
+import React, { useState } from 'react';
+
+export const SettingsDashboard: React.FC = () => {
+  const [activeView, setActiveView] = useState('general');
+
+  const settingsViews = [
+    {
+      id: 'general',
+      label: 'General Settings',
+      icon: Settings,
+      description: 'Basic system configuration',
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: Bell,
+      description: 'Alert and notification preferences',
+    },
+    {
+      id: 'security',
+      label: 'Security',
+      icon: Shield,
+      description: 'Authentication and security settings',
+    },
+    {
+      id: 'appearance',
+      label: 'Appearance',
+      icon: Palette,
+      description: 'Theme and display options',
+    },
+  ];
+
+  const renderContent = () => {
+    switch (activeView) {
+      case 'general':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  System Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    System Name
+                  </label>
+                  <input
+                    type="text"
+                    defaultValue="EPSX Admin Console"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Admin Email
+                  </label>
+                  <input
+                    type="email"
+                    defaultValue="admin@epsx.com"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      Maintenance Mode
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Temporarily disable public access
+                    </div>
+                  </div>
+                  <div className="relative inline-block w-12 h-6">
+                    <input type="checkbox" className="sr-only" />
+                    <div className="block bg-gray-200 dark:bg-gray-600 w-12 h-6 rounded-full"></div>
+                    <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      default:
+        return (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Settings className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              {settingsViews.find((v) => v.id === activeView)?.label}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400">
+              This section is under development
+            </p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            System Settings
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Configure system preferences, security, and appearance
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <RotateCcw className="h-4 w-4" />
+            <span className="text-sm">Reset</span>
+          </button>
+          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <Save className="h-4 w-4" />
+            <span className="text-sm">Save Changes</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Settings Navigation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {settingsViews.map((view, index) => {
+            const Icon = view.icon;
+            const isActive = activeView === view.id;
+
+            return (
+              <button
+                key={view.id}
+                onClick={() => setActiveView(view.id)}
+                className={`
+                  submenu-item group p-4 rounded-lg text-left transition-all duration-200 border
+                  ${
+                    isActive
+                      ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-md'
+                      : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-600'
+                  }
+                  transform hover:scale-[1.02] active:scale-[0.98]
+                `}
+                style={{
+                  animationDelay: `${index * 100}ms`,
+                }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className={`
+                    p-2.5 rounded-lg transition-all duration-200
+                    ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
+                        : 'bg-white dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
+                    }
+                  `}
+                  >
+                    <Icon
+                      className={`h-5 w-5 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                    />
+                  </div>
+                  <ChevronRight
+                    className={`h-4 w-4 transition-all duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400 rotate-90' : 'text-gray-400'}`}
+                  />
+                </div>
+                <div>
+                  <div
+                    className={`font-semibold text-sm mb-1 ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                  >
+                    {view.label}
+                  </div>
+                  <div
+                    className={`text-xs ${isActive ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
+                  >
+                    {view.description}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="animate-fade-in">{renderContent()}</div>
+    </div>
+  );
+};
