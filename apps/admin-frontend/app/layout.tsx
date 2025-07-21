@@ -1,7 +1,10 @@
-import './globals.css';
-import { Geist, Geist_Mono } from 'next/font/google';
-import type { Metadata } from 'next';
+import { Navigation } from '@/components/layout/nav';
+import { ToastProvider } from '@/components/ui/toast';
 import { AdminAuthProvider } from '@/context/admin-auth';
+import type { Metadata } from 'next';
+import { ThemeProvider } from 'next-themes';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -39,9 +42,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen bg-background font-sans antialiased">
-        <AdminAuthProvider>
-          <div className="relative flex min-h-screen flex-col">{children}</div>
-        </AdminAuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AdminAuthProvider>
+            <ToastProvider>
+              <Navigation />
+              <div className="relative flex min-h-screen flex-col">
+                {children}
+              </div>
+            </ToastProvider>
+          </AdminAuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

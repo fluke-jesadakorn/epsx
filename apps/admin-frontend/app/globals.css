@@ -1,68 +1,101 @@
 @import 'tailwindcss';
-
 @custom-variant dark (&:is(.dark *));
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Light theme - PancakeSwap inspired */
+    --background: 252 100% 99%;
+    --foreground: 223 84% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 223 84% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 223 84% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 31 100% 50%; /* PancakeSwap orange */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 42 100% 70%; /* Light golden */
+    --secondary-foreground: 223 84% 10%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 31 100% 95%; /* Very light orange */
+    --accent-foreground: 31 100% 40%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 31 100% 50%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+
+    /* PancakeSwap specific colors */
+    --pancake-primary: 31 100% 50%;
+    --pancake-secondary: 42 100% 70%;
+    --pancake-success: 142 71% 45%;
+    --pancake-warning: 45 93% 47%;
+    --pancake-error: 0 85% 60%;
+    --pancake-info: 217 91% 60%;
+
+    /* Gradient colors */
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(31 100% 50%) 0%,
+      hsl(42 100% 70%) 100%
+    );
   }
 
   .dark {
-    --background: 266 29% 3%;
-    --foreground: 270 100% 96%;
+    /* Dark theme - PancakeSwap inspired */
+    --background: 223 84% 10%;
+    --foreground: 252 100% 99%;
 
-    --card: 0 0% 11%;
-    --card-foreground: 270 100% 96%;
+    --card: 223 84% 10%;
+    --card-foreground: 252 100% 99%;
 
-    --popover: 0 0% 11%;
-    --popover-foreground: 270 100% 96%;
+    --popover: 223 84% 10%;
+    --popover-foreground: 252 100% 99%;
 
-    --primary: 184 93% 47%;
+    --primary: 31 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 271 13% 23%;
-    --secondary-foreground: 270 100% 96%;
+    --secondary: 42 100% 70%;
+    --secondary-foreground: 223 84% 10%;
 
-    --muted: 271 13% 23%;
-    --muted-foreground: 270 20% 80%;
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 4% 76%;
 
-    --accent: 271 13% 23%;
-    --accent-foreground: 270 100% 96%;
+    --accent: 31 100% 25%;
+    --accent-foreground: 31 100% 90%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 270 100% 96%;
+    --destructive: 0 85% 40%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 271 13% 23%;
-    --input: 271 13% 23%;
-    --ring: 184 93% 47%;
+    --border: 240 6% 30%;
+    --input: 240 6% 30%;
+    --ring: 31 100% 50%;
+
+    --radius: 1rem;
+
+    /* PancakeSwap specific colors */
+    --pancake-primary: 31 100% 50%;
+    --pancake-secondary: 42 100% 70%;
+    --pancake-success: 142 71% 45%;
+    --pancake-warning: 45 93% 47%;
+    --pancake-error: 0 85% 60%;
+    --pancake-info: 217 91% 60%;
+
+    /* Gradient colors */
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(31 100% 50%) 0%,
+      hsl(42 100% 70%) 100%
+    );
   }
 }
 
