@@ -1,4 +1,4 @@
-import { UserRole } from './auth/roles';
+import type { UserRole } from './auth/roles';
 
 /**
  * Dynamic Template System Types

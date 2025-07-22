@@ -1,246 +1,302 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/shared-auth-provider';
 import {
+  LineChart,
   BarChart,
-  Database,
-  Home,
-  LogIn,
+  User,
   LogOut,
+  LogIn,
+  File,
   Menu,
-  Moon,
-  Sun,
-  X,
+  Settings,
+  Database,
+  Crown,
 } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, memo, useEffect } from 'react';
 
-const navItems = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/analytics', label: 'Analytics', icon: BarChart },
-  { href: '/my-data', label: 'My Data', icon: Database, auth: true },
-];
+import ThemeToggle from '@/components/features/theme/ThemeToggle';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  NavigationMenu,
+} from '@/components/ui/navigation-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useAuth } from '@/context/shared-auth-provider';
+import { navigationService } from '@/services/navigation.service';
+import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
+import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
 
-export function Navigation() {
-  const { user, signOut, loading } = useAuth();
-  const { theme, setTheme } = useTheme();
+const iconMap = {
+  docs: <File className="h-4 w-4" />,
+  ranking: <LineChart className="h-4 w-4" />,
+  analytics: <BarChart className="h-4 w-4" />,
+  settings: <Settings className="h-4 w-4" />,
+  'my-data': <Database className="h-4 w-4" />,
+};
+
+function NavigationComponent() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, signOut, loading } = useAuth();
+  const { userLevel, isLoading: levelLoading } = usePermissionAwareAccess();
+  // Get user email and admin status from user object
+  const userEmail = user?.email;
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
 
-  const filteredItems = navItems.filter((item) => !item.auth || user);
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-  // Don't render navigation during loading to prevent flickering
-  if (loading) {
+  // Don't render until mounted and auth is not loading
+  if (!isMounted || loading) {
     return (
-      <nav className="sticky top-0 z-50 w-full border-b border-border/10 bg-background/90 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70 shadow-sm">
-        <div className="container mx-auto px-4 lg:px-6">
-          <div className="flex h-20 items-center justify-between">
-            <div className="flex items-center gap-3">
+      <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
+        <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <Link href="/" className="flex items-center gap-2 group">
               <Image
                 src="/logo.png"
                 alt="EPSX Logo"
                 width={40}
                 height={40}
-                className="h-10 w-10 object-contain animate-pulse"
+                className="h-8 w-8 sm:h-10 sm:w-10 group-hover:scale-105 transition-transform duration-300"
                 priority
               />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="animate-pulse bg-gradient-to-r from-orange-500/20 to-yellow-500/20 h-12 w-20 rounded-full"></div>
-            </div>
+            </Link>
+          </div>
+          <div className="flex items-center gap-4 md:gap-6">
+            {/* Render a placeholder button with same structure to prevent layout shift */}
+            <Button
+              variant="ghost"
+              disabled
+              className="flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+            >
+              <span className="block relative">
+                <Settings className="h-4 w-4" />
+              </span>
+              <span className="mt-1">Theme</span>
+            </Button>
           </div>
         </div>
-      </nav>
+      </div>
     );
   }
 
-  console.log(
-    'Navigation: User state:',
-    user ? 'authenticated' : 'not authenticated',
-    'Loading:',
-    loading,
-  );
+  const navItems = navigationService.getNavItems(!!user);
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border/10 bg-background/90 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70 shadow-sm">
-      <div className="container mx-auto px-4 lg:px-6">
-        <div className="flex h-20 items-center justify-between">
-          {/* Enhanced Brand Logo - PancakeSwap Style */}
-          <Link href="/" className="flex items-center gap-3 group">
+    <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
+      <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
+        <div className="flex items-center gap-4 sm:gap-8">
+          <Link href="/" className="flex items-center gap-2 group">
             <Image
               src="/logo.png"
               alt="EPSX Logo"
               width={40}
               height={40}
-              className="h-10 w-10 object-contain transition-all group-hover:scale-110"
+              className="h-8 w-8 sm:h-10 sm:w-10 group-hover:scale-105 transition-transform duration-300"
               priority
             />
           </Link>
-
-          {/* Enhanced Desktop Navigation - PancakeSwap Style */}
-          <div className="hidden md:flex items-center gap-2">
-            {filteredItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg pancake-glow'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-orange-500/10 hover:text-orange-600'
-                  }`}
-                >
-                  <item.icon className={`h-4 w-4 transition-transform group-hover:scale-110 ${isActive ? '' : 'group-hover:text-orange-500'}`} />
-                  <span>{item.label}</span>
-                  {isActive && (
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-400/20 to-yellow-400/20 -z-10 animate-pulse" />
-                  )}
-                  {!isActive && (
-                    <span className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500/0 to-yellow-500/0 group-hover:from-orange-500/5 group-hover:to-yellow-500/5 transition-all duration-300" />
-                  )}
-                </Link>
-              );
-            })}
-
-            {/* Enhanced Theme Toggle - PancakeSwap Style */}
-            <div className="ml-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-10 w-10 px-0 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 transition-all duration-200 border border-blue-200/20 dark:border-purple-400/15"
+          <nav className="hidden lg:flex gap-2">
+            {navItems.map(item => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${
+                  pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+                }`}
               >
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-orange-500" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
-                <span className="sr-only">Toggle theme</span>
-              </Button>
-            </div>
+                <span className="flex items-center justify-center">{iconMap[item.key as keyof typeof iconMap]}</span>
+                <span className="hidden xl:block">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+          <NavigationMenu className="hidden">
+            {/* Keep for structure, but hidden since we use custom nav above */}
+          </NavigationMenu>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden sm:block">
+            <ThemeToggle />
           </div>
 
-          {/* Enhanced Right side actions - PancakeSwap Style */}
-          <div className="flex items-center gap-3">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-3 px-3 py-2 rounded-lg bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-200/20 dark:border-emerald-400/15">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500/80 to-emerald-500/80 flex items-center justify-center ring-1 ring-white/10 shadow-sm">
-                    <span className="text-sm font-bold text-white">
-                      {user.email?.charAt(0).toUpperCase()}
-                    </span>
+          {/* User Level Display */}
+          {user && !levelLoading && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className={`${getLevelColor(userLevel)} border-current bg-current/10 text-current font-bold text-xs px-2 py-1`}
+                    >
+                      <Crown className="h-3 w-3 mr-1" />
+                      {formatLevelAsNumber(userLevel)}
+                    </Badge>
                   </div>
-                  <span className="text-sm font-medium text-foreground max-w-32 truncate">
-                    {user.email}
-                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your current level: {formatLevelAsNumber(userLevel)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {user?.email && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/settings" className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden lg:inline text-muted-foreground hover:text-primary text-sm">
+                      Settings
+                    </span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{userEmail}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* Mobile Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild className="lg:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-background shadow-md h-8 w-8 sm:h-10 sm:w-10"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[280px] sm:w-[400px]">
+              <SheetHeader>
+                <SheetTitle className="text-left">
+                  Menu
+                </SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-4 mt-6">
+                {/* Theme Toggle - Mobile */}
+                <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
+                  <span className="text-sm font-medium">Theme</span>
+                  <ThemeToggle />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => signOut()}
-                  className="h-8 w-8 px-0 rounded-lg hover:bg-red-500/5 hover:text-red-500 transition-all duration-200 border border-red-200/20 dark:border-red-400/15"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span className="sr-only">Logout</span>
-                </Button>
+
+                {/* User Level Display - Mobile */}
+                {user && !levelLoading && (
+                  <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 rounded-lg">
+                    <Badge
+                      variant="secondary"
+                      className={`${getLevelColor(userLevel)} border-current bg-current/10 text-current font-bold text-sm px-3 py-1`}
+                    >
+                      <Crown className="h-3 w-3 mr-1" />
+                      {formatLevelAsNumber(userLevel)}
+                    </Badge>
+                  </div>
+                )}
+
+                {navItems.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${
+                      pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+                    }`}
+                  >
+                    {iconMap[item.key as keyof typeof iconMap]}
+                    <span className="mt-1">{item.label}</span>
+                  </Link>
+                ))}
+
+                {user ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setIsOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary mt-4"
+                  >
+                    <span className="block"><LogOut className="h-4 w-4" /></span>
+                    <span className="mt-1">Logout</span>
+                  </Button>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setIsOpen(false)}
+                    className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary mt-4"
+                  >
+                    <span className="block"><LogIn className="h-4 w-4" /></span>
+                    <span className="mt-1">Login</span>
+                  </Link>
+                )}
               </div>
+            </SheetContent>
+          </Sheet>
+
+          <div className="hidden lg:block">
+            {user ? (
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden xl:block">Logout</span>
+              </Button>
             ) : (
               <Link href="/login">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-orange-500/90 to-yellow-500/90 text-white border-0 hover:from-orange-600 hover:to-yellow-600 transition-all duration-200 shadow-sm"
+                  variant="ghost"
+                  className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
                 >
                   <LogIn className="h-4 w-4" />
-                  <span className="hidden sm:inline">Login</span>
+                  <span className="hidden xl:block">Login</span>
                 </Button>
               </Link>
             )}
-
-            {/* Enhanced Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden h-10 w-10 px-0 rounded-lg bg-gradient-to-r from-purple-500/5 to-pink-500/5 hover:from-purple-500/10 hover:to-pink-500/10 transition-all duration-200 border border-purple-200/20 dark:border-pink-400/15"
-              onClick={() => setMobileOpen(!mobileOpen)}
-            >
-              {mobileOpen ? (
-                <X className="h-5 w-5 text-purple-600 dark:text-pink-400" />
-              ) : (
-                <Menu className="h-5 w-5 text-purple-600 dark:text-pink-400" />
-              )}
-              <span className="sr-only">Toggle navigation</span>
-            </Button>
           </div>
         </div>
-
-        {/* Enhanced Mobile Navigation */}
-        {mobileOpen && (
-          <div className="md:hidden">
-            <div className="absolute inset-x-0 top-20 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85 border-b border-border/20 shadow-md">
-              <div className="container mx-auto px-4 py-6">
-                <div className="flex flex-col gap-3">
-                  {filteredItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`group flex items-center gap-4 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                          isActive
-                            ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg pancake-glow'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-orange-500/10 hover:text-orange-600'
-                        }`}
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${isActive ? '' : 'group-hover:text-orange-500'}`} />
-                        <span>{item.label}</span>
-                        {isActive && (
-                          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-400/20 to-yellow-400/20 -z-10 animate-pulse" />
-                        )}
-                      </Link>
-                    );
-                  })}
-
-                  {/* Enhanced Theme Toggle for Mobile */}
-                  <div className="border-t border-border/40 pt-4 mt-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setTheme(theme === 'dark' ? 'light' : 'dark')
-                      }
-                      className="group flex items-center gap-4 px-4 py-3 w-full justify-start rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-blue-500/5 hover:text-blue-600 transition-all duration-200"
-                    >
-                      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-orange-500" />
-                      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
-                      <span className="ml-2">Toggle Theme</span>
-                    </Button>
-                  </div>
-
-                  {/* Enhanced Mobile user info */}
-                  {user && (
-                    <div className="border-t border-border/40 pt-4 mt-3">
-                      <div className="flex items-center gap-4 px-4 py-3 rounded-lg bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-200/20 dark:border-emerald-400/20">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500/80 to-emerald-500/80 flex items-center justify-center ring-1 ring-white/10 shadow-sm">
-                          <span className="text-sm font-bold text-white">
-                            {user.email?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <span className="text-sm font-medium text-foreground">
-                          {user.email}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-    </nav>
+    </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const Navigation = memo(NavigationComponent);

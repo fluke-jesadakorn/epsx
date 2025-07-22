@@ -89,10 +89,10 @@ function HomePage() {
                 <div className="text-center mb-10">
                   {/* Updated title for public rankings */}
                   <h2 className="text-4xl sm:text-5xl font-bold mb-6 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
-                    📊 Stock Rankings Preview
+                    Track <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">Performance</span> <span className="bg-gradient-to-r from-pink-500 to-pink-600 bg-clip-text text-transparent">Growth</span> Rankings
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                    See what our premium ranking system offers - Rankings #100-110
+                    Unlock deeper insights and optimize data center performance with real-time analytics and advanced data tracking systems for smarter operational decisions
                   </p>
                   <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
                     🔒 Upgrade to access Top 100 rankings with advanced insights
