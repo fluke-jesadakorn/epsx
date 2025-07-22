@@ -48,6 +48,26 @@ export function AdminUserManagement() {
     loadUsers();
   }, []);
 
+  // Handle escape key for modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showLevelModal) {
+          setShowLevelModal(false);
+        } else if (showLevelHistory) {
+          setShowLevelHistory(false);
+        }
+      }
+    };
+    
+    if (showLevelModal || showLevelHistory) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+    
+    return undefined;
+  }, [showLevelModal, showLevelHistory]);
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -500,9 +520,24 @@ export function AdminUserManagement() {
 
       {/* User Level Assignment Modal */}
       {showLevelModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Assign User Level</h3>
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          onClick={(e) => e.target === e.currentTarget && setShowLevelModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="level-modal-title"
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 id="level-modal-title" className="text-lg font-semibold">Assign User Level</h3>
+              <button
+                onClick={() => setShowLevelModal(false)}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                aria-label="Close dialog"
+              >
+                <span className="text-xl font-bold">×</span>
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -571,7 +606,7 @@ export function AdminUserManagement() {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowLevelModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="min-h-[44px] px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               >
                 Cancel
               </button>
@@ -584,9 +619,9 @@ export function AdminUserManagement() {
                   )
                 }
                 disabled={actionLoading === selectedUser.uid}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
-                Assign Level
+                {actionLoading === selectedUser.uid ? 'Assigning...' : 'Assign Level'}
               </button>
             </div>
           </div>
@@ -595,11 +630,26 @@ export function AdminUserManagement() {
 
       {/* Level History Modal */}
       {showLevelHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
-            <h3 className="text-lg font-semibold mb-4">User Level History</h3>
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          onClick={(e) => e.target === e.currentTarget && setShowLevelHistory(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="history-modal-title"
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h3 id="history-modal-title" className="text-lg font-semibold">User Level History</h3>
+              <button
+                onClick={() => setShowLevelHistory(false)}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                aria-label="Close dialog"
+              >
+                <span className="text-xl font-bold">×</span>
+              </button>
+            </div>
 
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
               {levelHistory.map((entry, index) => (
                 <div
                   key={index}
@@ -627,10 +677,10 @@ export function AdminUserManagement() {
               ))}
             </div>
 
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end mt-6 flex-shrink-0">
               <button
                 onClick={() => setShowLevelHistory(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="min-h-[44px] px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               >
                 Close
               </button>

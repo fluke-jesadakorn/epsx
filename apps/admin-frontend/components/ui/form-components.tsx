@@ -61,7 +61,7 @@ export const Input: React.FC<InputProps> = ({
   return (
     <input
       type={type}
-      className={`input flex h-10 w-full border border-muted bg-card px-3 py-2 text-sm rounded-[16px] placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className || ''}`}
+      className={`input flex h-10 w-full border-2 border-input bg-card px-3 py-2 text-sm rounded-lg placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className || ''}`}
       {...props}
     />
   );

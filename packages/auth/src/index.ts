@@ -5,6 +5,9 @@ export * from './service';
 export * from './context';
 export * from './hooks';
 
+// Permission service with template support
+export * from './permission-service';
+
 // Actions with specific naming to avoid conflicts
 export {
   handleSignIn,

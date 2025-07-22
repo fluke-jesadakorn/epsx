@@ -8,13 +8,21 @@ import type {
   PermissionCondition,
   EvaluationOptions
 } from './types';
+import { 
+  TemplateIntegratedPermissionService, 
+  TemplateContext,
+  TemplateEvaluationResult 
+} from './template-integration';
 
 export class PermissionService {
   private static instance: PermissionService;
   private permissionCache: Map<string, PermissionEvaluationResult> = new Map();
   private cacheTimeout = 5 * 60 * 1000; // 5 minutes
+  private templateService: TemplateIntegratedPermissionService;
 
-  private constructor() {}
+  private constructor() {
+    this.templateService = new TemplateIntegratedPermissionService();
+  }
 
   public static getInstance(): PermissionService {
     if (!PermissionService.instance) {
@@ -253,9 +261,26 @@ export class PermissionService {
   }
 
   /**
-   * Get user permissions from database
+   * Get user permissions from database (enhanced with templates)
    */
   private async getUserPermissions(userId: string): Promise<UserPermissions> {
+    // Get base user permissions from database
+    const basePermissions = await this.getBaseUserPermissions(userId);
+    
+    // Enhance with template-derived permissions
+    const templateContext = await this.buildTemplateContext(userId);
+    const enhancedPermissions = await this.templateService.enhanceUserPermissionsWithTemplates(
+      basePermissions, 
+      templateContext
+    );
+    
+    return enhancedPermissions;
+  }
+
+  /**
+   * Get base user permissions without templates
+   */
+  private async getBaseUserPermissions(userId: string): Promise<UserPermissions> {
     // This would connect to your database
     // For now, return mock data
     return {
@@ -265,6 +290,22 @@ export class PermissionService {
       groups: [],
       effectivePermissions: [],
       lastEvaluated: new Date(),
+    };
+  }
+
+  /**
+   * Build template context for a user
+   */
+  private async buildTemplateContext(userId: string): Promise<TemplateContext> {
+    // This would fetch user data from database
+    // For now, return default context
+    return {
+      userId,
+      packageTier: 'FREE' as any, // Would come from user data
+      roles: [],
+      staticPermissions: [],
+      organizationId: undefined,
+      partnerIds: [],
     };
   }
 
@@ -310,6 +351,76 @@ export class PermissionService {
     accountId?: string
   ): string {
     return `epsx:${service}:${region || ''}:${accountId || ''}:${resourceType}:${resourceId}`;
+  }
+
+  /**
+   * Set template service for dynamic template integration
+   */
+  public setTemplateService(templateService: any): void {
+    this.templateService = new TemplateIntegratedPermissionService(templateService);
+  }
+
+  /**
+   * Evaluate templates for a user and get effective permissions
+   */
+  public async evaluateUserTemplates(userId: string): Promise<TemplateEvaluationResult> {
+    const templateContext = await this.buildTemplateContext(userId);
+    return await this.templateService.evaluateTemplatePermissions(templateContext);
+  }
+
+  /**
+   * Check if user has permission (template-aware)
+   */
+  public async hasPermissionWithTemplates(
+    userId: string,
+    resource: string,
+    action: string,
+    additionalContext?: Record<string, any>
+  ): Promise<boolean> {
+    const context: PermissionContext = {
+      userId,
+      requestId: `req-${Date.now()}`,
+      timestamp: new Date(),
+      resource,
+      action,
+      additionalContext,
+    };
+
+    const result = await this.evaluatePermission(context);
+    return result.allowed;
+  }
+
+  /**
+   * Get effective permissions for a user including templates
+   */
+  public async getEffectivePermissions(userId: string): Promise<{
+    staticPermissions: UserPermissions;
+    templatePermissions: TemplateEvaluationResult;
+    combinedPolicies: Policy[];
+  }> {
+    const staticPermissions = await this.getBaseUserPermissions(userId);
+    const templatePermissions = await this.evaluateUserTemplates(userId);
+    const templateContext = await this.buildTemplateContext(userId);
+    
+    // Get template-enhanced permissions
+    const enhancedPermissions = await this.templateService.enhanceUserPermissionsWithTemplates(
+      staticPermissions,
+      templateContext
+    );
+
+    return {
+      staticPermissions,
+      templatePermissions,
+      combinedPolicies: enhancedPermissions.directPolicies,
+    };
+  }
+
+  /**
+   * Refresh permission cache (including template cache)
+   */
+  public refreshCache(): void {
+    this.clearCache();
+    // Template service would also clear its cache if it had one
   }
 }
 
