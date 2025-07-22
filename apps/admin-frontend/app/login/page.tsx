@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/context/admin-auth';
-import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Shield } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function LoginPage() {
   const { signIn, loading, error } = useAdminAuth();
@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       return;
     }
@@ -76,8 +76,14 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Email address
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Email address{' '}
+                <span className="text-red-500" aria-label="required">
+                  *
+                </span>
               </label>
               <input
                 id="email"
@@ -85,16 +91,26 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
+                aria-required="true"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby="email-error"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700"
-                placeholder="Enter your admin email"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700 min-h-[44px]"
+                placeholder="admin@example.com"
+                disabled={isSubmitting}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Password{' '}
+                <span className="text-red-500" aria-label="required">
+                  *
+                </span>
               </label>
               <div className="mt-1 relative">
                 <input
@@ -103,23 +119,38 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
+                  aria-required="true"
+                  aria-invalid={error ? 'true' : 'false'}
+                  aria-describedby="password-error password-hint"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700"
+                  className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700 min-h-[44px]"
                   placeholder="Enter your password"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center min-h-[44px] min-w-[44px] touch-manipulation"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff
+                      className="h-4 w-4 text-gray-400"
+                      aria-hidden="true"
+                    />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-gray-400" aria-hidden="true" />
                   )}
                 </button>
               </div>
+              <p
+                id="password-hint"
+                className="mt-1 text-sm text-gray-500 dark:text-gray-400"
+              >
+                Password must be at least 8 characters
+              </p>
             </div>
           </div>
 

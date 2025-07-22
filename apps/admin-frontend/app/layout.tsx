@@ -1,4 +1,5 @@
 import { ToastProvider } from '@/components/ui/toast';
+import { ThemeTransition } from '@/components/ui/theme-transition';
 import { AdminAuthProvider } from '@/context/admin-auth';
 import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
@@ -38,10 +39,11 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`preload ${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen font-sans antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ThemeTransition />
           <AdminAuthProvider>
             <ToastProvider>
               {/* <Navigation /> removed as requested */}
