@@ -1,4 +1,4 @@
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/shared-auth-provider';
 
 export function useFeatureAccess() {
   const { user } = useAuth();

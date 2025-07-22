@@ -126,8 +126,15 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
   // Initialize auth state by listening to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', { hasUser: !!user, userEmail: user?.email });
       if (user) {
         try {
+          // Set session when user is authenticated
+          console.log('Setting session for user:', user.email);
+          const idToken = await user.getIdToken();
+          const result = await handleSignIn(idToken);
+          console.log('Session creation result:', result);
+          
           updateState({
             user,
             loading: false,
@@ -144,6 +151,8 @@ export function AppAuthProvider({ children }: AppAuthProviderProps) {
           });
         }
       } else {
+        console.log('User signed out, clearing session');
+        await handleSignOut();
         updateState({
           user: null,
           loading: false,
