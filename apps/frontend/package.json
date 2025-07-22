@@ -23,6 +23,7 @@
   "dependencies": {
     "@epsx/auth": "workspace:*",
     "@epsx/config": "workspace:*",
+    "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "5.1.1",
     "@radix-ui/react-avatar": "^1.1.3",

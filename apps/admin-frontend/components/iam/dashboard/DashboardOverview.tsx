@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Users, UserCheck, Shield, TrendingUp, TrendingDown } from 'lucide-react';
 import { useIAMStats } from '../../../hooks/iam/useIAMStats';
 

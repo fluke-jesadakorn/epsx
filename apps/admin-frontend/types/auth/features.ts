@@ -1,6 +1,6 @@
 import { UserRole } from './roles';
 import type { User as FirebaseUser } from 'firebase/auth';
-import type { UserSubscription } from '@/types/payment/plans';
+import type { UserSubscription } from '@epsx/types';
 
 export interface User extends FirebaseUser {
   role: UserRole;

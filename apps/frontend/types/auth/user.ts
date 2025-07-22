@@ -1,5 +1,5 @@
 import type { USDTDetails } from "@/types/userLevel";
-import type { UserSubscription } from "@/types/payment/plans";
+import type { UserSubscription } from "@epsx/types";
 
 export interface User {
   id: string;

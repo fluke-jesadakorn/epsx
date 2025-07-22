@@ -2,7 +2,7 @@
 
 import { HeadphonesIcon, Settings, Shield, Users, X } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Button } from '../../ui/form-components';
 
 interface CreateTemplateModalProps {

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Badge, Button } from '../../ui/form-components';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Shield, Users, Check, X } from 'lucide-react';
 
 interface TemplatePreviewModalProps {

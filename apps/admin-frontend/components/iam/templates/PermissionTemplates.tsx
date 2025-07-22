@@ -14,7 +14,7 @@ import {
   PermissionTemplate,
   usePermissionTemplates,
 } from '../../../hooks/iam/usePermissionTemplates';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Badge, Button, Input } from '../../ui/form-components';
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplatePreviewModal } from './TemplatePreviewModal';

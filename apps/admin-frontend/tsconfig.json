@@ -41,7 +41,9 @@
     "declaration": false,
     "declarationMap": false,
     "isolatedModules": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "exactOptionalPropertyTypes": false,
+    "skipLibCheck": true
   },
   "include": [
     "next-env.d.ts",

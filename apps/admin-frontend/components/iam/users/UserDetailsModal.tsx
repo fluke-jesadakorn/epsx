@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Badge, Button } from '../../ui/form-components';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { User, Shield, Activity, X } from 'lucide-react';
 
