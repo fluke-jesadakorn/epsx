@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AdminService, type AdminUser } from '@/services/adminService';
+import { AdminService  } from '@/services/adminService';
+import type {AdminUser} from '@/services/adminService';
 import { useAdminAuth } from '@/context/admin-auth';
 import { Shield, Users, CheckCircle, AlertTriangle, UserX, Crown } from 'lucide-react';
 

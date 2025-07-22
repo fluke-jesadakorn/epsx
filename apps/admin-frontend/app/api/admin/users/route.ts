@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAdmin, getFirestoreAdmin } from '@/lib/firebase-admin';
-import { USER_LEVEL_CONFIGS, type UserLevel } from '@/types/admin/userLevels';
+import { USER_LEVEL_CONFIGS  } from '@/types/admin/userLevels';
+import type {UserLevel} from '@/types/admin/userLevels';
 import { ensureUserLevelInFirestore } from '@/lib/userLevelFirestore';
 
 interface UpdateUserLevelData {

@@ -1,6 +1,7 @@
 'use client';
 
-import { AdminService, type AdminUser } from '@/services/adminService';
+import { AdminService  } from '@/services/adminService';
+import type {AdminUser} from '@/services/adminService';
 import { USER_LEVEL_CONFIGS, UserLevel } from '@/types/admin/userLevels';
 import {
   AlertTriangle,

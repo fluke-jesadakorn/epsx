@@ -1,24 +1,24 @@
 'use client';
 
 import {
-  updateProfile,
+  EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-  EmailAuthProvider,
+  updateProfile,
 } from 'firebase/auth';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
+import type { UserLevelType } from '@/app/constants/packages';
+import { canAccessLevel, getPackageByLevel } from '@/app/constants/packages';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/auth-context';
 import { status } from '@/services/pay';
-import { getPackageByLevel, canAccessLevel } from '@/app/constants/packages';
-import type { UserLevelType } from '@/app/constants/packages';
-import { User, Key, Save, Crown, Star, Trophy, Gem } from 'lucide-react';
+import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';
 
 export function ProfileSettings() {
   const { user } = useAuth();
@@ -163,21 +163,21 @@ export function ProfileSettings() {
 
       {/* Main content */}
       {!isLoadingLevel && (
-          <>
-            <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
-              <div
-                className={`w-full h-full bg-gradient-to-br ${levelGradients[userLevel]} rounded-full blur-2xl animate-pulse-slow`}
-              ></div>
-            </div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 opacity-5 pointer-events-none">
-              <div
-                className={`w-full h-full bg-gradient-to-tr ${levelGradients[userLevel]} rounded-full blur-xl animate-float`}
-              ></div>
-            </div>
-          </>
-        )}
+        <>
+          <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
+            <div
+              className={`w-full h-full bg-gradient-to-br ${levelGradients[userLevel]} rounded-full blur-2xl animate-pulse-slow`}
+            ></div>
+          </div>
+          <div className="absolute bottom-0 left-0 w-16 h-16 opacity-5 pointer-events-none">
+            <div
+              className={`w-full h-full bg-gradient-to-tr ${levelGradients[userLevel]} rounded-full blur-xl animate-float`}
+            ></div>
+          </div>
+        </>
+      )}
 
-        {error && (
+      {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -238,7 +238,9 @@ export function ProfileSettings() {
             <div
               className={`absolute -bottom-1 -right-1 p-1 xs:p-1.5 rounded-full bg-gradient-to-br ${levelGradients[userLevel]} shadow-lg ring-2 ring-background`}
             >
-              <div className="text-white text-xs xs:text-sm">{levelIcons[userLevel]}</div>
+              <div className="text-white text-xs xs:text-sm">
+                {levelIcons[userLevel]}
+              </div>
             </div>
           )}
         </div>
@@ -269,13 +271,12 @@ export function ProfileSettings() {
         </div>
 
         {/* Special Effects for Premium Levels */}
-        {!isLoadingLevel &&
-          canAccessLevel(userLevel, 'GOLD') && (
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping"></div>
-              <div className="absolute bottom-2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-pulse delay-300"></div>
-            </div>
-          )}
+        {!isLoadingLevel && canAccessLevel(userLevel, 'GOLD') && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping"></div>
+            <div className="absolute bottom-2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-pulse delay-300"></div>
+          </div>
+        )}
       </div>
       {/* Enhanced Profile Form */}
       <div className="relative space-y-3 sm:space-y-4 lg:space-y-6">
@@ -287,9 +288,15 @@ export function ProfileSettings() {
           {showProfileForm ? 'Hide Name Section' : 'Set Name'}
         </Button>
         {showProfileForm && (
-          <form onSubmit={handleUpdateProfile} className="space-y-3 sm:space-y-4">
+          <form
+            onSubmit={handleUpdateProfile}
+            className="space-y-3 sm:space-y-4"
+          >
             <div className="grid gap-2">
-              <Label htmlFor="displayName" className="flex items-center gap-2 text-sm sm:text-base">
+              <Label
+                htmlFor="displayName"
+                className="flex items-center gap-2 text-sm sm:text-base"
+              >
                 <User className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                 Name
               </Label>
@@ -302,7 +309,10 @@ export function ProfileSettings() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="photoURL" className="flex items-center gap-2 text-sm sm:text-base">
+              <Label
+                htmlFor="photoURL"
+                className="flex items-center gap-2 text-sm sm:text-base"
+              >
                 <svg
                   className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground"
                   fill="none"
@@ -361,7 +371,10 @@ export function ProfileSettings() {
               </h4>
             </div>
 
-            <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
+            <form
+              onSubmit={handleChangePassword}
+              className="space-y-3 sm:space-y-4"
+            >
               <div className="grid gap-2">
                 <Label
                   htmlFor="currentPassword"

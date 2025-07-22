@@ -41,14 +41,14 @@ const InlineActions: React.FC<InlineActionsProps> = ({
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-8 z-10 w-48 rounded-md border bg-white shadow-lg">
+        <div className="absolute right-0 top-8 z-10 w-48 rounded-md border border-border bg-background shadow-lg">
           <div className="py-1">
             <button
               onClick={() => {
                 onViewDetails();
                 setIsOpen(false);
               }}
-              className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              className="flex w-full items-center px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Shield className="mr-2 h-4 w-4" />
               View Details
@@ -58,7 +58,7 @@ const InlineActions: React.FC<InlineActionsProps> = ({
                 onEdit();
                 setIsOpen(false);
               }}
-              className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              className="flex w-full items-center px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit User
@@ -76,30 +76,42 @@ interface UserRowProps {
   onViewDetails: () => void;
 }
 
-const UserRow: React.FC<UserRowProps> = ({ user, onEdit, onViewDetails }) => (
-  <tr className="border-b">
-    <td className="px-4 py-3">
-      <div>
-        <div className="font-medium">{user.name}</div>
-        <div className="text-sm text-gray-500">{user.email}</div>
+const UserCard: React.FC<UserRowProps> = ({ user, onEdit, onViewDetails }) => (
+  <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+    <div className="flex justify-between items-start">
+      <div className="flex-1">
+        <div className="font-medium text-foreground">{user.name}</div>
+        <div className="text-sm text-muted-foreground">{user.email}</div>
       </div>
-    </td>
-    <td className="px-4 py-3">
-      <Badge variant={user.packageTier === 'premium' ? 'default' : 'secondary'}>
-        {user.packageTier}
-      </Badge>
-    </td>
-    <td className="px-4 py-3">
-      <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-        {user.status}
-      </Badge>
-    </td>
-    <td className="px-4 py-3 text-sm text-gray-500">{user.lastActive}</td>
-    <td className="px-4 py-3 text-sm">{user.permissions.length} permissions</td>
-    <td className="px-4 py-3">
       <InlineActions onEdit={onEdit} onViewDetails={onViewDetails} />
-    </td>
-  </tr>
+    </div>
+    
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div>
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Package</div>
+        <Badge variant={user.packageTier === 'premium' ? 'default' : 'secondary'} className="mt-1">
+          {user.packageTier}
+        </Badge>
+      </div>
+      
+      <div>
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</div>
+        <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className="mt-1">
+          {user.status}
+        </Badge>
+      </div>
+      
+      <div>
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Last Active</div>
+        <div className="text-sm text-foreground mt-1">{user.lastActive}</div>
+      </div>
+      
+      <div>
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Permissions</div>
+        <div className="text-sm text-foreground mt-1">{user.permissions.length} permissions</div>
+      </div>
+    </div>
+  </div>
 );
 
 export const UserManagement: React.FC = () => {
@@ -167,7 +179,7 @@ export const UserManagement: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="h-10 px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -178,7 +190,7 @@ export const UserManagement: React.FC = () => {
             <select
               value={packageFilter}
               onChange={(e) => setPackageFilter(e.target.value)}
-              className="h-10 px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="h-10 px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <option value="all">All Packages</option>
               <option value="free">Free</option>
@@ -190,39 +202,21 @@ export const UserManagement: React.FC = () => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-gray-100 animate-pulse rounded" />
+              <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left px-4 py-3 font-medium">User</th>
-                  <th className="text-left px-4 py-3 font-medium">Package</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium">
-                    Last Active
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium">
-                    Permissions
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user: User) => (
-                  <UserRow
-                    key={user.id}
-                    user={user}
-                    onEdit={() => handleEdit(user)}
-                    onViewDetails={() => handleViewDetails(user)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {users.map((user: User) => (
+              <UserCard
+                key={user.id}
+                user={user}
+                onEdit={() => handleEdit(user)}
+                onViewDetails={() => handleViewDetails(user)}
+              />
+            ))}
           </div>
         )}
       </CardContent>
