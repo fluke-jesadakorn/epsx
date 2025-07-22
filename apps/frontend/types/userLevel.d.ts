@@ -1,4 +1,4 @@
-import { PaymentTier, UserSubscription } from './payment/plans';
+import { PaymentTier, UserSubscription } from '@epsx/types';
 
 // Legacy enum - keep for backward compatibility
 export enum UserLevel {
@@ -29,17 +29,17 @@ export interface USDTDetails {
 // Helper function to convert legacy UserLevel to PaymentTier
 export function convertUserLevelToPaymentTier(userLevel: UserLevel): PaymentTier {
   const mapping = {
-    [UserLevel.Basic]: PaymentTier.BASIC,
+    [UserLevel.Basic]: PaymentTier.BRONZE,
     [UserLevel.Premium]: PaymentTier.SILVER,
     [UserLevel.VIP]: PaymentTier.GOLD
   };
-  return mapping[userLevel] || PaymentTier.BASIC;
+  return mapping[userLevel] || PaymentTier.BRONZE;
 }
 
 // Helper function to convert PaymentTier to legacy UserLevel
 export function convertPaymentTierToUserLevel(paymentTier: PaymentTier): UserLevel {
   const mapping = {
-    [PaymentTier.BASIC]: UserLevel.Basic,
+    [PaymentTier.BRONZE]: UserLevel.Basic,
     [PaymentTier.SILVER]: UserLevel.Premium,
     [PaymentTier.GOLD]: UserLevel.VIP,
     [PaymentTier.PLATINUM]: UserLevel.VIP

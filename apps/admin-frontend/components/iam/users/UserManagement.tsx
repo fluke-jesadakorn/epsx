@@ -3,7 +3,7 @@
 import { Edit, MoreHorizontal, Plus, Search, Shield } from 'lucide-react';
 import React, { useState } from 'react';
 import { useUsers } from '../../../hooks/iam/useUsers';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Badge, Button, Input } from '../../ui/form-components';
 import { CreateUserModal } from './CreateUserModal';
 import { UserDetailsModal } from './UserDetailsModal';

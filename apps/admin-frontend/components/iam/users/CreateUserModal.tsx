@@ -2,7 +2,7 @@
 
 import { Mail, Package, Shield, User, X } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { Button } from '../../ui/form-components';
 import { useToast } from '../../ui/toast';
 

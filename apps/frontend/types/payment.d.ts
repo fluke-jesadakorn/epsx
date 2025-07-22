@@ -1,4 +1,4 @@
-import { PaymentTier, UserSubscription } from './payment/plans';
+import { PaymentTier, UserSubscription } from '@epsx/types';
 
 export interface CreatePaymentRequest {
   currency: string;

@@ -88,7 +88,8 @@ module.exports = {
         '128': '32rem',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Kanit', 'Inter', 'system-ui', 'sans-serif'],
+        pancake: ['Kanit', 'system-ui', 'sans-serif'],
       },
     },
   },
