@@ -35,8 +35,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> =
       const id = Math.random().toString(36).substring(2, 9);
       const newToast = { ...toast, id };
       setToasts((prev) => [...prev, newToast]);
-      // Auto remove after duration
-      const duration = toast.duration || 5000;
+      
+      // Dynamic duration based on content length
+      const baseLength = 50;
+      const contentLength = (toast.title + (toast.description || '')).length;
+      const readingTime = Math.max(3000, Math.min(8000, (contentLength / baseLength) * 5000));
+      const duration = toast.duration || readingTime;
+      
       setTimeout(() => {
         removeToast(id);
       }, duration);
@@ -61,7 +66,7 @@ const ToastContainer: React.FC<{
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed bottom-4 right-4 z-[9998] flex flex-col gap-2 max-w-sm w-full" role="region" aria-label="Notifications">
       {toasts.map((toast) => (
         <ToastItem
           key={toast.id}
@@ -109,27 +114,29 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({
 
   return (
     <div
-      className={`card max-w-sm w-full border-l-4 p-4 animate-in slide-in-from-right duration-300 ${getBorderColor()}`}
+      className={`card w-full border-l-4 p-4 animate-in slide-in-from-right duration-300 shadow-lg ${getBorderColor()}`}
+      role="alert"
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
     >
       <div className="flex items-start">
-        <div className="flex-shrink-0">{getIcon()}</div>
+        <div className="flex-shrink-0" aria-hidden="true">{getIcon()}</div>
         <div className="ml-3 flex-1">
           <p
-            className="text-sm font-medium"
-            style={{ color: 'var(--color-text)' }}
+            className="text-sm font-medium text-foreground"
           >
             {toast.title}
           </p>
           {toast.description && (
-            <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
+            <p className="mt-1 text-sm text-muted-foreground">
               {toast.description}
             </p>
           )}
         </div>
         <div className="ml-4 flex-shrink-0">
           <button
-            className="inline-flex text-muted hover:text-primary focus:outline-none"
+            className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded transition-colors"
             onClick={onRemove}
+            aria-label="Close notification"
           >
             <X className="h-4 w-4" />
           </button>

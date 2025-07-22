@@ -9,28 +9,63 @@
       }
     ],
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/utils/*": ["./utils/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/types/*": ["./types/*"],
-      "@/context/*": ["./context/*"],
-      "@/services/*": ["./services/*"],
-      "@epsx/config/*": ["../../packages/config/*"],
-      "@epsx/api-client/*": ["../../packages/api-client/*"],
-      "@epsx/shared/*": ["../../packages/shared/*"],
-      "@epsx/types/*": ["../../packages/types/*"],
-      "@epsx/utils/*": ["../../packages/utils/*"],
-      "@epsx/ui": ["../../packages/ui/src"],
-      "@epsx/ui/*": ["../../packages/ui/src/*"],
-      "@types/react": ["node_modules/@types/react"]
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/utils/*": [
+        "./utils/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ],
+      "@/context/*": [
+        "./context/*"
+      ],
+      "@/services/*": [
+        "./services/*"
+      ],
+      "@epsx/config/*": [
+        "../../packages/config/*"
+      ],
+      "@epsx/api-client/*": [
+        "../../packages/api-client/*"
+      ],
+      "@epsx/shared/*": [
+        "../../packages/shared/*"
+      ],
+      "@epsx/types/*": [
+        "../../packages/types/*"
+      ],
+      "@epsx/utils/*": [
+        "../../packages/utils/*"
+      ],
+      "@epsx/ui": [
+        "../../packages/ui/src"
+      ],
+      "@epsx/ui/*": [
+        "../../packages/ui/src/*"
+      ],
+      "@types/react": [
+        "node_modules/@types/react"
+      ]
     },
     "target": "ES2022",
     "module": "ESNext",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "moduleResolution": "bundler",
     "allowJs": true,
     "noEmit": true,
@@ -54,5 +89,11 @@
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist", "build"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build"
+  ]
 }

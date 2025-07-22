@@ -4,6 +4,16 @@
 // Core service
 export { PermissionService } from './PermissionService';
 
+// Template integration
+export { 
+  TemplateIntegratedPermissionService,
+  createTemplateIntegratedService 
+} from './template-integration';
+export type { 
+  TemplateContext, 
+  TemplateEvaluationResult 
+} from './template-integration';
+
 // Types
 export type {
   Permission,
@@ -39,6 +49,14 @@ export {
   useTierAccess,
 } from './hooks/usePermissions';
 
+// Template-aware hooks
+export {
+  useTemplatePermissions,
+  useEffectivePermissions,
+  useResourcePermission,
+  useTemplateManagement,
+} from './hooks/useTemplatePermissions';
+
 // React components
 export {
   PermissionGate,
@@ -49,6 +67,16 @@ export {
   withPermission,
   withTierAccess,
 } from './components/PermissionGates';
+
+// Template-aware components
+export {
+  TemplatePermissionGate,
+  TemplateConflictWarning,
+  ActiveTemplatesDisplay,
+  EnhancedPermissionGate,
+  withTemplatePermissions,
+  PermissionDebugInfo,
+} from './components/TemplatePermissionGates';
 
 // Import types for utilities
 import type { Policy, PolicyStatement } from './types';

@@ -3,6 +3,7 @@ export * from './auth/roles';
 export * from './auth/request';
 export * from './pagination';
 export * from './payment';
+export * from './template';
 
 // Future exports
 // export * from './api';

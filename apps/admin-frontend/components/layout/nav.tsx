@@ -19,7 +19,7 @@ export function Navigation() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const filteredItems = navItems.filter((item) => !item.auth || user);
+  const filteredItems = navItems.filter((item) => true); // Remove auth filter since nav items don't have auth property
 
   if (loading) {
     return (

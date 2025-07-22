@@ -64,13 +64,13 @@
   .dark {
     /* Dark theme - PancakeSwap inspired */
     --background: 220 26% 8%; /* Deep dark blue-gray */
-    --foreground: 210 40% 90%; /* Light blue-gray */
+    --foreground: 210 40% 95%; /* Higher contrast light blue-gray */
 
     --card: 220 26% 10%; /* Slightly lighter dark */
-    --card-foreground: 210 40% 90%;
+    --card-foreground: 210 40% 95%;
 
     --popover: 220 26% 10%;
-    --popover-foreground: 210 40% 90%;
+    --popover-foreground: 210 40% 95%;
 
     --primary: 31 100% 50%; /* Keep orange vibrant */
     --primary-foreground: 0 0% 100%;
@@ -79,7 +79,7 @@
     --secondary-foreground: 220 26% 8%;
 
     --muted: 215 28% 17%; /* Darker muted */
-    --muted-foreground: 217 9% 61%;
+    --muted-foreground: 217 9% 75%; /* Improved contrast from 61% to 75% */
 
     --accent: 31 100% 25%; /* Darker orange accent */
     --accent-foreground: 31 100% 85%;
@@ -87,8 +87,8 @@
     --destructive: 0 85% 55%; /* Slightly darker red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 28% 18%; /* Dark border */
-    --input: 215 28% 18%;
+    --border: 215 28% 22%; /* Slightly lighter border for better visibility */
+    --input: 215 28% 22%;
     --ring: 31 100% 50%;
 
     --radius: 1rem;
