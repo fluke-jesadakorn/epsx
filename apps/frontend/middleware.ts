@@ -11,11 +11,15 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
   
-  // Get the auth token from cookies
-  const token = request.cookies.get('auth-token')?.value;
+  // Get the session token from cookies (using the same key as session management)
+  const token = request.cookies.get('__session')?.value;
+  
+  // Debug logging
+  console.log('Middleware:', { pathname, isProtectedRoute, hasToken: !!token });
   
   // Redirect to login if accessing protected route without token
   if (isProtectedRoute && !token) {
+    console.log('Redirecting to login - no token for protected route:', pathname);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
