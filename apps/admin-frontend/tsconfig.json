@@ -30,7 +30,7 @@
     },
     "target": "ES2022",
     "module": "ESNext",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "moduleResolution": "bundler",
     "allowJs": true,
     "noEmit": true,

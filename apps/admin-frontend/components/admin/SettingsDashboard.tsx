@@ -11,10 +11,10 @@ import {
   Settings,
   Shield,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import * as React from 'react';
 
 export const SettingsDashboard: React.FC = () => {
-  const [activeView, setActiveView] = useState('general');
+  const [activeView, setActiveView] = React.useState('general');
 
   const settingsViews = [
     {

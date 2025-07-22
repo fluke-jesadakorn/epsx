@@ -5,6 +5,7 @@ import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
 import { PackageTier } from '../../types/admin/iam-enhanced';
 import { iamService } from '../../services/iamService';
 import { PERMISSION_TEMPLATES } from '../../config/packagePermissions';
+import { useToast } from '@/components/ui/toast';
 
 interface UserPermissionManagerProps {
   userId: string;
@@ -24,6 +25,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
   });
   const [isGranting, setIsGranting] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const { addToast } = useToast();
   
   useEffect(() => {
     loadUserDetails();
@@ -36,7 +38,11 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
       setUser(userData);
     } catch (error) {
       console.error('Failed to load user details:', error);
-      alert('Failed to load user details');
+      addToast({
+        type: 'error',
+        title: 'Failed to load user details',
+        description: 'Please try again'
+      });
     } finally {
       setLoading(false);
     }
@@ -53,11 +59,18 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
       if (confirm(`This will add ${preview.addedPermissions.length} new permissions. Continue?`)) {
         await iamService.updateUserPackageTier(userId, newTier, 'current-admin-id'); // Get from auth context
         await loadUserDetails();
-        alert('Package upgraded successfully!');
+        addToast({
+          type: 'success',
+          title: 'Package upgraded successfully!'
+        });
       }
     } catch (error) {
       console.error('Failed to upgrade package:', error);
-      alert('Failed to upgrade package permissions');
+      addToast({
+        type: 'error',
+        title: 'Failed to upgrade package permissions',
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
     } finally {
       setIsUpgrading(false);
     }
@@ -93,10 +106,17 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
       });
       
       await loadUserDetails();
-      alert('Custom permission granted successfully!');
+      addToast({
+        type: 'success',
+        title: 'Custom permission granted successfully!'
+      });
     } catch (error) {
       console.error('Failed to grant custom permission:', error);
-      alert('Failed to grant custom permission');
+      addToast({
+        type: 'error',
+        title: 'Failed to grant custom permission',
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
     } finally {
       setIsGranting(false);
     }
@@ -109,10 +129,17 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
     try {
       await iamService.revokeCustomPermission(permissionId, 'current-admin-id', reason);
       await loadUserDetails();
-      alert('Permission revoked successfully!');
+      addToast({
+        type: 'success',
+        title: 'Permission revoked successfully!'
+      });
     } catch (error) {
       console.error('Failed to revoke permission:', error);
-      alert('Failed to revoke permission');
+      addToast({
+        type: 'error',
+        title: 'Failed to revoke permission',
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
     }
   };
   
@@ -123,10 +150,17 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({ us
       await iamService.bulkApplyTemplate([userId], selectedTemplate, 'current-admin-id');
       await loadUserDetails();
       setSelectedTemplate('');
-      alert('Template applied successfully!');
+      addToast({
+        type: 'success',
+        title: 'Template applied successfully!'
+      });
     } catch (error) {
       console.error('Failed to apply template:', error);
-      alert('Failed to apply template');
+      addToast({
+        type: 'error',
+        title: 'Failed to apply template',
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
     }
   };
   

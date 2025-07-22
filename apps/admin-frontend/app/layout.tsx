@@ -1,4 +1,3 @@
-import { Navigation } from '@/components/layout/nav';
 import { ToastProvider } from '@/components/ui/toast';
 import { AdminAuthProvider } from '@/context/admin-auth';
 import type { Metadata } from 'next';
@@ -19,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ESPx Admin',
-  description: 'ESPx - Admin Dashboard',
+  title: 'EPSX Admin',
+  description: 'EPSX Admin Dashboard',
 };
 
 export const viewport = {
@@ -45,7 +44,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AdminAuthProvider>
             <ToastProvider>
-              <Navigation />
+              {/* <Navigation /> removed as requested */}
               <div className="relative flex min-h-screen flex-col card">
                 {children}
               </div>

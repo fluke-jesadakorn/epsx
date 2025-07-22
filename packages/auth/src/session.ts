@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import type { ServiceAccount } from 'firebase-admin';
 import type { SessionClaims, SessionConfig, SessionResult } from './types';
 
 // Default session configuration
@@ -37,7 +38,7 @@ async function getAuthAdmin() {
       };
 
       admin.default.initializeApp({
-        credential: admin.default.credential.cert(serviceAccount as admin.ServiceAccount),
+        credential: admin.default.credential.cert(serviceAccount as ServiceAccount),
         databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
       });
     }
