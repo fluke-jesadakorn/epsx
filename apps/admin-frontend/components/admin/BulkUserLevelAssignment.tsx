@@ -4,23 +4,31 @@ import { useState } from 'react';
 import { AdminService } from '@/services/adminService';
 import { UserLevel, USER_LEVEL_CONFIGS } from '@/types/admin/userLevels';
 import { Upload, Users } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export function BulkUserLevelAssignment() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<UserLevel>(UserLevel.BRONZE);
   const [userEmails, setUserEmails] = useState('');
   const [reason, setReason] = useState('');
+  const { addToast } = useToast();
 
   const handleBulkAssignment = async () => {
     if (!userEmails.trim()) {
-      alert('Please enter user emails');
+      addToast({
+        type: 'warning',
+        title: 'Please enter user emails'
+      });
       return;
     }
 
     const emails = userEmails.split('\n').filter(email => email.trim());
     
     if (emails.length === 0) {
-      alert('Please enter valid user emails');
+      addToast({
+        type: 'warning',
+        title: 'Please enter valid user emails'
+      });
       return;
     }
 
@@ -31,7 +39,10 @@ export function BulkUserLevelAssignment() {
       const identifiers = userEmails.split('\n').filter(identifier => identifier.trim());
       
       if (identifiers.length === 0) {
-        alert('Please enter valid user emails or UIDs');
+        addToast({
+          type: 'warning',
+          title: 'Please enter valid user emails or UIDs'
+        });
         return;
       }
 
@@ -54,14 +65,26 @@ export function BulkUserLevelAssignment() {
         
         if (failureCount > 0) {
           const failedUsers = response.results.filter((r: any) => !r.success).map((r: any) => r.uid).join(', ');
-          alert(`Updated ${successCount} users successfully to ${USER_LEVEL_CONFIGS[selectedLevel].name} level.\n\nFailed to update ${failureCount} users: ${failedUsers}`);
+          addToast({
+            type: 'warning',
+            title: `Updated ${successCount} users successfully`,
+            description: `Failed to update ${failureCount} users: ${failedUsers}`
+          });
         } else {
-          alert(`Successfully updated ${successCount} users to ${USER_LEVEL_CONFIGS[selectedLevel].name} level`);
+          addToast({
+            type: 'success',
+            title: `Successfully updated ${successCount} users`,
+            description: `All users upgraded to ${USER_LEVEL_CONFIGS[selectedLevel].name} level`
+          });
         }
       } else {
         // Fallback if response doesn't have results
         console.warn('Response does not have results property:', response);
-        alert(`Bulk assignment completed for ${identifiers.length} users to ${USER_LEVEL_CONFIGS[selectedLevel].name} level`);
+        addToast({
+          type: 'success',
+          title: 'Bulk assignment completed',
+          description: `Updated ${identifiers.length} users to ${USER_LEVEL_CONFIGS[selectedLevel].name} level`
+        });
       }
       
       setUserEmails('');
@@ -71,9 +94,17 @@ export function BulkUserLevelAssignment() {
       
       // Check if the error has more specific information
       if (error.message && error.message.includes('Internal server error')) {
-        alert('Bulk assignment failed: Server error occurred. Please check the server logs for more details.');
+        addToast({
+          type: 'error',
+          title: 'Bulk assignment failed',
+          description: 'Server error occurred. Please check the server logs for more details.'
+        });
       } else {
-        alert('Bulk assignment failed: ' + error.message);
+        addToast({
+          type: 'error',
+          title: 'Bulk assignment failed',
+          description: error.message
+        });
       }
     } finally {
       setIsLoading(false);

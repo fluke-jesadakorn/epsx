@@ -1,10 +1,9 @@
 // Copied and adapted from frontend/components/nav.tsx
 'use client';
 
-import { ButtonIcon } from '@/components/ui/button-icon';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAdminAuth } from '@/context/admin-auth';
-import { BarChart, Database, Home, LogIn, LogOut } from 'lucide-react';
+import { BarChart, Home, LogIn, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,7 +12,6 @@ import { useState } from 'react';
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/analytics', label: 'Analytics', icon: BarChart },
-  { href: '/my-data', label: 'My Data', icon: Database, auth: true },
 ];
 
 export function Navigation() {
@@ -95,14 +93,18 @@ export function Navigation() {
                   key={item.href}
                   href={item.href}
                   className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 ${
-                    pathname === item.href 
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg' 
+                    pathname === item.href
+                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg'
                       : 'hover:bg-orange-500/10 hover:text-orange-500'
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full transition-all ${
-                    pathname === item.href ? 'bg-white' : 'bg-orange-500 group-hover:scale-125'
-                  }`}></span>
+                  <span
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      pathname === item.href
+                        ? 'bg-white'
+                        : 'bg-orange-500 group-hover:scale-125'
+                    }`}
+                  ></span>
                   <item.icon className="w-5 h-5" />
                   <span>{item.label}</span>
                 </Link>
@@ -111,8 +113,8 @@ export function Navigation() {
                   key={item.href}
                   href={item.href}
                   className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 ${
-                    pathname === item.href 
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg' 
+                    pathname === item.href
+                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg'
                       : 'hover:bg-orange-500/10 hover:text-orange-500'
                   }`}
                 >
@@ -122,17 +124,17 @@ export function Navigation() {
               ),
             )}
             {user ? (
-              <button 
+              <button
                 onClick={signOut}
                 className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
               >
-                <LogOut className="w-4 h-4" /> 
+                <LogOut className="w-4 h-4" />
                 Logout
               </button>
             ) : (
               <Link href="/login">
                 <button className="pancake-button flex items-center gap-2 text-sm font-medium">
-                  <LogIn className="w-4 h-4" /> 
+                  <LogIn className="w-4 h-4" />
                   Login
                 </button>
               </Link>

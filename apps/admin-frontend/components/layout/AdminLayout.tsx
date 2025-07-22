@@ -301,7 +301,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Admin Console
+                  EPSX Admin Console
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   v2.0.1
@@ -548,7 +548,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <Shield className="h-3 w-3" />
-              <span>Admin Console v2.0</span>
+              <span>EPSX Admin Console v2.0</span>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { firebaseIAMService } from '../../services/firebaseIAMService';
+import { useToast } from '@/components/ui/toast';
 
 interface ConnectionStatus {
   firebase: boolean;
@@ -24,6 +25,7 @@ interface DebugInfo {
 export const FirebaseIAMDebugPanel: React.FC = () => {
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
 
   const runDiagnostics = async () => {
     setLoading(true);
@@ -74,11 +76,19 @@ export const FirebaseIAMDebugPanel: React.FC = () => {
     try {
       // This would trigger the initialization
       await firebaseIAMService.getUsers();
-      alert('Sample data creation triggered. Check the console for details.');
+      addToast({
+        type: 'success',
+        title: 'Sample data creation triggered',
+        description: 'Check the console for details'
+      });
       runDiagnostics();
     } catch (error) {
       console.error('Failed to create sample data:', error);
-      alert('Failed to create sample data. Check console for details.');
+      addToast({
+        type: 'error',
+        title: 'Failed to create sample data',
+        description: 'Check console for details'
+      });
     }
   };
 

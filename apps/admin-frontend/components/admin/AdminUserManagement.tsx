@@ -1,19 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { AdminService, type AdminUser } from '@/services/adminService';
-import { UserLevel, USER_LEVEL_CONFIGS } from '@/types/admin/userLevels';
-import { 
-  Users, 
-  Search, 
-  CheckCircle, 
+import { USER_LEVEL_CONFIGS, UserLevel } from '@/types/admin/userLevels';
+import {
   AlertTriangle,
-  UserX,
-  RefreshCw,
+  CheckCircle,
   Crown,
   History,
-  Star
+  RefreshCw,
+  Search,
+  Star,
+  Users,
+  UserX,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useToast } from '@/components/ui/toast';
 
 export function AdminUserManagement() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -23,11 +26,20 @@ export function AdminUserManagement() {
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  
+  const { addToast } = useToast();
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    uid?: string;
+    email?: string;
+  }>({ open: false });
+
   // User level assignment state
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
-  const [selectedLevel, setSelectedLevel] = useState<UserLevel>(UserLevel.BRONZE);
+  const [selectedLevel, setSelectedLevel] = useState<UserLevel>(
+    UserLevel.BRONZE,
+  );
   const [levelReason, setLevelReason] = useState('');
   const [showLevelHistory, setShowLevelHistory] = useState(false);
   const [levelHistory, setLevelHistory] = useState<any[]>([]);
@@ -57,7 +69,11 @@ export function AdminUserManagement() {
       await loadUsers(); // Refresh the list
     } catch (err: any) {
       console.error('Failed to change role:', err);
-      alert('Failed to change user role: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to change user role',
+        description: err.message,
+      });
     } finally {
       setActionLoading(null);
     }
@@ -70,26 +86,37 @@ export function AdminUserManagement() {
       await loadUsers(); // Refresh the list
     } catch (err: any) {
       console.error('Failed to toggle status:', err);
-      alert('Failed to update user status: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to update user status',
+        description: err.message,
+      });
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleDeleteUser = async (uid: string, email: string) => {
-    if (!confirm(`Are you sure you want to delete user ${email}? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteUser = (uid: string, email: string) => {
+    setConfirmDialog({ open: true, uid, email });
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.uid || !confirmDialog.email) return;
     try {
-      setActionLoading(uid);
-      await AdminService.deleteUser(uid);
-      await loadUsers(); // Refresh the list
+      setActionLoading(confirmDialog.uid);
+      await AdminService.deleteUser(confirmDialog.uid);
+      await loadUsers();
+      setConfirmDialog({ open: false });
     } catch (err: any) {
       console.error('Failed to delete user:', err);
-      alert('Failed to delete user: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to delete user',
+        description: err.message,
+      });
     } finally {
       setActionLoading(null);
+      setConfirmDialog({ open: false });
     }
   };
 
@@ -97,17 +124,29 @@ export function AdminUserManagement() {
     try {
       setActionLoading(email);
       await AdminService.sendPasswordResetEmail(email);
-      alert('Password reset link generated. Check console for link.');
+      addToast({
+        type: 'success',
+        title: 'Password reset link generated',
+        description: 'Check console for link',
+      });
     } catch (err: any) {
       console.error('Failed to send password reset:', err);
-      alert('Failed to send password reset: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to send password reset',
+        description: err.message,
+      });
     } finally {
       setActionLoading(null);
     }
   };
 
   // User level assignment functions
-  const handleLevelChange = async (uid: string, newLevel: UserLevel, reason?: string) => {
+  const handleLevelChange = async (
+    uid: string,
+    newLevel: UserLevel,
+    reason?: string,
+  ) => {
     try {
       setActionLoading(uid);
       await AdminService.setUserLevel(uid, newLevel, reason);
@@ -116,7 +155,11 @@ export function AdminUserManagement() {
       setLevelReason('');
     } catch (err: any) {
       console.error('Failed to change user level:', err);
-      alert('Failed to change user level: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to change user level',
+        description: err.message,
+      });
     } finally {
       setActionLoading(null);
     }
@@ -135,16 +178,22 @@ export function AdminUserManagement() {
       setShowLevelHistory(true);
     } catch (err: any) {
       console.error('Failed to fetch level history:', err);
-      alert('Failed to fetch level history: ' + err.message);
+      addToast({
+        type: 'error',
+        title: 'Failed to fetch level history',
+        description: err.message,
+      });
     }
   };
 
   const getUserLevelBadge = (user: AdminUser) => {
     const userLevel = user.userLevel || UserLevel.BRONZE;
     const config = USER_LEVEL_CONFIGS[userLevel];
-    
+
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+      <span
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}
+      >
         <Crown className="h-3 w-3 mr-1" />
         {config.name}
       </span>
@@ -152,19 +201,23 @@ export function AdminUserManagement() {
   };
 
   // Filter users based on search and filters
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesRole = filterRole === 'all' || 
-                       (filterRole === 'admin' && user.customClaims?.role === 'ADMIN') ||
-                       (filterRole === 'user' && (user.customClaims?.role === 'USER' || !user.customClaims?.role));
-    
-    const matchesStatus = filterStatus === 'all' ||
-                         (filterStatus === 'verified' && user.emailVerified) ||
-                         (filterStatus === 'unverified' && !user.emailVerified) ||
-                         (filterStatus === 'disabled' && user.disabled) ||
-                         (filterStatus === 'active' && !user.disabled);
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesRole =
+      filterRole === 'all' ||
+      (filterRole === 'admin' && user.customClaims?.role === 'ADMIN') ||
+      (filterRole === 'user' &&
+        (user.customClaims?.role === 'USER' || !user.customClaims?.role));
+
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'verified' && user.emailVerified) ||
+      (filterStatus === 'unverified' && !user.emailVerified) ||
+      (filterStatus === 'disabled' && user.disabled) ||
+      (filterStatus === 'active' && !user.disabled);
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -265,7 +318,9 @@ export function AdminUserManagement() {
 
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-        <span>Showing {filteredUsers.length} of {users.length} users</span>
+        <span>
+          Showing {filteredUsers.length} of {users.length} users
+        </span>
       </div>
 
       {/* Users Table */}
@@ -296,7 +351,10 @@ export function AdminUserManagement() {
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredUsers.map((user) => (
-                <tr key={user.uid} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr
+                  key={user.uid}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
@@ -320,7 +378,9 @@ export function AdminUserManagement() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
                       value={user.customClaims?.role || 'USER'}
-                      onChange={(e) => handleRoleChange(user.uid, e.target.value)}
+                      onChange={(e) =>
+                        handleRoleChange(user.uid, e.target.value)
+                      }
                       disabled={actionLoading === user.uid}
                       className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
@@ -371,19 +431,22 @@ export function AdminUserManagement() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {user.metadata.lastSignInTime 
-                      ? new Date(user.metadata.lastSignInTime).toLocaleDateString()
-                      : 'Never'
-                    }
+                    {user.metadata.lastSignInTime
+                      ? new Date(
+                          user.metadata.lastSignInTime,
+                        ).toLocaleDateString()
+                      : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleStatusToggle(user.uid, user.disabled)}
+                        onClick={() =>
+                          handleStatusToggle(user.uid, user.disabled)
+                        }
                         disabled={actionLoading === user.uid}
                         className={`px-2 py-1 text-xs rounded ${
-                          user.disabled 
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                          user.disabled
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
                             : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                         } disabled:opacity-50`}
                       >
@@ -403,6 +466,17 @@ export function AdminUserManagement() {
                       >
                         Delete
                       </button>
+                      {/* Confirm Delete Dialog */}
+                      <ConfirmDialog
+                        open={confirmDialog.open}
+                        title="Delete User?"
+                        description={`Are you sure you want to delete user ${confirmDialog.email}? This action cannot be undone.`}
+                        confirmText="Delete"
+                        cancelText="Cancel"
+                        onConfirm={handleConfirmDelete}
+                        onCancel={() => setConfirmDialog({ open: false })}
+                        loading={actionLoading === confirmDialog.uid}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -429,7 +503,7 @@ export function AdminUserManagement() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Assign User Level</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">User</label>
@@ -437,10 +511,14 @@ export function AdminUserManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Select Level</label>
+                <label className="block text-sm font-medium mb-1">
+                  Select Level
+                </label>
                 <select
                   value={selectedLevel}
-                  onChange={(e) => setSelectedLevel(e.target.value as UserLevel)}
+                  onChange={(e) =>
+                    setSelectedLevel(e.target.value as UserLevel)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   {Object.values(UserLevel).map((level) => {
@@ -455,16 +533,31 @@ export function AdminUserManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Level Details</label>
+                <label className="block text-sm font-medium mb-1">
+                  Level Details
+                </label>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>Token Multiplier: {USER_LEVEL_CONFIGS[selectedLevel].tokenMultiplier}x</p>
-                  <p>Max Tokens: {USER_LEVEL_CONFIGS[selectedLevel].maxTokens === -1 ? 'Unlimited' : USER_LEVEL_CONFIGS[selectedLevel].maxTokens}</p>
-                  <p>Benefits: {USER_LEVEL_CONFIGS[selectedLevel].benefits.join(', ')}</p>
+                  <p>
+                    Token Multiplier:{' '}
+                    {USER_LEVEL_CONFIGS[selectedLevel].tokenMultiplier}x
+                  </p>
+                  <p>
+                    Max Tokens:{' '}
+                    {USER_LEVEL_CONFIGS[selectedLevel].maxTokens === -1
+                      ? 'Unlimited'
+                      : USER_LEVEL_CONFIGS[selectedLevel].maxTokens}
+                  </p>
+                  <p>
+                    Benefits:{' '}
+                    {USER_LEVEL_CONFIGS[selectedLevel].benefits.join(', ')}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Reason (Optional)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Reason (Optional)
+                </label>
                 <textarea
                   value={levelReason}
                   onChange={(e) => setLevelReason(e.target.value)}
@@ -483,7 +576,13 @@ export function AdminUserManagement() {
                 Cancel
               </button>
               <button
-                onClick={() => handleLevelChange(selectedUser.uid, selectedLevel, levelReason)}
+                onClick={() =>
+                  handleLevelChange(
+                    selectedUser.uid,
+                    selectedLevel,
+                    levelReason,
+                  )
+                }
                 disabled={actionLoading === selectedUser.uid}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
@@ -499,12 +598,17 @@ export function AdminUserManagement() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
             <h3 className="text-lg font-semibold mb-4">User Level History</h3>
-            
+
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {levelHistory.map((entry, index) => (
-                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                <div
+                  key={index}
+                  className="border-l-4 border-blue-500 pl-4 py-2"
+                >
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].color}`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].color}`}
+                    >
                       {USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].name}
                     </span>
                     <span className="text-sm text-gray-500">
