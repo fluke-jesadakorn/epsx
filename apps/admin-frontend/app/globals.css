@@ -128,6 +128,33 @@
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
+  
+  /* Smooth theme transitions */
+  html {
+    transition: color-scheme 0.3s ease-out;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
+  
+  html:not(.dark) {
+    color-scheme: light;
+  }
+  
+  /* Apply smooth transitions to all theme-dependent elements */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Prevent transitions on page load */
+  .preload * {
+    transition: none !important;
+  }
 }
 
 @layer utilities {
