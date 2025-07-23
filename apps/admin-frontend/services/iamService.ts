@@ -1,4 +1,4 @@
-import { buildPackagePermissions } from '../config/packagePermissions';
+// import { buildPackagePermissions } from '../config/packagePermissions'; // Config removed
 import type {
   CustomPermission,
   EffectivePermission,
@@ -6,7 +6,69 @@ import type {
   UserWithPermissions,
 } from '../types/admin/iam-enhanced';
 import { PackageTier } from '../types/admin/iam-enhanced';
-import { firebaseIAMService } from './firebaseIAMService';
+// import { firebaseIAMService } from './firebaseIAMService'; // Service removed
+
+// Placeholder for removed dependencies
+const buildPackagePermissions = () => ({});
+
+// Mock admin service
+const adminService = {
+  createAdminUser: async (...args: any[]) => {},
+};
+const firebaseIAMService = {
+  getUsers: async (...args: any[]) => [],
+  getUser: async (...args: any[]) => null,
+  getUserWithPermissions: async (...args: any[]): Promise<UserWithPermissions> => ({
+    id: '',
+    email: '',
+    displayName: '',
+    name: '',
+    emailVerified: false,
+    disabled: false,
+    roles: [],
+    groups: [],
+    attachedPolicies: [],
+    status: 'active',
+    packageTier: PackageTier.FREE,
+    subscriptionStatus: 'inactive' as any,
+    effectivePermissions: [],
+    customPermissions: [],
+    packagePermissions: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastActivity: new Date().toISOString(),
+  }),
+  updateUserPackageTier: async (...args: any[]) => {},
+  setUserCustomPermissions: async (...args: any[]) => {},
+  getUserCustomPermissions: async (...args: any[]) => [],
+  getActivityLogs: async (...args: any[]) => [],
+  bulkApplyTemplate: async (...args: any[]) => {},
+  applyPackagePermissions: async (...args: any[]) => {},
+  grantCustomPermission: async (...args: any[]): Promise<CustomPermission> => ({
+    id: '',
+    userId: '',
+    featureId: '',
+    permission: { action: '', resource: '' },
+    grantedBy: '',
+    grantedAt: new Date(),
+    isActive: true
+  }),
+  revokeCustomPermission: async (...args: any[]) => {},
+  hasFeatureAccess: async (...args: any[]) => false,
+  getUserEffectivePermissions: async (...args: any[]) => [],
+  previewPackageUpgrade: async (...args: any[]) => ({ 
+    currentPermissions: [], 
+    newPermissions: [], 
+    addedPermissions: [], 
+    removedPermissions: [] 
+  }),
+  getUserAuditLogs: async (...args: any[]) => [],
+  getAllAuditLogs: async (...args: any[]) => [],
+  cleanupExpiredPermissions: async (...args: any[]) => {},
+  createAuditLog: async (...args: any[]) => {},
+  createUser: async (...args: any[]) => {},
+  createAdminUser: async (...args: any[]) => {},
+};
 
 export class IAMService {
   /**

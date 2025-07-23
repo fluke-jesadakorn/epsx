@@ -1,98 +1,85 @@
 'use client';
 
 import React from 'react';
-import { useRankingAccess } from '@/hooks/useRankingAccess';
-import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import FinancialDataTable from '@/components/home/FinancialDataTable';
-import { getLevelColor, getLockedRankings } from '@/app/constants/packages';
-import { formatLevelAsNumber } from '@/utils/level-utils';
+import { useAuth } from '@/context/auth-context';
+import { Card, CardContent } from '@/components/ui/card';
+import { Lock } from 'lucide-react';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleBasedFinancialTableProps {
   data: StockFinancialData[];
+  title?: string;
+  subtitle?: string;
+  showRank?: boolean;
+  rankShift?: number;
   className?: string;
-  style?: React.CSSProperties;
-  isPublicPreview?: boolean;
 }
 
 /**
- * Enhanced FinancialDataTable with role-based access control
- * Integrates user subscription levels with data ranking visibility
+ * Role-based Financial Table component that shows data based on user permissions
+ * Falls back to basic table if user doesn't have premium access
  */
 export default function RoleBasedFinancialTable({
   data,
-  className,
-  style,
-  isPublicPreview = false,
+  title = "🍯 Premium Financial Rankings 📊",
+  subtitle = "Access exclusive financial insights with role-based data visibility",
+  showRank = true,
+  rankShift = 0,
+  className = "",
 }: RoleBasedFinancialTableProps): React.JSX.Element {
-  const { maxRankings, upgradeRequired, userLevel, isLoading } = useRankingAccess();
+  const { user } = useAuth();
 
-  // Filter data based on user's ranking access (unless it's public preview)
-  const filteredData = React.useMemo(() => {
-    if (isLoading) return data;
-    if (isPublicPreview) return data; // Don't filter public preview data
-    return data.slice(0, maxRankings);
-  }, [data, maxRankings, isLoading, isPublicPreview]);
+  // Basic role checking - in a real implementation, this would use proper permission system
+  const hasAccess = user !== null;
 
-  if (isLoading) {
+  if (!hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
+      <Card className={className}>
+        <CardContent className="p-12 text-center">
+          <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Premium Access Required</h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Please log in to access financial data
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
+  // Apply rank shift if needed
+  const processedData = React.useMemo(() => {
+    if (rankShift === 0) return data;
+    
+    return data.map((item, index) => ({
+      ...item,
+      displayRank: index + 1 + rankShift,
+    }));
+  }, [data, rankShift]);
+
   return (
-    <div className="space-y-6">
-      {/* Public preview indicator */}
-      {isPublicPreview && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center">
-          <p className="text-blue-700 dark:text-blue-300 font-medium">
-            📋 Public Preview: Showing rankings #100-110 as a demo of our ranking system
-          </p>
-        </div>
-      )}
-      
-      {/* Main financial table with filtered data */}
-      <FinancialDataTable 
-        data={filteredData}
-        className={className}
-        style={style}
-      />
-      
-      {/* Upgrade prompt (only show for non-public preview) */}
-      {!isPublicPreview && upgradeRequired && (
-        <UpgradePrompt 
-          currentLevel={userLevel} 
-          lockedRankings={getLockedRankings(userLevel)} 
-          className="max-w-2xl mx-auto"
-        />
-      )}
-      
-      {/* Access level indicator */}
-      <div className="text-center py-4">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-full text-sm">
-          {isPublicPreview ? (
-            <>
-              <span className="font-medium">Public Preview:</span>
-              <span className="font-bold text-blue-600">Rankings #100-110</span>
-              <span className="text-muted-foreground">
-                • {filteredData.length} entities shown
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="font-medium">Current Plan:</span>
-              <span className={`font-bold ${getLevelColor(userLevel)}`}>
-                {formatLevelAsNumber(userLevel)}
-              </span>
-              <span className="text-muted-foreground">
-                • Showing {filteredData.length} of {data.length} rankings
-              </span>
-            </>
-          )}
-        </div>
+    <div className={`w-full ${className}`}>
+      {/* Header section */}
+      <div className="text-center py-8">
+        <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+          <span className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600 bg-clip-text text-transparent">
+            {title}
+          </span>
+        </h2>
+        <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+          {subtitle}
+        </p>
+        {showRank && (
+          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            {rankShift !== 0 && `Ranking shifted by ${rankShift} positions`}
+          </div>
+        )}
       </div>
+      
+      <FinancialDataTable 
+        data={processedData}
+        className="min-h-screen"
+      />
     </div>
   );
 }

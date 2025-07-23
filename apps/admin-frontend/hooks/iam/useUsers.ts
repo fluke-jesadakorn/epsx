@@ -68,27 +68,8 @@ export const useUsers = (options: UseUsersOptions) => {
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      // Fallback to mock data for development
-      setUsers([
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'john@example.com',
-          packageTier: 'premium',
-          status: 'active',
-          lastActive: '2024-01-15',
-          permissions: ['user.read', 'user.write'],
-        },
-        {
-          id: '2',
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          packageTier: 'free',
-          status: 'active',
-          lastActive: '2024-01-14',
-          permissions: ['user.read'],
-        },
-      ]);
+      // Set empty array on error - no more mock data fallback
+      setUsers([]);
     } finally {
       setLoading(false);
     }

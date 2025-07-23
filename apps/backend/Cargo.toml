@@ -2,10 +2,16 @@
 name = "epsx"
 version = "0.1.0"
 edition = "2021"
+default-run = "epsx"
+
+[[bin]]
+name = "test_firebase"
+path = "src/bin/test_firebase.rs"
 
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }
 axum-extra = "0.9"
+async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
 futures = "0.3"
@@ -18,6 +24,8 @@ jsonwebtoken = "9.2"
 mongodb = { version = "2.8", features = ["tokio-runtime"] }
 reqwest = { version = "0.11", features = ["json"] }
 ring = "0.17"
+rust_decimal = { version = "1.33", features = ["serde-with-str"] }
+rust_decimal_macros = "1.33"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
@@ -26,6 +34,7 @@ tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 tower = "0.4"
+tower-cookies = "0.10"
 tower-http = { version = "0.5", features = ["cors"] }
 tower-service = "0.3"
 tracing = "0.1"
@@ -33,5 +42,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"
 url = "2.5"
 utoipa = "4.2"
-uuid = { version = "1.7", features = ["v4", "serde"] }
+uuid = { version = "1.7", features = ["v4", "v5", "serde"] }
 vercel_runtime = "1.1.6"
+regex = "1.10"
+ipnetwork = "0.20"
+
+# Firebase dependencies
+firestore = "0.41"
+base64 = "0.21"
+
+[dev-dependencies]
+mockall = "0.12"
+tokio-test = "0.4"

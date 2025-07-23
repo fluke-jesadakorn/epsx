@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 import {
   Activity,
   BarChart3,

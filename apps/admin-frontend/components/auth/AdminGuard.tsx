@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 
 interface AdminGuardProps {
   children: React.ReactNode;

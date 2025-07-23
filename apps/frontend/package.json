@@ -21,11 +21,10 @@
     "clean": "rm -rf .next out node_modules .turbo"
   },
   "dependencies": {
-    "@epsx/auth": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
-    "@hookform/resolvers": "5.1.1",
+    "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-avatar": "^1.1.3",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-label": "^2.1.2",

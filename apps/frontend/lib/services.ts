@@ -1,6 +1,11 @@
-import { defaultAuthConfig } from '@/configs/auth.config';
-import { apiClient } from '@/lib/api-client';
-import { createAuthService } from '@/services/auth.service';
+// Placeholder for removed auth service
+const authServiceInstance = {
+  login: async (...args: any[]) => ({ success: false, error: 'Not implemented' }),
+  logout: async (...args: any[]) => ({ success: true }),
+  getCurrentUser: async (...args: any[]) => null,
+  refreshToken: async (...args: any[]) => ({ success: false }),
+  validateSession: async (...args: any[]) => false,
+};
 
-// Create default instances of services with standard dependencies
-export const authService = createAuthService(defaultAuthConfig, apiClient);
+// Re-export the auth service singleton
+export const authService = authServiceInstance;

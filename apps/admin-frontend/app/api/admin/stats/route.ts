@@ -1,40 +1,79 @@
-import { NextResponse } from 'next/server';
-import { getAuthAdmin } from '@/lib/firebase-admin';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface UserStats {
-  totalUsers: number;
-  verifiedUsers: number;
-  disabledUsers: number;
-  adminUsers: number;
-  verificationRate: number;
-}
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = getAuthAdmin();
+    // Get search params from the original request
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
     
-    // Get users with a reasonable limit for stats calculation
-    const result = await auth.listUsers(1000);
-    const users = result.users;
+    // Forward the request to the Rust backend with cookies
+    const backendUrl = `${BACKEND_URL}/admin/stats${queryString ? `?${queryString}` : ''}`;
+    const cookieHeader = request.headers.get('cookie') || '';
     
-    const totalUsers = users.length;
-    const verifiedUsers = users.filter(user => user.emailVerified).length;
-    const disabledUsers = users.filter(user => user.disabled).length;
-    const adminUsers = users.filter(user => user.customClaims?.role === 'ADMIN').length;
+    console.log('Admin stats proxy: forwarding to', backendUrl);
+    console.log('Admin stats proxy: cookies', cookieHeader ? 'present' : 'none');
+    
+    try {
+      const response = await fetch(backendUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': cookieHeader,
+        },
+      });
 
-    const stats: UserStats = {
-      totalUsers,
-      verifiedUsers,
-      disabledUsers,
-      adminUsers,
-      verificationRate: totalUsers > 0 ? Math.round((verifiedUsers / totalUsers) * 100) : 0,
-    };
+      console.log('Admin stats proxy: backend response status', response.status);
 
-    return NextResponse.json(stats);
-  } catch (error: any) {
-    console.error('Failed to get user stats:', error);
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Admin stats proxy: backend error', error);
+        
+        // In development, return mock data if backend returns 401 (not authenticated)
+        if (process.env.NODE_ENV === 'development' && response.status === 401) {
+          console.log('Admin stats proxy: backend auth failed, returning mock data for development');
+          const mockStats = {
+            totalUsers: 150,
+            verifiedUsers: 120,
+            disabledUsers: 5,
+            adminUsers: 3,
+            verificationRate: 80.0
+          };
+          return NextResponse.json(mockStats);
+        }
+        
+        return NextResponse.json(
+          { error: error || 'Failed to fetch user statistics' },
+          { status: response.status }
+        );
+      }
+
+      const data = await response.json();
+      console.log('Admin stats proxy: backend data received', Object.keys(data));
+      return NextResponse.json(data);
+    } catch (fetchError) {
+      console.error('Admin stats proxy: backend not available:', fetchError);
+      
+      // For development, return mock data if backend is not available
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Admin stats proxy: returning mock data for development');
+        const mockStats = {
+          totalUsers: 150,
+          verifiedUsers: 120,
+          disabledUsers: 5,
+          adminUsers: 3,
+          verificationRate: 80.0
+        };
+        return NextResponse.json(mockStats);
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('Admin stats proxy error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch user statistics' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

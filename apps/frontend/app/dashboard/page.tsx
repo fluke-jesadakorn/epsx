@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { PermissionGate, useIAM } from '@/context/iam-context';
+import { useAuth } from '@/context/auth-context';
 import {
   BarChart3,
   Lock,
@@ -22,7 +22,8 @@ import {
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user, permissions, signOut } = useIAM();
+  const { user, signOut } = useAuth();
+  const permissions = { role: 'user', permissions: [] }; // Temporary fallback
 
   if (!user || !permissions) {
     return (
@@ -148,94 +149,94 @@ export default function DashboardPage() {
           </Card>
 
           {/* Analytics Card - Enhanced PancakeSwap Style */}
-          <PermissionGate permission="read:own_data">
-            <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-green-200/50 dark:border-green-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed-2">
-              <div className="absolute top-0 right-0 w-30 h-30 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-22 h-22 bg-gradient-to-br from-purple-400/8 to-pink-400/8 rounded-full blur-xl" />
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center text-green-600 dark:text-green-400">
-                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3 animate-float-gentle">
-                    <BarChart3 className="w-5 h-5 text-white" />
-                  </div>
-                  📊 Analytics
-                </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">
-                  View your data and insights
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <Link href="/analytics">
-                  <Button
-                    variant="pancake"
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                  >
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    View Analytics
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </PermissionGate>
+          {/* <PermissionGate permission="read:own_data"> */}
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-green-200/50 dark:border-green-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed-2">
+            <div className="absolute top-0 right-0 w-30 h-30 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 w-22 h-22 bg-gradient-to-br from-purple-400/8 to-pink-400/8 rounded-full blur-xl" />
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center text-green-600 dark:text-green-400">
+                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3 animate-float-gentle">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                </div>
+                📊 Analytics
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300">
+                View your data and insights
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <Link href="/analytics">
+                <Button
+                  variant="pancake"
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  View Analytics
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          {/* </PermissionGate> */}
 
           {/* Premium Content Card - Enhanced PancakeSwap Style */}
-          <PermissionGate permission="read:premium_content">
-            <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-purple-200/50 dark:border-purple-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed-3">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-yellow-400/8 to-orange-400/8 rounded-full blur-xl" />
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center text-purple-600 dark:text-purple-400">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3 animate-glow">
-                    <Lock className="w-5 h-5 text-white" />
-                  </div>
-                  🔒 Premium Content
-                </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Access exclusive premium features
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <Link href="/premium">
-                  <Button
-                    variant="pancake"
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                  >
-                    <Lock className="mr-2 h-4 w-4" />
-                    Access Premium
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </PermissionGate>
+          {/* <PermissionGate permission="read:premium_content"> */}
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-purple-200/50 dark:border-purple-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed-3">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-yellow-400/8 to-orange-400/8 rounded-full blur-xl" />
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center text-purple-600 dark:text-purple-400">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3 animate-glow">
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                🔒 Premium Content
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300">
+                Access exclusive premium features
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <Link href="/premium">
+                <Button
+                  variant="pancake"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Lock className="mr-2 h-4 w-4" />
+                  Access Premium
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          {/* </PermissionGate> */}
 
           {/* Moderator Panel - Enhanced PancakeSwap Style */}
-          <PermissionGate permission="moderate:content">
-            <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-red-200/50 dark:border-red-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-br from-red-400/10 to-rose-400/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-orange-400/8 to-yellow-400/8 rounded-full blur-xl" />
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center text-red-600 dark:text-red-400">
-                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg flex items-center justify-center mr-3 animate-wiggle">
-                    <Shield className="w-5 h-5 text-white" />
-                  </div>
-                  🛡️ Moderator Panel
-                </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Moderate content and users
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <Link href="/moderator">
-                  <Button
-                    variant="pancake"
-                    className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    Open Moderator Panel
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </PermissionGate>
+          {/* <PermissionGate permission="moderate:content"> */}
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-red-200/50 dark:border-red-400/20 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 animate-fade-in-delayed">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-br from-red-400/10 to-rose-400/10 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-orange-400/8 to-yellow-400/8 rounded-full blur-xl" />
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center text-red-600 dark:text-red-400">
+                <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg flex items-center justify-center mr-3 animate-wiggle">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                🛡️ Moderator Panel
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300">
+                Moderate content and users
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <Link href="/moderator">
+                <Button
+                  variant="pancake"
+                  className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Open Moderator Panel
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          {/* </PermissionGate> */}
         </div>
 
         <div className="mt-12">

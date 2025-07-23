@@ -1,6 +1,12 @@
 import { useEffect } from 'react';
-import { firebaseIAMService } from '../services/firebaseIAMService';
+// import { firebaseIAMService } from '../services/firebaseIAMService'; // Service removed
 import { PackageTier } from '../types/admin/iam-enhanced';
+
+// Placeholder for removed service
+const firebaseIAMService = {
+  updateUserPackageTier: async (...args: any[]) => {},
+  applyPackagePermissions: async (...args: any[]) => {},
+};
 
 export const usePaymentIntegration = () => {
   

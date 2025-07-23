@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useIAM } from '@/context/iam-context';
+import { useAuth } from '@/context/auth-context';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useIAM();
+  const { signUp } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +19,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await signUp(email, password);
+      await signUp({ email, password });
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

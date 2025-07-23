@@ -56,7 +56,7 @@ export interface PaymentRequest {
   completedAt?: any;
 
   // User & Package Info
-  userEmail?: string;
+  userEmail: string;
   packageName: string;
   packageLevel: string;
 }
@@ -167,9 +167,9 @@ export function parseCustomerRefId(customerRefId: string): {
 } {
   const parts = customerRefId.split(':');
   return {
-    userId: parts[1],
-    packageId: parts[3],
-    requestId: parts[5],
+    userId: parts[1] || '',
+    packageId: parts[3] || '',
+    requestId: parts[5] || '',
   };
 }
 
@@ -248,7 +248,7 @@ export class MusePayService {
       status: 'pending',
       packageName: packageData.name,
       packageLevel: packageData.level,
-      userEmail,
+      userEmail: userEmail || '',
       createdAt: serverTimestamp(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     };
@@ -340,6 +340,10 @@ export class MusePayService {
     }
 
     const paymentRequestDoc = paymentRequestSnapshot.docs[0];
+    if (!paymentRequestDoc) {
+      console.error('Payment request document not found');
+      return false;
+    }
     const paymentRequestData = paymentRequestDoc.data() as PaymentRequest;
 
     // 4. Create/update transaction record
@@ -465,7 +469,8 @@ export class MusePayService {
       return null;
     }
 
-    return paymentRequestSnapshot.docs[0].data() as PaymentRequest;
+    const doc = paymentRequestSnapshot.docs[0];
+    return doc ? doc.data() as PaymentRequest : null;
   }
 }
 

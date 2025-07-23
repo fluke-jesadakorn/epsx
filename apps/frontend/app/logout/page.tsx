@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useIAM } from '@/context/iam-context';
+import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 
 export default function LogoutPage() {
-  const { signOut } = useIAM();
+  const { signOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

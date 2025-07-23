@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/context/shared-auth-provider';
+import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';

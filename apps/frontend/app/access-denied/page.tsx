@@ -10,7 +10,9 @@ import { AlertTriangle, ArrowLeft, Shield, Info } from 'lucide-react';
 export default function AccessDeniedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, effectivePermissions, packageTier } = useAuth();
+  const { user } = useAuth();
+  const effectivePermissions = null; // TODO: Implement permission checking
+  const packageTier = 'BRONZE'; // TODO: Fetch from backend
 
   const route = searchParams.get('route') || '/unknown';
   const reason = searchParams.get('reason') || 'Insufficient permissions';

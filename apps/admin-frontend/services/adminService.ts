@@ -49,15 +49,24 @@ export interface UserStats {
   verificationRate: number;
 }
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export class AdminService {
-  // List users
+  // List users - Updated to use Rust backend
   static async listUsers(options: UserListOptions = {}): Promise<UserListResult> {
     try {
       const params = new URLSearchParams();
-      if (options.maxResults) params.set('maxResults', options.maxResults.toString());
-      if (options.pageToken) params.set('pageToken', options.pageToken);
+      if (options.maxResults) params.set('limit', options.maxResults.toString());
+      if (options.pageToken) params.set('offset', options.pageToken);
 
-      const response = await fetch(`/api/admin/users?${params.toString()}`);
+      const response = await fetch(`/api/admin/users?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies for session auth
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch users');
@@ -70,10 +79,17 @@ export class AdminService {
     }
   }
 
-  // Get user by UID
+  // Get user by UID - Updated to use Rust backend
   static async getUser(uid: string): Promise<AdminUser> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}`);
+      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch user');
@@ -86,18 +102,18 @@ export class AdminService {
     }
   }
 
-  // Set user role
+  // Set user role - Updated to use Rust backend
   static async setUserRole(uid: string, role: string): Promise<void> {
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
+      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+        method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'updateRole',
-          uid,
-          data: { role }
+          role,
+          reason: 'Role updated via admin panel'
         }),
       });
 
@@ -111,67 +127,28 @@ export class AdminService {
     }
   }
 
-  // Update user status (enable/disable)
+  // Update user status (enable/disable) - Note: Not currently implemented in Rust backend
   static async updateUserStatus(uid: string, disabled: boolean): Promise<void> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateStatus',
-          uid,
-          data: { disabled }
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user status');
-      }
-    } catch (error) {
-      console.error(`Failed to update status for user ${uid}:`, error);
-      throw error;
-    }
+    console.warn('updateUserStatus: This functionality needs to be implemented in the Rust backend');
+    throw new Error('User status updates not yet implemented in Rust backend');
   }
 
-  // Delete user
+  // Delete user - Note: Not currently implemented in Rust backend
   static async deleteUser(uid: string): Promise<void> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'deleteUser',
-          uid
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
-      }
-    } catch (error) {
-      console.error(`Failed to delete user ${uid}:`, error);
-      throw error;
-    }
+    console.warn('deleteUser: This functionality needs to be implemented in the Rust backend');
+    throw new Error('User deletion not yet implemented in Rust backend');
   }
 
-  // Send password reset email
+  // Send password reset email - Available in Rust backend auth endpoints
   static async sendPasswordResetEmail(email: string): Promise<string> {
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(`${BACKEND_URL}/auth/password-reset`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'sendPasswordReset',
-          data: { email }
-        }),
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -180,17 +157,24 @@ export class AdminService {
       }
 
       const result = await response.json();
-      return result.link;
+      return result.link || result.message || 'Password reset email sent';
     } catch (error) {
       console.error(`Failed to generate password reset for ${email}:`, error);
       throw error;
     }
   }
 
-  // Get user statistics
+  // Get user statistics - Uses Next.js API proxy to Rust backend
   static async getUserStats(): Promise<UserStats> {
     try {
-      const response = await fetch('/api/admin/stats');
+      const response = await fetch('/api/admin/stats?include_roles=true&include_tiers=true', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch user statistics');
@@ -203,18 +187,18 @@ export class AdminService {
     }
   }
 
-  // Set user level
+  // Set user level - Updated to use Rust backend (same as setUserRole)
   static async setUserLevel(uid: string, userLevel: UserLevel, reason?: string): Promise<void> {
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
+      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+        method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'updateUserLevel',
-          uid,
-          data: { userLevel, reason }
+          role: userLevel,
+          reason: reason || 'User level updated via admin panel'
         }),
       });
 
@@ -228,14 +212,22 @@ export class AdminService {
     }
   }
 
-  // Get user level history
+  // Get user level history - Updated to use Rust backend
   static async getUserLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}/level-history`);
+      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}/level-history`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch user level history');
       }
+      
       return await response.json();
     } catch (error) {
       console.error(`Failed to get user level history for ${uid}:`, error);
@@ -243,15 +235,22 @@ export class AdminService {
     }
   }
 
-  // Bulk update user levels
+  // Bulk update user levels - Updated to use Rust backend
   static async bulkUpdateUserLevels(updates: Array<{uid: string, userLevel: UserLevel, reason?: string}>): Promise<any> {
     try {
-      const response = await fetch('/api/admin/users/bulk-update-levels', {
+      const response = await fetch(`${BACKEND_URL}/admin/users/bulk-update-levels`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ updates }),
+        body: JSON.stringify({
+          updates: updates.map(update => ({
+            user_id: update.uid,
+            role: update.userLevel,
+            reason: update.reason || 'Bulk update via admin panel'
+          }))
+        }),
       });
 
       if (!response.ok) {
@@ -261,7 +260,6 @@ export class AdminService {
       
       const result = await response.json();
       
-      // Ensure the result has the expected structure
       if (!result || typeof result !== 'object') {
         throw new Error('Invalid response from server');
       }

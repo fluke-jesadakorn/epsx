@@ -1,203 +1,186 @@
-# CLAUDE.md
+# EPSX Claude Memory & Orchestration
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Project Overview
+**EPSX**: EPS growth-based trading platform with mobile-first design, IAM core module, and PancakeSwap-inspired theming.
 
-## Development Commands
+### Core Objectives
+- Enable easy stock trading through strategic guidance
+- EPS growth analysis without user investment knowledge
+- Mobile-first responsive design
+- Plugin architecture for future expansion
+- 20K+ user scalability target
 
+## Current Status
+
+### ✅ Phase 1: Project Setup & Documentation (COMPLETED)
+**Date Completed**: 2025-01-23  
+**Status**: 100% Complete
+
+#### Achievements
+- **Documentation Structure**: Created `.requirement_docs/` with comprehensive docs
+- **Business Requirements**: EPS trading platform goals, compliance strategy
+- **Development Requirements**: Tech stack, architecture, scalability specs
+- **Migration Plan**: Cleanup strategy and optimization roadmap  
+- **Architecture Design**: Hexagonal + Clean Code backend structure
+- **IAM Design**: Core module design for cross-project reusability
+- **Code Cleanup**: Removed 180+ unnecessary files, added structured code
+
+#### Technical Outcomes
+- Git state cleaned (all deleted files removed)
+- Hexagonal architecture backend implemented
+- Token-optimized codebase structure
+- Comprehensive documentation foundation
+
+#### Files Created
+```
+.requirement_docs/
+├── business-requirements.md    # Business goals, compliance, success metrics
+├── development-requirements.md # Tech stack, architecture, scalability
+├── migration-plan.md          # Cleanup tasks, optimization strategy
+├── architecture-design.md     # System design, patterns, structure
+└── iam-design.md             # IAM core module specification
+```
+
+## 🔄 Phase 2: Architecture Enhancement (CURRENT)
+
+### Next Tasks
+1. **Backend Architecture Enhancement**
+   - Enhance hexagonal + clean code structure
+   - Prepare database abstraction layer (Firebase → others)
+   - Implement microservices-ready patterns
+   - Add comprehensive error handling
+
+2. **Frontend Architecture**
+   - Establish monorepo shared design system
+   - Implement SSR-first approach with cookies
+   - Create mobile-first responsive framework
+
+### Commands & Scripts
 ```bash
 # Development
-pnpm dev              # Start frontend (3000) + admin (3001)
-pnpm dev:all          # Start all including backend
-pnpm dev:frontend     # Frontend only on port 3000
-pnpm dev:admin        # Admin only on port 3001
-pnpm dev:packages     # Watch mode for all packages
-
-# Building
-pnpm build            # Build everything
-pnpm build:packages   # Build shared packages first
-pnpm build:apps       # Build applications
-pnpm build:frontend   # Build frontend app
-pnpm build:admin      # Build admin app
+pnpm dev                # Start all development servers
+pnpm dev:frontend       # Frontend only (port 3000)
+pnpm dev:admin         # Admin only (port 3001)
+pnpm dev:backend       # Backend only (Rust)
 
 # Quality Assurance
-pnpm lint             # Lint all projects
-pnpm lint:fix         # Fix auto-fixable issues
-pnpm type-check       # TypeScript checking
-pnpm test             # Run all tests
-pnpm test:unit        # Unit tests only
-pnpm test:e2e         # End-to-end tests
+pnpm lint              # Check all projects
+pnpm type-check        # Type checking
+pnpm test              # Run all tests
 
-# Testing specific apps
-cd apps/frontend && pnpm test:e2e:ui    # Playwright UI mode
-cd apps/admin-frontend && pnpm test:e2e:headed  # Headed mode
-
-# Utilities
-pnpm clean            # Clean build artifacts
-pnpm format           # Format all code
-make help             # Show Makefile commands
+# Build & Deploy
+pnpm build             # Build everything
+pnpm build:frontend    # Build frontend
+pnpm build:admin       # Build admin
+pnpm build:backend     # Build backend (Rust)
 ```
 
-## High-Level Architecture
+### Known Issues
+- Type errors in `packages/utils/src/lib/YHprice.ts` (Yahoo Finance API types)
+- Need to fix import references after package cleanup
+
+## 📋 Future Phases
+
+### Phase 3: Design System & Theming
+- PancakeSwap-inspired theme system
+- Variance-based theming
+- Mobile-first responsive components
+- Shared UI library across monorepo
+
+### Phase 4: IAM Core Module
+- Extract IAM logic into standalone module
+- Plugin architecture implementation  
+- Role-based access control
+- Permission template system
+
+### Phase 5: Testing Infrastructure
+- Jest unit tests (frontend)
+- Playwright E2E tests
+- Rust unit/integration tests
+- CI/CD pipeline setup
+
+### Phase 6: Stock Trading Features
+- EPS growth strategy implementation
+- Stock recommendation system
+- Buy/sell interface (non-financial wording)
+- Subscription management
+
+## 🏗️ Architecture Context
+
+### Backend (Rust)
+```
+src/
+├── web/           # Web layer (routes, handlers, middleware)
+├── app/           # Application layer (use cases, DTOs, ports)
+├── dom/           # Domain layer (entities, values, services)
+└── infra/         # Infrastructure layer (repos, services, events)
+```
+
+### Frontend Stack
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + Radix UI
+- **Auth**: Firebase Auth + Cookies
+- **State**: Context + Hooks
 
 ### Monorepo Structure
-- **Turborepo + PNPM workspaces** for build orchestration and dependency management
-- **Apps**: Frontend (3000), Admin Frontend (3001), Backend (Rust)
-- **Shared Packages**: `@epsx/auth`, `@epsx/types`, `@epsx/ui`, `@epsx/utils`, `@epsx/config`, `@epsx/api-client`, `@epsx/shared`
-
-### Authentication & Authorization (Critical Pattern)
-- **Firebase Authentication** for user identity + custom IAM system for permissions
-- **Role hierarchy**: `user` � `premium_user` � `moderator` � `admin` � `super_admin`
-- **Permission system**: Granular permissions like `read:own_data`, `write:all`, `manage:users`
-- **Context providers**: `AuthProvider`, `IAMContext` for global auth state
-- **Middleware protection**: Route-level authorization in both apps
-- **Admin permissions**: Stored in Firestore with role templates
-
-### State Management Patterns
-- **Server state**: SWR for data fetching with automatic revalidation
-- **Client state**: Zustand stores (e.g., theme management in `lib/store/theme.ts`)
-- **Authentication**: React Context with Firebase integration
-- **Forms**: React Hook Form + Zod validation
-
-### Component Architecture
-- **Design system**: Custom PancakeSwap-inspired theme with Tailwind
-- **UI foundation**: Radix UI primitives in `@epsx/ui` package
-- **App-specific components**: Feature-based organization in `components/features/`
-- **Shared patterns**: `components/ui/` for base components, `components/common/` for utilities
-
-### API & Data Patterns
-- **Frontend**: Next.js API routes + Server Actions for forms
-- **Admin**: Enhanced APIs for user management and IAM operations
-- **Backend**: Rust server with WebSocket support for real-time stock data
-- **Caching**: Multi-level strategy (browser, server, Redis)
-- **Error handling**: Error boundaries and consistent error response patterns
-
-### Payment System Architecture
-- **Multi-currency support**: USDT across different networks (ERC20, TRC20, BEP20, etc.)
-- **Payment tiers**: Bronze/Silver/Gold/Platinum with feature gates
-- **Transaction tracking**: Firestore-based with status monitoring
-- **QR code payments**: Crypto payment integration
-
-### Build System Dependencies
-- **Critical**: Packages must build before apps (`pnpm build:packages` runs first)
-- **Development**: Packages run in watch mode, apps consume live changes
-- **TypeScript**: Monorepo path mapping with `@epsx/*` aliases
-- **Environment variables**: Global env in `turbo.json`, app-specific in `.env.local`
-
-## Important File Patterns
-
-### Configuration Files
-- `turbo.json`: Build orchestration and caching configuration
-- `tsconfig.base.json`: Shared TypeScript configuration with path mapping
-- `pnpm-workspace.yaml`: Workspace definition
-- `package.json` (root): Scripts and dev dependencies
-
-### Authentication Flow
-- `apps/frontend/context/auth-context.tsx`: Main auth provider
-- `apps/frontend/middleware.ts`: Route protection
-- `packages/auth/src/`: Shared auth utilities and types
-- `apps/admin-frontend/context/shared-admin-auth-provider.tsx`: Admin-specific auth
-
-### Type System
-- `packages/types/src/`: Shared TypeScript definitions
-- Apps import from `@epsx/types` instead of local type files
-- Payment types, auth types, API types centralized
-
-### IAM System (Admin Dashboard)
-- `apps/admin-frontend/components/iam/`: User management components
-- `apps/admin-frontend/services/iamService.ts`: IAM operations
-- `config/iam/default-roles.ts`: Permission templates
-- Firestore-based with real-time updates
-
-## Development Workflow
-
-### Working with Packages
-1. Start package development: `pnpm dev:packages`
-2. Apps automatically consume changes
-3. Build packages before production builds
-
-### Authentication Development
-- Test with different user roles in Firestore
-- Use admin dashboard for user management
-- Check middleware protection on new routes
-
-### Adding New Features
-1. Define types in `@epsx/types` if shared
-2. Add UI components to `@epsx/ui` if reusable
-3. Implement in app-specific `components/features/`
-4. Add proper permission checks for admin features
-
-### Database Schema (Firestore)
-- `users/`: User profiles and permissions
-- `payments/`: Transaction history
-- `iamRoles/`: Role definitions
-- `iamPermissions/`: Permission templates
-
-### Environment Setup
-- Copy `.env.example` to `.env.local` in apps
-- Firebase config required for auth
-- Google OAuth credentials needed
-- Payment system env vars for crypto integration
-
-## Common Issues
-
-### Build Problems
-- Always run `pnpm build:packages` before building apps
-- Clear `.turbo` cache if builds fail: `pnpm clean:cache`
-- Check TypeScript path mappings in `tsconfig.base.json`
-
-### Authentication Issues
-- Verify Firebase config in environment variables
-- Check IAM permissions in Firestore
-- Ensure middleware runs on protected routes
-
-### Package Dependencies
-- Use `workspace:*` for internal package dependencies
-- Avoid circular dependencies between packages
-- Install external deps in correct package/app location
-
-### Type Imports
-- Import shared types from `@epsx/types`, not local files
-- Payment types, auth types are in shared package
-- Local types only for app-specific interfaces
-
-## Memory Bank System
-
-### Project Continuity
-When working on complex tasks that may span multiple sessions due to token limits:
-
-1. **Create Memory Bank Files**: Store in `.ai_memory/` directory with versioned filenames
-2. **Track Progress**: Update todo lists and implementation status in memory files
-3. **Document Context**: Include environment context, file locations, and next steps
-4. **Version Control**: Use semantic versioning (v1.0, v1.1, etc.) for major updates
-
-### Memory Bank Structure
 ```
-.ai_memory/
-├── project_name_v1.0.md     # Initial planning and setup
-├── project_name_v1.1.md     # Progress updates
-└── feature_name_v1.0.md     # Specific feature implementation
+epsx/
+├── apps/
+│   ├── frontend/          # User trading platform
+│   ├── admin-frontend/    # Admin dashboard  
+│   └── backend/          # Rust API server
+├── packages/             # Shared libraries (future)
+├── .requirement_docs/    # Documentation
+└── configs/             # Shared configurations
 ```
 
-### When to Use Memory Bank
-- Multi-step implementations requiring 5+ tasks
-- Complex features spanning multiple apps/packages
-- Tasks that may hit token limits
-- Projects requiring context preservation across sessions
+## 🎯 Success Criteria
+- [ ] Mobile-first responsive design
+- [ ] 20K+ user scalability
+- [ ] Plugin-ready architecture  
+- [ ] Comprehensive testing coverage
+- [ ] Clean, optimized codebase
+- [ ] Complete documentation
 
-### Memory Bank Template
-Include in each memory file:
-- Project overview and goals
-- Current status and completed tasks
-- Pending tasks with priorities
-- Key architecture decisions
-- File locations and modifications
-- Next steps when resuming
-- Environment context
-- Version history
+## 📝 Development Notes
 
-### Resuming from Memory
-1. Read the latest version memory file in `.ai_memory/`
-2. Review current status and pending tasks
-3. Continue from the next priority task
-4. Update memory file with progress
-5. Create new version if significant changes
+### Code Style Requirements
+- **Naming**: Shortest possible function/variable/file names
+- **File Structure**: Minimal files, maximum consolidation
+- **Performance**: Optimized for token efficiency
+- **Testing**: Jest (frontend) + Playwright (E2E) + Rust tests
+
+### Current Working Directory Context
+- Main branch: `development`
+- Recent cleanup removed packages: `auth`, `api-client`, `shared`
+- New hexagonal architecture implemented in backend
+- Firebase integration maintained with abstraction layer
+
+## 📋 Task Management
+
+### Progress Tracking
+For detailed progress tracking, task completion status, and phase management, see:
+**File**: `PROJECT_PROGRESS.md`
+
+**Usage**: When executing tasks, always update progress in `PROJECT_PROGRESS.md` by checking off completed items and updating progress percentages.
+
+### Task Execution Commands
+When user requests task execution, refer to `PROJECT_PROGRESS.md` for:
+- Current phase status and next tasks
+- Detailed task breakdowns with checkboxes
+- Success criteria and milestones
+- Progress metrics and completion tracking
+
+## 🔍 Last Session Summary
+**Date**: 2025-01-23  
+**Focus**: Project setup and task tracking  
+**Completed**: Phase 1 entirely + created comprehensive progress tracker (`PROJECT_PROGRESS.md`)  
+**Next**: Execute Phase 2 tasks as directed, updating progress tracker
+
+---
+
+**Last Updated**: 2025-01-23  
+**Phase**: 2 (Architecture Enhancement)  
+**Priority**: Backend structure optimization and frontend design system  
+**Progress Tracker**: `PROJECT_PROGRESS.md` (32% overall completion)

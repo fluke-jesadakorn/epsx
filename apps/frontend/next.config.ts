@@ -10,11 +10,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   transpilePackages: [
-    '@epsx/api-client',
     '@epsx/config',
-    '@epsx/frontend',
-    '@epsx/shared',
     '@epsx/types',
+    '@epsx/ui',
     '@epsx/utils',
   ],
   experimental: {

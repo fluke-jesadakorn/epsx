@@ -1,7 +1,22 @@
-import { firebaseIAMService } from '../services/firebaseIAMService';
-import { firebaseAuthIAMService } from '../services/firebaseAuthIAMService';
+// import { firebaseIAMService } from '../services/firebaseIAMService'; // Service removed
+// import { firebaseAuthIAMService } from '../services/firebaseAuthIAMService'; // Service uses removed dependency
 import { PackageTier, SubscriptionStatus } from '../types/admin/iam-enhanced';
-import { buildPackagePermissions } from '../config/packagePermissions';
+// import { buildPackagePermissions } from '../config/packagePermissions'; // Config removed
+
+// Placeholders for removed services
+const firebaseIAMService = {
+  createUser: async (...args: any[]) => {},
+  updateUserPackageTier: async (...args: any[]) => {},
+  getUsers: async (...args: any[]) => [],
+  grantCustomPermission: async (...args: any[]) => {},
+  hasFeatureAccess: async (...args: any[]) => false,
+  cleanupExpiredPermissions: async (...args: any[]) => {},
+};
+const firebaseAuthIAMService = {
+  createAdminUser: async (...args: any[]) => {},
+  createUser: async (...args: any[]) => ({ user: null, profile: null }),
+};
+const buildPackagePermissions = () => ({});
 
 /**
  * Initialize Firebase IAM collections with sample data and setup

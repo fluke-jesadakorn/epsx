@@ -7,12 +7,12 @@ const REFRESH_THRESHOLD = 60 * 60; // 1 hour before expiry
 
 export interface SessionClaims {
   uid: string;
-  email?: string;
-  email_verified?: boolean;
+  email: string;
+  email_verified: boolean;
   name?: string;
   picture?: string;
-  exp?: number;
-  iat?: number;
+  exp: number;
+  iat: number;
 }
 
 export interface SessionResult {
@@ -71,12 +71,12 @@ export async function verifySession(): Promise<SessionResult> {
     
     const claims: SessionClaims = {
       uid: decodedToken.uid,
-      email: decodedToken.email,
-      email_verified: decodedToken.email_verified,
+      email: decodedToken.email || '',
+      email_verified: decodedToken.email_verified || false,
       name: decodedToken.name,
       picture: decodedToken.picture,
-      exp: decodedToken.exp,
-      iat: decodedToken.iat,
+      exp: decodedToken.exp || 0,
+      iat: decodedToken.iat || 0,
     };
 
     // Check if token needs refresh (within 1 hour of expiry)
@@ -179,8 +179,8 @@ export async function getSessionInfo(): Promise<{
 
   return {
     isAuthenticated: true,
-    email: result.claims.email,
-    emailVerified: result.claims.email_verified,
-    displayName: result.claims.name,
+    email: result.claims.email || undefined,
+    emailVerified: result.claims.email_verified || undefined,
+    displayName: result.claims.name || undefined,
   };
 }

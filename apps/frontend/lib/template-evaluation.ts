@@ -431,10 +431,10 @@ export class TemplateEvaluationService {
         return 'Granted - using most restrictive version';
       case ConflictResolutionStrategy.FAIL:
         return 'Denied - conflict resolution set to fail';
-      case ConflictResolutionStrategy.FIRST_WINS:
-        return 'Granted - first template assignment wins';
-      case ConflictResolutionStrategy.LAST_WINS:
-        return 'Granted - last template assignment wins';
+      case ConflictResolutionStrategy.PRIORITIZE_EXPLICIT:
+        return 'Granted - explicit permissions prioritized';
+      case ConflictResolutionStrategy.CUSTOM:
+        return 'Granted - custom resolution applied';
       default:
         return 'Granted - default resolution';
     }

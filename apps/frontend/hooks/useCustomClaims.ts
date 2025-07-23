@@ -6,13 +6,13 @@ import { UserRole } from '@/types/auth/roles';
 import { getUserCustomClaims, type CustomClaims } from '@/lib/custom-claims';
 
 export function useCustomClaims() {
-  const { user, isInitialized } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchClaims = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.user_id) {
       setClaims(null);
       setLoading(false);
       return;
@@ -22,17 +22,16 @@ export function useCustomClaims() {
       setLoading(true);
       setError(null);
 
-      // Get fresh token to ensure we have latest claims
-      const idTokenResult = await user.getIdTokenResult(true);
-      const customClaims = idTokenResult.claims as unknown as CustomClaims;
+      // For BackendUser, we get claims from the user object itself
+      const customClaims: CustomClaims = {
+        role: user.role as any,
+        permissions: user.permissions,
+        emailVerified: true, // Backend users are considered verified
+        createdAt: Date.now(), // Fallback timestamp
+        lastUpdated: Date.now(),
+      };
 
-      if (customClaims && customClaims.role) {
-        setClaims(customClaims);
-      } else {
-        // Fallback to server-side fetch if claims are not in token
-        const serverClaims = await getUserCustomClaims(user.uid);
-        setClaims(serverClaims);
-      }
+      setClaims(customClaims);
     } catch (err) {
       console.error('Failed to fetch custom claims:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch user claims');
@@ -43,10 +42,10 @@ export function useCustomClaims() {
   }, [user]);
 
   useEffect(() => {
-    if (isInitialized) {
+    if (!authLoading) {
       fetchClaims();
     }
-  }, [isInitialized, fetchClaims]);
+  }, [authLoading, fetchClaims]);
 
   const refreshClaims = useCallback(() => {
     fetchClaims();

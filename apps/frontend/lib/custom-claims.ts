@@ -157,7 +157,7 @@ export async function checkUserPermission(
     // Check specific permission
     return claims.permissions.includes(permission) || 
            claims.permissions.includes('*') ||
-           claims.permissions.some(p => p.endsWith(':all') && permission.startsWith(p.split(':')[0]));
+           claims.permissions.some(p => p.endsWith(':all') && permission.startsWith(p.split(':')[0] || ''));
   } catch (error) {
     console.error('Failed to check user permission:', error);
     return false;

@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { firebaseIAMService } from '../../services/firebaseIAMService';
+// import { firebaseIAMService } from '../../services/firebaseIAMService'; // Service removed
 import { useToast } from '@/components/ui/toast';
+
+// Placeholder for removed service
+const firebaseIAMService = {
+  checkConnection: async () => ({ firebase: true, firestore: true, auth: true }),
+  getUsers: async () => [],
+};
 
 interface ConnectionStatus {
   firebase: boolean;

@@ -1,24 +1,45 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-import { auth } from '@/lib/firebase-iam';
-import { getUserPermissions } from '@/lib/firebase-iam-helpers';
-import { templateEvaluationService, EffectivePermissions } from '@/lib/template-evaluation';
 import { PackageTier } from '@epsx/types';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase-iam';
+
+interface BackendUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+  package_tier: string;
+  expires_at: string;
+  session_type: string;
+  // Firebase compatibility properties
+  uid?: string; // Alias for user_id
+  emailVerified?: boolean;
+  displayName?: string;
+  photoURL?: string;
+  providerData?: any[];
+  isAnonymous?: boolean;
+  metadata?: any;
+  refreshToken?: string;
+  tenantId?: string | null;
+  // Additional Firebase User properties for compatibility
+  delete?: () => Promise<void>;
+  getIdToken?: (forceRefresh?: boolean) => Promise<string>;
+  getIdTokenResult?: (forceRefresh?: boolean) => Promise<any>;
+  reload?: () => Promise<void>;
+  toJSON?: () => object;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: BackendUser | null;
   loading: boolean;
+  isInitialized: boolean;
   permissions: string[];
-  effectivePermissions: EffectivePermissions | null;
   packageTier: PackageTier;
   hasPermission: (permission: string) => boolean;
   refreshPermissions: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  loginWithFirebaseToken: (token: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -26,67 +47,53 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<BackendUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [effectivePermissions, setEffectivePermissions] = useState<EffectivePermissions | null>(null);
   const [packageTier, setPackageTier] = useState<PackageTier>(PackageTier.FREE);
 
-  const loadUserPermissions = async (user: User) => {
+  const loadUserSession = async () => {
     try {
-      if (!db) {
-        console.warn('Firebase not initialized');
-        setPermissions([]);
-        setEffectivePermissions(null);
-        return;
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Session expired or invalid
+          setUser(null);
+          setPermissions([]);
+          setPackageTier(PackageTier.FREE);
+          return;
+        }
+        throw new Error('Failed to load session');
       }
 
-      // Get user data
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        console.warn('User document not found');
-        setPermissions([]);
-        setEffectivePermissions(null);
-        return;
-      }
-
-      const userData = userDoc.data();
-      const userPackageTier = userData.packageTier || PackageTier.FREE;
-      setPackageTier(userPackageTier);
-
-      // Build user context for template evaluation
-      const context = {
-        userId: user.uid,
-        packageTier: userPackageTier,
-        staticPermissions: userData.permissions || [],
-        roles: userData.roles || [],
+      const userData = await response.json();
+      // Add Firebase compatibility properties
+      const enhancedUserData = {
+        ...userData,
+        uid: userData.user_id, // Alias for Firebase compatibility
+        emailVerified: true, // Backend users are considered verified
+        displayName: userData.display_name || userData.email?.split('@')[0] || null,
+        photoURL: userData.photo_url || null,
+        providerData: userData.provider_data || [],
       };
-
-      // Evaluate templates and get effective permissions
-      const effectivePerms = await templateEvaluationService.evaluateUserPermissions(context);
-      
-      setPermissions(effectivePerms.permissions);
-      setEffectivePermissions(effectivePerms);
-
-      // Log template sources for debugging
-      if (effectivePerms.templateSources.length > 0) {
-        console.log('Active templates contributing permissions:', effectivePerms.templateSources);
-      }
-      
-      if (effectivePerms.conflicts.length > 0) {
-        console.warn('Permission conflicts detected:', effectivePerms.conflicts);
-      }
+      setUser(enhancedUserData);
+      setPermissions(userData.permissions || []);
+      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
     } catch (error) {
-      console.error('Error loading user permissions:', error);
+      console.error('Error loading user session:', error);
+      setUser(null);
       setPermissions([]);
-      setEffectivePermissions(null);
+      setPackageTier(PackageTier.FREE);
     }
   };
 
   const refreshPermissions = async () => {
-    if (user) {
-      await loadUserPermissions(user);
-    }
+    await loadUserSession();
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -106,36 +113,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        await loadUserPermissions(user);
-      } else {
-        setPermissions([]);
-        setEffectivePermissions(null);
-        setPackageTier(PackageTier.FREE);
+    const initAuth = async () => {
+      try {
+        await loadUserSession();
+      } finally {
+        setLoading(false);
+        setIsInitialized(true);
       }
-      setLoading(false);
-    });
+    };
 
-    return unsubscribe;
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/enhanced-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+        body: JSON.stringify({ 
+          type: 'credentials', 
+          email, 
+          password 
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Login failed');
+        throw new Error(error.message || 'Login failed');
       }
 
-      const data = await response.json();
-      return data;
+      const userData = await response.json();
+      // Add Firebase compatibility properties
+      const enhancedUserData = {
+        ...userData,
+        uid: userData.user_id, // Alias for Firebase compatibility
+        emailVerified: true, // Backend users are considered verified
+        displayName: userData.display_name || userData.email?.split('@')[0] || null,
+        photoURL: userData.photo_url || null,
+        providerData: userData.provider_data || [],
+      };
+      setUser(enhancedUserData);
+      setPermissions(userData.permissions || []);
+      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+      
+      return enhancedUserData;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const loginWithFirebaseToken = async (token: string) => {
+    try {
+      const response = await fetch('/api/auth/enhanced-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          type: 'firebase', 
+          firebase_token: token 
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+
+      const userData = await response.json();
+      // Add Firebase compatibility properties
+      const enhancedUserData = {
+        ...userData,
+        uid: userData.user_id, // Alias for Firebase compatibility
+        emailVerified: true, // Backend users are considered verified
+        displayName: userData.display_name || userData.email?.split('@')[0] || null,
+        photoURL: userData.photo_url || null,
+        providerData: userData.provider_data || [],
+      };
+      setUser(enhancedUserData);
+      setPermissions(userData.permissions || []);
+      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+      
+      return enhancedUserData;
     } catch (error) {
       throw error;
     }
@@ -146,12 +205,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, displayName }),
+        credentials: 'include',
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          name: displayName,
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
+        throw new Error(error.message || 'Registration failed');
       }
 
       const data = await response.json();
@@ -163,9 +227,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include',
+      });
       setUser(null);
       setPermissions([]);
+      setPackageTier(PackageTier.FREE);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -175,12 +243,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{ 
       user, 
       loading, 
+      isInitialized,
       permissions, 
-      effectivePermissions,
       packageTier,
       hasPermission,
       refreshPermissions,
-      login, 
+      login,
+      loginWithFirebaseToken,
       register, 
       logout 
     }}>

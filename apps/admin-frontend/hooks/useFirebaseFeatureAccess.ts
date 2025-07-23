@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { firebaseIAMService } from '../services/firebaseIAMService';
+// import { firebaseIAMService } from '../services/firebaseIAMService'; // Service removed
+
+// Placeholder for removed service
+const firebaseIAMService = {
+  hasFeatureAccess: async (...args: any[]) => false,
+};
 
 /**
  * Hook for checking if the current user has access to a specific feature

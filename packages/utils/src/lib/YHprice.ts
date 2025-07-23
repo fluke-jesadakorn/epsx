@@ -63,7 +63,7 @@ const retry = async <T>(fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } catch (e: unknown) {
-    if (e instanceof Error && e instanceof yahooFinance.errors.HTTPError && e.message.includes('429')) {
+    if (e instanceof Error && e.message.includes('429')) {
       await new Promise(r => setTimeout(r, 2000));
       return fn();
     }
@@ -100,7 +100,7 @@ export const getYHPrice = async (sym: string): Promise<Metrics> => {
   if (!sym) throw new Error('Stock symbol required');
 
   try {
-    const fin = await retry(() => yahooFinance.quoteSummary(sym, {
+    const fin = await retry(() => (yahooFinance as any).quoteSummary(sym, {
       modules: ['earnings', 'calendarEvents']
     })) as YHResponse;
 
@@ -111,14 +111,14 @@ export const getYHPrice = async (sym: string): Promise<Metrics> => {
     }
 
     const sortedQ = [...qs].sort((a, b) => {
-      const [aQ, aY] = a.date.match(/(\d)Q(\d{4})/)?.slice(1) || [];
-      const [bQ, bY] = b.date.match(/(\d)Q(\d{4})/)?.slice(1) || [];
-      return +bY - +aY || +bQ - +aQ;
+      const [, aQ, aY] = a.date.match(/(\d)Q(\d{4})/) || [];
+      const [, bQ, bY] = b.date.match(/(\d)Q(\d{4})/) || [];
+      return +(bY || 0) - +(aY || 0) || +(bQ || 0) - +(aQ || 0);
     });
 
     const [cur, prv, old] = sortedQ;
-    const hist = await retry(() => yahooFinance.chart(sym, {
-      period1: parseQDate(sortedQ[sortedQ.length - 1].date).toISOString().split('T')[0],
+    const hist = await retry(() => (yahooFinance as any).chart(sym, {
+      period1: parseQDate(sortedQ[sortedQ.length - 1]?.date || '').toISOString().split('T')[0],
       period2: new Date().toISOString().split('T')[0],
       interval: '1d'
     })) as ChartData;
@@ -136,20 +136,18 @@ export const getYHPrice = async (sym: string): Promise<Metrics> => {
       curEps,
       curGrowth: prvEps ? (curEps - prvEps) / prvEps : 0,
       curDate: cur?.date ? parseQDate(cur.date) : new Date(0),
-      curPrice: findQPrice(cur?.date, hist),
+      curPrice: findQPrice(cur?.date || '', hist),
       prvEps,
       prvGrowth: oldEps ? (prvEps - oldEps) / oldEps : 0,
       prvDate: prv?.date ? parseQDate(prv.date) : new Date(0),
-      prvPrice: findQPrice(prv?.date, hist),
+      prvPrice: findQPrice(prv?.date || '', hist),
       oldEps,
       oldDate: old?.date ? parseQDate(old.date) : new Date(0),
-      oldPrice: findQPrice(old?.date, hist),
+      oldPrice: findQPrice(old?.date || '', hist),
     };
   } catch (e: unknown) {
-    if ((e instanceof yahooFinance.errors.FailedYahooValidationError || 
-         e instanceof yahooFinance.errors.HTTPError) && 
-         e instanceof Error) {
-      console.warn(`${e.constructor.name} for ${sym}: ${e.message}`);
+    if (e instanceof Error) {
+      console.warn(`Yahoo Finance error for ${sym}: ${e.message}`);
       return DEF_METRICS;
     }
     throw e;

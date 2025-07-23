@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function POST(_request: NextRequest) {
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+
+export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    
-    // Clear the auth cookie
-    cookieStore.set('auth-token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0,
-      path: '/',
+    // Forward cookies to backend for session cleanup
+    const cookieHeader = request.headers.get('cookie') || '';
+
+    const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Cookie': cookieHeader,
+      },
     });
 
-    return NextResponse.json({ success: true });
+    // Create response
+    const nextResponse = NextResponse.json({ success: true });
+
+    // Forward any set-cookie headers from backend (to clear session cookies)
+    const setCookieHeader = response.headers.get('set-cookie');
+    if (setCookieHeader) {
+      nextResponse.headers.set('set-cookie', setCookieHeader);
+    }
+
+    return nextResponse;
   } catch (error) {
     console.error('Logout error:', error);
     return NextResponse.json(

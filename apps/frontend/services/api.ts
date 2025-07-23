@@ -35,17 +35,23 @@ class ApiService {
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
+    const options: RequestInit = {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    };
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+    return this.request<T>(endpoint, options);
   }
 
   async put<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
+    const options: RequestInit = {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    };
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+    return this.request<T>(endpoint, options);
   }
 
   async delete<T>(endpoint: string): Promise<T> {

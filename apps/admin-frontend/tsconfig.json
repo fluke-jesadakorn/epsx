@@ -41,12 +41,6 @@
       "@epsx/config/*": [
         "../../packages/config/*"
       ],
-      "@epsx/api-client/*": [
-        "../../packages/api-client/*"
-      ],
-      "@epsx/shared/*": [
-        "../../packages/shared/*"
-      ],
       "@epsx/types/*": [
         "../../packages/types/*"
       ],

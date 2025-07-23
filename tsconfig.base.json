@@ -61,12 +61,6 @@
       "@epsx/ui/*": ["./packages/ui/src/*"],
       "@epsx/config": ["./packages/config/src"],
       "@epsx/config/*": ["./packages/config/src/*"],
-      "@epsx/auth": ["./packages/auth/src"],
-      "@epsx/auth/*": ["./packages/auth/src/*"],
-      "@epsx/api-client": ["./packages/api-client/src"],
-      "@epsx/api-client/*": ["./packages/api-client/src/*"],
-      "@epsx/shared": ["./packages/shared/src"],
-      "@epsx/shared/*": ["./packages/shared/src/*"],
       "@/*": ["./src/*"],
       "~/*": ["./*"]
     }

@@ -1,8 +1,7 @@
 import { AuthDebugger } from '@/components/debug/AuthDebugger';
 import { Navigation } from '@/components/nav';
 import { ToastProvider } from '@/components/ui/toaster';
-import { IAMProvider } from '@/context/iam-context';
-import { AppAuthProvider } from '@/context/shared-auth-provider';
+import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from 'next-themes';
 import { Kanit } from 'next/font/google';
 import './globals.css';
@@ -28,8 +27,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${kanit.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AppAuthProvider>
-            <IAMProvider>
+          <AuthProvider>
               <ToastProvider>
                 {/* PancakeSwap-style background decorations */}
                 <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -104,8 +102,7 @@ export default function RootLayout({
                 {children}
                 <AuthDebugger />
               </ToastProvider>
-            </IAMProvider>
-          </AppAuthProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

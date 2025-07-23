@@ -14,7 +14,7 @@
     "prepare": "turbo run build:packages",
     "postinstall": "turbo run build:packages",
     "// Development Scripts": "===================================",
-    "dev": "turbo run dev --parallel --filter='!@epsx/backend'",
+    "dev": "turbo run dev --parallel",
     "dev:all": "turbo run dev --parallel",
     "dev:frontend": "turbo run dev:frontend",
     "dev:admin": "turbo run dev:admin",
