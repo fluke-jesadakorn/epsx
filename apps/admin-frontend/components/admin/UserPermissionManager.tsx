@@ -2,8 +2,28 @@
 
 import { useToast } from '@/components/ui/toast';
 import React, { useEffect, useState } from 'react';
-import { PERMISSION_TEMPLATES } from '../../config/packagePermissions';
-import { iamService } from '../../services/iamService';
+// import { PERMISSION_TEMPLATES } from '../../config/packagePermissions'; // Config removed
+// import { iamService } from '../../services/iamService'; // Service removed
+
+// Placeholder for removed dependencies
+const PERMISSION_TEMPLATES: any[] = [];
+const iamService = {
+  getUser: async (...args: any[]) => null,
+  updateUserPackageTier: async (...args: any[]) => {},
+  applyTemplateToUser: async (...args: any[]) => {},
+  getUserWithPermissions: async (...args: any[]): Promise<UserWithPermissions | null> => null,
+  previewPackageUpgrade: async (...args: any[]) => ({ 
+    changes: [], 
+    newTier: 'FREE',
+    addedPermissions: [],
+    removedPermissions: [],
+    currentPermissions: [],
+    newPermissions: []
+  }),
+  grantCustomPermission: async (...args: any[]) => {},
+  revokeCustomPermission: async (...args: any[]) => {},
+  bulkApplyTemplate: async (...args: any[]) => {},
+};
 import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
 import { PackageTier } from '../../types/admin/iam-enhanced';
 

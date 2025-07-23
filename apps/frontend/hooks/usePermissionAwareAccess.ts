@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/shared-auth-provider';
+import { useAuth } from '@/context/auth-context';
 import { createPaymentService } from '@/services/payment.service';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';

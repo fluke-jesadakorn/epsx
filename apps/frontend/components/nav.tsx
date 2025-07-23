@@ -37,7 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/shared-auth-provider';
+import { useAuth } from '@/context/auth-context';
 import { navigationService } from '@/services/navigation.service';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
 import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
@@ -52,7 +52,7 @@ const iconMap = {
 
 function NavigationComponent() {
   const pathname = usePathname();
-  const { user, signOut, loading } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { userLevel, isLoading: levelLoading } = usePermissionAwareAccess();
   // Get user email and admin status from user object
   const userEmail = user?.email;
@@ -104,7 +104,7 @@ function NavigationComponent() {
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AdminService  } from '@/services/adminService';
 import type {AdminUser} from '@/services/adminService';
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 import { Shield, Users, CheckCircle, AlertTriangle, UserX, Crown } from 'lucide-react';
 
 interface UserStats {
@@ -248,7 +248,7 @@ export function AdminDashboard() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-medium">
-                    {user.metadata.creationTime 
+                    {user.metadata?.creationTime 
                       ? new Date(user.metadata.creationTime).toLocaleDateString()
                       : 'Unknown'
                     }

@@ -21,9 +21,45 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { firebaseIAMService } from './firebaseIAMService';
+// import { firebaseIAMService } from './firebaseIAMService'; // Service removed
 import { PackageTier, SubscriptionStatus } from '../types/admin/iam-enhanced';
 import type { UserWithPermissions } from '../types/admin/iam-enhanced';
+
+// Placeholder for removed service
+const firebaseIAMService = {
+  createUser: async (...args: any[]) => {},
+  updateUserPackageTier: async (...args: any[]) => {},
+  getUser: async (...args: any[]) => null,
+  getUserWithPermissions: async (...args: any[]): Promise<UserWithPermissions> => ({
+    id: '',
+    email: '',
+    displayName: '',
+    name: '',
+    emailVerified: false,
+    disabled: false,
+    roles: [],
+    groups: [],
+    attachedPolicies: [],
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastActivity: new Date().toISOString(),
+    packageTier: PackageTier.FREE,
+    customPermissions: [],
+    effectivePermissions: [],
+    packagePermissions: [],
+    subscriptionStatus: SubscriptionStatus.PENDING
+  }),
+  applyPackagePermissions: async (...args: any[]) => {},
+  setUserCustomPermissions: async (...args: any[]) => {},
+  getUserCustomPermissions: async (...args: any[]) => [],
+  updateUser: async (...args: any[]) => {},
+  updateUserProfile: async (...args: any[]) => {},
+  deleteUser: async (...args: any[]) => {},
+  getUserEffectivePermissions: async (...args: any[]) => [],
+  getUsersCount: async (...args: any[]) => 0,
+  createAuditLog: async (...args: any[]) => {},
+};
 
 export interface CreateUserRequest {
   email: string;

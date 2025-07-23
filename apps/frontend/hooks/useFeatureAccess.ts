@@ -1,4 +1,4 @@
-import { useAuth } from '@/context/shared-auth-provider';
+import { useAuth } from '@/context/auth-context';
 
 export function useFeatureAccess() {
   const { user } = useAuth();
@@ -7,6 +7,7 @@ export function useFeatureAccess() {
     canAccessTrading: !!user,
     canAccessRankings: !!user,
     canAccessAnalytics: !!user,
+    userTier: 'BRONZE', // Default tier for now - TODO: fetch from backend
     loading: false
   };
 }

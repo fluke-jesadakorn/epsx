@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/context/shared-auth-provider';
+import { useAuth } from '@/context/auth-context';
 
 interface UserProfile {
   userLevel?: string;
@@ -28,7 +28,7 @@ export function useUserProfile() {
     }
     setLoading(true);
     const fetchProfile = async () => {
-      const ref = doc(db, 'users', user.uid);
+      const ref = doc(db, 'users', user.user_id);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         setProfile(snap.data() as UserProfile);

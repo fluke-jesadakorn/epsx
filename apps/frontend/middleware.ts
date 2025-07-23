@@ -58,24 +58,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
-  // For protected routes with token, check template-based permissions
+  // For protected routes with token, check permissions
   if (isProtectedRoute && token) {
     try {
-      // Get user ID from token (simplified - in production, verify JWT)
-      const userId = await getUserIdFromToken(token);
+      const hasAccess = await checkRoutePermissions(token, pathname);
       
-      if (userId) {
-        const hasAccess = await checkRoutePermissions(userId, pathname);
+      if (!hasAccess.allowed) {
+        console.log('Access denied for route:', pathname, 'Reason:', hasAccess.reason);
         
-        if (!hasAccess.allowed) {
-          console.log('Access denied for route:', pathname, 'Reason:', hasAccess.reason);
-          
-          // Redirect to access denied page or dashboard
-          const accessDeniedUrl = new URL('/access-denied', request.url);
-          accessDeniedUrl.searchParams.set('route', pathname);
-          accessDeniedUrl.searchParams.set('reason', hasAccess.reason);
-          return NextResponse.redirect(accessDeniedUrl);
-        }
+        // Redirect to access denied page or dashboard
+        const accessDeniedUrl = new URL('/access-denied', request.url);
+        accessDeniedUrl.searchParams.set('route', pathname);
+        accessDeniedUrl.searchParams.set('reason', hasAccess.reason);
+        return NextResponse.redirect(accessDeniedUrl);
       }
     } catch (error) {
       console.error('Error checking route permissions:', error);
@@ -86,59 +81,54 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-/**
- * Extract user ID from session token
- * In production, this should verify the JWT and extract claims
- */
-async function getUserIdFromToken(token: string): Promise<string | null> {
-  try {
-    // This is a simplified version - in production, verify JWT signature
-    // and extract user ID from claims
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.sub || payload.uid || null;
-  } catch (error) {
-    console.error('Error extracting user ID from token:', error);
-    return null;
-  }
-}
 
 /**
- * Check if user has permission to access a route using template system
+ * Check if user has permission to access a route using backend API
  */
 async function checkRoutePermissions(
-  userId: string, 
+  token: string, 
   route: string
 ): Promise<{ allowed: boolean; requiredPermission?: string; reason: string }> {
   try {
-    // Dynamic import to avoid edge runtime issues
-    const { templateEvaluationService } = await import('@/lib/template-evaluation');
-    const { doc, getDoc } = await import('firebase/firestore');
-    const { db } = await import('@/lib/firebase-iam');
-    const { PackageTier } = await import('@epsx/types');
-    
-    if (!db) {
-      return { allowed: true, reason: 'Firebase not available, allowing access' };
+    // Use the existing /api/auth/me route to get user data from backend
+    const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Cookie': `__session=${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { allowed: false, reason: 'User authentication failed' };
     }
-    
-    // Get user data
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    
-    if (!userDoc.exists()) {
-      return { allowed: false, reason: 'User data not found' };
+
+    const userData = await response.json();
+    const userPermissions = userData.permissions || [];
+    const requiredPermission = routePermissions[route];
+
+    if (!requiredPermission) {
+      return { allowed: true, reason: 'No permission required for this route' };
     }
+
+    // Check if user has the specific permission
+    const hasPermission = userPermissions.includes(requiredPermission);
     
-    const userData = userDoc.data();
-    
-    // Build user context
-    const context = {
-      userId,
-      packageTier: userData.packageTier || PackageTier.FREE,
-      staticPermissions: userData.permissions || [],
-      roles: userData.roles || [],
+    // Check for wildcard permissions (e.g., "admin.*" covers "admin.users.view")
+    const hasWildcardPermission = userPermissions.some((permission: string) => {
+      if (permission.endsWith('.*')) {
+        const prefix = permission.slice(0, -2);
+        return requiredPermission.startsWith(prefix + '.');
+      }
+      return false;
+    });
+
+    const allowed = hasPermission || hasWildcardPermission || userPermissions.includes('*');
+
+    return {
+      allowed,
+      requiredPermission,
+      reason: allowed ? 'Permission granted' : `Missing required permission: ${requiredPermission}`
     };
-    
-    // Check route permissions using template system
-    return await templateEvaluationService.getRoutePermissions(context, route);
   } catch (error) {
     console.error('Error in checkRoutePermissions:', error);
     // Allow access on error to prevent blocking users due to technical issues

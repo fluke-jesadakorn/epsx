@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 import { AlertCircle, Eye, EyeOff, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

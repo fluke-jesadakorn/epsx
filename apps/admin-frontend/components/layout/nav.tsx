@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 import { BarChart, Home, LogIn, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
