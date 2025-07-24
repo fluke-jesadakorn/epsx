@@ -41,7 +41,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const login = async (token: string) => {
     try {
       setError(null);
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -64,19 +64,35 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setLoading(true);
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       
       if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          throw new Error('Invalid response format from server');
+        }
       } else {
-        const errorData = await res.json();
-        setError(errorData.message || 'Invalid credentials');
-        throw new Error(errorData.message || 'Invalid credentials');
+        let errorMessage = 'Invalid credentials';
+        try {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await res.json();
+            errorMessage = errorData.message || 'Invalid credentials';
+          } else {
+            errorMessage = `Server error: ${res.status} ${res.statusText}`;
+          }
+        } catch (parseError) {
+          errorMessage = `Server error: ${res.status} ${res.statusText}`;
+        }
+        setError(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Admin sign in failed:', error);
@@ -90,7 +106,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, { method: 'POST' });
       setUser(null);
       setError(null);
     } catch (error) {
@@ -103,10 +119,15 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`);
         if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            setUser(data.user);
+          } else {
+            console.warn('Auth check returned non-JSON response');
+          }
         }
       } catch (error) {
         console.error('Admin auth check failed:', error);

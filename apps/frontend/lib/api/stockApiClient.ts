@@ -41,10 +41,10 @@ export class StockApiClient {
     } else if (typeof window === 'undefined') {
       // Server-side: use absolute URL
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-      this.baseUrl = `${frontendUrl}/api/stock`;
+      this.baseUrl = `${frontendUrl}/api/v1/market-data/stocks`;
     } else {
       // Client-side: use relative URL
-      this.baseUrl = '/api/stock';
+      this.baseUrl = '/api/v1/market-data/stocks';
     }
   }
 

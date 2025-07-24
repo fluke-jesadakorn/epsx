@@ -1,6 +1,5 @@
-"use client";
-
 import * as React from "react";
+
 import { cn } from "../../lib/utils";
 
 export interface InputProps
@@ -9,7 +8,7 @@ export interface InputProps
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, children, ...props }, ref) => {
+  ({ className, type, children: _children, ...props }, ref) => {
     return (
       <input
         type={type}

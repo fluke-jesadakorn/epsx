@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (token: string) => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/v1/authentication/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/v1/authentication/logout', { method: 'POST' });
       setUsr(null);
     } catch (error) {
       console.error('Logout failed:', error);
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/v1/authentication/profile');
         if (res.ok) {
           const data = await res.json();
           setUsr(data.user);

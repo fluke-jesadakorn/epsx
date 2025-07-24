@@ -1,12 +1,4 @@
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { apiClient, isApiSuccess } from '@/lib/api-client';
 import { nanoid } from 'nanoid';
 
 export interface PaymentStatus {
@@ -32,14 +24,24 @@ export interface PaymentTx {
 
 export const createPaymentService = () => {
   const recordPayment = async (
-    _amount: number,
-    _currency: string,
-    _description?: string,
+    amount: number,
+    currency: string,
+    description?: string,
   ): Promise<string | null> => {
     try {
-      const txId = nanoid();
-      // Implementation...
-      return txId;
+      const response = await apiClient.post('/payments', {
+        amount,
+        currency,
+        description,
+        orderNo: nanoid(),
+      });
+
+      if (isApiSuccess(response) && response.data) {
+        return response.data.paymentId || response.data.orderNo;
+      }
+
+      console.error('Failed to record payment:', response.error);
+      return null;
     } catch (error) {
       console.error('Error recording payment:', error);
       return null;
@@ -47,16 +49,27 @@ export const createPaymentService = () => {
   };
 
   const confirmPayment = async (
-    _txId: string,
-    _payMethod: string,
-    _userLevel: string,
+    txId: string,
+    payMethod: string,
+    userLevel: string,
   ): Promise<{
     success: boolean;
     message: string;
   }> => {
     try {
-      // Implementation...
-      return { success: true, message: 'Payment confirmed successfully' };
+      const response = await apiClient.post(`/payments/${txId}/confirm`, {
+        payMethod,
+        userLevel,
+      });
+
+      if (isApiSuccess(response)) {
+        return { success: true, message: 'Payment confirmed successfully' };
+      }
+
+      return { 
+        success: false, 
+        message: response.error || 'Failed to confirm payment' 
+      };
     } catch (error) {
       console.error('Error confirming payment:', error);
       return { success: false, message: 'Failed to confirm payment' };
@@ -65,34 +78,24 @@ export const createPaymentService = () => {
 
   const getPaymentStatus = async (): Promise<PaymentStatus | null> => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('User not authenticated yet, returning default status');
+      const response = await apiClient.get('/user/payment-status');
+
+      if (isApiSuccess(response) && response.data) {
+        const data = response.data;
         return {
-          paid: false,
-          userLevel: 'BRONZE',
-          isNewUser: true,
+          paid: data.hasPaid || false,
+          lastPayDate: data.lastPaymentDate ? new Date(data.lastPaymentDate) : undefined,
+          expireDate: data.expirationDate ? new Date(data.expirationDate) : undefined,
+          userLevel: data.userLevel || 'BRONZE',
+          isNewUser: !data.hasPaid,
         };
       }
 
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        return {
-          paid: false,
-          userLevel: 'BRONZE',
-          isNewUser: true,
-        };
-      }
-
-      const userData = userDoc.data();
-      const hasPaid = userData.paymentStatus?.hasPaid || false;
-      
+      // Return default status if API call fails
       return {
-        paid: hasPaid,
-        lastPayDate: userData.paymentStatus?.lastPaymentDate?.toDate(),
-        expireDate: userData.paymentStatus?.expirationDate?.toDate(),
-        userLevel: userData.userLevel || 'BRONZE',
-        isNewUser: !hasPaid,
+        paid: false,
+        userLevel: 'BRONZE',
+        isNewUser: true,
       };
     } catch (error) {
       console.error('Error getting payment status:', error);
@@ -102,55 +105,60 @@ export const createPaymentService = () => {
 
   const getTxHistory = async (): Promise<PaymentTx[]> => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('User not authenticated yet, returning empty transaction history');
-        return [];
+      const response = await apiClient.get('/user/transactions');
+
+      if (isApiSuccess(response) && response.data) {
+        const transactions = response.data.transactions || [];
+        
+        return transactions.map((tx: any) => ({
+          orderNo: tx.orderNo,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          finishTime: tx.finishTime || new Date().toISOString(),
+          blockchainData: tx.blockchainData || { txHash: '', network: '' },
+          blockExplorerUrl: tx.blockExplorerUrl || '',
+        }));
       }
 
-      const txRef = collection(db, 'transactions');
-      // Note: We don't use orderBy here to avoid requiring a composite index
-      // Alternative: Create a composite index in Firebase Console for userId (ASC) + finishTime (DESC)
-      // Index URL: https://console.firebase.google.com/v1/r/project/epsx-449804/firestore/indexes
-      const q = query(txRef, where('userId', '==', user.uid));
-
-      const querySnapshot = await getDocs(q);
-      const txs: PaymentTx[] = [];
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        txs.push({
-          orderNo: data.orderNo,
-          amount: data.actualAmount,
-          currency: data.currency,
-          status: data.status,
-          finishTime:
-            data.finishTime?.toDate?.().toISOString() ||
-            new Date().toISOString(),
-          blockchainData: data.blockchainData || { txHash: '', network: '' },
-          blockExplorerUrl: data.blockExplorerUrl || '',
-        });
-      });
-
-      // Sort by finishTime in descending order (most recent first) in JavaScript
-      txs.sort(
-        (a, b) =>
-          new Date(b.finishTime).getTime() - new Date(a.finishTime).getTime(),
-      );
-
-      return txs;
+      return [];
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       return [];
     }
   };
 
-  const initQRPayment = async (_amount: number, _currency: string) => {
-    // Implementation...
+  const initQRPayment = async (amount: number, currency: string) => {
+    try {
+      const response = await apiClient.post('/payments/qr-init', {
+        amount,
+        currency,
+      });
+
+      if (isApiSuccess(response)) {
+        return response.data;
+      }
+
+      throw new Error(response.error || 'Failed to initialize QR payment');
+    } catch (error) {
+      console.error('Error initializing QR payment:', error);
+      throw error;
+    }
   };
 
-  const getPlanDetails = async (_planId: string) => {
-    // Implementation...
+  const getPlanDetails = async (planId: string) => {
+    try {
+      const response = await apiClient.get(`/plans/${planId}`);
+
+      if (isApiSuccess(response)) {
+        return response.data;
+      }
+
+      throw new Error(response.error || 'Failed to get plan details');
+    } catch (error) {
+      console.error('Error getting plan details:', error);
+      throw error;
+    }
   };
 
   const getTxHistoryForNewUser = async (): Promise<PaymentTx[]> => {
@@ -161,46 +169,25 @@ export const createPaymentService = () => {
         return getTxHistory();
       }
 
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('User not authenticated yet, returning empty transaction history for new user');
-        return [];
+      const response = await apiClient.get('/user/transactions?excludePending=true');
+
+      if (isApiSuccess(response) && response.data) {
+        const transactions = response.data.transactions || [];
+        
+        return transactions
+          .filter((tx: any) => tx.status !== 'PENDING' && tx.status !== 'pending')
+          .map((tx: any) => ({
+            orderNo: tx.orderNo,
+            amount: tx.amount,
+            currency: tx.currency,
+            status: tx.status,
+            finishTime: tx.finishTime || new Date().toISOString(),
+            blockchainData: tx.blockchainData || { txHash: '', network: '' },
+            blockExplorerUrl: tx.blockExplorerUrl || '',
+          }));
       }
 
-      const txRef = collection(db, 'transactions');
-      const q = query(txRef, where('userId', '==', user.uid));
-
-      const querySnapshot = await getDocs(q);
-      const txs: PaymentTx[] = [];
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        
-        // Skip pending transactions for new users
-        if (data.status === 'PENDING' || data.status === 'pending') {
-          return;
-        }
-
-        txs.push({
-          orderNo: data.orderNo,
-          amount: data.actualAmount,
-          currency: data.currency,
-          status: data.status,
-          finishTime:
-            data.finishTime?.toDate?.().toISOString() ||
-            new Date().toISOString(),
-          blockchainData: data.blockchainData || { txHash: '', network: '' },
-          blockExplorerUrl: data.blockExplorerUrl || '',
-        });
-      });
-
-      // Sort by finishTime in descending order (most recent first) in JavaScript
-      txs.sort(
-        (a, b) =>
-          new Date(b.finishTime).getTime() - new Date(a.finishTime).getTime(),
-      );
-
-      return txs;
+      return [];
     } catch (error) {
       console.error('Error fetching transaction history for new user:', error);
       return [];

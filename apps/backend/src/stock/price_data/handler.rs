@@ -34,6 +34,15 @@ use super::service::PriceDataService;
 
 pub fn price_data_router(price_service: Arc<PriceDataService>) -> Router {
     Router::new()
+        .route("/market-data/price/ws/price", get(price_websocket_handler))
+        .route("/market-data/price/ws/candles", get(candles_websocket_handler))
+        .route("/market-data/price/subscribe", get(subscribe_handler))
+        .with_state(price_service)
+}
+
+/// Create legacy price data routes (backward compatibility)
+pub fn price_data_router_legacy(price_service: Arc<PriceDataService>) -> Router {
+    Router::new()
         .route("/price/ws/price", get(price_websocket_handler))
         .route("/price/ws/candles", get(candles_websocket_handler))
         .route("/price/subscribe", get(subscribe_handler))

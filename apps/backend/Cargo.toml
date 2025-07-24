@@ -5,8 +5,17 @@ edition = "2021"
 default-run = "epsx"
 
 [[bin]]
-name = "test_firebase"
-path = "src/bin/test_firebase.rs"
+name = "epsx"
+path = "src/main.rs"
+
+[[bin]]
+name = "migrate"
+path = "src/bin/migrate.rs"
+
+[[bin]]
+name = "promote_admin"
+path = "src/bin/promote_admin.rs"
+
 
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }
@@ -21,7 +30,6 @@ hmac = "0.12"
 http = "1.0"
 hyper = "1.1"
 jsonwebtoken = "9.2"
-mongodb = { version = "2.8", features = ["tokio-runtime"] }
 reqwest = { version = "0.11", features = ["json"] }
 ring = "0.17"
 rust_decimal = { version = "1.33", features = ["serde-with-str"] }
@@ -46,11 +54,27 @@ uuid = { version = "1.7", features = ["v4", "v5", "serde"] }
 vercel_runtime = "1.1.6"
 regex = "1.10"
 ipnetwork = "0.20"
+clap = { version = "4.4", features = ["derive"] }
 
-# Firebase dependencies
-firestore = "0.41"
-base64 = "0.21"
+# Database dependencies  
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "rust_decimal", "migrate"] }
+deadpool-postgres = "0.12"
 
 [dev-dependencies]
 mockall = "0.12"
 tokio-test = "0.4"
+tower = "0.4"
+hyper = "1.1"
+
+# Test configuration
+[[test]]
+name = "unit_tests"
+path = "tests/unit_tests.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
+[[test]]
+name = "api_tests"
+path = "tests/api_tests.rs"

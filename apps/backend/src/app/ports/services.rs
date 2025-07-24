@@ -9,15 +9,6 @@ use crate::dom::values::{UserId, Currency, Symbol};
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-#[async_trait]
-#[cfg_attr(test, automock)]
-pub trait FbAuthSvc: Send + Sync {
-    async fn verify_token(&self, token: &str) -> Result<FbClaims, AuthServiceError>;
-    async fn create_custom_token(&self, uid: &str) -> Result<String, AuthServiceError>;
-    async fn get_user(&self, uid: &str) -> Result<FbUser, AuthServiceError>;
-    async fn list_users(&self, page_token: Option<String>) -> Result<FbUserList, AuthServiceError>;
-    async fn delete_user(&self, uid: &str) -> Result<(), AuthServiceError>;
-}
 
 #[async_trait]
 pub trait EmailSvc: Send + Sync {
@@ -52,30 +43,6 @@ pub trait WebSocketSvc: Send + Sync {
 }
 
 // Supporting types
-#[derive(Debug, Clone)]
-pub struct FbClaims {
-    pub uid: String,
-    pub email: String,
-    pub email_verified: bool,
-    pub name: Option<String>,
-    pub picture: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct FbUser {
-    pub uid: String,
-    pub email: String,
-    pub display_name: Option<String>,
-    pub photo_url: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub last_sign_in: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct FbUserList {
-    pub users: Vec<FbUser>,
-    pub next_page_token: Option<String>,
-}
 
 #[derive(Debug, Clone)]
 pub struct PaymentAddress {
@@ -224,25 +191,32 @@ pub enum WebSocketError {
     BroadcastFailed(String),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum NotificationServiceError {
+    #[error("Notification not found")]
+    NotificationNotFound,
+    
+    #[error("Invalid notification data: {0}")]
+    InvalidData(String),
+    
+    #[error("User not found: {0}")]
+    UserNotFound(String),
+    
+    #[error("Storage error: {0}")]
+    StorageError(String),
+    
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
+    
+    #[error("External service error: {0}")]
+    ExternalError(String),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::dom::values::Symbol;
     
-    #[test]
-    fn should_create_fb_claims() {
-        let claims = FbClaims {
-            uid: "test-uid".to_string(),
-            email: "test@example.com".to_string(),
-            email_verified: true,
-            name: Some("Test User".to_string()),
-            picture: None,
-        };
-        
-        assert_eq!(claims.uid, "test-uid");
-        assert_eq!(claims.email, "test@example.com");
-        assert!(claims.email_verified);
-    }
     
     #[test]
     fn should_create_payment_address() {

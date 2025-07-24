@@ -8,15 +8,15 @@ use crate::dom::values::{UserId, Role as UserRole};
 
 /// Unique identifier for IAM roles
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RoleId(String);
+pub struct RoleId(uuid::Uuid);
 
 /// Unique identifier for IAM policies  
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PolicyId(String);
+pub struct PolicyId(uuid::Uuid);
 
 /// Unique identifier for IAM groups
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct GroupId(String);
+pub struct GroupId(uuid::Uuid);
 
 /// IAM Role entity - represents a collection of permissions and policies
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,6 +98,37 @@ pub struct UserPermissionOverride {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: UserId,
+}
+
+impl UserPermissionOverride {
+    pub fn new(user_id: UserId, granted_permissions: Vec<String>, denied_permissions: Vec<String>) -> Self {
+        let now = Utc::now();
+        let created_by = user_id.clone();
+        Self {
+            user_id,
+            package_tier: PackageTier::Free,
+            additional_roles: Vec::new(),
+            permission_grants: granted_permissions.into_iter().map(|p| Permission::new(p, "*".to_string())).collect(),
+            permission_denials: denied_permissions.into_iter().map(|p| Permission::new(p, "*".to_string())).collect(),
+            expires_at: None,
+            reason: None,
+            created_at: now,
+            updated_at: now,
+            created_by,
+        }
+    }
+
+    pub fn user_id(&self) -> &UserId {
+        &self.user_id
+    }
+
+    pub fn granted_permissions(&self) -> Vec<String> {
+        self.permission_grants.iter().map(|p| p.action().to_string()).collect()
+    }
+
+    pub fn denied_permissions(&self) -> Vec<String> {
+        self.permission_denials.iter().map(|p| p.action().to_string()).collect()
+    }
 }
 
 /// AWS-style policy document structure
@@ -211,47 +242,8 @@ pub struct Permission {
 
 // Implementations
 
-impl RoleId {
-    pub fn new(id: String) -> Self {
-        Self(id)
-    }
-    
-    pub fn value(&self) -> &str {
-        &self.0
-    }
-    
-    pub fn generate() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-}
 
-impl PolicyId {
-    pub fn new(id: String) -> Self {
-        Self(id)
-    }
-    
-    pub fn value(&self) -> &str {
-        &self.0
-    }
-    
-    pub fn generate() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-}
 
-impl GroupId {
-    pub fn new(id: String) -> Self {
-        Self(id)
-    }
-    
-    pub fn value(&self) -> &str {
-        &self.0
-    }
-    
-    pub fn generate() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-}
 
 impl IamGroup {
     pub fn new(name: String, created_by: UserId) -> Self {
@@ -626,8 +618,93 @@ pub enum IamError {
     #[error("Invalid policy document: {0}")]
     InvalidPolicyDocument(String),
     
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+    
     #[error("Circular dependency detected in role hierarchy")]
     CircularDependency,
+    
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    #[error("Entity not found")]
+    NotFound,
+}
+
+// ID type implementations
+impl RoleId {
+    pub fn new(id: String) -> Self {
+        Self(uuid::Uuid::parse_str(&id).unwrap_or_else(|_| uuid::Uuid::new_v4()))
+    }
+    
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4())
+    }
+    
+    pub fn from(id: uuid::Uuid) -> Self {
+        Self(id)
+    }
+    
+    pub fn value(&self) -> &uuid::Uuid {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for RoleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl PolicyId {
+    pub fn new(id: String) -> Self {
+        Self(uuid::Uuid::parse_str(&id).unwrap_or_else(|_| uuid::Uuid::new_v4()))
+    }
+    
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4())
+    }
+    
+    pub fn from(id: uuid::Uuid) -> Self {
+        Self(id)
+    }
+    
+    pub fn value(&self) -> &uuid::Uuid {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for PolicyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl GroupId {
+    pub fn new(id: String) -> Self {
+        Self(uuid::Uuid::parse_str(&id).unwrap_or_else(|_| uuid::Uuid::new_v4()))
+    }
+    
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4())
+    }
+    
+    pub fn from(id: uuid::Uuid) -> Self {
+        Self(id)
+    }
+    
+    pub fn value(&self) -> &uuid::Uuid {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for GroupId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[cfg(test)]

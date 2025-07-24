@@ -12,7 +12,7 @@ interface UsrRes {
 
 export const authApi = {
   login: async (req: LoginReq): Promise<UsrRes> => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/v1/authentication/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
@@ -23,12 +23,12 @@ export const authApi = {
   },
 
   logout: async (): Promise<void> => {
-    const res = await fetch('/api/auth/logout', { method: 'POST' });
+    const res = await fetch('/api/v1/authentication/logout', { method: 'POST' });
     if (!res.ok) throw new Error('Logout failed');
   },
 
   me: async (): Promise<UsrRes> => {
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/v1/authentication/profile');
     if (!res.ok) throw new Error('Auth check failed');
     return res.json();
   },

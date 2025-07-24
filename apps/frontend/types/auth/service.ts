@@ -1,4 +1,19 @@
-import type { User as FirebaseUser } from 'firebase/auth';
+// Backend-compatible user type
+export interface BackendUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+  package_tier: string;
+  expires_at: string;
+  session_type: string;
+  // Firebase compatibility properties
+  uid?: string;
+  emailVerified?: boolean;
+  displayName?: string;
+  photoURL?: string;
+}
 
 export interface SignInCredentials {
   email: string;
@@ -9,18 +24,14 @@ export interface SignUpData {
   email: string;
   password: string;
   displayName?: string;
+  package_tier?: string;
 }
 
 export interface AuthService {
-  signInWithEmailAndPassword(credentials: SignInCredentials): Promise<FirebaseUser>;
-  signUp(data: SignUpData): Promise<FirebaseUser>;
-  signInWithGoogle(): Promise<FirebaseUser>;
+  signInWithEmailAndPassword(credentials: SignInCredentials): Promise<BackendUser>;
+  signUp(data: SignUpData): Promise<{ user_id: string; email: string; verification_sent: boolean; message: string }>;
   signOut(): Promise<void>;
   sendPasswordResetEmail(email: string): Promise<void>;
-  sendEmailVerification(user?: FirebaseUser): Promise<void>;
-  updateUserProfile(data: { displayName?: string; photoURL?: string }): Promise<void>;
-  linkGoogleAccount(): Promise<void>;
-  unlinkProvider(providerId: string): Promise<void>;
-  changePassword(currentPassword: string, newPassword: string): Promise<void>;
-  getCurrentUserToken(forceRefresh?: boolean): Promise<string | null>;
+  getCurrentUser(): Promise<BackendUser | null>;
+  refreshSession(): Promise<{ expires_at: string }>;
 }

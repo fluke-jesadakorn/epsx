@@ -1,7 +1,5 @@
 use axum::{response::Response, http::StatusCode};
 use axum::response::IntoResponse;
-use mongodb::error::Error as MongoError;
-
 #[derive(Debug, thiserror::Error, utoipa::ToSchema)]
 #[schema(example = json!({"error": "TradingView API error: Connection failed"}))]
 pub enum StockServiceError {
@@ -12,7 +10,7 @@ pub enum StockServiceError {
     #[error("Parser error: {0}")]
     ParserError(#[from] serde_json::Error),
     #[error("Database error: {0}")]
-    DatabaseError(MongoError),
+    DatabaseError(String),
     #[error("WebSocket error: {0}")]
     WebSocketError(String),
 }
@@ -32,8 +30,3 @@ impl IntoResponse for StockServiceError {
     }
 }
 
-impl From<MongoError> for StockServiceError {
-    fn from(error: MongoError) -> Self {
-        Self::DatabaseError(error)
-    }
-}

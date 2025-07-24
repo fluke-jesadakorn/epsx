@@ -77,6 +77,9 @@ pub trait SessRepo: Send + Sync {
     async fn find_by_user(&self, uid: &UserId) -> Result<Vec<Session>, RepoError>;
     async fn cleanup_expired(&self) -> Result<u64, RepoError>; // Returns count of cleaned up sessions
     async fn deactivate_user_sessions(&self, uid: &UserId) -> Result<(), RepoError>;
+    
+    // For compatibility with existing code
+    async fn find_by_id(&self, id: &SessId) -> Result<Session, RepoError>;
 }
 
 #[async_trait]
@@ -241,11 +244,6 @@ pub enum RepoError {
     Internal(String),
 }
 
-impl From<mongodb::error::Error> for RepoError {
-    fn from(err: mongodb::error::Error) -> Self {
-        RepoError::QueryError(err.to_string())
-    }
-}
 
 impl From<serde_json::Error> for RepoError {
     fn from(err: serde_json::Error) -> Self {

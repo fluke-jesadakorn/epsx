@@ -1,12 +1,14 @@
-'use client';
-
 import ChatSection from '@/components/home/ChatSection';
 import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 import DataTechSection from '@/components/home/DataTechSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
+import { fetchPublicRankingData } from '@/app/actions/publicRanking';
+import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 
-function HomePage() {
+export default async function HomePage() {
+  // Server-side data fetching for better SSR performance
+  const initialData = await fetchPublicRankingData(10, 10);
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}
@@ -39,19 +41,19 @@ function HomePage() {
       {/* Main content with PancakeSwap styling */}
       <div className="relative z-10">
         {/* Chat Section with enhanced PancakeSwap styling */}
-        <div className="animate-slide-up">
+        <StreamingWrapper priority="high" identifier="chat">
           <ChatSection />
-        </div>
+        </StreamingWrapper>
 
         {/* Hero Section with vibrant PancakeSwap animations */}
-        <div className="animate-slide-up-delayed">
+        <StreamingWrapper priority="high" identifier="hero">
           <HeroSection className="relative z-10" />
-        </div>
+        </StreamingWrapper>
 
         {/* Data Tech Section with gradient accents */}
-        <div className="animate-slide-up-delayed-2">
+        <StreamingWrapper priority="medium" identifier="data-tech">
           <DataTechSection />
-        </div>
+        </StreamingWrapper>
 
         {/* EPS Cards Section - Temporarily commented out to use same data format as analytics
         <div className="container mx-auto px-4 py-12 animate-fade-in-delayed">
@@ -64,12 +66,14 @@ function HomePage() {
         */}
 
         {/* Pricing Section with enhanced PancakeSwap styling */}
-        <div className="animate-fade-in-delayed-2 relative">
-          {/* Add some floating elements around pricing */}
-          <div className="absolute top-10 left-10 w-8 h-8 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full animate-bounce-gentle" />
-          <div className="absolute bottom-10 right-10 w-6 h-6 bg-gradient-to-br from-green-400/30 to-emerald-400/30 rounded-full animate-float" />
-          <PricingSection />
-        </div>
+        <StreamingWrapper priority="medium" identifier="pricing">
+          <div className="relative">
+            {/* Add some floating elements around pricing */}
+            <div className="absolute top-10 left-10 w-8 h-8 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full animate-bounce-gentle" />
+            <div className="absolute bottom-10 right-10 w-6 h-6 bg-gradient-to-br from-green-400/30 to-emerald-400/30 rounded-full animate-float" />
+            <PricingSection />
+          </div>
+        </StreamingWrapper>
 
         {/* Data Rank Table with vibrant PancakeSwap-style card */}
         <div className="container mx-auto px-4 py-16 animate-fade-in-delayed-3">
@@ -112,7 +116,9 @@ function HomePage() {
                   </div>
                 </div>
 
-                <PublicRankingPreview />
+                <StreamingWrapper priority="low" identifier="rankings">
+                  <PublicRankingPreview initialData={initialData} />
+                </StreamingWrapper>
               </div>
             </div>
           </div>
@@ -122,4 +128,3 @@ function HomePage() {
   );
 }
 
-export default HomePage;

@@ -2,13 +2,13 @@
 
 import { chatApiService } from "@/lib/services/chat-api.service";
 
-import type { ChatRequest, ChatResponse } from "@/types/chat";
+import type { ChatRequest, ChatResponse } from "@/types/chat.d";
 
 export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
   try {
     return await chatApiService.sendMsg(request.messages, {
-      temp: request.temperature,
-      maxTokens: request.maxTokens,
+      temp: request.temperature || undefined,
+      maxTokens: request.maxTokens || undefined,
     });
   } catch (error) {
     // console.error("Server chat query failed:", error);
@@ -28,8 +28,8 @@ export async function getChatHistory(conversationId: string) {
 export async function streamChat(request: ChatRequest): Promise<ReadableStream<Uint8Array>> {
   try {
     return await chatApiService.streamMsg(request.messages, {
-      temp: request.temperature,
-      maxTokens: request.maxTokens,
+      temp: request.temperature || undefined,
+      maxTokens: request.maxTokens || undefined,
     });
   } catch (error) {
     // console.error("Stream chat query failed:", error);

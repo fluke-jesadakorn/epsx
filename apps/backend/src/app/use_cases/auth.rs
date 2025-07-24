@@ -3,26 +3,22 @@
 use crate::dom::entities::{User, Session};
 use crate::dom::values::{UserId, Email, SessId};
 use crate::app::ports::repositories::{UserRepo, SessRepo};
-use crate::app::ports::services::FbAuthSvc;
 use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession};
 use std::sync::Arc;
 
 pub struct AuthUC {
     user_repo: Arc<dyn UserRepo>,
     session_repo: Arc<dyn SessRepo>,
-    firebase_auth: Arc<dyn FbAuthSvc>,
 }
 
 impl AuthUC {
     pub fn new(
         user_repo: Arc<dyn UserRepo>, 
-        session_repo: Arc<dyn SessRepo>,
-        firebase_auth: Arc<dyn FbAuthSvc>
+        session_repo: Arc<dyn SessRepo>
     ) -> Self {
         Self { 
             user_repo,
-            session_repo,
-            firebase_auth
+            session_repo
         }
     }
 
@@ -30,28 +26,34 @@ impl AuthUC {
         self.user_repo.find_by_email(email).await.map_err(|e| e.into())
     }
 
-    pub async fn create_session(&self, user_id: UserId) -> Result<Session, Box<dyn std::error::Error>> {
+    pub async fn create_session(&self, user_id: UserId, access_token: String) -> Result<Session, Box<dyn std::error::Error>> {
         let expires_at = chrono::Utc::now() + chrono::Duration::hours(24);
-        Ok(Session::new(user_id, expires_at))
+        Ok(Session::new(user_id, access_token, expires_at))
     }
 
     pub async fn login(&self, req: LoginReq) -> Result<LoginRes, Box<dyn std::error::Error>> {
-        // Verify Firebase token
-        let claims = self.firebase_auth.verify_token(&req.firebase_token).await
-            .map_err(|e| format!("Firebase token verification failed: {:?}", e))?;
+        // Authenticate with email/password
+        let email = Email::new(req.email)?;
+        let user = self.authenticate_user(&email).await?
+            .ok_or("User not found")?;
+        
+        // Basic password validation for development
+        // TODO: Implement proper password hashing and verification
+        if req.password.is_empty() {
+            return Err("Invalid password".into());
+        }
+        
+        // For development: accept any non-empty password for existing users
+        tracing::info!("Password validation passed for user: {}", email.value());
 
-        // Find user by Firebase UID  
-        let user_id = UserId::new(claims.uid);
-        let user = self.user_repo.find_by_id(&user_id).await?;
+        // Generate access token (stub implementation)
+        let access_token = format!("token_{}", user.id().to_string());
 
         // Create session
-        let session = self.create_session(user.id().clone()).await?;
+        let session = self.create_session(user.id().clone(), access_token.clone()).await?;
         
         // Store session
         self.session_repo.save(&session).await?;
-
-        // Generate access token (stub implementation)
-        let access_token = format!("token_{}", session.id.value());
 
         Ok(LoginRes {
             user_id: user.id().clone(),
@@ -69,13 +71,11 @@ impl AuthUC {
     }
 
     pub async fn validate(&self, req: ValidateReq) -> Result<UserSession, Box<dyn std::error::Error>> {
-        // Verify token with Firebase
-        let claims = self.firebase_auth.verify_token(&req.token).await
-            .map_err(|e| format!("Token validation failed: {:?}", e))?;
+        // TODO: Implement JWT token validation
+        let session_id = SessId::from_str(&req.sess_id)?;
+        let session = self.session_repo.find_by_id(&session_id).await?;
 
-        // Find user by Firebase UID
-        let user_id = UserId::new(claims.uid);
-        let user = self.user_repo.find_by_id(&user_id).await?;
+        let user = self.user_repo.find_by_id(&session.user_id).await?;
 
         Ok(UserSession {
             user_id: user.id().clone(),

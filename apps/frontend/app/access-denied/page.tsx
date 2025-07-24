@@ -12,7 +12,7 @@ export default function AccessDeniedPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const effectivePermissions = null; // TODO: Implement permission checking
-  const packageTier = 'BRONZE'; // TODO: Fetch from backend
+  const packageTier = 'FREE'; // TODO: Fetch from backend
 
   const route = searchParams.get('route') || '/unknown';
   const reason = searchParams.get('reason') || 'Insufficient permissions';
@@ -74,14 +74,14 @@ export default function AccessDeniedPage() {
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-700 mb-2">
-                    <strong>{effectivePermissions.permissions.length}</strong> permissions active
+                    <strong>{effectivePermissions?.permissions?.length || 0}</strong> permissions active
                   </p>
                   
-                  {effectivePermissions.templateSources.length > 0 && (
+                  {effectivePermissions?.templateSources && effectivePermissions.templateSources.length > 0 && (
                     <div className="mb-3">
                       <p className="text-xs font-medium text-gray-600 mb-1">Active Templates:</p>
                       <div className="flex flex-wrap gap-1">
-                        {effectivePermissions.templateSources.map((source) => (
+                        {effectivePermissions?.templateSources?.map((source: any) => (
                           <span
                             key={source.templateId}
                             className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
@@ -93,10 +93,10 @@ export default function AccessDeniedPage() {
                     </div>
                   )}
 
-                  {effectivePermissions.conflicts.length > 0 && (
+                  {effectivePermissions?.conflicts && effectivePermissions.conflicts.length > 0 && (
                     <div className="mb-3">
                       <p className="text-xs font-medium text-orange-600 mb-1">
-                        ⚠️ {effectivePermissions.conflicts.length} Permission Conflicts
+                        ⚠️ {effectivePermissions?.conflicts?.length || 0} Permission Conflicts
                       </p>
                       <div className="text-xs text-orange-700">
                         Some permissions may not be working as expected due to template conflicts.

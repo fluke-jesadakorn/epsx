@@ -24,7 +24,7 @@ import {
   validatePayment,
 } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/context/auth-context';
 import PaymentDetails from './PaymentDetails';
 import { QRCodeCanvas } from 'qrcode.react';
 interface OneClickPaymentProps {
@@ -101,6 +101,7 @@ export default function OneClickPayment({
 }: OneClickPaymentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const paymentService = createPaymentService();
 
   // State management
@@ -152,7 +153,6 @@ export default function OneClickPayment({
   const handleQuickPay = async () => {
     if (!selectedPackageData || !selectedMethodData) return;
 
-    const user = auth.currentUser;
     if (!user) {
       setError('Please login to continue with payment');
       return;
@@ -164,7 +164,7 @@ export default function OneClickPayment({
       setError('');
 
       try {
-        const response = await fetch('/api/payment/deposit-address', {
+        const response = await fetch('/api/v1/payments/crypto/deposit-address', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

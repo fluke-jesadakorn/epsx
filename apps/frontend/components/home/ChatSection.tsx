@@ -193,6 +193,7 @@ export default function ChatSection() {
                 placeholder="Ask about EPS trends, data insights, or specific companies..."
                 disabled={isLoading}
                 className="flex-1"
+                error={undefined}
               />
               <Button
                 type="submit"

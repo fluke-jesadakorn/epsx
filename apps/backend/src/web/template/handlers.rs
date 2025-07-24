@@ -439,6 +439,7 @@ pub async fn apply_template(
         reason: req.reason,
         merge_permissions: req.merge_permissions.unwrap_or(true),
         expires_at: req.expires_at,
+        applied_by: UserId::new("system".to_string()), // TODO: Get from auth context
     };
     
     match state.template_repo.apply_template(&apply_request).await {

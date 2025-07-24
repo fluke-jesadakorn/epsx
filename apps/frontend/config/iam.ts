@@ -19,7 +19,7 @@ export const IAM_CONFIG = {
       '/register',
       '/forgot-password',
       '/reset-password',
-      '/api/auth',
+      '/api/v1/authentication',
       '/api/public',
       '/_next',
       '/favicon.ico',
@@ -32,8 +32,8 @@ export const IAM_CONFIG = {
       '/dashboard': ['read:own_data'],
       '/premium': ['read:premium_content'],
       '/moderator': ['moderate:content'],
-      '/api/moderator': ['moderate:content'],
-      '/api/users': ['manage:users'],
+      '/api/v1/admin/moderator': ['moderate:content'],
+      '/api/v1/users': ['manage:users'],
     },
     
     // Routes that require authentication but no specific permissions
@@ -48,22 +48,17 @@ export const IAM_CONFIG = {
   api: {
     baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002',
     endpoints: {
-      auth: '/api/auth',
-      permissions: '/api/permissions',
-      roles: '/api/roles',
-      users: '/api/users',
+      auth: '/api/v1/authentication',
+      permissions: '/api/v1/iam/permissions',
+      roles: '/api/v1/iam/roles',
+      users: '/api/v1/users',
     },
   },
   
-  // Firebase configuration
-  firebase: {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  // Backend API configuration
+  backend: {
+    baseUrl: process.env.BACKEND_URL || 'http://localhost:8080',
+    timeout: 10000, // 10 seconds
   },
 };
 

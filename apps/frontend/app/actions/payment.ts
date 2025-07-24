@@ -1,8 +1,68 @@
 'use server';
 
 import { createPaymentService } from '@/services/payment.service';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 const paymentService = createPaymentService();
+
+export async function createDepositAddress(
+  currency: string,
+  userId: string,
+  packageId: string
+) {
+  try {
+    const response = await fetch('/api/v1/payments/crypto/deposit-address', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currency,
+        userId,
+        packageId,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.deposit) {
+      throw new Error(result.error || 'Failed to get deposit address');
+    }
+
+    return { success: true, deposit: result.deposit };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to get deposit address' 
+    };
+  }
+}
+
+export async function processPayment(
+  amount: number,
+  paymentMethod: string,
+  description: string
+) {
+  try {
+    const transactionId = await paymentService.recordPayment(
+      amount,
+      paymentMethod,
+      description
+    );
+
+    if (transactionId) {
+      revalidatePath('/dashboard');
+      redirect('/dashboard?payment=success');
+    } else {
+      throw new Error('Payment processing failed');
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Payment failed' 
+    };
+  }
+}
 
 export async function getPaymentDetails(
   network: string = 'TRX',

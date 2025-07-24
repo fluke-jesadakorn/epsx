@@ -59,7 +59,7 @@ export class AdminService {
       if (options.maxResults) params.set('limit', options.maxResults.toString());
       if (options.pageToken) params.set('offset', options.pageToken);
 
-      const response = await fetch(`/api/admin/users?${params.toString()}`, {
+      const response = await fetch(`/api/admin/user-management/users?${params.toString()}`, {
         method: 'GET',
         credentials: 'include', // Include cookies for session auth
         headers: {
@@ -167,7 +167,7 @@ export class AdminService {
   // Get user statistics - Uses Next.js API proxy to Rust backend
   static async getUserStats(): Promise<UserStats> {
     try {
-      const response = await fetch('/api/admin/stats?include_roles=true&include_tiers=true', {
+      const response = await fetch('/api/admin/analytics/statistics?include_roles=true&include_tiers=true', {
         method: 'GET',
         credentials: 'include',
         headers: {

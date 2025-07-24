@@ -197,6 +197,12 @@ impl AuditLogId {
     }
 }
 
+impl From<uuid::Uuid> for AuditLogId {
+    fn from(uuid: uuid::Uuid) -> Self {
+        Self(uuid.to_string())
+    }
+}
+
 impl AuditLogEntry {
     pub fn new(
         actor_id: UserId,
@@ -487,6 +493,9 @@ pub enum AuditError {
     
     #[error("Audit storage error: {0}")]
     StorageError(String),
+    
+    #[error("Database error: {0}")]
+    DatabaseError(String),
     
     #[error("Permission denied for audit operation")]
     PermissionDenied,

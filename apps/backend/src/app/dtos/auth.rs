@@ -7,7 +7,6 @@ use crate::dom::values::{UserId, Role};
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
-    pub firebase_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -7,65 +7,70 @@ pub mod services;
 pub mod events;
 
 // Re-export commonly used implementations
-pub use auth::{FbAuthSvcImpl};
-pub use db::{FsUserRepo, FsSessRepo, FsPayRepo, InMemoryLevelHistoryRepo};
+pub use db::{InMemoryLevelHistoryRepo, PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresTemplateRepo, DatabasePool, create_pool, DatabaseConfig};
 pub use repos::{IamRepoImpl, AuditRepoImpl, TemplateRepoImpl};
+pub use services::{SendGridEmailService, MockEmailService};
 pub use events::{SimpleEventDispatcher};
 
 use std::sync::Arc;
 use crate::app::ports::{repositories::*, services::*, events::*};
+use crate::core::plugins::{PluginManager, PluginRegistry};
+
+/// Database backend type
+#[derive(Debug, Clone)]
+pub enum DatabaseBackend {
+    PostgreSQL,
+}
+
+impl Default for DatabaseBackend {
+    fn default() -> Self {
+        Self::PostgreSQL
+    }
+}
 
 /// Factory for creating infrastructure implementations
 pub struct InfraFactory {
-    pub firestore_db: firestore::FirestoreDb,
-    pub firebase_project_id: String,
+    pub database_backend: DatabaseBackend,
+    pub postgres_pool: DatabasePool,
 }
 
 impl InfraFactory {
-    pub async fn new(
-        firestore_project_id: String,
-        firebase_project_id: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let firestore_db = firestore::FirestoreDb::new(&firestore_project_id).await?;
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let database_backend = DatabaseBackend::PostgreSQL;
+        let config = DatabaseConfig::default();
+        let postgres_pool = create_pool(config).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
         
         Ok(Self {
-            firestore_db,
-            firebase_project_id,
+            database_backend,
+            postgres_pool,
         })
     }
 
     pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let firestore_project_id = std::env::var("FIRESTORE_PROJECT_ID")
-            .or_else(|_| std::env::var("FIREBASE_PROJECT_ID"))
-            .map_err(|_| "FIRESTORE_PROJECT_ID or FIREBASE_PROJECT_ID must be set")?;
-        
-        let firebase_project_id = std::env::var("FIREBASE_PROJECT_ID")
-            .map_err(|_| "FIREBASE_PROJECT_ID must be set")?;
-        
         // Note: This is a simplified version - in practice you'd handle async properly
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(
-                Self::new(firestore_project_id, firebase_project_id)
+                Self::new()
             )
         })
     }
 
     // Repository factories
     pub fn create_user_repo(&self) -> Arc<dyn UserRepo> {
-        Arc::new(FsUserRepo::new(self.firestore_db.clone()))
+        Arc::new(PostgresUserRepo::new(self.postgres_pool.clone()))
     }
 
     pub fn create_session_repo(&self) -> Arc<dyn SessRepo> {
-        Arc::new(FsSessRepo::new(self.firestore_db.clone()))
+        Arc::new(PostgresSessRepo::new(self.postgres_pool.clone()))
     }
 
     pub fn create_payment_repo(&self) -> Arc<dyn PayRepo> {
-        Arc::new(FsPayRepo::new(self.firestore_db.clone()))
+        Arc::new(PostgresPayRepo::new((*self.postgres_pool).clone()))
     }
 
     pub fn create_stock_repo(&self) -> Arc<dyn StockRepo> {
-        // TODO: Implement StockRepo when needed
-        unimplemented!("StockRepo not yet implemented")
+        Arc::new(PostgresStockRepo::new((*self.postgres_pool).clone()))
     }
 
     pub fn create_level_history_repo(&self) -> Arc<dyn LevelHistoryRepo> {
@@ -73,36 +78,32 @@ impl InfraFactory {
     }
 
     pub fn create_iam_repo(&self) -> Arc<dyn IamRepo> {
-        Arc::new(IamRepoImpl::new())
+        Arc::new(PostgresIamRepo::new((*self.postgres_pool).clone()))
     }
 
     pub fn create_audit_repo(&self) -> Arc<dyn AuditRepo> {
-        Arc::new(AuditRepoImpl::new())
+        Arc::new(PostgresAuditRepo::new((*self.postgres_pool).clone()))
     }
 
     pub fn create_template_repo(&self) -> Arc<dyn TemplateRepo> {
-        Arc::new(TemplateRepoImpl::new())
+        Arc::new(PostgresTemplateRepo::new((*self.postgres_pool).clone()))
     }
 
     // Service factories
-    pub fn create_firebase_auth_svc(&self) -> Arc<dyn FbAuthSvc> {
-        // Use from_env to get the proper credentials
-        match FbAuthSvcImpl::from_env() {
-            Ok(service) => Arc::new(service),
-            Err(_) => {
-                // Fallback to basic service without credentials for development
-                Arc::new(FbAuthSvcImpl::new(
-                    self.firebase_project_id.clone(), 
-                    None, 
-                    None
-                ))
-            }
-        }
-    }
 
     pub fn create_email_svc(&self) -> Arc<dyn EmailSvc> {
-        // TODO: Implement EmailSvc when needed
-        unimplemented!("EmailSvc not yet implemented")
+        // Use environment variable to determine which email service to use
+        if std::env::var("USE_MOCK_EMAIL").unwrap_or_else(|_| "false".to_string()) == "true" {
+            Arc::new(MockEmailService::new())
+        } else {
+            match SendGridEmailService::from_env() {
+                Ok(service) => Arc::new(service),
+                Err(_) => {
+                    tracing::warn!("SendGrid configuration not found, using mock email service");
+                    Arc::new(MockEmailService::new())
+                }
+            }
+        }
     }
 
     pub fn create_payment_gateway(&self) -> Arc<dyn PayGw> {
@@ -124,6 +125,15 @@ impl InfraFactory {
     pub fn create_event_dispatcher(&self) -> Arc<dyn EventDispatcher> {
         Arc::new(SimpleEventDispatcher::new())
     }
+    
+    // Plugin services
+    pub fn create_plugin_manager(&self) -> PluginManager {
+        PluginManager::new()
+    }
+    
+    pub fn create_plugin_registry(&self) -> PluginRegistry {
+        PluginRegistry::new()
+    }
 }
 
 /// Application-wide dependency injection container
@@ -134,14 +144,19 @@ pub struct AppContainer {
     pub user_repo: Arc<dyn UserRepo>,
     pub session_repo: Arc<dyn SessRepo>,
     pub payment_repo: Arc<dyn PayRepo>,
+    pub stock_repo: Arc<dyn StockRepo>,
     pub level_history_repo: Arc<dyn LevelHistoryRepo>,
     pub iam_repo: Arc<dyn IamRepo>,
     pub audit_repo: Arc<dyn AuditRepo>,
     pub template_repo: Arc<dyn TemplateRepo>,
     
-    // Services  
-    pub firebase_auth_svc: Arc<dyn FbAuthSvc>,
+    // Services
+    pub email_svc: Arc<dyn EmailSvc>,
     pub event_dispatcher: Arc<dyn EventDispatcher>,
+    
+    // Plugin system
+    pub plugin_manager: Arc<tokio::sync::Mutex<PluginManager>>,
+    pub plugin_registry: Arc<tokio::sync::Mutex<PluginRegistry>>,
 }
 
 impl AppContainer {
@@ -151,24 +166,30 @@ impl AppContainer {
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
         let payment_repo = infra.create_payment_repo();
+        let stock_repo = infra.create_stock_repo();
         let level_history_repo = infra.create_level_history_repo();
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let template_repo = infra.create_template_repo();
-        let firebase_auth_svc = infra.create_firebase_auth_svc();
+        let email_svc = infra.create_email_svc();
         let event_dispatcher = infra.create_event_dispatcher();
+        let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
+        let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
         Ok(Self {
             infra,
             user_repo,
             session_repo,
             payment_repo,
+            stock_repo,
             level_history_repo,
             iam_repo,
             audit_repo,
             template_repo,
-            firebase_auth_svc,
+            email_svc,
             event_dispatcher,
+            plugin_manager,
+            plugin_registry,
         })
     }
     
@@ -176,24 +197,83 @@ impl AppContainer {
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
         let payment_repo = infra.create_payment_repo();
+        let stock_repo = infra.create_stock_repo();
         let level_history_repo = infra.create_level_history_repo();
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let template_repo = infra.create_template_repo();
-        let firebase_auth_svc = infra.create_firebase_auth_svc();
+        let email_svc = infra.create_email_svc();
         let event_dispatcher = infra.create_event_dispatcher();
+        let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
+        let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
         Self {
             infra,
             user_repo,
             session_repo,
             payment_repo,
+            stock_repo,
             level_history_repo,
             iam_repo,
             audit_repo,
             template_repo,
-            firebase_auth_svc,
+            email_svc,
             event_dispatcher,
+            plugin_manager,
+            plugin_registry,
         }
     }
+    
+    /// Initialize and start all plugins
+    pub async fn initialize_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::core::plugin_examples::{
+            SimpleAnalysisPlugin, MockDataProviderPlugin, EmailNotificationPlugin
+        };
+        use crate::core::plugins::PluginConfig;
+        use std::collections::HashMap;
+        
+        let mut plugin_manager = self.plugin_manager.lock().await;
+        
+        // Create plugin configurations
+        let mut settings = HashMap::new();
+        settings.insert("environment".to_string(), serde_json::Value::String("development".to_string()));
+        
+        let config = PluginConfig {
+            enabled: true,
+            settings,
+            environment: "development".to_string(),
+        };
+        
+        // Register example plugins
+        plugin_manager.register_plugin(
+            Arc::new(SimpleAnalysisPlugin::new()),
+            config.clone(),
+        ).await?;
+        
+        plugin_manager.register_plugin(
+            Arc::new(MockDataProviderPlugin::new()),
+            config.clone(),
+        ).await?;
+        
+        plugin_manager.register_plugin(
+            Arc::new(EmailNotificationPlugin::new()),
+            config.clone(),
+        ).await?;
+        
+        // Initialize and start all plugins
+        plugin_manager.initialize_all().await?;
+        plugin_manager.start_all().await?;
+        
+        tracing::info!("Plugin system initialized with {} plugins", plugin_manager.list_plugins().len());
+        Ok(())
+    }
+    
+    /// Stop all plugins gracefully
+    pub async fn shutdown_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut plugin_manager = self.plugin_manager.lock().await;
+        plugin_manager.stop_all().await?;
+        tracing::info!("Plugin system shut down");
+        Ok(())
+    }
+    
 }

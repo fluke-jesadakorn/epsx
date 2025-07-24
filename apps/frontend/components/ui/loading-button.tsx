@@ -37,7 +37,7 @@ const buttonVariants = cva(
 export interface LoadingButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  isLoading?: boolean;
+  isLoading: boolean | undefined;
   loadingText?: string;
   icon?: React.ReactNode;
 }
@@ -75,7 +75,7 @@ export const GoogleButton = React.forwardRef<HTMLButtonElement, Omit<LoadingButt
       <LoadingButton
         ref={ref}
         variant="outline"
-        isLoading={isLoading}
+        isLoading={isLoading ?? undefined}
         loadingText="Signing in with Google..."
         icon={
           <svg className="w-4 h-4" viewBox="0 0 24 24">

@@ -35,7 +35,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await signUp({ email, password });
+      await signUp(email, password);
       router.push('/dashboard');
     } catch (error: any) {
       setError(error.message || 'Failed to create account');
@@ -60,6 +60,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                error={false}
               />
             </div>
             
@@ -71,6 +72,7 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                error={false}
               />
             </div>
             
@@ -82,6 +84,7 @@ export default function SignupPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                error={false}
               />
             </div>
             

@@ -22,7 +22,7 @@ export type FormFieldProps<
 
 export interface UseFormReturn<TFieldValues extends FieldValues = FieldValues> {
   formState: {
-    errors: any;
+    errors: Record<string, { message?: string }>;
     isDirty: boolean;
     isSubmitting: boolean;
     isValid: boolean;
@@ -31,8 +31,8 @@ export interface UseFormReturn<TFieldValues extends FieldValues = FieldValues> {
     touchedFields: Record<keyof TFieldValues, boolean>;
   };
   getValues: () => TFieldValues;
-  setValue: (name: Path<TFieldValues>, value: any) => void;
+  setValue: (name: Path<TFieldValues>, value: unknown) => void;
   trigger: (name?: Path<TFieldValues>) => Promise<boolean>;
   reset: () => void;
-  control: any;
+  control: object;
 }

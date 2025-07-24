@@ -37,7 +37,7 @@ export function useBatchStockData(symbols: string[]): BatchFetchState {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      const response = await fetch(`/api/stock/batch?symbols=${symbolsList.join(',')}`);
+      const response = await fetch(`/api/v1/market-data/stocks/batch?symbols=${symbolsList.join(',')}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -109,7 +109,7 @@ export function useStockPreloader() {
 
     setPreloading(true);
     try {
-      const response = await fetch('/api/stock/batch', {
+      const response = await fetch('/api/v1/market-data/stocks/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbols, action: 'preload' }),
@@ -130,7 +130,7 @@ export function useStockPreloader() {
 
   const checkCacheStatus = useCallback(async (symbols: string[]) => {
     try {
-      const response = await fetch('/api/stock/batch', {
+      const response = await fetch('/api/v1/market-data/stocks/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbols, action: 'cache_status' }),

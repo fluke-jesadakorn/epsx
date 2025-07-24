@@ -33,6 +33,14 @@ use super::service::FinancialDataService;
 
 pub fn financial_data_router(financial_service: Arc<FinancialDataService>) -> Router {
     Router::new()
+        .route("/market-data/financial/ws", get(websocket_handler))
+        .route("/market-data/financial/subscribe", get(subscribe_handler))
+        .with_state(financial_service)
+}
+
+/// Create legacy financial data routes (backward compatibility)
+pub fn financial_data_router_legacy(financial_service: Arc<FinancialDataService>) -> Router {
+    Router::new()
         .route("/financial/ws", get(websocket_handler))
         .route("/financial/subscribe", get(subscribe_handler))
         .with_state(financial_service)

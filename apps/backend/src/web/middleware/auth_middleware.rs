@@ -19,18 +19,16 @@ pub struct AuthCtx {
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for AuthCtx
-where
-    S: Send + Sync,
+impl FromRequestParts<crate::web::auth::AppState> for AuthCtx
 {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &S,
+        state: &crate::web::auth::AppState,
     ) -> Result<Self, Self::Rejection> {
         // Try to get session from cookie
-        let cookies = Cookies::from_request_parts(parts, _state)
+        let cookies = Cookies::from_request_parts(parts, state)
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
@@ -38,17 +36,42 @@ where
             let session_id = session_cookie.value();
             tracing::debug!("Found session cookie: {}", session_id);
             
-            // For now, create a mock AuthCtx
-            // In production, you would validate the session and get user info
-            let sess_id = SessId::from_str(session_id).unwrap_or_else(|_| SessId::generate());
-            let user_id = UserId::generate(); // Mock user ID
-            let role = Role::User; // Mock role
+            // Parse session ID
+            let sess_id = SessId::from_str(session_id)
+                .map_err(|_| {
+                    tracing::warn!("Invalid session ID format: {}", session_id);
+                    StatusCode::UNAUTHORIZED
+                })?;
             
-            Ok(AuthCtx {
-                user_id,
-                role,
-                sess: sess_id,
-            })
+            // Validate session using PostgreSQL repository
+            match state.session_repo.get(&sess_id).await {
+                Ok(Some(session)) => {
+                    tracing::debug!("Valid session found for user: {}", session.user_id());
+                    
+                    // Get user details to determine role
+                    match state.user_repo.find_by_id(session.user_id()).await {
+                        Ok(user) => {
+                            Ok(AuthCtx {
+                                user_id: user.id().clone(),
+                                role: user.role().clone(),
+                                sess: sess_id,
+                            })
+                        },
+                        Err(_) => {
+                            tracing::warn!("User not found for session: {}", session.user_id());
+                            Err(StatusCode::UNAUTHORIZED)
+                        }
+                    }
+                },
+                Ok(None) => {
+                    tracing::warn!("Session not found or expired: {}", session_id);
+                    Err(StatusCode::UNAUTHORIZED)
+                },
+                Err(e) => {
+                    tracing::error!("Database error during session validation: {:?}", e);
+                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                }
+            }
         } else {
             // Try Authorization header as fallback
             let auth_header = parts

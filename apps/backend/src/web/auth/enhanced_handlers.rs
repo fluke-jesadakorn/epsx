@@ -8,8 +8,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_cookies::{Cookie, Cookies};
 use chrono::{DateTime, Utc};
-use crate::app::dtos::auth::{LoginReq, LoginRes, ValidateReq};
-use crate::dom::values::{Email, Role, UserId, SessId};
+use crate::app::dtos::auth::{LoginRes, ValidateReq};
+use crate::dom::values::{Email, Role};
 use crate::dom::entities::User;
 use super::routes::AppState;
 
@@ -17,11 +17,6 @@ use super::routes::AppState;
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum EnhancedLoginRequest {
-    /// Firebase token-based login (current frontend method)
-    #[serde(rename = "firebase")]
-    Firebase {
-        firebase_token: String,
-    },
     /// Direct email/password login (future method)
     #[serde(rename = "credentials")]
     Credentials {
@@ -75,9 +70,6 @@ pub async fn enhanced_login_handler(
     Json(payload): Json<EnhancedLoginRequest>,
 ) -> Result<Json<EnhancedLoginResponse>, StatusCode> {
     match payload {
-        EnhancedLoginRequest::Firebase { firebase_token } => {
-            handle_firebase_login(cookies, app_state, firebase_token).await
-        },
         EnhancedLoginRequest::Credentials { email, password } => {
             handle_credentials_login(cookies, app_state, email, password, false).await
         },
@@ -87,95 +79,73 @@ pub async fn enhanced_login_handler(
     }
 }
 
-/// Handle Firebase token-based login (current frontend method)
-async fn handle_firebase_login(
+
+/// Handle direct email/password login (enhanced implementation)
+async fn handle_credentials_login(
     cookies: Cookies,
     app_state: AppState,
-    firebase_token: String,
+    email: String,
+    password: String,
+    _is_admin: bool,
 ) -> Result<Json<EnhancedLoginResponse>, StatusCode> {
+    // Use the real authentication system instead of mock implementation
+    use crate::app::dtos::auth::LoginReq;
+    
     // Create login request DTO
     let login_req = LoginReq {
-        email: "placeholder@example.com".to_string(),
-        password: "placeholder".to_string(),
-        firebase_token: firebase_token,
+        email: email.clone(),
+        password,
     };
     
     // Perform login through use case
     let login_res = app_state.auth_uc.login(login_req).await
         .map_err(|e| {
-            tracing::error!("Firebase login failed: {:?}", e);
+            tracing::error!("Login failed with error: {:?}", e);
+            tracing::error!("Error message: {}", e);
             StatusCode::UNAUTHORIZED
         })?;
     
-    // Set session cookie
-    set_session_cookie(&cookies, &login_res.sess_id.to_string());
+    // Create HTTP-only session cookie
+    let session_cookie = Cookie::build(("sess_id", login_res.sess_id.to_string()))
+        .http_only(true)
+        .secure(false) // Disable for development HTTP, enable in production with HTTPS
+        .same_site(tower_cookies::cookie::SameSite::Lax)
+        .max_age(tower_cookies::cookie::time::Duration::days(7))
+        .path("/")
+        .build();
     
-    // Get enhanced user profile
-    let profile = get_enhanced_user_profile(&app_state, &login_res).await?;
+    cookies.add(session_cookie);
     
-    Ok(Json(EnhancedLoginResponse {
-        user_id: login_res.user_id.to_string(),
-        email: profile.email,
-        role: profile.role,
-        permissions: profile.permissions,
-        subscription_tier: profile.subscription_tier,
-        package_tier: profile.package_tier,
-        expires_at: chrono::Utc::now() + chrono::Duration::hours(24),
-        session_type: "user".to_string(),
-    }))
-}
-
-/// Handle direct email/password login (enhanced implementation)
-async fn handle_credentials_login(
-    cookies: Cookies,
-    _app_state: AppState,
-    email: String,
-    password: String,
-    is_admin: bool,
-) -> Result<Json<EnhancedLoginResponse>, StatusCode> {
-    // Validate email format
-    let _email_vo = Email::new(email.clone())
+    // Get user details to determine role and permissions
+    let user = app_state.user_repo.find_by_id(&login_res.user_id).await
         .map_err(|e| {
-            tracing::error!("Invalid email format: {:?}", e);
-            StatusCode::BAD_REQUEST
+            tracing::error!("Failed to get user details: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
         })?;
     
-    // TODO: In production, verify password hash
-    // For now, we'll accept any password for development
-    if password.is_empty() {
-        tracing::warn!("Empty password provided");
-        return Err(StatusCode::BAD_REQUEST);
-    }
-    
-    // Mock implementation for development - bypass database for now
-    let user_id = UserId::generate();
-    let session_id = SessId::generate();
-    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
-    
-    // Set session cookie
-    set_session_cookie(&cookies, &session_id.to_string());
-    
-    // Determine role and permissions based on email and admin flag
-    let (role, permissions) = if is_admin || email.contains("admin") {
-        ("admin".to_string(), vec!["read:all".to_string(), "write:all".to_string(), "manage:users".to_string()])
-    } else {
-        ("user".to_string(), vec!["read:own".to_string(), "write:own".to_string()])
+    // Get role string and permissions
+    let role_str = user.role().to_string();
+    let permissions = match user.role() {
+        Role::SuperAdmin | Role::Admin => vec!["read:all".to_string(), "write:all".to_string(), "manage:users".to_string()],
+        Role::Moderator => vec!["read:all".to_string(), "write:limited".to_string(), "moderate:content".to_string()],
+        Role::Premium => vec!["read:all".to_string(), "write:own".to_string(), "access:premium_features".to_string()],
+        _ => vec!["read:own".to_string(), "write:own".to_string()],
     };
     
     // Determine session type
-    let session_type = if is_admin || email.contains("admin") { "admin" } else { "user" };
+    let session_type = if matches!(user.role(), Role::SuperAdmin | Role::Admin) { "admin" } else { "user" };
     
-    tracing::info!("Mock login successful for user: {} with role: {}", email, role);
+    tracing::info!("Login successful for user: {} ({}), role: {:?}", email, user.id(), user.role());
     
     // Return enhanced response
     Ok(Json(EnhancedLoginResponse {
-        user_id: user_id.to_string(),
-        email: email.clone(),
-        role,
+        user_id: user.id().to_string(),
+        email: user.email().value().to_string(),
+        role: role_str,
         permissions,
-        subscription_tier: "basic".to_string(),
-        package_tier: "basic".to_string(),
-        expires_at,
+        subscription_tier: user.sub().tier().to_string(),
+        package_tier: user.sub().tier().to_string(),
+        expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
         session_type: session_type.to_string(),
     }))
 }
@@ -286,20 +256,8 @@ pub async fn password_reset_handler(
     }))
 }
 
-/// Helper function to set session cookie
-fn set_session_cookie(cookies: &Cookies, session_id: &str) {
-    let session_cookie = Cookie::build(("sess_id", session_id.to_string()))
-        .http_only(true)
-        .secure(true) // Enable in production with HTTPS
-        .same_site(tower_cookies::cookie::SameSite::Strict)
-        .max_age(tower_cookies::cookie::time::Duration::days(7))
-        .path("/")
-        .build();
-    
-    cookies.add(session_cookie);
-}
-
 /// Enhanced user profile information
+#[allow(dead_code)]
 struct EnhancedUserProfile {
     email: String,
     role: String,
@@ -309,6 +267,7 @@ struct EnhancedUserProfile {
 }
 
 /// Get enhanced user profile information
+#[allow(dead_code)]
 async fn get_enhanced_user_profile(
     app_state: &AppState,
     login_res: &LoginRes,
@@ -346,18 +305,6 @@ async fn get_enhanced_user_profile(
 mod tests {
     use super::*;
     
-    #[test]
-    fn should_deserialize_firebase_login() {
-        let json = r#"{"type": "firebase", "firebase_token": "test-token"}"#;
-        let request: EnhancedLoginRequest = serde_json::from_str(json).unwrap();
-        
-        match request {
-            EnhancedLoginRequest::Firebase { firebase_token } => {
-                assert_eq!(firebase_token, "test-token");
-            },
-            _ => panic!("Expected Firebase variant"),
-        }
-    }
     
     #[test]
     fn should_deserialize_credentials_login() {

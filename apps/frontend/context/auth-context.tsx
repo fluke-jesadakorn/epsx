@@ -1,7 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { PackageTier } from '@epsx/types';
+import { ClientCookies } from '@/lib/cookies';
+import { useAppState } from './app-state';
+import { useOptimisticUpdates } from '@/lib/state/core';
+import { useToasts } from './ui-context';
+import { apiClient, isApiSuccess, isApiError } from '@/lib/api-client';
 
 interface BackendUser {
   user_id: string;
@@ -12,22 +17,10 @@ interface BackendUser {
   package_tier: string;
   expires_at: string;
   session_type: string;
-  // Firebase compatibility properties
-  uid?: string; // Alias for user_id
-  emailVerified?: boolean;
+  emailVerified: boolean;
   displayName?: string;
   photoURL?: string;
-  providerData?: any[];
-  isAnonymous?: boolean;
-  metadata?: any;
-  refreshToken?: string;
-  tenantId?: string | null;
-  // Additional Firebase User properties for compatibility
-  delete?: () => Promise<void>;
-  getIdToken?: (forceRefresh?: boolean) => Promise<string>;
-  getIdTokenResult?: (forceRefresh?: boolean) => Promise<any>;
-  reload?: () => Promise<void>;
-  toJSON?: () => object;
+  phoneNumber?: string | null;
 }
 
 interface AuthContextType {
@@ -38,62 +31,113 @@ interface AuthContextType {
   packageTier: PackageTier;
   hasPermission: (permission: string) => boolean;
   refreshPermissions: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithFirebaseToken: (token: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<BackendUser>;
+  register: (email: string, password: string, displayName?: string) => Promise<{ user_id: string; email: string; verification_sent: boolean; message: string }>;
   logout: () => Promise<void>;
+  initializeFromServer: (serverAuthState?: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<BackendUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [packageTier, setPackageTier] = useState<PackageTier>(PackageTier.FREE);
+// Helper function to normalize backend user data
+const normalizeUserData = (userData: any): BackendUser => ({
+  ...userData,
+  emailVerified: true, // Backend users are considered verified
+  displayName: userData.display_name || userData.email?.split('@')[0] || null,
+  photoURL: userData.photo_url || null,
+  phoneNumber: userData.phone_number || null,
+});
 
-  const loadUserSession = async () => {
+interface AuthProviderProps {
+  children: React.ReactNode;
+  initialAuthState?: {
+    user?: BackendUser;
+    permissions?: string[];
+    packageTier?: PackageTier;
+  };
+}
+
+export function AuthProvider({ children, initialAuthState }: AuthProviderProps) {
+  // Use the new state management system
+  const { state, actions } = useAppState();
+  const { success, error: showError } = useToasts();
+  
+  // Legacy state for backward compatibility
+  const [user, setUser] = useState<BackendUser | null>(initialAuthState?.user || null);
+  const [loading, setLoading] = useState(!initialAuthState);
+  const [isInitialized, setIsInitialized] = useState(!!initialAuthState);
+  const [permissions, setPermissions] = useState<string[]>(initialAuthState?.permissions || []);
+  const [packageTier, setPackageTier] = useState<PackageTier>(initialAuthState?.packageTier || PackageTier.FREE);
+  
+  const {
+    startOptimisticUpdate,
+    confirmOptimisticUpdate,
+    rollbackOptimisticUpdate
+  } = useOptimisticUpdates();
+
+  const loadUserSession = useCallback(async () => {
+    actions.ui.setLoading('auth', true);
+    
     try {
-      const response = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include',
-      });
+      const response = await apiClient.getCurrentUser();
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Session expired or invalid
-          setUser(null);
-          setPermissions([]);
-          setPackageTier(PackageTier.FREE);
-          return;
-        }
-        throw new Error('Failed to load session');
+      if (isApiError(response)) {
+        // Session expired or invalid
+        setUser(null);
+        setPermissions([]);
+        setPackageTier(PackageTier.FREE);
+        actions.user.setProfile(null);
+        actions.user.updatePermissions([]);
+        actions.user.setPackageTier('FREE');
+        return;
       }
 
-      const userData = await response.json();
-      // Add Firebase compatibility properties
-      const enhancedUserData = {
-        ...userData,
-        uid: userData.user_id, // Alias for Firebase compatibility
-        emailVerified: true, // Backend users are considered verified
-        displayName: userData.display_name || userData.email?.split('@')[0] || null,
-        photoURL: userData.photo_url || null,
-        providerData: userData.provider_data || [],
-      };
-      setUser(enhancedUserData);
-      setPermissions(userData.permissions || []);
-      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+      if (isApiSuccess(response)) {
+        const userData = response.data;
+        const normalizedUserData = normalizeUserData(userData);
+        
+        // Update both legacy and new state
+        setUser(normalizedUserData);
+        setPermissions(userData.permissions || []);
+        setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+        
+        // Update new state management
+        actions.user.setProfile(normalizedUserData);
+        actions.user.updatePermissions(userData.permissions || []);
+        actions.user.setPackageTier(userData.package_tier || 'FREE');
+      }
+      
     } catch (error) {
       console.error('Error loading user session:', error);
       setUser(null);
       setPermissions([]);
       setPackageTier(PackageTier.FREE);
+      
+      actions.user.setProfile(null);
+      actions.user.updatePermissions([]);
+      actions.user.setPackageTier('FREE');
+      
+      showError('Session Error', 'Failed to load your session. Please try logging in again.');
+    } finally {
+      actions.ui.setLoading('auth', false);
     }
-  };
+  }, [actions, showError]);
 
   const refreshPermissions = async () => {
     await loadUserSession();
+  };
+
+  const initializeFromServer = (serverAuthState?: any) => {
+    if (serverAuthState) {
+      if (serverAuthState.user) {
+        const normalizedUserData = normalizeUserData(serverAuthState.user);
+        setUser(normalizedUserData);
+      }
+      setPermissions(serverAuthState.permissions || []);
+      setPackageTier(serverAuthState.packageTier || PackageTier.FREE);
+    }
+    setIsInitialized(true);
+    setLoading(false);
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -113,146 +157,148 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await loadUserSession();
-      } finally {
-        setLoading(false);
-        setIsInitialized(true);
-      }
-    };
+    // Only initialize from client if we don't have initial server state
+    if (!initialAuthState && !isInitialized) {
+      const initAuth = async () => {
+        try {
+          await loadUserSession();
+        } finally {
+          setLoading(false);
+          setIsInitialized(true);
+        }
+      };
 
-    initAuth();
-  }, []);
+      initAuth();
+    }
+  }, [initialAuthState, isInitialized]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
+    const updateId = Math.random().toString(36);
+    actions.ui.setLoading('login', true);
+    
     try {
-      const response = await fetch('/api/auth/enhanced-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          type: 'credentials', 
-          email, 
-          password 
-        }),
+      const response = await apiClient.login({ 
+        type: 'credentials', 
+        email, 
+        password 
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Login failed');
       }
 
-      const userData = await response.json();
-      // Add Firebase compatibility properties
-      const enhancedUserData = {
-        ...userData,
-        uid: userData.user_id, // Alias for Firebase compatibility
-        emailVerified: true, // Backend users are considered verified
-        displayName: userData.display_name || userData.email?.split('@')[0] || null,
-        photoURL: userData.photo_url || null,
-        providerData: userData.provider_data || [],
-      };
-      setUser(enhancedUserData);
-      setPermissions(userData.permissions || []);
-      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
-      
-      return enhancedUserData;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const loginWithFirebaseToken = async (token: string) => {
-    try {
-      const response = await fetch('/api/auth/enhanced-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          type: 'firebase', 
-          firebase_token: token 
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
+      if (isApiSuccess(response)) {
+        const userData = response.data;
+        const normalizedUserData = normalizeUserData(userData);
+        
+        // Update both legacy and new state
+        setUser(normalizedUserData);
+        setPermissions(userData.permissions || []);
+        setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+        
+        actions.user.setProfile(normalizedUserData);
+        actions.user.updatePermissions(userData.permissions || []);
+        actions.user.setPackageTier(userData.package_tier || 'FREE');
+        
+        success('Welcome back!', `Successfully logged in as ${normalizedUserData.email}`);
+        
+        return normalizedUserData;
       }
 
-      const userData = await response.json();
-      // Add Firebase compatibility properties
-      const enhancedUserData = {
-        ...userData,
-        uid: userData.user_id, // Alias for Firebase compatibility
-        emailVerified: true, // Backend users are considered verified
-        displayName: userData.display_name || userData.email?.split('@')[0] || null,
-        photoURL: userData.photo_url || null,
-        providerData: userData.provider_data || [],
-      };
-      setUser(enhancedUserData);
-      setPermissions(userData.permissions || []);
-      setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
-      
-      return enhancedUserData;
+      throw new Error('Unexpected response format');
     } catch (error) {
+      showError('Login Failed', error instanceof Error ? error.message : 'Unknown error occurred');
       throw error;
+    } finally {
+      actions.ui.setLoading('login', false);
     }
-  };
+  }, [actions, success, showError]);
+
 
   const register = async (email: string, password: string, displayName?: string) => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          email, 
-          password, 
-          name: displayName,
-        }),
+      const response = await apiClient.register({ 
+        email, 
+        password, 
+        name: displayName,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Registration failed');
       }
 
-      const data = await response.json();
-      return data;
+      if (isApiSuccess(response)) {
+        return response.data;
+      }
+
+      throw new Error('Unexpected response format');
     } catch (error) {
       throw error;
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    const updateId = Math.random().toString(36);
+    
+    // Optimistic update - immediately clear user state
+    startOptimisticUpdate(
+      updateId,
+      () => {
+        setUser(null);
+        setPermissions([]);
+        setPackageTier(PackageTier.FREE);
+        actions.user.setProfile(null);
+        actions.user.updatePermissions([]);
+        actions.user.setPackageTier('FREE');
+      },
+      () => {
+        // Rollback if logout fails - restore previous state
+        loadUserSession();
+      }
+    );
+    
     try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include',
-      });
-      setUser(null);
-      setPermissions([]);
-      setPackageTier(PackageTier.FREE);
+      const response = await apiClient.logout();
+      
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Logout failed');
+      }
+      
+      confirmOptimisticUpdate(updateId);
+      success('Logged out', 'You have been successfully logged out');
+      
     } catch (error) {
       console.error('Logout error:', error);
+      rollbackOptimisticUpdate(updateId);
+      showError('Logout Failed', 'Failed to log out. Please try again.');
     }
-  };
+  }, [actions, success, showError, startOptimisticUpdate, confirmOptimisticUpdate, rollbackOptimisticUpdate, loadUserSession]);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user, 
+    loading: loading || state.ui.loading.requests.auth || false, 
+    isInitialized,
+    permissions, 
+    packageTier,
+    hasPermission,
+    refreshPermissions,
+    login,
+    register, 
+    logout,
+    initializeFromServer,
+    // Additional state from new system
+    isOptimisticUpdate: state.user.optimisticUpdates.length > 0,
+    lastUpdated: state.user.lastUpdated
+  }), [
+    user, loading, isInitialized, permissions, packageTier, 
+    hasPermission, refreshPermissions, login, 
+    register, logout, initializeFromServer, state.ui.loading.requests.auth,
+    state.user.optimisticUpdates.length, state.user.lastUpdated
+  ]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      isInitialized,
-      permissions, 
-      packageTier,
-      hasPermission,
-      refreshPermissions,
-      login,
-      loginWithFirebaseToken,
-      register, 
-      logout 
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

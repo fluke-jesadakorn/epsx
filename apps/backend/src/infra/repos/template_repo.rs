@@ -68,7 +68,7 @@ impl TemplateRepo for TemplateRepoImpl {
         
         // Check if template exists
         if !templates.contains_key(&template_id) {
-            return Err(TemplateError::NotFound(template_id));
+            return Err(TemplateError::NotFoundWithMessage(template_id.to_string()));
         }
         
         templates.insert(template_id, template.clone());
@@ -91,7 +91,7 @@ impl TemplateRepo for TemplateRepoImpl {
             tracing::info!("Soft deleted template: {}", id.value());
             Ok(())
         } else {
-            Err(TemplateError::NotFound(template_id))
+            Err(TemplateError::NotFoundWithMessage(template_id.to_string()))
         }
     }
     
@@ -143,7 +143,7 @@ impl TemplateRepo for TemplateRepoImpl {
             
             // Get template
             let template = templates.get(request.template_id.value())
-                .ok_or_else(|| TemplateError::NotFound(request.template_id.value().to_string()))?;
+                .ok_or_else(|| TemplateError::NotFoundWithMessage(request.template_id.value().to_string()))?;
             
             (
                 template.name().to_string(),
@@ -249,7 +249,7 @@ impl TemplateRepo for TemplateRepoImpl {
             .map_err(|e| TemplateError::InvalidConfiguration(format!("Lock error: {}", e)))?;
         
         let template = templates.get(template_id.value())
-            .ok_or_else(|| TemplateError::NotFound(template_id.value().to_string()))?;
+            .ok_or_else(|| TemplateError::NotFoundWithMessage(template_id.value().to_string()))?;
         
         // Basic checks
         if !template.is_active() {

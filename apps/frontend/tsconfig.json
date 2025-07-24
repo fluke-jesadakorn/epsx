@@ -52,7 +52,6 @@
     "eslint.config.js",
     "lib/store/**/*.ts",
     "lib/store/**/*.tsx",
-    "lib/firebase-admin.d.ts",
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

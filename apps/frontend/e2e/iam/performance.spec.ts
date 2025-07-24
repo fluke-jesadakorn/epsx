@@ -231,7 +231,7 @@ test.describe('IAM Performance Tests', () => {
       // Monitor network requests
       const requests: string[] = [];
       page.on('request', (request) => {
-        if (request.url().includes('firebase') || request.url().includes('auth')) {
+        if (request.url().includes('auth')) {
           requests.push(request.url());
         }
       });
