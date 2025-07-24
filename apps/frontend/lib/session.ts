@@ -1,18 +1,22 @@
 import { cookies } from 'next/headers';
-import { getAuthAdmin } from './firebase-admin';
+import { ServerCookies, COOKIE_NAMES } from './cookies';
 
-const SESSION_KEY = '__session';
+const SESSION_KEY = COOKIE_NAMES.SESSION;
 const MAX_AGE = 60 * 60 * 24 * 5; // 5 days in seconds
 const REFRESH_THRESHOLD = 60 * 60; // 1 hour before expiry
 
 export interface SessionClaims {
-  uid: string;
+  user_id: string;
   email: string;
   email_verified: boolean;
   name?: string;
-  picture?: string;
-  exp: number;
-  iat: number;
+  picture: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+  package_tier: string;
+  expires_at: string;
+  session_type: string;
 }
 
 export interface SessionResult {
@@ -22,26 +26,16 @@ export interface SessionResult {
 }
 
 /**
- * Create a new session with the provided Firebase ID token
+ * Create a new session using backend verification
  */
-export async function createSession(token: string): Promise<{ success: boolean; error?: string }> {
+export async function createSession(sessionData: any): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verify the token first to ensure it's valid
-    const auth = getAuthAdmin();
-    const decodedToken = await auth.verifyIdToken(token, true);
-    
-    if (!decodedToken.uid) {
-      return { success: false, error: 'Invalid token: missing user ID' };
+    if (!sessionData?.user_id) {
+      return { success: false, error: 'Invalid session data: missing user ID' };
     }
 
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_KEY, token, {
-      maxAge: MAX_AGE,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
+    // Store session data as a JSON string in cookies
+    await ServerCookies.set('SESSION', JSON.stringify(sessionData));
 
     return { success: true };
   } catch (error) {
@@ -58,30 +52,39 @@ export async function createSession(token: string): Promise<{ success: boolean; 
  */
 export async function verifySession(): Promise<SessionResult> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_KEY)?.value;
+    const sessionData = await ServerCookies.get('SESSION');
     
-    if (!token) {
+    if (!sessionData) {
       return { success: false };
     }
 
-    // Verify the Firebase ID token
-    const auth = getAuthAdmin();
-    const decodedToken = await auth.verifyIdToken(token, true); // checkRevoked = true
+    // Parse session data from JSON
+    let parsedSession;
+    try {
+      parsedSession = JSON.parse(sessionData);
+    } catch (parseError) {
+      console.error('Failed to parse session data:', parseError);
+      await destroySession(); // Clear invalid session
+      return { success: false };
+    }
     
     const claims: SessionClaims = {
-      uid: decodedToken.uid,
-      email: decodedToken.email || '',
-      email_verified: decodedToken.email_verified || false,
-      name: decodedToken.name,
-      picture: decodedToken.picture,
-      exp: decodedToken.exp || 0,
-      iat: decodedToken.iat || 0,
+      user_id: parsedSession.user_id,
+      email: parsedSession.email || '',
+      email_verified: true, // Backend sessions are considered verified
+      name: parsedSession.name,
+      picture: parsedSession.picture || '',
+      role: parsedSession.role || 'user',
+      permissions: parsedSession.permissions || [],
+      subscription_tier: parsedSession.subscription_tier || 'free',
+      package_tier: parsedSession.package_tier || 'free',
+      expires_at: parsedSession.expires_at,
+      session_type: parsedSession.session_type || 'user',
     };
 
-    // Check if token needs refresh (within 1 hour of expiry)
-    const needsRefresh = decodedToken.exp ? 
-      (decodedToken.exp - Math.floor(Date.now() / 1000)) < REFRESH_THRESHOLD : false;
+    // Check if session needs refresh (within 1 hour of expiry)
+    const needsRefresh = claims.expires_at ? 
+      (new Date(claims.expires_at).getTime() - Date.now()) < (REFRESH_THRESHOLD * 1000) : false;
 
     return { 
       success: true, 
@@ -103,27 +106,16 @@ export async function verifySession(): Promise<SessionResult> {
 }
 
 /**
- * Refresh the current session with a new token
+ * Refresh the current session with new session data
  */
-export async function refreshSession(newToken: string): Promise<{ success: boolean; error?: string }> {
+export async function refreshSession(newSessionData: any): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verify the new token
-    const auth = getAuthAdmin();
-    const decodedToken = await auth.verifyIdToken(newToken, true);
-    
-    if (!decodedToken.uid) {
-      return { success: false, error: 'Invalid refresh token' };
+    if (!newSessionData?.user_id) {
+      return { success: false, error: 'Invalid refresh data: missing user ID' };
     }
 
-    // Update the session cookie
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_KEY, newToken, {
-      maxAge: MAX_AGE,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
+    // Update the session cookie using ServerCookies
+    await ServerCookies.set('SESSION', JSON.stringify(newSessionData));
 
     return { success: true };
   } catch (error) {
@@ -140,8 +132,7 @@ export async function refreshSession(newToken: string): Promise<{ success: boole
  */
 export async function destroySession(): Promise<void> {
   try {
-    const cookieStore = await cookies();
-    cookieStore.delete(SESSION_KEY);
+    await ServerCookies.clearAuthCookies();
   } catch (error) {
     console.error('Session destruction failed:', error);
     throw error;
@@ -153,9 +144,7 @@ export async function destroySession(): Promise<void> {
  */
 export async function hasSession(): Promise<boolean> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_KEY)?.value;
-    return !!token;
+    return await ServerCookies.has('SESSION');
   } catch (error) {
     console.error('Session check failed:', error);
     return false;
@@ -167,20 +156,34 @@ export async function hasSession(): Promise<boolean> {
  */
 export async function getSessionInfo(): Promise<{
   isAuthenticated: boolean;
-  email?: string;
-  emailVerified?: boolean;
-  displayName?: string;
+  email: string | undefined;
+  emailVerified: boolean | undefined;
+  displayName: string | undefined;
+  role: string | undefined;
+  permissions: string[];
+  packageTier: string | undefined;
 }> {
   const result = await verifySession();
   
   if (!result.success || !result.claims) {
-    return { isAuthenticated: false };
+    return { 
+      isAuthenticated: false,
+      email: undefined,
+      emailVerified: undefined,
+      displayName: undefined,
+      role: undefined,
+      permissions: [],
+      packageTier: undefined,
+    };
   }
 
   return {
     isAuthenticated: true,
-    email: result.claims.email || undefined,
-    emailVerified: result.claims.email_verified || undefined,
-    displayName: result.claims.name || undefined,
+    email: result.claims.email ?? undefined,
+    emailVerified: result.claims.email_verified ?? undefined,
+    displayName: result.claims.name ?? undefined,
+    role: result.claims.role ?? undefined,
+    permissions: result.claims.permissions ?? [],
+    packageTier: result.claims.package_tier ?? undefined,
   };
 }

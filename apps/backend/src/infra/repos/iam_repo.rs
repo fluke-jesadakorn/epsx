@@ -44,7 +44,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn get_role(&self, id: &RoleId) -> Result<IamRole, IamError> {
         let roles = self.roles.lock().unwrap();
-        roles.get(id.value())
+        roles.get(&id.value().to_string())
             .cloned()
             .ok_or_else(|| IamError::RoleNotFound(id.value().to_string()))
     }
@@ -58,7 +58,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn delete_role(&self, id: &RoleId) -> Result<(), IamError> {
         let mut roles = self.roles.lock().unwrap();
-        roles.remove(id.value())
+        roles.remove(&id.value().to_string())
             .ok_or_else(|| IamError::RoleNotFound(id.value().to_string()))?;
         Ok(())
     }
@@ -78,7 +78,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn get_policy(&self, id: &PolicyId) -> Result<IamPolicy, IamError> {
         let policies = self.policies.lock().unwrap();
-        policies.get(id.value())
+        policies.get(&id.value().to_string())
             .cloned()
             .ok_or_else(|| IamError::PolicyNotFound(id.value().to_string()))
     }
@@ -92,7 +92,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn delete_policy(&self, id: &PolicyId) -> Result<(), IamError> {
         let mut policies = self.policies.lock().unwrap();
-        policies.remove(id.value())
+        policies.remove(&id.value().to_string())
             .ok_or_else(|| IamError::PolicyNotFound(id.value().to_string()))?;
         Ok(())
     }
@@ -112,7 +112,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn get_group(&self, id: &GroupId) -> Result<IamGroup, IamError> {
         let groups = self.groups.lock().unwrap();
-        groups.get(id.value())
+        groups.get(&id.value().to_string())
             .cloned()
             .ok_or_else(|| IamError::GroupNotFound(id.value().to_string()))
     }
@@ -126,7 +126,7 @@ impl IamRepo for IamRepoImpl {
 
     async fn delete_group(&self, id: &GroupId) -> Result<(), IamError> {
         let mut groups = self.groups.lock().unwrap();
-        groups.remove(id.value())
+        groups.remove(&id.value().to_string())
             .ok_or_else(|| IamError::GroupNotFound(id.value().to_string()))?;
         Ok(())
     }

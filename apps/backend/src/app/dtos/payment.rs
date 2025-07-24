@@ -135,6 +135,8 @@ impl CreatePayReq {
             Currency::USDT | Currency::USDC => Decimal::from(10), // $10 minimum
             Currency::ETH => "0.01".parse::<Decimal>().unwrap(), // 0.01 ETH minimum
             Currency::BTC => "0.001".parse::<Decimal>().unwrap(), // 0.001 BTC minimum
+            Currency::BNB => "0.1".parse::<Decimal>().unwrap(), // 0.1 BNB minimum
+            Currency::TRX => Decimal::from(100), // 100 TRX minimum
             Currency::USD => Decimal::from(10), // $10 minimum
         };
         

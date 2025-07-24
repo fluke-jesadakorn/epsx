@@ -38,6 +38,33 @@ pub struct UserRegisteredEvent {
     email: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StockPriceAlertEvent {
+    event_id: Uuid,
+    occurred_at: DateTime<Utc>,
+    symbol: String,
+    price: rust_decimal::Decimal,
+    threshold: rust_decimal::Decimal,
+    user_id: UserId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradeExecutedEvent {
+    event_id: Uuid,
+    occurred_at: DateTime<Utc>,
+    user_id: UserId,
+    symbol: String,
+    quantity: i32,
+    price: rust_decimal::Decimal,
+    trade_type: TradeType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TradeType {
+    Buy,
+    Sell,
+}
+
 impl UserRoleChangedEvent {
     pub fn new(user_id: UserId, old_role: Role, new_role: Role) -> Self {
         Self {
@@ -100,6 +127,56 @@ impl DomainEvent for UserRegisteredEvent {
     fn event_id(&self) -> &Uuid { &self.event_id }
     fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
     fn event_type(&self) -> &'static str { "UserRegistered" }
+}
+
+impl StockPriceAlertEvent {
+    pub fn new(symbol: String, price: rust_decimal::Decimal, threshold: rust_decimal::Decimal, user_id: UserId) -> Self {
+        Self {
+            event_id: Uuid::new_v4(),
+            occurred_at: Utc::now(),
+            symbol,
+            price,
+            threshold,
+            user_id,
+        }
+    }
+    
+    pub fn symbol(&self) -> &str { &self.symbol }
+    pub fn price(&self) -> rust_decimal::Decimal { self.price }
+    pub fn threshold(&self) -> rust_decimal::Decimal { self.threshold }
+    pub fn user_id(&self) -> &UserId { &self.user_id }
+}
+
+impl DomainEvent for StockPriceAlertEvent {
+    fn event_id(&self) -> &Uuid { &self.event_id }
+    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
+    fn event_type(&self) -> &'static str { "StockPriceAlert" }
+}
+
+impl TradeExecutedEvent {
+    pub fn new(user_id: UserId, symbol: String, quantity: i32, price: rust_decimal::Decimal, trade_type: TradeType) -> Self {
+        Self {
+            event_id: Uuid::new_v4(),
+            occurred_at: Utc::now(),
+            user_id,
+            symbol,
+            quantity,
+            price,
+            trade_type,
+        }
+    }
+    
+    pub fn user_id(&self) -> &UserId { &self.user_id }
+    pub fn symbol(&self) -> &str { &self.symbol }
+    pub fn quantity(&self) -> i32 { self.quantity }
+    pub fn price(&self) -> rust_decimal::Decimal { self.price }
+    pub fn trade_type(&self) -> &TradeType { &self.trade_type }
+}
+
+impl DomainEvent for TradeExecutedEvent {
+    fn event_id(&self) -> &Uuid { &self.event_id }
+    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
+    fn event_type(&self) -> &'static str { "TradeExecuted" }
 }
 
 #[cfg(test)]

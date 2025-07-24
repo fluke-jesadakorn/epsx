@@ -5,7 +5,7 @@ import { PaymentStatusCard } from '@/components/features/payment/PaymentStatusCa
 import { TransactionHistory } from '@/components/features/payment/TransactionHistory';
 import { withPaymentAuth } from './withPaymentAuth';
 import { createPaymentService } from '@/services/payment.service';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/context/auth-context';
 
 // Transaction interface that matches what TransactionHistory expects
 interface Transaction {
@@ -31,6 +31,7 @@ const BasePaymentStatusSection = ({
   showTitle = true 
 }: PaymentStatusSectionProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { user } = useAuth();
   const paymentService = createPaymentService();
 
   useEffect(() => {
@@ -48,16 +49,12 @@ const BasePaymentStatusSection = ({
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        fetchTransactions();
-      } else {
-        setTransactions([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [paymentService]);
+    if (user) {
+      fetchTransactions();
+    } else {
+      setTransactions([]);
+    }
+  }, [user, paymentService]);
 
   return (
     <section className={`w-full ${className}`}>

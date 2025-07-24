@@ -8,13 +8,13 @@ export interface User {
   updatedAt: string;
   emailVerified?: boolean;
   role: 'USER' | 'ADMIN';
-  displayName?: string;
-  photoURL?: string;
-  usdtDetails?: USDTDetails;
-  subscription?: UserSubscription; // New payment system
-  token_balance?: number; // For legacy token-based features
-  features?: string[]; // For legacy feature system
-  permissions?: string[]; // For legacy permission system
+  displayName?: string | undefined;
+  photoURL?: string | undefined;
+  usdtDetails?: USDTDetails | undefined;
+  subscription?: UserSubscription | undefined; // New payment system
+  token_balance?: number | undefined; // For legacy token-based features
+  features?: string[] | undefined; // For legacy feature system
+  permissions?: string[] | undefined; // For legacy permission system
 }
 
 export interface UserCredentials {

@@ -10,8 +10,8 @@ import type {InputProps} from './input';
 
 interface InputGroupContextValue {
   id: string;
-  error?: boolean;
-  disabled?: boolean;
+  error: boolean | undefined;
+  disabled: boolean | undefined;
 }
 
 const InputGroupContext = React.createContext<InputGroupContextValue | undefined>(
@@ -27,7 +27,7 @@ interface InputGroupProps extends React.HTMLAttributes<HTMLDivElement> {
 
 function InputGroup({ id, error, disabled, className, children, ...props }: InputGroupProps) {
   return (
-    <InputGroupContext.Provider value={{ id, error, disabled }}>
+    <InputGroupContext.Provider value={{ id, error: error ?? undefined, disabled: disabled ?? undefined }}>
       <div className={cn('space-y-2', className)} {...props}>
         {children}
       </div>
@@ -62,13 +62,14 @@ function InputGroupField(props: InputProps) {
   const context = React.useContext(InputGroupContext);
   if (!context) throw new Error('InputGroupField must be used within an InputGroup');
 
+  const { error: _, ...restProps } = props;
   return (
     <Input
       id={context.id}
-      error={context.error}
-      disabled={context.disabled}
+      error={context.error ?? undefined}
+      disabled={context.disabled ?? undefined}
       aria-describedby={`${context.id}-error`}
-      {...props}
+      {...restProps}
     />
   );
 }

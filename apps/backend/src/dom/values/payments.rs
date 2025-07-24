@@ -9,6 +9,8 @@ pub enum Currency {
     USDC,
     ETH,
     BTC,
+    BNB,
+    TRX,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,6 +40,8 @@ impl Currency {
             Currency::USDC => "USDC", 
             Currency::ETH => "ETH",
             Currency::BTC => "BTC",
+            Currency::BNB => "BNB",
+            Currency::TRX => "TRX",
         }
     }
     
@@ -48,6 +52,8 @@ impl Currency {
             Currency::USDC => 6,
             Currency::ETH => 18,
             Currency::BTC => 8,
+            Currency::BNB => 18,
+            Currency::TRX => 6,
         }
     }
     
@@ -73,6 +79,8 @@ impl Currency {
             ],
             Currency::ETH => vec![Network::Ethereum],
             Currency::BTC => vec![],
+            Currency::BNB => vec![Network::Binance],
+            Currency::TRX => vec![Network::Tron],
         }
     }
 }
@@ -93,6 +101,8 @@ impl std::str::FromStr for Currency {
             "USDC" => Ok(Currency::USDC),
             "ETH" => Ok(Currency::ETH),
             "BTC" => Ok(Currency::BTC),
+            "BNB" => Ok(Currency::BNB),
+            "TRX" => Ok(Currency::TRX),
             _ => Err(CurrencyError::UnsupportedCurrency(s.to_string())),
         }
     }

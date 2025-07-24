@@ -129,6 +129,29 @@ pub async fn create_payment(
     Ok(Json(response))
 }
 
+/// Handler for crypto deposit address endpoint
+pub async fn get_crypto_deposit_address(
+    State(_payment_service): State<Arc<PaymentService>>,
+) -> Result<Json<serde_json::Value>, PaymentError> {
+    Ok(Json(serde_json::json!({
+        "currency": "USDT",
+        "network": "TRC20",
+        "address": "TYMwiKKBdPWkBwcVXSNhE2MhTXNLTDJJBG",
+        "memo": null
+    })))
+}
+
+/// Handler for MusePay webhook
+pub async fn musepay_webhook_handler(
+    State(_payment_service): State<Arc<PaymentService>>,
+    Json(_payload): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, PaymentError> {
+    Ok(Json(serde_json::json!({
+        "status": "received",
+        "message": "Webhook processed successfully"
+    })))
+}
+
 impl axum::response::IntoResponse for PaymentError {
     fn into_response(self) -> axum::response::Response {
         let status = match self {

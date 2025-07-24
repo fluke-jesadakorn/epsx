@@ -18,9 +18,14 @@ import {
   Loader2,
   CreditCard
 } from 'lucide-react';
-import { onSnapshot, collection, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { PaymentRequest } from '@/lib/musepay.service';
+import { realtimeClient  } from '@/lib/api-client';
+import type {PaymentStatusUpdate} from '@/lib/api-client';
+// PaymentRequest type moved to local types since musepay.service was removed
+interface PaymentRequest {
+  amount: number;
+  currency: string;
+  orderNo: string;
+}
 
 interface PaymentDetailsProps {
   selectedPackage: string;
@@ -86,34 +91,25 @@ export default function PaymentDetails({
     }
   }, []);
 
-  // Real-time payment status monitoring
+  // Real-time payment status monitoring using WebSocket/SSE
   useEffect(() => {
     if (!activePayment?.paymentRequest?.customerRefId) return;
 
     console.log('Setting up payment monitoring for:', activePayment.paymentRequest.customerRefId);
     
-    const unsubscribe = onSnapshot(
-      query(
-        collection(db, 'payment_requests'),
-        where('customerRefId', '==', activePayment.paymentRequest.customerRefId)
-      ),
-      (snapshot) => {
-        if (!snapshot.empty) {
-          const paymentData = snapshot.docs[0].data() as PaymentRequest;
-          console.log('Payment status update:', paymentData.status);
-          
-          if (paymentData.status === 'completed') {
-            setPaymentStatus('confirmed');
-            setTimeout(() => {
-              onSuccess();
-            }, 1500);
-          } else if (paymentData.status === 'failed') {
-            setPaymentStatus('failed');
-          }
+    const unsubscribe = realtimeClient.connectToPaymentUpdates(
+      activePayment.paymentRequest.customerRefId,
+      (update: PaymentStatusUpdate) => {
+        console.log('Payment status update:', update.status);
+        
+        if (update.status === 'completed') {
+          setPaymentStatus('confirmed');
+          setTimeout(() => {
+            onSuccess();
+          }, 1500);
+        } else if (update.status === 'failed') {
+          setPaymentStatus('failed');
         }
-      },
-      (error) => {
-        console.error('Error monitoring payment:', error);
       }
     );
 

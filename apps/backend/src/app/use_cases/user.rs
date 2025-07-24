@@ -6,14 +6,13 @@ use crate::dom::entities::User;
 use crate::dom::values::{UserId, Email, Role};
 use crate::dom::services::PermissionChecker;
 use crate::dom::events::DomainEvent;
-use crate::app::ports::{UserRepo, EventDispatcher, LevelHistoryRepo, services::FbAuthSvc};
+use crate::app::ports::{UserRepo, EventDispatcher, LevelHistoryRepo};
 use crate::app::dtos::{CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes, ListUsersReq, ListUsersRes, UserDto, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq, UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, FailedUpdate, RoleCount, TierCount, LevelChangeRecord};
 
 pub struct UserMgmtUC {
     user_repo: Arc<dyn UserRepo>,
     event_dispatcher: Arc<dyn EventDispatcher>,
     level_history_repo: Arc<dyn LevelHistoryRepo>,
-    firebase_auth_svc: Arc<dyn FbAuthSvc>,
 }
 
 impl UserMgmtUC {
@@ -21,13 +20,11 @@ impl UserMgmtUC {
         user_repo: Arc<dyn UserRepo>,
         event_dispatcher: Arc<dyn EventDispatcher>,
         level_history_repo: Arc<dyn LevelHistoryRepo>,
-        firebase_auth_svc: Arc<dyn FbAuthSvc>,
-    ) -> Self {
+        ) -> Self {
         Self {
             user_repo,
             event_dispatcher,
             level_history_repo,
-            firebase_auth_svc,
         }
     }
     
@@ -132,6 +129,8 @@ impl UserMgmtUC {
         })
     }
     
+    // TODO: Remove after Firebase migration is complete
+    /*
     pub async fn list_firebase_users(&self, req: ListUsersReq) -> Result<ListUsersRes, UserUseCaseError> {
         req.validate().map_err(|e| UserUseCaseError::ValidationError(e.to_string()))?;
         
@@ -195,6 +194,7 @@ impl UserMgmtUC {
             limit: req.limit,
         })
     }
+    */
 
     pub async fn bulk_update_levels(&self, req: BulkUpdateLevelsReq) -> Result<BulkUpdateLevelsRes, UserUseCaseError> {
         req.validate().map_err(|e| UserUseCaseError::ValidationError(e.to_string()))?;

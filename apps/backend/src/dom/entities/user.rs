@@ -33,6 +33,44 @@ impl User {
         }
     }
     
+    /// Create user from existing database data (basic version)
+    pub fn from_existing(
+        id: UserId,
+        email: Email,
+        role: Role,
+    ) -> Self {
+        let now = chrono::Utc::now();
+        Self {
+            id,
+            email,
+            perms: PermSet::for_role(&role),
+            sub: Subscription::free(), // Default to free subscription
+            role,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+    
+    /// Create user from complete existing database data
+    pub fn from_existing_complete(
+        id: UserId,
+        email: Email,
+        role: Role,
+        sub: Subscription,
+        created_at: chrono::DateTime<chrono::Utc>,
+        updated_at: chrono::DateTime<chrono::Utc>,
+    ) -> Self {
+        Self {
+            id,
+            email,
+            perms: PermSet::for_role(&role),
+            sub,
+            role,
+            created_at,
+            updated_at,
+        }
+    }
+    
     pub fn reconstruct(
         id: UserId,
         email: Email, 

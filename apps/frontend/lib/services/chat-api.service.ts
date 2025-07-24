@@ -3,7 +3,7 @@ import type {
   ChatResponse,
   Message,
   ChatHistoryResponse,
-} from '@/types/chat';
+} from '@/types/chat.d';
 
 export class ChatApiService {
   private baseUrl: string;

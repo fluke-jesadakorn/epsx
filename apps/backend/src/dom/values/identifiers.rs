@@ -33,8 +33,8 @@ impl UserId {
         Ok(Self(Uuid::parse_str(s)?))
     }
     
-    pub fn from_string(s: &str) -> Result<Self, uuid::Error> {
-        Self::from_str(s)
+    pub fn from_string(s: String) -> Self {
+        Self::new(s)
     }
     
     pub fn value(&self) -> &Uuid {
@@ -54,6 +54,12 @@ impl From<Uuid> for UserId {
     }
 }
 
+impl From<String> for UserId {
+    fn from(s: String) -> Self {
+        Self::new(s)
+    }
+}
+
 // Implementations for SessId
 impl SessId {
     pub fn generate() -> Self {
@@ -62,6 +68,15 @@ impl SessId {
     
     pub fn from_str(s: &str) -> Result<Self, uuid::Error> {
         Ok(Self(Uuid::parse_str(s)?))
+    }
+    
+    pub fn from_string(s: String) -> Self {
+        if let Ok(uuid) = Uuid::parse_str(&s) {
+            Self(uuid)
+        } else {
+            // Fallback to generating a UUID from the string
+            Self(Uuid::new_v5(&Uuid::NAMESPACE_DNS, s.as_bytes()))
+        }
     }
     
     pub fn value(&self) -> &Uuid {

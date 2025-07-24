@@ -65,11 +65,11 @@ pub async fn list_users_handler(
 
     app_state
         .user_mgmt_uc
-        .list_firebase_users(req)
+        .list_users(req)
         .await
         .map(Json)
         .map_err(|e| {
-            tracing::error!("Failed to list Firebase users: {:?}", e);
+            tracing::error!("Failed to list users: {:?}", e);
             match e {
                 UserUseCaseError::ValidationError(_) => StatusCode::BAD_REQUEST,
                 UserUseCaseError::PermissionDenied => StatusCode::FORBIDDEN,

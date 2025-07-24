@@ -14,7 +14,7 @@ export function AuthGuard({ children, requireAuth = false }: AuthGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && requireAuth && !user) {
+    if (!loading && requireAuth && !user && typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
       const loginUrl = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
       router.push(loginUrl);

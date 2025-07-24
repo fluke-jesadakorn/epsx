@@ -36,7 +36,7 @@ export function Pay({ pkg = '', amt = '' }: PayProps) {
         (typeof window !== 'undefined' &&
           window.localStorage.getItem('userId')) ||
         'demo-user';
-      const res = await fetch('/api/payment/deposit-address', {
+      const res = await fetch('/api/v1/payments/crypto/deposit-address', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

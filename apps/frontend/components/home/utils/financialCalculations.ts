@@ -40,7 +40,7 @@ export function getBestAvailablePrice(data: StockFinancialData): number | null {
   // Fall back to latest quarter price
   if (data.quarters.length > 0) {
     const latestQuarter = data.quarters[0];
-    return latestQuarter.price;
+    return latestQuarter?.price ?? null;
   }
   
   return null;
@@ -87,10 +87,14 @@ export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sid
   let downCount = 0;
   
   for (let i = 1; i < validGrowthRates.length; i++) {
-    if (validGrowthRates[i] > validGrowthRates[i - 1]) {
-      upCount++;
-    } else if (validGrowthRates[i] < validGrowthRates[i - 1]) {
-      downCount++;
+    const current = validGrowthRates[i];
+    const previous = validGrowthRates[i - 1];
+    if (current !== undefined && previous !== undefined) {
+      if (current > previous) {
+        upCount++;
+      } else if (current < previous) {
+        downCount++;
+      }
     }
   }
   

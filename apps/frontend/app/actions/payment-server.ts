@@ -58,3 +58,81 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
   const assets = await getSupportedAssets()
   return assets.find(asset => asset.currency === currency)
 }
+
+// Get payment status from backend
+export async function getPaymentStatus(): Promise<any> {
+  try {
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('__session')
+    
+    if (!sessionToken) {
+      throw new Error('Authentication required')
+    }
+
+    return await apiClient.get<any>(
+      '/payment/status',
+      { 'Authorization': `Bearer ${sessionToken.value}` }
+    )
+  } catch (error) {
+    console.error('Failed to get payment status:', error)
+    return null
+  }
+}
+
+// Verify payment transaction
+export async function verifyPayment(transactionId: string): Promise<boolean> {
+  try {
+    const schema = z.object({
+      transactionId: z.string().min(1)
+    })
+    
+    const validatedData = schema.parse({ transactionId })
+    
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('__session')
+    
+    if (!sessionToken) {
+      throw new Error('Authentication required')
+    }
+
+    const result = await apiClient.post<{ verified: boolean }>(
+      '/payment/verify',
+      validatedData,
+      { 'Authorization': `Bearer ${sessionToken.value}` }
+    )
+    
+    return result.verified
+  } catch (error) {
+    console.error('Failed to verify payment:', error)
+    return false
+  }
+}
+
+// Cancel pending payment
+export async function cancelPayment(paymentId: string): Promise<boolean> {
+  try {
+    const schema = z.object({
+      paymentId: z.string().min(1)
+    })
+    
+    const validatedData = schema.parse({ paymentId })
+    
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('__session')
+    
+    if (!sessionToken) {
+      throw new Error('Authentication required')
+    }
+
+    await apiClient.post<void>(
+      '/payment/cancel',
+      validatedData,
+      { 'Authorization': `Bearer ${sessionToken.value}` }
+    )
+    
+    return true
+  } catch (error) {
+    console.error('Failed to cancel payment:', error)
+    return false
+  }
+}

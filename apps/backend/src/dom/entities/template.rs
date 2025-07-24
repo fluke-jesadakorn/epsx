@@ -54,6 +54,14 @@ pub enum TemplateCategory {
     Custom,
     /// System and service roles
     System,
+    /// Business-specific roles
+    Business,
+    /// Technical roles
+    Technical,
+    /// Administrative roles (alias)
+    Administrative,
+    /// Compliance-related roles
+    Compliance,
 }
 
 /// Template metadata for additional configuration
@@ -108,6 +116,22 @@ pub struct ApplyTemplateRequest {
     pub merge_permissions: bool,
     /// Auto-expiration for this application
     pub expires_at: Option<DateTime<Utc>>,
+    /// Who is applying the template
+    pub applied_by: UserId,
+}
+
+impl ApplyTemplateRequest {
+    pub fn template_id(&self) -> &TemplateId {
+        &self.template_id
+    }
+    
+    pub fn user_ids(&self) -> &[UserId] {
+        &self.user_ids
+    }
+    
+    pub fn applied_by(&self) -> &UserId {
+        &self.applied_by
+    }
 }
 
 /// Result of template application
@@ -127,6 +151,25 @@ pub struct ApplyTemplateResult {
     pub applied_by: UserId,
 }
 
+impl ApplyTemplateResult {
+    pub fn new(
+        request: ApplyTemplateRequest,
+        successful_users: Vec<UserId>,
+        failed_users: Vec<(UserId, String)>,
+        changes_summary: Vec<String>,
+        applied_by: UserId,
+    ) -> Self {
+        Self {
+            request,
+            successful_users,
+            failed_users,
+            changes_summary,
+            applied_at: Utc::now(),
+            applied_by,
+        }
+    }
+}
+
 /// Default role templates for common scenarios
 pub struct DefaultTemplates;
 
@@ -143,6 +186,18 @@ impl TemplateId {
     
     pub fn generate() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl From<uuid::Uuid> for TemplateId {
+    fn from(uuid: uuid::Uuid) -> Self {
+        Self(uuid.to_string())
+    }
+}
+
+impl From<String> for TemplateId {
+    fn from(s: String) -> Self {
+        Self(s)
     }
 }
 
@@ -168,6 +223,38 @@ impl RoleTemplate {
             metadata: TemplateMetadata::default(),
             created_at: now,
             updated_at: now,
+            created_by,
+            version: "1.0".to_string(),
+        }
+    }
+    
+    // Constructor for database loading with all fields
+    pub fn from_db(
+        id: TemplateId,
+        name: String,
+        description: String,
+        target_tier: PackageTier,
+        category: TemplateCategory,
+        active: bool,
+        permissions: Vec<Permission>,
+        policy_attachments: Vec<PolicyId>,
+        created_by: UserId,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            description,
+            target_tier,
+            category,
+            active,
+            default_permissions: permissions,
+            policy_attachments,
+            tags: Vec::new(),
+            metadata: TemplateMetadata::default(),
+            created_at,
+            updated_at,
             created_by,
             version: "1.0".to_string(),
         }
@@ -403,6 +490,27 @@ impl TemplateQuery {
         self.offset = Some(offset);
         self
     }
+    
+    pub fn is_active(&self) -> Option<bool> {
+        Some(self.active_only)
+    }
+    
+    // Getter methods for repository access
+    pub fn name(&self) -> Option<&String> {
+        self.name.as_ref()
+    }
+    
+    pub fn category(&self) -> Option<&TemplateCategory> {
+        self.category.as_ref()
+    }
+    
+    pub fn limit(&self) -> Option<u32> {
+        self.limit
+    }
+    
+    pub fn offset(&self) -> Option<u32> {
+        self.offset
+    }
 }
 
 impl Default for TemplateQuery {
@@ -617,6 +725,10 @@ impl std::fmt::Display for TemplateCategory {
             TemplateCategory::Admin => write!(f, "admin"),
             TemplateCategory::Custom => write!(f, "custom"),
             TemplateCategory::System => write!(f, "system"),
+            TemplateCategory::Business => write!(f, "business"),
+            TemplateCategory::Technical => write!(f, "technical"),
+            TemplateCategory::Administrative => write!(f, "administrative"),
+            TemplateCategory::Compliance => write!(f, "compliance"),
         }
     }
 }
@@ -625,7 +737,10 @@ impl std::fmt::Display for TemplateCategory {
 #[derive(Debug, thiserror::Error)]
 pub enum TemplateError {
     #[error("Template not found: {0}")]
-    NotFound(String),
+    NotFoundWithMessage(String),
+    
+    #[error("Template not found")]
+    NotFound,
     
     #[error("Template is not active")]
     Inactive,
@@ -644,6 +759,15 @@ pub enum TemplateError {
     
     #[error("Permission denied for template operation")]
     PermissionDenied,
+    
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+    
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 #[cfg(test)]

@@ -136,7 +136,7 @@ function NavigationMenuLink({
         "flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
         className
       )}
-      asChild={asChild}
+      asChild={asChild || false}
       {...props}
     >
       {/* If asChild, ensure the child also has flex-col if needed */}

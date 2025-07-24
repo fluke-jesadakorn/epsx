@@ -1,47 +1,81 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres-prod:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-epsx}
+      POSTGRES_USER: ${POSTGRES_USER:-epsx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    networks:
+      - epsx-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-epsx}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API
+  backend-prod:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-epsx}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-epsx}
+      - SERVER_PORT=8080
+      - USE_MOCK_EMAIL=${USE_MOCK_EMAIL:-false}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    networks:
+      - epsx-prod
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: |
+      sh -c "
+        echo 'Running database migrations...'
+        ./migrate up
+        echo 'Starting backend server...'
+        ./epsx
+      "
+
   frontend-prod:
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
     ports:
-      - "80:3000"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend-prod:8080
     env_file:
       - apps/frontend/.env.production
     networks:
       - epsx-prod
-    # depends_on:
-    #   - backend-prod
+    depends_on:
+      backend-prod:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # backend-prod service temporarily disabled
-  # backend-prod:
-  #   build:
-  #     context: .
-  #     dockerfile: apps/backend/Dockerfile
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - RUST_ENV=production
-  #     - PORT=8080
-  #   env_file:
-  #     - apps/backend/.env.production
-  #   networks:
-  #     - epsx-prod
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
 
   admin-prod:
     build:
@@ -69,7 +103,7 @@ services:
       - epsx-prod
     depends_on:
       - frontend-prod
-      # - backend-prod
+      - backend-prod
     restart: unless-stopped
 
 networks:
@@ -78,4 +112,5 @@ networks:
 
 volumes:
   prod_data:
+  postgres_prod_data:
   ssl_certs:

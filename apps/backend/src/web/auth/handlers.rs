@@ -17,7 +17,6 @@ use super::AppState;
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
-    pub firebase_token: String,
 }
 
 /// Login response payload
@@ -55,7 +54,6 @@ pub async fn login_handler(
     let login_req = LoginReq {
         email: payload.email,
         password: payload.password,
-        firebase_token: payload.firebase_token,
     };
     
     // Perform login through use case
@@ -68,8 +66,8 @@ pub async fn login_handler(
     // Create HTTP-only session cookie
     let session_cookie = Cookie::build(("sess_id", login_res.sess_id.to_string()))
         .http_only(true)
-        .secure(true) // Enable in production with HTTPS
-        .same_site(tower_cookies::cookie::SameSite::Strict)
+        .secure(false) // Disable for development HTTP, enable in production with HTTPS
+        .same_site(tower_cookies::cookie::SameSite::Lax) // Changed from Strict to Lax for better compatibility
         .max_age(tower_cookies::cookie::time::Duration::days(7))
         .path("/")
         .build();
@@ -151,8 +149,8 @@ pub async fn refresh_handler(
     // Update session cookie with new expiry
     let session_cookie = Cookie::build(("sess_id", refresh_res.sess_id.to_string()))
         .http_only(true)
-        .secure(true)
-        .same_site(tower_cookies::cookie::SameSite::Strict)
+        .secure(false) // Disable for development HTTP, enable in production with HTTPS
+        .same_site(tower_cookies::cookie::SameSite::Lax)
         .max_age(tower_cookies::cookie::time::Duration::days(7))
         .path("/")
         .build();
@@ -169,19 +167,25 @@ pub async fn refresh_handler(
 
 /// Get current user profile handler
 pub async fn me_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
     auth_ctx: AuthCtx,
 ) -> Result<Json<UserProfileResponse>, StatusCode> {
-    // Mock implementation for development - bypass authentication middleware for now
-    tracing::info!("Getting user profile for session: {:?}", auth_ctx.sess);
+    tracing::info!("Getting user profile for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
     
-    // Mock user data
+    // Get user details from repository to get email
+    let user = app_state.user_repo.find_by_id(&auth_ctx.user_id).await
+        .map_err(|e| {
+            tracing::error!("Failed to get user details: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Use actual user data from auth context and repository
     let response = UserProfileResponse {
-        user_id: auth_ctx.sess.to_string(),
-        email: "user@example.com".to_string(),
-        role: "user".to_string(),
+        user_id: auth_ctx.user_id.to_string(),
+        email: user.email().value().to_string(),
+        role: auth_ctx.role.to_string(),
         permissions: vec!["read:own".to_string(), "write:own".to_string()],
-        subscription_tier: "basic".to_string(),
+        subscription_tier: user.sub().tier().to_string(),
     };
     
     Ok(Json(response))
@@ -215,8 +219,7 @@ pub async fn me_handler_public(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::ports::{MockUserRepo, MockSessRepo, MockFbAuthSvc, MockEventDispatcher};
-    use crate::app::ports::services::{FbClaims};
+    use crate::app::ports::{MockUserRepo, MockSessRepo, MockEventDispatcher};
     use crate::infra::events::SimpleEventDispatcher;
     use crate::dom::entities::{User, Session};
     use crate::dom::values::{Role, UserId, Email};
@@ -239,10 +242,11 @@ mod tests {
     
     #[test]
     fn should_deserialize_login_request() {
-        let json = r#"{"firebase_token": "test-token-123"}"#;
+        let json = r#"{"email": "test@example.com", "password": "test123"}"#;
         let request: LoginRequest = serde_json::from_str(json).unwrap();
         
-        assert_eq!(request.firebase_token, "test-token-123");
+        assert_eq!(request.email, "test@example.com");
+        assert_eq!(request.password, "test123");
     }
     
     #[test]
@@ -320,11 +324,13 @@ mod tests {
     #[test]
     fn should_validate_login_request_structure() {
         let request = LoginRequest {
-            firebase_token: "valid-firebase-jwt-token".to_string(),
+            email: "test@example.com".to_string(),
+            password: "test123".to_string(),
         };
         
-        assert!(!request.firebase_token.is_empty());
-        assert!(request.firebase_token.len() > 10); // Basic length check
+        assert!(!request.email.is_empty());
+        assert!(request.email.contains("@"));
+        assert!(!request.password.is_empty());
     }
     
     #[test]
@@ -368,11 +374,12 @@ mod tests {
     #[test]
     fn should_have_debug_implementations() {
         let request = LoginRequest {
-            firebase_token: "debug-test".to_string(),
+            email: "debug@test.com".to_string(),
+            password: "debug-test".to_string(),
         };
         
         let debug_str = format!("{:?}", request);
         assert!(debug_str.contains("LoginRequest"));
-        assert!(debug_str.contains("debug-test"));
+        assert!(debug_str.contains("debug@test.com"));
     }
 }

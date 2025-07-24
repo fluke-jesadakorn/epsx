@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPaymentAccess, withApiLimits, PaymentTier } from '@/middleware/paymentAccess';
 
+// Cache configuration for premium endpoints
+export const dynamic = 'force-dynamic';
+export const revalidate = 180; // 3 minutes for premium data
+
 // Example: Premium ranking API
 async function handler(_req: NextRequest) {
   try {
@@ -15,6 +19,12 @@ async function handler(_req: NextRequest) {
       success: true, 
       data: rankings,
       message: 'Premium rankings accessed successfully'
+    }, {
+      headers: {
+        'Cache-Control': 'private, s-maxage=180, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'private, s-maxage=180',
+        'Vercel-CDN-Cache-Control': 'private, s-maxage=180'
+      }
     });
   } catch (_error) {
     return NextResponse.json(

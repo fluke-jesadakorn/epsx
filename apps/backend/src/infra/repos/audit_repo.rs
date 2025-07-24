@@ -16,7 +16,7 @@ use crate::dom::values::UserId;
 /// In production, this would be replaced with a database implementation
 pub struct AuditRepoImpl {
     entries: Mutex<HashMap<String, AuditLogEntry>>,
-    // For production: consider using persistent storage like MongoDB or PostgreSQL
+    // For production: replaced with PostgreSQL implementation
 }
 
 impl AuditRepoImpl {

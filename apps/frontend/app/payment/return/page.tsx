@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
-import { onSnapshot, collection, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { realtimeClient  } from '@/lib/api-client';
+import type {PaymentStatusUpdate} from '@/lib/api-client';
 
 export default function PaymentReturnPage() {
   const router = useRouter();
@@ -24,48 +24,37 @@ export default function PaymentReturnPage() {
         const payment = JSON.parse(storedPayment);
         setPaymentData(payment);
 
-        // Monitor payment status in real-time
+        // Monitor payment status using WebSocket/SSE
         if (payment.paymentRequest?.customerRefId) {
-          const unsubscribe = onSnapshot(
-            query(
-              collection(db, 'payment_requests'),
-              where(
-                'customerRefId',
-                '==',
-                payment.paymentRequest.customerRefId,
-              ),
-            ),
-            (snapshot) => {
-              if (!snapshot.empty) {
-                const paymentRequest = snapshot.docs[0].data();
-                console.log('Payment status update:', paymentRequest.status);
+          const unsubscribe = realtimeClient.connectToPaymentUpdates(
+            payment.paymentRequest.customerRefId,
+            (update: PaymentStatusUpdate) => {
+              console.log('Payment status update:', update.status);
 
-                if (paymentRequest.status === 'completed') {
-                  setPaymentStatus('success');
-                  // Clear session storage
-                  sessionStorage.removeItem('activePayment');
-                } else if (paymentRequest.status === 'failed') {
-                  setPaymentStatus('failed');
-                } else {
-                  setPaymentStatus('pending');
-                }
+              if (update.status === 'completed') {
+                setPaymentStatus('success');
+                // Clear session storage
+                sessionStorage.removeItem('activePayment');
+              } else if (update.status === 'failed') {
+                setPaymentStatus('failed');
+              } else {
+                setPaymentStatus('pending');
               }
-            },
-            (error) => {
-              console.error('Error monitoring payment:', error);
-              setPaymentStatus('failed');
-            },
+            }
           );
 
           return () => unsubscribe();
         }
+        return;
       } catch (error) {
         console.error('Failed to parse stored payment:', error);
         setPaymentStatus('failed');
+        return;
       }
     } else {
       // No payment data found
       setPaymentStatus('failed');
+      return;
     }
   }, []);
 
@@ -78,7 +67,9 @@ export default function PaymentReturnPage() {
       return () => clearTimeout(timer);
     } else if (paymentStatus === 'success' && countdown === 0) {
       router.push('/my-data?payment=success');
+      return;
     }
+    return;
   }, [paymentStatus, countdown, router]);
 
   const handleReturnToMyData = () => {

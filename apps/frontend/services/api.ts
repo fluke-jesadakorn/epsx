@@ -63,28 +63,28 @@ export const api = new ApiService();
 
 // Specific API endpoints
 export const stockApi = {
-  getStocks: () => api.get('/api/stocks'),
-  getStock: (symbol: string) => api.get(`/api/stocks/${symbol}`),
-  searchStocks: (query: string) => api.get(`/api/stocks/search?q=${query}`),
+  getStocks: () => api.get('/api/v1/market-data/stocks'),
+  getStock: (symbol: string) => api.get(`/api/v1/market-data/stocks/${symbol}`),
+  searchStocks: (query: string) => api.get(`/api/v1/market-data/stocks/search?q=${query}`),
   getStockHistory: (symbol: string, period = '1y') => 
-    api.get(`/api/stocks/${symbol}/history?period=${period}`),
+    api.get(`/api/v1/market-data/stocks/${symbol}/history?period=${period}`),
 };
 
 export const rankingApi = {
-  getRankings: () => api.get('/api/rankings'),
-  getUserRanking: (userId: string) => api.get(`/api/rankings/user/${userId}`),
-  updateRanking: (data: any) => api.post('/api/rankings', data),
+  getRankings: () => api.get('/api/v1/rankings'),
+  getUserRanking: (userId: string) => api.get(`/api/v1/rankings/user/${userId}`),
+  updateRanking: (data: any) => api.post('/api/v1/rankings', data),
 };
 
 export const paymentApi = {
-  createPayment: (data: any) => api.post('/api/payments', data),
-  getPaymentStatus: (paymentId: string) => api.get(`/api/payments/${paymentId}`),
-  verifyPayment: (paymentId: string) => api.post(`/api/payments/${paymentId}/verify`),
+  createPayment: (data: any) => api.post('/api/v1/payments', data),
+  getPaymentStatus: (paymentId: string) => api.get(`/api/v1/payments/${paymentId}`),
+  verifyPayment: (paymentId: string) => api.post(`/api/v1/payments/${paymentId}/verify`),
 };
 
 export const userApi = {
-  getProfile: () => api.get('/api/users/profile'),
-  updateProfile: (data: any) => api.put('/api/users/profile', data),
-  getUserData: () => api.get('/api/users/data'),
-  updateUserData: (data: any) => api.put('/api/users/data', data),
+  getProfile: () => api.get('/api/v1/users/profile'),
+  updateProfile: (data: any) => api.put('/api/v1/users/profile', data),
+  getUserData: () => api.get('/api/v1/users/data'),
+  updateUserData: (data: any) => api.put('/api/v1/users/data', data),
 };

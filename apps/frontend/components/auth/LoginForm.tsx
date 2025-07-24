@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useIAM } from '@/hooks/useIAM';
+import { useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loginAction } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,25 +17,30 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
-  const { signIn } = useIAM();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
-    try {
-      await signIn(email, password);
-      onSuccess?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+    startTransition(async () => {
+      try {
+        const result = await loginAction(email, password);
+        
+        if (result.success) {
+          onSuccess?.();
+          router.refresh(); // Refresh to update auth state
+        } else {
+          setError(result.error || 'Login failed');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Login failed');
+      }
+    });
   };
 
   return (
@@ -78,8 +85,8 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing in...
@@ -90,9 +97,9 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
           </Button>
           
           <div className="text-sm text-center space-y-2">
-            <a href="#" className="text-blue-600 hover:underline">
+            <Link href="/forgot-password" className="text-blue-600 hover:underline">
               Forgot password?
-            </a>
+            </Link>
             {onRegisterClick && (
               <p>
                 Don't have an account?{' '}

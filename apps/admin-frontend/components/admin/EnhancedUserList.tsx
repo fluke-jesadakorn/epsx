@@ -31,7 +31,7 @@ export const EnhancedUserList: React.FC = () => {
       setLoading(true);
 
       // Use the API route that properly merges Firebase Auth + Firestore data
-      const response = await fetch('/api/admin/users');
+      const response = await fetch('/api/admin/user-management/users');
       if (!response.ok) {
         throw new Error('Failed to fetch users from API');
       }
