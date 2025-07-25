@@ -106,8 +106,7 @@ export default function OneClickPayment({
   const paymentService = createPaymentService();
   
   // Create API client instance
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-  const apiClient = createApiClient(BACKEND_URL);
+  const apiClient = createApiClient('/api');
 
   // State management
   const [step, setStep] = useState<'select' | 'pay' | 'success'>('select');

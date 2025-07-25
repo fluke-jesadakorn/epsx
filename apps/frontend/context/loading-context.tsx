@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useMemo } from "react";
-import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-import { useLoadingState } from "./ui-context";
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useLoadingState } from './ui-context';
 
 interface LoadingContextType {
   isLoading: boolean;
@@ -15,16 +15,19 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   // Use the new UI context for loading state
   const { globalLoading, setLoading } = useLoadingState();
-  
+
   const startLoading = () => setLoading(null, true);
   const stopLoading = () => setLoading(null, false);
-  
+
   // Memoize context value
-  const contextValue = useMemo(() => ({
-    isLoading: globalLoading,
-    startLoading,
-    stopLoading
-  }), [globalLoading, startLoading, stopLoading]);
+  const contextValue = useMemo(
+    () => ({
+      isLoading: globalLoading,
+      startLoading,
+      stopLoading,
+    }),
+    [globalLoading, startLoading, stopLoading]
+  );
 
   return (
     <LoadingContext.Provider value={contextValue}>
@@ -41,7 +44,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 export function useLoading() {
   const context = useContext(LoadingContext);
   if (context === undefined) {
-    throw new Error("useLoading must be used within a LoadingProvider");
+    throw new Error('useLoading must be used within a LoadingProvider');
   }
   return context;
 }
@@ -49,19 +52,21 @@ export function useLoading() {
 // Enhanced loading hook with request-specific loading states
 export function useRequestLoading() {
   const { requestLoading, setLoading, isLoading } = useLoadingState();
-  
+
   const setRequestLoading = (key: string, loading: boolean) => {
     setLoading(key, loading);
   };
-  
+
   const isRequestLoading = (key: string) => {
     return requestLoading[key] || false;
   };
-  
+
   return {
     setRequestLoading,
     isRequestLoading,
     isAnyLoading: isLoading(),
-    activeRequests: Object.keys(requestLoading).filter(key => requestLoading[key])
+    activeRequests: Object.keys(requestLoading).filter(
+      key => requestLoading[key]
+    ),
   };
 }

@@ -1,8 +1,15 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { apiClient, isApiError, isApiSuccess } from '@epsx/api-client';
 import { PackageTier } from '@epsx/types';
-import { apiClient, isApiSuccess, isApiError } from '@/lib/api-client';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 interface BackendUser {
   user_id: string;
@@ -30,7 +37,9 @@ interface OptimizedAuthContextType {
   logout: () => Promise<void>;
 }
 
-const OptimizedAuthContext = createContext<OptimizedAuthContextType | undefined>(undefined);
+const OptimizedAuthContext = createContext<
+  OptimizedAuthContextType | undefined
+>(undefined);
 
 // Simplified user data normalization
 const normalizeUserData = (userData: any): BackendUser => ({
@@ -50,18 +59,27 @@ interface OptimizedAuthProviderProps {
   };
 }
 
-export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedAuthProviderProps) {
-  const [user, setUser] = useState<BackendUser | null>(initialAuthState?.user || null);
+export function OptimizedAuthProvider({
+  children,
+  initialAuthState,
+}: OptimizedAuthProviderProps) {
+  const [user, setUser] = useState<BackendUser | null>(
+    initialAuthState?.user || null
+  );
   const [loading, setLoading] = useState(!initialAuthState);
   const [isInitialized, setIsInitialized] = useState(!!initialAuthState);
-  const [permissions, setPermissions] = useState<string[]>(initialAuthState?.permissions || []);
-  const [packageTier, setPackageTier] = useState<PackageTier>(initialAuthState?.packageTier || PackageTier.FREE);
+  const [permissions, setPermissions] = useState<string[]>(
+    initialAuthState?.permissions || []
+  );
+  const [packageTier, setPackageTier] = useState<PackageTier>(
+    initialAuthState?.packageTier || PackageTier.FREE
+  );
 
   const loadUserSession = useCallback(async () => {
     if (loading) return; // Prevent multiple simultaneous requests
-    
+
     setLoading(true);
-    
+
     try {
       const response = await apiClient.getCurrentUser();
 
@@ -75,12 +93,13 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
       if (isApiSuccess(response)) {
         const userData = response.data;
         const normalizedUserData = normalizeUserData(userData);
-        
+
         setUser(normalizedUserData);
         setPermissions(userData.permissions || []);
-        setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
+        setPackageTier(
+          (userData.package_tier as PackageTier) || PackageTier.FREE
+        );
       }
-      
     } catch (error) {
       console.error('Error loading user session:', error);
       setUser(null);
@@ -98,26 +117,29 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
     }
   }, [initialAuthState, isInitialized, loadUserSession]);
 
-  const hasPermission = useCallback((permission: string): boolean => {
-    if (permissions.includes(permission)) return true;
-    
-    return permissions.some(userPermission => {
-      if (userPermission.endsWith('.*')) {
-        const prefix = userPermission.slice(0, -2);
-        return permission.startsWith(prefix + '.');
-      }
-      return false;
-    });
-  }, [permissions]);
+  const hasPermission = useCallback(
+    (permission: string): boolean => {
+      if (permissions.includes(permission)) return true;
+
+      return permissions.some(userPermission => {
+        if (userPermission.endsWith('.*')) {
+          const prefix = userPermission.slice(0, -2);
+          return permission.startsWith(prefix + '.');
+        }
+        return false;
+      });
+    },
+    [permissions]
+  );
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
-    
+
     try {
-      const response = await apiClient.login({ 
-        type: 'credentials', 
-        email, 
-        password 
+      const response = await apiClient.login({
+        type: 'credentials',
+        email,
+        password,
       });
 
       if (isApiError(response)) {
@@ -127,11 +149,13 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
       if (isApiSuccess(response)) {
         const userData = response.data;
         const normalizedUserData = normalizeUserData(userData);
-        
+
         setUser(normalizedUserData);
         setPermissions(userData.permissions || []);
-        setPackageTier(userData.package_tier as PackageTier || PackageTier.FREE);
-        
+        setPackageTier(
+          (userData.package_tier as PackageTier) || PackageTier.FREE
+        );
+
         return normalizedUserData;
       }
 
@@ -144,16 +168,15 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
   const logout = useCallback(async () => {
     try {
       const response = await apiClient.logout();
-      
+
       if (isApiError(response)) {
         console.error('Logout failed:', response.error);
       }
-      
+
       // Always clear local state regardless of API response
       setUser(null);
       setPermissions([]);
       setPackageTier(PackageTier.FREE);
-      
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear local state on error
@@ -164,16 +187,28 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
   }, []);
 
   // Memoize context value with minimal dependencies
-  const contextValue = useMemo(() => ({
-    user,
-    loading,
-    isInitialized,
-    permissions,
-    packageTier,
-    hasPermission,
-    login,
-    logout,
-  }), [user, loading, isInitialized, permissions, packageTier, hasPermission, login, logout]);
+  const contextValue = useMemo(
+    () => ({
+      user,
+      loading,
+      isInitialized,
+      permissions,
+      packageTier,
+      hasPermission,
+      login,
+      logout,
+    }),
+    [
+      user,
+      loading,
+      isInitialized,
+      permissions,
+      packageTier,
+      hasPermission,
+      login,
+      logout,
+    ]
+  );
 
   return (
     <OptimizedAuthContext.Provider value={contextValue}>
@@ -185,7 +220,9 @@ export function OptimizedAuthProvider({ children, initialAuthState }: OptimizedA
 export function useOptimizedAuth() {
   const context = useContext(OptimizedAuthContext);
   if (context === undefined) {
-    throw new Error('useOptimizedAuth must be used within an OptimizedAuthProvider');
+    throw new Error(
+      'useOptimizedAuth must be used within an OptimizedAuthProvider'
+    );
   }
   return context;
 }

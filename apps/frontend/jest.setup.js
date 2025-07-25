@@ -39,7 +39,7 @@ jest.mock('server-only', () => ({}))
 // Setup environment variables for testing
 process.env.NODE_ENV = 'test'
 process.env.BACKEND_URL = 'http://localhost:8080'
-process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8080'
+process.env.API_URL = 'http://localhost:8080'
 
 // Mock fetch for Server Actions
 global.fetch = jest.fn()

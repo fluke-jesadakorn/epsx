@@ -11,7 +11,7 @@ export async function createMusePayPaymentAction(formData: FormData) {
   const packageType = formData.get('packageType') as string;
 
   try {
-    const response = await apiClient.post('/payments/musepay/create', {
+    const response = await apiClient.serverCreateMusePayPayment({
       amount: parseFloat(amount),
       currency,
       packageType,
@@ -37,7 +37,7 @@ export async function createCryptoPaymentAction(formData: FormData) {
   const description = formData.get('description') as string;
 
   try {
-    const response = await apiClient.post('/api/payments/crypto/deposit-address', {
+    const response = await apiClient.serverCreateCryptoPayment({
       currency,
       userId,
       packageId,

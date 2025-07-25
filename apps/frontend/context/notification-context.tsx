@@ -2,10 +2,11 @@
 
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppState } from './app-state';
-import { NotificationState, Notification, NotificationPreferences } from '@/lib/state/types';
+import { NotificationState, type Notification, NotificationPreferences } from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
 import { logger } from '@/lib/logger';
 import { createApiClient, isApiError, type PushSubscriptionRequest } from '@epsx/api-client';
+import { getVapidKey } from '@/lib/actions/admin.server';
 
 interface NotificationContextType {
   // Data
@@ -60,10 +61,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     rollbackOptimisticUpdate
   } = useOptimisticUpdates();
 
-  // Initialize API client with backend URL for direct notification API access
+  // Initialize API client to use Next.js API routes
   const notificationApiClient = useMemo(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
-    return createApiClient(backendUrl);
+    return createApiClient('/api');
   }, []);
 
   // WebSocket connection for real-time notifications
@@ -384,9 +384,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
     try {
       const registration = await navigator.serviceWorker.ready;
+      // Get VAPID key from server action
+      const { vapidPublicKey } = await getVapidKey();
+      
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        applicationServerKey: vapidPublicKey
       });
 
       pushSubscriptionRef.current = subscription;

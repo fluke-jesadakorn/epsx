@@ -19,7 +19,7 @@ export const IAM_CONFIG = {
       '/register',
       '/forgot-password',
       '/reset-password',
-      '/api/v1/authentication',
+      '/api/v1/auth',
       '/api/public',
       '/_next',
       '/favicon.ico',
@@ -44,20 +44,19 @@ export const IAM_CONFIG = {
     ],
   },
   
-  // API endpoints
+  // API endpoints - client-side uses relative paths
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002',
+    baseUrl: '/api', // Use Next.js API routes for client-side
     endpoints: {
-      auth: '/api/v1/authentication',
+      auth: '/api/v1/auth',
       permissions: '/api/v1/iam/permissions',
       roles: '/api/v1/iam/roles',
       users: '/api/v1/users',
     },
   },
   
-  // Backend API configuration
+  // Backend API configuration - server-side only
   backend: {
-    baseUrl: process.env.BACKEND_URL || 'http://localhost:8080',
     timeout: 10000, // 10 seconds
   },
 };

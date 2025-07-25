@@ -1,5 +1,7 @@
 'use client';
 
+import { getVapidKey } from '@/lib/actions/admin.server';
+
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -146,16 +148,17 @@ export class PWAManager {
       
       if (!subscription) {
         // Subscribe to push notifications
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_KEY;
-        if (!vapidPublicKey) {
-          console.error('VAPID public key not found');
+        try {
+          const { vapidPublicKey } = await getVapidKey();
+
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
+          });
+        } catch (error) {
+          console.error('VAPID public key not available');
           return null;
         }
-
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
-        });
       }
 
       // Send subscription to server

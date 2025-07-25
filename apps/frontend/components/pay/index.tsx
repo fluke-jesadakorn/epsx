@@ -8,8 +8,7 @@ import { QR } from './QR';
 import { Done } from './Done';
 import { createApiClient, isApiError } from '@epsx/api-client';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-const apiClient = createApiClient(BACKEND_URL);
+const apiClient = createApiClient('/api');
 
 interface PayProps {
   pkg?: string;

@@ -45,7 +45,7 @@ export function securityMiddleware(request: NextRequest): NextResponse | null {
   }
   
   // Rate limiting for login/register endpoints
-  const sensitiveEndpoints = ['/login', '/register', '/api/v1/authentication'];
+  const sensitiveEndpoints = ['/login', '/register', '/api/v1/auth'];
   const isSensitiveEndpoint = sensitiveEndpoints.some(endpoint => 
     request.nextUrl.pathname.startsWith(endpoint)
   );
@@ -104,7 +104,7 @@ export function csrfMiddleware(request: NextRequest): NextResponse | null {
   
   const requestOrigin = origin || (referer ? new URL(referer).origin : null);
   const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.APP_URL,
     'http://localhost:3000',
     'https://epsx.com',
     'https://www.epsx.com'

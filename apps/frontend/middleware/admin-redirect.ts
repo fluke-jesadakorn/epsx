@@ -10,7 +10,7 @@ export function adminRedirectMiddleware(request: NextRequest) {
   // Check if this is an admin route
   if (pathname.startsWith('/admin')) {
     // Get the admin frontend URL from environment or default
-    const adminFrontendUrl = process.env.NEXT_PUBLIC_ADMIN_FRONTEND_URL || 'http://localhost:3001';
+    const adminFrontendUrl = process.env.ADMIN_FRONTEND_URL || 'http://localhost:3001';
     
     // Preserve the current path and query parameters
     const redirectUrl = `${adminFrontendUrl}${pathname}${search}`;

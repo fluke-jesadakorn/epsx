@@ -35,8 +35,9 @@ export default function AccessDeniedPage() {
       }
 
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-        const response = await fetch(`${backendUrl}/api/v1/authentication/profile`, {
+        // Use relative path to go through Next.js API routes
+        const apiUrl = '/api/v1/auth/profile';
+        const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

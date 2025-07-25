@@ -56,7 +56,7 @@ export async function getStockFinancialDataPaginated(
 
 export async function getStockSymbols() {
   try {
-    const response = await apiClient.get('/api/market-data/symbols');
+    const response = await apiClient.serverGetStockSymbols();
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch stock symbols');
@@ -71,7 +71,7 @@ export async function getStockSymbols() {
 
 export async function getIndividualStockData(symbol: string) {
   try {
-    const response = await apiClient.get(`/api/market-data/stocks/individual?symbol=${symbol}`);
+    const response = await apiClient.serverGetIndividualStock(symbol);
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch individual stock data');
@@ -86,7 +86,7 @@ export async function getIndividualStockData(symbol: string) {
 
 export async function getBatchStockData(symbols: string[]) {
   try {
-    const response = await apiClient.post('/api/market-data/stocks/batch', { symbols });
+    const response = await apiClient.serverBatchStocks(symbols);
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch batch stock data');
@@ -119,7 +119,7 @@ export async function getStocksCount(country?: string, quarters?: number) {
 
 export async function getPremiumRankings() {
   try {
-    const response = await apiClient.get('/api/premium/rankings');
+    const response = await apiClient.serverGetPremiumRankings();
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch premium rankings');
@@ -134,7 +134,7 @@ export async function getPremiumRankings() {
 
 export async function getCacheStats() {
   try {
-    const response = await apiClient.get('/api/system/cache');
+    const response = await apiClient.serverGetSystemCache();
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch cache stats');

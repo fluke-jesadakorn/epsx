@@ -39,7 +39,7 @@ export async function getServerAuth(): Promise<ServerAuthResult> {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
     
     try {
-      const response = await fetch(`${backendUrl}/api/v1/authentication/profile`, {
+      const response = await fetch(`${backendUrl}/api/v1/auth/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${sessionId}`,
@@ -200,7 +200,7 @@ export async function createServerSession(
 ): Promise<{ success: boolean; error?: string; user?: any }> {
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/v1/authentication/login`, {
+    const response = await fetch(`${backendUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -277,7 +277,7 @@ export async function destroyServerSession(): Promise<void> {
     
     if (sessionId) {
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-      await fetch(`${backendUrl}/api/v1/authentication/logout`, {
+      await fetch(`${backendUrl}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {
           'Cookie': `sess_id=${sessionId}`,
@@ -354,7 +354,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
     }
     
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/v1/authentication/refresh`, {
+    const response = await fetch(`${backendUrl}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: {
         'Cookie': `sess_id=${sessionId}`,

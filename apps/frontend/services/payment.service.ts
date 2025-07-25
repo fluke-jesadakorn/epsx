@@ -1,4 +1,4 @@
-import { apiClient, isApiSuccess } from '@/lib/api-client';
+import { apiClient, isApiSuccess } from '@/lib/api-client.client';
 import { nanoid } from 'nanoid';
 
 export interface PaymentStatus {

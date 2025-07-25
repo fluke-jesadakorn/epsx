@@ -3,14 +3,13 @@
 import { createApiClient, isApiError, type ActionResult, type AssignmentResult, type StockRankingAssignmentRequest, type StockRankingAssignmentExtendRequest, type StockRankingAssignmentUpdateRequest, type UserSoftDeleteRequest } from '@epsx/api-client';
 import { adminLogger } from '../logger';
 import { revalidatePath } from 'next/cache';
+import { config } from '../config';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL;
-
-if (!BACKEND_URL) {
-  throw new Error('BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
-}
-
-const apiClient = createApiClient(BACKEND_URL);
+// Get API client server-side only
+const getApiClient = () => {
+  const backendUrl = config.getBackendUrl();
+  return createApiClient(backendUrl);
+};
 
 // Permission Profile Actions
 export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
@@ -21,7 +20,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
   try {
     adminLogger.info('Assigning permission profile', { profileId, userId, expiresAt }, 'AdminActionLayer');
 
-    const response = await apiClient.assignAdminPermissionProfile({
+    const response = await getApiClient().assignAdminPermissionProfile({
       profile_id: profileId,
       user_id: userId,
       expires_at: expiresAt || undefined,
@@ -64,7 +63,7 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
   try {
     adminLogger.info('Assigning bulk stock ranking', { userIds, packageTier, expiresAt }, 'AdminActionLayer');
 
-    const response = await apiClient.assignBulkStockRanking({
+    const response = await getApiClient().assignBulkStockRanking({
       user_ids: userIds,
       package_tier: packageTier,
       expires_at: expiresAt || undefined,
@@ -102,7 +101,7 @@ export async function revokeStockRankingAssignmentAction(assignmentId: string): 
   try {
     adminLogger.info('Revoking stock ranking assignment', { assignmentId }, 'AdminActionLayer');
 
-    const response = await apiClient.revokeStockRankingAssignment(assignmentId);
+    const response = await getApiClient().revokeStockRankingAssignment(assignmentId);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to revoke stock ranking assignment', { error: response.error, details: response.details, assignmentId }, 'AdminActionLayer');
@@ -136,7 +135,7 @@ export async function extendStockRankingAssignmentAction(assignmentId: string, f
   try {
     adminLogger.info('Extending stock ranking assignment', { assignmentId, newExpiresAt }, 'AdminActionLayer');
 
-    const response = await apiClient.extendStockRankingAssignment(assignmentId, {
+    const response = await getApiClient().extendStockRankingAssignment(assignmentId, {
       new_expires_at: newExpiresAt,
     });
 
@@ -177,7 +176,7 @@ export async function updateStockRankingAssignmentAction(assignmentId: string, f
   try {
     adminLogger.info('Updating stock ranking assignment', { assignmentId, updateData }, 'AdminActionLayer');
 
-    const response = await apiClient.updateStockRankingAssignment(assignmentId, updateData);
+    const response = await getApiClient().updateStockRankingAssignment(assignmentId, updateData);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to update stock ranking assignment', { error: response.error, details: response.details, assignmentId, updateData }, 'AdminActionLayer');
@@ -214,7 +213,7 @@ export async function softDeleteUserAction(formData: FormData): Promise<ActionRe
   try {
     adminLogger.info('Soft deleting user', { userId, reason }, 'AdminActionLayer');
 
-    const response = await apiClient.softDeleteUser(userId, {
+    const response = await getApiClient().softDeleteUser(userId, {
       reason: reason || 'Deleted via admin interface',
     });
 

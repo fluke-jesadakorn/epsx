@@ -24,7 +24,7 @@ export const COOKIE_CONFIG = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
-    path: '/api/v1/authentication',
+    path: '/api/v1/auth',
   },
 } as const;
 

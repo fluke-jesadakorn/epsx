@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { registerUserWithPermissionProfiles } from '@/app/actions/auth.server';
+import {
+  calculatePasswordStrength,
+  isPasswordWeak,
+} from '@/lib/password-strength';
 import { useRouter } from 'next/navigation';
-import { registerAction } from '@/app/actions/auth';
-import { calculatePasswordStrength, isPasswordWeak } from '@/lib/password-strength';
+import React, { useState } from 'react';
 
 interface RegisterFormProps {
   redirectTo?: string;
@@ -20,21 +23,25 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
+  // Debug: Test if the component is working
+  React.useEffect(() => {
+    console.log('🔧 RegisterForm component mounted');
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('🚀 Direct registration handler called');
     setError('');
     setLoading(true);
 
-    // Security: Clear any previous error state and prevent double submission
-
-    // Security: Client-side validation for password matching
+    // Client-side validation
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
       return;
     }
 
-    // Security: Check password strength
     if (isPasswordWeak(password)) {
       setError('Password is too weak. Please choose a stronger password.');
       setLoading(false);
@@ -42,19 +49,30 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
     }
 
     try {
-      // Security: Call server action with validated input data
-      const result = await registerAction(email, password, confirmPassword, { displayName });
-      
+      // Use server action for registration
+      console.log('🔄 Using server action for registration');
+      const result = await registerUserWithPermissionProfiles(
+        email,
+        password,
+        'Free', // package tier
+        undefined, // referral code
+        undefined, // utm source
+        undefined // utm campaign
+      );
+
+      console.log('📡 Server action result:', result);
+
       if (!result.success) {
-        setError(result.error || 'Registration failed');
-        return;
+        throw new Error(result.error || 'Registration failed');
       }
-      
-      // Security: Safe redirect after successful registration
+
+      console.log('✅ Registration successful');
+
+      // Redirect to dashboard
       router.push(redirectTo || '/dashboard');
-      router.refresh(); // Refresh server state
+      router.refresh();
     } catch (err) {
-      // Security: Safely handle errors without exposing sensitive information
+      console.error('❌ Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
@@ -66,13 +84,18 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
       {/* Security: Display validation errors safely */}
       {error && (
         <div className="rounded-2xl bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-4 border border-red-200 dark:border-red-800">
-          <div className="text-sm text-red-700 dark:text-red-400 font-medium">⚠️ {error}</div>
+          <div className="text-sm text-red-700 dark:text-red-400 font-medium">
+            ⚠️ {error}
+          </div>
         </div>
       )}
-      
+
       <div className="space-y-4">
         <div>
-          <label htmlFor="displayName" className="block text-sm font-medium text-foreground mb-2">
+          <label
+            htmlFor="displayName"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             👤 Display Name
           </label>
           <input
@@ -83,12 +106,15 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
             className="block w-full px-4 py-3 rounded-xl border border-border bg-background/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300"
             placeholder="Enter your display name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={e => setDisplayName(e.target.value)}
           />
         </div>
-        
+
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             📧 Email Address
           </label>
           <input
@@ -101,12 +127,15 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
             className="block w-full px-4 py-3 rounded-xl border border-border bg-background/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300"
             placeholder="Enter your email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
           />
         </div>
-        
+
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             🔒 Password
           </label>
           <div className="relative">
@@ -120,7 +149,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
               className="block w-full px-4 py-3 pr-12 rounded-xl border border-border bg-background/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300"
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
             />
             <button
               type="button"
@@ -145,20 +174,54 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground space-y-1">
-                      <div className={strength.requirements.length ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                        {strength.requirements.length ? '✓' : '✗'} At least 8 characters
+                      <div
+                        className={
+                          strength.requirements.length
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
+                        {strength.requirements.length ? '✓' : '✗'} At least 8
+                        characters
                       </div>
-                      <div className={strength.requirements.lowercase ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                        {strength.requirements.lowercase ? '✓' : '✗'} Lowercase letter
+                      <div
+                        className={
+                          strength.requirements.lowercase
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
+                        {strength.requirements.lowercase ? '✓' : '✗'} Lowercase
+                        letter
                       </div>
-                      <div className={strength.requirements.uppercase ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                        {strength.requirements.uppercase ? '✓' : '✗'} Uppercase letter
+                      <div
+                        className={
+                          strength.requirements.uppercase
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
+                        {strength.requirements.uppercase ? '✓' : '✗'} Uppercase
+                        letter
                       </div>
-                      <div className={strength.requirements.numbers ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                      <div
+                        className={
+                          strength.requirements.numbers
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
                         {strength.requirements.numbers ? '✓' : '✗'} Number
                       </div>
-                      <div className={strength.requirements.symbols ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                        {strength.requirements.symbols ? '✓' : '✗'} Special character
+                      <div
+                        className={
+                          strength.requirements.symbols
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
+                        {strength.requirements.symbols ? '✓' : '✗'} Special
+                        character
                       </div>
                     </div>
                   </>
@@ -167,9 +230,12 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
             </div>
           )}
         </div>
-        
+
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-2">
+          <label
+            htmlFor="confirmPassword"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             🔒 Confirm Password
           </label>
           <div className="relative">
@@ -187,15 +253,19 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
               }`}
               placeholder="Confirm your password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={e => setConfirmPassword(e.target.value)}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200"
-              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              aria-label={
+                showConfirmPassword ? 'Hide password' : 'Show password'
+              }
             >
-              <span className="text-lg">{showConfirmPassword ? '🙈' : '👁️'}</span>
+              <span className="text-lg">
+                {showConfirmPassword ? '🙈' : '👁️'}
+              </span>
             </button>
           </div>
           {/* Security: Real-time password confirmation feedback */}
@@ -219,9 +289,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
               Creating account...
             </>
           ) : (
-            <>
-              🚀 Create account
-            </>
+            <>🚀 Create account</>
           )}
         </button>
       </div>

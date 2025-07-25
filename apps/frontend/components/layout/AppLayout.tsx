@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { StateProvider } from '@/components/state/StateProvider';
-import { Navigation } from '@/components/nav';
-import { ToastProvider } from '@/components/ui/toaster';
 import { ServerAuthProvider } from '@/components/auth/ServerAuthProvider';
-import { ThemeProvider } from 'next-themes';
-import { AuthDebugger } from '@/components/debug/AuthDebugger';
-import { useUI, useLoadingState } from '@/context/ui-context';
-import { useResponsive } from '@/hooks/state/useStateSelector';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Navigation } from '@/components/nav';
+import { StateProvider } from '@/components/state/StateProvider';
+import { ToastProvider } from '@/components/ui/toaster';
+import { useLoadingState, useUI } from '@/context/ui-context';
+import { useResponsive } from '@/hooks/state/useStateSelector';
+import { ThemeProvider } from 'next-themes';
+import React, { useEffect } from 'react';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -19,14 +18,17 @@ interface AppLayoutProps {
 }
 
 // Inner layout component that uses the state management hooks
-function InnerLayout({ children, className }: { 
-  children: React.ReactNode; 
-  className?: string; 
+function InnerLayout({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
 }) {
   const { theme, globalLoading } = useUI();
   const { isAnyLoading } = useLoadingState();
   const { isMobile, isTablet } = useResponsive();
-  
+
   // Handle responsive classes
   useEffect(() => {
     const body = document.body;
@@ -43,7 +45,7 @@ function InnerLayout({ children, className }: {
           <LoadingSpinner size="lg" className="text-primary" />
         </div>
       )}
-      
+
       {/* PancakeSwap-style background decorations */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         {/* Floating pancake emojis with better positioning */}
@@ -114,33 +116,27 @@ function InnerLayout({ children, className }: {
       </div>
 
       <Navigation />
-      <main className="relative z-10">
-        {children}
-      </main>
-      
-      {process.env.NODE_ENV === 'development' && <AuthDebugger />}
+      <main className="relative z-10">{children}</main>
     </div>
   );
 }
 
 // Main app layout component
-export function AppLayout({ 
-  children, 
-  serverAuthState, 
+export function AppLayout({
+  children,
+  serverAuthState,
   serverUserPreferences,
-  className 
+  className,
 }: AppLayoutProps) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <StateProvider 
+      <StateProvider
         serverAuthState={serverAuthState}
         serverUserPreferences={serverUserPreferences}
       >
         <ServerAuthProvider>
           <ToastProvider>
-            <InnerLayout className={className}>
-              {children}
-            </InnerLayout>
+            <InnerLayout className={className}>{children}</InnerLayout>
           </ToastProvider>
         </ServerAuthProvider>
       </StateProvider>
@@ -166,20 +162,20 @@ export function withAppLayout<P extends object>(
   });
 
   WrappedComponent.displayName = `withAppLayout(${Component.displayName || Component.name})`;
-  
+
   return WrappedComponent;
 }
 
 // Custom hook for layout state
 export function useLayoutState() {
-  const { 
-    sidebarOpen, 
-    sidebarCollapsed, 
-    toggleSidebar, 
+  const {
+    sidebarOpen,
+    sidebarCollapsed,
+    toggleSidebar,
     collapseSidebar,
     isMobile,
     isTablet,
-    isDesktop 
+    isDesktop,
   } = useUI();
 
   return {
@@ -187,13 +183,13 @@ export function useLayoutState() {
       open: sidebarOpen,
       collapsed: sidebarCollapsed,
       toggle: toggleSidebar,
-      collapse: collapseSidebar
+      collapse: collapseSidebar,
     },
     responsive: {
       isMobile,
       isTablet,
-      isDesktop
-    }
+      isDesktop,
+    },
   };
 }
 
