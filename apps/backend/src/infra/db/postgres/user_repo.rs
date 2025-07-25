@@ -9,7 +9,6 @@ use crate::dom::entities::User;
 use crate::dom::entities::iam::Permission;
 use crate::dom::entities::permission_profile::{PermissionProfileId};
 use crate::dom::values::{UserId, Email, Role};
-use std::collections::HashMap;
 use super::DatabasePool;
 
 pub struct PostgresUserRepo {
@@ -29,8 +28,8 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at 
-             FROM users WHERE id = $1"
+            "SELECT id, firebase_uid, email, created_at, updated_at, deleted_at 
+             FROM users WHERE id = $1 AND deleted_at IS NULL"
         )
         .bind(user_uuid)
         .fetch_optional(&*self.pool)
@@ -39,7 +38,8 @@ impl UserRepo for PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let firebase_uid: String = row.get("firebase_uid");
+                let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
                 let email_str: String = row.get("email");
                 let email = Email::new(email_str)
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -111,7 +111,8 @@ impl UserRepo for PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let firebase_uid: String = row.get("firebase_uid");
+                let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
                 let email_str: String = row.get("email");
                 let email = Email::new(email_str)
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -142,7 +143,8 @@ impl UserRepo for PostgresUserRepo {
 
         let mut users = Vec::new();
         for row in rows {
-            let firebase_uid: String = row.get("firebase_uid");
+            let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
             let email_str: String = row.get("email");
             let email = Email::new(email_str)
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -175,7 +177,8 @@ impl UserRepo for PostgresUserRepo {
 
         let mut users = Vec::new();
         for row in rows {
-            let firebase_uid: String = row.get("firebase_uid");
+            let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
             let email_str: String = row.get("email");
             let email = Email::new(email_str)
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -249,7 +252,8 @@ impl UserRepo for PostgresUserRepo {
 
         let mut users = Vec::new();
         for row in rows {
-            let firebase_uid: String = row.get("firebase_uid");
+            let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
             let email_str: String = row.get("email");
             let email = Email::new(email_str)
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -291,7 +295,8 @@ impl UserRepo for PostgresUserRepo {
         let mut users = Vec::new();
         for row in rows {
             let user_id: Uuid = row.get("id");
-            let firebase_uid: String = row.get("firebase_uid");
+            let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
             let email_str: String = row.get("email");
             let email = Email::new(email_str)
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
@@ -366,7 +371,8 @@ impl PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let firebase_uid: String = row.get("firebase_uid");
+                let firebase_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
                 let email_str: String = row.get("email");
                 let email = Email::new(email_str)
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;

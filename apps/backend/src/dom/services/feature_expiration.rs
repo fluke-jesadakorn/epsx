@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::app::ports::repositories::{UserRepo, PermissionProfileRepo};
+use crate::app::ports::repositories::UserRepo;
 use crate::dom::entities::permission_profile::PermissionProfileId;
 use crate::dom::entities::user::User;
 use crate::dom::values::UserId;
@@ -74,7 +74,6 @@ pub trait FeatureExpirationService: Send + Sync {
 
 pub struct FeatureExpirationServiceImpl {
     user_repo: Arc<dyn UserRepo>,
-    permission_profile_repo: Arc<dyn PermissionProfileRepo>,
     notification_service: Arc<dyn NotificationService>,
     config: ExpirationConfig,
     // In-memory tracking for notification state
@@ -91,13 +90,11 @@ struct NotificationState {
 impl FeatureExpirationServiceImpl {
     pub fn new(
         user_repo: Arc<dyn UserRepo>,
-        permission_profile_repo: Arc<dyn PermissionProfileRepo>,
         notification_service: Arc<dyn NotificationService>,
         config: Option<ExpirationConfig>,
     ) -> Self {
         Self {
             user_repo,
-            permission_profile_repo,
             notification_service,
             config: config.unwrap_or_default(),
             notification_state: Arc::new(RwLock::new(HashMap::new())),
@@ -111,7 +108,7 @@ impl FeatureExpirationServiceImpl {
         // This is a simplified implementation - in production you'd have a proper user_features table
         // that tracks feature assignments with expiration dates
         
-        let mut feature_assignments = Vec::new();
+        let feature_assignments = Vec::new();
         
         // For demonstration, we'll create mock data
         // In production, this would be a database query like:
@@ -365,7 +362,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
         Ok(result)
     }
 
-    async fn get_expiring_features(&self, user_id: &UserId) -> Result<Vec<FeatureExpiration>, ExpirationError> {
+    async fn get_expiring_features(&self, _user_id: &UserId) -> Result<Vec<FeatureExpiration>, ExpirationError> {
         // In a real implementation, this would query the user_features table for the specific user
         // For now, return empty since we don't have the actual database schema implemented
         Ok(Vec::new())

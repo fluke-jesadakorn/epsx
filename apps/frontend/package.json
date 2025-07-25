@@ -29,6 +29,7 @@
     "clean": "rm -rf .next out node_modules .turbo reports"
   },
   "dependencies": {
+    "@epsx/api-client": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",

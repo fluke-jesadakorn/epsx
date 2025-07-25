@@ -6,6 +6,10 @@ import { Methods } from './Methods';
 import { Total } from './Total';
 import { QR } from './QR';
 import { Done } from './Done';
+import { createApiClient, isApiError } from '@epsx/api-client';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+const apiClient = createApiClient(BACKEND_URL);
 
 interface PayProps {
   pkg?: string;
@@ -36,21 +40,24 @@ export function Pay({ pkg = '', amt = '' }: PayProps) {
         (typeof window !== 'undefined' &&
           window.localStorage.getItem('userId')) ||
         'demo-user';
-      const res = await fetch('/api/v1/payments/crypto/deposit-address', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currency: data.pay,
-          userId,
-          packageId: data.pkg,
-        }),
+      
+      const response = await apiClient.post('/api/v1/payments/crypto/deposit-address', {
+        currency: data.pay,
+        userId,
+        packageId: data.pkg,
       });
-      const result = await res.json();
-      if (!res.ok || !result.deposit)
-        throw new Error(result.error || 'Failed to get deposit address');
+      
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Failed to get deposit address');
+      }
+      
+      if (!response.data.deposit) {
+        throw new Error('No deposit address returned');
+      }
+      
       setDeposit({
-        address: result.deposit.address,
-        currency: result.deposit.currency,
+        address: response.data.deposit.address,
+        currency: response.data.deposit.currency,
       });
       setStep('qr');
     } catch (e: any) {

@@ -3,9 +3,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub mod memory_cache;
 pub mod redis_cache;
@@ -57,7 +55,7 @@ pub trait Cache: Send + Sync {
     async fn set_raw(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<(), CacheError>;
 
     /// Get typed value from cache (object-safe version)
-    async fn get_typed(&self, key: &str, type_name: &str) -> Result<Option<String>, CacheError> {
+    async fn get_typed(&self, key: &str, _type_name: &str) -> Result<Option<String>, CacheError> {
         self.get_raw(key).await
     }
 

@@ -7,7 +7,6 @@ use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, D
 #[derive(Debug, Clone)]
 pub struct FirebaseAdmin {
     client: Client,
-    project_id: String,
     api_key: String,
 }
 
@@ -15,11 +14,6 @@ pub struct FirebaseAdmin {
 struct FirebaseAuthResponse {
     #[serde(rename = "localId")]
     local_id: String,
-    email: String,
-    #[serde(rename = "idToken")]
-    id_token: String,
-    #[serde(rename = "refreshToken")]
-    refresh_token: String,
 }
 
 #[derive(Deserialize)]
@@ -29,12 +23,11 @@ struct FirebaseErrorResponse {
 
 #[derive(Deserialize)]
 struct FirebaseError {
-    code: u32,
     message: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct JWTClaims {
+pub struct JWTClaims {
     sub: String, // Firebase UID
     email: String,
     iat: usize,
@@ -51,14 +44,11 @@ struct AuthRequest {
 
 impl FirebaseAdmin {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let project_id = std::env::var("FIREBASE_PROJECT_ID")
-            .map_err(|_| "FIREBASE_PROJECT_ID environment variable not set")?;
         let api_key = std::env::var("FIREBASE_API_KEY")
             .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
 
         Ok(Self {
             client: Client::new(),
-            project_id,
             api_key,
         })
     }

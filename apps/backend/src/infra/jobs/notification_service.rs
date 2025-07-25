@@ -7,7 +7,6 @@ use crate::app::ports::repositories::AuditRepo;
 
 pub struct NotificationService {
     email_service: Box<dyn EmailProvider>,
-    sms_service: Option<Box<dyn SmsProvider>>,
     audit_repo: Box<dyn AuditRepo>,
     config: NotificationConfig,
 }
@@ -66,13 +65,11 @@ pub struct NotificationResult {
 impl NotificationService {
     pub fn new(
         email_service: Box<dyn EmailProvider>,
-        sms_service: Option<Box<dyn SmsProvider>>,
         audit_repo: Box<dyn AuditRepo>,
         config: NotificationConfig,
     ) -> Self {
         Self {
             email_service,
-            sms_service,
             audit_repo,
             config,
         }
@@ -320,7 +317,7 @@ impl NotificationService {
         Ok(rendered)
     }
 
-    pub async fn get_notification_preferences(&self, user_id: &Uuid) -> Result<NotificationPreferences, NotificationError> {
+    pub async fn get_notification_preferences(&self, _user_id: &Uuid) -> Result<NotificationPreferences, NotificationError> {
         // This would typically fetch from database, for now return defaults
         Ok(NotificationPreferences {
             email_enabled: true,

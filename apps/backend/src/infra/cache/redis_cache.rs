@@ -1,9 +1,7 @@
 // Redis cache implementation (ready for when you want to switch)
 
-use super::{Cache, CacheExt, CacheConfig, CacheStats, CacheError};
+use super::{Cache, CacheConfig, CacheStats, CacheError};
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 /// Redis cache implementation
 /// Note: This is a placeholder implementation. When you're ready to use Redis,

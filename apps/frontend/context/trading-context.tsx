@@ -4,6 +4,7 @@ import React, { createContext, useContext, useCallback, useEffect, useMemo, useR
 import { useAppState } from './app-state';
 import { TradingState, StockItem, PortfolioItem, StockRanking, PriceAlert } from '@/lib/state/types';
 import { useOptimisticUpdates, withAsyncState } from '@/lib/state/core';
+import { createApiClient, isApiError, type WatchlistAddRequest, type PriceAlertCreateRequest } from '@epsx/api-client';
 
 interface TradingContextType {
   // Data
@@ -62,6 +63,12 @@ export function TradingProvider({ children }: TradingProviderProps) {
     confirmOptimisticUpdate,
     rollbackOptimisticUpdate
   } = useOptimisticUpdates();
+
+  // Initialize API client with backend URL for direct trading API access
+  const tradingApiClient = useMemo(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
+    return createApiClient(backendUrl);
+  }, []);
 
   // WebSocket connection for real-time data
   const connectWebSocket = useCallback(() => {
@@ -138,58 +145,48 @@ export function TradingProvider({ children }: TradingProviderProps) {
     };
   }, [connectWebSocket]);
 
-  // API calls
+  // API calls using unified API client
   const addToWatchlistAPI = useCallback(async (item: StockItem) => {
-    const response = await fetch('/api/trading/watchlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ symbol: item.symbol })
-    });
+    const response = await tradingApiClient.addToWatchlist({ symbol: item.symbol });
     
-    if (!response.ok) {
-      throw new Error('Failed to add to watchlist');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to add to watchlist');
     }
     
-    return response.json();
-  }, []);
+    return response.data;
+  }, [tradingApiClient]);
 
   const removeFromWatchlistAPI = useCallback(async (symbol: string) => {
-    const response = await fetch(`/api/trading/watchlist/${symbol}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
+    const response = await tradingApiClient.removeFromWatchlist(symbol);
     
-    if (!response.ok) {
-      throw new Error('Failed to remove from watchlist');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to remove from watchlist');
     }
-  }, []);
+  }, [tradingApiClient]);
 
   const addPriceAlertAPI = useCallback(async (alert: Omit<PriceAlert, 'id' | 'createdAt'>) => {
-    const response = await fetch('/api/trading/alerts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(alert)
-    });
+    const alertRequest: PriceAlertCreateRequest = {
+      symbol: alert.symbol,
+      type: alert.type,
+      targetPrice: alert.targetPrice
+    };
     
-    if (!response.ok) {
-      throw new Error('Failed to add price alert');
+    const response = await tradingApiClient.addPriceAlert(alertRequest);
+    
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to add price alert');
     }
     
-    return response.json();
-  }, []);
+    return response.data;
+  }, [tradingApiClient]);
 
   const removePriceAlertAPI = useCallback(async (id: string) => {
-    const response = await fetch(`/api/trading/alerts/${id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
+    const response = await tradingApiClient.removePriceAlert(id);
     
-    if (!response.ok) {
-      throw new Error('Failed to remove price alert');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to remove price alert');
     }
-  }, []);
+  }, [tradingApiClient]);
 
   // Actions with optimistic updates
   const addToWatchlist = useCallback(async (item: StockItem, optimistic = true) => {
@@ -305,28 +302,34 @@ export function TradingProvider({ children }: TradingProviderProps) {
   const refreshData = useCallback(async () => {
     try {
       const [watchlistRes, portfolioRes, rankingsRes, alertsRes] = await Promise.all([
-        fetch('/api/trading/watchlist', { credentials: 'include' }),
-        fetch('/api/trading/portfolio', { credentials: 'include' }),
-        fetch('/api/trading/rankings', { credentials: 'include' }),
-        fetch('/api/trading/alerts', { credentials: 'include' })
+        tradingApiClient.getWatchlist(),
+        tradingApiClient.getPortfolio(),
+        tradingApiClient.getRankings(),
+        tradingApiClient.getPriceAlerts()
       ]);
 
-      const [watchlist, portfolio, rankings, alerts] = await Promise.all([
-        watchlistRes.ok ? watchlistRes.json() : [],
-        portfolioRes.ok ? portfolioRes.json() : [],
-        rankingsRes.ok ? rankingsRes.json() : [],
-        alertsRes.ok ? alertsRes.json() : []
-      ]);
+      // Handle each response, setting empty arrays if there are errors
+      const watchlist = isApiError(watchlistRes) ? [] : watchlistRes.data || [];
+      const portfolio = isApiError(portfolioRes) ? [] : portfolioRes.data || [];
+      const rankings = isApiError(rankingsRes) ? [] : rankingsRes.data || [];
+      const alerts = isApiError(alertsRes) ? [] : alertsRes.data || [];
 
       actions.trading.setWatchlist(watchlist);
       actions.trading.setPortfolio(portfolio);
       actions.trading.setRankings(rankings);
-      // Set alerts through a new action we need to add
+      // Set alerts through a new action we need to add - for now we'll handle this separately
+      
+      // Log any API errors without failing the entire refresh
+      if (isApiError(watchlistRes)) console.error('Failed to fetch watchlist:', watchlistRes.error);
+      if (isApiError(portfolioRes)) console.error('Failed to fetch portfolio:', portfolioRes.error);
+      if (isApiError(rankingsRes)) console.error('Failed to fetch rankings:', rankingsRes.error);
+      if (isApiError(alertsRes)) console.error('Failed to fetch alerts:', alertsRes.error);
+      
     } catch (error) {
       console.error('Failed to refresh trading data:', error);
       throw error;
     }
-  }, [actions.trading]);
+  }, [actions.trading, tradingApiClient]);
 
   // WebSocket subscription management
   const subscribeToSymbol = useCallback((symbol: string) => {

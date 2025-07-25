@@ -1,7 +1,7 @@
 use std::{sync::Arc, net::SocketAddr};
 use tracing::info;
 use epsx::{
-    infra::AppContainer, 
+    infra::{AppContainer, PostgresAuditRepo}, 
     web::create_router,
     dom::services::feature_expiration::{ExpirationScheduler, ExpirationConfig},
     infra::jobs::{JobScheduler, ExpirationChecker, NotificationService as JobNotificationService, SimpleEmailProvider, NotificationConfig}
@@ -40,8 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let email_provider = Box::new(SimpleEmailProvider::new(true)); // Simulate emails in development
     let job_notification_service = Arc::new(JobNotificationService::new(
         email_provider,
-        None, // No SMS for now
-        Box::new(container.audit_repo.clone() as Box<dyn epsx::app::ports::repositories::AuditRepo>),
+        Box::new(PostgresAuditRepo::new((*container.infra.postgres_pool).clone())),
         notification_config,
     ));
     
@@ -52,10 +51,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         job_notification_service.clone(),
     ));
     
-    let auto_assignment_service = Arc::new(epsx::dom::services::auto_assignment::AutoAssignmentService::new(
+    let assignment_repo = Arc::new(epsx::infra::db::postgres::permission_assignment_repo::PostgresPermissionAssignmentRepo::new((*container.infra.postgres_pool).clone()));
+    let auto_assignment_service = Arc::new(epsx::dom::services::auto_assignment::AutoAssignmentEngine::new(
         container.permission_profile_repo.clone(),
+        assignment_repo,
         container.user_repo.clone(),
-        container.audit_repo.clone(),
     ));
     
     let mut job_scheduler = JobScheduler::new(

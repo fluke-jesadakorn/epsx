@@ -48,6 +48,23 @@ impl PermissionChecker {
         target.role().can_upgrade_to(new_role)
     }
     
+    pub fn can_admin_modify_user(admin: &User, target: &User) -> bool {
+        // Admin/SuperAdmin can modify lower hierarchy users
+        // SuperAdmin can modify Admin, Admin cannot modify SuperAdmin
+        
+        // Can't modify yourself for safety
+        if admin.id() == target.id() {
+            return false;
+        }
+        
+        match (admin.role(), target.role()) {
+            (Role::SuperAdmin, _) => true, // SuperAdmin can modify anyone except themselves
+            (Role::Admin, Role::SuperAdmin) => false, // Admin cannot modify SuperAdmin
+            (Role::Admin, _) => true, // Admin can modify lower roles
+            _ => false, // Only Admin and SuperAdmin can modify users
+        }
+    }
+    
     pub fn required_permissions_for_role(role: &Role) -> Vec<&'static str> {
         match role {
             Role::Free => vec!["read:basic"],

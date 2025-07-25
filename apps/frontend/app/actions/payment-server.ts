@@ -1,9 +1,8 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { z } from 'zod'
 
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@epsx/api-client'
 
 import type { CreatePaymentRequest, CreatePaymentResponse, AssetInfo } from '@/types/payment'
 
@@ -24,20 +23,13 @@ export async function createPayment(
     const schema = await getCreatePaymentSchema()
     const validatedData = schema.parse(data)
     
-    // Get session token from cookies
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('__session')
+    const result = await apiClient.createPayment(validatedData)
     
-    if (!sessionToken) {
-      throw new Error('Authentication required')
+    if (result.error) {
+      throw new Error(result.error)
     }
-
-    // Pass session token in headers
-    return await apiClient.post<CreatePaymentResponse>(
-      '/payment/create', 
-      validatedData,
-      { 'Authorization': `Bearer ${sessionToken.value}` }
-    )
+    
+    return result.data!
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error('Invalid payment data: ' + error.message)
@@ -62,17 +54,14 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
 // Get payment status from backend
 export async function getPaymentStatus(): Promise<any> {
   try {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('__session')
+    const result = await apiClient.getPaymentStatus()
     
-    if (!sessionToken) {
-      throw new Error('Authentication required')
+    if (result.error) {
+      console.error('Failed to get payment status:', result.error)
+      return null
     }
-
-    return await apiClient.get<any>(
-      '/payment/status',
-      { 'Authorization': `Bearer ${sessionToken.value}` }
-    )
+    
+    return result.data
   } catch (error) {
     console.error('Failed to get payment status:', error)
     return null
@@ -88,20 +77,14 @@ export async function verifyPayment(transactionId: string): Promise<boolean> {
     
     const validatedData = schema.parse({ transactionId })
     
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('__session')
+    const result = await apiClient.verifyPayment(validatedData.transactionId)
     
-    if (!sessionToken) {
-      throw new Error('Authentication required')
+    if (result.error) {
+      console.error('Failed to verify payment:', result.error)
+      return false
     }
-
-    const result = await apiClient.post<{ verified: boolean }>(
-      '/payment/verify',
-      validatedData,
-      { 'Authorization': `Bearer ${sessionToken.value}` }
-    )
     
-    return result.verified
+    return result.data?.verified || false
   } catch (error) {
     console.error('Failed to verify payment:', error)
     return false
@@ -117,18 +100,12 @@ export async function cancelPayment(paymentId: string): Promise<boolean> {
     
     const validatedData = schema.parse({ paymentId })
     
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('__session')
+    const result = await apiClient.cancelPayment(validatedData.paymentId)
     
-    if (!sessionToken) {
-      throw new Error('Authentication required')
+    if (result.error) {
+      console.error('Failed to cancel payment:', result.error)
+      return false
     }
-
-    await apiClient.post<void>(
-      '/payment/cancel',
-      validatedData,
-      { 'Authorization': `Bearer ${sessionToken.value}` }
-    )
     
     return true
   } catch (error) {

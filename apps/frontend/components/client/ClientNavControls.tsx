@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/auth-context';
 import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
-import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
+import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
 
 interface ClientNavControlsProps {
   user: { email: string; displayName: string } | null;

@@ -38,7 +38,7 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
 import { navigationService } from '@/services/navigation.service';
-import { formatLevelAsNumber, getLevelColor } from '@/utils/level-utils';
+import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,

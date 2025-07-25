@@ -8,13 +8,9 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
-use std::sync::Arc;
 
 use crate::web::middleware::auth_middleware::AuthCtx;
-use crate::web::middleware::rate_limiter::{RateLimiter, RateLimitConfig, InMemoryRateLimiter};
+use crate::web::middleware::rate_limiter::{RateLimitConfig, InMemoryRateLimiter};
 use crate::web::auth::AppState;
 use crate::dom::entities::permission_profile::PermissionProfile;
 use crate::dom::values::{UserId, Role};
@@ -115,7 +111,6 @@ async fn check_api_endpoint_access(
                 return Ok(AccessCheckResult {
                     allowed: true,
                     reason: format!("Access granted via permission profile: {}", permission_profile.name()),
-                    required_permission: None,
                 });
             }
         }
@@ -129,14 +124,12 @@ async fn check_api_endpoint_access(
         return Ok(AccessCheckResult {
             allowed: true,
             reason: "Access granted via role-based permissions".to_string(),
-            required_permission: None,
         });
     }
     
     Ok(AccessCheckResult {
         allowed: false,
         reason: format!("No permission profile or role grants access to {} {}", method, path),
-        required_permission: Some(format!("{}:{}", method.as_str().to_lowercase(), path)),
     })
 }
 
@@ -466,26 +459,13 @@ impl EndpointPattern {
 struct AccessCheckResult {
     allowed: bool,
     reason: String,
-    required_permission: Option<String>,
 }
 
-#[derive(Debug)]
-struct RateLimitResult {
-    allowed: bool,
-    reason: String,
-    retry_after_seconds: Option<u64>,
-}
 
 #[derive(Debug, thiserror::Error)]
 enum PermissionError {
     #[error("User not found: {0}")]
     UserNotFound(String),
-    
-    #[error("Permission profile error: {0}")]
-    PermissionProfileError(String),
-    
-    #[error("Database error: {0}")]
-    DatabaseError(String),
     
     #[error("Rate limit error: {0}")]
     RateLimitError(String),
