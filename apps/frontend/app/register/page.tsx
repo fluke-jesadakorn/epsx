@@ -8,7 +8,9 @@ interface RegisterPageProps {
   };
 }
 
-export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+export default async function RegisterPage({
+  searchParams,
+}: RegisterPageProps) {
   // Security: Ensure only unauthenticated users can access registration
   await requireGuest();
 
@@ -43,21 +45,26 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               Create your account to access advanced analytics
             </p>
           </div>
-          
+
           {/* Security: Safely display server-side errors with proper encoding */}
           {error && (
             <div className="mb-6 rounded-2xl bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-4 border border-red-200 dark:border-red-800">
-              <div className="text-sm text-red-700 dark:text-red-400 font-medium">⚠️ {decodeURIComponent(error)}</div>
+              <div className="text-sm text-red-700 dark:text-red-400 font-medium">
+                ⚠️ {decodeURIComponent(error)}
+              </div>
             </div>
           )}
-          
+
           <RegisterForm redirectTo={redirectTo} />
-          
+
           {/* Additional links */}
           <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
-              <a href="/login" className="font-medium text-orange-600 hover:text-orange-500 hover:underline">
+              <a
+                href="/login"
+                className="font-medium text-orange-600 hover:text-orange-500 hover:underline"
+              >
                 Sign in here
               </a>
             </p>

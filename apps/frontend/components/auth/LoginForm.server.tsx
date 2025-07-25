@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { loginFormAction } from '@/app/actions/auth';
+import { loginFormAction } from '@/app/actions/auth.server';
 
 interface LoginFormServerProps {
   redirectTo?: string;

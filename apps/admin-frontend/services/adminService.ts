@@ -50,11 +50,7 @@ export interface UserStats {
   verificationRate: number;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL;
-
-if (!BACKEND_URL) {
-  throw new Error('BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
-}
+// All client-side calls should use Next.js API routes for security
 
 export class AdminService {
   // List users - Updated to use Rust backend
@@ -84,10 +80,10 @@ export class AdminService {
     }
   }
 
-  // Get user by UID - Updated to use Rust backend
+  // Get user by UID - Updated to use Next.js API route
   static async getUser(uid: string): Promise<AdminUser> {
     try {
-      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+      const response = await fetch(`/api/admin/users/${uid}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -107,10 +103,10 @@ export class AdminService {
     }
   }
 
-  // Set user role - Updated to use Rust backend
+  // Set user role - Updated to use Next.js API route
   static async setUserRole(uid: string, role: string): Promise<void> {
     try {
-      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+      const response = await fetch(`/api/admin/users/${uid}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -144,10 +140,10 @@ export class AdminService {
     throw new Error('User deletion not yet implemented in Rust backend');
   }
 
-  // Send password reset email - Available in Rust backend auth endpoints
+  // Send password reset email - Use Next.js API route
   static async sendPasswordResetEmail(email: string): Promise<string> {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/authentication/password-reset`, {
+      const response = await fetch('/api/auth/password-reset', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -192,10 +188,10 @@ export class AdminService {
     }
   }
 
-  // Set user level - Updated to use Rust backend (same as setUserRole)
+  // Set user level - Updated to use Next.js API route (same as setUserRole)
   static async setUserLevel(uid: string, userLevel: UserLevel, reason?: string): Promise<void> {
     try {
-      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}`, {
+      const response = await fetch(`/api/admin/users/${uid}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -217,10 +213,10 @@ export class AdminService {
     }
   }
 
-  // Get user level history - Updated to use Rust backend
+  // Get user level history - Updated to use Next.js API route
   static async getUserLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
     try {
-      const response = await fetch(`${BACKEND_URL}/admin/users/${uid}/role-history`, {
+      const response = await fetch(`/api/admin/users/${uid}/role-history`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -240,10 +236,10 @@ export class AdminService {
     }
   }
 
-  // Bulk update user levels - Updated to use Rust backend
+  // Bulk update user levels - Updated to use Next.js API route
   static async bulkUpdateUserLevels(updates: Array<{uid: string, userLevel: UserLevel, reason?: string}>): Promise<any> {
     try {
-      const response = await fetch(`${BACKEND_URL}/admin/users/batch-update-roles`, {
+      const response = await fetch('/api/admin/users/batch-update-roles', {
         method: 'POST',
         credentials: 'include',
         headers: {

@@ -51,7 +51,7 @@ const SECURITY_CONFIG = {
     'http://localhost:3000',
     'https://epsx.com',
     'https://www.epsx.com',
-    process.env.NEXT_PUBLIC_APP_URL
+    process.env.APP_URL
   ].filter(Boolean),
   secureCookieOptions: {
     httpOnly: true,

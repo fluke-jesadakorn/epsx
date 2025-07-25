@@ -33,7 +33,7 @@ use user::{user_routes, user_routes_v1};
 use realtime::realtime_routes;
 use middleware::{auth_middleware::auth_middleware, permission_middleware::permission_middleware};
 use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public};
-use auth::multi_handlers::{multi_login_handler, register_handler, password_reset_handler};
+use auth::multi_handlers::{multi_login_handler, register_handler, auto_register_handler, password_reset_handler};
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -66,6 +66,7 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
     let public_auth_routes = Router::new()
         .route("/auth/login", post(multi_login_handler))
         .route("/auth/register", post(register_handler))
+        .route("/auth/register-auto", post(auto_register_handler))
         .route("/auth/password-reset", post(password_reset_handler));
 
     // Create protected authentication routes (auth required)

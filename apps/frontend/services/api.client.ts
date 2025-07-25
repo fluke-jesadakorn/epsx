@@ -1,12 +1,10 @@
 import { createApiClient, isApiError } from '@epsx/api-client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+// For client-side, use relative URLs through Next.js API routes
+// The actual backend URL will be handled server-side
+const API_BASE_URL = '/api';
 
-if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL environment variable is required');
-}
-
-// Create API client instance
+// Create API client instance that routes through Next.js API
 const apiClient = createApiClient(API_BASE_URL);
 
 // Legacy wrapper class for backward compatibility

@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { config } from '@/lib/config';
 
 import type { TokenFeature, Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
@@ -27,7 +28,7 @@ export async function fetchUserDetails() {
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/roles`,
+      `${config.getBackendUrl()}/auth/roles`,
       {
         method: 'GET',
         headers: {
@@ -60,7 +61,7 @@ export async function updateUserRole(userId: string, role: string) {
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/roles/${userId}`,
+      `${config.getBackendUrl()}/auth/roles/${userId}`,
       {
         method: 'POST',
         headers: {

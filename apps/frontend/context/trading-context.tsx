@@ -64,10 +64,9 @@ export function TradingProvider({ children }: TradingProviderProps) {
     rollbackOptimisticUpdate
   } = useOptimisticUpdates();
 
-  // Initialize API client with backend URL for direct trading API access
+  // Initialize API client to use Next.js API routes for trading API access
   const tradingApiClient = useMemo(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
-    return createApiClient(backendUrl);
+    return createApiClient('/api');
   }, []);
 
   // WebSocket connection for real-time data

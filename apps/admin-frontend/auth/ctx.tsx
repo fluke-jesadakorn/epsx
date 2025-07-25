@@ -43,7 +43,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const login = async (token: string) => {
     try {
       setError(null);
-      const response = await apiClient.post('/api/v1/authentication/login', { token });
+      const response = await apiClient.serverLogin({ token });
       if (isApiError(response)) {
         setError(response.error || 'Login failed');
         return;

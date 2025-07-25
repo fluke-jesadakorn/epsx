@@ -89,7 +89,7 @@ async function getServerAuthState() {
     }
 
     // Verify session with backend
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/authentication/profile`, {
+    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/auth/profile`, {
       headers: {
         'Cookie': `sess_id=${sessionCookie.value}`,
         'Content-Type': 'application/json'
@@ -160,7 +160,7 @@ async function getServerUserPreferences() {
     // If authenticated, get from server
     const sessionCookie = cookieStore.get('session');
     if (sessionCookie) {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/user/preferences`, {
+      const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/user/preferences`, {
         headers: {
           'Cookie': `sess_id=${sessionCookie.value}`,
           'Content-Type': 'application/json'
@@ -208,7 +208,7 @@ async function getServerCacheData(keys: string[]) {
       return null;
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/cache/bulk`, {
+    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/cache/bulk`, {
       method: 'POST',
       headers: {
         'Cookie': `sess_id=${sessionCookie.value}`,

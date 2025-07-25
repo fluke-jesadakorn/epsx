@@ -9,7 +9,8 @@ export class ChatApiService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+    // Use relative paths for client-side API calls through Next.js API routes
+    this.baseUrl = '/api';
   }
 
   private buildReq(

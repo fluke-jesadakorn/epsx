@@ -15,7 +15,7 @@ export async function createDepositAddress(
   packageId: string
 ) {
   try {
-    const response = await apiClient.post('/api/v1/payments/crypto/deposit-address', {
+    const response = await apiClient.serverCreateCryptoDepositAddress({
       currency,
       userId,
       packageId,

@@ -28,8 +28,8 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at, deleted_at 
-             FROM users WHERE id = $1 AND deleted_at IS NULL"
+            "SELECT id, firebase_uid, email, created_at, updated_at 
+             FROM users WHERE id = $1"
         )
         .bind(user_uuid)
         .fetch_optional(&*self.pool)

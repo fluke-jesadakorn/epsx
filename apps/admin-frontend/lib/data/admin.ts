@@ -1,13 +1,15 @@
 import { createApiClient, isApiError, type AdminUser, type PermissionProfile, type StockRankingAssignment, type AnalyticsStatistics, type StockRankingAnalytics, type AdminProfile } from '@epsx/api-client';
 import { adminLogger } from '../logger';
+import { config } from '../config';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL;
-
-if (!BACKEND_URL) {
-  throw new Error('BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
-}
-
-const apiClient = createApiClient(BACKEND_URL);
+// Get backend URL server-side only
+const getApiClient = () => {
+  if (!config.isServer()) {
+    throw new Error('API client can only be created on server-side');
+  }
+  const backendUrl = config.getBackendUrl();
+  return createApiClient(backendUrl);
+};
 
 // User Management
 export async function getUsers(searchParams?: URLSearchParams) {
@@ -16,7 +18,7 @@ export async function getUsers(searchParams?: URLSearchParams) {
     
     adminLogger.info('Fetching users data', { url }, 'AdminDataLayer');
     
-    const response = await apiClient.getAdminUsers(searchParams);
+    const response = await getApiClient().getAdminUsers(searchParams);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch users', { error: response.error, details: response.details }, 'AdminDataLayer');
@@ -37,7 +39,7 @@ export async function getUser(userId: string) {
   try {
     adminLogger.info('Fetching user data', { userId }, 'AdminDataLayer');
 
-    const response = await apiClient.getAdminUser(userId);
+    const response = await getApiClient().getAdminUser(userId);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch user', { error: response.error, details: response.details, userId }, 'AdminDataLayer');
@@ -60,7 +62,7 @@ export async function getPermissionProfiles(searchParams?: URLSearchParams) {
   try {
     adminLogger.info('Fetching permission profiles', { searchParams: searchParams?.toString() }, 'AdminDataLayer');
     
-    const response = await apiClient.getAdminPermissionProfiles(searchParams);
+    const response = await getApiClient().getAdminPermissionProfiles(searchParams);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch permission profiles', { error: response.error, details: response.details }, 'AdminDataLayer');
@@ -81,7 +83,7 @@ export async function getPermissionProfile(profileId: string) {
   try {
     adminLogger.info('Fetching permission profile', { profileId }, 'AdminDataLayer');
 
-    const response = await apiClient.getAdminPermissionProfile(profileId);
+    const response = await getApiClient().getAdminPermissionProfile(profileId);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch permission profile', { error: response.error, details: response.details, profileId }, 'AdminDataLayer');
@@ -104,7 +106,7 @@ export async function getStockRankingAssignments(searchParams?: URLSearchParams)
   try {
     adminLogger.info('Fetching stock ranking assignments', { searchParams: searchParams?.toString() }, 'AdminDataLayer');
     
-    const response = await apiClient.getStockRankingAssignments(searchParams);
+    const response = await getApiClient().getStockRankingAssignments(searchParams);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch stock ranking assignments', { error: response.error, details: response.details }, 'AdminDataLayer');
@@ -125,7 +127,7 @@ export async function getStockRankingAssignment(assignmentId: string) {
   try {
     adminLogger.info('Fetching stock ranking assignment', { assignmentId }, 'AdminDataLayer');
 
-    const response = await apiClient.getStockRankingAssignment(assignmentId);
+    const response = await getApiClient().getStockRankingAssignment(assignmentId);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch stock ranking assignment', { error: response.error, details: response.details, assignmentId }, 'AdminDataLayer');
@@ -148,7 +150,7 @@ export async function getAnalyticsStatistics() {
   try {
     adminLogger.info('Fetching analytics statistics', {}, 'AdminDataLayer');
 
-    const response = await apiClient.getAnalyticsStatistics();
+    const response = await getApiClient().getAnalyticsStatistics();
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch analytics statistics', { error: response.error, details: response.details }, 'AdminDataLayer');
@@ -169,7 +171,7 @@ export async function getStockRankingAnalytics(searchParams?: URLSearchParams) {
   try {
     adminLogger.info('Fetching stock ranking analytics', { searchParams: searchParams?.toString() }, 'AdminDataLayer');
     
-    const response = await apiClient.getStockRankingAnalytics(searchParams);
+    const response = await getApiClient().getStockRankingAnalytics(searchParams);
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch stock ranking analytics', { error: response.error, details: response.details }, 'AdminDataLayer');
@@ -191,7 +193,7 @@ export async function getAdminProfile() {
   try {
     adminLogger.info('Fetching admin profile', {}, 'AdminDataLayer');
 
-    const response = await apiClient.getAdminProfile();
+    const response = await getApiClient().getAdminProfile();
 
     if (isApiError(response)) {
       adminLogger.error('Failed to fetch admin profile', { error: response.error, details: response.details }, 'AdminDataLayer');

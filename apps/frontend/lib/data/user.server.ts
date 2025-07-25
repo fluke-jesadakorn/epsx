@@ -5,7 +5,7 @@ const apiClient = createApiClient(BACKEND_URL);
 
 export async function getCurrentUser() {
   try {
-    const response = await apiClient.get('/auth/me');
+    const response = await apiClient.serverGetCurrentUser();
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch current user');
@@ -38,7 +38,7 @@ export async function getAuditLogs(searchParams?: URLSearchParams) {
     const queryString = searchParams?.toString() || '';
     const endpoint = `/audit/logs${queryString ? `?${queryString}` : ''}`;
     
-    const response = await apiClient.get(endpoint);
+    const response = await apiClient.serverGetAuditLogs(endpoint);
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch audit logs');
@@ -53,7 +53,7 @@ export async function getAuditLogs(searchParams?: URLSearchParams) {
 
 export async function getPremiumRankings() {
   try {
-    const response = await apiClient.get('/premium/rankings');
+    const response = await apiClient.serverGetPremiumRankings();
 
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to fetch premium rankings');

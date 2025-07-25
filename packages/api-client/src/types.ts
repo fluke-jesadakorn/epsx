@@ -32,6 +32,34 @@ export interface RegisterRequest {
   package_tier?: string;
 }
 
+export interface EnhancedRegisterRequest {
+  email: string;
+  password: string;
+  package_tier: string;
+  referral_code?: string;
+  source: string;
+  region?: string;
+  utm_source?: string;
+  utm_campaign?: string;
+}
+
+export interface FeatureAssignmentResult {
+  feature_id: string;
+  profile_name: string;
+  success: boolean;
+  reason: string;
+  expires_at?: string; // ISO string format
+}
+
+export interface RegistrationResponse {
+  user_id: string;
+  access_token: string;
+  expires_in: number;
+  features_unlocked: string[];
+  total_features_assigned: number;
+  assignment_results: FeatureAssignmentResult[];
+}
+
 export interface UserProfile {
   user_id: string;
   email: string;

@@ -209,11 +209,11 @@ async function checkPermissionProfileAccess(
       userProfiles = cached.profiles;
     } else {
       // Fetch from backend
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.BACKEND_URL;
       if (!baseUrl) {
         throw new Error('Backend URL environment variable is required');
       }
-      const response = await fetch(`${baseUrl}/api/v1/authentication/profile`, {
+      const response = await fetch(`${baseUrl}/api/v1/auth/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${token}`,

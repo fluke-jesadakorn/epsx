@@ -3,14 +3,14 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::Json,
+    response::{Json, Response},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tower_cookies::{Cookie, Cookies};
 use chrono::{DateTime, Utc};
 use crate::app::dtos::auth::{LoginRes, ValidateReq, AutoRegistrationRequest, RegistrationResponse};
-use crate::dom::values::{Email, Role, UserId};
-use crate::dom::entities::User;
+use crate::dom::values::{Email, Role};
 use super::routes::AppState;
 
 /// Multi-method login request supporting various authentication flows
@@ -205,69 +205,39 @@ async fn handle_admin_login(
     Ok(Json(response_data))
 }
 
-/// User registration handler - now only records Firebase user ID
+/// User registration handler - now accepts enhanced registration data
 pub async fn register_handler(
     State(app_state): State<AppState>,
-    Json(payload): Json<RegisterRequest>,
-) -> Result<Json<RegisterResponse>, StatusCode> {
-    // For Firebase integration, we expect a firebase_uid field
-    // For now, validate email format but don't store it
-    let _email_vo = Email::new(payload.email.clone())
-        .map_err(|e| {
-            tracing::error!("Invalid email format: {:?}", e);
-            StatusCode::BAD_REQUEST
-        })?;
-    
-    // TODO: Extract firebase_uid from Firebase Auth token
-    // For development, generate a firebase-like UID
-    let firebase_uid = format!("firebase_{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..28].to_string());
-    
-    // Check if user already exists by Firebase UID or email
-    let user_id = UserId::new(firebase_uid.clone());
-    if let Ok(_) = app_state.user_repo.find_by_id(&user_id).await {
-        tracing::warn!("Registration attempt for existing Firebase user: {}", firebase_uid);
-        return Err(StatusCode::CONFLICT);
+    Json(payload): Json<AutoRegistrationRequest>,
+) -> Result<Json<RegistrationResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // Use the payload directly as it's already in the enhanced format
+    let auto_payload = payload;
+
+    // Use the enhanced registration use case with permission profiles
+    match app_state.auth_uc.register_with_permission_profiles(auto_payload).await {
+        Ok(response) => Ok(Json(response)),
+        Err(e) => {
+            tracing::error!("Registration failed: {:?}", e);
+            let error_msg = e.to_string();
+            if error_msg.contains("already exists") {
+                Err((
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": "User already exists",
+                        "details": error_msg
+                    }))
+                ))
+            } else {
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": "Registration failed",
+                        "details": error_msg
+                    }))
+                ))
+            }
+        }
     }
-    
-    // Also check if user exists by email
-    if let Ok(Some(_)) = app_state.user_repo.find_by_email(&_email_vo).await {
-        tracing::warn!("Registration attempt for existing email: {}", payload.email);
-        return Err(StatusCode::CONFLICT);
-    }
-    
-    // Determine role based on package tier (default to User)
-    let role = match payload.package_tier.as_deref() {
-        Some("premium") => Role::Premium,
-        Some("gold") => Role::Premium, // Map gold to premium for now
-        Some("platinum") => Role::Premium, // Map platinum to premium for now
-        _ => Role::User,
-    };
-    
-    // Use the actual email provided by the user
-    let email_vo = Email::new(payload.email.clone())
-        .map_err(|e| {
-            tracing::error!("Invalid email format: {:?}", e);
-            StatusCode::BAD_REQUEST
-        })?;
-    
-    // Create new user entity with Firebase UID as ID and real email
-    let user = User::from_existing(user_id, firebase_uid.clone(), email_vo, role);
-    
-    // Save user to repository
-    app_state.user_repo.save(&user).await
-        .map_err(|e| {
-            tracing::error!("Failed to save user: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    tracing::info!("User registered successfully with Firebase UID: {}", firebase_uid);
-    
-    Ok(Json(RegisterResponse {
-        user_id: firebase_uid,
-        email: payload.email, // Return the real email to client
-        verification_sent: false, // Firebase handles verification
-        message: "Registration successful. User created with Firebase ID.".to_string(),
-    }))
 }
 
 /// Registration handler with automatic permission profile assignment

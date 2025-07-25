@@ -1,7 +1,7 @@
 'use server';
 
 import { getStockFinancialData, getStockFinancialDataCount } from '@/lib/services/stock.service';
-import { stockApiClient } from '@/lib/api/stockApiClient';
+import { stockApiClient } from '@/lib/api/stockApiClient.client';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../../../types/marketCountries';
 

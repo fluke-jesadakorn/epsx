@@ -10,8 +10,8 @@
     }
   },
   "env": {
-    "NEXT_PUBLIC_SITE_URL": "@next_public_site_url",
-    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
+    "SITE_URL": "@site_url",
+    "API_URL": "@api_url"
   },
   "build": {
     "env": {

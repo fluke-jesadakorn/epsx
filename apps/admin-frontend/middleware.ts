@@ -215,12 +215,12 @@ async function checkAdminPermissions(
       isAdmin = cached.isAdmin;
     } else {
       // Fetch admin user data from backend
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.BACKEND_URL;
       if (!baseUrl) {
         throw new Error('Backend URL environment variable is required for admin');
       }
       
-      const response = await fetch(`${baseUrl}/api/admin/authentication/profile`, {
+      const response = await fetch(`${baseUrl}/api/admin/auth/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${token}`,

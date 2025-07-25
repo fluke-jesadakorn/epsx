@@ -24,6 +24,8 @@
       "@epsx/utils/*": ["../../packages/utils/*"],
       "@epsx/ui": ["../../packages/ui/src"],
       "@epsx/ui/*": ["../../packages/ui/src/*"],
+      "@epsx/api-client": ["../../packages/api-client/src"],
+      "@epsx/api-client/*": ["../../packages/api-client/src/*"],
       "@types/react": ["node_modules/@types/react"]
     },
     "target": "ES2022",

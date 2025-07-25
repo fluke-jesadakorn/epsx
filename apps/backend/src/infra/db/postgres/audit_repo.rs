@@ -97,25 +97,32 @@ impl AuditRepo for PostgresAuditRepo {
         // Determine success based on result
         let success = matches!(entry.result(), crate::dom::entities::audit::AuditResult::Success | crate::dom::entities::audit::AuditResult::PartialSuccess);
 
+        // Convert string ID to UUID, or generate a new one if parsing fails
+        let entry_uuid = Uuid::parse_str(entry.id().value())
+            .unwrap_or_else(|_| Uuid::new_v4());
+        
+        // Get actor_id UUID directly
+        let actor_uuid = *entry.actor_id().value();
+
         sqlx::query(
-            "INSERT INTO audit_logs (id, actor_id, action, resource_type, resource_id, result, timestamp, client_ip, user_agent, session_id, metadata, user_id, event_category, severity, success)
+            "INSERT INTO audit_logs (id, actor_id, user_id, action, resource_type, resource_id, result, event_category, severity, success, metadata, client_ip, user_agent, timestamp, session_id)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)"
         )
-        .bind(Uuid::parse_str(entry.id().value()).map_err(|e| AuditError::DatabaseError(format!("Invalid ID UUID: {}", e)))?)
-        .bind(entry.actor_id().value())
+        .bind(entry_uuid)
+        .bind(actor_uuid)
+        .bind(actor_uuid) // user_id is same as actor_id in this context
         .bind(entry.action().to_string())
         .bind(entry.resource_type().to_string())
         .bind(entry.resource_id())
         .bind(entry.result().to_string())
-        .bind(entry.timestamp())
-        .bind(entry.client_ip())
-        .bind(entry.user_agent())
-        .bind(entry.session_id())
-        .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
-        .bind(entry.actor_id().value())
         .bind(event_category)
         .bind(severity)
         .bind(success)
+        .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
+        .bind(entry.client_ip())
+        .bind(entry.user_agent())
+        .bind(entry.timestamp())
+        .bind(entry.session_id())
         .execute(&self.pool)
         .await
         .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -140,70 +147,74 @@ impl AuditRepo for PostgresAuditRepo {
     }
 
     async fn search(&self, query: &AuditQuery) -> Result<Vec<AuditLogEntry>, AuditError> {
-        let mut sql = "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success FROM audit_logs WHERE 1=1".to_string();
-        let mut query_builder = sqlx::QueryBuilder::new(&sql);
+        let mut sql_query = sqlx::QueryBuilder::new(
+            "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success FROM audit_logs WHERE 1=1"
+        );
 
         // Add filters based on query
         if let Some(actor_id) = &query.actor_id {
-            sql.push_str(" AND user_id = ");
-            query_builder.push_bind(actor_id.value());
+            sql_query.push(" AND user_id = ");
+            sql_query.push_bind(*actor_id.value());
         }
 
         if let Some(action) = &query.action {
-            sql.push_str(" AND action = ");
-            query_builder.push_bind(action.to_string());
+            sql_query.push(" AND action = ");
+            sql_query.push_bind(action.to_string());
         }
 
         if let Some(resource_type) = &query.resource_type {
-            sql.push_str(" AND resource_type = ");
-            query_builder.push_bind(resource_type.to_string());
+            sql_query.push(" AND resource_type = ");
+            sql_query.push_bind(resource_type.to_string());
         }
 
         if let Some(resource_id) = &query.resource_id {
-            sql.push_str(" AND resource_id = ");
-            query_builder.push_bind(resource_id);
+            sql_query.push(" AND resource_id = ");
+            sql_query.push_bind(resource_id);
         }
 
         if let Some(result) = &query.result {
-            sql.push_str(" AND result = ");
-            query_builder.push_bind(result.to_string());
+            sql_query.push(" AND result = ");
+            sql_query.push_bind(result.to_string());
         }
 
         if let Some(from_time) = &query.from_time {
-            sql.push_str(" AND timestamp >= ");
-            query_builder.push_bind(from_time);
+            sql_query.push(" AND timestamp >= ");
+            sql_query.push_bind(from_time);
         }
 
         if let Some(to_time) = &query.to_time {
-            sql.push_str(" AND timestamp <= ");
-            query_builder.push_bind(to_time);
+            sql_query.push(" AND timestamp <= ");
+            sql_query.push_bind(to_time);
         }
 
         if let Some(client_ip) = &query.client_ip {
-            sql.push_str(" AND client_ip = ");
-            query_builder.push_bind(client_ip);
+            sql_query.push(" AND client_ip = ");
+            sql_query.push_bind(client_ip);
         }
 
         if let Some(session_id) = &query.session_id {
-            sql.push_str(" AND session_id = ");
-            query_builder.push_bind(session_id);
+            if let Ok(uuid_val) = Uuid::parse_str(session_id) {
+                sql_query.push(" AND session_id = ");
+                sql_query.push_bind(uuid_val);
+            }
         }
 
         // Add ordering and pagination
-        sql.push_str(" ORDER BY timestamp DESC");
+        sql_query.push(" ORDER BY timestamp DESC");
         
         if let Some(limit) = query.limit {
-            sql.push_str(" LIMIT ");
-            query_builder.push_bind(limit as i64);
+            sql_query.push(" LIMIT ");
+            sql_query.push_bind(limit as i64);
         }
 
         if let Some(offset) = query.offset {
-            sql.push_str(" OFFSET ");
-            query_builder.push_bind(offset as i64);
+            sql_query.push(" OFFSET ");
+            sql_query.push_bind(offset as i64);
         }
 
         // Execute the query with proper parameter binding
-        let rows = sqlx::query(&sql)
+        let rows = sql_query
+            .build()
             .fetch_all(&self.pool)
             .await
             .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -277,7 +288,7 @@ impl AuditRepo for PostgresAuditRepo {
         }
 
         let mut query_builder = sqlx::QueryBuilder::new(
-            "INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success) "
+            "INSERT INTO audit_logs (id, actor_id, user_id, action, resource_type, resource_id, result, event_category, severity, success, metadata, client_ip, user_agent, timestamp, session_id) "
         );
 
         query_builder.push_values(entries, |mut b, entry| {
@@ -309,20 +320,28 @@ impl AuditRepo for PostgresAuditRepo {
             // Determine success based on result
             let success = matches!(entry.result(), crate::dom::entities::audit::AuditResult::Success | crate::dom::entities::audit::AuditResult::PartialSuccess);
 
-            b.push_bind(entry.id().value())
-             .push_bind(entry.actor_id().value())
+            // Convert string ID to UUID, or generate a new one if parsing fails
+            let entry_uuid = Uuid::parse_str(entry.id().value())
+                .unwrap_or_else(|_| Uuid::new_v4());
+            
+            // Get actor_id UUID directly
+            let actor_uuid = *entry.actor_id().value();
+
+            b.push_bind(entry_uuid)
+             .push_bind(actor_uuid)
+             .push_bind(actor_uuid) // user_id is same as actor_id in this context
              .push_bind(entry.action().to_string())
              .push_bind(entry.resource_type().to_string())
              .push_bind(entry.resource_id())
              .push_bind(entry.result().to_string())
-             .push_bind(entry.client_ip())
-             .push_bind(entry.user_agent())
-             .push_bind(entry.session_id())
-             .push_bind(serde_json::to_value(entry.metadata()).unwrap_or(serde_json::Value::Null))
-             .push_bind(entry.timestamp())
              .push_bind(event_category)
              .push_bind(severity)
-             .push_bind(success);
+             .push_bind(success)
+             .push_bind(serde_json::to_value(entry.metadata()).unwrap_or(serde_json::Value::Null))
+             .push_bind(entry.client_ip())
+             .push_bind(entry.user_agent())
+             .push_bind(entry.timestamp())
+             .push_bind(entry.session_id());
         });
 
         query_builder
