@@ -382,7 +382,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // Strict CSP for admin interface
   const adminCsp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'", // Allow inline for admin dashboards
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline and eval for admin dashboards
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "img-src 'self' data: https:",

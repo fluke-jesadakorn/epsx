@@ -65,6 +65,15 @@ pub enum TradeType {
     Sell,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserDeletedEvent {
+    event_id: Uuid,
+    occurred_at: DateTime<Utc>,
+    user_id: UserId,
+    deleted_by: UserId,
+    reason: Option<String>,
+}
+
 impl UserRoleChangedEvent {
     pub fn new(user_id: UserId, old_role: Role, new_role: Role) -> Self {
         Self {
@@ -177,6 +186,28 @@ impl DomainEvent for TradeExecutedEvent {
     fn event_id(&self) -> &Uuid { &self.event_id }
     fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
     fn event_type(&self) -> &'static str { "TradeExecuted" }
+}
+
+impl UserDeletedEvent {
+    pub fn new(user_id: UserId, deleted_by: UserId, reason: Option<String>) -> Self {
+        Self {
+            event_id: Uuid::new_v4(),
+            occurred_at: Utc::now(),
+            user_id,
+            deleted_by,
+            reason,
+        }
+    }
+    
+    pub fn user_id(&self) -> &UserId { &self.user_id }
+    pub fn deleted_by(&self) -> &UserId { &self.deleted_by }
+    pub fn reason(&self) -> &Option<String> { &self.reason }
+}
+
+impl DomainEvent for UserDeletedEvent {
+    fn event_id(&self) -> &Uuid { &self.event_id }
+    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
+    fn event_type(&self) -> &'static str { "UserDeleted" }
 }
 
 #[cfg(test)]

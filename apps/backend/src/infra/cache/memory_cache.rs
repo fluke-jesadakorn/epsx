@@ -3,7 +3,7 @@
 use super::{Cache, CacheExt, CacheConfig, CacheStats, CacheError, CachedEntry};
 use async_trait::async_trait;
 use chrono::Utc;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -37,17 +37,10 @@ impl InMemoryCache {
             .map_err(|e| CacheError::SerializationError(e.to_string()))
     }
 
-    async fn deserialize_value<T>(&self, data: &str) -> Result<T, CacheError>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        serde_json::from_str(data)
-            .map_err(|e| CacheError::DeserializationError(e.to_string()))
-    }
 
     async fn cleanup_expired(&self) {
         let mut storage = self.storage.write().await;
-        let now = Utc::now();
+        let _now = Utc::now();
         
         storage.retain(|_, value| {
             if let Ok(entry) = serde_json::from_str::<CachedEntry<serde_json::Value>>(value) {
@@ -103,7 +96,7 @@ impl Cache for InMemoryCache {
         }
     }
 
-    async fn set_raw(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<(), CacheError> {
+    async fn set_raw(&self, key: &str, value: &str, _ttl_seconds: Option<i64>) -> Result<(), CacheError> {
         self.check_capacity().await?;
 
         let mut storage = self.storage.write().await;

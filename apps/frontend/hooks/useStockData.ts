@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { StockFinancialData } from '@/types/financialChartData';
+import { apiClient, isApiError } from '@epsx/api-client';
 
 interface BatchStockData {
   [symbol: string]: StockFinancialData | null;
@@ -37,16 +38,17 @@ export function useBatchStockData(symbols: string[]): BatchFetchState {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      const response = await fetch(`/api/v1/market-data/stocks/batch?symbols=${symbolsList.join(',')}`);
+      const response = await apiClient.getBatchStocks(symbolsList);
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Failed to fetch batch data');
       }
 
-      const result = await response.json();
+      const result = response.data;
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch batch data');
+        const errorMessage = result.errors?.length > 0 ? result.errors.join(', ') : 'Failed to fetch batch data';
+        throw new Error(errorMessage);
       }
 
       setState(prev => ({
@@ -109,18 +111,11 @@ export function useStockPreloader() {
 
     setPreloading(true);
     try {
-      const response = await fetch('/api/v1/market-data/stocks/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols, action: 'preload' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to preload symbols');
+      const response = await apiClient.preloadStocks(symbols);
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Failed to preload symbols');
       }
-
-      const result = await response.json();
-      console.log('Preload completed:', result);
+      console.log('Preload completed:', response.data);
     } catch (error) {
       console.error('Preload error:', error);
     } finally {
@@ -130,18 +125,11 @@ export function useStockPreloader() {
 
   const checkCacheStatus = useCallback(async (symbols: string[]) => {
     try {
-      const response = await fetch('/api/v1/market-data/stocks/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols, action: 'cache_status' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check cache status');
+      const response = await apiClient.checkStockCacheStatus(symbols);
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Failed to check cache status');
       }
-
-      const result = await response.json();
-      return result.symbols;
+      return response.data.symbols;
     } catch (error) {
       console.error('Cache status check error:', error);
       return [];

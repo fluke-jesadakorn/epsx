@@ -11,6 +11,8 @@ use crate::dom::entities::permission_profile::{
     ApplyPermissionProfileResult, PermissionProfileError, PermissionProfileCategory, DefaultPermissionProfiles
 };
 use crate::dom::values::UserId;
+use crate::app::ports::repositories::PermissionAssignment;
+use chrono::DateTime;
 
 /// In-memory permission profile repository implementation
 pub struct PermissionProfileRepoImpl {
@@ -290,6 +292,62 @@ impl PermissionProfileRepo for PermissionProfileRepoImpl {
         
         tracing::info!("Initialized {} default permission profiles", created_permission_profiles.len());
         Ok(created_permission_profiles)
+    }
+    
+    // Job system requirements - placeholder implementations for in-memory repo
+    async fn find_assignments_expiring_before(&self, _cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, PermissionProfileError> {
+        // In-memory implementation would need to track assignments
+        // For now return empty - this would be properly implemented in database repo
+        Ok(Vec::new())
+    }
+    
+    async fn revoke_assignment(&self, _user_id: &UserId, _profile_id: &PermissionProfileId) -> Result<(), PermissionProfileError> {
+        // In-memory implementation would need to track assignments
+        // For now return success - this would be properly implemented in database repo
+        Ok(())
+    }
+    
+    async fn cleanup_expired_assignments(&self) -> Result<i64, PermissionProfileError> {
+        // In-memory implementation would need to track assignments
+        // For now return 0 - this would be properly implemented in database repo
+        Ok(0)
+    }
+    
+    async fn count_active_profiles(&self) -> Result<i64, PermissionProfileError> {
+        let profiles = self.permission_profiles.lock()
+            .map_err(|e| PermissionProfileError::InvalidConfiguration(format!("Lock error: {}", e)))?;
+        let count = profiles.values().filter(|p| p.is_active()).count();
+        Ok(count as i64)
+    }
+    
+    async fn count_total_assignments(&self) -> Result<i64, PermissionProfileError> {
+        let counts = self.assignment_counts.lock()
+            .map_err(|e| PermissionProfileError::InvalidConfiguration(format!("Lock error: {}", e)))?;
+        let total: u32 = counts.values().sum();
+        Ok(total as i64)  
+    }
+    
+    async fn find_user_assignments_with_expiration(&self, _user_id: &UserId) -> Result<Vec<PermissionAssignment>, PermissionProfileError> {
+        // In-memory implementation would need to track assignments
+        // For now return empty - this would be properly implemented in database repo
+        Ok(Vec::new())
+    }
+    
+    async fn extend_assignment_expiration(&self, _user_id: &UserId, _profile_id: &PermissionProfileId, _new_expiration: DateTime<Utc>) -> Result<(), PermissionProfileError> {
+        // In-memory implementation would need to track assignments
+        // For now return success - this would be properly implemented in database repo
+        Ok(())
+    }
+    
+    async fn find_by_id(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError> {
+        self.get(id).await
+    }
+    
+    async fn health_check(&self) -> Result<(), PermissionProfileError> {
+        // For in-memory implementation, just check if the mutex can be acquired
+        let _profiles = self.permission_profiles.lock()
+            .map_err(|e| PermissionProfileError::InvalidConfiguration(format!("Health check failed: {}", e)))?;
+        Ok(())
     }
 }
 

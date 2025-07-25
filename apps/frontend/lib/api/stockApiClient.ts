@@ -1,28 +1,5 @@
-import type { StockFinancialData } from '@/types/financialChartData';
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-    startIndex: number;
-    endIndex: number;
-    currentPageSize: number;
-  };
-}
-
-export interface CountResponse {
-  count: number;
-  timestamp: string;
-  filters: {
-    country: string;
-    quarters: number;
-  };
-}
+import { apiClient, type PaginatedResponse, type CountResponse, type StockFinancialData } from '@epsx/api-client';
+import type { StockFinancialData as LocalStockFinancialData } from '@/types/financialChartData';
 
 export interface StockApiParams {
   page?: number;
@@ -52,78 +29,39 @@ export class StockApiClient {
    * Fetch paginated stock data from API
    */
   async getPaginatedStocks(params: StockApiParams = {}): Promise<PaginatedResponse<StockFinancialData>> {
-    const searchParams = new URLSearchParams();
+    const result = await apiClient.getPaginatedStocks(params);
     
-    if (params.page) searchParams.set('page', params.page.toString());
-    if (params.limit) searchParams.set('limit', params.limit.toString());
-    if (params.country) searchParams.set('country', params.country);
-    if (params.quarters) searchParams.set('quarters', params.quarters.toString());
-
-    const response = await fetch(`${this.baseUrl}/paginated?${searchParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch paginated stocks');
+    if (result.error) {
+      throw new Error(result.error);
     }
-
-    return response.json();
+    
+    return result.data!;
   }
 
   /**
    * Fetch stock count from API
    */
   async getStockCount(params: Pick<StockApiParams, 'country' | 'quarters'> = {}): Promise<CountResponse> {
-    const searchParams = new URLSearchParams();
+    const result = await apiClient.getStockCount(params);
     
-    if (params.country) searchParams.set('country', params.country);
-    if (params.quarters) searchParams.set('quarters', params.quarters.toString());
-
-    const response = await fetch(`${this.baseUrl}/count?${searchParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch stock count');
+    if (result.error) {
+      throw new Error(result.error);
     }
-
-    return response.json();
+    
+    return result.data!;
   }
 
   /**
    * Fetch stocks using the original API (backward compatibility)
    */
   async getStocks(params: StockApiParams & { skip?: number; paginated?: boolean } = {}): Promise<StockFinancialData[] | PaginatedResponse<StockFinancialData>> {
-    const searchParams = new URLSearchParams();
+    const result = await apiClient.getStocks(params);
     
-    if (params.skip) searchParams.set('skip', params.skip.toString());
-    if (params.limit) searchParams.set('limit', params.limit.toString());
-    if (params.page) searchParams.set('page', params.page.toString());
-    if (params.country) searchParams.set('country', params.country);
-    if (params.quarters) searchParams.set('quarters', params.quarters.toString());
-    if (params.paginated) searchParams.set('paginated', 'true');
-
-    const response = await fetch(`${this.baseUrl}?${searchParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch stocks');
+    if (result.error) {
+      throw new Error(result.error);
     }
-
-    return response.json();
+    
+    return result.data!;
   }
 }
 

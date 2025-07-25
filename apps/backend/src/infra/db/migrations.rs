@@ -202,7 +202,7 @@ impl MigrationRunner {
             info!("{} {}", status, version);
         }
 
-        let pending_count = available.len() - executed.len();
+        let pending_count = available.len().saturating_sub(executed.len());
         if pending_count > 0 {
             warn!("{} pending migrations", pending_count);
         } else {

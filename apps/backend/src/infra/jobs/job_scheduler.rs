@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio_cron_scheduler::{JobScheduler as CronJobScheduler, Job};
-use tracing::{info, error, warn};
-use chrono::{DateTime, Utc};
+use tracing::{info, error};
+use chrono::{Utc, Timelike};
 use uuid::Uuid;
 
 use crate::app::ports::repositories::*;
@@ -64,7 +64,7 @@ impl JobScheduler {
         Ok(())
     }
 
-    pub async fn stop(&self) -> Result<(), JobSchedulerError> {
+    pub async fn stop(&mut self) -> Result<(), JobSchedulerError> {
         info!("Stopping job scheduler");
         self.scheduler.shutdown().await.map_err(JobSchedulerError::StopFailed)?;
         info!("Job scheduler stopped");
@@ -76,10 +76,11 @@ impl JobScheduler {
         F: Fn() -> Result<(), String> + Send + Sync + 'static,
     {
         let job_id = Uuid::new_v4();
-        let delay = chrono::Duration::seconds(delay_seconds as i64);
-        let run_time = Utc::now() + delay;
+        let delay = std::time::Duration::from_secs(delay_seconds);
         
-        let job = Job::new_one_shot_async(run_time, move |_uuid, _lock| {
+        let task = Arc::new(task);
+        let job = Job::new_one_shot_async(delay, move |_uuid, _lock| {
+            let task = Arc::clone(&task);
             Box::pin(async move {
                 match task() {
                     Ok(()) => info!("One-time job completed successfully: {}", _uuid),
@@ -90,7 +91,7 @@ impl JobScheduler {
 
         self.scheduler.add(job).await.map_err(JobSchedulerError::JobAddFailed)?;
         
-        info!("Added one-time job: {} scheduled for: {}", job_id, run_time);
+        info!("Added one-time job: {} scheduled for: {:?} seconds from now", job_id, delay_seconds);
         Ok(job_id)
     }
 
@@ -161,14 +162,25 @@ impl JobScheduler {
                         let mut error_count = 0;
                         
                         for user in users {
-                            match assignment_service.evaluate_and_assign(&user).await {
+                            let context = crate::dom::services::auto_assignment::RegistrationContext {
+                        email: user.email().to_string(),
+                        package_tier: crate::dom::services::auto_assignment::PackageTier::Bronze,
+                        referral_code: None,
+                        source: "auto_assignment_job".to_string(),
+                        region: None,
+                        email_domain: user.email().value().split('@').nth(1).unwrap_or("unknown").to_string(),
+                        user_agent: None,
+                        utm_source: None,
+                        utm_campaign: None,
+                    };
+                    match assignment_service.process_registration(user.id(), &context).await {
                                 Ok(assignments) => {
-                                    assigned_count += assignments.len();
+                                    assigned_count += assignments.total_assigned as usize;
                                     
                                     // Log assignment for audit
-                                    for assignment in assignments {
+                                    for assignment in &assignments.assignments {
                                         if let Err(e) = audit_repository.log_permission_assignment(
-                                            &user.id, 
+                                            user.id(), 
                                             &assignment.permission_profile_id, 
                                             "auto_assignment_job", 
                                             &assignment.reason
@@ -179,7 +191,7 @@ impl JobScheduler {
                                 },
                                 Err(e) => {
                                     error_count += 1;
-                                    error!("Auto assignment failed for user {}: {}", user.id, e);
+                                    error!("Auto assignment failed for user {}: {}", user.id(), e);
                                 }
                             }
                         }

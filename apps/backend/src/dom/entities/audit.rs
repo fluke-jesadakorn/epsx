@@ -79,6 +79,7 @@ pub enum AuditAction {
     // Permission actions
     PermissionGranted,
     PermissionDenied,
+    PermissionRevoked,
     PermissionEvaluated,
     PermissionOverrideSet,
     PermissionOverrideRemoved,
@@ -90,6 +91,7 @@ pub enum AuditAction {
     DataExported,
     BackupCreated,
     BackupRestored,
+    SystemEvent,
     
     // Notification actions
     NotificationSent,
@@ -110,6 +112,7 @@ pub enum ResourceType {
     Backup,
     Export,
     Notification,
+    System,
 }
 
 /// Result of the audited operation
@@ -461,6 +464,8 @@ impl std::fmt::Display for AuditAction {
             AuditAction::BackupRestored => write!(f, "backup_restored"),
             AuditAction::NotificationSent => write!(f, "notification_sent"),
             AuditAction::NotificationFailed => write!(f, "notification_failed"),
+            AuditAction::PermissionRevoked => write!(f, "permission_revoked"),
+            AuditAction::SystemEvent => write!(f, "system_event"),
         }
     }
 }
@@ -479,6 +484,7 @@ impl std::fmt::Display for ResourceType {
             ResourceType::Backup => write!(f, "backup"),
             ResourceType::Export => write!(f, "export"),
             ResourceType::Notification => write!(f, "notification"),
+            ResourceType::System => write!(f, "system"),
         }
     }
 }

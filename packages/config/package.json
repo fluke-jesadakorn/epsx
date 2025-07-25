@@ -6,10 +6,12 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "typescript"
   ],
   "exports": {
-    "./eslint/base": "./dist/eslint/base.cjs"
+    "./eslint/base": "./dist/eslint/base.cjs",
+    "./typescript/base.json": "./typescript/base.json"
   },
   "scripts": {
     "build": "tsc && node scripts/build-eslint.cjs"

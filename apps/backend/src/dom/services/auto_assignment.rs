@@ -1,12 +1,10 @@
 // Auto-assignment engine for permission_profile assignment during user registration
 use crate::dom::values::UserId;
 use crate::dom::entities::permission_profile::PermissionProfileId;
-use crate::app::ports::repositories::{PermissionProfileRepo, UserRepo, RepoError};
+use crate::app::ports::repositories::{PermissionProfileRepo, UserRepo};
 use crate::infra::db::postgres::permission_assignment_repo::PostgresPermissionAssignmentRepo;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistrationContext {
@@ -221,7 +219,7 @@ impl AutoAssignmentEngine {
         user: &crate::dom::entities::User,
     ) -> Result<RegistrationContext, AutoAssignmentError> {
         // Extract additional context from user entity
-        let registration_time = chrono::Utc::now(); // Could be extracted from user if stored
+        let _registration_time = chrono::Utc::now(); // Could be extracted from user if stored
         let actual_email_domain = user.email().value()
             .split('@')
             .nth(1)
@@ -363,20 +361,6 @@ impl AutoAssignmentEngine {
         })
     }
 
-    /// Check if a package tier matches a rule
-    fn tier_matches_rule(&self, tier: &PackageTier, rule: &serde_json::Value) -> bool {
-        if let Some(tiers) = rule.as_array() {
-            for tier_value in tiers {
-                if let Some(tier_str) = tier_value.as_str() {
-                    let rule_tier = PackageTier::from(tier_str);
-                    if std::mem::discriminant(tier) == std::mem::discriminant(&rule_tier) {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
 
     /// Create a simple assignment rule from permission profile
     fn create_simple_assignment_rule(
@@ -408,107 +392,7 @@ impl AutoAssignmentEngine {
         })
     }
 
-    /// Parse assignment rule from permission profile configuration
-    fn parse_assignment_rule(
-        &self,
-        permission_profile: &crate::dom::entities::permission_profile::PermissionProfile,
-        rule_config: &serde_json::Map<String, serde_json::Value>,
-    ) -> Result<AutoAssignmentRule, AutoAssignmentError> {
-        let permission_profile_id = permission_profile.id().clone();
-        
-        // Parse package tiers
-        let package_tiers = if let Some(tiers) = rule_config.get("package_tiers") {
-            if let Some(tier_array) = tiers.as_array() {
-                tier_array.iter()
-                    .filter_map(|v| v.as_str())
-                    .map(PackageTier::from)
-                    .collect()
-            } else {
-                vec![PackageTier::Bronze] // Default
-            }
-        } else {
-            vec![PackageTier::Bronze]
-        };
 
-        // Parse triggers
-        let triggers = if let Some(trigger_config) = rule_config.get("triggers") {
-            self.parse_triggers(trigger_config)?
-        } else {
-            vec![AssignmentTrigger::Always]
-        };
-
-        // Parse other configuration
-        let priority = rule_config.get("priority")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-
-        let expires_after_days = rule_config.get("expires_after_days")
-            .and_then(|v| v.as_i64())
-            .map(|d| d as i32);
-
-        let requires_payment = rule_config.get("requires_payment")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let variables = rule_config.get("variables")
-            .cloned()
-            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
-
-        Ok(AutoAssignmentRule {
-            permission_profile_id,
-            package_tiers,
-            triggers,
-            priority,
-            expires_after_days,
-            requires_payment,
-            variables,
-        })
-    }
-
-    /// Parse trigger configuration
-    fn parse_triggers(&self, trigger_config: &serde_json::Value) -> Result<Vec<AssignmentTrigger>, AutoAssignmentError> {
-        let mut triggers = Vec::new();
-        
-        if let Some(trigger_array) = trigger_config.as_array() {
-            for trigger_val in trigger_array {
-                if let Some(trigger_obj) = trigger_val.as_object() {
-                    for (trigger_type, trigger_value) in trigger_obj {
-                        let trigger = match trigger_type.as_str() {
-                            "tier_match" => {
-                                if let Some(tier_str) = trigger_value.as_str() {
-                                    AssignmentTrigger::TierMatch(PackageTier::from(tier_str))
-                                } else { continue; }
-                            }
-                            "email_domain" => {
-                                if let Some(domain) = trigger_value.as_str() {
-                                    AssignmentTrigger::EmailDomain(domain.to_string())
-                                } else { continue; }
-                            }
-                            "referral_code" => {
-                                if let Some(code) = trigger_value.as_str() {
-                                    AssignmentTrigger::ReferralCode(code.to_string())
-                                } else { continue; }
-                            }
-                            "utm_source" => {
-                                if let Some(source) = trigger_value.as_str() {
-                                    AssignmentTrigger::UtmSource(source.to_string())
-                                } else { continue; }
-                            }
-                            "always" => AssignmentTrigger::Always,
-                            _ => continue,
-                        };
-                        triggers.push(trigger);
-                    }
-                }
-            }
-        }
-        
-        if triggers.is_empty() {
-            triggers.push(AssignmentTrigger::Always);
-        }
-        
-        Ok(triggers)
-    }
 
     /// Evaluate if a trigger condition matches the registration context
     fn evaluate_trigger(&self, trigger: &AssignmentTrigger, context: &RegistrationContext) -> bool {

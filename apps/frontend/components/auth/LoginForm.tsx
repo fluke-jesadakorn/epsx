@@ -1,47 +1,54 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { loginAction } from '@/app/actions/auth';
+import { loginAction } from '@/lib/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface LoginFormProps {
   onSuccess?: () => void;
   onRegisterClick?: () => void;
 }
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Signing in...
+        </>
+      ) : (
+        'Sign In'
+      )}
+    </Button>
+  );
+}
+
+const initialState = {
+  success: false,
+  error: null,
+};
+
 export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [state, formAction] = useFormState(loginAction, initialState);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    startTransition(async () => {
-      try {
-        const result = await loginAction(email, password);
-        
-        if (result.success) {
-          onSuccess?.();
-          router.refresh(); // Refresh to update auth state
-        } else {
-          setError(result.error || 'Login failed');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Login failed');
-      }
-    });
-  };
+  useEffect(() => {
+    if (state.success) {
+      onSuccess?.();
+      router.refresh();
+    }
+  }, [state.success, onSuccess, router]);
 
   return (
     <Card className="w-full max-w-md">
@@ -51,11 +58,11 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
           Enter your credentials to access your account
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form action={formAction}>
         <CardContent className="space-y-4">
-          {error && (
+          {state.error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{state.error}</AlertDescription>
             </Alert>
           )}
           
@@ -63,10 +70,9 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -75,26 +81,16 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
               placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              'Sign In'
-            )}
-          </Button>
+          <SubmitButton />
           
           <div className="text-sm text-center space-y-2">
             <Link href="/forgot-password" className="text-blue-600 hover:underline">

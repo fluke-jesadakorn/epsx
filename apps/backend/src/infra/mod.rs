@@ -21,6 +21,7 @@ use std::sync::Arc;
 use crate::app::ports::{repositories::*, services::*, events::*};
 use crate::core::plugins::{PluginManager, PluginRegistry};
 use crate::dom::services::feature_expiration::FeatureExpirationService;
+use crate::infra::db::MigrationRunner;
 
 /// Database backend type
 #[derive(Debug, Clone)]
@@ -139,14 +140,12 @@ impl InfraFactory {
     pub fn create_feature_expiration_service(
         &self,
         user_repo: Arc<dyn UserRepo>,
-        permission_profile_repo: Arc<dyn PermissionProfileRepo>,
         notification_service: Arc<dyn NotificationService>,
     ) -> Arc<dyn FeatureExpirationService> {
         use crate::dom::services::feature_expiration::{FeatureExpirationServiceImpl, ExpirationConfig};
         
         Arc::new(FeatureExpirationServiceImpl::new(
             user_repo,
-            permission_profile_repo,
             notification_service,
             Some(ExpirationConfig::default()),
         ))
@@ -197,6 +196,9 @@ impl AppContainer {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let infra = InfraFactory::from_env()?;
         
+        // Run database migrations automatically
+        Self::run_migrations(&infra.postgres_pool).await?;
+        
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
         let payment_repo = infra.create_payment_repo();
@@ -211,7 +213,6 @@ impl AppContainer {
         let notification_service = infra.create_notification_service();
         let feature_expiration_service = infra.create_feature_expiration_service(
             user_repo.clone(),
-            permission_profile_repo.clone(),
             notification_service.clone(),
         );
         let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
@@ -255,7 +256,6 @@ impl AppContainer {
         let notification_service = infra.create_notification_service();
         let feature_expiration_service = infra.create_feature_expiration_service(
             user_repo.clone(),
-            permission_profile_repo.clone(),
             notification_service.clone(),
         );
         let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
@@ -330,6 +330,84 @@ impl AppContainer {
         let mut plugin_manager = self.plugin_manager.lock().await;
         plugin_manager.stop_all().await?;
         tracing::info!("Plugin system shut down");
+        Ok(())
+    }
+    
+    /// Create database if it doesn't exist and run migrations automatically
+    async fn run_migrations(pool: &DatabasePool) -> Result<(), Box<dyn std::error::Error>> {
+        // First, try to create the database if it doesn't exist
+        Self::ensure_database_exists().await?;
+        
+        tracing::info!("Running database migrations...");
+        
+        let migrations_dir = std::env::var("MIGRATIONS_DIR")
+            .unwrap_or_else(|_| "migrations".to_string());
+            
+        let runner = MigrationRunner::new((**pool).clone(), migrations_dir);
+        
+        match runner.migrate().await {
+            Ok(count) => {
+                if count > 0 {
+                    tracing::info!("✅ Applied {} migrations successfully", count);
+                } else {
+                    tracing::info!("✅ Database is up to date");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                tracing::error!("❌ Migration failed: {}", e);
+                Err(Box::new(e))
+            }
+        }
+    }
+    
+    /// Ensure database exists by connecting to postgres and creating it if needed
+    async fn ensure_database_exists() -> Result<(), Box<dyn std::error::Error>> {
+        use sqlx::postgres::{PgPoolOptions, PgConnectOptions};
+        use std::str::FromStr;
+        
+        let database_url = std::env::var("DATABASE_URL")
+            .or_else(|_| std::env::var("POSTGRES_URL"))
+            .unwrap_or_else(|_| "postgresql://postgres:password@localhost/epsx_db".to_string());
+        
+        // Parse the database URL to get connection details
+        let opts = PgConnectOptions::from_str(&database_url)?;
+        let db_name = opts.get_database().unwrap_or("epsx_db");
+        
+        // Extract connection details to build master URL
+        let master_url = database_url.replace(&format!("/{}", db_name), "/postgres");
+        
+        tracing::info!("Checking if database '{}' exists...", db_name);
+        
+        // Connect to master postgres database
+        let master_pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&master_url)
+            .await?;
+        
+        // Check if database exists
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)"
+        )
+        .bind(db_name)
+        .fetch_one(&master_pool)
+        .await?;
+        
+        if !exists {
+            tracing::info!("Database '{}' does not exist, creating it...", db_name);
+            
+            // Create the database
+            let create_query = format!("CREATE DATABASE \"{}\"", db_name);
+            sqlx::query(&create_query)
+                .execute(&master_pool)
+                .await?;
+            
+            tracing::info!("✅ Database '{}' created successfully", db_name);
+        } else {
+            tracing::info!("✅ Database '{}' already exists", db_name);
+        }
+        
+        master_pool.close().await;
         Ok(())
     }
     

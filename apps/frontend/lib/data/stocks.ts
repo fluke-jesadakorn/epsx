@@ -1,0 +1,148 @@
+import { createApiClient, isApiError } from '@epsx/api-client';
+import { MarketCountry } from '../../types/marketCountries';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const apiClient = createApiClient(BACKEND_URL);
+
+export async function getStockFinancialData(
+  skip: number = 0,
+  limit: number = 10,
+  country?: typeof MarketCountry,
+  quarters: number = 2
+) {
+  try {
+    const response = await apiClient.getStocks({
+      skip,
+      limit,
+      country: country?.toString(),
+      quarters,
+    });
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch stock financial data');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Stock data fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getStockFinancialDataPaginated(
+  page: number = 1,
+  limit: number = 10,
+  country?: typeof MarketCountry,
+  quarters: number = 2
+) {
+  try {
+    const response = await apiClient.getPaginatedStocks({
+      page,
+      limit,
+      country: country?.toString(),
+      quarters,
+    });
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch paginated stock data');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Paginated stock data fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getStockSymbols() {
+  try {
+    const response = await apiClient.get('/api/market-data/symbols');
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch stock symbols');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Stock symbols fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getIndividualStockData(symbol: string) {
+  try {
+    const response = await apiClient.get(`/api/market-data/stocks/individual?symbol=${symbol}`);
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch individual stock data');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Individual stock data fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getBatchStockData(symbols: string[]) {
+  try {
+    const response = await apiClient.post('/api/market-data/stocks/batch', { symbols });
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch batch stock data');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Batch stock data fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getStocksCount(country?: string, quarters?: number) {
+  try {
+    const response = await apiClient.getStockCount({
+      country,
+      quarters,
+    });
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch stocks count');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Stocks count fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getPremiumRankings() {
+  try {
+    const response = await apiClient.get('/api/premium/rankings');
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch premium rankings');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Premium rankings fetch error:', error);
+    throw error;
+  }
+}
+
+export async function getCacheStats() {
+  try {
+    const response = await apiClient.get('/api/system/cache');
+
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to fetch cache stats');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Cache stats fetch error:', error);
+    throw error;
+  }
+}

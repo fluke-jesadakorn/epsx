@@ -141,6 +141,35 @@ pub struct FailedUpdate {
     pub error: String,
 }
 
+// Soft delete user
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SoftDeleteUserReq {
+    pub usr_id: String,
+    pub reason: Option<String>,
+}
+
+impl SoftDeleteUserReq {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.usr_id.is_empty() {
+            return Err(ValidationError::EmptyField("usr_id".to_string()));
+        }
+        
+        if let Some(reason) = &self.reason {
+            if reason.len() > 500 {
+                return Err(ValidationError::ReasonTooLong(reason.len()));
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SoftDeleteUserRes {
+    pub usr: UserDto,
+    pub deleted_at: DateTime<Utc>,
+}
+
 // User statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserStatsReq {
@@ -339,6 +368,9 @@ pub enum ValidationError {
     
     #[error("Invalid date range: start date must be before end date")]
     InvalidDateRange,
+    
+    #[error("Reason too long: {0} characters (max 500)")]
+    ReasonTooLong(usize),
 }
 
 #[cfg(test)]

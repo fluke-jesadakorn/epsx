@@ -16,6 +16,7 @@ pub struct User {
     sub: Subscription,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+    deleted_at: Option<DateTime<Utc>>,
 }
 
 impl User {
@@ -32,6 +33,7 @@ impl User {
             role,
             created_at: now,
             updated_at: now,
+            deleted_at: None,
         }
     }
     
@@ -52,6 +54,7 @@ impl User {
             role,
             created_at: now,
             updated_at: now,
+            deleted_at: None,
         }
     }
     
@@ -64,6 +67,7 @@ impl User {
         sub: Subscription,
         created_at: chrono::DateTime<chrono::Utc>,
         updated_at: chrono::DateTime<chrono::Utc>,
+        deleted_at: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Self {
         Self {
             id,
@@ -74,6 +78,7 @@ impl User {
             role,
             created_at,
             updated_at,
+            deleted_at,
         }
     }
     
@@ -86,6 +91,7 @@ impl User {
         sub: Subscription,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
+        deleted_at: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
             id,
@@ -96,6 +102,7 @@ impl User {
             sub,
             created_at,
             updated_at,
+            deleted_at,
         }
     }
     
@@ -108,6 +115,8 @@ impl User {
     pub fn sub(&self) -> &Subscription { &self.sub }
     pub fn created_at(&self) -> DateTime<Utc> { self.created_at }
     pub fn updated_at(&self) -> DateTime<Utc> { self.updated_at }
+    pub fn deleted_at(&self) -> Option<DateTime<Utc>> { self.deleted_at }
+    pub fn is_deleted(&self) -> bool { self.deleted_at.is_some() }
     
     // Business methods
     pub fn upgrade_role(&mut self, new_role: Role) -> Result<UserRoleChangedEvent, DomainError> {
@@ -136,7 +145,17 @@ impl User {
     }
     
     pub fn is_active(&self) -> bool {
-        self.sub.is_active()
+        !self.is_deleted() && self.sub.is_active()
+    }
+    
+    pub fn soft_delete(&mut self) {
+        self.deleted_at = Some(Utc::now());
+        self.updated_at = Utc::now();
+    }
+    
+    pub fn restore(&mut self) {
+        self.deleted_at = None;
+        self.updated_at = Utc::now();
     }
     
     fn can_upgrade_to(&self, target_role: &Role) -> bool {

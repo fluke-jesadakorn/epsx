@@ -46,7 +46,6 @@ export async function fetchUserDetails() {
     const data = await response.json();
     return data.users as User[];
   } catch (error) {
-    // console.error('Error fetching user details:', error);
     throw error;
   }
 }
@@ -80,7 +79,6 @@ export async function updateUserRole(userId: string, role: string) {
 
     return await response.json();
   } catch (error) {
-    // console.error('Error updating user role:', error);
     throw error;
   }
 }

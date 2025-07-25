@@ -1,23 +1,11 @@
 // Service for permission management API calls
 import { logger } from '@/lib/logger';
+import { apiClient, type Permission, type Role, type UserPermissionStatus, type PermissionProfile, type ApiResponse, isApiError } from '@epsx/api-client';
 
-export interface Permission {
-  id: string;
-  name: string;
-  description: string;
-  resource: string;
-  action: string;
-  risk: 'low' | 'medium' | 'high';
-}
+// Re-export types from api-client for backward compatibility
+export type { Permission, Role, UserPermissionStatus, PermissionProfile } from '@epsx/api-client';
 
-export interface Role {
-  id: string;
-  name: string;
-  permissions: string[];
-  userCount: number;
-  isSystem: boolean;
-}
-
+// Local types that extend api-client types
 export interface User {
   id: string;
   name: string;
@@ -26,10 +14,8 @@ export interface User {
   directPermissions: string[];
 }
 
-export interface PermissionProfile {
-  id: string;
-  name: string;
-  description: string;
+// Extended PermissionProfile for local use with additional fields
+export interface LocalPermissionProfile extends Omit<PermissionProfile, 'category' | 'target_tier' | 'is_active' | 'created_at'> {
   category: 'User' | 'Premium' | 'Admin' | 'System';
   permissions: string[];
   targetTier: string;
@@ -39,204 +25,119 @@ export interface PermissionProfile {
   features: string[];
 }
 
-export interface UserPermissionStatus {
-  userId: string;
-  permissions: string[];
-  profiles: string[];
-  role: string;
-  effectivePermissions: string[];
-  hasWildcardAccess: boolean;
-}
-
 class PermissionService {
-  private baseUrl = '/api/v1';
-
   async getPermissions(): Promise<Permission[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/permissions`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch permissions');
-      }
-      return await response.json();
-    } catch (error) {
-      logger.error('Failed to fetch permissions from API', { error: error.message });
+    const response = await apiClient.getPermissions();
+    if (isApiError(response)) {
+      logger.error('Failed to fetch permissions from API', { error: response.error, details: response.details });
       // Fallback to mock data during development
       return this.getMockPermissions();
     }
+    return response.data;
   }
 
-  async getPermissionProfiles(): Promise<PermissionProfile[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/permission-profiles`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch permission profiles');
-      }
-      return await response.json();
-    } catch (error) {
-      logger.error('Failed to fetch permission profiles from API', { error: error.message });
+  async getPermissionProfiles(): Promise<LocalPermissionProfile[]> {
+    const response = await apiClient.listPermissionProfiles();
+    if (isApiError(response)) {
+      logger.error('Failed to fetch permission profiles from API', { error: response.error, details: response.details });
       return this.getMockPermissionProfiles();
     }
+    
+    // Transform API response to local format
+    return response.data.permission_profiles.map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      description: profile.description,
+      category: profile.category as 'User' | 'Premium' | 'Admin' | 'System',
+      permissions: [], // This would need to be populated from another endpoint
+      targetTier: profile.target_tier,
+      isActive: profile.is_active,
+      userCount: undefined, // Not available in API response
+      createdAt: profile.created_at,
+      features: [] // This would need to be derived from permissions or metadata
+    }));
   }
 
   async checkUserPermissions(permission: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/authentication/check-permission`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ permission }),
-      });
-      
-      if (!response.ok) {
-        return false;
-      }
-      
-      const result = await response.json();
-      return result.allowed || false;
-    } catch (error) {
-      logger.error('Failed to check user permission', { permission, error: error.message });
+    const response = await apiClient.checkUserPermission({ permission });
+    if (isApiError(response)) {
+      logger.error('Failed to check user permission', { permission, error: response.error, details: response.details });
       return false;
     }
+    return response.data.allowed || false;
   }
 
   async getUserPermissionStatus(): Promise<UserPermissionStatus | null> {
-    try {
-      const response = await fetch(`${this.baseUrl}/authentication/profile`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user permission status');
-      }
-      
-      const userData = await response.json();
-      return {
-        userId: userData.user_id,
-        permissions: userData.permissions || [],
-        profiles: userData.permission_profiles || [],
-        role: userData.role || 'user',
-        effectivePermissions: userData.effective_permissions || userData.permissions || [],
-        hasWildcardAccess: userData.permissions?.includes('*') || false
-      };
-    } catch (error) {
-      logger.error('Failed to fetch user permission status', { error: error.message });
+    const response = await apiClient.getUserPermissionStatus();
+    if (isApiError(response)) {
+      logger.error('Failed to fetch user permission status', { error: response.error, details: response.details });
       return null;
     }
+    return response.data;
   }
 
   async assignPermissionProfile(userId: string, profileId: string, expiresAt?: string): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/admin/users/${userId}/permission-profiles`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          permission_profile_id: profileId,
-          expires_at: expiresAt,
-          assigned_by: 'admin',
-          reason: 'Manual assignment via admin interface'
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to assign permission profile');
-      }
-      
-      logger.info('Permission profile assigned successfully', { userId, profileId });
-    } catch (error) {
-      logger.error('Failed to assign permission profile', { userId, profileId, error: error.message });
-      throw error;
+    const response = await apiClient.assignUserPermissionProfile(userId, profileId, expiresAt);
+    if (isApiError(response)) {
+      logger.error('Failed to assign permission profile', { userId, profileId, error: response.error, details: response.details });
+      throw new Error(response.error);
     }
+    logger.info('Permission profile assigned successfully', { userId, profileId });
   }
 
   async revokePermissionProfile(userId: string, profileId: string): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/admin/users/${userId}/permission-profiles/${profileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to revoke permission profile');
-      }
-      
-      logger.info('Permission profile revoked successfully', { userId, profileId });
-    } catch (error) {
-      logger.error('Failed to revoke permission profile', { userId, profileId, error: error.message });
-      throw error;
+    const response = await apiClient.revokeUserPermissionProfile(userId, profileId);
+    if (isApiError(response)) {
+      logger.error('Failed to revoke permission profile', { userId, profileId, error: response.error, details: response.details });
+      throw new Error(response.error);
     }
+    logger.info('Permission profile revoked successfully', { userId, profileId });
   }
 
   async getRoles(): Promise<Role[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/roles`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch roles');
-      }
-      return await response.json();
-    } catch (error) {
-      logger.error('Failed to fetch roles from API', { error: error.message });
+    const response = await apiClient.getRoles();
+    if (isApiError(response)) {
+      logger.error('Failed to fetch roles from API', { error: response.error, details: response.details });
       // Fallback to mock data during development
       return this.getMockRoles();
     }
+    return response.data;
   }
 
   async getUsers(): Promise<User[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/users`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-      return await response.json();
-    } catch (error) {
-      logger.error('Failed to fetch users from API', { error: error.message });
+    const response = await apiClient.listUsers();
+    if (isApiError(response)) {
+      logger.error('Failed to fetch users from API', { error: response.error, details: response.details });
       // Fallback to mock data during development
       return this.getMockUsers();
     }
+    
+    // Transform API response to local User format
+    return response.data.users.map(user => ({
+      id: user.uid,
+      name: user.displayName || user.email,
+      email: user.email,
+      roles: user.role ? [user.role] : [],
+      directPermissions: user.permissions || []
+    }));
   }
 
   async updateRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/roles/${roleId}/permissions`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ permissions: permissionIds }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update role permissions');
-      }
-      logger.info('Role permissions updated successfully', { roleId, permissionCount: permissionIds.length });
-    } catch (error) {
-      logger.error('Failed to update role permissions', { roleId, error: error.message });
-      throw error;
+    const response = await apiClient.updateRolePermissions(roleId, permissionIds);
+    if (isApiError(response)) {
+      logger.error('Failed to update role permissions', { roleId, error: response.error, details: response.details });
+      throw new Error(response.error);
     }
+    logger.info('Role permissions updated successfully', { roleId, permissionCount: permissionIds.length });
   }
 
   async updateUserPermissions(userId: string, roleIds: string[], directPermissions: string[]): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/users/${userId}/permissions`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          roles: roleIds,
-          directPermissions 
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update user permissions');
-      }
-      logger.info('User permissions updated successfully', { userId, roleCount: roleIds.length, directPermissionCount: directPermissions.length });
-    } catch (error) {
-      logger.error('Failed to update user permissions', { userId, error: error.message });
-      throw error;
+    const response = await apiClient.updateUserPermissions(userId, roleIds, directPermissions);
+    if (isApiError(response)) {
+      logger.error('Failed to update user permissions', { userId, error: response.error, details: response.details });
+      throw new Error(response.error);
     }
+    logger.info('User permissions updated successfully', { userId, roleCount: roleIds.length, directPermissionCount: directPermissions.length });
   }
 
   // Temporary mock data fallbacks
@@ -272,7 +173,7 @@ class PermissionService {
     ];
   }
 
-  private getMockPermissionProfiles(): PermissionProfile[] {
+  private getMockPermissionProfiles(): LocalPermissionProfile[] {
     return [
       {
         id: '1',

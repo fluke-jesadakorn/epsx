@@ -1,12 +1,12 @@
 // Permission resolution service for determining user access and resolving permission conflicts
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use chrono::{DateTime, Utc, Duration};
 
-use crate::dom::entities::iam::{Permission, PackageTier};
-use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileCategory};
+use crate::dom::entities::iam::Permission;
+use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId};
 use crate::dom::values::UserId;
-use crate::infra::cache::{Cache, CacheExt, CacheFactory, CacheConfig, CacheBackend};
+use crate::infra::cache::{Cache, CacheFactory, CacheConfig, CacheBackend};
 
 /// Service for resolving user permissions from multiple sources
 pub struct PermissionResolver {

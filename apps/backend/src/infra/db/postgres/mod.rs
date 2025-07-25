@@ -2,8 +2,10 @@
 
 use sqlx::PgPool;
 use std::sync::Arc;
+use serde_json;
 
 pub mod user_repo;
+pub mod user_repo_soft_delete;
 pub mod session_repo;
 pub mod payment_repo;
 pub mod stock_repo;
@@ -15,6 +17,7 @@ pub mod permission_assignment_repo;
 // pub mod level_history_repo;
 
 pub use user_repo::*;
+pub use user_repo_soft_delete::*;
 pub use session_repo::*;
 pub use payment_repo::*;
 pub use stock_repo::*;
@@ -110,6 +113,9 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
         )
     });
 
+    // Ensure database exists before creating pool
+    ensure_database_exists(&database_url).await?;
+
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections)
         .min_connections(config.min_connections)
@@ -191,6 +197,52 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
     }
     
     Ok(Arc::new(pool))
+}
+
+/// Ensure database exists by connecting to postgres and creating it if needed
+async fn ensure_database_exists(database_url: &str) -> Result<(), sqlx::Error> {
+    use sqlx::postgres::{PgPoolOptions, PgConnectOptions};
+    use std::str::FromStr;
+    
+    tracing::info!("Checking if database exists...");
+    
+    // Parse the database URL to get connection details
+    let opts = PgConnectOptions::from_str(database_url)?;
+    let db_name = opts.get_database().unwrap_or("epsx_db");
+    
+    // Extract connection details to build master URL
+    let master_url = database_url.replace(&format!("/{}", db_name), "/postgres");
+    
+    // Connect to master postgres database
+    let master_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&master_url)
+        .await?;
+    
+    // Check if database exists
+    let exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)"
+    )
+    .bind(db_name)
+    .fetch_one(&master_pool)
+    .await?;
+    
+    if !exists {
+        tracing::info!("Database '{}' does not exist, creating it...", db_name);
+        
+        // Create the database
+        let create_query = format!("CREATE DATABASE \"{}\"", db_name);
+        sqlx::query(&create_query)
+            .execute(&master_pool)
+            .await?;
+        
+        tracing::info!("✅ Database '{}' created successfully", db_name);
+    } else {
+        tracing::info!("✅ Database '{}' already exists", db_name);
+    }
+    
+    master_pool.close().await;
+    Ok(())
 }
 
 /// Create optimized pool with default configuration (for backward compatibility)
@@ -313,9 +365,10 @@ impl TransactionManager {
     }
     
     /// Execute multiple operations in a single transaction with rollback support
-    pub async fn execute_bulk_permission_operations<F, R>(&self, operations: F) -> Result<R, DatabaseError>
+    pub async fn execute_bulk_permission_operations<F, Fut, R>(&self, operations: F) -> Result<R, DatabaseError>
     where
-        F: for<'c> FnOnce(&mut sqlx::Transaction<'c, sqlx::Postgres>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, DatabaseError>> + Send + 'c>>,
+        F: FnOnce(&mut sqlx::Transaction<'_, sqlx::Postgres>) -> Fut,
+        Fut: std::future::Future<Output = Result<R, DatabaseError>> + Send,
     {
         let mut tx = self.pool.begin().await.map_err(DatabaseError::Connection)?;
         
@@ -335,78 +388,77 @@ impl TransactionManager {
     
     /// Execute bulk user permission assignments with rollback on any failure
     pub async fn bulk_assign_permissions(&self, assignments: Vec<BulkPermissionAssignment>) -> Result<BulkAssignmentResult, DatabaseError> {
-        self.execute_bulk_permission_operations(|tx| {
-            Box::pin(async move {
-                let mut successful_assignments = 0;
-                let mut failed_assignments = Vec::new();
-                
-                for assignment in assignments {
-                    let user_uuid = uuid::Uuid::parse_str(&assignment.user_id)
-                        .map_err(|e| DatabaseError::Query(format!("Invalid user UUID: {}", e)))?;
-                    let profile_uuid = uuid::Uuid::parse_str(&assignment.permission_profile_id)
-                        .map_err(|e| DatabaseError::Query(format!("Invalid profile UUID: {}", e)))?;
-                    let assigned_by_uuid = uuid::Uuid::parse_str(&assignment.assigned_by)
-                        .map_err(|e| DatabaseError::Query(format!("Invalid assigned_by UUID: {}", e)))?;
+        let mut tx = self.pool.begin().await.map_err(DatabaseError::Connection)?;
+        let mut successful_assignments = 0;
+        let mut failed_assignments = Vec::new();
+        
+        for assignment in assignments {
+            let user_uuid = uuid::Uuid::parse_str(&assignment.user_id)
+                .map_err(|e| DatabaseError::Query(format!("Invalid user UUID: {}", e)))?;
+            let profile_uuid = uuid::Uuid::parse_str(&assignment.permission_profile_id)
+                .map_err(|e| DatabaseError::Query(format!("Invalid profile UUID: {}", e)))?;
+            let assigned_by_uuid = uuid::Uuid::parse_str(&assignment.assigned_by)
+                .map_err(|e| DatabaseError::Query(format!("Invalid assigned_by UUID: {}", e)))?;
+            
+            let result = sqlx::query(
+                r#"
+                INSERT INTO admin_permission_profile_assignments 
+                (user_id, permission_profile_id, assigned_by, expires_at, assignment_reason, assignment_type, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, 'promotional', 'active', NOW())
+                ON CONFLICT (user_id, permission_profile_id) 
+                DO UPDATE SET 
+                    expires_at = EXCLUDED.expires_at,
+                    assignment_reason = EXCLUDED.assignment_reason
+                "#,
+            )
+            .bind(user_uuid)
+            .bind(profile_uuid)
+            .bind(assigned_by_uuid)
+            .bind(assignment.expires_at.map(|dt| dt.naive_utc()))
+            .bind(assignment.reason.as_deref())
+            .execute(&mut *tx)
+            .await;
+            
+            match result {
+                Ok(_) => {
+                    successful_assignments += 1;
                     
-                    let result = sqlx::query!(
+                    // Log the assignment
+                    let _audit_result = sqlx::query(
                         r#"
-                        INSERT INTO admin_permission_profile_assignments 
-                        (user_id, permission_profile_id, assigned_by, expires_at, assignment_reason, assignment_type, status, created_at)
-                        VALUES ($1, $2, $3, $4, $5, 'promotional', 'active', NOW())
-                        ON CONFLICT (user_id, permission_profile_id) 
-                        DO UPDATE SET 
-                            expires_at = EXCLUDED.expires_at,
-                            assignment_reason = EXCLUDED.assignment_reason
+                        INSERT INTO assignment_audit_log 
+                        (assignment_id, action, performed_by, details, timestamp)
+                        VALUES ((SELECT id FROM admin_permission_profile_assignments WHERE user_id = $1 AND permission_profile_id = $2), 'assign', $3, $4, NOW())
                         "#,
-                        user_uuid,
-                        profile_uuid,
-                        assigned_by_uuid,
-                        assignment.expires_at,
-                        assignment.reason.as_deref()
                     )
-                    .execute(&mut **tx)
+                    .bind(user_uuid)
+                    .bind(profile_uuid)
+                    .bind(assigned_by_uuid)
+                    .bind(serde_json::json!(assignment.reason.as_deref().unwrap_or("bulk_assignment")))
+                    .execute(&mut *tx)
                     .await;
-                    
-                    match result {
-                        Ok(_) => {
-                            successful_assignments += 1;
-                            
-                            // Log the assignment
-                            let _audit_result = sqlx::query!(
-                                r#"
-                                INSERT INTO assignment_audit_log 
-                                (assignment_id, action, performed_by, details, timestamp)
-                                VALUES ((SELECT id FROM admin_permission_profile_assignments WHERE user_id = $1 AND permission_profile_id = $2), 'assign', $3, $4, NOW())
-                                "#,
-                                user_uuid,
-                                profile_uuid,
-                                assigned_by_uuid,
-                                assignment.reason.as_deref().unwrap_or("bulk_assignment")
-                            )
-                            .execute(&mut **tx)
-                            .await;
-                        },
-                        Err(e) => {
-                            failed_assignments.push(BulkAssignmentError {
-                                user_id: assignment.user_id,
-                                permission_profile_id: assignment.permission_profile_id,
-                                error: e.to_string(),
-                            });
-                        }
+                },
+                Err(e) => {
+                    if let Err(rollback_err) = tx.rollback().await {
+                        tracing::error!("Failed to rollback transaction: {}", rollback_err);
                     }
+                    failed_assignments.push(BulkAssignmentError {
+                        user_id: assignment.user_id,
+                        permission_profile_id: assignment.permission_profile_id,
+                        error: e.to_string(),
+                    });
+                    return Err(DatabaseError::Query(format!("Assignment failed: {:?}", failed_assignments)));
                 }
-                
-                if !failed_assignments.is_empty() {
-                    return Err(DatabaseError::Query(format!("Some assignments failed: {:?}", failed_assignments)));
-                }
-                
-                Ok(BulkAssignmentResult {
-                    successful_assignments,
-                    failed_assignments,
-                    total_processed: successful_assignments,
-                })
-            })
-        }).await
+            }
+        }
+        
+        tx.commit().await.map_err(DatabaseError::Connection)?;
+        
+        Ok(BulkAssignmentResult {
+            successful_assignments,
+            failed_assignments,
+            total_processed: successful_assignments,
+        })
     }
 }
 

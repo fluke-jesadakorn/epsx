@@ -11,7 +11,7 @@ import {
   Lock,
   Star
 } from 'lucide-react';
-import { formatLevelAsNumber } from '@/utils/level-utils';
+import { formatLevelAsNumber } from '@/utils/env';
 
 interface AnalyticsMetricsProps {
   userLevel: string;

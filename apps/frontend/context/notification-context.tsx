@@ -5,6 +5,7 @@ import { useAppState } from './app-state';
 import { NotificationState, Notification, NotificationPreferences } from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
 import { logger } from '@/lib/logger';
+import { createApiClient, isApiError, type PushSubscriptionRequest } from '@epsx/api-client';
 
 interface NotificationContextType {
   // Data
@@ -58,6 +59,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     confirmOptimisticUpdate,
     rollbackOptimisticUpdate
   } = useOptimisticUpdates();
+
+  // Initialize API client with backend URL for direct notification API access
+  const notificationApiClient = useMemo(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
+    return createApiClient(backendUrl);
+  }, []);
 
   // WebSocket connection for real-time notifications
   const connectWebSocket = useCallback(() => {
@@ -171,54 +178,40 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     }
   }, []);
 
-  // API calls
+  // API calls using unified API client
   const markReadAPI = useCallback(async (id: string) => {
-    const response = await fetch(`/api/notifications/${id}/read`, {
-      method: 'POST',
-      credentials: 'include'
-    });
+    const response = await notificationApiClient.markNotificationRead(id);
     
-    if (!response.ok) {
-      throw new Error('Failed to mark notification as read');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to mark notification as read');
     }
-  }, []);
+  }, [notificationApiClient]);
 
   const markAllReadAPI = useCallback(async () => {
-    const response = await fetch('/api/notifications/read-all', {
-      method: 'POST',
-      credentials: 'include'
-    });
+    const response = await notificationApiClient.markAllNotificationsRead();
     
-    if (!response.ok) {
-      throw new Error('Failed to mark all notifications as read');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to mark all notifications as read');
     }
-  }, []);
+  }, [notificationApiClient]);
 
   const updatePreferencesAPI = useCallback(async (preferences: Partial<NotificationPreferences>) => {
-    const response = await fetch('/api/notifications/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(preferences)
-    });
+    const response = await notificationApiClient.updateNotificationPreferences(preferences);
     
-    if (!response.ok) {
-      throw new Error('Failed to update notification preferences');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to update notification preferences');
     }
     
-    return response.json();
-  }, []);
+    return response.data;
+  }, [notificationApiClient]);
 
   const deleteNotificationAPI = useCallback(async (id: string) => {
-    const response = await fetch(`/api/notifications/${id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
+    const response = await notificationApiClient.deleteNotification(id);
     
-    if (!response.ok) {
-      throw new Error('Failed to delete notification');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to delete notification');
     }
-  }, []);
+  }, [notificationApiClient]);
 
   // Actions with optimistic updates
   const markRead = useCallback(async (id: string, optimistic = true) => {
@@ -345,25 +338,30 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const refreshNotifications = useCallback(async () => {
     try {
       const [notificationsRes, preferencesRes] = await Promise.all([
-        fetch('/api/notifications', { credentials: 'include' }),
-        fetch('/api/notifications/preferences', { credentials: 'include' })
+        notificationApiClient.getNotifications(),
+        notificationApiClient.getNotificationPreferences()
       ]);
 
-      const [notificationsData, preferencesData] = await Promise.all([
-        notificationsRes.ok ? notificationsRes.json() : { notifications: [], unreadCount: 0 },
-        preferencesRes.ok ? preferencesRes.json() : null
-      ]);
+      // Handle notifications response
+      if (isApiError(notificationsRes)) {
+        logger.error('Failed to fetch notifications', { error: notificationsRes.error });
+        actions.notifications.setNotifications([]);
+      } else {
+        const notificationsData = notificationsRes.data || { notifications: [], unreadCount: 0 };
+        actions.notifications.setNotifications(notificationsData.notifications);
+      }
 
-      actions.notifications.setNotifications(notificationsData.notifications);
-      
-      if (preferencesData) {
-        actions.notifications.updatePreferences(preferencesData);
+      // Handle preferences response
+      if (isApiError(preferencesRes)) {
+        logger.error('Failed to fetch notification preferences', { error: preferencesRes.error });
+      } else if (preferencesRes.data) {
+        actions.notifications.updatePreferences(preferencesRes.data);
       }
     } catch (error) {
       logger.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
-  }, [actions.notifications]);
+  }, [actions.notifications, notificationApiClient]);
 
   // Push notification support
   const requestPermission = useCallback(async () => {
@@ -393,31 +391,39 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
       pushSubscriptionRef.current = subscription;
 
-      // Send subscription to server
-      await fetch('/api/notifications/push-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(subscription)
-      });
+      // Send subscription to server using API client
+      const subscriptionRequest: PushSubscriptionRequest = {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.getKey('p256dh') ? btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))) : '',
+          auth: subscription.getKey('auth') ? btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))) : ''
+        }
+      };
+
+      const response = await notificationApiClient.subscribeToPushNotifications(subscriptionRequest);
+      
+      if (isApiError(response)) {
+        throw new Error(response.error || 'Failed to register push subscription');
+      }
     } catch (error) {
       logger.error('Failed to subscribe to push notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
-  }, []);
+  }, [notificationApiClient]);
 
   const unsubscribeFromPush = useCallback(async () => {
     if (pushSubscriptionRef.current) {
       await pushSubscriptionRef.current.unsubscribe();
       pushSubscriptionRef.current = null;
 
-      // Notify server
-      await fetch('/api/notifications/push-subscription', {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      // Notify server using API client
+      const response = await notificationApiClient.unsubscribeFromPushNotifications();
+      
+      if (isApiError(response)) {
+        logger.error('Failed to unsubscribe from push notifications', { error: response.error });
+      }
     }
-  }, []);
+  }, [notificationApiClient]);
 
   // Helper functions
   const getUnreadNotifications = useCallback(() => {

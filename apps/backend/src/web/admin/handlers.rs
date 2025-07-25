@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::app::dtos::{
     CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes,
     ListUsersReq, ListUsersRes, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq,
-    UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes,
+    UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, SoftDeleteUserReq, SoftDeleteUserRes,
 };
 use crate::app::use_cases::UserUseCaseError;
 use crate::dom::values::{UserId, Role};
@@ -662,6 +662,52 @@ async fn process_single_permission_profile_assignment(
         features_unlocked,
         permissions_added,
     })
+}
+
+/// DELETE /admin/users/{user_id} - Soft delete a user (admin only)
+pub async fn soft_delete_user_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Path(user_id): Path<String>,
+    Json(req): Json<AdminSoftDeleteUserRequest>,
+) -> Result<Json<SoftDeleteUserRes>, StatusCode> {
+    // Verify admin permissions
+    verify_admin_permissions(&app_state, &auth_ctx.user_id).await?;
+
+    let user_id = UserId::from_string(user_id);
+    let delete_req = SoftDeleteUserReq {
+        usr_id: user_id.to_string(),
+        reason: req.reason.clone(),
+    };
+
+    let result = app_state
+        .user_mgmt_uc
+        .soft_delete_user(delete_req, auth_ctx.user_id.clone())
+        .await
+        .map(Json)
+        .map_err(|e| {
+            tracing::error!("Failed to soft delete user: {:?}", e);
+            match e {
+                UserUseCaseError::ValidationError(_) => StatusCode::BAD_REQUEST,
+                UserUseCaseError::UserNotFound(_) => StatusCode::NOT_FOUND,
+                UserUseCaseError::PermissionDenied => StatusCode::FORBIDDEN,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        })?;
+
+    tracing::info!(
+        "Admin {} soft deleted user {} with reason: {:?}",
+        auth_ctx.user_id.value(),
+        user_id.value(),
+        req.reason
+    );
+
+    Ok(result)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AdminSoftDeleteUserRequest {
+    pub reason: Option<String>,
 }
 
 #[derive(Debug)]

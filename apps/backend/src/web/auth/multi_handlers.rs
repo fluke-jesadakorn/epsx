@@ -11,7 +11,6 @@ use chrono::{DateTime, Utc};
 use crate::app::dtos::auth::{LoginRes, ValidateReq, AutoRegistrationRequest, RegistrationResponse};
 use crate::dom::values::{Email, Role, UserId};
 use crate::dom::entities::User;
-use crate::dom::services::permission_resolver::PermissionResolver;
 use super::routes::AppState;
 
 /// Multi-method login request supporting various authentication flows

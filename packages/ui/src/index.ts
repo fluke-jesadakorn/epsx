@@ -22,24 +22,3 @@ export * from "./providers/theme-provider";
 
 // Utilities
 export { cn as utilsCn } from "./lib/utils";
-export { 
-  responsiveUtils as respUtils,
-  breakpoints,
-  generateResponsiveClasses,
-  getResponsiveValue,
-  createMediaQuery,
-  useMediaQuery,
-  useBreakpoint,
-  containerClasses,
-  gridClasses,
-  flexClasses,
-  typographyClasses,
-  spacingClasses,
-  componentClasses,
-  mobileUtils,
-  cn,
-  createResponsiveClass,
-  getThemeResponsiveClass
-} from "./utils/responsive";
-
-export type { ResponsiveUtils as RespUtilsType } from "./utils/responsive";

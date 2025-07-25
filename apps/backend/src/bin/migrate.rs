@@ -90,20 +90,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_help() {
-    println!("EPSX Database Migration Tool");
-    println!("============================");
-    println!();
-    println!("Usage:");
-    println!("  cargo run --bin migrate up      - Run all pending migrations");
-    println!("  cargo run --bin migrate status  - Check migration status");
-    println!("  cargo run --bin migrate help    - Show this help");
-    println!();
-    println!("Environment Variables:");
-    println!("  DATABASE_URL     - PostgreSQL connection string (required)");
-    println!("  MIGRATIONS_DIR   - Directory containing migration files (default: migrations)");
-    println!();
-    println!("Examples:");
-    println!("  DATABASE_URL=postgresql://user:pass@localhost/epsx cargo run --bin migrate up");
-    println!("  MIGRATIONS_DIR=./db/migrations cargo run --bin migrate status");
-}

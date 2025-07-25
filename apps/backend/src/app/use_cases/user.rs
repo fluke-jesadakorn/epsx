@@ -5,9 +5,9 @@ use std::sync::Arc;
 use crate::dom::entities::User;
 use crate::dom::values::{UserId, Email, Role};
 use crate::dom::services::PermissionChecker;
-use crate::dom::events::DomainEvent;
+use crate::dom::events::{DomainEvent, UserDeletedEvent};
 use crate::app::ports::{UserRepo, EventDispatcher, LevelHistoryRepo};
-use crate::app::dtos::{CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes, ListUsersReq, ListUsersRes, UserDto, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq, UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, FailedUpdate, RoleCount, TierCount, LevelChangeRecord};
+use crate::app::dtos::{CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes, ListUsersReq, ListUsersRes, UserDto, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq, UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, FailedUpdate, RoleCount, TierCount, LevelChangeRecord, SoftDeleteUserReq, SoftDeleteUserRes};
 
 pub struct UserMgmtUC {
     user_repo: Arc<dyn UserRepo>,
@@ -372,6 +372,78 @@ impl UserMgmtUC {
             .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
         Ok(())
+    }
+
+    pub async fn soft_delete_user(&self, req: SoftDeleteUserReq, admin_id: UserId) -> Result<SoftDeleteUserRes, UserUseCaseError> {
+        req.validate().map_err(|e| UserUseCaseError::ValidationError(e.to_string()))?;
+        
+        let user_id = UserId::from_string(req.usr_id.clone());
+        
+        // Get admin user to check permissions
+        let admin = self.user_repo.get(&admin_id).await
+            .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?
+            .ok_or_else(|| UserUseCaseError::UserNotFound(admin_id.to_string()))?;
+        
+        // Check admin permissions - only Admin or SuperAdmin can delete users
+        if !matches!(admin.role(), Role::Admin | Role::SuperAdmin) {
+            return Err(UserUseCaseError::PermissionDenied);
+        }
+        
+        // Get target user
+        let mut target = self.user_repo.get(&user_id).await
+            .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?
+            .ok_or_else(|| UserUseCaseError::UserNotFound(req.usr_id.clone()))?;
+        
+        // Prevent self-deletion
+        if target.id() == admin.id() {
+            return Err(UserUseCaseError::PermissionDenied);
+        }
+        
+        // Prevent deletion of users with higher or equal role (except SuperAdmin can delete Admin)
+        if !PermissionChecker::can_admin_modify_user(&admin, &target) {
+            return Err(UserUseCaseError::PermissionDenied);
+        }
+        
+        // Check if user is already deleted
+        if target.is_deleted() {
+            return Err(UserUseCaseError::ValidationError("User is already deleted".to_string()));
+        }
+        
+        // Perform soft delete
+        target.soft_delete();
+        
+        // Save to repository
+        self.user_repo.save(&target).await
+            .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
+        
+        // Record audit event for deletion
+        let deletion_record = LevelChangeRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            usr_id: req.usr_id.clone(),
+            old_role: target.role().to_string(),
+            new_role: "DELETED".to_string(),
+            changed_by: admin_id.to_string(),
+            reason: req.reason.clone(),
+            changed_at: chrono::Utc::now(),
+        };
+        
+        self.level_history_repo.save_level_change(&deletion_record).await
+            .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
+        
+        // Dispatch domain event
+        let event = UserDeletedEvent::new(
+            target.id().clone(),
+            admin_id,
+            req.reason.clone(),
+        );
+        
+        self.event_dispatcher.dispatch(Box::new(event)).await
+            .map_err(|e| UserUseCaseError::EventDispatchFailed(e.to_string()))?;
+        
+        Ok(SoftDeleteUserRes {
+            usr: UserDto::from_entity(&target),
+            deleted_at: target.deleted_at().unwrap(),
+        })
     }
 }
 

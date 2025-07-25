@@ -3,8 +3,11 @@
 import { createPaymentService } from '@/services/payment.service';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { createApiClient, isApiError } from '@epsx/api-client';
 
 const paymentService = createPaymentService();
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const apiClient = createApiClient(BACKEND_URL);
 
 export async function createDepositAddress(
   currency: string,
@@ -12,24 +15,21 @@ export async function createDepositAddress(
   packageId: string
 ) {
   try {
-    const response = await fetch('/api/v1/payments/crypto/deposit-address', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        currency,
-        userId,
-        packageId,
-      }),
+    const response = await apiClient.post('/api/v1/payments/crypto/deposit-address', {
+      currency,
+      userId,
+      packageId,
     });
 
-    const result = await response.json();
-    if (!response.ok || !result.deposit) {
-      throw new Error(result.error || 'Failed to get deposit address');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to get deposit address');
     }
 
-    return { success: true, deposit: result.deposit };
+    if (!response.data.deposit) {
+      throw new Error('No deposit address returned');
+    }
+
+    return { success: true, deposit: response.data.deposit };
   } catch (error) {
     return { 
       success: false, 

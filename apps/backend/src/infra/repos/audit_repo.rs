@@ -11,6 +11,7 @@ use crate::dom::entities::audit::{
     AuditError, AuditAction, AuditResult
 };
 use crate::dom::values::UserId;
+use crate::dom::entities::permission_profile::PermissionProfileId;
 
 /// In-memory audit repository implementation (for development/testing)
 /// In production, this would be replaced with a database implementation
@@ -246,6 +247,132 @@ impl AuditRepo for AuditRepoImpl {
                 Ok(xml_data.into_bytes())
             },
         }
+    }
+    
+    // Job system requirements
+    async fn cleanup_old_logs(&self, days: i64) -> Result<i64, AuditError> {
+        let cutoff_date = Utc::now() - chrono::Duration::days(days);
+        let cleaned = self.cleanup_old_entries(cutoff_date).await?;
+        Ok(cleaned as i64)
+    }
+    
+    async fn log_permission_assignment(
+        &self, 
+        user_id: &UserId, 
+        profile_id: &PermissionProfileId, 
+        assigned_by: &str, 
+        reason: &str
+    ) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            user_id.clone(),
+            AuditAction::PermissionGranted,
+            crate::dom::entities::audit::ResourceType::Permission,
+            profile_id.value().to_string(),
+            AuditResult::Success,
+        ).with_metadata(
+            crate::dom::entities::audit::AuditMetadata::empty()
+                .add_data("assigned_by".to_string(), assigned_by.to_string())
+                .add_data("reason".to_string(), reason.to_string())
+        );
+        
+        self.store(&entry).await
+    }
+    
+    async fn log_permission_revocation(
+        &self, 
+        user_id: &UserId, 
+        profile_id: &PermissionProfileId, 
+        revoked_by: &str, 
+        reason: &str
+    ) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            user_id.clone(),
+            AuditAction::PermissionRevoked,
+            crate::dom::entities::audit::ResourceType::Permission,
+            profile_id.value().to_string(),
+            AuditResult::Success,
+        ).with_metadata(
+            crate::dom::entities::audit::AuditMetadata::empty()
+                .add_data("revoked_by".to_string(), revoked_by.to_string())
+                .add_data("reason".to_string(), reason.to_string())
+        );
+        
+        self.store(&entry).await
+    }
+    
+    async fn log_system_event(&self, event_type: &str, details: &str) -> Result<(), AuditError> {
+        let system_user = UserId::new("system".to_string());
+        let entry = AuditLogEntry::new(
+            system_user,
+            AuditAction::SystemEvent,
+            crate::dom::entities::audit::ResourceType::System,
+            event_type.to_string(),
+            AuditResult::Success,
+        ).with_metadata(
+            crate::dom::entities::audit::AuditMetadata::empty()
+                .add_data("details".to_string(), details.to_string())
+        );
+        
+        self.store(&entry).await
+    }
+    
+    async fn log_notification_sent(
+        &self, 
+        recipient: &str, 
+        subject: &str, 
+        notification_type: &str, 
+        message_id: Option<&str>
+    ) -> Result<(), AuditError> {
+        let system_user = UserId::new("system".to_string());
+        let mut metadata = crate::dom::entities::audit::AuditMetadata::empty()
+            .add_data("recipient".to_string(), recipient.to_string())
+            .add_data("subject".to_string(), subject.to_string())
+            .add_data("notification_type".to_string(), notification_type.to_string());
+        
+        if let Some(msg_id) = message_id {
+            metadata = metadata.add_data("message_id".to_string(), msg_id.to_string());
+        }
+        
+        let entry = AuditLogEntry::new(
+            system_user,
+            AuditAction::NotificationSent,
+            crate::dom::entities::audit::ResourceType::Notification,
+            recipient.to_string(),
+            AuditResult::Success,
+        ).with_metadata(metadata);
+        
+        self.store(&entry).await
+    }
+    
+    async fn log_notification_failed(
+        &self, 
+        recipient: &str, 
+        subject: &str, 
+        notification_type: &str, 
+        error: &str
+    ) -> Result<(), AuditError> {
+        let system_user = UserId::new("system".to_string());
+        let entry = AuditLogEntry::new(
+            system_user,
+            AuditAction::NotificationFailed,
+            crate::dom::entities::audit::ResourceType::Notification,
+            recipient.to_string(),
+            AuditResult::Failure,
+        ).with_metadata(
+            crate::dom::entities::audit::AuditMetadata::empty()
+                .add_data("subject".to_string(), subject.to_string())
+                .add_data("notification_type".to_string(), notification_type.to_string())
+                .add_data("error".to_string(), error.to_string())
+        );
+        
+        self.store(&entry).await
+    }
+    
+    async fn health_check(&self) -> Result<(), AuditError> {
+        // For in-memory implementation, just check if the mutex can be acquired
+        let _entries = self.entries.lock()
+            .map_err(|e| AuditError::StorageError(format!("Health check failed: {}", e)))?;
+        Ok(())
     }
 }
 

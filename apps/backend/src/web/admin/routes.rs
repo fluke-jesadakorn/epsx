@@ -1,7 +1,7 @@
 // Admin routes configuration
 
 use axum::{
-    routing::{get, post, put},
+    routing::{get, post, put, delete},
     Router,
 };
 
@@ -16,6 +16,7 @@ use super::handlers::{
     list_permission_profiles_handler,
     assign_permission_profile_directly_handler,
     get_permission_profile_details_handler,
+    soft_delete_user_handler,
 };
 use crate::web::AppState;
 
@@ -33,6 +34,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users", post(create_user_handler))
         .route("/users/:user_id", get(get_user_handler))
         .route("/users/:user_id", put(update_user_role_handler))
+        .route("/users/:user_id", delete(soft_delete_user_handler))
         .route("/users/batch-update-roles", post(bulk_update_levels_handler))
         .route("/users/:user_id/role-history", get(get_level_history_handler))
         

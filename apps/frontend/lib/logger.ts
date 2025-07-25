@@ -80,11 +80,13 @@ class Logger {
     // In production, send logs to external service like DataDog, CloudWatch, etc.
     if (!this.isDevelopment && entry.level === 'error') {
       try {
-        await fetch('/api/v1/logs', {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+        await fetch(`${backendUrl}/api/v1/logs`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: JSON.stringify(entry),
         });
       } catch (error) {

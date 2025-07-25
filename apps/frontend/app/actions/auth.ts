@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createServerSession, destroyServerSession, getServerAuth } from '@/lib/auth-server';
 import { ServerCookies, COOKIE_NAMES } from '@/lib/cookies';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import { 
   performSecurityChecks,
   sanitizeInput,
@@ -264,26 +265,17 @@ export async function registerAction(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const response = await fetch(`${backendUrl}/api/v1/authentication/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: sanitizedEmail,
-        password: sanitizedPassword,
-        ...additionalData,
-      }),
+    const apiClient = createApiClient(backendUrl);
+    const response = await apiClient.register({
+      email: sanitizedEmail,
+      password: sanitizedPassword,
+      ...additionalData,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      
-      let errorMessage = 'Registration failed';
-      if (response.status === 409) {
+    if (isApiError(response)) {
+      let errorMessage = response.error || 'Registration failed';
+      if (response.details?.includes('409') || errorMessage.includes('already exists')) {
         errorMessage = 'An account with this email already exists';
-      } else if (errorData.error) {
-        errorMessage = errorData.error;
       }
       
       await logSecurityEvent({
@@ -292,7 +284,7 @@ export async function registerAction(
         success: false,
         category: SecurityEventCategory.AUTHENTICATION,
         severity: EventSeverity.HIGH,
-        details: { email: sanitizedEmail, error: errorMessage, status: response.status }
+        details: { email: sanitizedEmail, error: errorMessage, details: response.details }
       });
       return { 
         success: false, 
@@ -357,19 +349,13 @@ export async function requestPasswordResetAction(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const response = await fetch(`${backendUrl}/api/v1/authentication/password-reset`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
+    const apiClient = createApiClient(backendUrl);
+    const response = await apiClient.resetPassword({ email });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+    if (isApiError(response)) {
       return { 
         success: false, 
-        error: errorData.error || 'Password reset request failed' 
+        error: response.error || 'Password reset request failed' 
       };
     }
 
@@ -395,19 +381,13 @@ export async function resetPasswordAction(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const response = await fetch(`${backendUrl}/api/v1/authentication/password-reset`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, new_password: newPassword }),
-    });
+    const apiClient = createApiClient(backendUrl);
+    const response = await apiClient.resetPassword({ token, new_password: newPassword });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+    if (isApiError(response)) {
       return { 
         success: false, 
-        error: errorData.error || 'Password reset failed' 
+        error: response.error || 'Password reset failed' 
       };
     }
 
@@ -465,48 +445,16 @@ export async function needsSessionRefresh(): Promise<boolean> {
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const response = await fetch(`${backendUrl}/api/v1/authentication/refresh`, {
-      method: 'POST',
-      headers: {
-        'Cookie': `sess_id=${sessionId}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const apiClient = createApiClient(backendUrl);
+    const response = await apiClient.refreshSession();
     
-    return !response.ok;
+    return isApiError(response);
   } catch (error) {
     logger.error('Session refresh check failed', { error: error.message });
     return true;
   }
 }
 
-/**
- * Legacy function for Firebase compatibility - use loginAction instead
- * @deprecated Use loginAction instead
- */
-export async function handleSignIn(idToken: string): Promise<{ success: boolean; error?: string }> {
-  logger.warn('Deprecated function called', { function: 'handleSignIn', replacement: 'loginAction' });
-  return { success: false, error: 'This method is deprecated' };
-}
-
-/**
- * Legacy function for Firebase compatibility - use logoutAction instead
- * @deprecated Use logoutAction instead
- */
-export async function handleSignOut(): Promise<void> {
-  logger.warn('Deprecated function called', { function: 'handleSignOut', replacement: 'logoutAction' });
-  await logoutAction();
-}
-
-/**
- * Legacy function for Firebase compatibility - use needsSessionRefresh instead
- * @deprecated Use needsSessionRefresh instead
- */
-export async function refreshSession(): Promise<{ success: boolean }> {
-  logger.warn('Deprecated function called', { function: 'refreshSession', replacement: 'needsSessionRefresh' });
-  const needs = await needsSessionRefresh();
-  return { success: !needs };
-}
 
 /**
  * Server Action for login form handling with redirect
@@ -621,30 +569,22 @@ export async function registerUserWithPermissionProfiles(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const response = await fetch(`${backendUrl}/api/v1/authentication/register-auto`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(validation.data),
-    });
+    const apiClient = createApiClient(backendUrl);
+    const response = await apiClient.post<any>('/api/v1/authentication/register-auto', validation.data);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+    if (isApiError(response)) {
       await logSecurityEvent({
         action: 'ENHANCED_REGISTER_BACKEND_FAILED',
         resource: 'auth',
         success: false,
         category: SecurityEventCategory.AUTHENTICATION,
         severity: EventSeverity.HIGH,
-        details: { email: sanitizedEmail, error: errorData.error, status: response.status }
+        details: { email: sanitizedEmail, error: response.error, details: response.details }
       });
       
-      let errorMessage = 'Registration failed';
-      if (response.status === 409) {
+      let errorMessage = response.error || 'Registration failed';
+      if (response.details?.includes('409') || errorMessage.includes('already exists')) {
         errorMessage = 'User already exists';
-      } else if (errorData.error) {
-        errorMessage = errorData.error;
       }
       
       return { 
@@ -653,7 +593,7 @@ export async function registerUserWithPermissionProfiles(
       };
     }
 
-    const registrationResult = await response.json();
+    const registrationResult = response.data;
 
     await logSecurityEvent({
       action: 'ENHANCED_REGISTER_SUCCESS',
@@ -688,7 +628,7 @@ export async function registerUserWithPermissionProfiles(
       totalFeaturesAssigned: registrationResult.total_features_assigned || 0,
     };
   } catch (error) {
-    logger.error('Enhanced registration action failed', { error: error.message, email: emailInput });
+    logger.error('Enhanced registration action failed', { error: error.message, email });
     await logSecurityEvent({
       action: 'ENHANCED_REGISTER_ERROR',
       resource: 'auth',
