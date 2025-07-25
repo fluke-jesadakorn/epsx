@@ -127,8 +127,8 @@ pub enum EmailServiceError {
     #[error("Email delivery failed: {0}")]
     DeliveryFailed(String),
     
-    #[error("Template error: {0}")]
-    TemplateError(String),
+    #[error("Email template error: {0}")]
+    EmailTemplateError(String),
     
     #[error("Rate limit exceeded")]
     RateLimitExceeded,

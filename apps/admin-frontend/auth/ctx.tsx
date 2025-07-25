@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { adminLogger } from '@/lib/logger';
 
 interface AdminUser {
   uid: string;
@@ -55,7 +56,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         setError(errorData.message || 'Login failed');
       }
     } catch (error) {
-      console.error('Admin login failed:', error);
+      adminLogger.error('Admin login failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.login');
       setError('Network error occurred');
     }
   };
@@ -95,7 +96,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Admin sign in failed:', error);
+      adminLogger.error('Admin sign in failed', { error: error instanceof Error ? error.message : error, email }, 'AdminAuthProvider.signIn');
       const errorMessage = error instanceof Error ? error.message : 'Network error occurred';
       setError(errorMessage);
       throw error;
@@ -106,11 +107,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, { method: 'POST' });
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/authentication/logout`, { method: 'POST' });
       setUser(null);
       setError(null);
     } catch (error) {
-      console.error('Admin logout failed:', error);
+      adminLogger.error('Admin logout failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.logout');
     }
   };
 
@@ -119,18 +120,18 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/authentication/me`);
         if (res.ok) {
           const contentType = res.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const data = await res.json();
             setUser(data.user);
           } else {
-            console.warn('Auth check returned non-JSON response');
+            adminLogger.warn('Auth check returned non-JSON response', {}, 'AdminAuthProvider.checkAuth');
           }
         }
       } catch (error) {
-        console.error('Admin auth check failed:', error);
+        adminLogger.error('Admin auth check failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.checkAuth');
       } finally {
         setLoading(false);
         setIsInitialized(true);

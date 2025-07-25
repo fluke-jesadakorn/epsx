@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminLogger } from '@/lib/logger';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -12,8 +13,7 @@ export async function GET(request: NextRequest) {
     const backendUrl = `${BACKEND_URL}/admin/stats${queryString ? `?${queryString}` : ''}`;
     const cookieHeader = request.headers.get('cookie') || '';
     
-    console.log('Admin stats proxy: forwarding to', backendUrl);
-    console.log('Admin stats proxy: cookies', cookieHeader ? 'present' : 'none');
+    adminLogger.debug('Admin stats proxy: forwarding request', { backendUrl, hasCookies: !!cookieHeader }, 'AdminStatsRoute');
     
     try {
       const response = await fetch(backendUrl, {
@@ -24,15 +24,15 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      console.log('Admin stats proxy: backend response status', response.status);
+      adminLogger.debug('Admin stats proxy: backend response received', { status: response.status }, 'AdminStatsRoute');
 
       if (!response.ok) {
         const error = await response.text();
-        console.error('Admin stats proxy: backend error', error);
+        adminLogger.error('Admin stats proxy: backend error', { error, status: response.status }, 'AdminStatsRoute');
         
         // In development, return mock data if backend returns 401 (not authenticated)
         if (process.env.NODE_ENV === 'development' && response.status === 401) {
-          console.log('Admin stats proxy: backend auth failed, returning mock data for development');
+          adminLogger.info('Admin stats proxy: backend auth failed, returning mock data for development', {}, 'AdminStatsRoute');
           const mockStats = {
             totalUsers: 150,
             verifiedUsers: 120,
@@ -50,14 +50,14 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json();
-      console.log('Admin stats proxy: backend data received', Object.keys(data));
+      adminLogger.debug('Admin stats proxy: backend data received', { dataKeys: Object.keys(data) }, 'AdminStatsRoute');
       return NextResponse.json(data);
     } catch (fetchError) {
-      console.error('Admin stats proxy: backend not available:', fetchError);
+      adminLogger.error('Admin stats proxy: backend not available', { error: fetchError instanceof Error ? fetchError.message : fetchError }, 'AdminStatsRoute');
       
       // For development, return mock data if backend is not available
       if (process.env.NODE_ENV === 'development') {
-        console.log('Admin stats proxy: returning mock data for development');
+        adminLogger.info('Admin stats proxy: returning mock data for development', {}, 'AdminStatsRoute');
         const mockStats = {
           totalUsers: 150,
           verifiedUsers: 120,
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       throw fetchError;
     }
   } catch (error) {
-    console.error('Admin stats proxy error:', error);
+    adminLogger.error('Admin stats proxy error', { error: error instanceof Error ? error.message : error }, 'AdminStatsRoute');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

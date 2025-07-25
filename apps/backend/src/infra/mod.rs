@@ -1,20 +1,26 @@
 // Infrastructure layer implementations
 
 pub mod auth;
+pub mod cache;
 pub mod db;
 pub mod repos;
 pub mod services;
 pub mod events;
+pub mod firebase_admin;
+pub mod jobs;
 
 // Re-export commonly used implementations
-pub use db::{InMemoryLevelHistoryRepo, PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresTemplateRepo, DatabasePool, create_pool, DatabaseConfig};
-pub use repos::{IamRepoImpl, AuditRepoImpl, TemplateRepoImpl};
-pub use services::{SendGridEmailService, MockEmailService};
+pub use db::{InMemoryLevelHistoryRepo, PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool, create_pool, DatabaseConfig};
+pub use repos::{IamRepoImpl, AuditRepoImpl, PermissionProfileRepoImpl};
+pub use services::{SendGridEmailService, MockEmailService, notification::*};
 pub use events::{SimpleEventDispatcher};
+pub use firebase_admin::FirebaseAdmin;
+pub use jobs::{JobScheduler, ExpirationChecker, NotificationService as JobNotificationService};
 
 use std::sync::Arc;
 use crate::app::ports::{repositories::*, services::*, events::*};
 use crate::core::plugins::{PluginManager, PluginRegistry};
+use crate::dom::services::feature_expiration::FeatureExpirationService;
 
 /// Database backend type
 #[derive(Debug, Clone)]
@@ -85,8 +91,8 @@ impl InfraFactory {
         Arc::new(PostgresAuditRepo::new((*self.postgres_pool).clone()))
     }
 
-    pub fn create_template_repo(&self) -> Arc<dyn TemplateRepo> {
-        Arc::new(PostgresTemplateRepo::new((*self.postgres_pool).clone()))
+    pub fn create_permission_profile_repo(&self) -> Arc<dyn PermissionProfileRepo> {
+        Arc::new(PostgresPermissionProfileRepo::new((*self.postgres_pool).clone()))
     }
 
     // Service factories
@@ -121,6 +127,31 @@ impl InfraFactory {
         unimplemented!("WebSocketSvc not yet implemented")
     }
 
+    pub fn create_firebase_admin(&self) -> Result<Arc<FirebaseAdmin>, Box<dyn std::error::Error>> {
+        Ok(Arc::new(FirebaseAdmin::new()?))
+    }
+
+    pub fn create_notification_service(&self) -> Arc<dyn NotificationService> {
+        // Use in-memory service for now, can be replaced with database-backed service
+        Arc::new(InMemoryNotificationService::new())
+    }
+
+    pub fn create_feature_expiration_service(
+        &self,
+        user_repo: Arc<dyn UserRepo>,
+        permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+        notification_service: Arc<dyn NotificationService>,
+    ) -> Arc<dyn FeatureExpirationService> {
+        use crate::dom::services::feature_expiration::{FeatureExpirationServiceImpl, ExpirationConfig};
+        
+        Arc::new(FeatureExpirationServiceImpl::new(
+            user_repo,
+            permission_profile_repo,
+            notification_service,
+            Some(ExpirationConfig::default()),
+        ))
+    }
+
     // Event services
     pub fn create_event_dispatcher(&self) -> Arc<dyn EventDispatcher> {
         Arc::new(SimpleEventDispatcher::new())
@@ -148,11 +179,14 @@ pub struct AppContainer {
     pub level_history_repo: Arc<dyn LevelHistoryRepo>,
     pub iam_repo: Arc<dyn IamRepo>,
     pub audit_repo: Arc<dyn AuditRepo>,
-    pub template_repo: Arc<dyn TemplateRepo>,
+    pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
     
     // Services
     pub email_svc: Arc<dyn EmailSvc>,
     pub event_dispatcher: Arc<dyn EventDispatcher>,
+    pub firebase_admin: Arc<FirebaseAdmin>,
+    pub notification_service: Arc<dyn NotificationService>,
+    pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
     
     // Plugin system
     pub plugin_manager: Arc<tokio::sync::Mutex<PluginManager>>,
@@ -170,9 +204,16 @@ impl AppContainer {
         let level_history_repo = infra.create_level_history_repo();
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
-        let template_repo = infra.create_template_repo();
+        let permission_profile_repo = infra.create_permission_profile_repo();
         let email_svc = infra.create_email_svc();
         let event_dispatcher = infra.create_event_dispatcher();
+        let firebase_admin = infra.create_firebase_admin()?;
+        let notification_service = infra.create_notification_service();
+        let feature_expiration_service = infra.create_feature_expiration_service(
+            user_repo.clone(),
+            permission_profile_repo.clone(),
+            notification_service.clone(),
+        );
         let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
         let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
@@ -185,9 +226,12 @@ impl AppContainer {
             level_history_repo,
             iam_repo,
             audit_repo,
-            template_repo,
+            permission_profile_repo,
             email_svc,
             event_dispatcher,
+            firebase_admin,
+            notification_service,
+            feature_expiration_service,
             plugin_manager,
             plugin_registry,
         })
@@ -201,9 +245,19 @@ impl AppContainer {
         let level_history_repo = infra.create_level_history_repo();
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
-        let template_repo = infra.create_template_repo();
+        let permission_profile_repo = infra.create_permission_profile_repo();
         let email_svc = infra.create_email_svc();
         let event_dispatcher = infra.create_event_dispatcher();
+        let firebase_admin = infra.create_firebase_admin().unwrap_or_else(|e| {
+            tracing::warn!("Failed to create Firebase Admin: {}, using mock", e);
+            Arc::new(FirebaseAdmin::new().unwrap())
+        });
+        let notification_service = infra.create_notification_service();
+        let feature_expiration_service = infra.create_feature_expiration_service(
+            user_repo.clone(),
+            permission_profile_repo.clone(),
+            notification_service.clone(),
+        );
         let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
         let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
@@ -216,9 +270,12 @@ impl AppContainer {
             level_history_repo,
             iam_repo,
             audit_repo,
-            template_repo,
+            permission_profile_repo,
             email_svc,
             event_dispatcher,
+            firebase_admin,
+            notification_service,
+            feature_expiration_service,
             plugin_manager,
             plugin_registry,
         }

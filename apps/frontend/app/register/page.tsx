@@ -9,11 +9,13 @@ interface RegisterPageProps {
 }
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
-  // Redirect to dashboard if already authenticated
+  // Security: Ensure only unauthenticated users can access registration
   await requireGuest();
 
-  const redirectTo = searchParams.redirect;
-  const error = searchParams.error;
+  // Security: Extract redirect and error parameters from query string
+  const awaitedParams = await searchParams;
+  const redirectTo = awaitedParams.redirect;
+  const error = awaitedParams.error;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
@@ -42,7 +44,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             </p>
           </div>
           
-          {/* Show server-side error if present */}
+          {/* Security: Safely display server-side errors with proper encoding */}
           {error && (
             <div className="mb-6 rounded-2xl bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-4 border border-red-200 dark:border-red-800">
               <div className="text-sm text-red-700 dark:text-red-400 font-medium">⚠️ {decodeURIComponent(error)}</div>

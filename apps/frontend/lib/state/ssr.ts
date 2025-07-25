@@ -89,9 +89,9 @@ async function getServerAuthState() {
     }
 
     // Verify session with backend
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/auth/verify`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/authentication/profile`, {
       headers: {
-        'Cookie': `session=${sessionCookie.value}`,
+        'Cookie': `sess_id=${sessionCookie.value}`,
         'Content-Type': 'application/json'
       },
       cache: 'no-store'
@@ -162,7 +162,7 @@ async function getServerUserPreferences() {
     if (sessionCookie) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/user/preferences`, {
         headers: {
-          'Cookie': `session=${sessionCookie.value}`,
+          'Cookie': `sess_id=${sessionCookie.value}`,
           'Content-Type': 'application/json'
         },
         cache: 'no-store'
@@ -211,7 +211,7 @@ async function getServerCacheData(keys: string[]) {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/cache/bulk`, {
       method: 'POST',
       headers: {
-        'Cookie': `session=${sessionCookie.value}`,
+        'Cookie': `sess_id=${sessionCookie.value}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ keys }),

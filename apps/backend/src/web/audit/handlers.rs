@@ -98,6 +98,20 @@ pub struct ActorCount {
     pub count: u32,
 }
 
+/// Request to create audit log entry
+#[derive(Debug, Deserialize)]
+pub struct CreateAuditLogReq {
+    pub user_id: Option<String>,
+    pub action: String,
+    pub resource_type: String,
+    pub details: HashMap<String, serde_json::Value>,
+    pub ip_address: String,
+    pub user_agent: String,
+    pub event_category: String,
+    pub severity: String,
+    pub success: bool,
+}
+
 /// Request to export audit logs
 #[derive(Debug, Deserialize)]
 pub struct ExportAuditLogsReq {
@@ -117,6 +131,99 @@ pub struct ExportAuditLogsReq {
 pub struct AuditErrorRes {
     pub error: String,
     pub code: String,
+}
+
+/// Response for audit log creation
+#[derive(Debug, Serialize)]
+pub struct CreateAuditLogRes {
+    pub id: String,
+    pub message: String,
+}
+
+/// Create a new audit log entry
+pub async fn create_audit_log(
+    State(state): State<AppState>,
+    Json(req): Json<CreateAuditLogReq>,
+) -> Result<Json<CreateAuditLogRes>, (StatusCode, Json<AuditErrorRes>)> {
+    use crate::dom::entities::audit::{AuditLogEntry, AuditMetadata, AuditAction, ResourceType, AuditResult};
+    
+    // Parse user ID (use system UUID for events without user_id like registration)
+    let actor_id = req.user_id
+        .map(UserId::new)
+        .unwrap_or_else(|| UserId::new("00000000-0000-0000-0000-000000000000".to_string()));
+    
+    // Map action string to AuditAction enum (simplified mapping)
+    let action = match req.action.as_str() {
+        "LOGIN_SUCCESS" => AuditAction::Login,
+        "LOGIN_FAILED" => AuditAction::LoginFailed,
+        "REGISTER_SUCCESS" => AuditAction::UserCreated,
+        "REGISTER_FAILED" => AuditAction::LoginFailed, // Using closest match
+        "LOGOUT" => AuditAction::Logout,
+        "PASSWORD_RESET_REQUEST" => AuditAction::PasswordReset,
+        "PASSWORD_RESET_SUCCESS" => AuditAction::PasswordReset,
+        _ => AuditAction::Login, // Default fallback
+    };
+    
+    // Map resource type string to ResourceType enum
+    let resource_type = match req.resource_type.as_str() {
+        "auth" => ResourceType::Session,
+        "user" => ResourceType::User,
+        "role" => ResourceType::Role,
+        "policy" => ResourceType::Policy,
+        "group" => ResourceType::Group,
+        _ => ResourceType::Session, // Default fallback
+    };
+    
+    // Result based on success flag
+    let result = if req.success { AuditResult::Success } else { AuditResult::Failure };
+    
+    // Convert details to string map for audit metadata
+    let mut additional_data = HashMap::new();
+    for (key, value) in req.details {
+        additional_data.insert(key, value.to_string());
+    }
+    
+    // Create audit metadata
+    let metadata = AuditMetadata {
+        previous_values: None,
+        new_values: None,
+        error_message: if !req.success { 
+            additional_data.get("error").cloned()
+        } else { 
+            None 
+        },
+        additional_data,
+        affected_count: None,
+        duration_ms: None,
+    };
+    
+    // Create audit log entry with correct signature
+    let audit_entry = AuditLogEntry::new(
+        actor_id,
+        action,
+        resource_type,
+        "unknown".to_string(), // resource_id - could be extracted from details
+        result,
+    )
+    .with_metadata(metadata)
+    .with_client_info(Some(req.ip_address), Some(req.user_agent));
+    
+    // Store in repository using the correct method name
+    match state.audit_repo.store(&audit_entry).await {
+        Ok(_) => {
+            Ok(Json(CreateAuditLogRes {
+                id: audit_entry.id().value().to_string(),
+                message: "Audit log entry created successfully".to_string(),
+            }))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AuditErrorRes {
+                error: format!("Failed to create audit log: {}", e),
+                code: "CREATE_ERROR".to_string(),
+            })
+        ))
+    }
 }
 
 /// Search audit logs with filters and pagination

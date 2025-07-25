@@ -1,20 +1,39 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { AdminRole } from '@/types/admin/roles';
 import { AdminService } from '@/services/adminService';
+import { adminLogger } from '@/lib/logger';
 
 export function useAdminAuth() {
-  // This would connect to your admin auth system
-  // For now, using mock data - replace with actual auth implementation
-  const adminUser = {
-    id: 'admin-1',
-    role: AdminRole.ADMIN, // This should come from your auth system
-    email: 'admin@example.com',
-    permissions: [],
-    assignedBy: 'system',
-    assignedAt: new Date(),
-    isActive: true
-  };
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAdminProfile = async () => {
+      try {
+        const response = await fetch('/api/admin/authentication/profile');
+        if (response.ok) {
+          const profile = await response.json();
+          setAdminUser({
+            id: profile.user_id,
+            role: profile.role || AdminRole.ADMIN,
+            email: profile.email,
+            permissions: profile.permissions || [],
+            assignedBy: 'system',
+            assignedAt: new Date(),
+            isActive: true
+          });
+        }
+      } catch (error) {
+        adminLogger.error('Failed to load admin profile', { error: error.message }, 'useAdminAuth');
+        setAdminUser(null);
+      }
+      setLoading(false);
+    };
+
+    loadAdminProfile();
+  }, []);
 
   const hasPermission = (resource: string, action: string): boolean => {
     return AdminService.hasPermission(adminUser.role, resource, action);
@@ -42,6 +61,7 @@ export function useAdminAuth() {
 
   return {
     adminUser,
+    loading,
     hasPermission,
     canManageUsers,
     canViewPayments,

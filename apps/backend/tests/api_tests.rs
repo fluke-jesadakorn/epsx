@@ -50,14 +50,14 @@ async fn test_auth_endpoints() {
 }
 
 #[tokio::test]
-async fn test_template_endpoints() {
+async fn test_permission_profile_endpoints() {
     let app = create_test_app().await;
     
-    // Test templates list endpoint (should require auth)
+    // Test permission profiles list endpoint (should require auth)
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/templates")
+                .uri("/api/permission-profiles")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -121,10 +121,10 @@ pub fn create_test_user_payload() -> serde_json::Value {
     })
 }
 
-pub fn create_test_template_payload() -> serde_json::Value {
+pub fn create_test_permission_profile_payload() -> serde_json::Value {
     json!({
-        "name": "Test Template",
-        "description": "A test role template",
+        "name": "Test Permission Profile",
+        "description": "A test role permission profile",
         "target_tier": "bronze",
         "category": "user",
         "permissions": [

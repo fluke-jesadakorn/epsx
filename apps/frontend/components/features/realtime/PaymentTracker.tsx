@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
+import { logger } from '@/lib/logger';
 
 interface PaymentEvent {
   type: 'payment_started' | 'payment_completed' | 'payment_failed';
@@ -82,7 +83,7 @@ export default function PaymentTracker() {
     const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      logger.info('WebSocket connected', { wsUrl });
       setConnectionStatus('connected');
     };
     
@@ -91,18 +92,18 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+        logger.error('Failed to parse WebSocket message', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     };
     
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
+      logger.info('WebSocket disconnected');
       setConnectionStatus('disconnected');
       setWsRef(null);
     };
     
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      logger.error('WebSocket error', { error: error instanceof Error ? error.message : error });
       setConnectionStatus('disconnected');
     };
     
@@ -126,7 +127,7 @@ export default function PaymentTracker() {
     const eventSource = new EventSource(sseUrl);
     
     eventSource.onopen = () => {
-      console.log('SSE connected');
+      logger.info('SSE connected', { sseUrl });
       setConnectionStatus('connected');
     };
     
@@ -135,12 +136,12 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        console.error('Failed to parse SSE message:', error);
+        logger.error('Failed to parse SSE message', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     };
     
     eventSource.onerror = () => {
-      console.error('SSE error');
+      logger.error('SSE error');
       setConnectionStatus('disconnected');
       setEventSourceRef(null);
     };
@@ -151,7 +152,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        console.error('Failed to parse payment_started event:', error);
+        logger.error('Failed to parse payment_started event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -160,7 +161,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        console.error('Failed to parse payment_completed event:', error);
+        logger.error('Failed to parse payment_completed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -169,7 +170,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        console.error('Failed to parse payment_failed event:', error);
+        logger.error('Failed to parse payment_failed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -178,7 +179,7 @@ export default function PaymentTracker() {
 
   // Handle payment events
   const handlePaymentEvent = useCallback((data: PaymentEvent) => {
-    console.log('Received payment event:', data);
+    logger.info('Received payment event', { eventType: data.type, paymentId: data.data.event.PaymentStarted?.payment_id || data.data.event.PaymentCompleted?.payment_id || data.data.event.PaymentFailed?.payment_id });
     
     let paymentStatus: PaymentStatus;
     

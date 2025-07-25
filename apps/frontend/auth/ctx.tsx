@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 
 interface Usr {
   id: string;
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUsr(data.user);
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      logger.error('Login failed', { error: error instanceof Error ? error.message : error });
     }
   };
 
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch('/api/v1/authentication/logout', { method: 'POST' });
       setUsr(null);
     } catch (error) {
-      console.error('Logout failed:', error);
+      logger.error('Logout failed', { error: error instanceof Error ? error.message : error });
     }
   };
 
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUsr(data.user);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        logger.error('Auth check failed', { error: error instanceof Error ? error.message : error });
       } finally {
         setLoading(false);
       }

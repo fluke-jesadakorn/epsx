@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminLogger } from '@/lib/logger';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL;
+
+if (!BACKEND_URL) {
+  throw new Error('BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,8 +17,7 @@ export async function GET(request: NextRequest) {
     const backendUrl = `${BACKEND_URL}/admin/users${queryString ? `?${queryString}` : ''}`;
     const cookieHeader = request.headers.get('cookie') || '';
     
-    console.log('Admin users proxy: forwarding to', backendUrl);
-    console.log('Admin users proxy: cookies', cookieHeader ? 'present' : 'none');
+    adminLogger.info('Admin users proxy: forwarding request', { backendUrl, hasCookies: !!cookieHeader }, 'AdminUsersRoute');
     
     const response = await fetch(backendUrl, {
       method: 'GET',
@@ -23,11 +27,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log('Admin users proxy: backend response status', response.status);
+    adminLogger.debug('Admin users proxy: backend response received', { status: response.status }, 'AdminUsersRoute');
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('Admin users proxy: backend error', error);
+      adminLogger.error('Admin users proxy: backend error', { error }, 'AdminUsersRoute');
       
       return NextResponse.json(
         { error: error || 'Failed to fetch users' },
@@ -36,10 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log('Admin users proxy: backend data received', `${data.users?.length || 0} users`);
+    adminLogger.debug('Admin users proxy: backend data received', { userCount: data.users?.length || 0 }, 'AdminUsersRoute');
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Admin users proxy error:', error);
+    adminLogger.error('Admin users proxy error', { error: error instanceof Error ? error.message : error }, 'AdminUsersRoute');
     return NextResponse.json(
       { error: 'Backend connection failed' },
       { status: 503 }

@@ -1,31 +1,34 @@
 'use client';
 
 import { useToast } from '@/components/ui/toast';
+import { adminLogger } from '@/lib/logger';
 import React, { useEffect, useState } from 'react';
-// import { PERMISSION_TEMPLATES } from '../../config/packagePermissions'; // Config removed
+import type { UserWithPermissions } from '../../types/admin/iam';
+import { PackageTier } from '../../types/admin/iam';
+// import { PERMISSION_PROFILES } from '../../config/packagePermissions'; // Config removed
 // import { iamService } from '../../services/iamService'; // Service removed
 
 // Placeholder for removed dependencies
-const PERMISSION_TEMPLATES: any[] = [];
+const PERMISSION_PROFILES: any[] = [];
 const iamService = {
   getUser: async (...args: any[]) => null,
   updateUserPackageTier: async (...args: any[]) => {},
-  applyTemplateToUser: async (...args: any[]) => {},
-  getUserWithPermissions: async (...args: any[]): Promise<UserWithPermissions | null> => null,
-  previewPackageUpgrade: async (...args: any[]) => ({ 
-    changes: [], 
+  applyPermissionProfileToUser: async (...args: any[]) => {},
+  getUserWithPermissions: async (
+    ...args: any[]
+  ): Promise<UserWithPermissions | null> => null,
+  previewPackageUpgrade: async (...args: any[]) => ({
+    changes: [],
     newTier: 'FREE',
     addedPermissions: [],
     removedPermissions: [],
     currentPermissions: [],
-    newPermissions: []
+    newPermissions: [],
   }),
   grantCustomPermission: async (...args: any[]) => {},
   revokeCustomPermission: async (...args: any[]) => {},
-  bulkApplyTemplate: async (...args: any[]) => {},
+  bulkApplyProfile: async (...args: any[]) => {},
 };
-import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
-import { PackageTier } from '../../types/admin/iam-enhanced';
 
 interface UserPermissionManagerProps {
   userId: string;
@@ -38,7 +41,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
 }) => {
   const [user, setUser] = useState<UserWithPermissions | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [customPermissionForm, setCustomPermissionForm] = useState({
     featureId: '',
     action: '',
@@ -71,7 +74,10 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
       const userData = await iamService.getUserWithPermissions(userId);
       setUser(userData);
     } catch (error) {
-      console.error('Failed to load user details:', error);
+      adminLogger.error('Failed to load user details', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       addToast({
         type: 'error',
         title: 'Failed to load user details',
@@ -92,13 +98,13 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
 
       if (
         confirm(
-          `This will add ${preview.addedPermissions.length} new permissions. Continue?`,
+          `This will add ${preview.addedPermissions.length} new permissions. Continue?`
         )
       ) {
         await iamService.updateUserPackageTier(
           userId,
           newTier,
-          'current-admin-id',
+          'current-admin-id'
         ); // Get from auth context
         await loadUserDetails();
         addToast({
@@ -107,7 +113,11 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         });
       }
     } catch (error) {
-      console.error('Failed to upgrade package:', error);
+      adminLogger.error('Failed to upgrade package', {
+        userId,
+        newTier,
+        error: error instanceof Error ? error.message : String(error),
+      });
       addToast({
         type: 'error',
         title: 'Failed to upgrade package permissions',
@@ -138,7 +148,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
           expiresAt: customPermissionForm.expiresAt
             ? new Date(customPermissionForm.expiresAt)
             : undefined,
-        },
+        }
       );
 
       // Reset form
@@ -156,7 +166,11 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         title: 'Custom permission granted successfully!',
       });
     } catch (error) {
-      console.error('Failed to grant custom permission:', error);
+      adminLogger.error('Failed to grant custom permission', {
+        userId,
+        featureId: customPermissionForm.featureId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       addToast({
         type: 'error',
         title: 'Failed to grant custom permission',
@@ -176,7 +190,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
       await iamService.revokeCustomPermission(
         permissionId,
         'current-admin-id',
-        reason,
+        reason
       );
       await loadUserDetails();
       addToast({
@@ -184,7 +198,10 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         title: 'Permission revoked successfully!',
       });
     } catch (error) {
-      console.error('Failed to revoke permission:', error);
+      adminLogger.error('Failed to revoke permission', {
+        permissionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       addToast({
         type: 'error',
         title: 'Failed to revoke permission',
@@ -194,26 +211,30 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     }
   };
 
-  const handleApplyTemplate = async () => {
-    if (!selectedTemplate || !user) return;
+  const handleApplyProfile = async () => {
+    if (!selectedProfile || !user) return;
 
     try {
-      await iamService.bulkApplyTemplate(
+      await iamService.bulkApplyProfile(
         [userId],
-        selectedTemplate,
-        'current-admin-id',
+        selectedProfile,
+        'current-admin-id'
       );
       await loadUserDetails();
-      setSelectedTemplate('');
+      setSelectedProfile('');
       addToast({
         type: 'success',
-        title: 'Template applied successfully!',
+        title: 'Permission profile applied successfully!',
       });
     } catch (error) {
-      console.error('Failed to apply template:', error);
+      adminLogger.error('Failed to apply permission profile', {
+        userId,
+        profileId: selectedProfile,
+        error: error instanceof Error ? error.message : String(error),
+      });
       addToast({
         type: 'error',
-        title: 'Failed to apply template',
+        title: 'Failed to apply permission profile',
         description:
           error instanceof Error ? error.message : 'Please try again',
       });
@@ -224,7 +245,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     return (
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        onClick={e => e.target === e.currentTarget && onClose()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="loading-dialog"
@@ -245,7 +266,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     return (
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        onClick={e => e.target === e.currentTarget && onClose()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="error-dialog"
@@ -271,7 +292,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
   return (
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={e => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="permission-dialog-title"
@@ -314,7 +335,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="text-lg font-semibold mb-4">Package Management</h3>
             <div className="flex flex-wrap gap-2">
-              {Object.values(PackageTier).map((tier) => (
+              {Object.values(PackageTier).map(tier => (
                 <button
                   key={tier}
                   onClick={() => handlePackageUpgrade(tier)}
@@ -334,30 +355,30 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
             </div>
           </div>
 
-          {/* Template Application Section */}
+          {/* Profile Application Section */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="text-lg font-semibold mb-4">
-              Apply Permission Template
+              Apply Permission Profile
             </h3>
             <div className="flex gap-4">
               <select
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
+                value={selectedProfile}
+                onChange={e => setSelectedProfile(e.target.value)}
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
               >
-                <option value="">Select a template...</option>
-                {PERMISSION_TEMPLATES.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} - {template.description}
+                <option value="">Select a permission profile...</option>
+                {PERMISSION_PROFILES.map(profile => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name} - {profile.description}
                   </option>
                 ))}
               </select>
               <button
-                onClick={handleApplyTemplate}
-                disabled={!selectedTemplate}
+                onClick={handleApplyProfile}
+                disabled={!selectedProfile}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Apply Template
+                Apply Profile
               </button>
             </div>
           </div>
@@ -376,7 +397,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                   <input
                     type="text"
                     value={customPermissionForm.featureId}
-                    onChange={(e) =>
+                    onChange={e =>
                       setCustomPermissionForm({
                         ...customPermissionForm,
                         featureId: e.target.value,
@@ -393,7 +414,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                   </label>
                   <select
                     value={customPermissionForm.action}
-                    onChange={(e) =>
+                    onChange={e =>
                       setCustomPermissionForm({
                         ...customPermissionForm,
                         action: e.target.value,
@@ -421,7 +442,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                   <input
                     type="text"
                     value={customPermissionForm.resource}
-                    onChange={(e) =>
+                    onChange={e =>
                       setCustomPermissionForm({
                         ...customPermissionForm,
                         resource: e.target.value,
@@ -439,7 +460,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                   <input
                     type="datetime-local"
                     value={customPermissionForm.expiresAt}
-                    onChange={(e) =>
+                    onChange={e =>
                       setCustomPermissionForm({
                         ...customPermissionForm,
                         expiresAt: e.target.value,
@@ -456,7 +477,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                 </label>
                 <textarea
                   value={customPermissionForm.reason}
-                  onChange={(e) =>
+                  onChange={e =>
                     setCustomPermissionForm({
                       ...customPermissionForm,
                       reason: e.target.value,
@@ -520,7 +541,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
               <div className="bg-blue-50 rounded-lg p-4">
                 {user.customPermissions?.length > 0 ? (
                   <div className="space-y-2">
-                    {user.customPermissions.map((permission) => (
+                    {user.customPermissions.map(permission => (
                       <div
                         key={permission.id}
                         className="flex justify-between items-center py-2 px-3 bg-white rounded border"
@@ -537,7 +558,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
                             <span className="text-sm text-orange-600 ml-2">
                               (Expires:{' '}
                               {new Date(
-                                permission.expiresAt,
+                                permission.expiresAt
                               ).toLocaleDateString()}
                               )
                             </span>

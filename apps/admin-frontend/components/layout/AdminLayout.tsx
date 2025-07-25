@@ -16,6 +16,7 @@ import {
   Lock,
   LogOut,
   Menu,
+  Package,
   Palette,
   PanelLeft,
   Search,
@@ -24,6 +25,7 @@ import {
   Shield,
   UserCheck,
   Users,
+  User,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -199,11 +201,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           description: 'Identity and access management dashboard',
         },
         {
-          id: 'iam-templates',
-          label: 'Permission Templates',
-          href: '/iam?section=templates',
+          id: 'iam-permission-profiles',
+          label: 'Permission Profiles',
+          href: '/iam?section=permission-profiles',
           icon: Shield,
-          description: 'Create and manage permission templates',
+          description: 'Create and manage permission profiles',
+        },
+        {
+          id: 'permission-profile-assignment',
+          label: 'Profile Assignment',
+          href: '/permission-profiles/assign',
+          icon: User,
+          description: 'Assign feature permission profiles directly to users',
+        },
+        {
+          id: 'stock-ranking-packages',
+          label: 'Stock Ranking Packages',
+          href: '/stock-ranking-packages',
+          icon: Package,
+          description: 'Assign stock ranking access packages to users',
         },
         {
           id: 'iam-logs',

@@ -16,6 +16,7 @@ export const authApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+      credentials: 'include',
     });
     
     if (!res.ok) throw new Error('Login failed');
@@ -23,12 +24,12 @@ export const authApi = {
   },
 
   logout: async (): Promise<void> => {
-    const res = await fetch('/api/v1/authentication/logout', { method: 'POST' });
+    const res = await fetch('/api/v1/authentication/logout', { method: 'POST', credentials: 'include' });
     if (!res.ok) throw new Error('Logout failed');
   },
 
   me: async (): Promise<UsrRes> => {
-    const res = await fetch('/api/v1/authentication/profile');
+    const res = await fetch('/api/v1/authentication/profile', { credentials: 'include' });
     if (!res.ok) throw new Error('Auth check failed');
     return res.json();
   },

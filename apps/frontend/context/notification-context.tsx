@@ -4,6 +4,7 @@ import React, { createContext, useContext, useCallback, useEffect, useMemo, useR
 import { useAppState } from './app-state';
 import { NotificationState, Notification, NotificationPreferences } from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
+import { logger } from '@/lib/logger';
 
 interface NotificationContextType {
   // Data
@@ -72,7 +73,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {
-        console.log('Notifications WebSocket connected');
+        logger.info('Notifications WebSocket connected');
         actions.notifications.setRealtimeStatus({ 
           connected: true, 
           lastSync: Date.now() 
@@ -103,12 +104,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               break;
           }
         } catch (error) {
-          console.error('Error parsing notification WebSocket message:', error);
+          logger.error('Error parsing notification WebSocket message', { error: error instanceof Error ? error.message : String(error) });
         }
       };
 
       wsRef.current.onclose = () => {
-        console.log('Notifications WebSocket disconnected');
+        logger.info('Notifications WebSocket disconnected');
         actions.notifications.setRealtimeStatus({ connected: false });
         
         // Reconnect after 5 seconds
@@ -116,11 +117,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       };
 
       wsRef.current.onerror = (error) => {
-        console.error('Notifications WebSocket error:', error);
+        logger.error('Notifications WebSocket error', { error: error instanceof Error ? error.message : String(error) });
         actions.notifications.setRealtimeStatus({ connected: false });
       };
     } catch (error) {
-      console.error('Failed to connect notification WebSocket:', error);
+      logger.error('Failed to connect notification WebSocket', { error: error instanceof Error ? error.message : String(error) });
     }
   }, [actions.notifications]);
 
@@ -145,8 +146,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if (Notification.permission === 'granted') {
       const browserNotification = new Notification(notification.title, {
         body: notification.message,
-        icon: '/logo.png',
-        badge: '/logo.png',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
         tag: notification.id,
         requireInteraction: notification.type === 'trading',
         data: {
@@ -359,7 +360,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         actions.notifications.updatePreferences(preferencesData);
       }
     } catch (error) {
-      console.error('Failed to refresh notifications:', error);
+      logger.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }, [actions.notifications]);
@@ -400,7 +401,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         body: JSON.stringify(subscription)
       });
     } catch (error) {
-      console.error('Failed to subscribe to push notifications:', error);
+      logger.error('Failed to subscribe to push notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }, []);

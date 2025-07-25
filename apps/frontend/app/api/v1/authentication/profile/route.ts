@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { COOKIE_NAMES } from '@/lib/cookies';
+import { logger } from '@/lib/logger';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/auth/me`, {
+      const response = await fetch(`${BACKEND_URL}/api/v1/authentication/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${sessionId}`,
@@ -33,14 +34,14 @@ export async function GET(request: NextRequest) {
       const userData = await response.json();
       return NextResponse.json(userData);
     } catch (fetchError) {
-      console.error('Backend not available:', fetchError);
+      logger.error('Backend not available for authentication', { error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
       
       // TODO: Temporary development fallback when backend is not available
       if (process.env.NODE_ENV === 'development') {
         const sessionToken = cookieStore.get(COOKIE_NAMES.SESSION)?.value;
         
         if (sessionToken) {
-          console.log('Backend unavailable, returning mock user data');
+          logger.info('Backend unavailable, returning mock user data for development');
           // Return mock user data for development
           const mockUserData = {
             user_id: 'dev-user-123',
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
   } catch (error) {
-    console.error('Auth check error:', error);
+    logger.error('Auth check error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

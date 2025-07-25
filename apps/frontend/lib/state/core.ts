@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StateConfig, StateAction, StateMiddleware, AsyncState } from './types';
+import { logger } from '../logger';
 
 // Storage utilities
 export const storage = {
@@ -18,7 +19,7 @@ export const storage = {
     try {
       window[storageType].setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.warn('Failed to save to storage:', error);
+      logger.warn('Failed to save to storage', { error: error instanceof Error ? error.message : error, key, storageType });
     }
   },
   
@@ -27,7 +28,7 @@ export const storage = {
     try {
       window[storageType].removeItem(key);
     } catch (error) {
-      console.warn('Failed to remove from storage:', error);
+      logger.warn('Failed to remove from storage', { error: error instanceof Error ? error.message : error, key, storageType });
     }
   }
 };
@@ -45,11 +46,12 @@ export function createAsyncState<T = any>(initialData: T | null = null): AsyncSt
 // State middleware for logging
 export const loggingMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
   if (process.env.NODE_ENV === 'development') {
-    console.group(`🔄 ${store}:${action.type}`);
-    console.log('Action:', action);
-    console.log('Previous State:', prevState);
-    console.log('Next State:', nextState);
-    console.groupEnd();
+    logger.debug(`State change: ${store}:${action.type}`, {
+      store,
+      actionType: action.type,
+      action,
+      hasStateChange: JSON.stringify(prevState) !== JSON.stringify(nextState)
+    });
   }
 };
 
@@ -224,7 +226,11 @@ export function useStatePerformance(stateName: string) {
     const timeSinceLastRender = now - lastRenderTime.current;
     
     if (process.env.NODE_ENV === 'development' && timeSinceLastRender < 16) {
-      console.warn(`⚠️ ${stateName} is rendering frequently (${timeSinceLastRender}ms since last render, ${renderCount.current} total renders)`);
+      logger.warn(`${stateName} is rendering frequently`, { 
+        stateName, 
+        timeSinceLastRender, 
+        totalRenders: renderCount.current 
+      });
     }
     
     lastRenderTime.current = now;

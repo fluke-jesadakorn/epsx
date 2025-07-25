@@ -1,6 +1,11 @@
 use std::{sync::Arc, net::SocketAddr};
 use tracing::info;
-use epsx::{infra::AppContainer, web::create_router};
+use epsx::{
+    infra::AppContainer, 
+    web::create_router,
+    dom::services::feature_expiration::{ExpirationScheduler, ExpirationConfig},
+    infra::jobs::{JobScheduler, ExpirationChecker, NotificationService as JobNotificationService, SimpleEmailProvider, NotificationConfig}
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,6 +20,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize dependency container
     let container = Arc::new(AppContainer::new().await?);
     info!("Dependency container initialized");
+    
+    // Initialize feature expiration scheduler
+    let mut expiration_scheduler = ExpirationScheduler::new(
+        container.feature_expiration_service.clone(),
+        Some(ExpirationConfig {
+            warning_days_before: vec![30, 7, 3, 1],
+            grace_period_days: 7,
+            check_interval_hours: 1, // Check every hour
+            batch_size: 100,
+        })
+    );
+    
+    expiration_scheduler.start().await?;
+    info!("Feature expiration scheduler started");
+    
+    // Initialize job scheduler system
+    let notification_config = NotificationConfig::default();
+    let email_provider = Box::new(SimpleEmailProvider::new(true)); // Simulate emails in development
+    let job_notification_service = Arc::new(JobNotificationService::new(
+        email_provider,
+        None, // No SMS for now
+        Box::new(container.audit_repo.clone() as Box<dyn epsx::app::ports::repositories::AuditRepo>),
+        notification_config,
+    ));
+    
+    let expiration_checker = Arc::new(ExpirationChecker::new(
+        container.permission_profile_repo.clone(),
+        container.user_repo.clone(),
+        container.audit_repo.clone(),
+        job_notification_service.clone(),
+    ));
+    
+    let auto_assignment_service = Arc::new(epsx::dom::services::auto_assignment::AutoAssignmentService::new(
+        container.permission_profile_repo.clone(),
+        container.user_repo.clone(),
+        container.audit_repo.clone(),
+    ));
+    
+    let mut job_scheduler = JobScheduler::new(
+        container.permission_profile_repo.clone(),
+        container.user_repo.clone(),
+        container.audit_repo.clone(),
+        auto_assignment_service,
+        expiration_checker,
+        job_notification_service,
+    ).await?;
+    
+    job_scheduler.start().await?;
+    info!("Background job scheduler started");
     
     // Create application router
     let app = create_router(container);
@@ -31,7 +85,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Start the server
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app.into_make_service()).await?;
+    
+    // Setup graceful shutdown
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+    
+    // Handle shutdown signals
+    tokio::spawn(async move {
+        let ctrl_c = tokio::signal::ctrl_c();
+        
+        #[cfg(unix)]
+        let terminate = async {
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to install signal handler")
+                .recv()
+                .await;
+        };
+        
+        #[cfg(not(unix))]
+        let terminate = std::future::pending::<()>();
+        
+        tokio::select! {
+            _ = ctrl_c => {
+                info!("Received SIGINT, shutting down gracefully...");
+            }
+            _ = terminate => {
+                info!("Received SIGTERM, shutting down gracefully...");
+            }
+        }
+        
+        let _ = shutdown_tx.send(());
+    });
+    
+    let graceful = axum::serve(listener, app.into_make_service())
+        .with_graceful_shutdown(async move {
+            shutdown_rx.await.ok();
+            info!("Shutting down schedulers...");
+            expiration_scheduler.shutdown();
+            if let Err(e) = job_scheduler.stop().await {
+                tracing::error!("Error stopping job scheduler: {}", e);
+            }
+            info!("All schedulers stopped");
+        });
+    
+    graceful.await?;
     
     Ok(())
 }

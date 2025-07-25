@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { adminLogger } from '../../lib/logger';
 import { iamService } from '../../services/iamService';
-import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
+import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {
   searchTerm: string;
@@ -39,35 +40,40 @@ export const useUsers = (options: UseUsersOptions) => {
           lastActive: user.lastActivity
             ? new Date(user.lastActivity).toLocaleDateString()
             : 'Never',
-          permissions: user.effectivePermissions?.map((p) => p.featureId) || [],
-        }),
+          permissions: user.effectivePermissions?.map(p => p.featureId) || [],
+        })
       );
 
       // Apply filters
       if (options.searchTerm) {
         const searchLower = options.searchTerm.toLowerCase();
         transformedUsers = transformedUsers.filter(
-          (user) =>
+          user =>
             user.name.toLowerCase().includes(searchLower) ||
-            user.email.toLowerCase().includes(searchLower),
+            user.email.toLowerCase().includes(searchLower)
         );
       }
 
       if (options.statusFilter && options.statusFilter !== 'all') {
         transformedUsers = transformedUsers.filter(
-          (user) => user.status === options.statusFilter,
+          user => user.status === options.statusFilter
         );
       }
 
       if (options.packageFilter && options.packageFilter !== 'all') {
         transformedUsers = transformedUsers.filter(
-          (user) => user.packageTier === options.packageFilter,
+          user => user.packageTier === options.packageFilter
         );
       }
 
       setUsers(transformedUsers);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      adminLogger.error('Error fetching users', {
+        error: error instanceof Error ? error.message : String(error),
+        searchTerm: options.searchTerm,
+        statusFilter: options.statusFilter,
+        packageFilter: options.packageFilter,
+      });
       // Set empty array on error - no more mock data fallback
       setUsers([]);
     } finally {
