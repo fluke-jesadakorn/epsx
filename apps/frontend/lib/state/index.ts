@@ -27,9 +27,9 @@ export {
   useStateProviderStatus
 } from '@/components/state/StateProvider';
 export { 
-  EnhancedLayout, 
-  withEnhancedLayout 
-} from '@/components/layout/EnhancedLayout';
+  AppLayout, 
+  withAppLayout 
+} from '@/components/layout/AppLayout';
 
 // Usage example and quick start guide
 export const StateManagementGuide = {
@@ -102,7 +102,7 @@ export const StateManagementGuide = {
     
     const customMiddleware: StateMiddleware = (action, prev, next, store) => {
       // Your custom logic here
-      console.log('Action:', action.type, 'Store:', store);
+      logger.debug('State action dispatched', { action: action.type, store });
     };
     
     // Apply middleware in StateProvider
@@ -200,7 +200,7 @@ export default {
   useTrading: useTrading,
   useNotifications: useNotifications,
   withStateProvider,
-  EnhancedLayout: EnhancedLayout,
+  AppLayout: AppLayout,
   StateManagementGuide,
   PerformanceTips
 };

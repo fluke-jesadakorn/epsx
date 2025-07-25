@@ -4,7 +4,7 @@ import { ToastProvider } from '@/components/ui/toaster';
 import { AuthProvider } from '@/context/auth-context';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
-import { ThemeProvider } from '@epsx/ui';
+import { GlobalThemeProvider } from '@epsx/theme';
 import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
 import { PerformanceProvider } from '@/components/common/PerformanceProvider';
 import { Kanit } from 'next/font/google';
@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${kanit.variable} font-sans antialiased`}>
-        <ThemeProvider defaultTheme="pancake" enableSystem>
+        <GlobalThemeProvider defaultTheme="system" enableSystem>
           <PerformanceProvider>
             <AppStateProvider>
               <UIProvider>
@@ -56,7 +56,7 @@ export default function RootLayout({
               </UIProvider>
             </AppStateProvider>
           </PerformanceProvider>
-        </ThemeProvider>
+        </GlobalThemeProvider>
       </body>
     </html>
   );

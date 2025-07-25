@@ -1,7 +1,6 @@
 import { getSessionInfo } from '@/lib/auth-server';
 import { navigationService } from '@/services/navigation.service';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ClientNavControls } from '../client/ClientNavControls';
 import { NavigationItems } from './NavigationItems';
 
@@ -17,14 +16,9 @@ export async function ServerNavigation() {
       <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-4 sm:gap-8">
           <Link href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/logo.png"
-              alt="EPSX Logo"
-              width={40}
-              height={40}
-              className="h-8 w-8 sm:h-10 sm:w-10 group-hover:scale-105 transition-transform duration-300"
-              priority
-            />
+            <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
+              EPSX
+            </span>
           </Link>
           
           {/* Server-rendered navigation items */}

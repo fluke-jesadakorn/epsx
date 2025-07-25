@@ -2,6 +2,44 @@
 
 import { headers, cookies } from 'next/headers';
 import { z } from 'zod';
+import { trackUserAction, trackError, trackSecurityEvent } from './firebase-analytics';
+import { logger } from './logger';
+
+// Security event constants and enums
+export const SIGNIFICANT_EVENTS = [
+  'LOGIN_SUCCESS',
+  'LOGIN_FAILED',
+  'REGISTER_SUCCESS',
+  'REGISTER_FAILED',
+  'LOGOUT',
+  'PASSWORD_RESET_REQUEST',
+  'PASSWORD_RESET_SUCCESS',
+  'AUTHENTICATION_FAILED',
+  'AUTHORIZATION_FAILED',
+  'RATE_LIMIT_EXCEEDED',
+  'INVALID_ORIGIN',
+  'INVALID_USER_AGENT',
+  'SESSION_EXPIRED',
+  'PRIVILEGE_ESCALATION_ATTEMPT',
+  'ACCOUNT_LOCKED',
+  'SUSPICIOUS_ACTIVITY'
+] as const;
+
+export enum SecurityEventCategory {
+  AUTHENTICATION = 'authentication',
+  AUTHORIZATION = 'authorization',
+  SESSION_MANAGEMENT = 'session_management',
+  DATA_ACCESS = 'data_access',
+  SYSTEM_SECURITY = 'system_security',
+  USER_MANAGEMENT = 'user_management'
+}
+
+export enum EventSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
+}
 
 // Security configuration
 const SECURITY_CONFIG = {
@@ -247,7 +285,7 @@ export async function validateSession(sessionToken: string): Promise<boolean> {
     
     return true;
   } catch (error) {
-    console.error('Session validation error:', error);
+    logger.error('Session validation error', { error: error instanceof Error ? error.message : error });
     return false;
   }
 }
@@ -264,8 +302,7 @@ export function validatePasswordStrength(password: string): {
   if (password.length >= 8) score++;
   else feedback.push('Password must be at least 8 characters long');
   
-  if (password.length >= 12) score++;
-  else feedback.push('Consider using 12 or more characters for better security');
+  // Removed 12+ character requirement
   
   if (/[a-z]/.test(password)) score++;
   else feedback.push('Add lowercase letters');
@@ -287,12 +324,12 @@ export function validatePasswordStrength(password: string): {
   ];
   
   if (commonPatterns.some(pattern => pattern.test(password))) {
-    score = Math.max(0, score - 2);
+    score = Math.max(0, score - 1);
     feedback.push('Avoid common patterns and words');
   }
   
   return {
-    isValid: score >= 4,
+    isValid: score >= 3,
     score,
     feedback
   };
@@ -328,23 +365,161 @@ export interface AuditLog {
   timestamp: Date;
   success: boolean;
   details?: Record<string, any>;
+  category?: SecurityEventCategory;
+  severity?: EventSeverity;
+}
+
+export interface SecurityEvent {
+  action: string;
+  resource: string;
+  userId?: string;
+  success: boolean;
+  details?: Record<string, any>;
+  category?: SecurityEventCategory;
+  severity?: EventSeverity;
+}
+
+// Store audit log in PostgreSQL database
+async function storeAuditLogInDatabase(auditLog: AuditLog): Promise<void> {
+  try {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const response = await fetch(`${backendUrl}/api/v1/audit/logs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: auditLog.userId || null,
+        action: auditLog.action,
+        resource_type: auditLog.resource,
+        details: auditLog.details || {},
+        ip_address: auditLog.ip,
+        user_agent: auditLog.userAgent,
+        event_category: auditLog.category || SecurityEventCategory.SYSTEM_SECURITY,
+        severity: auditLog.severity || EventSeverity.MEDIUM,
+        success: auditLog.success
+      }),
+    });
+
+    if (!response.ok) {
+      logger.error('Failed to store audit log in database', { status: response.status });
+    }
+  } catch (error) {
+    logger.error('Error storing audit log in database', { error: error instanceof Error ? error.message : error });
+  }
+}
+
+// Track security event in Firebase Analytics
+function trackSecurityEventInAnalytics(auditLog: AuditLog): void {
+  try {
+    if (typeof window !== 'undefined') {
+      trackSecurityEvent(
+        auditLog.action,
+        auditLog.resource,
+        auditLog.success,
+        auditLog.userId,
+        auditLog.category,
+        auditLog.severity,
+        {
+          ip_address: auditLog.ip,
+          user_agent: auditLog.userAgent,
+          timestamp: auditLog.timestamp.toISOString(),
+          ...auditLog.details
+        }
+      );
+    }
+  } catch (error) {
+    logger.error('Error tracking security event in analytics', { error: error instanceof Error ? error.message : error });
+  }
+}
+
+// Determine event category and severity based on action
+function categorizeSecurityEvent(action: string): { category: SecurityEventCategory; severity: EventSeverity } {
+  const authActions = ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'REGISTER_SUCCESS', 'REGISTER_FAILED', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_SUCCESS'];
+  const criticalActions = ['PRIVILEGE_ESCALATION_ATTEMPT', 'ACCOUNT_LOCKED', 'SUSPICIOUS_ACTIVITY'];
+  const highSeverityActions = ['AUTHENTICATION_FAILED', 'AUTHORIZATION_FAILED', 'RATE_LIMIT_EXCEEDED'];
+  
+  let category = SecurityEventCategory.SYSTEM_SECURITY;
+  let severity = EventSeverity.MEDIUM;
+  
+  if (authActions.includes(action)) {
+    category = SecurityEventCategory.AUTHENTICATION;
+    severity = action.includes('FAILED') ? EventSeverity.HIGH : EventSeverity.MEDIUM;
+  } else if (criticalActions.includes(action)) {
+    severity = EventSeverity.CRITICAL;
+  } else if (highSeverityActions.includes(action)) {
+    severity = EventSeverity.HIGH;
+  } else if (action.includes('SESSION')) {
+    category = SecurityEventCategory.SESSION_MANAGEMENT;
+  } else if (action.includes('ORIGIN') || action.includes('USER_AGENT')) {
+    category = SecurityEventCategory.SYSTEM_SECURITY;
+    severity = EventSeverity.HIGH;
+  }
+  
+  return { category, severity };
 }
 
 export async function logSecurityEvent(event: Omit<AuditLog, 'ip' | 'userAgent' | 'timestamp'>): Promise<void> {
   const headersList = await headers();
   
+  const { category, severity } = event.category && event.severity 
+    ? { category: event.category, severity: event.severity }
+    : categorizeSecurityEvent(event.action);
+  
   const auditLog: AuditLog = {
     ...event,
     ip: await getClientIP(),
     userAgent: headersList.get('user-agent') || 'unknown',
-    timestamp: new Date()
+    timestamp: new Date(),
+    category,
+    severity
   };
   
-  // In production, send to logging service
-  console.log('Security Event:', JSON.stringify(auditLog, null, 2));
+  // Log security event
+  logger.info('Security Event', { 
+    action: auditLog.action, 
+    resource: auditLog.resource, 
+    success: auditLog.success, 
+    category: auditLog.category,
+    severity: auditLog.severity,
+    userId: auditLog.userId,
+    ip: auditLog.ip
+  });
   
-  // Store in database or send to monitoring service
-  // await storeAuditLog(auditLog);
+  // Always track in Firebase Analytics
+  trackSecurityEventInAnalytics(auditLog);
+  
+  // Store significant events in PostgreSQL database
+  if (SIGNIFICANT_EVENTS.includes(auditLog.action as any)) {
+    await storeAuditLogInDatabase(auditLog);
+  }
+}
+
+// Unified logging function that routes events appropriately
+export async function logEvent(event: SecurityEvent): Promise<void> {
+  await logSecurityEvent(event);
+}
+
+// Analytics-only event tracking for non-significant events
+export function trackAnalyticsEvent(
+  action: string, 
+  category: string, 
+  label?: string, 
+  userId?: string, 
+  additionalData?: Record<string, any>
+): void {
+  try {
+    if (typeof window !== 'undefined') {
+      trackUserAction(action, category, label, undefined, userId);
+      
+      // Log additional analytics data if provided
+      if (additionalData) {
+        logger.debug('Analytics Event', { action, category, label, userId, ...additionalData });
+      }
+    }
+  } catch (error) {
+    logger.error('Error tracking analytics event', { error: error instanceof Error ? error.message : error });
+  }
 }
 
 // Comprehensive security check for Server Actions
@@ -410,7 +585,7 @@ export async function performSecurityChecks(options: {
     
     return { success: true };
   } catch (error) {
-    console.error('Security check error:', error);
+    logger.error('Security check error', { error: error instanceof Error ? error.message : error });
     return { success: false, error: 'Security validation failed' };
   }
 }

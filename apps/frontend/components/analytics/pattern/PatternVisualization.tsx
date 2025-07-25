@@ -308,9 +308,11 @@ export function PatternVisualization({ patterns }: PatternVisualizationProps) {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {CHART_TYPES.find(c => c.value === selectedChart)?.icon && (
-                <CHART_TYPES.find(c => c.value === selectedChart)!.icon className="h-5 w-5" />
-              )}
+              {(() => {
+                const chartType = CHART_TYPES.find(c => c.value === selectedChart);
+                const IconComponent = chartType?.icon;
+                return IconComponent ? <IconComponent className="h-5 w-5" /> : null;
+              })()}
               {CHART_TYPES.find(c => c.value === selectedChart)?.label}
             </CardTitle>
           </CardHeader>

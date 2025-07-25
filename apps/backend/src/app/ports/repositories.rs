@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 use crate::dom::entities::{User, Session, Payment, Stock};
 use crate::dom::entities::iam::{IamRole, IamPolicy, IamGroup, UserPermissionOverride, RoleId, PolicyId, GroupId, IamError};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
-use crate::dom::entities::template::{RoleTemplate, TemplateId, TemplateQuery, ApplyTemplateRequest, ApplyTemplateResult, TemplateError};
+use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, ApplyPermissionProfileResult, PermissionProfileError};
 use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, Role, PayStatus, Market};
 use crate::app::dtos::LevelChangeRecord;
 
@@ -31,6 +31,13 @@ pub trait UserRepo: Send + Sync {
     
     // For compatibility with existing code
     async fn find_by_id(&self, id: &UserId) -> Result<User, RepoError>;
+    
+    // Job system requirements
+    async fn find_users_for_auto_assignment(&self) -> Result<Vec<User>, RepoError>;
+    async fn count_total_users(&self) -> Result<i64, RepoError>;
+    async fn is_user_active_since(&self, user_id: &UserId, since: DateTime<Utc>) -> Result<bool, RepoError>;
+    async fn has_good_payment_history(&self, user_id: &UserId, days: i64) -> Result<bool, RepoError>;
+    async fn health_check(&self) -> Result<(), RepoError>;
 }
 
 #[async_trait]
@@ -153,6 +160,15 @@ pub trait AuditRepo: Send + Sync {
     
     /// Export audit logs to external format (compliance)
     async fn export(&self, query: &AuditQuery, format: ExportFormat) -> Result<Vec<u8>, AuditError>;
+    
+    // Job system requirements
+    async fn cleanup_old_logs(&self, days: i64) -> Result<i64, AuditError>;
+    async fn log_permission_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId, assigned_by: &str, reason: &str) -> Result<(), AuditError>;
+    async fn log_permission_revocation(&self, user_id: &UserId, profile_id: &PermissionProfileId, revoked_by: &str, reason: &str) -> Result<(), AuditError>;
+    async fn log_system_event(&self, event_type: &str, details: &str) -> Result<(), AuditError>;
+    async fn log_notification_sent(&self, recipient: &str, subject: &str, notification_type: &str, message_id: Option<&str>) -> Result<(), AuditError>;
+    async fn log_notification_failed(&self, recipient: &str, subject: &str, notification_type: &str, error: &str) -> Result<(), AuditError>;
+    async fn health_check(&self) -> Result<(), AuditError>;
 }
 
 /// Export formats for audit logs
@@ -165,45 +181,66 @@ pub enum ExportFormat {
 
 #[async_trait]
 #[cfg_attr(test, automock)]
-pub trait TemplateRepo: Send + Sync {
-    /// Create a new role template
-    async fn create(&self, template: RoleTemplate) -> Result<RoleTemplate, TemplateError>;
+pub trait PermissionProfileRepo: Send + Sync {
+    /// Create a new permission profile
+    async fn create(&self, profile: PermissionProfile) -> Result<PermissionProfile, PermissionProfileError>;
     
-    /// Get a template by ID
-    async fn get(&self, id: &TemplateId) -> Result<Option<RoleTemplate>, TemplateError>;
+    /// Get a permission profile by ID
+    async fn get(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
     
-    /// Update an existing template
-    async fn update(&self, template: RoleTemplate) -> Result<RoleTemplate, TemplateError>;
+    /// Update an existing permission profile
+    async fn update(&self, profile: PermissionProfile) -> Result<PermissionProfile, PermissionProfileError>;
     
-    /// Delete a template (soft delete - mark as inactive)
-    async fn delete(&self, id: &TemplateId) -> Result<(), TemplateError>;
+    /// Delete a permission profile (soft delete - mark as inactive)
+    async fn delete(&self, id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
     
-    /// Search templates with filters and pagination
-    async fn search(&self, query: &TemplateQuery) -> Result<Vec<RoleTemplate>, TemplateError>;
+    /// Search permission profiles with filters and pagination
+    async fn search(&self, query: &PermissionProfileQuery) -> Result<Vec<PermissionProfile>, PermissionProfileError>;
     
-    /// Count templates matching query
-    async fn count(&self, query: &TemplateQuery) -> Result<u64, TemplateError>;
+    /// Count permission profiles matching query
+    async fn count(&self, query: &PermissionProfileQuery) -> Result<u64, PermissionProfileError>;
     
-    /// Get all templates for a specific category
-    async fn get_by_category(&self, category: &crate::dom::entities::template::TemplateCategory) -> Result<Vec<RoleTemplate>, TemplateError>;
+    /// Get all permission profiles for a specific category
+    async fn get_by_category(&self, category: &crate::dom::entities::permission_profile::PermissionProfileCategory) -> Result<Vec<PermissionProfile>, PermissionProfileError>;
     
-    /// Apply template to users (returns application results)
-    async fn apply_template(&self, request: &ApplyTemplateRequest) -> Result<ApplyTemplateResult, TemplateError>;
+    /// Apply permission profile to users (returns application results)
+    async fn apply_permission_profile(&self, request: &ApplyPermissionProfileRequest) -> Result<ApplyPermissionProfileResult, PermissionProfileError>;
     
-    /// Get template application history
-    async fn get_application_history(&self, template_id: &TemplateId, limit: u32) -> Result<Vec<ApplyTemplateResult>, TemplateError>;
+    /// Get permission profile application history
+    async fn get_application_history(&self, profile_id: &PermissionProfileId, limit: u32) -> Result<Vec<ApplyPermissionProfileResult>, PermissionProfileError>;
     
-    /// Check if template can be applied to user (validates prerequisites)
-    async fn can_apply_to_user(&self, template_id: &TemplateId, user_id: &UserId) -> Result<bool, TemplateError>;
+    /// Check if permission profile can be applied to user (validates prerequisites)
+    async fn can_apply_to_user(&self, profile_id: &PermissionProfileId, user_id: &UserId) -> Result<bool, PermissionProfileError>;
     
-    /// Get active assignment count for a template
-    async fn get_assignment_count(&self, template_id: &TemplateId) -> Result<u32, TemplateError>;
+    /// Get active assignment count for a permission profile
+    async fn get_assignment_count(&self, profile_id: &PermissionProfileId) -> Result<u32, PermissionProfileError>;
     
-    /// Initialize default templates (call once on startup)
-    async fn initialize_defaults(&self, admin_user_id: &UserId) -> Result<Vec<RoleTemplate>, TemplateError>;
+    /// Initialize default permission profiles (call once on startup)
+    async fn initialize_defaults(&self, admin_user_id: &UserId) -> Result<Vec<PermissionProfile>, PermissionProfileError>;
+    
+    // Job system requirements
+    async fn find_assignments_expiring_before(&self, cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
+    async fn revoke_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
+    async fn cleanup_expired_assignments(&self) -> Result<i64, PermissionProfileError>;
+    async fn count_active_profiles(&self) -> Result<i64, PermissionProfileError>;
+    async fn count_total_assignments(&self) -> Result<i64, PermissionProfileError>;
+    async fn find_user_assignments_with_expiration(&self, user_id: &UserId) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
+    async fn extend_assignment_expiration(&self, user_id: &UserId, profile_id: &PermissionProfileId, new_expiration: DateTime<Utc>) -> Result<(), PermissionProfileError>;
+    async fn find_by_id(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
+    async fn health_check(&self) -> Result<(), PermissionProfileError>;
 }
 
 // Supporting types
+#[derive(Debug, Clone)]
+pub struct PermissionAssignment {
+    pub user_id: UserId,
+    pub permission_profile_id: PermissionProfileId,
+    pub assigned_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub assigned_by: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct PaymentStats {
     pub total_payments: u64,

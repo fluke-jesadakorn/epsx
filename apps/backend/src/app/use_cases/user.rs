@@ -42,7 +42,8 @@ impl UserMgmtUC {
             return Err(UserUseCaseError::UserAlreadyExists(req.email));
         }
         
-        let user = User::new(email, role);
+        let firebase_uid = format!("firebase_{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..28].to_string());
+        let user = User::new(firebase_uid, email, role);
         self.user_repo.save(&user).await
             .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
         

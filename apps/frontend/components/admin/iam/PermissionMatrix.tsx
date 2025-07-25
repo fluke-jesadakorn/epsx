@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,68 +22,45 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import { permissionService, Permission, Role, User } from '@/services/permissionService';
 
-interface Permission {
-  id: string;
-  name: string;
-  description: string;
-  resource: string;
-  action: string;
-  risk: 'low' | 'medium' | 'high';
-}
-
-interface Role {
-  id: string;
-  name: string;
-  permissions: string[];
-  userCount: number;
-  isSystem: boolean;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  roles: string[];
-  directPermissions: string[];
-}
-
-const MOCK_PERMISSIONS: Permission[] = [
-  { id: '1', name: 'View Analytics', description: 'Access analytics dashboard', resource: 'analytics', action: 'read', risk: 'low' },
-  { id: '2', name: 'Export Analytics', description: 'Export analytics data', resource: 'analytics', action: 'export', risk: 'medium' },
-  { id: '3', name: 'Delete Analytics', description: 'Delete analytics data', resource: 'analytics', action: 'delete', risk: 'high' },
-  { id: '4', name: 'View Users', description: 'View user profiles', resource: 'users', action: 'read', risk: 'low' },
-  { id: '5', name: 'Create Users', description: 'Create new users', resource: 'users', action: 'create', risk: 'medium' },
-  { id: '6', name: 'Delete Users', description: 'Delete user accounts', resource: 'users', action: 'delete', risk: 'high' },
-  { id: '7', name: 'Manage Billing', description: 'Access billing settings', resource: 'billing', action: 'manage', risk: 'high' },
-  { id: '8', name: 'System Config', description: 'Configure system settings', resource: 'system', action: 'configure', risk: 'high' },
-  { id: '9', name: 'View Audit Logs', description: 'Access audit logs', resource: 'audit', action: 'read', risk: 'medium' },
-  { id: '10', name: 'Pattern Analysis', description: 'Run pattern analysis', resource: 'patterns', action: 'analyze', risk: 'low' }
-];
-
-const MOCK_ROLES: Role[] = [
-  { id: '1', name: 'Admin', permissions: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], userCount: 3, isSystem: true },
-  { id: '2', name: 'Analyst', permissions: ['1', '2', '9', '10'], userCount: 12, isSystem: false },
-  { id: '3', name: 'User Manager', permissions: ['4', '5'], userCount: 5, isSystem: false },
-  { id: '4', name: 'Viewer', permissions: ['1', '4'], userCount: 25, isSystem: false }
-];
-
-const MOCK_USERS: User[] = [
-  { id: '1', name: 'John Admin', email: 'john@example.com', roles: ['1'], directPermissions: [] },
-  { id: '2', name: 'Jane Analyst', email: 'jane@example.com', roles: ['2'], directPermissions: ['3'] },
-  { id: '3', name: 'Bob Viewer', email: 'bob@example.com', roles: ['4'], directPermissions: [] }
-];
 
 export function PermissionMatrix() {
   const [view, setView] = useState<'matrix' | 'list'>('matrix');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedResource, setSelectedResource] = useState<string>('all');
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const resources = Array.from(new Set(MOCK_PERMISSIONS.map(p => p.resource)));
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [permissionsData, rolesData, usersData] = await Promise.all([
+          permissionService.getPermissions(),
+          permissionService.getRoles(),
+          permissionService.getUsers()
+        ]);
+        setPermissions(permissionsData);
+        setRoles(rolesData);
+        setUsers(usersData);
+      } catch (error) {
+        console.error('Failed to load permission data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const resources = Array.from(new Set(permissions.map(p => p.resource)));
   const riskLevels = ['low', 'medium', 'high'];
 
-  const filteredPermissions = MOCK_PERMISSIONS.filter(permission => {
+  const filteredPermissions = permissions.filter(permission => {
     const matchesSearch = permission.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          permission.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesResource = selectedResource === 'all' || permission.resource === selectedResource;
@@ -111,21 +88,29 @@ export function PermissionMatrix() {
   };
 
   const hasPermission = (roleId: string, permissionId: string) => {
-    const role = MOCK_ROLES.find(r => r.id === roleId);
+    const role = roles.find(r => r.id === roleId);
     return role?.permissions.includes(permissionId) || false;
   };
 
   const getEffectivePermissions = (userId: string) => {
-    const user = MOCK_USERS.find(u => u.id === userId);
+    const user = users.find(u => u.id === userId);
     if (!user) return new Set<string>();
 
     const rolePermissions = user.roles.flatMap(roleId => {
-      const role = MOCK_ROLES.find(r => r.id === roleId);
+      const role = roles.find(r => r.id === roleId);
       return role?.permissions || [];
     });
 
     return new Set([...rolePermissions, ...user.directPermissions]);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -225,7 +210,7 @@ export function PermissionMatrix() {
           {view === 'matrix' ? (
             <RoleMatrixView 
               permissions={filteredPermissions}
-              roles={MOCK_ROLES}
+              roles={roles}
               hasPermission={hasPermission}
               getRiskColor={getRiskColor}
               getRiskIcon={getRiskIcon}
@@ -233,7 +218,7 @@ export function PermissionMatrix() {
           ) : (
             <RoleListView 
               permissions={filteredPermissions}
-              roles={MOCK_ROLES}
+              roles={roles}
               hasPermission={hasPermission}
               getRiskColor={getRiskColor}
               getRiskIcon={getRiskIcon}
@@ -244,8 +229,8 @@ export function PermissionMatrix() {
         <TabsContent value="users">
           <UserPermissionView 
             permissions={filteredPermissions}
-            users={MOCK_USERS}
-            roles={MOCK_ROLES}
+            users={users}
+            roles={roles}
             getEffectivePermissions={getEffectivePermissions}
             getRiskColor={getRiskColor}
             getRiskIcon={getRiskIcon}

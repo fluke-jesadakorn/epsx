@@ -6,7 +6,7 @@ pub mod payment;
 pub mod stock;
 pub mod iam;
 pub mod audit;
-pub mod template;
+pub mod permission_profile;
 
 pub use user::*;
 pub use auth::*;
@@ -14,7 +14,7 @@ pub use payment::*;
 pub use stock::*;
 pub use iam::*;
 pub use audit::*;
-pub use template::*;
+pub use permission_profile::*;
 
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};

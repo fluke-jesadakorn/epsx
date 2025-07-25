@@ -123,7 +123,7 @@ class PerformanceMonitor {
 
   private reportMetric(name: string, value: number) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[Performance] ${name}: ${value.toFixed(2)}ms`);
+      logger.performance(name, value);
     }
 
     // Report to analytics service in production

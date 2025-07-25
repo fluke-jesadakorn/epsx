@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminLogger } from '../../../../lib/logger';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     return nextResponse;
   } catch (error) {
-    console.error('Login error:', error);
+    adminLogger.error('Admin login error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }

@@ -10,6 +10,7 @@ use crate::{
         AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError,
         AuditMetadata
     },
+    dom::entities::permission_profile::PermissionProfileId,
     dom::values::identifiers::UserId,
 };
 
@@ -68,21 +69,53 @@ impl PostgresAuditRepo {
 #[async_trait]
 impl AuditRepo for PostgresAuditRepo {
     async fn store(&self, entry: &AuditLogEntry) -> Result<(), AuditError> {
+        // Determine event category based on action
+        let event_category = match entry.action() {
+            crate::dom::entities::audit::AuditAction::Login | 
+            crate::dom::entities::audit::AuditAction::LoginFailed | 
+            crate::dom::entities::audit::AuditAction::Logout |
+            crate::dom::entities::audit::AuditAction::PasswordReset => "authentication",
+            crate::dom::entities::audit::AuditAction::PermissionGranted | 
+            crate::dom::entities::audit::AuditAction::PermissionDenied |
+            crate::dom::entities::audit::AuditAction::PermissionEvaluated => "authorization",
+            crate::dom::entities::audit::AuditAction::SessionExpired => "session_management",
+            crate::dom::entities::audit::AuditAction::UserCreated | 
+            crate::dom::entities::audit::AuditAction::UserUpdated |
+            crate::dom::entities::audit::AuditAction::UserDeleted => "user_management",
+            _ => "system_security"
+        };
+
+        // Determine severity based on result and action
+        let severity = match (entry.result(), entry.action()) {
+            (crate::dom::entities::audit::AuditResult::Failure, _) |
+            (crate::dom::entities::audit::AuditResult::Error, _) => "high",
+            (_, crate::dom::entities::audit::AuditAction::LoginFailed) => "high",
+            (crate::dom::entities::audit::AuditResult::Denied, _) => "medium",
+            _ => "medium"
+        };
+
+        // Determine success based on result
+        let success = matches!(entry.result(), crate::dom::entities::audit::AuditResult::Success | crate::dom::entities::audit::AuditResult::PartialSuccess);
+
         sqlx::query(
-            "INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+            "INSERT INTO audit_logs (id, actor_id, action, resource_type, resource_id, result, timestamp, client_ip, user_agent, session_id, metadata, user_id, event_category, severity, success)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)"
         )
-        .bind(entry.id().value())
+        .bind(Uuid::parse_str(entry.id().value()).map_err(|e| AuditError::DatabaseError(format!("Invalid ID UUID: {}", e)))?)
         .bind(entry.actor_id().value())
         .bind(entry.action().to_string())
         .bind(entry.resource_type().to_string())
         .bind(entry.resource_id())
         .bind(entry.result().to_string())
+        .bind(entry.timestamp())
         .bind(entry.client_ip())
         .bind(entry.user_agent())
         .bind(entry.session_id())
         .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
-        .bind(entry.timestamp())
+        .bind(entry.actor_id().value())
+        .bind(event_category)
+        .bind(severity)
+        .bind(success)
         .execute(&self.pool)
         .await
         .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -92,10 +125,10 @@ impl AuditRepo for PostgresAuditRepo {
 
     async fn get(&self, id: &AuditLogId) -> Result<Option<AuditLogEntry>, AuditError> {
         let row = sqlx::query(
-            "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp 
+            "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success
              FROM audit_logs WHERE id = $1"
         )
-        .bind(id.value())
+        .bind(Uuid::parse_str(id.value()).map_err(|e| AuditError::DatabaseError(format!("Invalid ID UUID: {}", e)))?)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -107,7 +140,7 @@ impl AuditRepo for PostgresAuditRepo {
     }
 
     async fn search(&self, query: &AuditQuery) -> Result<Vec<AuditLogEntry>, AuditError> {
-        let mut sql = "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp FROM audit_logs WHERE 1=1".to_string();
+        let mut sql = "SELECT id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success FROM audit_logs WHERE 1=1".to_string();
         let mut query_builder = sqlx::QueryBuilder::new(&sql);
 
         // Add filters based on query
@@ -244,10 +277,38 @@ impl AuditRepo for PostgresAuditRepo {
         }
 
         let mut query_builder = sqlx::QueryBuilder::new(
-            "INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp) "
+            "INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, result, client_ip, user_agent, session_id, metadata, timestamp, event_category, severity, success) "
         );
 
         query_builder.push_values(entries, |mut b, entry| {
+            // Determine event category based on action
+            let event_category = match entry.action() {
+                crate::dom::entities::audit::AuditAction::Login | 
+                crate::dom::entities::audit::AuditAction::LoginFailed | 
+                crate::dom::entities::audit::AuditAction::Logout |
+                crate::dom::entities::audit::AuditAction::PasswordReset => "authentication",
+                crate::dom::entities::audit::AuditAction::PermissionGranted | 
+                crate::dom::entities::audit::AuditAction::PermissionDenied |
+                crate::dom::entities::audit::AuditAction::PermissionEvaluated => "authorization",
+                crate::dom::entities::audit::AuditAction::SessionExpired => "session_management",
+                crate::dom::entities::audit::AuditAction::UserCreated | 
+                crate::dom::entities::audit::AuditAction::UserUpdated |
+                crate::dom::entities::audit::AuditAction::UserDeleted => "user_management",
+                _ => "system_security"
+            };
+
+            // Determine severity based on result and action
+            let severity = match (entry.result(), entry.action()) {
+                (crate::dom::entities::audit::AuditResult::Failure, _) |
+                (crate::dom::entities::audit::AuditResult::Error, _) => "high",
+                (_, crate::dom::entities::audit::AuditAction::LoginFailed) => "high",
+                (crate::dom::entities::audit::AuditResult::Denied, _) => "medium",
+                _ => "medium"
+            };
+
+            // Determine success based on result
+            let success = matches!(entry.result(), crate::dom::entities::audit::AuditResult::Success | crate::dom::entities::audit::AuditResult::PartialSuccess);
+
             b.push_bind(entry.id().value())
              .push_bind(entry.actor_id().value())
              .push_bind(entry.action().to_string())
@@ -258,7 +319,10 @@ impl AuditRepo for PostgresAuditRepo {
              .push_bind(entry.user_agent())
              .push_bind(entry.session_id())
              .push_bind(serde_json::to_value(entry.metadata()).unwrap_or(serde_json::Value::Null))
-             .push_bind(entry.timestamp());
+             .push_bind(entry.timestamp())
+             .push_bind(event_category)
+             .push_bind(severity)
+             .push_bind(success);
         });
 
         query_builder
@@ -321,6 +385,109 @@ impl AuditRepo for PostgresAuditRepo {
                 Ok(xml_data.into_bytes())
             },
         }
+    }
+
+    async fn cleanup_old_logs(&self, days: i64) -> Result<i64, AuditError> {
+        let cutoff_date = Utc::now() - chrono::Duration::days(days);
+        let result = sqlx::query(
+            "DELETE FROM audit_logs WHERE timestamp < $1"
+        )
+        .bind(cutoff_date)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
+
+        Ok(result.rows_affected() as i64)
+    }
+
+    async fn log_permission_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId, assigned_by: &str, reason: &str) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            UserId::new(assigned_by.to_string()),
+            crate::dom::entities::audit::AuditAction::PermissionGranted,
+            crate::dom::entities::audit::ResourceType::Permission,
+            profile_id.value().to_string(),
+            crate::dom::entities::audit::AuditResult::Success,
+        ).with_metadata(
+            AuditMetadata::empty()
+                .with_additional_info("target_user", user_id.to_string())
+                .with_additional_info("reason", reason.to_string())
+        );
+
+        self.store(&entry).await
+    }
+
+    async fn log_permission_revocation(&self, user_id: &UserId, profile_id: &PermissionProfileId, revoked_by: &str, reason: &str) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            UserId::new(revoked_by.to_string()),
+            crate::dom::entities::audit::AuditAction::PermissionRevoked,
+            crate::dom::entities::audit::ResourceType::Permission,
+            profile_id.value().to_string(),
+            crate::dom::entities::audit::AuditResult::Success,
+        ).with_metadata(
+            AuditMetadata::empty()
+                .with_additional_info("target_user", user_id.to_string())
+                .with_additional_info("reason", reason.to_string())
+        );
+
+        self.store(&entry).await
+    }
+
+    async fn log_system_event(&self, event_type: &str, details: &str) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            UserId::new("system".to_string()),
+            crate::dom::entities::audit::AuditAction::SystemEvent,
+            crate::dom::entities::audit::ResourceType::System,
+            event_type.to_string(),
+            crate::dom::entities::audit::AuditResult::Success,
+        ).with_metadata(
+            AuditMetadata::empty()
+                .with_additional_info("description", details.to_string())
+        );
+
+        self.store(&entry).await
+    }
+
+    async fn log_notification_sent(&self, recipient: &str, subject: &str, notification_type: &str, message_id: Option<&str>) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            UserId::new("system".to_string()),
+            crate::dom::entities::audit::AuditAction::NotificationSent,
+            crate::dom::entities::audit::ResourceType::Notification,
+            notification_type.to_string(),
+            crate::dom::entities::audit::AuditResult::Success,
+        ).with_metadata(
+            AuditMetadata::empty()
+                .with_additional_info("recipient", recipient.to_string())
+                .with_additional_info("subject", subject.to_string())
+                .with_additional_info("message_id", message_id.unwrap_or("").to_string())
+        );
+
+        self.store(&entry).await
+    }
+
+    async fn log_notification_failed(&self, recipient: &str, subject: &str, notification_type: &str, error: &str) -> Result<(), AuditError> {
+        let entry = AuditLogEntry::new(
+            UserId::new("system".to_string()),
+            crate::dom::entities::audit::AuditAction::NotificationFailed,
+            crate::dom::entities::audit::ResourceType::Notification,
+            notification_type.to_string(),
+            crate::dom::entities::audit::AuditResult::Failure,
+        ).with_metadata(
+            AuditMetadata::empty()
+                .with_additional_info("recipient", recipient.to_string())
+                .with_additional_info("subject", subject.to_string())
+                .with_additional_info("error", error.to_string())
+        );
+
+        self.store(&entry).await
+    }
+
+    async fn health_check(&self) -> Result<(), AuditError> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AuditError::DatabaseError(format!("Health check failed: {}", e)))?;
+        
+        Ok(())
     }
 }
 

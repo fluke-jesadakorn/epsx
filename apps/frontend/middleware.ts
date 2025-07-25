@@ -2,18 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createSecurityMiddleware } from './lib/middleware/security';
 import { COOKIE_NAMES } from './lib/cookies';
+import { logger } from './lib/logger';
 
-// Route definitions with permission requirements
-const routePermissions: Record<string, string> = {
-  '/dashboard': 'app.dashboard.view',
-  '/analytics': 'analytics.view',
-  '/my-data': 'data.own.view',
-  '/admin': 'admin.access',
-  '/users': 'admin.users.view',
-  '/settings': 'settings.view',
-  '/reports': 'reports.view',
-  '/trading': 'trading.view',
-  '/payment': 'payment.access',
+// Enhanced route definitions with permission profile integration
+const routePermissions: Record<string, { permission: string; profile?: string; fallbackRole?: string }> = {
+  '/dashboard': { permission: 'route:/dashboard', fallbackRole: 'user' },
+  '/analytics': { permission: 'route:/analytics/*', profile: 'Silver User', fallbackRole: 'premium' },
+  '/my-data': { permission: 'route:/profile/*', fallbackRole: 'user' },
+  '/admin': { permission: 'route:/admin/*', fallbackRole: 'admin' },
+  '/users': { permission: 'admin.users.view', fallbackRole: 'admin' },
+  '/settings': { permission: 'route:/settings', fallbackRole: 'user' },
+  '/reports': { permission: 'route:/reports/*', profile: 'Gold User', fallbackRole: 'premium' },
+  '/trading': { permission: 'route:/trading/*', profile: 'Silver User', fallbackRole: 'premium' },
+  '/payment': { permission: 'route:/payment/*', fallbackRole: 'user' },
+  '/premium': { permission: 'route:/premium/*', profile: 'Silver User', fallbackRole: 'premium' },
+  '/rankings': { permission: 'api:rankings:read', profile: 'Bronze User', fallbackRole: 'user' },
+  '/stock-rankings': { permission: 'api:stock-rankings:read', profile: 'Bronze User', fallbackRole: 'user' },
 };
 
 const authRoutes = ['/login', '/register', '/signup'];
@@ -56,7 +60,7 @@ export async function middleware(request: NextRequest) {
   
   // Debug logging (only in development)
   if (process.env.NODE_ENV === 'development') {
-    console.log('Middleware:', { 
+    logger.debug('Middleware route check', { 
       pathname, 
       isPublicRoute, 
       isProtectedRoute, 
@@ -75,7 +79,7 @@ export async function middleware(request: NextRequest) {
   // Redirect to login if accessing protected route without token
   if (isProtectedRoute && !token) {
     if (process.env.NODE_ENV === 'development') {
-      console.log('Redirecting to login - no token for protected route:', pathname);
+      logger.debug('Redirecting to login - no token for protected route', { pathname });
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
@@ -99,21 +103,29 @@ export async function middleware(request: NextRequest) {
   // For protected routes with token, check permissions
   if (isProtectedRoute && token) {
     try {
-      const hasAccess = await checkRoutePermissions(token, pathname);
+      const hasAccess = await checkPermissionProfileAccess(token, pathname);
       
       if (!hasAccess.allowed) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('Access denied for route:', pathname, 'Reason:', hasAccess.reason);
+          logger.warn('Access denied for route', { 
+            pathname, 
+            reason: hasAccess.reason,
+            requiredPermission: hasAccess.requiredPermission,
+            userPermissions: hasAccess.userPermissions?.slice(0, 5) // Log first 5 for debugging
+          });
         }
         
-        // Redirect to access denied page or dashboard
+        // Redirect to access denied page with detailed info
         const accessDeniedUrl = new URL('/access-denied', request.url);
         accessDeniedUrl.searchParams.set('route', pathname);
         accessDeniedUrl.searchParams.set('reason', hasAccess.reason);
+        if (hasAccess.requiredPermission) {
+          accessDeniedUrl.searchParams.set('permission', hasAccess.requiredPermission);
+        }
         return NextResponse.redirect(accessDeniedUrl);
       }
     } catch (error) {
-      console.error('Error checking route permissions:', error);
+      logger.error('Error checking route permissions', { error: error instanceof Error ? error.message : error, pathname });
       // Continue with default behavior on error
     }
   }
@@ -159,6 +171,8 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 // Permission cache for performance optimization
 interface PermissionCacheEntry {
   permissions: string[];
+  role: string;
+  profiles: string[];
   timestamp: number;
   ttl: number; // 5 minutes
 }
@@ -167,27 +181,43 @@ const permissionCache = new Map<string, PermissionCacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Check if user has permission to access a route with caching
+ * Enhanced permission checking with permission profile integration
  */
-async function checkRoutePermissions(
+async function checkPermissionProfileAccess(
   token: string, 
   route: string
-): Promise<{ allowed: boolean; requiredPermission?: string; reason: string }> {
+): Promise<{ 
+  allowed: boolean; 
+  requiredPermission?: string; 
+  reason: string;
+  userPermissions?: string[];
+  userRole?: string;
+  userProfiles?: string[];
+}> {
   try {
     // Check cache first
     const cacheKey = `perms_${token.slice(-10)}`; // Use last 10 chars as key
     const cached = permissionCache.get(cacheKey);
     
     let userPermissions: string[];
+    let userRole: string;
+    let userProfiles: string[];
     
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
       userPermissions = cached.permissions;
+      userRole = cached.role;
+      userProfiles = cached.profiles;
     } else {
       // Fetch from backend
-      const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/me`, {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (!baseUrl) {
+        throw new Error('Backend URL environment variable is required');
+      }
+      const response = await fetch(`${baseUrl}/api/v1/authentication/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${token}`,
+          'User-Agent': 'Next.js Middleware',
         },
       });
 
@@ -197,10 +227,14 @@ async function checkRoutePermissions(
 
       const userData = await response.json();
       userPermissions = userData.permissions || [];
+      userRole = userData.role || 'user';
+      userProfiles = userData.permission_profiles || [];
       
       // Cache the permissions
       permissionCache.set(cacheKey, {
         permissions: userPermissions,
+        role: userRole,
+        profiles: userProfiles,
         timestamp: Date.now(),
         ttl: CACHE_TTL
       });
@@ -216,36 +250,133 @@ async function checkRoutePermissions(
       }
     }
     
-    const requiredPermission = routePermissions[route];
+    // Find matching route configuration
+    const routeConfig = Object.keys(routePermissions).find(routePattern => {
+      if (routePattern.endsWith('/*')) {
+        const prefix = routePattern.slice(0, -2);
+        return route.startsWith(prefix);
+      }
+      return route === routePattern || route.startsWith(routePattern + '/');
+    });
 
-    if (!requiredPermission) {
-      return { allowed: true, reason: 'No permission required for this route' };
+    if (!routeConfig) {
+      return { 
+        allowed: true, 
+        reason: 'No permission required for this route',
+        userPermissions,
+        userRole,
+        userProfiles
+      };
     }
 
-    // Check if user has the specific permission
-    const hasPermission = userPermissions.includes(requiredPermission);
+    const config = routePermissions[routeConfig];
+    const requiredPermission = config.permission;
+
+    // Check permission profile access
+    if (config.profile && userProfiles.includes(config.profile)) {
+      return { 
+        allowed: true, 
+        reason: `Access granted via permission profile: ${config.profile}`,
+        requiredPermission,
+        userPermissions,
+        userRole,
+        userProfiles
+      };
+    }
+
+    // Check specific permission
+    if (userPermissions.includes(requiredPermission)) {
+      return { 
+        allowed: true, 
+        reason: 'Access granted via specific permission',
+        requiredPermission,
+        userPermissions,
+        userRole,
+        userProfiles
+      };
+    }
     
     // Check for wildcard permissions (e.g., "admin.*" covers "admin.users.view")
     const hasWildcardPermission = userPermissions.some((permission: string) => {
-      if (permission.endsWith('.*')) {
+      if (permission.endsWith('.*') || permission.endsWith(':*')) {
         const prefix = permission.slice(0, -2);
-        return requiredPermission.startsWith(prefix + '.');
+        return requiredPermission.startsWith(prefix + '.') || requiredPermission.startsWith(prefix + ':');
+      }
+      if (permission === '*') {
+        return true;
       }
       return false;
     });
 
-    const allowed = hasPermission || hasWildcardPermission || userPermissions.includes('*');
+    if (hasWildcardPermission) {
+      return { 
+        allowed: true, 
+        reason: 'Access granted via wildcard permission',
+        requiredPermission,
+        userPermissions,
+        userRole,
+        userProfiles
+      };
+    }
+
+    // Fallback to role-based access
+    if (config.fallbackRole && checkRoleBasedAccess(userRole, config.fallbackRole)) {
+      return { 
+        allowed: true, 
+        reason: `Access granted via role-based fallback: ${userRole}`,
+        requiredPermission,
+        userPermissions,
+        userRole,
+        userProfiles
+      };
+    }
 
     return {
-      allowed,
+      allowed: false,
       requiredPermission,
-      reason: allowed ? 'Permission granted' : `Missing required permission: ${requiredPermission}`
+      reason: `Access denied: Missing permission '${requiredPermission}' or profile '${config.profile || 'N/A'}' or role '${config.fallbackRole || 'N/A'}'`,
+      userPermissions,
+      userRole,
+      userProfiles
     };
   } catch (error) {
-    console.error('Error in checkRoutePermissions:', error);
+    logger.error('Error in checkPermissionProfileAccess', { error: error instanceof Error ? error.message : error, route });
     // Allow access on error to prevent blocking users due to technical issues
     return { allowed: true, reason: 'Permission check failed, allowing access' };
   }
+}
+
+/**
+ * Check role-based access for fallback scenarios
+ */
+function checkRoleBasedAccess(userRole: string, requiredRole: string): boolean {
+  const roleHierarchy: Record<string, number> = {
+    'user': 1,
+    'premium': 2,
+    'moderator': 3,
+    'admin': 4,
+    'super_admin': 5
+  };
+
+  const userLevel = roleHierarchy[userRole.toLowerCase()] || 0;
+  const requiredLevel = roleHierarchy[requiredRole.toLowerCase()] || 1;
+
+  return userLevel >= requiredLevel;
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+async function checkRoutePermissions(
+  token: string, 
+  route: string
+): Promise<{ allowed: boolean; requiredPermission?: string; reason: string }> {
+  const result = await checkPermissionProfileAccess(token, route);
+  return {
+    allowed: result.allowed,
+    requiredPermission: result.requiredPermission,
+    reason: result.reason
+  };
 }
 
 export const config = {

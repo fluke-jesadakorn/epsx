@@ -9,6 +9,7 @@ use crate::dom::events::UserRoleChangedEvent;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     id: UserId,
+    firebase_uid: String,
     email: Email,
     role: Role,
     perms: PermSet,
@@ -18,12 +19,13 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(email: Email, role: Role) -> Self {
+    pub fn new(firebase_uid: String, email: Email, role: Role) -> Self {
         let id = UserId::generate();
         let now = Utc::now();
         
         Self {
             id: id.clone(),
+            firebase_uid,
             email,
             perms: PermSet::for_role(&role),
             sub: Subscription::free(),
@@ -36,12 +38,14 @@ impl User {
     /// Create user from existing database data (basic version)
     pub fn from_existing(
         id: UserId,
+        firebase_uid: String,
         email: Email,
         role: Role,
     ) -> Self {
         let now = chrono::Utc::now();
         Self {
             id,
+            firebase_uid,
             email,
             perms: PermSet::for_role(&role),
             sub: Subscription::free(), // Default to free subscription
@@ -54,6 +58,7 @@ impl User {
     /// Create user from complete existing database data
     pub fn from_existing_complete(
         id: UserId,
+        firebase_uid: String,
         email: Email,
         role: Role,
         sub: Subscription,
@@ -62,6 +67,7 @@ impl User {
     ) -> Self {
         Self {
             id,
+            firebase_uid,
             email,
             perms: PermSet::for_role(&role),
             sub,
@@ -73,6 +79,7 @@ impl User {
     
     pub fn reconstruct(
         id: UserId,
+        firebase_uid: String,
         email: Email, 
         role: Role,
         perms: PermSet,
@@ -82,6 +89,7 @@ impl User {
     ) -> Self {
         Self {
             id,
+            firebase_uid,
             email,
             role,
             perms,
@@ -93,6 +101,7 @@ impl User {
     
     // Getters
     pub fn id(&self) -> &UserId { &self.id }
+    pub fn firebase_uid(&self) -> &str { &self.firebase_uid }
     pub fn email(&self) -> &Email { &self.email }
     pub fn role(&self) -> &Role { &self.role }
     pub fn perms(&self) -> &PermSet { &self.perms }
@@ -162,8 +171,10 @@ mod tests {
     #[test]
     fn should_create_new_user() {
         let email = Email::new("test@example.com").unwrap();
-        let user = User::new(email.clone(), Role::User);
+        let firebase_uid = "firebase123".to_string();
+        let user = User::new(firebase_uid.clone(), email.clone(), Role::User);
         
+        assert_eq!(user.firebase_uid(), &firebase_uid);
         assert_eq!(user.email(), &email);
         assert_eq!(user.role(), &Role::User);
         assert!(user.has_perm("read:own_data"));
@@ -172,7 +183,8 @@ mod tests {
     #[test]
     fn should_upgrade_user_role() {
         let email = Email::new("test@example.com").unwrap();
-        let mut user = User::new(email, Role::User);
+        let firebase_uid = "firebase123".to_string();
+        let mut user = User::new(firebase_uid, email, Role::User);
         
         let event = user.upgrade_role(Role::Premium).unwrap();
         
@@ -184,7 +196,8 @@ mod tests {
     #[test]
     fn should_reject_invalid_upgrade() {
         let email = Email::new("test@example.com").unwrap();
-        let mut user = User::new(email, Role::User);
+        let firebase_uid = "firebase123".to_string();
+        let mut user = User::new(firebase_uid, email, Role::User);
         
         let result = user.upgrade_role(Role::SuperAdmin);
         

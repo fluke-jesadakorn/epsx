@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Edit, Trash2, Eye, Filter } from 'lucide-react';
-import type { CustomPermission } from '@/types/admin/iam-enhanced';
+import { adminLogger } from '@/lib/logger';
+import type { CustomPermission } from '@/types/admin/iam';
+import { Edit, Eye, Filter, Key, Plus, Shield, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface PermissionStats {
   totalPermissions: number;
@@ -23,7 +24,7 @@ const PERMISSION_CATEGORIES = [
   'Data',
   'Admin',
   'Analytics',
-  'Custom'
+  'Custom',
 ];
 
 export function PermissionManagementDashboard() {
@@ -31,7 +32,8 @@ export function PermissionManagementDashboard() {
   const [stats, setStats] = useState<PermissionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPermission, setSelectedPermission] = useState<PermissionWithDetails | null>(null);
+  const [selectedPermission, setSelectedPermission] =
+    useState<PermissionWithDetails | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,25 +53,28 @@ export function PermissionManagementDashboard() {
       }
 
       const data = await response.json();
-      
+
       // Transform permissions and add mock categories/scopes
-      const permissionsWithDetails: PermissionWithDetails[] = (data || []).map((perm: CustomPermission) => ({
-        ...perm,
-        category: getCategoryFromPermission(perm.permission.resource),
-        scope: getScopeFromPermission(perm.permission.action),
-      }));
+      const permissionsWithDetails: PermissionWithDetails[] = (data || []).map(
+        (perm: CustomPermission) => ({
+          ...perm,
+          category: getCategoryFromPermission(perm.permission.resource),
+          scope: getScopeFromPermission(perm.permission.action),
+        })
+      );
 
       setPermissions(permissionsWithDetails);
-      
+
       // Calculate stats
       setStats({
         totalPermissions: permissionsWithDetails.length,
-        activePermissions: permissionsWithDetails.filter(p => p.isActive).length,
+        activePermissions: permissionsWithDetails.filter(p => p.isActive)
+          .length,
         categories: new Set(permissionsWithDetails.map(p => p.category)).size,
         customPermissions: permissionsWithDetails.length,
       });
     } catch (err: any) {
-      console.error('Failed to load permissions:', err);
+      adminLogger.error('Failed to load permissions', { error: err.message });
       setError(err.message || 'Failed to load permissions');
     } finally {
       setLoading(false);
@@ -94,9 +99,15 @@ export function PermissionManagementDashboard() {
   };
 
   const filteredPermissions = permissions.filter(permission => {
-    const matchesCategory = activeCategory === 'All' || permission.category === activeCategory;
-    const matchesSearch = permission.permission.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.permission.action.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      activeCategory === 'All' || permission.category === activeCategory;
+    const matchesSearch =
+      permission.permission.resource
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      permission.permission.action
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -107,11 +118,17 @@ export function PermissionManagementDashboard() {
 
     try {
       // TODO: Implement delete API call
-      console.log('Deleting permission:', permissionId);
+      // Permission deletion would be handled by backend API
       // Remove from local state for now
       setPermissions(permissions.filter(perm => perm.id !== permissionId));
     } catch (err) {
-      console.error('Failed to delete permission:', err);
+      adminLogger.error('Failed to delete permission', {
+        error:
+          typeof err === 'object' && err !== null && 'message' in err
+            ? (err as { message?: string }).message
+            : String(err),
+        permissionId,
+      });
     }
   };
 
@@ -142,7 +159,9 @@ export function PermissionManagementDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Permission Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Permission Management
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Manage custom permissions and access controls
           </p>
@@ -163,8 +182,12 @@ export function PermissionManagementDashboard() {
             <div className="flex items-center space-x-3">
               <Key className="w-8 h-8 text-blue-600" />
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Permissions</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalPermissions}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Total Permissions
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats.totalPermissions}
+                </p>
               </div>
             </div>
           </div>
@@ -173,8 +196,12 @@ export function PermissionManagementDashboard() {
             <div className="flex items-center space-x-3">
               <Shield className="w-8 h-8 text-green-600" />
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activePermissions}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Active
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats.activePermissions}
+                </p>
               </div>
             </div>
           </div>
@@ -183,8 +210,12 @@ export function PermissionManagementDashboard() {
             <div className="flex items-center space-x-3">
               <Filter className="w-8 h-8 text-purple-600" />
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Categories</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.categories}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Categories
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats.categories}
+                </p>
               </div>
             </div>
           </div>
@@ -193,8 +224,12 @@ export function PermissionManagementDashboard() {
             <div className="flex items-center space-x-3">
               <Plus className="w-8 h-8 text-orange-600" />
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Custom</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.customPermissions}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Custom
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats.customPermissions}
+                </p>
               </div>
             </div>
           </div>
@@ -206,7 +241,7 @@ export function PermissionManagementDashboard() {
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Category Tabs */}
           <div className="flex flex-wrap gap-2">
-            {PERMISSION_CATEGORIES.map((category) => (
+            {PERMISSION_CATEGORIES.map(category => (
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
@@ -227,7 +262,7 @@ export function PermissionManagementDashboard() {
               type="text"
               placeholder="Search permissions..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
@@ -241,7 +276,7 @@ export function PermissionManagementDashboard() {
             Permissions ({filteredPermissions.length})
           </h2>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700">
@@ -267,8 +302,11 @@ export function PermissionManagementDashboard() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredPermissions.map((permission) => (
-                <tr key={permission.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              {filteredPermissions.map(permission => (
+                <tr
+                  key={permission.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <Key className="w-5 h-5 text-blue-600 mr-3" />
@@ -293,11 +331,13 @@ export function PermissionManagementDashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      permission.isActive
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        permission.isActive
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      }`}
+                    >
                       {permission.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -314,7 +354,9 @@ export function PermissionManagementDashboard() {
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => console.log('Edit permission:', permission.id)}
+                        onClick={() => {
+                          /* TODO: Implement edit permission */
+                        }}
                         className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
                         title="Edit Permission"
                       >
@@ -339,11 +381,13 @@ export function PermissionManagementDashboard() {
           <div className="text-center py-12">
             <Key className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-              {permissions.length === 0 ? 'No permissions found' : 'No matching permissions'}
+              {permissions.length === 0
+                ? 'No permissions found'
+                : 'No matching permissions'}
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {permissions.length === 0 
-                ? 'Get started by creating a new permission.' 
+              {permissions.length === 0
+                ? 'Get started by creating a new permission.'
                 : 'Try adjusting your search or filter criteria.'}
             </p>
             {permissions.length === 0 && (
@@ -379,32 +423,56 @@ export function PermissionManagementDashboard() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Action</label>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.permission.action}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Action
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {selectedPermission.permission.action}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Resource</label>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.permission.resource}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Resource
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {selectedPermission.permission.resource}
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.category}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Category
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {selectedPermission.category}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Scope</label>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.scope}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Scope
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {selectedPermission.scope}
+                  </p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Granted By</label>
-                <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.grantedBy}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Granted By
+                </label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                  {selectedPermission.grantedBy}
+                </p>
               </div>
               {selectedPermission.reason && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason</label>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPermission.reason}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Reason
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
+                    {selectedPermission.reason}
+                  </p>
                 </div>
               )}
             </div>
@@ -425,7 +493,9 @@ export function PermissionManagementDashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Permission</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Create New Permission
+              </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -434,7 +504,8 @@ export function PermissionManagementDashboard() {
               </button>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Permission creation functionality will be implemented in the next phase.
+              Permission creation functionality will be implemented in the next
+              phase.
             </p>
             <div className="flex justify-end">
               <button

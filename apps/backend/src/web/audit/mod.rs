@@ -3,16 +3,19 @@
 pub mod handlers;
 
 use axum::{
-    routing::get,
+    routing::{get, post},
     Router,
 };
 
 use crate::web::auth::AppState;
-use handlers::{search_audit_logs, get_audit_statistics, export_audit_logs, get_audit_log};
+use handlers::{create_audit_log, search_audit_logs, get_audit_statistics, export_audit_logs, get_audit_log};
 
 /// Create audit log routes
 pub fn create_audit_router() -> Router<AppState> {
     Router::new()
+        // Create new audit log entry (for dual logging system)
+        .route("/logs", post(create_audit_log))
+        
         // Search and list audit logs with filters
         .route("/logs", get(search_audit_logs))
         
@@ -27,6 +30,19 @@ pub fn create_audit_router() -> Router<AppState> {
 }
 
 /// Audit API endpoints overview:
+/// 
+/// POST /audit/logs
+/// - Create new audit log entry (for dual logging system)
+/// - Request body:
+///   - user_id: Optional user ID who performed action
+///   - action: Action type (LOGIN_SUCCESS, REGISTER_FAILED, etc.)
+///   - resource_type: Resource type (auth, user, role, etc.)
+///   - details: JSON object with additional event details
+///   - ip_address: Client IP address
+///   - user_agent: Client user agent string
+///   - event_category: Event category (authentication, authorization, etc.)
+///   - severity: Event severity (low, medium, high, critical)
+///   - success: Whether the action was successful
 /// 
 /// GET /audit/logs
 /// - Search audit logs with filters (actor, action, resource, time range, etc.)

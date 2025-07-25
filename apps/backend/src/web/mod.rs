@@ -4,7 +4,7 @@ pub mod auth;
 pub mod admin;
 pub mod iam;
 pub mod audit;
-pub mod template;
+pub mod permission_profile;
 pub mod user;
 pub mod realtime;
 pub mod middleware;
@@ -24,16 +24,16 @@ use crate::infra::AppContainer;
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::use_cases::iam::IamUC;
-use auth::{AppState, auth_routes_v1};
-use admin::create_admin_routes;
+use auth::AppState;
+use admin::{create_admin_routes, create_admin_public_routes};
 use iam::create_iam_router;
 use audit::create_audit_router;
-use template::create_template_router;
+use permission_profile::create_permission_profile_router;
 use user::{user_routes, user_routes_v1};
 use realtime::realtime_routes;
-use middleware::auth_middleware::auth_middleware;
+use middleware::{auth_middleware::auth_middleware, permission_middleware::permission_middleware};
 use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public};
-use auth::enhanced_handlers::{enhanced_login_handler, register_handler, password_reset_handler};
+use auth::multi_handlers::{multi_login_handler, register_handler, password_reset_handler};
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -62,44 +62,83 @@ pub async fn premium_rankings_handler() -> Json<Value> {
 
 /// Create v1 API routes
 fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Router<AppState> {
-    // Create authentication routes
-    let auth_routes = auth_routes_v1();
+    // Create public authentication routes (no auth required)
+    let public_auth_routes = Router::new()
+        .route("/auth/login", post(multi_login_handler))
+        .route("/auth/register", post(register_handler))
+        .route("/auth/password-reset", post(password_reset_handler));
 
-    // Create user admin routes
-    let user_admin_routes = user_routes_v1();
+    // Create protected authentication routes (auth required)
+    let protected_auth_routes = Router::new()
+        .route("/auth/logout", post(logout_handler))
+        .route("/auth/refresh", post(refresh_handler))
+        .route("/auth/profile", get(me_handler))
+        .route("/auth/session/clear", post(logout_handler))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
 
-    // Market data routes (placeholder for now)
+    // Create user admin routes (auth required)
+    let user_admin_routes = user_routes_v1()
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
+    // Market data routes (auth required)
     let market_data_routes = Router::new()
         .route("/market-data/stocks/screener", get(placeholder_stock_screener))
         .route("/market-data/stocks/eps-growth-ranking", get(placeholder_eps_ranking))
-        .route("/market-data/symbols", get(placeholder_symbols));
+        .route("/market-data/symbols", get(placeholder_symbols))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
 
-    // Payment routes (placeholder for now)
+    // Payment routes (auth required)
     let payment_routes = Router::new()
         .route("/payments/crypto/deposit-address", get(placeholder_crypto_deposit))
         .route("/payments/musepay/create", post(placeholder_musepay_create))
-        .route("/webhooks/payments/musepay", post(placeholder_musepay_webhook));
+        .route("/webhooks/payments/musepay", post(placeholder_musepay_webhook))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
 
-    // System routes  
+    // System routes (auth required)
     let system_routes = Router::new()
-        .route("/system/cache", post(cache_handler));
+        .route("/system/cache", post(cache_handler))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
 
-    // Premium routes
+    // Premium routes (auth + permission required)
     let premium_routes = Router::new()
-        .route("/premium/rankings", get(premium_rankings_handler));
+        .route("/premium/rankings", get(premium_rankings_handler))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            permission_middleware,
+        ))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
+    // Audit routes for v1 API (public access for frontend logging)
+    let audit_routes_v1 = Router::new()
+        .nest("/audit", create_audit_router());
 
     Router::new()
-        .merge(auth_routes)
+        .merge(public_auth_routes)
+        .merge(protected_auth_routes)
         .merge(user_admin_routes)
         .merge(market_data_routes)
         .merge(payment_routes)
         .merge(system_routes)
         .merge(premium_routes)
-        // Apply auth middleware to all routes that need it
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ))
+        .merge(audit_routes_v1)
         .with_state(app_state)
 }
 
@@ -153,6 +192,7 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
     let auth_uc = Arc::new(AuthUC::new(
         container.user_repo.clone(),
         container.session_repo.clone(),
+        container.firebase_admin.clone(),
     ));
     
     // Create user management use case
@@ -180,13 +220,13 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
         container.user_repo.clone(),
         container.iam_repo.clone(),
         container.audit_repo.clone(),
-        container.template_repo.clone(),
+        container.permission_profile_repo.clone(),
     );
     
     // Create public routes
     let public_routes = Router::new()
         .route("/health", get(health_handler))
-        .route("/login", post(enhanced_login_handler))
+        .route("/login", post(multi_login_handler))
         .route("/register", post(register_handler))
         .route("/password-reset", post(password_reset_handler))
         .route("/auth/me-public", get(me_handler_public));
@@ -225,9 +265,9 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
             auth_middleware,
         ));
 
-    // Create template routes (require authentication and admin role)
-    let template_routes = Router::new()
-        .nest("/templates", create_template_router())
+    // Create permission profile routes (require authentication and admin role)
+    let permission_profile_routes = Router::new()
+        .nest("/permission-profiles", create_permission_profile_router())
         .route_layer(from_fn_with_state(
             app_state.clone(),
             auth_middleware,
@@ -253,8 +293,11 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
     let v1_api_routes = Router::new()
         .nest("/api/v1", create_v1_routes(app_state.clone(), container.clone()));
 
-    // Create admin API routes  
-    let admin_api_routes = Router::new()
+    // Create admin API routes with separated public/protected  
+    let admin_api_public_routes = Router::new()
+        .nest("/api/admin", create_admin_public_routes());
+
+    let admin_api_protected_routes = Router::new()
         .nest("/api/admin", create_admin_routes())
         .route_layer(from_fn_with_state(
             app_state.clone(),
@@ -265,11 +308,12 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
         .merge(public_routes)
         .merge(protected_routes)
         .merge(v1_api_routes)
-        .merge(admin_api_routes)
+        .merge(admin_api_public_routes)
+        .merge(admin_api_protected_routes)
         .merge(admin_routes) // Legacy admin routes
         .merge(iam_routes)
         .merge(audit_routes)
-        .merge(template_routes)
+        .merge(permission_profile_routes)
         .merge(user_routes) // Legacy user routes
         .merge(realtime_routes)
         // Add cookie middleware
@@ -288,7 +332,7 @@ pub async fn create_test_app() -> Router {
     Router::new()
         .route("/health", get(health_handler))
         .route("/api/auth/login", post(health_handler)) // Mock endpoint
-        .route("/api/templates", get(health_handler)) // Mock endpoint
+        .route("/api/permission-profiles", get(health_handler)) // Mock endpoint
         .route("/api/user/profile", get(health_handler)) // Mock endpoint
 }
 

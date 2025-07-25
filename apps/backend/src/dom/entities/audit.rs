@@ -90,6 +90,10 @@ pub enum AuditAction {
     DataExported,
     BackupCreated,
     BackupRestored,
+    
+    // Notification actions
+    NotificationSent,
+    NotificationFailed,
 }
 
 /// Types of resources that can be audited
@@ -105,6 +109,7 @@ pub enum ResourceType {
     AuditLog,
     Backup,
     Export,
+    Notification,
 }
 
 /// Result of the audited operation
@@ -345,6 +350,11 @@ impl AuditMetadata {
         self.additional_data.insert(key, value);
         self
     }
+    
+    pub fn with_additional_info(mut self, key: &str, value: String) -> Self {
+        self.additional_data.insert(key.to_string(), value);
+        self
+    }
 }
 
 impl AuditQuery {
@@ -449,6 +459,8 @@ impl std::fmt::Display for AuditAction {
             AuditAction::DataExported => write!(f, "data_exported"),
             AuditAction::BackupCreated => write!(f, "backup_created"),
             AuditAction::BackupRestored => write!(f, "backup_restored"),
+            AuditAction::NotificationSent => write!(f, "notification_sent"),
+            AuditAction::NotificationFailed => write!(f, "notification_failed"),
         }
     }
 }
@@ -466,6 +478,7 @@ impl std::fmt::Display for ResourceType {
             ResourceType::AuditLog => write!(f, "audit_log"),
             ResourceType::Backup => write!(f, "backup"),
             ResourceType::Export => write!(f, "export"),
+            ResourceType::Notification => write!(f, "notification"),
         }
     }
 }

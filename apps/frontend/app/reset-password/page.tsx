@@ -10,13 +10,13 @@ interface ResetPasswordPageProps {
 }
 
 export default async function ResetPasswordPage({ searchParams }: ResetPasswordPageProps) {
-  // Redirect to dashboard if already authenticated
+  // Security: Ensure only unauthenticated users can access password reset
   await requireGuest();
 
   const token = searchParams.token;
   const error = searchParams.error;
 
-  // Redirect to forgot password page if no token provided
+  // Security: Validate reset token presence to prevent unauthorized access
   if (!token) {
     redirect('/forgot-password?error=Invalid or missing reset token');
   }
@@ -45,7 +45,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
             </p>
           </div>
           
-          {/* Show server-side error if present */}
+          {/* Security: Safely display server-side errors with proper encoding */}
           {error && (
             <div className="mb-6 rounded-2xl bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-4 border border-red-200 dark:border-red-800">
               <div className="text-sm text-red-700 dark:text-red-400 font-medium">⚠️ {decodeURIComponent(error)}</div>

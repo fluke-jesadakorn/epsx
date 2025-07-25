@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminLogger } from '../../../../lib/logger';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
     // Forward cookies to backend for logout
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/authentication/logout`, {
       method: 'POST',
       headers: {
         'Cookie': cookieHeader,
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     return nextResponse;
   } catch (error) {
-    console.error('Logout error:', error);
+    adminLogger.error('Admin logout error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

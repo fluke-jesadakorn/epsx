@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ServerCookies, COOKIE_NAMES } from './cookies';
+import { logger } from './logger';
 
 export interface ServerAuthResult {
   isAuthenticated: boolean;
@@ -38,7 +39,7 @@ export async function getServerAuth(): Promise<ServerAuthResult> {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
     
     try {
-      const response = await fetch(`${backendUrl}/auth/me`, {
+      const response = await fetch(`${backendUrl}/api/v1/authentication/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${sessionId}`,
@@ -75,7 +76,7 @@ export async function getServerAuth(): Promise<ServerAuthResult> {
         },
       };
     } catch (networkError) {
-      console.log('Backend not available for auth check, trying to parse session data locally');
+      logger.info('Backend not available for auth check, trying to parse session data locally', { error: networkError instanceof Error ? networkError.message : networkError });
       
       // If backend is not available, try to parse the session data directly
       try {
@@ -102,7 +103,7 @@ export async function getServerAuth(): Promise<ServerAuthResult> {
           };
         }
       } catch (parseError) {
-        console.error('Failed to parse session data:', parseError);
+        logger.error('Failed to parse session data', { error: parseError instanceof Error ? parseError.message : parseError });
       }
       
       // Don't try to clear invalid session in Server Component context
@@ -112,7 +113,7 @@ export async function getServerAuth(): Promise<ServerAuthResult> {
       };
     }
   } catch (error) {
-    console.error('Server auth check failed:', error);
+    logger.error('Server auth check failed', { error: error instanceof Error ? error.message : error });
     return { 
       isAuthenticated: false, 
       error: 'Authentication check failed' 
@@ -199,7 +200,7 @@ export async function createServerSession(
 ): Promise<{ success: boolean; error?: string; user?: any }> {
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/login`, {
+    const response = await fetch(`${backendUrl}/api/v1/authentication/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -208,7 +209,6 @@ export async function createServerSession(
         type: 'credentials',
         email,
         password,
-        ...additionalData,
       }),
     });
 
@@ -231,9 +231,9 @@ export async function createServerSession(
         const sessionValue = sessionCookieMatch[1].split('=')[1];
         // Set the session cookie using our cookie utilities
         await ServerCookies.set('SESSION', sessionValue);
-        console.log('Session cookie set:', { sessionValue: sessionValue.substring(0, 10) + '...' });
+        logger.debug('Session cookie set', { sessionPreview: sessionValue.substring(0, 10) + '...' });
       } else {
-        console.error('No sess_id cookie found in Set-Cookie header:', setCookieHeader);
+        logger.error('No sess_id cookie found in Set-Cookie header', { setCookieHeader });
       }
     } else {
       // Fallback: If backend doesn't set cookie, create a session from userData
@@ -249,9 +249,9 @@ export async function createServerSession(
           session_type: userData.session_type || 'user'
         };
         await ServerCookies.set('SESSION', JSON.stringify(sessionData));
-        console.log('Created session from userData:', { userId: userData.user_id, email: userData.email });
+        logger.debug('Created session from userData', { userId: userData.user_id, email: userData.email });
       } else {
-        console.error('No session cookie in response and no valid user data:', userData);
+        logger.error('No session cookie in response and no valid user data', { userData });
       }
     }
     
@@ -260,7 +260,7 @@ export async function createServerSession(
       user: userData 
     };
   } catch (error) {
-    console.error('Server session creation failed:', error);
+    logger.error('Server session creation failed', { error: error instanceof Error ? error.message : error });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Session creation failed' 
@@ -277,7 +277,7 @@ export async function destroyServerSession(): Promise<void> {
     
     if (sessionId) {
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-      await fetch(`${backendUrl}/auth/logout`, {
+      await fetch(`${backendUrl}/api/v1/authentication/logout`, {
         method: 'POST',
         headers: {
           'Cookie': `sess_id=${sessionId}`,
@@ -289,7 +289,7 @@ export async function destroyServerSession(): Promise<void> {
     // Clear client-side cookies
     await ServerCookies.clearAuthCookies();
   } catch (error) {
-    console.error('Server session destruction failed:', error);
+    logger.error('Server session destruction failed', { error: error instanceof Error ? error.message : error });
   }
 }
 
@@ -310,7 +310,7 @@ export async function validateCSRFToken(providedToken: string): Promise<boolean>
     const storedToken = await ServerCookies.get('CSRF');
     return storedToken === providedToken;
   } catch (error) {
-    console.error('CSRF token validation failed:', error);
+    logger.error('CSRF token validation failed', { error: error instanceof Error ? error.message : error });
     return false;
   }
 }
@@ -354,7 +354,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
     }
     
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/refresh`, {
+    const response = await fetch(`${backendUrl}/api/v1/authentication/refresh`, {
       method: 'POST',
       headers: {
         'Cookie': `sess_id=${sessionId}`,
@@ -366,7 +366,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
     // If it returns 401, session needs refresh/login
     return !response.ok;
   } catch (error) {
-    console.error('Session refresh check failed:', error);
+    logger.error('Session refresh check failed', { error: error instanceof Error ? error.message : error });
     return true; // Assume needs refresh on error
   }
 }

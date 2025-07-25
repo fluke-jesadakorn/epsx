@@ -63,7 +63,7 @@ impl Config {
                 .parse()
                 .expect("PORT must be a number"),
             frontend_url: env::var("FRONTEND_URL")
-                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
+                .expect("FRONTEND_URL environment variable is required"),
             database: DatabaseConfig::default(),
             email: EmailConfig::from_env(),
             payment: PaymentServiceConfig::from_env(),
@@ -74,7 +74,7 @@ impl Config {
     }
 
     pub fn host(&self) -> String {
-        env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+        env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string())
     }
 
     pub fn port(&self) -> u16 {
@@ -120,7 +120,7 @@ impl PaymentServiceConfig {
         Self {
             coinpayments,
             webhook_url: env::var("PAYMENT_WEBHOOK_URL")
-                .unwrap_or_else(|_| "http://localhost:8080/webhook/payment".to_string()),
+                .expect("PAYMENT_WEBHOOK_URL environment variable is required"),
             confirmation_count: env::var("PAYMENT_CONFIRMATION_COUNT")
                 .unwrap_or_else(|_| "3".to_string())
                 .parse()

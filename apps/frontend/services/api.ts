@@ -1,4 +1,8 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL environment variable is required');
+}
 
 interface ApiResponse<T = any> {
   data: T;
@@ -18,6 +22,7 @@ class ApiService {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include',
     };
 
     const response = await fetch(url, config);

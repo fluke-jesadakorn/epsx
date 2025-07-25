@@ -11,9 +11,12 @@ import {
   resetLoginAttempts,
   getClientIP,
   logSecurityEvent,
-  validatePasswordStrength
+  validatePasswordStrength,
+  SecurityEventCategory,
+  EventSeverity
 } from '@/lib/security';
 import type { User } from '@/types/auth/user';
+import { logger } from '@/lib/logger';
 
 // Validation schemas
 const emailSchema = z.string().email('Please enter a valid email address');
@@ -37,6 +40,17 @@ const registerSchema = z.object({
   path: ["confirmPassword"]
 });
 
+const enhancedRegisterSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  package_tier: z.string().default('Bronze'),
+  referral_code: z.string().optional(),
+  source: z.string().default('web_registration'),
+  region: z.string().optional(),
+  utm_source: z.string().optional(),
+  utm_campaign: z.string().optional(),
+});
+
 const passwordResetSchema = z.object({
   email: emailSchema
 });
@@ -48,6 +62,9 @@ export async function loginAction(
   email: string,
   password: string
 ): Promise<{ success: boolean; error?: string; fieldErrors?: Record<string, string[]> }> {
+  // Sanitize inputs first so they're available in catch block
+  const sanitizedEmail = sanitizeInput(email).toLowerCase();
+  
   try {
     // Security checks
     const securityCheck = await performSecurityChecks({
@@ -61,13 +78,14 @@ export async function loginAction(
         action: 'LOGIN_SECURITY_CHECK_FAILED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
         details: { error: securityCheck.error }
       });
       return { success: false, error: 'Security validation failed' };
     }
 
-    // Sanitize inputs
-    const sanitizedEmail = sanitizeInput(email).toLowerCase();
+    // Sanitize remaining inputs
     const sanitizedPassword = sanitizeInput(password);
 
     // Check login attempts
@@ -77,6 +95,8 @@ export async function loginAction(
         action: 'LOGIN_ATTEMPTS_EXCEEDED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
         details: { email: sanitizedEmail }
       });
       return { success: false, error: 'Too many login attempts. Please try again later.' };
@@ -94,6 +114,8 @@ export async function loginAction(
         action: 'LOGIN_VALIDATION_FAILED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.MEDIUM,
         details: { email: sanitizedEmail, errors: fieldErrors }
       });
       return { 
@@ -110,6 +132,8 @@ export async function loginAction(
         action: 'LOGIN_FAILED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
         details: { email: sanitizedEmail, error: result.error }
       });
       return { success: false, error: result.error || 'Login failed' };
@@ -122,16 +146,20 @@ export async function loginAction(
       action: 'LOGIN_SUCCESS',
       resource: 'auth',
       success: true,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.MEDIUM,
       details: { email: sanitizedEmail }
     });
     
     return { success: true };
   } catch (error) {
-    console.error('Login action error:', error);
+    logger.error('Login action failed', { error: error.message, email: sanitizedEmail });
     await logSecurityEvent({
       action: 'LOGIN_ERROR',
       resource: 'auth',
       success: false,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.HIGH,
       details: { error: error instanceof Error ? error.message : 'Unknown error' }
     });
     return { 
@@ -148,7 +176,7 @@ export async function logoutAction(): Promise<void> {
   try {
     await destroyServerSession();
   } catch (error) {
-    console.error('Logout action error:', error);
+    logger.error('Logout action failed', { error: error.message });
   }
   
   redirect('/login');
@@ -163,6 +191,9 @@ export async function registerAction(
   confirmPassword: string,
   additionalData?: Record<string, any>
 ): Promise<{ success: boolean; error?: string; fieldErrors?: Record<string, string[]> }> {
+  // Sanitize inputs first so they're available in catch block
+  const sanitizedEmail = sanitizeInput(email).toLowerCase();
+
   try {
     // Security checks
     const securityCheck = await performSecurityChecks({
@@ -176,13 +207,14 @@ export async function registerAction(
         action: 'REGISTER_SECURITY_CHECK_FAILED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
         details: { error: securityCheck.error }
       });
       return { success: false, error: 'Security validation failed' };
     }
 
-    // Sanitize inputs
-    const sanitizedEmail = sanitizeInput(email).toLowerCase();
+    // Sanitize remaining inputs
     const sanitizedPassword = sanitizeInput(password);
     const sanitizedConfirmPassword = sanitizeInput(confirmPassword);
 
@@ -193,6 +225,8 @@ export async function registerAction(
         action: 'REGISTER_WEAK_PASSWORD',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.MEDIUM,
         details: { email: sanitizedEmail, score: passwordStrength.score }
       });
       return { 
@@ -215,6 +249,8 @@ export async function registerAction(
         action: 'REGISTER_VALIDATION_FAILED',
         resource: 'auth',
         success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.MEDIUM,
         details: { email: sanitizedEmail, errors: fieldErrors }
       });
       return { 
@@ -224,8 +260,11 @@ export async function registerAction(
       };
     }
 
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/register`, {
+    const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('BACKEND_URL environment variable is required');
+    }
+    const response = await fetch(`${backendUrl}/api/v1/authentication/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -239,15 +278,25 @@ export async function registerAction(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      let errorMessage = 'Registration failed';
+      if (response.status === 409) {
+        errorMessage = 'An account with this email already exists';
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+      
       await logSecurityEvent({
         action: 'REGISTER_BACKEND_FAILED',
         resource: 'auth',
         success: false,
-        details: { email: sanitizedEmail, error: errorData.error }
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
+        details: { email: sanitizedEmail, error: errorMessage, status: response.status }
       });
       return { 
         success: false, 
-        error: errorData.error || 'Registration failed' 
+        error: errorMessage
       };
     }
 
@@ -255,6 +304,8 @@ export async function registerAction(
       action: 'REGISTER_SUCCESS',
       resource: 'auth',
       success: true,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.MEDIUM,
       details: { email: sanitizedEmail }
     });
 
@@ -265,11 +316,13 @@ export async function registerAction(
       error: loginResult.error
     };
   } catch (error) {
-    console.error('Registration action error:', error);
+    logger.error('Registration action failed', { error: error.message, email: sanitizedEmail });
     await logSecurityEvent({
       action: 'REGISTER_ERROR',
       resource: 'auth',
       success: false,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.HIGH,
       details: { error: error instanceof Error ? error.message : 'Unknown error' }
     });
     return { 
@@ -285,6 +338,9 @@ export async function registerAction(
 export async function requestPasswordResetAction(
   email: string
 ): Promise<{ success: boolean; error?: string; fieldErrors?: Record<string, string[]> }> {
+  // Sanitize input first so it's available in catch block
+  const sanitizedEmail = sanitizeInput(email).toLowerCase();
+  
   try {
     // Validate input
     const validation = passwordResetSchema.safeParse({ email });
@@ -297,8 +353,11 @@ export async function requestPasswordResetAction(
       };
     }
 
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/forgot-password`, {
+    const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('BACKEND_URL environment variable is required');
+    }
+    const response = await fetch(`${backendUrl}/api/v1/authentication/password-reset`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -316,7 +375,7 @@ export async function requestPasswordResetAction(
 
     return { success: true };
   } catch (error) {
-    console.error('Password reset request error:', error);
+    logger.error('Password reset request failed', { error: error.message, email: sanitizedEmail });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Password reset request failed' 
@@ -332,8 +391,11 @@ export async function resetPasswordAction(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/reset-password`, {
+    const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('BACKEND_URL environment variable is required');
+    }
+    const response = await fetch(`${backendUrl}/api/v1/authentication/password-reset`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -351,7 +413,7 @@ export async function resetPasswordAction(
 
     return { success: true };
   } catch (error) {
-    console.error('Password reset error:', error);
+    logger.error('Password reset failed', { error: error.message });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Password reset failed' 
@@ -383,7 +445,7 @@ export async function getCurrentUser(): Promise<User | null> {
       photoURL: user.photoURL,
     };
   } catch (error) {
-    console.error('Get current user error:', error);
+    logger.error('Get current user failed', { error: error.message });
     return null;
   }
 }
@@ -399,8 +461,11 @@ export async function needsSessionRefresh(): Promise<boolean> {
       return true;
     }
     
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/refresh`, {
+    const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('BACKEND_URL environment variable is required');
+    }
+    const response = await fetch(`${backendUrl}/api/v1/authentication/refresh`, {
       method: 'POST',
       headers: {
         'Cookie': `sess_id=${sessionId}`,
@@ -410,7 +475,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
     
     return !response.ok;
   } catch (error) {
-    console.error('Session refresh check failed:', error);
+    logger.error('Session refresh check failed', { error: error.message });
     return true;
   }
 }
@@ -420,7 +485,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
  * @deprecated Use loginAction instead
  */
 export async function handleSignIn(idToken: string): Promise<{ success: boolean; error?: string }> {
-  console.warn('handleSignIn is deprecated, use loginAction instead');
+  logger.warn('Deprecated function called', { function: 'handleSignIn', replacement: 'loginAction' });
   return { success: false, error: 'This method is deprecated' };
 }
 
@@ -429,7 +494,7 @@ export async function handleSignIn(idToken: string): Promise<{ success: boolean;
  * @deprecated Use logoutAction instead
  */
 export async function handleSignOut(): Promise<void> {
-  console.warn('handleSignOut is deprecated, use logoutAction instead');
+  logger.warn('Deprecated function called', { function: 'handleSignOut', replacement: 'logoutAction' });
   await logoutAction();
 }
 
@@ -438,7 +503,203 @@ export async function handleSignOut(): Promise<void> {
  * @deprecated Use needsSessionRefresh instead
  */
 export async function refreshSession(): Promise<{ success: boolean }> {
-  console.warn('refreshSession is deprecated, use needsSessionRefresh instead');
+  logger.warn('Deprecated function called', { function: 'refreshSession', replacement: 'needsSessionRefresh' });
   const needs = await needsSessionRefresh();
   return { success: !needs };
+}
+
+/**
+ * Server Action for login form handling with redirect
+ */
+export async function loginFormAction(formData: FormData) {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const redirectTo = formData.get('redirectTo') as string || '/dashboard';
+  
+  const result = await loginAction(email, password);
+  
+  if (result.success) {
+    redirect(redirectTo);
+  }
+  
+  // In case of error, redirect to login with error parameter
+  // This is a simplified approach - in production you might want better error handling
+  redirect('/login?error=Login failed');
+}
+
+/**
+ * Enhanced registration action with permission profile auto-assignment
+ */
+export async function registerUserWithPermissionProfiles(
+  email: string,
+  password: string,
+  packageTier: string = 'Bronze',
+  referralCode?: string,
+  utmSource?: string,
+  utmCampaign?: string
+): Promise<{ 
+  success: boolean; 
+  error?: string; 
+  fieldErrors?: Record<string, string[]>;
+  featuresUnlocked?: string[];
+  totalFeaturesAssigned?: number;
+}> {
+  try {
+    // Security checks
+    const securityCheck = await performSecurityChecks({
+      checkOrigin: true,
+      checkUserAgent: true,
+      rateLimitKey: 'register'
+    });
+    
+    if (!securityCheck.success) {
+      await logSecurityEvent({
+        action: 'ENHANCED_REGISTER_SECURITY_CHECK_FAILED',
+        resource: 'auth',
+        success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
+        details: { error: securityCheck.error }
+      });
+      return { success: false, error: 'Security validation failed' };
+    }
+
+    // Sanitize inputs
+    const sanitizedEmail = sanitizeInput(email).toLowerCase();
+    const sanitizedPassword = sanitizeInput(password);
+    const sanitizedPackageTier = sanitizeInput(packageTier);
+
+    // Enhanced password strength validation
+    const passwordStrength = validatePasswordStrength(sanitizedPassword);
+    if (!passwordStrength.isValid) {
+      await logSecurityEvent({
+        action: 'ENHANCED_REGISTER_WEAK_PASSWORD',
+        resource: 'auth',
+        success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.MEDIUM,
+        details: { email: sanitizedEmail, score: passwordStrength.score }
+      });
+      return { 
+        success: false, 
+        error: 'Password does not meet security requirements',
+        fieldErrors: { password: passwordStrength.feedback }
+      };
+    }
+
+    // Validate input with enhanced schema
+    const validation = enhancedRegisterSchema.safeParse({ 
+      email: sanitizedEmail, 
+      password: sanitizedPassword,
+      package_tier: sanitizedPackageTier,
+      referral_code: referralCode,
+      source: 'web_registration',
+      region: 'US', // Could be determined from geo-location
+      utm_source: utmSource,
+      utm_campaign: utmCampaign,
+    });
+    
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors;
+      await logSecurityEvent({
+        action: 'ENHANCED_REGISTER_VALIDATION_FAILED',
+        resource: 'auth',
+        success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.MEDIUM,
+        details: { email: sanitizedEmail, errors: fieldErrors }
+      });
+      return { 
+        success: false, 
+        error: 'Please fix the validation errors',
+        fieldErrors 
+      };
+    }
+
+    // Call enhanced registration endpoint
+    const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('BACKEND_URL environment variable is required');
+    }
+    const response = await fetch(`${backendUrl}/api/v1/authentication/register-auto`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validation.data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      await logSecurityEvent({
+        action: 'ENHANCED_REGISTER_BACKEND_FAILED',
+        resource: 'auth',
+        success: false,
+        category: SecurityEventCategory.AUTHENTICATION,
+        severity: EventSeverity.HIGH,
+        details: { email: sanitizedEmail, error: errorData.error, status: response.status }
+      });
+      
+      let errorMessage = 'Registration failed';
+      if (response.status === 409) {
+        errorMessage = 'User already exists';
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage
+      };
+    }
+
+    const registrationResult = await response.json();
+
+    await logSecurityEvent({
+      action: 'ENHANCED_REGISTER_SUCCESS',
+      resource: 'auth',
+      success: true,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.MEDIUM,
+      details: { 
+        email: sanitizedEmail, 
+        featuresAssigned: registrationResult.total_features_assigned,
+        packageTier: sanitizedPackageTier
+      }
+    });
+
+    // Set auth cookie from registration response
+    const cookies = await import('next/headers');
+    const cookieStore = cookies.cookies();
+    
+    cookieStore.set({
+      name: 'auth-token',
+      value: registrationResult.access_token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: registrationResult.expires_in,
+      path: '/',
+    });
+
+    return {
+      success: true,
+      featuresUnlocked: registrationResult.features_unlocked || [],
+      totalFeaturesAssigned: registrationResult.total_features_assigned || 0,
+    };
+  } catch (error) {
+    logger.error('Enhanced registration action failed', { error: error.message, email: emailInput });
+    await logSecurityEvent({
+      action: 'ENHANCED_REGISTER_ERROR',
+      resource: 'auth',
+      success: false,
+      category: SecurityEventCategory.AUTHENTICATION,
+      severity: EventSeverity.HIGH,
+      details: { error: error instanceof Error ? error.message : 'Unknown error' }
+    });
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Registration failed' 
+    };
+  }
 }

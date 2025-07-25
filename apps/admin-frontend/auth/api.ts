@@ -13,10 +13,11 @@ interface AdminUsrRes {
 
 export const adminAuthApi = {
   login: async (req: AdminLoginReq): Promise<AdminUsrRes> => {
-    const res = await fetch('/api/admin/authentication/login', {
+    const res = await fetch('/api/admin/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+      credentials: 'include',
     });
     
     if (!res.ok) throw new Error('Admin login failed');
@@ -24,12 +25,12 @@ export const adminAuthApi = {
   },
 
   logout: async (): Promise<void> => {
-    const res = await fetch('/api/admin/authentication/logout', { method: 'POST' });
+    const res = await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
     if (!res.ok) throw new Error('Admin logout failed');
   },
 
   me: async (): Promise<AdminUsrRes> => {
-    const res = await fetch('/api/admin/authentication/profile');
+    const res = await fetch('/api/admin/auth/profile', { credentials: 'include' });
     if (!res.ok) throw new Error('Admin auth check failed');
     return res.json();
   },

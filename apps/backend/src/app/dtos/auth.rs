@@ -47,3 +47,34 @@ pub struct ValidateReq {
     pub token: String,
     pub sess_id: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoRegistrationRequest {
+    pub email: String,
+    pub password: String,
+    pub package_tier: String,
+    pub referral_code: Option<String>,
+    pub source: String,
+    pub region: Option<String>,
+    pub utm_source: Option<String>,
+    pub utm_campaign: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegistrationResponse {
+    pub user_id: UserId,
+    pub access_token: String,
+    pub expires_in: i64,
+    pub features_unlocked: Vec<String>,
+    pub total_features_assigned: u32,
+    pub assignment_results: Vec<FeatureAssignmentResult>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FeatureAssignmentResult {
+    pub feature_id: String,
+    pub profile_name: String,
+    pub success: bool,
+    pub reason: String,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}

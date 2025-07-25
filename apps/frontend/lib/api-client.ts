@@ -1,6 +1,8 @@
 // Unified API client to replace Firebase SDK
 // Handles all backend communication with cookie-based authentication
 
+import { logger } from './logger';
+
 interface ApiResponse<T = any> {
   data?: T;
   error?: string;
@@ -125,51 +127,51 @@ class ApiClientImpl implements ApiClient {
 
   // Authentication methods
   async login(credentials: LoginRequest): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/login', {
+    return this.request<UserProfile>('/api/v1/authentication/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   async register(userData: RegisterRequest): Promise<ApiResponse<{ user_id: string; email: string; verification_sent: boolean; message: string }>> {
-    return this.request('/register', {
+    return this.request('/api/v1/authentication/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
   async logout(): Promise<ApiResponse<void>> {
-    return this.request('/auth/logout', {
+    return this.request('/api/v1/authentication/logout', {
       method: 'POST',
     });
   }
 
   async getCurrentUser(): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/auth/me');
+    return this.request<UserProfile>('/api/v1/authentication/profile');
   }
 
   async refreshSession(): Promise<ApiResponse<{ expires_at: string }>> {
-    return this.request('/auth/refresh', {
+    return this.request('/api/v1/authentication/refresh', {
       method: 'POST',
     });
   }
 
   async resetPassword(request: PasswordResetRequest): Promise<ApiResponse<{ message: string; reset_sent: boolean }>> {
-    return this.request('/password-reset', {
+    return this.request('/api/v1/authentication/password-reset', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async updateProfile(request: ProfileUpdateRequest): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/auth/profile', {
+    return this.request<UserProfile>('/api/v1/authentication/profile', {
       method: 'PATCH',
       body: JSON.stringify(request),
     });
   }
 
   async changePassword(request: PasswordChangeRequest): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/auth/password', {
+    return this.request('/api/v1/authentication/password', {
       method: 'PATCH',
       body: JSON.stringify(request),
     });
@@ -240,12 +242,12 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data as PaymentStatusUpdate);
         }
       } catch (error) {
-        console.error('WebSocket message parse error:', error);
+        logger.error('WebSocket message parse error', { error: error instanceof Error ? error.message : error, customerRefId });
       }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      logger.error('WebSocket error', { error: error instanceof Error ? error.message : error, customerRefId });
       // Fallback to SSE
       this.fallbackToSSE(customerRefId, callback);
     };
@@ -275,7 +277,7 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data);
         }
       } catch (error) {
-        console.error('WebSocket notification parse error:', error);
+        logger.error('WebSocket notification parse error', { error: error instanceof Error ? error.message : error });
       }
     };
 
@@ -298,12 +300,12 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data as PaymentStatusUpdate);
         }
       } catch (error) {
-        console.error('SSE message parse error:', error);
+        logger.error('SSE message parse error', { error: error instanceof Error ? error.message : error, customerRefId });
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
+      logger.error('SSE error', { error: error instanceof Error ? error.message : error, customerRefId });
     };
 
     return () => {

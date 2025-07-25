@@ -1,7 +1,8 @@
 import { StateAction, StateMiddleware } from './types';
+import { logger } from '../logger';
 
-// Enhanced logging middleware with filtering and formatting
-export const enhancedLoggingMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
+// Advanced logging middleware with filtering and formatting
+export const advancedLoggingMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
   if (process.env.NODE_ENV !== 'development') return;
 
   // Filter out noisy actions
@@ -11,25 +12,13 @@ export const enhancedLoggingMiddleware: StateMiddleware = (action, prevState, ne
   const timestamp = new Date().toISOString();
   const duration = action.meta?.timestamp ? Date.now() - action.meta.timestamp : 0;
 
-  console.group(`🔄 [${timestamp}] ${store}:${action.type} ${duration > 0 ? `(${duration}ms)` : ''}`);
-  
-  // Color-coded action types
-  const actionColor = getActionColor(action.type);
-  console.log(`%c${action.type}`, `color: ${actionColor}; font-weight: bold`, action.payload);
-  
-  // Show diff for state changes
-  if (JSON.stringify(prevState) !== JSON.stringify(nextState)) {
-    console.log('📄 Previous State:', prevState);
-    console.log('📄 Next State:', nextState);
-    
-    // Show diff for objects
-    const diff = getStateDiff(prevState, nextState);
-    if (Object.keys(diff).length > 0) {
-      console.log('🔄 Changes:', diff);
-    }
-  }
-  
-  console.groupEnd();
+  logger.debug(`State change: ${store}:${action.type}`, {
+    store,
+    actionType: action.type,
+    duration: duration > 0 ? duration : undefined,
+    payload: action.payload,
+    hasStateChange: JSON.stringify(prevState) !== JSON.stringify(nextState)
+  });
 };
 
 function getActionColor(actionType: string): string {
@@ -76,7 +65,7 @@ function getStateDiff(prev: any, next: any): Record<string, any> {
 }
 
 // Analytics middleware for production
-export const enhancedAnalyticsMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
+export const advancedAnalyticsMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
   // Only track important user actions
   const trackableActions = [
     'ADD_TO_WATCHLIST', 'REMOVE_FROM_WATCHLIST', 'ADD_PRICE_ALERT',
@@ -141,13 +130,13 @@ export const performanceMiddleware: StateMiddleware = (action, prevState, nextSt
 
   // Warn about slow state changes
   if (duration > 100) {
-    console.warn(`⚠️ Slow state change detected: ${store}:${action.type} took ${duration}ms`);
+    logger.warn(`Slow state change detected: ${store}:${action.type}`, { duration, store, actionType: action.type });
   }
 
   // Calculate state size
   const stateSize = JSON.stringify(nextState).length;
   if (stateSize > 1000000) { // 1MB
-    console.warn(`⚠️ Large state detected: ${store} is ${(stateSize / 1024 / 1024).toFixed(2)}MB`);
+    logger.warn(`Large state detected: ${store}`, { store, sizeBytes: stateSize, sizeMB: (stateSize / 1024 / 1024).toFixed(2) });
   }
 
   // Track action frequency
@@ -161,7 +150,7 @@ export const performanceMiddleware: StateMiddleware = (action, prevState, nextSt
 
   // Warn about frequent actions
   if (frequency > 100 && frequency % 50 === 0) {
-    console.warn(`⚠️ Frequent action detected: ${actionKey} has been called ${frequency} times`);
+    logger.warn(`Frequent action detected: ${actionKey}`, { actionKey, frequency });
   }
 };
 
@@ -180,22 +169,27 @@ export const errorHandlingMiddleware: StateMiddleware = (action, prevState, next
     switch (store) {
       case 'ui':
         if (!nextState.theme || !nextState.sidebar || !nextState.loading) {
-          console.warn(`⚠️ UI state missing required properties:`, nextState);
+          logger.warn('UI state missing required properties', { store, nextState });
         }
         break;
       case 'user':
         if (nextState.data && !nextState.data.preferences) {
-          console.warn(`⚠️ User state missing preferences:`, nextState);
+          logger.warn('User state missing preferences', { store, nextState });
         }
         break;
       case 'trading':
         if (nextState.data && (!Array.isArray(nextState.data.watchlist) || !Array.isArray(nextState.data.portfolio))) {
-          console.warn(`⚠️ Trading state has invalid data structure:`, nextState);
+          logger.warn('Trading state has invalid data structure', { store, nextState });
         }
         break;
     }
   } catch (error) {
-    console.error(`❌ State validation error in ${store}:${action.type}:`, error);
+    logger.error(`State validation error in ${store}:${action.type}`, { 
+      error: error instanceof Error ? error.message : error,
+      store,
+      actionType: action.type,
+      actionPayload: action.payload
+    });
     
     // Send error to monitoring service
     if (typeof window !== 'undefined' && window.Sentry) {
@@ -238,7 +232,7 @@ export const persistenceMiddleware: StateMiddleware = (action, prevState, nextSt
         _timestamp: Date.now()
       }));
     } catch (error) {
-      console.warn(`Failed to persist ${store} state:`, error);
+      logger.warn(`Failed to persist ${store} state`, { error: error instanceof Error ? error.message : error, store });
     }
   }, 1000));
 };
@@ -321,7 +315,7 @@ export function combineMiddleware(...middlewares: StateMiddleware[]): StateMiddl
       try {
         middleware(action, prevState, nextState, store);
       } catch (error) {
-        console.error(`Middleware error:`, error);
+        logger.error('Middleware error', { error: error instanceof Error ? error.message : error });
       }
     });
   };
@@ -329,7 +323,7 @@ export function combineMiddleware(...middlewares: StateMiddleware[]): StateMiddl
 
 // Default middleware stack for development
 export const developmentMiddleware = combineMiddleware(
-  enhancedLoggingMiddleware,
+  advancedLoggingMiddleware,
   performanceMiddleware,
   errorHandlingMiddleware,
   undoRedoMiddleware,
@@ -338,7 +332,7 @@ export const developmentMiddleware = combineMiddleware(
 
 // Default middleware stack for production
 export const productionMiddleware = combineMiddleware(
-  enhancedAnalyticsMiddleware,
+  advancedAnalyticsMiddleware,
   errorHandlingMiddleware,
   persistenceMiddleware
 );

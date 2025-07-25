@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSecurityHeaders } from '../security';
+import { logger } from '../logger';
 
 // Security middleware for Next.js middleware
 export function securityMiddleware(request: NextRequest): NextResponse | null {
@@ -23,7 +24,7 @@ export function securityMiddleware(request: NextRequest): NextResponse | null {
   
   const url = request.url.toLowerCase();
   if (suspiciousPatterns.some(pattern => pattern.test(url))) {
-    console.warn('Suspicious URL detected:', request.url);
+    logger.warn('Suspicious URL detected', { url: request.url, ip: getClientIP(request) });
     return new NextResponse('Bad Request', { status: 400 });
   }
   
@@ -39,7 +40,7 @@ export function securityMiddleware(request: NextRequest): NextResponse | null {
   ];
   
   if (suspiciousUserAgents.some(pattern => pattern.test(userAgent))) {
-    console.warn('Suspicious User-Agent detected:', userAgent);
+    logger.warn('Suspicious User-Agent detected', { userAgent, ip: getClientIP(request) });
     return new NextResponse('Forbidden', { status: 403 });
   }
   
@@ -54,11 +55,11 @@ export function securityMiddleware(request: NextRequest): NextResponse | null {
     const rateLimitKey = `auth_${ip}`;
     
     // This would need to be implemented with a proper store (Redis, etc.)
-    // For now, we'll log it
-    console.log('Auth endpoint access:', {
+    // Log authentication endpoint access for monitoring
+    logger.info('Auth endpoint access', {
       ip,
       path: request.nextUrl.pathname,
-      timestamp: new Date().toISOString()
+      userAgent: request.headers.get('user-agent')
     });
   }
   
@@ -97,7 +98,7 @@ export function csrfMiddleware(request: NextRequest): NextResponse | null {
   const origin = request.headers.get('origin');
   
   if (!referer && !origin) {
-    console.warn('CSRF: No referer or origin header');
+    logger.warn('CSRF: No referer or origin header', { path: request.nextUrl.pathname, ip: getClientIP(request) });
     return new NextResponse('Forbidden', { status: 403 });
   }
   
@@ -110,7 +111,7 @@ export function csrfMiddleware(request: NextRequest): NextResponse | null {
   ].filter(Boolean);
   
   if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {
-    console.warn('CSRF: Invalid origin:', requestOrigin);
+    logger.warn('CSRF: Invalid origin', { requestOrigin, path: request.nextUrl.pathname, ip: getClientIP(request) });
     return new NextResponse('Forbidden', { status: 403 });
   }
   
@@ -137,7 +138,7 @@ export function contentTypeMiddleware(request: NextRequest): NextResponse | null
   const isAllowed = allowedTypes.some(type => contentType.includes(type));
   
   if (!isAllowed && contentType) {
-    console.warn('Invalid content-type:', contentType);
+    logger.warn('Invalid content-type', { contentType, path: request.nextUrl.pathname, ip: getClientIP(request) });
     return new NextResponse('Unsupported Media Type', { status: 415 });
   }
   
@@ -153,7 +154,7 @@ export function requestSizeMiddleware(request: NextRequest): NextResponse | null
     const maxSize = 10 * 1024 * 1024; // 10MB
     
     if (size > maxSize) {
-      console.warn('Request too large:', size);
+      logger.warn('Request too large', { size, maxSize, path: request.nextUrl.pathname, ip: getClientIP(request) });
       return new NextResponse('Payload Too Large', { status: 413 });
     }
   }

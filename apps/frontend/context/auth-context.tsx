@@ -7,6 +7,7 @@ import { useAppState } from './app-state';
 import { useOptimisticUpdates } from '@/lib/state/core';
 import { useToasts } from './ui-context';
 import { apiClient, isApiSuccess, isApiError } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 interface BackendUser {
   user_id: string;
@@ -108,7 +109,7 @@ export function AuthProvider({ children, initialAuthState }: AuthProviderProps) 
       }
       
     } catch (error) {
-      console.error('Error loading user session:', error);
+      logger.error('Error loading user session', { error: error instanceof Error ? error.message : String(error) });
       setUser(null);
       setPermissions([]);
       setPackageTier(PackageTier.FREE);
@@ -268,7 +269,7 @@ export function AuthProvider({ children, initialAuthState }: AuthProviderProps) 
       success('Logged out', 'You have been successfully logged out');
       
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error', { error: error instanceof Error ? error.message : String(error) });
       rollbackOptimisticUpdate(updateId);
       showError('Logout Failed', 'Failed to log out. Please try again.');
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { adminLogger } from '../../../../lib/logger';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const cookieHeader = request.headers.get('cookie') || '';
 
     try {
-      const response = await fetch(`${BACKEND_URL}/auth/me`, {
+      const response = await fetch(`${BACKEND_URL}/api/v1/authentication/me`, {
         method: 'GET',
         headers: {
           'Cookie': cookieHeader,
@@ -42,11 +43,11 @@ export async function GET(request: NextRequest) {
       
       return NextResponse.json(transformedUser);
     } catch (fetchError) {
-      console.error('Backend not available:', fetchError);
+      adminLogger.error('Backend not available for admin profile check', { error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
       return NextResponse.json({ error: 'Backend connection failed' }, { status: 503 });
     }
   } catch (error) {
-    console.error('Auth check error:', error);
+    adminLogger.error('Admin auth check error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

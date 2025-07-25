@@ -127,3 +127,26 @@ export const trackPerformance = (metricName: string, value: number, userId?: str
     });
   }
 };
+
+export const trackSecurityEvent = (
+  action: string, 
+  resource: string, 
+  success: boolean, 
+  userId?: string, 
+  category?: string,
+  severity?: string,
+  additionalData?: Record<string, any>
+) => {
+  const analytics = getFirebaseAnalytics();
+  if (analytics) {
+    logEvent(analytics, 'security_event', {
+      security_action: action,
+      resource_type: resource,
+      success: success,
+      event_category: category || 'security',
+      severity_level: severity || 'medium',
+      user_id: userId,
+      ...additionalData
+    });
+  }
+};
