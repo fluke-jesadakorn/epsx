@@ -1,13 +1,13 @@
 import { DatabaseDashboard } from '@/components/admin/DatabaseDashboard';
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 
-export default function DatabasePage() {
+export default async function DatabasePage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <DatabaseDashboard />
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }

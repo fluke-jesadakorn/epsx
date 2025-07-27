@@ -37,7 +37,7 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, signOut } = useAdminAuth();
+  const { user, loading, init, signOut } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,10 +55,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Only redirect if auth context is fully initialized and no user is found
+    if (init && !loading && !user) {
       router.replace('/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, init, router]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -138,7 +139,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading) {
+  if (loading || !init) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

@@ -1,13 +1,13 @@
 import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <AnalyticsDashboard />
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }

@@ -37,17 +37,27 @@ export async function adminLoginAction(form: FormData) {
     
     // Set cookies from backend response
     const cookieHeaders = res.headers.getSetCookie?.() || [];
+    console.log('[adminLoginAction] Backend response cookies:', cookieHeaders);
+    console.log('[adminLoginAction] Backend response data:', { 
+      hasSessionToken: !!data.session_token,
+      hasUserId: !!data.user_id,
+      hasRole: !!data.role 
+    });
+    
+    const store = await cookies();
+    
     if (cookieHeaders.length > 0) {
-      const store = await cookies();
-      
       for (const cookieHeader of cookieHeaders) {
         // Parse cookie string: "name=value; Path=/; HttpOnly; ..."
         const [cookiePair, ...attributes] = cookieHeader.split(';').map(s => s.trim());
         const [name, value] = cookiePair.split('=');
         
+        console.log('[adminLoginAction] Processing cookie:', { name, value: value ? '***' : null, attributes });
+        
         if (name && value) {
           // For admin session, use admin_sess_id
           if (name === 'sess_id') {
+            console.log('[adminLoginAction] Setting admin_sess_id cookie');
             store.set('admin_sess_id', value, { 
               httpOnly: true, 
               secure: process.env.NODE_ENV === 'production',
@@ -55,11 +65,31 @@ export async function adminLoginAction(form: FormData) {
               maxAge: 60 * 60 * 24 * 7 // 7 days
             });
           } else {
+            console.log(`[adminLoginAction] Setting ${name} cookie`);
             store.set(name, value, { httpOnly: true });
           }
         }
       }
+    } else {
+      console.log('[adminLoginAction] No cookies received from backend, trying manual session token');
+      
+      // If no cookies from backend but we have session token in response, set it manually
+      if (data.session_token) {
+        console.log('[adminLoginAction] Setting admin_sess_id from response session_token');
+        store.set('admin_sess_id', data.session_token, { 
+          httpOnly: true, 
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 7 // 7 days
+        });
+      } else {
+        console.log('[adminLoginAction] No session token in response data either');
+      }
     }
+    
+    // Verify cookies were set
+    const allCookies = store.getAll();
+    console.log('[adminLoginAction] All cookies after login:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
 
     const user = {
       uid: data.user_id,

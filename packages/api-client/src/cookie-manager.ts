@@ -73,16 +73,36 @@ export class CookieManager {
    */
   static async getAuthCookies(): Promise<AuthCookies> {
     try {
+      console.log('🍪 [CookieManager] Getting auth cookies...');
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
-      return {
+      
+      // Debug: Log all available cookies
+      const allCookies = cookieStore.getAll();
+      console.log('🍪 [CookieManager] All cookies available:', 
+        allCookies.map(c => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
+      );
+      
+      const authCookies = {
         session: cookieStore.get(COOKIE_NAMES.SESSION)?.value,
         adminSession: cookieStore.get(COOKIE_NAMES.ADMIN_SESSION)?.value,
         csrf: cookieStore.get(COOKIE_NAMES.CSRF)?.value,
         refresh: cookieStore.get(COOKIE_NAMES.REFRESH)?.value,
       };
+      
+      console.log('🔍 [CookieManager] Looking for specific auth cookies:', {
+        expectedNames: COOKIE_NAMES,
+        found: {
+          session: !!authCookies.session,
+          adminSession: !!authCookies.adminSession,
+          csrf: !!authCookies.csrf,
+          refresh: !!authCookies.refresh,
+        }
+      });
+      
+      return authCookies;
     } catch (error) {
-      console.error('Failed to get auth cookies:', error);
+      console.error('❌ [CookieManager] Failed to get auth cookies:', error);
       return {};
     }
   }
@@ -96,14 +116,32 @@ export class CookieManager {
     const headers: Record<string, string> = {};
     
     try {
+      // Debug: Get all auth cookies for detailed logging
+      const allCookies = await this.getAuthCookies();
       const csrfToken = await this.getCSRFToken();
+      
+      console.log('🍪 [CookieManager] Building auth headers:', {
+        cookiesAvailable: {
+          session: !!allCookies.session,
+          adminSession: !!allCookies.adminSession,
+          csrf: !!allCookies.csrf,
+          refresh: !!allCookies.refresh,
+        },
+        csrfTokenFound: !!csrfToken,
+        csrfTokenPreview: csrfToken ? `${csrfToken.substring(0, 10)}...` : null,
+      });
+      
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
+        console.log('🔑 [CookieManager] Added CSRF token to headers');
+      } else {
+        console.warn('⚠️ [CookieManager] No CSRF token found');
       }
     } catch (error) {
-      console.error('Failed to build auth headers:', error);
+      console.error('❌ [CookieManager] Failed to build auth headers:', error);
     }
 
+    console.log('📋 [CookieManager] Final auth headers:', headers);
     return headers;
   }
 
@@ -115,21 +153,73 @@ export class CookieManager {
       if (typeof document === 'undefined') return null;
       
       const cookies = document.cookie.split(';');
+      console.log('🍪 [CookieManager.client] All browser cookies:', 
+        cookies.map(c => {
+          const [key] = c.trim().split('=');
+          return key;
+        })
+      );
+      
       for (const cookie of cookies) {
         const [key, value] = cookie.trim().split('=');
         if (key === COOKIE_NAMES.SESSION) {
+          console.log('🔍 [CookieManager.client] Found session cookie');
           return decodeURIComponent(value);
         }
       }
+      
+      console.log('⚠️ [CookieManager.client] No session cookie found');
       return null;
+    },
+
+    getAllCookies(): Record<string, string> {
+      if (typeof document === 'undefined') return {};
+      
+      const cookies: Record<string, string> = {};
+      document.cookie.split(';').forEach(cookie => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) {
+          cookies[key] = decodeURIComponent(value);
+        }
+      });
+      
+      return cookies;
     },
 
     buildAuthHeaders(): Record<string, string> {
       const headers: Record<string, string> = {};
       
-      // Session authentication uses cookies automatically sent by browser
-      // No need to manually add session token to headers
+      console.log('🍪 [CookieManager.client] Building client-side auth headers...');
       
+      if (typeof document !== 'undefined') {
+        const allCookies = this.getAllCookies();
+        const relevantCookies = {
+          session: allCookies[COOKIE_NAMES.SESSION],
+          adminSession: allCookies[COOKIE_NAMES.ADMIN_SESSION],
+          csrf: allCookies[COOKIE_NAMES.CSRF],
+          refresh: allCookies[COOKIE_NAMES.REFRESH],
+        };
+        
+        console.log('🔍 [CookieManager.client] Client cookies found:', {
+          cookieNames: COOKIE_NAMES,
+          available: Object.keys(allCookies),
+          relevant: Object.entries(relevantCookies).reduce((acc, [key, value]) => {
+            acc[key] = !!value;
+            return acc;
+          }, {} as Record<string, boolean>),
+        });
+        
+        // Session authentication uses cookies automatically sent by browser
+        // No need to manually add session token to headers, but add CSRF if available
+        if (relevantCookies.csrf) {
+          headers['X-CSRF-Token'] = relevantCookies.csrf;
+          console.log('🔑 [CookieManager.client] Added CSRF token to headers');
+        } else {
+          console.log('⚠️ [CookieManager.client] No CSRF token found in client cookies');
+        }
+      }
+      
+      console.log('📋 [CookieManager.client] Final client auth headers:', headers);
       return headers;
     }
   };

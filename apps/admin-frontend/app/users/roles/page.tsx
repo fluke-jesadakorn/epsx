@@ -1,15 +1,15 @@
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { RoleManagementDashboard } from '@/components/admin/RoleManagementDashboard';
 
-export default function UserRolesPage() {
+export default async function UserRolesPage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <div className="space-y-6">
           <RoleManagementDashboard />
         </div>
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }

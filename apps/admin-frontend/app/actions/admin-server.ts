@@ -3,7 +3,8 @@
 import type { TokenFeature } from '@/types/auth/features';
 import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
-import { isApiError, type AdminUser } from '@epsx/api-client';
+import type { AdminUser } from '@epsx/api-client';
+import { isApiError } from '@epsx/api-client';
 import { serverGetAdminUsers, serverSetUserRole, serverGetUserStats } from '@epsx/api-client';
 
 interface User {
@@ -61,14 +62,45 @@ export async function updateUserRole(uid: string, role: string) {
 
 export async function getUserStats() {
   try {
-    const res = await serverGetUserStats();
-
-    if (isApiError(res)) {
-      throw new Error(`Failed to fetch user statistics: ${res.error}`);
+    // Use direct fetch approach for debugging
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    console.log('[getUserStats] Available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
+    
+    // Build cookie header manually
+    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    console.log('[getUserStats] Cookie header length:', cookieHeader.length);
+    
+    // Direct fetch to backend
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
+    
+    console.log('[getUserStats] Making direct request to:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': cookieHeader,
+      },
+    });
+    
+    console.log('[getUserStats] Response status:', response.status);
+    console.log('[getUserStats] Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[getUserStats] Error response:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
     }
-
-    return res.data;
+    
+    const data = await response.json();
+    console.log('[getUserStats] Success response received');
+    return data;
+    
   } catch (error) {
+    console.error('[getUserStats] Exception:', error);
     throw error;
   }
 }

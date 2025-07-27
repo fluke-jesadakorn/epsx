@@ -14,7 +14,7 @@ export default function UnauthorizedPage() {
             Access Denied
           </h1>
           <p className="text-gray-600 mb-6">
-            You don't have permission to access the admin panel. 
+            You don&apos;t have permission to access the admin panel. 
             Please contact your administrator if you believe this is an error.
           </p>
           <div className="space-y-3">

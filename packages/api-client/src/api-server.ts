@@ -298,49 +298,128 @@ async function serverRequest<T>(
   method: string = 'GET',
   data?: any
 ): Promise<ApiResponse<T>> {
+  const url = `${getBackendUrl()}${endpoint}`;
+  
   try {
-    // Get authentication headers from cookies
+    // Get authentication headers and cookies for debugging
     const authHeaders = await CookieManager.buildAuthHeaders();
+    const authCookies = await CookieManager.getAuthCookies();
+    
+    // Build Cookie header manually for server-to-server requests
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    
+    console.log('🍪 [serverRequest] Cookie header built:', {
+      totalCookies: allCookies.length,
+      cookieHeaderLength: cookieHeader.length,
+      cookiePreview: cookieHeader.substring(0, 100) + (cookieHeader.length > 100 ? '...' : ''),
+    });
+    
+    // Debug: Log request details
+    console.log('🚀 [serverRequest] Request details:', {
+      url,
+      method,
+      endpoint,
+      backendUrl: getBackendUrl(),
+      authHeaders,
+      cookiesFound: {
+        session: !!authCookies.session,
+        adminSession: !!authCookies.adminSession,
+        csrf: !!authCookies.csrf,
+        refresh: !!authCookies.refresh,
+      },
+      cookieValues: {
+        session: authCookies.session ? `${authCookies.session.substring(0, 20)}...` : null,
+        adminSession: authCookies.adminSession ? `${authCookies.adminSession.substring(0, 20)}...` : null,
+        csrf: authCookies.csrf ? `${authCookies.csrf.substring(0, 20)}...` : null,
+        refresh: authCookies.refresh ? `${authCookies.refresh.substring(0, 20)}...` : null,
+      },
+      hasRequestBody: !!data && method !== 'GET',
+    });
     
     const requestConfig: RequestInit = {
       method,
       credentials: 'include', // Include cookies for authentication
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': cookieHeader, // Manually add cookies for server-to-server
         ...authHeaders,
       },
     };
 
     if (data && method !== 'GET') {
       requestConfig.body = JSON.stringify(data);
+      console.log('📤 [serverRequest] Request body:', JSON.stringify(data, null, 2));
     }
 
-    const response = await fetch(
-      `${getBackendUrl()}${endpoint}`,
-      requestConfig
-    );
+    console.log('📡 [serverRequest] Making request with config:', {
+      method: requestConfig.method,
+      credentials: requestConfig.credentials,
+      headers: requestConfig.headers,
+    });
+
+    const response = await fetch(url, requestConfig);
+
+    // Debug: Log response details
+    console.log('📨 [serverRequest] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries()),
+      url: response.url,
+    });
 
     let responseData;
     const contentType = response.headers.get('content-type');
 
     if (contentType?.includes('application/json')) {
       responseData = await response.json();
+      console.log('📄 [serverRequest] JSON response data:', responseData);
     } else {
       responseData = await response.text();
+      console.log('📄 [serverRequest] Text response data:', responseData);
     }
 
     if (!response.ok) {
-      return {
+      const errorResponse = {
         error: responseData?.error || responseData || 'Request failed',
         details: responseData?.details || `HTTP ${response.status}`,
       };
+      
+      console.error('❌ [serverRequest] Request failed:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        errorResponse,
+        responseData,
+      });
+      
+      return errorResponse;
     }
+
+    console.log('✅ [serverRequest] Request successful:', {
+      url,
+      status: response.status,
+      dataType: typeof responseData,
+      dataKeys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A',
+    });
 
     return { data: responseData };
   } catch (error) {
+    const errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    
+    console.error('💥 [serverRequest] Network/fetch error:', {
+      url,
+      method,
+      error: errorDetails,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    
     return {
       error: 'Network error',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      details: errorDetails,
     };
   }
 }

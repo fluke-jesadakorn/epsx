@@ -1,4 +1,5 @@
-import { createApiClient, isApiError, type AdminUser, type PermissionProfile, type StockRankingAssignment, type AnalyticsStatistics, type StockRankingAnalytics, type AdminProfile } from '@epsx/api-client';
+import type { AdminUser, PermissionProfile, StockRankingAssignment, AnalyticsStatistics, StockRankingAnalytics, AdminProfile } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import { adminLogger } from '../logger';
 import { config } from '../config';
 

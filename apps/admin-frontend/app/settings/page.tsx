@@ -1,13 +1,13 @@
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard';
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <SettingsDashboard />
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }
