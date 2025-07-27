@@ -655,7 +655,7 @@ const AssignmentAnalytics: React.FC = () => {
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h4 className="font-medium text-blue-800">Performance Insight</h4>
                 <p className="text-sm text-blue-700">
-                  Average evaluation time: 100ms. Consider optimizing rules with >150ms evaluation time.
+                  Average evaluation time: 100ms. Consider optimizing rules with {'>'}150ms evaluation time.
                 </p>
               </div>
             </CardContent>

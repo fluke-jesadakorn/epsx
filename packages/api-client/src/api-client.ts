@@ -60,15 +60,24 @@ export class ApiClient {
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const isServerSide = typeof window === 'undefined';
+    
     try {
-      const url = `${this.baseUrl}${endpoint}`;
-      console.log(`[API Client] Making request to: ${url}`); // Debug log
+      console.log(`🚀 [ApiClient] Making ${isServerSide ? 'server-side' : 'client-side'} request:`, {
+        url,
+        method: config.method || 'GET',
+        endpoint,
+        baseUrl: this.baseUrl,
+        isServerSide,
+      });
 
       // Build headers with auth
-      const authHeaders =
-        typeof window === 'undefined'
-          ? await CookieManager.buildAuthHeaders() // Server-side
-          : CookieManager.client.buildAuthHeaders(); // Client-side
+      const authHeaders = isServerSide
+        ? await CookieManager.buildAuthHeaders() // Server-side
+        : CookieManager.client.buildAuthHeaders(); // Client-side
+
+      console.log(`🔑 [ApiClient] Auth headers built:`, authHeaders);
 
       const headers = {
         'Content-Type': 'application/json',
@@ -83,10 +92,26 @@ export class ApiClient {
         headers, // Keep headers last to prevent override
       };
 
+      console.log(`📡 [ApiClient] Request config:`, {
+        method: requestConfig.method,
+        credentials: requestConfig.credentials,
+        headers: requestConfig.headers,
+        hasBody: !!requestConfig.body,
+      });
+
+      if (requestConfig.body) {
+        console.log(`📤 [ApiClient] Request body:`, requestConfig.body);
+      }
+
       const response = await fetch(url, requestConfig);
-      console.log(
-        `[API Client] Response status: ${response.status} ${response.statusText}`
-      ); // Debug log
+
+      console.log(`📨 [ApiClient] Response received:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
+        url: response.url,
+      });
 
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
@@ -94,22 +119,51 @@ export class ApiClient {
 
       if (contentType?.includes('application/json')) {
         data = await response.json();
+        console.log(`📄 [ApiClient] JSON response data:`, data);
       } else {
         data = await response.text();
+        console.log(`📄 [ApiClient] Text response data:`, data);
       }
 
       if (!response.ok) {
-        return {
+        const errorResponse = {
           error: data?.error || data || 'Request failed',
           details: data?.details || `HTTP ${response.status}`,
         };
+        
+        console.error(`❌ [ApiClient] Request failed:`, {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          errorResponse,
+          responseData: data,
+        });
+        
+        return errorResponse;
       }
+
+      console.log(`✅ [ApiClient] Request successful:`, {
+        url,
+        status: response.status,
+        dataType: typeof data,
+        dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+      });
 
       return { data };
     } catch (error) {
+      const errorDetails = error instanceof Error ? error.message : 'Unknown error';
+      
+      console.error(`💥 [ApiClient] Network/fetch error:`, {
+        url,
+        method: config.method || 'GET',
+        error: errorDetails,
+        stack: error instanceof Error ? error.stack : undefined,
+        isServerSide,
+      });
+      
       return {
         error: 'Network error',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorDetails,
       };
     }
   }

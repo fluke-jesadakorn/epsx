@@ -125,10 +125,66 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const signOut = logout; // Alias for logout
 
   useEffect(() => {
-    // Skip automatic auth check since there's no /api/v1/auth/profile endpoint
-    // Auth state will be set via signIn method when user logs in
-    setLoading(false);
-    setInit(true);
+    const checkExistingSession = async () => {
+      try {
+        adminLogger.info('Checking existing session...', {}, 'AdminAuthProvider.checkExistingSession');
+        
+        // Check if admin session cookie exists
+        const cookies = document.cookie;
+        const hasAdminSession = cookies.includes('admin_sess_id=');
+        
+        adminLogger.info('Cookie check result', { hasAdminSession, cookies }, 'AdminAuthProvider.checkExistingSession');
+        
+        if (!hasAdminSession) {
+          adminLogger.info('No admin session cookie found', {}, 'AdminAuthProvider.checkExistingSession');
+          setLoading(false);
+          setInit(true);
+          return;
+        }
+        
+        // Try to get admin profile to validate session
+        adminLogger.info('Attempting to validate session...', {}, 'AdminAuthProvider.checkExistingSession');
+        const { serverGetAdminProfile } = await import('@epsx/api-client');
+        const response = await serverGetAdminProfile();
+        
+        adminLogger.info('Session validation response', { 
+          hasData: !!response.data, 
+          hasError: !!response.error,
+          error: response.error 
+        }, 'AdminAuthProvider.checkExistingSession');
+        
+        if (response.data && !response.error) {
+          const data = response.data;
+          const userData = {
+            uid: data.user_id || data.id,
+            email: data.email,
+            name: data.name || data.email,
+            roles: [data.role || 'admin'],
+            isAdmin: true,
+            verified: true,
+            disabled: false,
+            claims: { role: data.role },
+            meta: undefined
+          };
+          
+          adminLogger.info('Setting user data', { userData }, 'AdminAuthProvider.checkExistingSession');
+          setUser(userData);
+        } else {
+          adminLogger.warn('Session validation failed', { 
+            error: response.error 
+          }, 'AdminAuthProvider.checkExistingSession');
+        }
+      } catch (error) {
+        adminLogger.error('Session check failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.checkExistingSession');
+        // Continue with no user - let middleware handle redirects
+      } finally {
+        setLoading(false);
+        setInit(true);
+        adminLogger.info('Session check complete', { loading: false, init: true }, 'AdminAuthProvider.checkExistingSession');
+      }
+    };
+    
+    checkExistingSession();
   }, []);
 
   const isAdmin = user?.isAdmin || user?.claims?.role === 'ADMIN' || user?.claims?.role === 'SUPER_ADMIN' || false;

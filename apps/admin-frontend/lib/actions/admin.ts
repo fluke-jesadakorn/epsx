@@ -1,6 +1,7 @@
 'use server';
 
-import { createApiClient, isApiError, type ActionResult, type AssignmentResult, type StockRankingAssignmentRequest, type StockRankingAssignmentExtendRequest, type StockRankingAssignmentUpdateRequest, type UserSoftDeleteRequest } from '@epsx/api-client';
+import type { ActionResult, AssignmentResult, StockRankingAssignmentRequest, StockRankingAssignmentExtendRequest, StockRankingAssignmentUpdateRequest, UserSoftDeleteRequest } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import { adminLogger } from '../logger';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';

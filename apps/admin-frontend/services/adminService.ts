@@ -1,7 +1,14 @@
 // Client-side admin service - uses server actions for backend communication
 import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
 import { adminLogger } from '@/lib/logger';
-import { createApiClient, type AdminUser as ApiAdminUser } from '@epsx/api-client';
+import { 
+  createApiClient, 
+  type AdminUser as ApiAdminUser,
+  serverListUsers,
+  serverGetUser,
+  serverSetUserRole,
+  serverBulkUpdateUserRoles
+} from '@epsx/api-client';
 
 export interface AdminUser {
   uid: string;
@@ -59,13 +66,12 @@ export class AdminService {
     return createApiClient();
   }
 
-  // List users - Updated to use API client
+  // List users - Updated to use server action
   static async listUsers(opts: UserListOptions = {}): Promise<UserListResult> {
     try {
-      const api = this.getApi();
-      const response = await api.listUsers({
-        limit: opts.maxResults,
-        offset: opts.pageToken,
+      const response = await serverListUsers({
+        limit: opts.maxResults || 50,
+        offset: opts.pageToken ? parseInt(opts.pageToken) : 0,
       });
       
       if (response.error) {
@@ -82,11 +88,10 @@ export class AdminService {
     }
   }
 
-  // Get user by UID - Updated to use API client
+  // Get user by UID - Updated to use server action
   static async getUser(uid: string): Promise<AdminUser> {
     try {
-      const api = this.getApi();
-      const response = await api.getUser(uid);
+      const response = await serverGetUser(uid);
       
       if (response.error) {
         throw new Error(response.error);
@@ -108,11 +113,10 @@ export class AdminService {
     }
   }
 
-  // Set user role - Updated to use API client
+  // Set user role - Updated to use server action
   static async setUserRole(uid: string, role: string): Promise<void> {
     try {
-      const api = this.getApi();
-      const response = await api.setUserRole(uid, role, 'Role updated via admin panel');
+      const response = await serverSetUserRole(uid, role, 'Role updated via admin panel');
 
       if (response.error) {
         throw new Error(response.error);
@@ -163,11 +167,10 @@ export class AdminService {
     }
   }
 
-  // Set user level - Updated to use API client (same as setUserRole)
+  // Set user level - Updated to use server action (same as setUserRole)
   static async setLevel(uid: string, level: UserLevel, reason?: string): Promise<void> {
     try {
-      const api = this.getApi();
-      const response = await api.setUserRole(uid, level, reason || 'User level updated via admin panel');
+      const response = await serverSetUserRole(uid, level, reason || 'User level updated via admin panel');
 
       if (response.error) {
         throw new Error(response.error);
@@ -190,11 +193,10 @@ export class AdminService {
     }
   }
 
-  // Bulk update user levels - Updated to use API client
+  // Bulk update user levels - Updated to use server action
   static async bulkUpdateLevels(updates: Array<{uid: string, level: UserLevel, reason?: string}>): Promise<any> {
     try {
-      const api = this.getApi();
-      const response = await api.bulkUpdateUserRoles(
+      const response = await serverBulkUpdateUserRoles(
         updates.map(update => ({
           uid: update.uid,
           role: update.level,

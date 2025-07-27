@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@epsx/api-client": "workspace:*",
+    "@epsx/auth-shared": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",

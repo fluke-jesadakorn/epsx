@@ -1,15 +1,15 @@
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { PermissionManagementDashboard } from '@/components/admin/PermissionManagementDashboard';
 
-export default function UserPermissionsPage() {
+export default async function UserPermissionsPage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <div className="space-y-6">
           <PermissionManagementDashboard />
         </div>
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }

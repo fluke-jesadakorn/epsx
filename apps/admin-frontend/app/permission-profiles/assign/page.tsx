@@ -1,13 +1,13 @@
-import { AdminGuard } from '@/components/auth/AdminGuard';
+import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { PermissionProfileAssignmentDashboard } from '@/components/admin/PermissionProfileAssignmentDashboard';
 
-export default function PermissionProfileAssignmentPage() {
+export default async function PermissionProfileAssignmentPage() {
   return (
-    <AdminGuard>
+    <SSRAdminGuard>
       <AdminLayout>
         <PermissionProfileAssignmentDashboard />
       </AdminLayout>
-    </AdminGuard>
+    </SSRAdminGuard>
   );
 }
