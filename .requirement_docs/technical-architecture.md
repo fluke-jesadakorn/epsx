@@ -284,52 +284,200 @@ No Firestore collections - all data stored in PostgreSQL
 
 ## API Design
 
-### Professional API Structure with Access Control
+### Professional API Structure with Access Control (V1 Only)
 ```
+# Public Routes (No Authentication Required)
+GET  /health                         # System health check
+GET  /auth/me-public                 # Public auth status check
+
+# V1 API Routes (/api/v1/)
 /api/v1/
 ├── authentication/
-│   ├── POST /login                  # Public
-│   ├── POST /logout                 # Authenticated
-│   ├── POST /register               # Public
-│   └── GET  /me                     # Authenticated
+│   ├── POST /auth/login             # Public - User/Admin login
+│   ├── POST /auth/register          # Public - User registration
+│   ├── POST /auth/register-auto     # Public - Auto registration
+│   ├── POST /auth/password-reset    # Public - Password reset
+│   ├── POST /auth/logout            # Authenticated - Logout
+│   ├── POST /auth/refresh           # Authenticated - Token refresh
+│   ├── GET  /auth/profile           # Authenticated - Get user profile
+│   └── POST /auth/session/clear     # Authenticated - Clear session
+├── users/
+│   ├── GET  /users/profile          # Authenticated - Get current user profile
+│   ├── PUT  /users/profile          # Authenticated - Update user profile
+│   ├── GET  /users                  # Authenticated - List users (admin)
+│   ├── GET  /users/:id              # Authenticated - Get user by ID (admin)
+│   └── DELETE /users/:id            # Authenticated - Delete user (admin)
 ├── market-data/
-│   ├── GET    /market-data          # Bronze+ profiles
-│   ├── GET    /market-data/basic    # Bronze+ profiles
-│   ├── GET    /market-data/{symbol} # Silver+ profiles
-│   └── POST   /analyze/{symbol}     # Profile-specific limits
-├── analytics/
-│   ├── GET    /analytics/eps        # Bronze+ profiles
-│   ├── GET    /analytics/patterns   # Silver+ profiles
-│   └── GET    /analytics/ai-insights # Gold+ profiles
-├── alerts/
-│   ├── GET    /alerts/basic         # Silver+ profiles
-│   └── POST   /alerts/custom        # Gold+ profiles
+│   └── GET  /market-data/symbols    # Authenticated - Get available symbols
 ├── payments/
-│   ├── POST   /crypto-payments/initiate      # Authenticated
-│   ├── GET    /crypto-payments/{id}/status   # Authenticated
-│   └── POST   /crypto-payments/webhook       # System only
+│   ├── GET  /payments/crypto/deposit-address  # Authenticated - Get crypto deposit
+│   ├── POST /payments/musepay/create          # Authenticated - Create payment
+│   └── POST /webhooks/payments/musepay        # System - Payment webhook
+├── premium/
+│   └── GET  /premium/rankings       # Permission required - Premium rankings
 ├── system/
-│   ├── GET    /health               # Public
-│   └── GET    /cache/status         # Admin only
-└── webhooks/
-    └── POST   /musepay              # System only
-
-/api/admin/
-├── analytics/
-│   ├── GET    /analytics/overview   # Admin profile required
-│   └── GET    /analytics/users      # Admin profile required
-├── user-management/
-│   ├── GET    /users                # Admin profile required
-│   ├── POST   /users/{id}/assign-permission-profile # Admin profile
-│   └── POST   /users/bulk-assign    # Admin profile required
+│   └── POST /system/cache           # Authenticated - Clear cache
+├── audit/
+│   ├── POST /audit/logs             # Public - Create audit entry (frontend logging)
+│   ├── GET  /audit/logs             # Admin - Search audit logs
+│   ├── GET  /audit/logs/:log_id     # Admin - Get specific audit log
+│   ├── GET  /audit/statistics       # Admin - Get audit statistics
+│   └── GET  /audit/export           # Admin - Export audit logs
+├── iam/
+│   ├── POST /iam/roles              # Admin - Create role
+│   ├── GET  /iam/roles              # Admin - List roles
+│   ├── GET  /iam/roles/:role_id     # Admin - Get role
+│   ├── PUT  /iam/roles/:role_id     # Admin - Update role
+│   ├── DELETE /iam/roles/:role_id   # Admin - Delete role
+│   ├── POST /iam/policies           # Admin - Create policy
+│   ├── GET  /iam/policies           # Admin - List policies
+│   ├── GET  /iam/policies/:policy_id # Admin - Get policy
+│   ├── DELETE /iam/policies/:policy_id # Admin - Delete policy
+│   ├── POST /iam/evaluate           # Admin - Evaluate permission
+│   ├── POST /iam/users/:user_id/overrides # Admin - Set user overrides
+│   ├── GET  /iam/users/:user_id/overrides # Admin - Get user overrides
+│   ├── POST /iam/users/:user_id/roles/:role_id # Admin - Assign role
+│   ├── DELETE /iam/users/:user_id/roles/:role_id # Admin - Remove role
+│   └── GET  /iam/users/:user_id/roles # Admin - Get user roles
 ├── permission-profiles/
-│   ├── GET    /profiles             # Admin profile required
-│   ├── POST   /profiles/{id}/update # Admin profile required
-│   └── GET    /profiles/{id}/users  # Admin profile required
-└── authentication/
-    ├── POST   /admin/login          # Admin profile required
-    └── GET    /admin/permissions    # Admin profile required
+│   ├── POST /permission-profiles/permission-profiles # Admin - Create profile
+│   ├── GET  /permission-profiles/permission-profiles # Admin - Search profiles
+│   ├── GET  /permission-profiles/permission-profiles/:profile_id # Admin - Get profile
+│   ├── PUT  /permission-profiles/permission-profiles/:profile_id # Admin - Update profile
+│   ├── DELETE /permission-profiles/permission-profiles/:profile_id # Admin - Delete profile
+│   ├── POST /permission-profiles/permission-profiles/:profile_id/apply # Admin - Apply profile
+│   ├── GET  /permission-profiles/permission-profiles/:profile_id/history # Admin - Get history
+│   └── POST /permission-profiles/initialize-defaults # Super Admin - Initialize defaults
+├── realtime/
+│   ├── GET  /realtime/ws            # Authenticated - WebSocket connection
+│   ├── GET  /realtime/events        # Authenticated - Server-sent events
+│   ├── GET  /realtime/events/health # Authenticated - SSE health check
+│   ├── POST /realtime/admin/broadcast # Admin - Broadcast notification
+│   ├── POST /realtime/admin/simulate/payment # Admin - Simulate payment
+│   ├── POST /realtime/admin/simulate/stock # Admin - Simulate stock update
+│   ├── GET  /realtime/admin/stats   # Admin - Connection statistics
+│   └── POST /realtime/admin/notify/:user_id # Admin - Send user notification
+└── admin/
+    ├── POST /admin/auth/logout      # Admin - Logout
+    ├── GET  /admin/auth/profile     # Admin - Get admin profile
+    ├── GET  /admin/analytics/user-statistics # Admin - User statistics
+    ├── GET  /admin/users            # Admin - List users
+    ├── POST /admin/users            # Admin - Create user
+    ├── GET  /admin/users/:user_id   # Admin - Get user
+    ├── PUT  /admin/users/:user_id   # Admin - Update user role
+    ├── DELETE /admin/users/:user_id # Admin - Soft delete user
+    ├── POST /admin/users/batch-update-roles # Admin - Bulk update roles
+    ├── GET  /admin/users/:user_id/role-history # Admin - Get role history
+    ├── GET  /admin/permission-profiles # Admin - List permission profiles
+    ├── GET  /admin/permission-profiles/:profile_id # Admin - Get profile details
+    └── POST /admin/permission-profiles/assign # Admin - Assign profile directly
+
+# Admin API Routes (/api/admin/)
+/api/admin/
+├── auth/
+│   └── POST /auth/login             # Public - Admin login
+└── [Protected admin routes mounted under /api/admin/ with auth middleware]
 ```
+
+## Advanced System Features
+
+### Enterprise Rate Limiting System ✅ FULLY IMPLEMENTED
+
+The system includes a sophisticated rate limiting infrastructure that provides granular control over API access:
+
+#### Features:
+- **Multi-Window Rate Limiting**: Per-minute, per-hour, and per-day limits
+- **Per-User & Per-Endpoint**: Granular tracking for each user-endpoint combination
+- **Redis-Compatible Architecture**: Designed for distributed scaling in production
+- **Automatic Cleanup**: Old entries are automatically purged to prevent memory leaks
+- **Admin Controls**: Ability to reset user limits and monitor usage
+
+#### Implementation:
+```rust
+// Rate limiting configuration per permission profile
+pub struct RateLimitConfig {
+    pub requests_per_minute: Option<u32>,
+    pub requests_per_hour: Option<u32>, 
+    pub requests_per_day: Option<u32>,
+}
+
+// Example usage in middleware
+let result = rate_limiter.check_rate_limit(
+    &user_id,
+    "/api/v1/analytics/eps",
+    "GET",
+    &config
+).await?;
+```
+
+#### Rate Limits by Permission Profile:
+- **Bronze**: 10/minute, 100/hour, 1000/day
+- **Silver**: 50/minute, 500/hour, 5000/day  
+- **Gold**: 200/minute, 2000/hour, 20000/day
+- **Admin**: Unlimited
+
+### Comprehensive Audit System ✅ FULLY IMPLEMENTED
+
+Enterprise-grade audit logging with complete traceability and compliance features:
+
+#### Features:
+- **25+ Audit Action Types**: Covering all system operations (login, user management, permission changes, etc.)
+- **Export Capabilities**: JSON, CSV, XML formats for compliance reporting
+- **Statistical Analysis**: Top actions, top actors, failure rates over time periods
+- **Rich Metadata**: IP tracking, session correlation, error details, duration tracking
+- **Search & Filter**: Advanced querying with time ranges, actors, resources
+
+#### Audit Actions Tracked:
+```rust
+pub enum AuditAction {
+    Login, LoginFailed, Logout, PasswordReset,
+    UserCreated, UserUpdated, UserDeleted, UserRoleChanged,
+    RoleCreated, RoleUpdated, RoleDeleted, RoleAssigned,
+    PolicyCreated, PolicyUpdated, PolicyDeleted,
+    PermissionGranted, PermissionDenied, PermissionEvaluated,
+    ConfigurationChanged, SecurityPolicyUpdated,
+    AuditLogAccessed, DataExported, BackupCreated,
+    // ... and more
+}
+```
+
+#### API Endpoints:
+- `POST /api/v1/audit/logs` - Create audit entries (public for frontend logging)
+- `GET /api/v1/audit/search` - Search with filters (admin only)
+- `GET /api/v1/audit/stats` - Statistical analysis (admin only)
+- `GET /api/v1/audit/export` - Export data for compliance (admin only)
+
+### Real-time Infrastructure ✅ FULLY IMPLEMENTED
+
+WebSocket-based real-time communication system for live updates:
+
+#### Features:
+- **WebSocket Connection Management**: Automatic reconnection, heartbeat monitoring
+- **Event-driven Notifications**: Real-time alerts, system status updates
+- **Server-sent Events (SSE)**: Alternative for environments that don't support WebSockets
+- **Connection Status Monitoring**: Health checks and diagnostics
+
+#### Supported Event Types:
+- User permission changes
+- System maintenance notifications
+- Real-time analytics updates
+- Payment status changes
+- Security alerts
+
+#### API Endpoints:
+- `GET /api/v1/realtime/connect` - WebSocket upgrade
+- `POST /api/v1/realtime/events` - Server-sent events fallback
+- `GET /api/v1/realtime/status` - Connection health check
+
+### Soft Delete User Management ✅ IMPLEMENTED
+
+Advanced user lifecycle management with restoration capabilities:
+
+#### Features:
+- **Soft Delete**: Users are marked as deleted but data is preserved
+- **Restoration**: Ability to restore deleted users with full data integrity
+- **Audit Trail**: All user lifecycle events are tracked
+- **Data Retention**: Configurable retention periods for deleted user data
 
 ## Security Architecture
 
@@ -355,15 +503,16 @@ async fn auth_middleware(req: Request) -> Result<User> {
 ```
 
 ### Security Layers ✅ FULLY IMPLEMENTED
-1. **Network Security**: HTTPS, CORS, Rate limiting ✅
+1. **Network Security**: HTTPS, CORS, Advanced rate limiting ✅
 2. **Authentication**: Firebase Auth tokens with PostgreSQL data ✅
 3. **Authorization**: Enhanced permission profiles with: ✅
    - ✅ **API Endpoint Access Control**: Granular API endpoint permissions with wildcard support
    - ✅ **Frontend Route Guards**: Middleware-based route access control
-   - ✅ **Rate Limiting**: Per-profile API rate limits (per minute/hour)
+   - ✅ **Enterprise Rate Limiting**: Multi-window rate limiting (per minute/hour/day) with Redis compatibility
    - ✅ **Expiration Handling**: Automatic feature expiration with renewal notifications
 4. **Data Security**: Encryption at rest and in transit ✅
 5. **Session Security**: HTTP-only cookies with secure flags ✅
+6. **Comprehensive Audit System**: Full audit trail with export capabilities ✅
 
 ## Performance Architecture
 
@@ -371,13 +520,15 @@ async fn auth_middleware(req: Request) -> Result<User> {
 - **Stateless Services**: No server-side session storage ✅
 - **SSR Optimization**: Server-side rendering with edge caching ✅
 - **Database Scaling**: PostgreSQL with connection pooling and optimized indexes ✅
+- **Real-time Infrastructure**: WebSocket connection management with event-driven notifications ✅
 - **Caching Strategy**: Multi-layer caching: ✅
   - ✅ **Permission Profile Cache**: In-memory/Redis-based permission profile caching (switchable)
   - ✅ **Route Pattern Cache**: Pre-compiled route patterns for fast matching
   - ✅ **API Response Cache**: Market data and analytics results
-  - ✅ **Rate Limit State**: In-memory/Redis rate limiting (production-ready)
+  - ✅ **Enterprise Rate Limit State**: Multi-window rate limiting with automatic cleanup
 - **Payment Processing**: Async webhook processing with retry logic ✅
 - **Expiration Management**: Background job for feature expiration checks ✅
+- **Audit & Compliance**: Comprehensive audit logging with statistical analysis and export ✅
 
 ### Performance Targets
 - **API Response**: <2 seconds for all endpoints

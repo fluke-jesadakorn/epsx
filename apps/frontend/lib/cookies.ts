@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Cookie configuration constants
 export const COOKIE_NAMES = {
-  SESSION: '__session',
+  SESSION: 'sess_id',
   CSRF: '__csrf_token',
   REFRESH: '__refresh_token',
   THEME: '__theme',

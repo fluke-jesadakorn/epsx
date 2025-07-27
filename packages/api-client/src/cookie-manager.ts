@@ -1,5 +1,6 @@
 export const COOKIE_NAMES = {
-  SESSION: '__session',
+  SESSION: 'sess_id',
+  ADMIN_SESSION: 'admin_sess_id',
   CSRF: '__csrf_token',
   REFRESH: '__refresh_token',
 } as const;
@@ -30,6 +31,7 @@ export const COOKIE_CONFIG = {
 
 export interface AuthCookies {
   session?: string;
+  adminSession?: string;
   csrf?: string;
   refresh?: string;
 }
@@ -42,8 +44,9 @@ export class CookieManager {
     try {
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
-      const sessionCookie = cookieStore.get(COOKIE_NAMES.SESSION);
-      return sessionCookie?.value || null;
+      const adminSession = cookieStore.get(COOKIE_NAMES.ADMIN_SESSION);
+      const session = cookieStore.get(COOKIE_NAMES.SESSION);
+      return adminSession?.value || session?.value || null;
     } catch (error) {
       console.error('Failed to get session token:', error);
       return null;
@@ -74,6 +77,7 @@ export class CookieManager {
       const cookieStore = await cookies();
       return {
         session: cookieStore.get(COOKIE_NAMES.SESSION)?.value,
+        adminSession: cookieStore.get(COOKIE_NAMES.ADMIN_SESSION)?.value,
         csrf: cookieStore.get(COOKIE_NAMES.CSRF)?.value,
         refresh: cookieStore.get(COOKIE_NAMES.REFRESH)?.value,
       };
@@ -85,16 +89,13 @@ export class CookieManager {
 
   /**
    * Build authorization headers from cookies
+   * Note: Session authentication uses cookies automatically sent by browser,
+   * so we only need CSRF token in headers
    */
   static async buildAuthHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {};
     
     try {
-      const sessionToken = await this.getSessionToken();
-      if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`;
-      }
-
       const csrfToken = await this.getCSRFToken();
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
@@ -125,11 +126,9 @@ export class CookieManager {
 
     buildAuthHeaders(): Record<string, string> {
       const headers: Record<string, string> = {};
-      const sessionToken = this.getSessionToken();
       
-      if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`;
-      }
+      // Session authentication uses cookies automatically sent by browser
+      // No need to manually add session token to headers
       
       return headers;
     }

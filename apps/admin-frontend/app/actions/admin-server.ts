@@ -1,9 +1,10 @@
 'use server';
 
-import { createApiClient, isApiError, type AdminUser } from '@epsx/api-client';
-import { config } from '@/lib/config';
-import type { TokenFeature, Permission } from '@/types/auth/features';
+import type { TokenFeature } from '@/types/auth/features';
+import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
+import { isApiError, type AdminUser } from '@epsx/api-client';
+import { serverGetAdminUsers, serverSetUserRole, serverGetUserStats } from '@epsx/api-client';
 
 interface User {
   userId: string;
@@ -14,15 +15,9 @@ interface User {
   permissions: Permission[];
 }
 
-// Get API client server-side only
-const getApi = () => {
-  const url = config.getBackendUrl();
-  return createApiClient(url);
-};
-
 export async function fetchUserDetails() {
   try {
-    const res = await getApi().getAdminUsers();
+    const res = await serverGetAdminUsers();
 
     if (isApiError(res)) {
       throw new Error(`Failed to fetch users: ${res.error}`);
@@ -39,7 +34,9 @@ export async function fetchUserDetails() {
       role: (u.role || 'user') as UserRole,
       tokenBalance: 0, // Not available in AdminUser, set default
       features: [], // Not available in AdminUser, set default
-      permissions: (u.permissions || []).map(p => ({ id: p, name: p, description: '', resource: '', action: '', risk: 'low' as const })),
+      permissions: (u.permissions || [])
+        .map(p => p as Permission)
+        .filter(p => Object.values(Permission).includes(p)),
     }));
 
     return users;
@@ -50,7 +47,7 @@ export async function fetchUserDetails() {
 
 export async function updateUserRole(uid: string, role: string) {
   try {
-    const res = await getApi().setUserRole(uid, role);
+    const res = await serverSetUserRole(uid, role);
 
     if (isApiError(res)) {
       throw new Error(`Failed to update user role: ${res.error}`);
@@ -64,7 +61,7 @@ export async function updateUserRole(uid: string, role: string) {
 
 export async function getUserStats() {
   try {
-    const res = await getApi().getUserStats();
+    const res = await serverGetUserStats();
 
     if (isApiError(res)) {
       throw new Error(`Failed to fetch user statistics: ${res.error}`);

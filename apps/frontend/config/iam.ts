@@ -6,7 +6,7 @@ export const IAM_CONFIG = {
   
   // Session configuration
   session: {
-    cookieName: '__session',
+    cookieName: 'sess_id',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   },
   

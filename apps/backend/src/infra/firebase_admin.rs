@@ -28,10 +28,10 @@ struct FirebaseError {
 
 #[derive(Serialize, Deserialize)]
 pub struct JWTClaims {
-    sub: String, // Firebase UID
-    email: String,
-    iat: usize,
-    exp: usize,
+    pub sub: String, // Firebase UID
+    pub email: String,
+    pub iat: usize,
+    pub exp: usize,
 }
 
 #[derive(Serialize)]

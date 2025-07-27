@@ -93,7 +93,7 @@ export function PermissionProfileAssignmentDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/permission-profiles?' + new URLSearchParams({
+      const response = await fetch('/api/v1/admin/permission-profiles?' + new URLSearchParams({
         category: permissionProfileFilter.category,
         package_tier: permissionProfileFilter.tier,
         active_only: permissionProfileFilter.active_only.toString(),
@@ -150,7 +150,7 @@ export function PermissionProfileAssignmentDashboard() {
         notify_users: notifyUsers,
       };
 
-      const response = await fetch('/api/admin/permission-profiles/assign', {
+      const response = await fetch('/api/v1/admin/permission-profiles/assign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

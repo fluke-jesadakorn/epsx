@@ -32,9 +32,13 @@ impl FromRequestParts<crate::web::auth::AppState> for AuthCtx
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-        if let Some(session_cookie) = cookies.get("sess_id") {
+        // Try to get session from either admin_sess_id or sess_id cookie
+        let session_cookie = cookies.get("admin_sess_id").or_else(|| cookies.get("sess_id"));
+        
+        if let Some(session_cookie) = session_cookie {
             let session_id = session_cookie.value();
-            tracing::debug!("Found session cookie: {}", session_id);
+            let cookie_type = if session_cookie.name() == "admin_sess_id" { "admin" } else { "user" };
+            tracing::debug!("Found {} session cookie: {}", cookie_type, session_id);
             
             // Parse session ID
             let sess_id = SessId::from_str(session_id)
@@ -83,16 +87,37 @@ impl FromRequestParts<crate::web::auth::AppState> for AuthCtx
                 if let Some(token) = auth_header.strip_prefix("Bearer ") {
                     tracing::debug!("Found Bearer token: {}", &token[..std::cmp::min(10, token.len())]);
                     
-                    // Mock implementation - validate token and create AuthCtx  
-                    let sess_id = SessId::generate(); // Generate new session for token auth
-                    let user_id = UserId::generate();
-                    let role = Role::User;
+                    // Validate JWT token and get user
+                    let firebase_uid = match state.firebase_admin.verify_jwt_token(token) {
+                        Ok(claims) => {
+                            // Extract Firebase UID from claims
+                            claims.sub
+                        }
+                        Err(e) => {
+                            tracing::warn!("Invalid JWT token: {:?}", e);
+                            return Err(StatusCode::UNAUTHORIZED);
+                        }
+                    };
                     
-                    Ok(AuthCtx {
-                        user_id,
-                        role,
-                        sess: sess_id,
-                    })
+                    // Find user by Firebase UID
+                    match state.user_repo.find_by_firebase_uid(&firebase_uid).await {
+                        Ok(Some(user)) => {
+                            let sess_id = SessId::generate(); // Generate session for token auth
+                            Ok(AuthCtx {
+                                user_id: user.id().clone(),
+                                role: user.role().clone(),
+                                sess: sess_id,
+                            })
+                        }
+                        Ok(None) => {
+                            tracing::warn!("User not found for Firebase UID: {}", firebase_uid);
+                            Err(StatusCode::UNAUTHORIZED)
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to find user by Firebase UID: {:?}", e);
+                            Err(StatusCode::INTERNAL_SERVER_ERROR)
+                        }
+                    }
                 } else {
                     Err(StatusCode::UNAUTHORIZED)
                 }

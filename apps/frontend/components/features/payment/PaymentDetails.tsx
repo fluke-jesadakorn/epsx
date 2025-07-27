@@ -18,8 +18,8 @@ import {
   Loader2,
   CreditCard
 } from 'lucide-react';
-import { realtimeClient  } from '@/lib/api-client';
-import type {PaymentStatusUpdate} from '@/lib/api-client';
+import { realtimeClient  } from '@/lib/api-client.client';
+import type {PaymentStatusUpdate} from '@/lib/api-client.client';
 // PaymentRequest type moved to local types since musepay.service was removed
 interface PaymentRequest {
   amount: number;

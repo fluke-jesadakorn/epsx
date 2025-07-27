@@ -6,6 +6,7 @@ use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::use_cases::iam::IamUC;
 use crate::app::ports::repositories::{SessRepo, UserRepo, IamRepo, AuditRepo, PermissionProfileRepo};
+use crate::infra::firebase_admin::FirebaseAdmin;
 
 
 /// Application state for dependency injection
@@ -19,6 +20,7 @@ pub struct AppState {
     pub iam_repo: Arc<dyn IamRepo>,
     pub audit_repo: Arc<dyn AuditRepo>,
     pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+    pub firebase_admin: Arc<FirebaseAdmin>,
 }
 
 impl Default for AppState {
@@ -38,6 +40,7 @@ impl AppState {
         iam_repo: Arc<dyn IamRepo>,
         audit_repo: Arc<dyn AuditRepo>,
         permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+        firebase_admin: Arc<FirebaseAdmin>,
     ) -> Self {
         Self {
             auth_uc,
@@ -48,6 +51,7 @@ impl AppState {
             iam_repo,
             audit_repo,
             permission_profile_repo,
+            firebase_admin,
         }
     }
 }

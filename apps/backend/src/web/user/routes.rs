@@ -10,10 +10,12 @@ use super::handlers::*;
 /// Create v1 API routes for user operations
 pub fn user_routes_v1() -> Router<AppState> {
     Router::new()
-        // Admin operations (will be nested under /api/v1/admin)
-        .route("/admin/users", get(list_users_handler))
-        .route("/admin/users/:id", get(get_user_by_id_handler))
-        .route("/admin/users/:id", delete(delete_user_handler))
+        // User profile operations (will be nested under /api/v1/users)
+        .route("/users/profile", get(get_current_user_handler))
+        .route("/users/profile", put(update_user_profile_handler))
+        .route("/users", get(list_users_handler))
+        .route("/users/:id", get(get_user_by_id_handler))
+        .route("/users/:id", delete(delete_user_handler))
 }
 
 /// Create legacy user routes (backward compatibility)

@@ -3,7 +3,7 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::{Json, Response},
+    response::Json,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -190,19 +190,73 @@ async fn handle_admin_login(
     password: String,
     admin_token: Option<String>,
 ) -> Result<Json<AuthLoginResponse>, StatusCode> {
-    // Use credentials login with admin flag set to true
-    let result = handle_credentials_login(cookies, app_state, email, password, true).await?;
+    // Use the real authentication system
+    use crate::app::dtos::auth::LoginReq;
+    
+    // Create login request DTO
+    let login_req = LoginReq {
+        email: email.clone(),
+        password,
+    };
+    
+    // Perform login through use case
+    let login_res = app_state.auth_uc.login(login_req).await
+        .map_err(|e| {
+            tracing::error!("Admin login failed with error: {:?}", e);
+            StatusCode::UNAUTHORIZED
+        })?;
+    
+    // Get user details to verify admin privileges
+    let user = app_state.user_repo.find_by_id(&login_res.user_id).await
+        .map_err(|e| {
+            tracing::error!("Failed to get user details: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Verify user has admin privileges
+    if !matches!(user.role(), Role::Admin | Role::SuperAdmin) {
+        tracing::warn!("User {} attempted admin login without admin privileges", email);
+        return Err(StatusCode::FORBIDDEN);
+    }
+    
+    // Create HTTP-only admin session cookie
+    let admin_session_cookie = Cookie::build(("admin_sess_id", login_res.sess_id.to_string()))
+        .http_only(true)
+        .secure(false) // Disable for development HTTP, enable in production with HTTPS
+        .same_site(tower_cookies::cookie::SameSite::Lax)
+        .max_age(tower_cookies::cookie::time::Duration::days(7))
+        .path("/")
+        .build();
+    
+    cookies.add(admin_session_cookie);
     
     // For now, ignore admin_token but log if provided for future MFA implementation
     if admin_token.is_some() {
         tracing::info!("Admin token provided - MFA will be implemented in future version");
     }
     
-    // Modify session type to admin in response
-    let mut response_data = result.0;
-    response_data.session_type = "admin".to_string();
+    // Get role string and admin permissions
+    let role_str = user.role().to_string();
+    let permissions = vec![
+        "api:admin:*".to_string(),
+        "route:*".to_string(),
+        "users:manage".to_string(),
+        "system:configure".to_string(),
+    ];
     
-    Ok(Json(response_data))
+    tracing::info!("Admin login successful for user: {} ({}), role: {:?}", email, user.id(), user.role());
+    
+    // Return complete auth response
+    Ok(Json(AuthLoginResponse {
+        user_id: user.id().to_string(),
+        email: user.email().value().to_string(),
+        role: role_str,
+        permissions,
+        subscription_tier: user.sub().tier().to_string(),
+        package_tier: user.sub().tier().to_string(),
+        expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
+        session_type: "admin".to_string(),
+    }))
 }
 
 /// User registration handler - now accepts enhanced registration data
@@ -413,10 +467,19 @@ mod tests {
     
     #[test]
     fn should_build_session_cookie_correctly() {
-        use tower_cookies::Cookies;
+        use tower_cookies::{Cookies, Cookie};
         
         let cookies = Cookies::default();
-        set_session_cookie(&cookies, "test-session-id");
+        
+        // Test regular session cookie
+        let session_cookie = Cookie::build(("sess_id", "test-session-id"))
+            .http_only(true)
+            .secure(true)
+            .same_site(tower_cookies::cookie::SameSite::Lax)
+            .path("/")
+            .build();
+        
+        cookies.add(session_cookie);
         
         let cookie = cookies.get("sess_id").unwrap();
         assert_eq!(cookie.value(), "test-session-id");

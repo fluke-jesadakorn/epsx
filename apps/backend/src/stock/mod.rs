@@ -29,21 +29,7 @@ pub fn stock_router_v1(
         .layer(axum::middleware::from_fn(crate::auth::middleware::auth_middleware))
 }
 
-/// Create legacy stock routes (backward compatibility)
-pub fn stock_router(
-    config: &Config,
-    _auth_service: Arc<crate::auth::AuthService>
-) -> Router {
-    let screener_service = Arc::new(ScreenerService::new(config));
-    let financial_data_service = Arc::new(FinancialDataService::new(config));
-    let price_data_service = Arc::new(PriceDataService::new(config));
-
-    Router::new()
-        .merge(screener::screener_router_legacy(screener_service))
-        .merge(financial_data::financial_data_router_legacy(financial_data_service))
-        .merge(price_data::price_data_router_legacy(price_data_service))
-        .layer(axum::middleware::from_fn(crate::auth::middleware::auth_middleware))
-}
+// Legacy stock routes removed - use v1 API structure only
 
 /// Placeholder handler for symbols endpoint
 async fn get_symbols_handler() -> axum::response::Json<Vec<String>> {

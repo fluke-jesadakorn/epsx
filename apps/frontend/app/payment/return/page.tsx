@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
-import { realtimeClient  } from '@/lib/api-client';
-import type {PaymentStatusUpdate} from '@/lib/api-client';
+import { realtimeClient  } from '@/lib/api-client.client';
+import type {PaymentStatusUpdate} from '@/lib/api-client.client';
 
 export default function PaymentReturnPage() {
   const router = useRouter();

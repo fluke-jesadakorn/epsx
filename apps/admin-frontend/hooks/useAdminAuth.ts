@@ -12,7 +12,7 @@ export function useAdminAuth() {
   useEffect(() => {
     const loadAdminProfile = async () => {
       try {
-        const response = await fetch('/api/admin/auth/profile');
+        const response = await fetch('/api/v1/admin/auth/profile');
         if (response.ok) {
           const profile = await response.json();
           setAdminUser({

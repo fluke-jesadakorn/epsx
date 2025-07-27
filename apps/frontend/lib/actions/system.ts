@@ -2,43 +2,31 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { createApiClient, isApiError } from '@epsx/api-client';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+// Get API client - will automatically use backend URL
+const getApi = () => {
+  return createApiClient();
+};
 
 export async function clearCacheAction(formData: FormData) {
   const symbol = formData.get('symbol') as string;
   const action = formData.get('action') as string;
 
   try {
-    const cookieStore = cookies();
-    const cookieHeader = cookieStore.toString();
+    const api = getApi();
+    const response = await api.clearSystemCache({ symbol, action });
 
-    const body: { symbol?: string; action?: string } = {};
-    if (symbol) body.symbol = symbol;
-    if (action) body.action = action;
-
-    const response = await fetch(`${BACKEND_URL}/api/system/cache`, {
-      method: 'DELETE',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cookie': cookieHeader,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Cache clear failed');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Cache clear failed');
     }
-
-    const result = await response.json();
     
     // Revalidate paths that might be affected by cache changes
     revalidatePath('/');
     revalidatePath('/dashboard');
     revalidatePath('/stocks');
     
-    return { success: true, data: result };
+    return { success: true, data: response.data };
   } catch (error) {
     return { 
       success: false, 
@@ -54,9 +42,7 @@ export async function createAuditLogAction(formData: FormData) {
   const metadata = formData.get('metadata') as string;
 
   try {
-    const cookieStore = cookies();
-    const cookieHeader = cookieStore.toString();
-
+    const api = getApi();
     const logData = {
       action,
       resource,
@@ -64,22 +50,13 @@ export async function createAuditLogAction(formData: FormData) {
       metadata: metadata ? JSON.parse(metadata) : undefined,
     };
 
-    const response = await fetch(`${BACKEND_URL}/api/audit/logs`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cookie': cookieHeader,
-      },
-      body: JSON.stringify(logData),
-    });
+    const response = await api.createAuditLog(logData);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Audit log creation failed');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Audit log creation failed');
     }
 
-    const result = await response.json();
-    return { success: true, data: result };
+    return { success: true, data: response.data };
   } catch (error) {
     return { 
       success: false, 

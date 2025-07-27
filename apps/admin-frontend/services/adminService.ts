@@ -1,6 +1,7 @@
-// Client-side admin service - makes API calls to server endpoints
+// Client-side admin service - uses server actions for backend communication
 import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
 import { adminLogger } from '@/lib/logger';
+import { createApiClient, type AdminUser as ApiAdminUser } from '@epsx/api-client';
 
 export interface AdminUser {
   uid: string;
@@ -50,77 +51,71 @@ export interface UserStats {
   verificationRate: number;
 }
 
-// All client-side calls should use Next.js API routes for security
+// All client-side calls use API client which handles routing properly
 
 export class AdminService {
-  // List users - Updated to use Rust backend
+  // Get API client instance
+  private static getApi() {
+    return createApiClient();
+  }
+
+  // List users - Updated to use API client
   static async listUsers(opts: UserListOptions = {}): Promise<UserListResult> {
     try {
-      const params = new URLSearchParams();
-      if (opts.maxResults) params.set('limit', opts.maxResults.toString());
-      if (opts.pageToken) params.set('offset', opts.pageToken);
-
-      const response = await fetch(`/api/admin/users?${params.toString()}`, {
-        method: 'GET',
-        credentials: 'include', // Include cookies for session auth
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const api = this.getApi();
+      const response = await api.listUsers({
+        limit: opts.maxResults,
+        offset: opts.pageToken,
       });
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch users');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return {
+        users: response.data?.users || [],
+        pageToken: response.data?.pageToken,
+      };
     } catch (error) {
       adminLogger.error('Failed to list users', { error: error instanceof Error ? error.message : error }, 'AdminService.listUsers');
       throw error;
     }
   }
 
-  // Get user by UID - Updated to use Next.js API route
+  // Get user by UID - Updated to use API client
   static async getUser(uid: string): Promise<AdminUser> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const api = this.getApi();
+      const response = await api.getUser(uid);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      // Map API response to local AdminUser type
+      const apiUser = response.data!;
+      return {
+        ...apiUser,
+        metadata: apiUser.metadata || {
+          creationTime: undefined,
+          lastSignInTime: undefined,
+          lastRefreshTime: null,
+        },
+      };
     } catch (error) {
       adminLogger.error(`Failed to get user ${uid}`, { error: error instanceof Error ? error.message : error, uid }, 'AdminService.getUser');
       throw error;
     }
   }
 
-  // Set user role - Updated to use Next.js API route
+  // Set user role - Updated to use API client
   static async setUserRole(uid: string, role: string): Promise<void> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role,
-          reason: 'Role updated via admin panel'
-        }),
-      });
+      const api = this.getApi();
+      const response = await api.setUserRole(uid, role, 'Role updated via admin panel');
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user role');
+      if (response.error) {
+        throw new Error(response.error);
       }
     } catch (error) {
       adminLogger.error(`Failed to set role for user ${uid}`, { error: error instanceof Error ? error.message : error, uid, role }, 'AdminService.setUserRole');
@@ -140,72 +135,42 @@ export class AdminService {
     throw new Error('User deletion not yet implemented in Rust backend');
   }
 
-  // Send password reset email - Use Next.js API route
+  // Send password reset email - Use API client
   static async sendResetEmail(email: string): Promise<string> {
     try {
-      const response = await fetch('/api/auth/password-reset', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
+      const api = this.getApi();
+      const response = await api.resetPassword({ email });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send password reset');
+      if (response.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      return result.link || result.message || 'Password reset email sent';
+      return response.data?.message || 'Password reset email sent';
     } catch (error) {
       adminLogger.error(`Failed to generate password reset for ${email}`, { error: error instanceof Error ? error.message : error, email }, 'AdminService.sendResetEmail');
       throw error;
     }
   }
 
-  // Get user statistics - Uses Next.js API proxy to Rust backend
+  // Get user statistics - Uses server action directly
   static async getUserStats(): Promise<UserStats> {
     try {
-      const response = await fetch('/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user statistics');
-      }
-      
-      return await response.json();
+      const { getUserStats } = await import('@/app/actions/admin-server');
+      return await getUserStats();
     } catch (error) {
       adminLogger.error('Failed to get user stats', { error: error instanceof Error ? error.message : error }, 'AdminService.getUserStats');
       throw error;
     }
   }
 
-  // Set user level - Updated to use Next.js API route (same as setUserRole)
+  // Set user level - Updated to use API client (same as setUserRole)
   static async setLevel(uid: string, level: UserLevel, reason?: string): Promise<void> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role: level,
-          reason: reason || 'User level updated via admin panel'
-        }),
-      });
+      const api = this.getApi();
+      const response = await api.setUserRole(uid, level, reason || 'User level updated via admin panel');
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user level');
+      if (response.error) {
+        throw new Error(response.error);
       }
     } catch (error) {
       adminLogger.error(`Failed to set user level for user ${uid}`, { error: error instanceof Error ? error.message : error, uid, level }, 'AdminService.setLevel');
@@ -213,59 +178,35 @@ export class AdminService {
     }
   }
 
-  // Get user level history - Updated to use Next.js API route
+  // Get user level history - No API method available, return empty for now
   static async getLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}/role-history`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user level history');
-      }
-      
-      return await response.json();
+      // TODO: Implement role history tracking in the backend
+      adminLogger.warn('getLevelHistory: Role history tracking not yet implemented in backend', { uid }, 'AdminService.getLevelHistory');
+      return [];
     } catch (error) {
       adminLogger.error(`Failed to get user level history for ${uid}`, { error: error instanceof Error ? error.message : error, uid }, 'AdminService.getLevelHistory');
       throw error;
     }
   }
 
-  // Bulk update user levels - Updated to use Next.js API route
+  // Bulk update user levels - Updated to use API client
   static async bulkUpdateLevels(updates: Array<{uid: string, level: UserLevel, reason?: string}>): Promise<any> {
     try {
-      const response = await fetch('/api/admin/users/batch-update-roles', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          updates: updates.map(update => ({
-            user_id: update.uid,
-            role: update.level,
-            reason: update.reason || 'Bulk update via admin panel'
-          }))
-        }),
-      });
+      const api = this.getApi();
+      const response = await api.bulkUpdateUserRoles(
+        updates.map(update => ({
+          uid: update.uid,
+          role: update.level,
+          reason: update.reason || 'Bulk update via admin panel'
+        }))
+      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to bulk update user levels');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      const result = await response.json();
-      
-      if (!result || typeof result !== 'object') {
-        throw new Error('Invalid response from server');
-      }
-      
-      return result;
+      return response.data;
     } catch (error) {
       adminLogger.error('Failed to bulk update user levels', { error: error instanceof Error ? error.message : error, updatesCount: updates.length }, 'AdminService.bulkUpdateLevels');
       throw error;
@@ -335,21 +276,17 @@ export class AdminService {
     }
   }
 
-  // IAM Methods
+  // IAM Methods - Updated to use API client
   static async listRoles(): Promise<{ roles: any[] }> {
     try {
-      const response = await fetch('/api/admin/iam/roles', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const api = this.getApi();
+      const response = await api.getRoles();
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch roles');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return { roles: response.data || [] };
     } catch (error) {
       adminLogger.error('Failed to list roles', { error: error instanceof Error ? error.message : error }, 'AdminService.listRoles');
       throw error;
@@ -358,18 +295,14 @@ export class AdminService {
 
   static async listPolicies(): Promise<{ policies: any[] }> {
     try {
-      const response = await fetch('/api/admin/iam/policies', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const api = this.getApi();
+      const response = await api.getPermissions();
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch policies');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return { policies: response.data || [] };
     } catch (error) {
       adminLogger.error('Failed to list policies', { error: error instanceof Error ? error.message : error }, 'AdminService.listPolicies');
       throw error;
@@ -378,18 +311,15 @@ export class AdminService {
 
   static async listGroups(): Promise<{ groups: any[] }> {
     try {
-      const response = await fetch('/api/admin/iam/groups', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Note: Using permission profiles instead of groups
+      const api = this.getApi();
+      const response = await api.listPermissionProfiles();
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch groups');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return { groups: response.data?.permission_profiles || [] };
     } catch (error) {
       adminLogger.error('Failed to list groups', { error: error instanceof Error ? error.message : error }, 'AdminService.listGroups');
       throw error;
@@ -405,27 +335,14 @@ export class AdminService {
     offset?: number;
   } = {}): Promise<{ permission_profiles: any[]; total: number; limit: number; offset: number }> {
     try {
-      const params = new URLSearchParams();
-      if (opts.category) params.set('category', opts.category);
-      if (opts.package_tier) params.set('package_tier', opts.package_tier);
-      if (opts.active_only !== undefined) params.set('active_only', opts.active_only.toString());
-      if (opts.limit) params.set('limit', opts.limit.toString());
-      if (opts.offset) params.set('offset', opts.offset.toString());
-
-      const response = await fetch(`/api/admin/permission-profiles?${params.toString()}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const api = this.getApi();
+      const response = await api.listPermissionProfiles(opts);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch permission profiles');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return response.data!;
     } catch (error) {
       adminLogger.error('Failed to list permission profiles', { error: error instanceof Error ? error.message : error, opts }, 'AdminService.listPermProfiles');
       throw error;
@@ -434,20 +351,14 @@ export class AdminService {
 
   static async getPermProfile(profileId: string): Promise<any> {
     try {
-      const response = await fetch(`/api/admin/permission-profiles/${profileId}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const api = this.getApi();
+      const response = await api.getPermissionProfile(profileId);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch permission profile');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return response.data;
     } catch (error) {
       adminLogger.error(`Failed to get permission profile ${profileId}`, { error: error instanceof Error ? error.message : error, profileId }, 'AdminService.getPermProfile');
       throw error;
@@ -479,21 +390,14 @@ export class AdminService {
     applied_at: string;
   }> {
     try {
-      const response = await fetch('/api/admin/permission-profiles/assign', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(req),
-      });
+      const api = this.getApi();
+      const response = await api.assignPermissionProfile(req);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to assign permission profile');
+      if (response.error) {
+        throw new Error(response.error);
       }
       
-      return await response.json();
+      return response.data!;
     } catch (error) {
       adminLogger.error('Failed to assign permission profile', { error: error instanceof Error ? error.message : error, profileId: req.permission_profile_id, userCount: req.user_ids.length }, 'AdminService.assignPermProfile');
       throw error;

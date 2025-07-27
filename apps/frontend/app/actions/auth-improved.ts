@@ -3,7 +3,13 @@
 import { redirect } from 'next/navigation';
 import { getServerAuth, createServerSession, destroyServerSession } from '@/lib/auth-server';
 import { ServerCookies } from '@/lib/cookies';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import type { User } from '@/types/auth/user';
+
+// Get API client - will automatically use backend URL
+const getApi = () => {
+  return createApiClient();
+};
 
 /**
  * Enhanced Server Actions for authentication with backend integration
@@ -71,21 +77,15 @@ export async function refreshSession(): Promise<{
       return { success: false, needsRefresh: true, error: 'No session found' };
     }
     
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Cookie': `sess_id=${sessionId}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const api = getApi();
+    const response = await api.refreshToken();
     
-    if (!response.ok) {
+    if (isApiError(response)) {
       await ServerCookies.delete('SESSION');
       return { 
         success: false, 
         needsRefresh: true, 
-        error: 'Session expired' 
+        error: response.error || 'Session expired' 
       };
     }
     

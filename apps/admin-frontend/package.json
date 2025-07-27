@@ -17,8 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "clean": "rm -rf .next out node_modules .turbo",
-    "firebase-init": "tsx scripts/run-firebase-init.ts"
+    "clean": "rm -rf .next out node_modules .turbo"
   },
   "dependencies": {
     "@epsx/api-client": "workspace:*",
@@ -44,7 +43,6 @@
     "cookies-next": "6.0.0",
     "dotenv": "^17.2.0",
     "firebase": "^12.0.0",
-    "firebase-admin": "13.2.0",
     "lucide-react": "0.523.0",
     "next": "15.4.2",
     "next-themes": "^0.4.6",

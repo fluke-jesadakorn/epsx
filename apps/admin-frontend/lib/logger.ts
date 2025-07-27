@@ -80,7 +80,7 @@ class AdminLogger {
   private async sendToRemoteLogger(entry: LogEntry): Promise<void> {
     if (!this.isDevelopment && entry.level === 'error') {
       try {
-        await fetch('/api/admin/logs', {
+        await fetch('/api/v1/admin/logs', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

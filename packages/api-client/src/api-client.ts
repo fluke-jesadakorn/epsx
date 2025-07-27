@@ -1,10 +1,6 @@
 import { CookieManager } from './cookie-manager';
 import type {
-  AdminProfile,
-  AdminUser,
-  AnalyticsStatistics,
   ApiResponse,
-  AssignmentResult,
   CountResponse,
   CreatePaymentRequest,
   CreatePaymentResponse,
@@ -20,7 +16,6 @@ import type {
   PermissionCheckRequest,
   PermissionCheckResponse,
   PermissionProfile,
-  PermissionProfileAssignmentRequest,
   PortfolioItem,
   PriceAlert,
   PriceAlertCreateRequest,
@@ -33,24 +28,29 @@ import type {
   StockFinancialData,
   StockItem,
   StockRanking,
-  StockRankingAnalytics,
-  StockRankingAssignment,
-  StockRankingAssignmentExtendRequest,
-  StockRankingAssignmentRequest,
-  StockRankingAssignmentUpdateRequest,
-  UserListOptions,
-  UserListResult,
   UserPermissionStatus,
   UserProfile,
-  UserSoftDeleteRequest,
   WatchlistAddRequest,
 } from './types';
+
+// Helper function to get backend URL from environment
+function getBackendUrl(): string {
+  if (typeof window === 'undefined') {
+    // Server-side: use environment variables
+    return (
+      process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:8080'
+    );
+  } else {
+    // Client-side: use relative URLs (Next.js will proxy)
+    return '';
+  }
+}
 
 export class ApiClient {
   private readonly baseUrl: string;
 
-  constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl || getBackendUrl();
   }
 
   /**
@@ -185,7 +185,6 @@ export class ApiClient {
   > {
     return this.post('/api/v1/auth/register', userData);
   }
-
 
   async enhancedRegister(
     userData: EnhancedRegisterRequest
@@ -344,58 +343,6 @@ export class ApiClient {
     );
   }
 
-  // Admin methods
-  async listUsers(
-    options: UserListOptions = {}
-  ): Promise<ApiResponse<UserListResult>> {
-    const params = new URLSearchParams();
-    if (options.maxResults || options.limit) {
-      params.set('limit', (options.maxResults || options.limit)!.toString());
-    }
-    if (options.pageToken || options.offset) {
-      params.set('offset', options.pageToken || options.offset!);
-    }
-
-    return this.get<UserListResult>(`/api/admin/users?${params.toString()}`);
-  }
-
-  async getUser(uid: string): Promise<ApiResponse<AdminUser>> {
-    return this.get<AdminUser>(`/api/admin/users/${uid}`);
-  }
-
-  async setUserRole(
-    uid: string,
-    role: string,
-    reason?: string
-  ): Promise<ApiResponse<void>> {
-    return this.put<void>(`/api/admin/users/${uid}`, {
-      role,
-      reason: reason || 'Role updated via admin panel',
-    });
-  }
-
-  async getUserStats(): Promise<ApiResponse<any>> {
-    return this.get(
-      '/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true'
-    );
-  }
-
-  async bulkUpdateUserRoles(
-    updates: Array<{
-      uid: string;
-      role: string;
-      reason?: string;
-    }>
-  ): Promise<ApiResponse<any>> {
-    return this.post('/api/admin/users/batch-update-roles', {
-      updates: updates.map(update => ({
-        user_id: update.uid,
-        role: update.role,
-        reason: update.reason || 'Bulk update via admin panel',
-      })),
-    });
-  }
-
   // Permission Profile methods
   async listPermissionProfiles(
     options: {
@@ -428,15 +375,6 @@ export class ApiClient {
   ): Promise<ApiResponse<PermissionProfile>> {
     return this.get<PermissionProfile>(
       `/api/admin/permission-profiles/${permissionProfileId}`
-    );
-  }
-
-  async assignPermissionProfile(
-    request: PermissionProfileAssignmentRequest
-  ): Promise<ApiResponse<AssignmentResult>> {
-    return this.post<AssignmentResult>(
-      '/api/admin/permission-profiles/assign',
-      request
     );
   }
 
@@ -519,133 +457,6 @@ export class ApiClient {
       roles: roleIds,
       directPermissions,
     });
-  }
-
-  // Extended Admin methods for admin-frontend
-  async getAdminUsers(
-    searchParams?: URLSearchParams
-  ): Promise<ApiResponse<{ users: AdminUser[]; total?: number }>> {
-    const queryString = searchParams?.toString() || '';
-    return this.get<{ users: AdminUser[]; total?: number }>(
-      `/admin/users${queryString ? `?${queryString}` : ''}`
-    );
-  }
-
-  async getAdminUser(userId: string): Promise<ApiResponse<AdminUser>> {
-    return this.get<AdminUser>(`/admin/users/${userId}`);
-  }
-
-  async getAdminPermissionProfiles(searchParams?: URLSearchParams): Promise<
-    ApiResponse<{
-      permission_profiles: PermissionProfile[];
-      total: number;
-      limit: number;
-      offset: number;
-    }>
-  > {
-    const params = new URLSearchParams(searchParams);
-    return this.get(`/admin/permission-profiles?${params.toString()}`);
-  }
-
-  async getAdminPermissionProfile(
-    profileId: string
-  ): Promise<ApiResponse<PermissionProfile>> {
-    return this.get<PermissionProfile>(
-      `/admin/permission-profiles/${profileId}`
-    );
-  }
-
-  async assignAdminPermissionProfile(request: {
-    profile_id: string;
-    user_id: string;
-    expires_at?: string;
-  }): Promise<ApiResponse<AssignmentResult>> {
-    return this.post<AssignmentResult>(
-      '/admin/permission-profiles/assign',
-      request
-    );
-  }
-
-  // Stock Ranking Admin methods
-  async getStockRankingAssignments(
-    searchParams?: URLSearchParams
-  ): Promise<
-    ApiResponse<{ assignments: StockRankingAssignment[]; total?: number }>
-  > {
-    const params = new URLSearchParams(searchParams);
-    return this.get(`/admin/stock-ranking/assignments?${params.toString()}`);
-  }
-
-  async getStockRankingAssignment(
-    assignmentId: string
-  ): Promise<ApiResponse<StockRankingAssignment>> {
-    return this.get<StockRankingAssignment>(
-      `/admin/stock-ranking/assignments/${assignmentId}`
-    );
-  }
-
-  async assignBulkStockRanking(
-    request: StockRankingAssignmentRequest
-  ): Promise<ApiResponse<AssignmentResult>> {
-    return this.post<AssignmentResult>(
-      '/admin/stock-ranking/assign-bulk',
-      request
-    );
-  }
-
-  async revokeStockRankingAssignment(
-    assignmentId: string
-  ): Promise<ApiResponse<AssignmentResult>> {
-    return this.post<AssignmentResult>(
-      `/admin/stock-ranking/assignments/${assignmentId}/revoke`
-    );
-  }
-
-  async extendStockRankingAssignment(
-    assignmentId: string,
-    request: StockRankingAssignmentExtendRequest
-  ): Promise<ApiResponse<AssignmentResult>> {
-    return this.post<AssignmentResult>(
-      `/admin/stock-ranking/assignments/${assignmentId}/extend`,
-      request
-    );
-  }
-
-  async updateStockRankingAssignment(
-    assignmentId: string,
-    request: StockRankingAssignmentUpdateRequest
-  ): Promise<ApiResponse<AssignmentResult>> {
-    return this.put<AssignmentResult>(
-      `/admin/stock-ranking/assignments/${assignmentId}`,
-      request
-    );
-  }
-
-  // Analytics methods
-  async getAnalyticsStatistics(): Promise<ApiResponse<AnalyticsStatistics>> {
-    return this.get<AnalyticsStatistics>('/admin/analytics/statistics');
-  }
-
-  async getStockRankingAnalytics(
-    searchParams?: URLSearchParams
-  ): Promise<ApiResponse<StockRankingAnalytics>> {
-    const params = new URLSearchParams(searchParams);
-    return this.get<StockRankingAnalytics>(
-      `/admin/stock-ranking/analytics?${params.toString()}`
-    );
-  }
-
-  // Admin Profile method
-  async getAdminProfile(): Promise<ApiResponse<AdminProfile>> {
-    return this.get<AdminProfile>('/admin/auth/profile');
-  }
-
-  // User Management methods
-  async softDeleteUser(
-    userId: string,
-    request: UserSoftDeleteRequest
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.delete<{ message: string }>(`/admin/users/${userId}`, request);
   }
 
   // Trading methods

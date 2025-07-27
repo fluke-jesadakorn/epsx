@@ -1,7 +1,7 @@
 'use client';
 
-import { apiClient, isApiError   } from '@/lib/api-client';
-import type {ProfileUpdateRequest, PasswordChangeRequest} from '@/lib/api-client';
+import { apiClient, isApiError   } from '@/lib/api-client.client';
+import type {ProfileUpdateRequest, PasswordChangeRequest} from '@/lib/api-client.client';
 import { useEffect, useState } from 'react';
 
 import type { UserLevelType } from '@/app/constants/packages';

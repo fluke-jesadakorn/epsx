@@ -29,7 +29,7 @@ export const createPaymentService = () => {
     description?: string,
   ): Promise<string | null> => {
     try {
-      const response = await apiClient.post('/payments', {
+      const response = await apiClient.post('/api/v1/payments/musepay/create', {
         amount,
         currency,
         description,
@@ -57,10 +57,7 @@ export const createPaymentService = () => {
     message: string;
   }> => {
     try {
-      const response = await apiClient.post(`/payments/${txId}/confirm`, {
-        payMethod,
-        userLevel,
-      });
+      const response = await apiClient.get(`/api/v1/payments/musepay/${txId}/validate`);
 
       if (isApiSuccess(response)) {
         return { success: true, message: 'Payment confirmed successfully' };
@@ -130,7 +127,7 @@ export const createPaymentService = () => {
 
   const initQRPayment = async (amount: number, currency: string) => {
     try {
-      const response = await apiClient.post('/payments/qr-init', {
+      const response = await apiClient.post('/api/v1/payments/musepay/create', {
         amount,
         currency,
       });

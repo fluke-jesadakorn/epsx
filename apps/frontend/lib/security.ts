@@ -571,7 +571,7 @@ export async function performSecurityChecks(options: {
     
     // Authentication check
     if (options.requireAuth) {
-      const sessionToken = await getSecureCookie('__session');
+      const sessionToken = await getSecureCookie('sess_id');
       
       if (!sessionToken || !await validateSession(sessionToken)) {
         await logSecurityEvent({

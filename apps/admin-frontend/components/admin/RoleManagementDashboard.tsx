@@ -28,7 +28,7 @@ export function RoleManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/iam/roles');
+      const response = await fetch('/api/v1/admin/iam/roles');
       if (!response.ok) {
         throw new Error('Failed to fetch roles');
       }

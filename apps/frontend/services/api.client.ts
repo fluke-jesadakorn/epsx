@@ -81,22 +81,29 @@ export const stockApi = {
     }
     return response.data;
   },
+  getSymbols: async () => {
+    const response = await apiClient.get(`/api/v1/market-data/symbols`);
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to get symbols');
+    }
+    return response.data;
+  },
   getStock: async (symbol: string) => {
-    const response = await apiClient.get(`/api/v1/market-data/stocks/${symbol}`);
+    const response = await apiClient.get(`/api/v1/stock/financial-data/${symbol}`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get stock');
     }
     return response.data;
   },
   searchStocks: async (query: string) => {
-    const response = await apiClient.get(`/api/v1/market-data/stocks/search?q=${query}`);
+    const response = await apiClient.get(`/api/v1/stock/screener/search?q=${query}`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to search stocks');
     }
     return response.data;
   },
   getStockHistory: async (symbol: string, period = '1y') => {
-    const response = await apiClient.get(`/api/v1/market-data/stocks/${symbol}/history?period=${period}`);
+    const response = await apiClient.get(`/api/v1/stock/price-data/${symbol}/history?period=${period}`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get stock history');
     }
@@ -106,21 +113,21 @@ export const stockApi = {
 
 export const rankingApi = {
   getRankings: async () => {
-    const response = await apiClient.get('/api/v1/rankings');
+    const response = await apiClient.get('/api/v1/premium/rankings');
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get rankings');
     }
     return response.data;
   },
   getUserRanking: async (userId: string) => {
-    const response = await apiClient.get(`/api/v1/rankings/user/${userId}`);
+    const response = await apiClient.get(`/api/v1/premium/rankings/user/${userId}`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get user ranking');
     }
     return response.data;
   },
   updateRanking: async (data: any) => {
-    const response = await apiClient.post('/api/v1/rankings', data);
+    const response = await apiClient.post('/api/v1/premium/rankings', data);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to update ranking');
     }
@@ -130,23 +137,37 @@ export const rankingApi = {
 
 export const paymentApi = {
   createPayment: async (data: any) => {
-    const response = await apiClient.createPayment(data);
+    const response = await apiClient.post('/api/v1/payments/musepay/create', data);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to create payment');
     }
     return response.data;
   },
   getPaymentStatus: async (paymentId: string) => {
-    const response = await apiClient.getPaymentStatus(paymentId);
+    const response = await apiClient.get(`/api/v1/payments/musepay/${paymentId}`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get payment status');
     }
     return response.data;
   },
   verifyPayment: async (paymentId: string) => {
-    const response = await apiClient.post(`/api/v1/payments/${paymentId}/verify`);
+    const response = await apiClient.get(`/api/v1/payments/musepay/${paymentId}/validate`);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to verify payment');
+    }
+    return response.data;
+  },
+  getCryptoDepositAddress: async () => {
+    const response = await apiClient.get('/api/v1/payments/crypto/deposit-address');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to get crypto deposit address');
+    }
+    return response.data;
+  },
+  getQrCode: async (paymentId: string) => {
+    const response = await apiClient.get(`/api/v1/payments/musepay/${paymentId}/qrcode`);
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to get QR code');
     }
     return response.data;
   },
@@ -168,16 +189,37 @@ export const userApi = {
     return response.data;
   },
   getUserData: async () => {
-    const response = await apiClient.get('/api/v1/users/data');
+    const response = await apiClient.get('/api/v1/users/profile');
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to get user data');
     }
     return response.data;
   },
   updateUserData: async (data: any) => {
-    const response = await apiClient.put('/api/v1/users/data', data);
+    const response = await apiClient.put('/api/v1/users/profile', data);
     if (isApiError(response)) {
       throw new Error(response.error || 'Failed to update user data');
+    }
+    return response.data;
+  },
+  getUserById: async (id: string) => {
+    const response = await apiClient.get(`/api/v1/users/${id}`);
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to get user by id');
+    }
+    return response.data;
+  },
+  listUsers: async () => {
+    const response = await apiClient.get('/api/v1/users');
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to list users');
+    }
+    return response.data;
+  },
+  deleteUser: async (id: string) => {
+    const response = await apiClient.delete(`/api/v1/users/${id}`);
+    if (isApiError(response)) {
+      throw new Error(response.error || 'Failed to delete user');
     }
     return response.data;
   },
