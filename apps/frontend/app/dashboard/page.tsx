@@ -22,43 +22,19 @@ import {
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, loading, isInitialized, logout } = useAuth();
   const permissions = { role: 'user', permissions: [] }; // Temporary fallback
 
-  if (!user || !permissions) {
+  // Show loading state during hydration to prevent mismatch
+  if (!isInitialized || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-        {/* PancakeSwap-style background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-3xl animate-bounce-slow" />
-        <div className="absolute top-20 -right-32 w-80 h-80 bg-gradient-to-br from-blue-400/15 to-cyan-400/15 rounded-full blur-3xl animate-float" />
-
-        <div className="text-center relative z-10">
-          <div className="mb-6">
-            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-orange-500 to-yellow-500 rounded-2xl flex items-center justify-center mb-4 animate-bounce-gentle">
-              <Lock className="w-8 h-8 text-white" />
-            </div>
-          </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-transparent animate-gradient-x">
-            Access Denied
-          </h2>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
-            Please log in to access the dashboard.
-          </p>
-          <Link href="/login">
-            <Button
-              variant="pancake"
-              className="mt-6 text-lg px-8 py-3"
-              size="lg"
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              Go to Login
-            </Button>
-          </Link>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
+
+  // Allow guest access - show user info if logged in, otherwise show guest message
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -80,9 +56,9 @@ export default function DashboardPage() {
             🚀 Dashboard
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">
-            Welcome back,{' '}
+            Welcome{user ? ' back' : ''},{' '}
             <span className="font-semibold text-orange-600 dark:text-orange-400">
-              {user.email || 'User'}
+              {user?.email || 'Guest User'}
             </span>
             ! ✨
           </p>
@@ -299,14 +275,26 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <Button
-            onClick={signOut}
-            variant="pancake-outline"
-            className="px-8 py-3 text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
-          >
-            <Lock className="mr-2 h-5 w-5" />
-            🚪 Sign Out
-          </Button>
+          {user ? (
+            <Button
+              onClick={logout}
+              variant="pancake-outline"
+              className="px-8 py-3 text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+            >
+              <Lock className="mr-2 h-5 w-5" />
+              🚪 Sign Out
+            </Button>
+          ) : (
+            <Link href="/login">
+              <Button
+                variant="pancake"
+                className="px-8 py-3 text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+              >
+                <Lock className="mr-2 h-5 w-5" />
+                🚪 Log In
+              </Button>
+            </Link>
+          )}
 
           {/* Decorative elements */}
           <div className="flex justify-center items-center gap-4 mt-6">

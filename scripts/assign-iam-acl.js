@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Cross-platform script to promote a user from email to SuperAdmin role
- * or assign IAM/ACL permission profiles
- * Usage: 
- *   node scripts/promote-user-admin.js promote <email> [reason]
- *   node scripts/promote-user-admin.js assign <email> <profile_id> [options]
+ * Cross-platform script to assign IAM/ACL permission profiles to users
+ * Usage: node scripts/assign-iam-acl.js <email> <profile_id> [options]
  */
 
 import { execSync } from 'child_process';
@@ -27,23 +24,26 @@ function validateEmail(email) {
   return emailRegex.test(email);
 }
 
+function validateProfileId(profileId) {
+  // Basic validation - profile ID should not be empty and follow a reasonable pattern
+  return profileId && profileId.length > 0 && /^[a-zA-Z0-9_-]+$/.test(profileId);
+}
+
+function validateDateTime(dateTimeStr) {
+  try {
+    const date = new Date(dateTimeStr);
+    return !isNaN(date.getTime()) && dateTimeStr.includes('T');
+  } catch {
+    return false;
+  }
+}
+
 function checkBackendExists() {
   try {
     readFileSync(CONFIG.cargoToml, 'utf8');
     return existsSync(CONFIG.backendPath);
   } catch {
     return false;
-  }
-}
-
-function getPromoteCommand(email, reason = 'Admin promotion via script') {
-  const isWindows = platform() === 'win32';
-  const reasonArg = reason ? `--reason="${reason}"` : '';
-  
-  if (isWindows) {
-    return `cd /d "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg}`;
-  } else {
-    return `cd "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg}`;
   }
 }
 
@@ -77,12 +77,17 @@ function getAssignCommand(email, profileId, options = {}) {
   }
 }
 
-function validateProfileId(profileId) {
-  return profileId && profileId.length > 0 && /^[a-zA-Z0-9_-]+$/.test(profileId);
+function getListProfilesCommand() {
+  const isWindows = platform() === 'win32';
+  
+  if (isWindows) {
+    return `cd /d "${CONFIG.backendPath}" && cargo run --bin assign_iam -- --list_profiles`;
+  } else {
+    return `cd "${CONFIG.backendPath}" && cargo run --bin assign_iam -- --list_profiles`;
+  }
 }
 
 function executeCargoCommand(cmd) {
-  
   console.log(`Executing: ${cmd}`);
   
   try {
@@ -104,35 +109,69 @@ function executeCargoCommand(cmd) {
 
 function showHelp() {
   console.log(`
-Usage: node scripts/promote-user-admin.js <command> [arguments]
+Usage: node scripts/assign-iam-acl.js <command> [arguments]
 
 Commands:
-  promote <email> [reason]                      Promote user to SuperAdmin role
-  assign <email> <profile_id> [options]        Assign IAM/ACL permission profile
-
-Promote Arguments:
-  email     Email address of user to promote to SuperAdmin
-  reason    Optional reason for the promotion (default: "Admin promotion via script")
+  assign <email> <profile_id> [options]   Assign permission profile to user
+  list                                    List available permission profiles
 
 Assign Arguments:
   email         Email address of user to assign permissions to
   profile_id    ID of the permission profile to assign
 
+Assign Options:
+  --reason <string>              Reason for the assignment
+  --admin-id <string>            Admin user ID performing the assignment
+  --merge-permissions <boolean>  Whether to merge with existing permissions (default: true)
+  --expires-at <datetime>        Expiration date in ISO 8601 format (e.g., 2024-12-31T23:59:59Z)
+
 Examples:
-  # Promote to SuperAdmin
-  node scripts/promote-user-admin.js promote user@example.com
-  node scripts/promote-user-admin.js promote user@example.com "Emergency admin access needed"
+  # List available profiles
+  node scripts/assign-iam-acl.js list
   
-  # Assign permission profile
-  node scripts/promote-user-admin.js assign user@example.com user-premium-002
+  # Assign basic user profile
+  node scripts/assign-iam-acl.js assign user@example.com user-basic-001
   
+  # Assign premium profile with reason
+  node scripts/assign-iam-acl.js assign user@example.com user-premium-002 --reason "Upgrade to premium plan"
+  
+  # Assign with expiration
+  node scripts/assign-iam-acl.js assign user@example.com mod-standard-003 --expires-at "2024-12-31T23:59:59Z"
+  
+  # Assign without merging permissions
+  node scripts/assign-iam-acl.js assign user@example.com admin-full-004 --merge-permissions false
+
   # Cross-platform usage:
-  npm run promote-admin user@example.com
-  pnpm promote-admin user@example.com
+  npm run assign-iam user@example.com user-premium-002
+  pnpm assign-iam user@example.com user-premium-002
 
 Note: This script requires the backend to be built and available at ${CONFIG.backendPath}
 Platform: ${platform()}
   `);
+}
+
+function parseOptions(args) {
+  const options = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg === '--reason' && i + 1 < args.length) {
+      options.reason = args[i + 1];
+      i++; // skip next arg
+    } else if (arg === '--admin-id' && i + 1 < args.length) {
+      options.adminId = args[i + 1];
+      i++; // skip next arg
+    } else if (arg === '--merge-permissions' && i + 1 < args.length) {
+      options.mergePermissions = args[i + 1].toLowerCase() === 'true';
+      i++; // skip next arg
+    } else if (arg === '--expires-at' && i + 1 < args.length) {
+      options.expiresAt = args[i + 1];
+      i++; // skip next arg
+    }
+  }
+  
+  return options;
 }
 
 function main() {
@@ -152,65 +191,37 @@ function main() {
     process.exit(1);
   }
 
-  if (command === 'promote') {
-    // Handle promote command
-    if (args.length < 2) {
-      console.error('❌ Error: promote command requires email');
-      console.error('Usage: node scripts/promote-user-admin.js promote <email> [reason]');
-      process.exit(1);
-    }
-
-    const email = args[1];
-    const reason = args[2];
-
-    // Validate inputs
-    if (!validateEmail(email)) {
-      console.error(`❌ Error: Invalid email format: ${email}`);
-      process.exit(1);
-    }
-
-    console.log(`🔄 Promoting user ${email} to SuperAdmin...`);
+  if (command === 'list') {
+    console.log('📋 Listing available permission profiles...');
     console.log(`📍 Platform: ${platform()}`);
-    if (reason) {
-      console.log(`📝 Reason: ${reason}`);
-    }
-
-    // Execute promotion
-    const cmd = getPromoteCommand(email, reason);
+    
+    const cmd = getListProfilesCommand();
     const result = executeCargoCommand(cmd);
-
+    
     if (result.success) {
-      console.log('✅ User promotion successful!');
+      console.log('✅ Successfully retrieved permission profiles!');
       if (result.output) {
-        console.log('📋 Output:', result.output);
+        console.log(result.output);
       }
     } else {
-      console.error('❌ User promotion failed!');
+      console.error('❌ Failed to list permission profiles!');
       console.error('🚨 Error:', result.error);
       if (result.output) {
         console.error('📋 Output:', result.output);
       }
       process.exit(1);
     }
-
+    
   } else if (command === 'assign') {
-    // Handle assign command
     if (args.length < 3) {
       console.error('❌ Error: assign command requires email and profile_id');
-      console.error('Usage: node scripts/promote-user-admin.js assign <email> <profile_id> [options]');
+      console.error('Usage: node scripts/assign-iam-acl.js assign <email> <profile_id> [options]');
       process.exit(1);
     }
-
+    
     const email = args[1];
     const profileId = args[2];
-    
-    // Parse options (simplified version)
-    const options = {};
-    for (let i = 3; i < args.length; i += 2) {
-      if (args[i] === '--reason' && i + 1 < args.length) {
-        options.reason = args[i + 1];
-      }
-    }
+    const options = parseOptions(args.slice(3));
 
     // Validate inputs
     if (!validateEmail(email)) {
@@ -220,6 +231,13 @@ function main() {
 
     if (!validateProfileId(profileId)) {
       console.error(`❌ Error: Invalid profile ID format: ${profileId}`);
+      console.error('Profile ID should contain only letters, numbers, underscores, and hyphens');
+      process.exit(1);
+    }
+
+    if (options.expiresAt && !validateDateTime(options.expiresAt)) {
+      console.error(`❌ Error: Invalid expiration date format: ${options.expiresAt}`);
+      console.error('Use ISO 8601 format (e.g., 2024-12-31T23:59:59Z)');
       process.exit(1);
     }
 
@@ -231,6 +249,16 @@ function main() {
     if (options.reason) {
       console.log(`📝 Reason: ${options.reason}`);
     }
+    
+    if (options.adminId) {
+      console.log(`👤 Admin: ${options.adminId}`);
+    }
+    
+    if (options.expiresAt) {
+      console.log(`⏰ Expires: ${options.expiresAt}`);
+    }
+    
+    console.log(`🔀 Merge permissions: ${options.mergePermissions !== false ? 'true' : 'false'}`);
 
     // Execute assignment
     const cmd = getAssignCommand(email, profileId, options);
@@ -249,44 +277,12 @@ function main() {
       }
       process.exit(1);
     }
-
+    
   } else {
-    // Handle legacy usage (backward compatibility)
-    const email = command;
-    const reason = args[1];
-
-    // Validate inputs
-    if (!validateEmail(email)) {
-      console.error(`❌ Error: Invalid command or email format: ${command}`);
-      console.error('Available commands: promote, assign');
-      console.error('Use --help for more information');
-      process.exit(1);
-    }
-
-    console.log('⚠️  Using legacy format. Consider using: node scripts/promote-user-admin.js promote ' + email);
-    console.log(`🔄 Promoting user ${email} to SuperAdmin...`);
-    console.log(`📍 Platform: ${platform()}`);
-    if (reason) {
-      console.log(`📝 Reason: ${reason}`);
-    }
-
-    // Execute promotion (legacy)
-    const cmd = getPromoteCommand(email, reason);
-    const result = executeCargoCommand(cmd);
-
-    if (result.success) {
-      console.log('✅ User promotion successful!');
-      if (result.output) {
-        console.log('📋 Output:', result.output);
-      }
-    } else {
-      console.error('❌ User promotion failed!');
-      console.error('🚨 Error:', result.error);
-      if (result.output) {
-        console.error('📋 Output:', result.output);
-      }
-      process.exit(1);
-    }
+    console.error(`❌ Error: Unknown command: ${command}`);
+    console.error('Available commands: assign, list');
+    console.error('Use --help for more information');
+    process.exit(1);
   }
 }
 

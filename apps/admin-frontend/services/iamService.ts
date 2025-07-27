@@ -1,81 +1,20 @@
-// import { buildPackagePermissions } from '../config/packagePermissions'; // Config removed
+import { createApiClient, isApiError } from '@epsx/api-client';
+import { config } from '@/lib/config';
 import type {
   CustomPermission,
   EffectivePermission,
   Permission,
   UserWithPermissions,
+  Role,
+  Policy,
+  Group,
 } from '../types/admin/iam';
 import { PackageTier } from '../types/admin/iam';
-// import { firebaseIAMService } from './firebaseIAMService'; // Service removed
 
-// Placeholder for removed dependencies
-const buildPackagePermissions = () => ({});
-
-// Mock admin service
-const adminService = {
-  createAdminUser: async (...args: any[]) => {},
-};
-const firebaseIAMService = {
-  getUsers: async (...args: any[]) => [],
-  getUser: async (...args: any[]) => null,
-  getUserWithPermissions: async (
-    ...args: any[]
-  ): Promise<UserWithPermissions> => ({
-    id: '',
-    email: '',
-    displayName: '',
-    name: '',
-    emailVerified: false,
-    disabled: false,
-    roles: [],
-    groups: [],
-    attachedPolicies: [],
-    status: 'active',
-    packageTier: PackageTier.FREE,
-    subscriptionStatus: 'inactive' as any,
-    effectivePermissions: [],
-    customPermissions: [],
-    packagePermissions: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    lastActivity: new Date().toISOString(),
-  }),
-  updateUserPackageTier: async (...args: any[]) => {},
-  setUserCustomPermissions: async (...args: any[]) => {},
-  getUserCustomPermissions: async (...args: any[]) => [],
-  getActivityLogs: async (...args: any[]) => [],
-  bulkApplyProfile: async (...args: any[]) => {},
-  applyPackagePermissions: async (...args: any[]) => {},
-  grantCustomPermission: async (...args: any[]): Promise<CustomPermission> => ({
-    id: '',
-    userId: '',
-    featureId: '',
-    permission: {
-      id: '',
-      action: '',
-      resource: '',
-      service: '',
-      effect: 'Allow',
-    },
-    grantedBy: '',
-    grantedAt: new Date(),
-    isActive: true,
-  }),
-  revokeCustomPermission: async (...args: any[]) => {},
-  hasFeatureAccess: async (...args: any[]) => false,
-  getUserEffectivePermissions: async (...args: any[]) => [],
-  previewPackageUpgrade: async (...args: any[]) => ({
-    currentPermissions: [],
-    newPermissions: [],
-    addedPermissions: [],
-    removedPermissions: [],
-  }),
-  getUserAuditLogs: async (...args: any[]) => [],
-  getAllAuditLogs: async (...args: any[]) => [],
-  cleanupExpiredPermissions: async (...args: any[]) => {},
-  createAuditLog: async (...args: any[]) => {},
-  createUser: async (...args: any[]) => {},
-  createAdminUser: async (...args: any[]) => {},
+// Get API client
+const getApi = () => {
+  const url = config.getBackendUrl();
+  return createApiClient(url);
 };
 
 export class IAMService {
@@ -87,67 +26,116 @@ export class IAMService {
     subscriptionStatus?: string;
     hasCustomPermissions?: boolean;
   }): Promise<UserWithPermissions[]> {
-    return firebaseIAMService.getUsers(filters);
+    try {
+      const api = getApi();
+      const res = await api.getIamUsers(filters);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch users: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
   }
 
   /**
    * Get specific user with all permission details
    */
-  async getUserWithPermissions(userId: string): Promise<UserWithPermissions> {
-    return firebaseIAMService.getUserWithPermissions(userId);
+  async getUserWithPermissions(uid: string): Promise<UserWithPermissions> {
+    try {
+      const api = getApi();
+      const res = await api.getIamUser(uid);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch user: ${res.error}`);
+      }
+      
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      throw error;
+    }
   }
 
   /**
    * Update user's package tier
    */
   async updateUserPackageTier(
-    userId: string,
-    newTier: PackageTier,
-    updatedBy: string
+    uid: string,
+    tier: PackageTier,
+    by: string
   ): Promise<void> {
-    return firebaseIAMService.updateUserPackageTier(userId, newTier, updatedBy);
+    try {
+      const api = getApi();
+      const res = await api.updateUserPackageTier(uid, {
+        packageTier: tier,
+        updatedBy: by
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to update package tier: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating package tier:', error);
+      throw error;
+    }
   }
 
   /**
    * Apply package permissions to a user
    */
   async applyPackagePermissions(
-    userId: string,
-    packageTier: PackageTier
+    uid: string,
+    tier: PackageTier
   ): Promise<void> {
-    return firebaseIAMService.applyPackagePermissions(userId, packageTier);
+    return firebaseIAMService.applyPackagePermissions(uid, tier);
   }
 
   /**
    * Grant custom permission to user
    */
   async grantCustomPermission(
-    userId: string,
-    featureId: string,
-    permission: Permission,
-    grantedBy: string,
-    options?: { expiresAt?: Date; reason?: string }
+    uid: string,
+    fid: string,
+    perm: Permission,
+    by: string,
+    opts?: { expiresAt?: Date; reason?: string }
   ): Promise<CustomPermission> {
-    return firebaseIAMService.grantCustomPermission(
-      userId,
-      featureId,
-      permission,
-      grantedBy,
-      options
-    );
+    try {
+      const api = getApi();
+      const res = await api.grantCustomPermission({
+        userId: uid,
+        featureId: fid,
+        permission: perm,
+        grantedBy: by,
+        ...opts
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to grant permission: ${res.error}`);
+      }
+      
+      return res.data;
+    } catch (error) {
+      console.error('Error granting permission:', error);
+      throw error;
+    }
   }
 
   /**
    * Revoke custom permission
    */
   async revokeCustomPermission(
-    permissionId: string,
-    revokedBy: string,
+    pid: string,
+    by: string,
     reason?: string
   ): Promise<void> {
     return firebaseIAMService.revokeCustomPermission(
-      permissionId,
-      revokedBy,
+      pid,
+      by,
       reason
     );
   }
@@ -155,31 +143,60 @@ export class IAMService {
   /**
    * Check if user has access to a specific feature
    */
-  async hasFeatureAccess(userId: string, featureId: string): Promise<boolean> {
-    return firebaseIAMService.hasFeatureAccess(userId, featureId);
+  async hasFeatureAccess(uid: string, fid: string): Promise<boolean> {
+    try {
+      const api = getApi();
+      const res = await api.evaluatePermission({
+        userId: uid,
+        action: `access:${fid}`,
+        resource: `feature:${fid}`
+      });
+      
+      if (isApiError(res)) {
+        console.error('Error checking feature access:', res.error);
+        return false;
+      }
+      
+      return res.data?.allowed || false;
+    } catch (error) {
+      console.error('Error checking feature access:', error);
+      return false;
+    }
   }
 
   /**
    * Get user's effective permissions
    */
   async getUserEffectivePermissions(
-    userId: string
+    uid: string
   ): Promise<EffectivePermission[]> {
-    return firebaseIAMService.getUserEffectivePermissions(userId);
+    try {
+      const api = getApi();
+      const res = await api.getUserEffectivePermissions(uid);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch effective permissions: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching effective permissions:', error);
+      return [];
+    }
   }
 
   /**
    * Bulk apply permission profile to multiple users
    */
   async bulkApplyPermissionProfile(
-    userIds: string[],
-    permissionProfileId: string,
-    appliedBy: string
+    uids: string[],
+    pid: string,
+    by: string
   ): Promise<void> {
     return firebaseIAMService.bulkApplyProfile(
-      userIds,
-      permissionProfileId,
-      appliedBy
+      uids,
+      pid,
+      by
     );
   }
 
@@ -187,44 +204,153 @@ export class IAMService {
    * Preview what would happen if user upgrades package
    */
   async previewPackageUpgrade(
-    userId: string,
-    newTier: PackageTier
+    uid: string,
+    tier: PackageTier
   ): Promise<{
     currentPermissions: EffectivePermission[];
     newPermissions: any[];
     addedPermissions: any[];
     removedPermissions: any[];
   }> {
-    return firebaseIAMService.previewPackageUpgrade(userId, newTier);
+    return firebaseIAMService.previewPackageUpgrade(uid, tier);
   }
 
   /**
    * Get audit logs for a user
    */
-  async getUserAuditLogs(userId: string, limit: number = 50): Promise<any[]> {
-    return firebaseIAMService.getUserAuditLogs(userId, limit);
+  async getUserAuditLogs(uid: string, limit: number = 50): Promise<any[]> {
+    try {
+      const api = getApi();
+      const res = await api.getUserAuditLogs(uid, limit);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch audit logs: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      return [];
+    }
   }
 
   /**
    * Get all audit logs with optional filters
    */
   async getAllAuditLogs(limit: number = 100): Promise<any[]> {
-    return firebaseIAMService.getAllAuditLogs(limit);
+    try {
+      const api = getApi();
+      const res = await api.getAllAuditLogs(limit);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch audit logs: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      return [];
+    }
   }
 
   /**
    * Get available permission profiles
    */
-  getPermissionProfiles() {
-    // Return the permission profiles from config
-    return buildPackagePermissions();
+  async getPermissionProfiles() {
+    try {
+      const api = getApi();
+      const res = await api.getPermissionProfiles();
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch permission profiles: ${res.error}`);
+      }
+      
+      return res.data || {};
+    } catch (error) {
+      console.error('Error fetching permission profiles:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Create IAM role
+   */
+  async createRole(data: {
+    name: string;
+    description?: string;
+    packageTier: string;
+    policies: string[];
+    inlinePermissions: any[];
+    assignable: boolean;
+  }): Promise<Role> {
+    try {
+      const api = getApi();
+      const res = await api.createIamRole(data);
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to create role: ${res.error}`);
+      }
+      
+      return res.data;
+    } catch (error) {
+      console.error('Error creating role:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all IAM roles
+   */
+  async getRoles(): Promise<Role[]> {
+    try {
+      const api = getApi();
+      const res = await api.getIamRoles();
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch roles: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all IAM policies
+   */
+  async getPolicies(): Promise<Policy[]> {
+    try {
+      const api = getApi();
+      const res = await api.getIamPolicies();
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to fetch policies: ${res.error}`);
+      }
+      
+      return res.data || [];
+    } catch (error) {
+      console.error('Error fetching policies:', error);
+      return [];
+    }
   }
 
   /**
    * Clean up expired permissions (maintenance function)
    */
   async cleanupExpiredPermissions(): Promise<void> {
-    return firebaseIAMService.cleanupExpiredPermissions();
+    try {
+      const api = getApi();
+      const res = await api.cleanupExpiredPermissions();
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to cleanup permissions: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up permissions:', error);
+      throw error;
+    }
   }
 }
 

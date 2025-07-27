@@ -1,11 +1,9 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { createApiClient, isApiError, type AdminUser } from '@epsx/api-client';
 import { config } from '@/lib/config';
-
 import type { TokenFeature, Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
-
 
 interface User {
   userId: string;
@@ -16,69 +14,63 @@ interface User {
   permissions: Permission[];
 }
 
+// Get API client server-side only
+const getApi = () => {
+  const url = config.getBackendUrl();
+  return createApiClient(url);
+};
+
 export async function fetchUserDetails() {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('__session');
-    const email = cookieStore.get('email');
-    const role = cookieStore.get('role');
+    const res = await getApi().getAdminUsers();
 
-    if (!sessionToken || !email || !role) {
-      throw new Error('Unauthorized access. Please login.');
+    if (isApiError(res)) {
+      throw new Error(`Failed to fetch users: ${res.error}`);
     }
 
-    const response = await fetch(
-      `${config.getBackendUrl()}/auth/roles`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken.value}`,
-        },
-        credentials: 'include',
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to fetch users: ${errorData}`);
+    if (!res.data) {
+      throw new Error('No user data received');
     }
 
-    const data = await response.json();
-    return data.users as User[];
+    // Transform AdminUser[] to User[] format for backward compatibility
+    const users: User[] = res.data.users.map((u: AdminUser) => ({
+      userId: u.uid,
+      email: u.email,
+      role: (u.role || 'user') as UserRole,
+      tokenBalance: 0, // Not available in AdminUser, set default
+      features: [], // Not available in AdminUser, set default
+      permissions: (u.permissions || []).map(p => ({ id: p, name: p, description: '', resource: '', action: '', risk: 'low' as const })),
+    }));
+
+    return users;
   } catch (error) {
     throw error;
   }
 }
 
-export async function updateUserRole(userId: string, role: string) {
+export async function updateUserRole(uid: string, role: string) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('__session');
+    const res = await getApi().setUserRole(uid, role);
 
-    if (!sessionToken) {
-      throw new Error('Unauthorized access. Please login.');
+    if (isApiError(res)) {
+      throw new Error(`Failed to update user role: ${res.error}`);
     }
 
-    const response = await fetch(
-      `${config.getBackendUrl()}/auth/roles/${userId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken.value}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ role }),
-      },
-    );
+    return { success: true, message: 'User role updated successfully' };
+  } catch (error) {
+    throw error;
+  }
+}
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to update user role: ${errorData}`);
+export async function getUserStats() {
+  try {
+    const res = await getApi().getUserStats();
+
+    if (isApiError(res)) {
+      throw new Error(`Failed to fetch user statistics: ${res.error}`);
     }
 
-    return await response.json();
+    return res.data;
   } catch (error) {
     throw error;
   }

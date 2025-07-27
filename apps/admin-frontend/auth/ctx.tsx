@@ -6,24 +6,24 @@ import { apiClient, isApiError } from '@epsx/api-client';
 interface AdminUser {
   uid: string;
   email: string;
-  displayName?: string;
+  name?: string;
   roles: string[];
   isAdmin: boolean;
-  emailVerified?: boolean;
+  verified?: boolean;
   disabled?: boolean;
-  customClaims?: {
+  claims?: {
     role?: string;
   };
-  metadata?: {
-    creationTime?: string;
-    lastSignInTime?: string;
+  meta?: {
+    created?: string;
+    lastLogin?: string;
   };
 }
 
 interface AdminAuthCtx {
   user: AdminUser | null;
   loading: boolean;
-  isInitialized: boolean;
+  init: boolean;
   isAdmin: boolean;
   error: string | null;
   login: (token: string) => Promise<void>;
@@ -32,12 +32,12 @@ interface AdminAuthCtx {
   signIn: (email: string, password: string) => Promise<void>;
 }
 
-const AdminAuthContext = createContext<AdminAuthCtx | null>(null);
+const AuthCtx = createContext<AdminAuthCtx | null>(null);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [init, setInit] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const login = async (token: string) => {
@@ -48,17 +48,17 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         setError(response.error || 'Login failed');
         return;
       }
-      const userData = response.data;
+      const data = response.data;
       setUser({
-        uid: userData.user_id,
-        email: userData.email,
-        displayName: userData.displayName,
-        roles: [userData.role], // Convert single role to array
-        isAdmin: userData.role === 'admin' || userData.role === 'ADMIN',
-        emailVerified: true, // Assume verified if profile is accessible
+        uid: data.user_id,
+        email: data.email,
+        name: data.displayName,
+        roles: [data.role], // Convert single role to array
+        isAdmin: data.role === 'admin' || data.role === 'ADMIN',
+        verified: true, // Assume verified if profile is accessible
         disabled: false,
-        customClaims: { role: userData.role },
-        metadata: undefined
+        claims: { role: data.role },
+        meta: undefined
       });
     } catch (error) {
       adminLogger.error('Admin login failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.login');
@@ -70,24 +70,35 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setLoading(true);
-      const response = await apiClient.login({ type: 'credentials', email, password });
-      if (isApiError(response)) {
-        const errorMessage = response.error || 'Invalid credentials';
+      
+      // Use server action for admin login
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      
+      const { adminLoginAction } = await import('@/lib/actions/auth');
+      const result = await adminLoginAction(formData);
+      
+      if (!result.success) {
+        const errorMessage = result.error || 'Invalid credentials';
         setError(errorMessage);
         throw new Error(errorMessage);
       }
-      const userData = response.data;
-      setUser({
-        uid: userData.user_id,
-        email: userData.email,
-        displayName: userData.displayName,
-        roles: [userData.role], // Convert single role to array
-        isAdmin: userData.role === 'admin' || userData.role === 'ADMIN',
-        emailVerified: true, // Assume verified if profile is accessible
-        disabled: false,
-        customClaims: { role: userData.role },
-        metadata: undefined
-      });
+      
+      const data = result.user;
+      if (data) {
+        setUser({
+          uid: data.uid,
+          email: data.email,
+          name: data.email, // Use email as display name since displayName doesn't exist
+          roles: data.roles || [data.customClaims?.role || 'admin'],
+          isAdmin: data.isAdmin,
+          verified: true,
+          disabled: false,
+          claims: data.customClaims,
+          meta: undefined // Set to undefined since it doesn't exist in the user object
+        });
+      }
     } catch (error) {
       adminLogger.error('Admin sign in failed', { error: error instanceof Error ? error.message : error, email }, 'AdminAuthProvider.signIn');
       const errorMessage = error instanceof Error ? error.message : 'Network error occurred';
@@ -114,43 +125,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const signOut = logout; // Alias for logout
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await apiClient.getCurrentUser();
-        if (isApiError(response)) {
-          adminLogger.error('Admin auth check failed', { error: response.error }, 'AdminAuthProvider.checkAuth');
-        } else {
-          const userData = response.data;
-          setUser({
-            uid: userData.user_id,
-            email: userData.email,
-            displayName: userData.displayName,
-            roles: [userData.role], // Convert single role to array
-            isAdmin: userData.role === 'admin' || userData.role === 'ADMIN',
-            emailVerified: true, // Assume verified if profile is accessible
-            disabled: false,
-            customClaims: { role: userData.role },
-            metadata: undefined
-          });
-        }
-      } catch (error) {
-        adminLogger.error('Admin auth check failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.checkAuth');
-      } finally {
-        setLoading(false);
-        setIsInitialized(true);
-      }
-    };
-    
-    checkAuth();
+    // Skip automatic auth check since there's no /api/v1/auth/profile endpoint
+    // Auth state will be set via signIn method when user logs in
+    setLoading(false);
+    setInit(true);
   }, []);
 
-  const isAdmin = user?.isAdmin || user?.customClaims?.role === 'ADMIN' || false;
+  const isAdmin = user?.isAdmin || user?.claims?.role === 'ADMIN' || user?.claims?.role === 'SUPER_ADMIN' || false;
 
   return (
-    <AdminAuthContext.Provider value={{ 
+    <AuthCtx.Provider value={{ 
       user, 
       loading, 
-      isInitialized, 
+      init, 
       isAdmin, 
       error,
       login, 
@@ -159,12 +146,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       signIn
     }}>
       {children}
-    </AdminAuthContext.Provider>
+    </AuthCtx.Provider>
   );
 }
 
 export const useAdminAuth = () => {
-  const ctx = useContext(AdminAuthContext);
+  const ctx = useContext(AuthCtx);
   if (!ctx) throw new Error('useAdminAuth must be used within AdminAuthProvider');
   return ctx;
 };
