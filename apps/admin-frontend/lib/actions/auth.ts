@@ -12,7 +12,7 @@ export async function adminLoginAction(form: FormData) {
   const password = form.get('password') as string;
 
   try {
-    const res = await fetch(`${URL}/login`, {
+    const res = await fetch(`${URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -21,6 +21,7 @@ export async function adminLoginAction(form: FormData) {
         type: "admin",
         email,
         password,
+        admin_token: null
       }),
     });
 
@@ -35,15 +36,27 @@ export async function adminLoginAction(form: FormData) {
     const data = await res.json();
     
     // Set cookies from backend response
-    const cookieHeader = res.headers.get('set-cookie');
-    if (cookieHeader) {
-      const store = cookies();
-      const pairs = cookieHeader.split(';');
+    const cookieHeaders = res.headers.getSetCookie?.() || [];
+    if (cookieHeaders.length > 0) {
+      const store = await cookies();
       
-      for (const pair of pairs) {
-        const [name, value] = pair.trim().split('=');
+      for (const cookieHeader of cookieHeaders) {
+        // Parse cookie string: "name=value; Path=/; HttpOnly; ..."
+        const [cookiePair, ...attributes] = cookieHeader.split(';').map(s => s.trim());
+        const [name, value] = cookiePair.split('=');
+        
         if (name && value) {
-          store.set(name, value, { httpOnly: true });
+          // For admin session, use admin_sess_id
+          if (name === 'sess_id') {
+            store.set('admin_sess_id', value, { 
+              httpOnly: true, 
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: 60 * 60 * 24 * 7 // 7 days
+            });
+          } else {
+            store.set(name, value, { httpOnly: true });
+          }
         }
       }
     }
@@ -69,10 +82,10 @@ export async function adminLoginAction(form: FormData) {
 
 export async function adminLogoutAction() {
   try {
-    const store = cookies();
+    const store = await cookies();
     const header = store.toString();
 
-    await fetch(`${URL}/admin/logout`, {
+    await fetch(`${URL}/api/v1/admin/logout`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

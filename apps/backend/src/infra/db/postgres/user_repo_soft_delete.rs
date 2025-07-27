@@ -1,7 +1,6 @@
 // PostgreSQL User Repository Implementation with Soft Delete Support
 // This extends the existing UserRepo with soft delete functionality
 
-use async_trait::async_trait;
 use sqlx::Row;
 use uuid::Uuid;
 

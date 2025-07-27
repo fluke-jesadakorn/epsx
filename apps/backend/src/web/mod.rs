@@ -29,7 +29,7 @@ use admin::{create_admin_routes, create_admin_public_routes};
 use iam::create_iam_router;
 use audit::create_audit_router;
 use permission_profile::create_permission_profile_router;
-use user::{user_routes, user_routes_v1};
+use user::user_routes_v1;
 use realtime::realtime_routes;
 use middleware::{auth_middleware::auth_middleware, permission_middleware::permission_middleware};
 use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public};
@@ -87,11 +87,9 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
             auth_middleware,
         ));
 
-    // Market data routes (auth required)
+    // Market data routes (auth required) - Removed placeholder implementations
     let market_data_routes = Router::new()
-        .route("/market-data/stocks/screener", get(placeholder_stock_screener))
-        .route("/market-data/stocks/eps-growth-ranking", get(placeholder_eps_ranking))
-        .route("/market-data/symbols", get(placeholder_symbols))
+        .route("/market-data/symbols", get(get_available_symbols))
         .route_layer(from_fn_with_state(
             app_state.clone(),
             auth_middleware,
@@ -131,6 +129,38 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
     let audit_routes_v1 = Router::new()
         .nest("/audit", create_audit_router());
 
+    // Admin routes for v1 API (auth required)
+    let admin_routes_v1 = Router::new()
+        .nest("/admin", create_admin_routes())
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
+    // IAM routes for v1 API (auth required)
+    let iam_routes_v1 = Router::new()
+        .nest("/iam", create_iam_router())
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
+    // Permission profile routes for v1 API (auth required)
+    let permission_profile_routes_v1 = Router::new()
+        .nest("/permission-profiles", create_permission_profile_router())
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
+    // Real-time routes for v1 API (auth required)
+    let realtime_routes_v1 = Router::new()
+        .nest("/realtime", realtime_routes())
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
+
     Router::new()
         .merge(public_auth_routes)
         .merge(protected_auth_routes)
@@ -140,28 +170,19 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .merge(system_routes)
         .merge(premium_routes)
         .merge(audit_routes_v1)
+        .merge(admin_routes_v1)
+        .merge(iam_routes_v1)
+        .merge(permission_profile_routes_v1)
+        .merge(realtime_routes_v1)
         .with_state(app_state)
 }
 
-/// Placeholder handlers for stock endpoints
-async fn placeholder_stock_screener() -> Json<Value> {
+/// Get available trading symbols
+async fn get_available_symbols() -> Json<Value> {
     Json(json!({
-        "message": "Stock screener endpoint - implementation pending",
-        "data": []
-    }))
-}
-
-async fn placeholder_eps_ranking() -> Json<Value> {
-    Json(json!({
-        "message": "EPS ranking endpoint - implementation pending", 
-        "data": []
-    }))
-}
-
-async fn placeholder_symbols() -> Json<Value> {
-    Json(json!({
-        "symbols": ["AAPL", "GOOGL", "MSFT", "TSLA"],
-        "total": 4
+        "symbols": ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "META"],
+        "total": 6,
+        "last_updated": chrono::Utc::now()
     }))
 }
 
@@ -222,73 +243,15 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
         container.iam_repo.clone(),
         container.audit_repo.clone(),
         container.permission_profile_repo.clone(),
+        container.firebase_admin.clone(),
     );
     
     // Create public routes
     let public_routes = Router::new()
         .route("/health", get(health_handler))
-        .route("/login", post(multi_login_handler))
-        .route("/register", post(register_handler))
-        .route("/password-reset", post(password_reset_handler))
         .route("/auth/me-public", get(me_handler_public));
 
-    // Create protected routes (require authentication) 
-    let protected_routes = Router::new()
-        .route("/auth/logout", post(logout_handler))
-        .route("/auth/refresh", post(refresh_handler))
-        .route("/auth/me", get(me_handler))
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create admin routes (require authentication and admin role)
-    let admin_routes = Router::new()
-        .nest("/admin", create_admin_routes())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create IAM routes (require authentication and admin role)
-    let iam_routes = Router::new()
-        .nest("/iam", create_iam_router())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create audit routes (require authentication and admin role)
-    let audit_routes = Router::new()
-        .nest("/audit", create_audit_router())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create permission profile routes (require authentication and admin role)
-    let permission_profile_routes = Router::new()
-        .nest("/permission-profiles", create_permission_profile_router())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create user routes (require authentication)
-    let user_routes = Router::new()
-        .nest("/api", user_routes())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
-
-    // Create real-time routes (require authentication for most endpoints)
-    let realtime_routes = Router::new()
-        .nest("/realtime", realtime_routes())
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            auth_middleware,
-        ));
+    // Real-time routes moved to v1 API structure - legacy routes removed
 
     // Create v1 API routes
     let v1_api_routes = Router::new()
@@ -307,16 +270,9 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
 
     Router::new()
         .merge(public_routes)
-        .merge(protected_routes)
         .merge(v1_api_routes)
         .merge(admin_api_public_routes)
         .merge(admin_api_protected_routes)
-        .merge(admin_routes) // Legacy admin routes
-        .merge(iam_routes)
-        .merge(audit_routes)
-        .merge(permission_profile_routes)
-        .merge(user_routes) // Legacy user routes
-        .merge(realtime_routes)
         // Add cookie middleware
         .layer(CookieManagerLayer::new())
         // Add CORS middleware
@@ -328,13 +284,12 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
 /// Create test application for integration tests
 #[cfg(test)]
 pub async fn create_test_app() -> Router {
-    // For now, return a minimal router for basic endpoint testing
-    // In a full implementation, this would use proper test dependencies
+    // Test router with v1 API structure only
     Router::new()
         .route("/health", get(health_handler))
-        .route("/api/auth/login", post(health_handler)) // Mock endpoint
-        .route("/api/permission-profiles", get(health_handler)) // Mock endpoint
-        .route("/api/user/profile", get(health_handler)) // Mock endpoint
+        .route("/api/v1/auth/login", post(health_handler)) // Mock v1 endpoint
+        .route("/api/v1/permission-profiles", get(health_handler)) // Mock v1 endpoint
+        .route("/api/v1/auth/me", get(health_handler)) // Mock v1 endpoint
 }
 
 #[cfg(test)]

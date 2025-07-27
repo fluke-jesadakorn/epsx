@@ -139,6 +139,41 @@ impl UserRepo for PostgresUserRepo {
         }
     }
 
+    async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError> {
+        let row = sqlx::query(
+            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+             FROM users WHERE firebase_uid = $1"
+        )
+        .bind(firebase_uid)
+        .fetch_optional(&*self.pool)
+        .await
+        .map_err(|e| RepoError::QueryError(e.to_string()))?;
+
+        match row {
+            Some(row) => {
+                let fb_uid: String = row.try_get("firebase_uid")
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
+                let email_str: String = row.get("email");
+                let email = Email::new(email_str)
+                    .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
+
+                let uid: Uuid = row.get("id");
+                let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
+                let role = Role::from_string(&role_str).unwrap_or(Role::User);
+                
+                let user = User::from_existing(
+                    UserId::from_string(uid.to_string()),
+                    fb_uid,
+                    email,
+                    role, // Load role from database
+                );
+
+                Ok(Some(user))
+            },
+            None => Ok(None),
+        }
+    }
+
     async fn find_by_role(&self, _role: &Role) -> Result<Vec<User>, RepoError> {
         // Since roles are no longer stored in the database, return all users
         let rows = sqlx::query(
@@ -374,42 +409,8 @@ impl UserRepo for PostgresUserRepo {
     }
 }
 
-// Add method to find by Firebase UID
+// Additional methods for PostgresUserRepo
 impl PostgresUserRepo {
-    pub async fn find_by_firebase_uid(&self, fb_uid: &str) -> Result<Option<User>, RepoError> {
-        let row = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
-             FROM users WHERE firebase_uid = $1"
-        )
-        .bind(fb_uid)
-        .fetch_optional(&*self.pool)
-        .await
-        .map_err(|e| RepoError::QueryError(e.to_string()))?;
-
-        match row {
-            Some(row) => {
-                let fb_uid: String = row.try_get("firebase_uid")
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
-                let email_str: String = row.get("email");
-                let email = Email::new(email_str)
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
-
-                let uid: Uuid = row.get("id");
-                let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-                let role = Role::from_string(&role_str).unwrap_or(Role::User);
-                
-                let user = User::from_existing(
-                    UserId::from_string(uid.to_string()),
-                    fb_uid,
-                    email,
-                    role, // Load role from database
-                );
-
-                Ok(Some(user))
-            },
-            None => Ok(None),
-        }
-    }
     
     /// Get user permissions by resolving all assigned permission profiles
     pub async fn get_user_permissions(&self, user_id: &UserId) -> Result<Vec<Permission>, RepoError> {
@@ -423,7 +424,7 @@ impl PostgresUserRepo {
              WHERE upa.user_id = $1 AND rp.is_active = true
              AND (upa.expires_at IS NULL OR upa.expires_at > NOW())"
         )
-        .bind(user_uuid)
+        .bind(uuid)
         .fetch_all(&*self.pool)
         .await
         .map_err(|e| RepoError::QueryError(e.to_string()))?;

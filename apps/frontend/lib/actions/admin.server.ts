@@ -1,21 +1,22 @@
 'use server';
 
-import { ApiClient } from '@epsx/api-client/api-client';
+import { createApiClient, isApiError } from '@epsx/api-client';
 
-const client = new ApiClient();
+const getClient = () => createApiClient();
 
 /**
  * Server Action to get admin configuration
  */
 export async function getAdminConfig(): Promise<{ adminUrl: string }> {
   try {
+    const client = getClient();
     const result = await client.serverGetAdminConfig();
     
-    if (result.error || !result.data) {
+    if (isApiError(result)) {
       throw new Error(result.error || 'Failed to get admin config');
     }
     
-    return result.data;
+    return result.data!;
   } catch (error) {
     console.error('Admin config error:', error);
     throw error;
@@ -27,13 +28,14 @@ export async function getAdminConfig(): Promise<{ adminUrl: string }> {
  */
 export async function getVapidKey(): Promise<{ vapidPublicKey: string }> {
   try {
+    const client = getClient();
     const result = await client.serverGetVapidKey();
     
-    if (result.error || !result.data) {
+    if (isApiError(result)) {
       throw new Error(result.error || 'Failed to get VAPID key');
     }
     
-    return result.data;
+    return result.data!;
   } catch (error) {
     console.error('VAPID key error:', error);
     throw error;

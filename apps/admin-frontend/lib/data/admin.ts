@@ -7,14 +7,13 @@ const getApiClient = () => {
   if (!config.isServer()) {
     throw new Error('API client can only be created on server-side');
   }
-  const backendUrl = config.getBackendUrl();
-  return createApiClient(backendUrl);
+  return createApiClient(); // Will use backend URL from environment
 };
 
 // User Management
 export async function getUsers(searchParams?: URLSearchParams) {
   try {
-    const url = `/admin/users${searchParams ? `?${searchParams.toString()}` : ''}`;
+    const url = `/api/v1/admin/users${searchParams ? `?${searchParams.toString()}` : ''}`;
     
     adminLogger.info('Fetching users data', { url }, 'AdminDataLayer');
     

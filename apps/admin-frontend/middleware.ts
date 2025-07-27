@@ -220,7 +220,7 @@ async function checkAdminPermissions(
         throw new Error('Backend URL environment variable is required for admin');
       }
       
-      const response = await fetch(`${baseUrl}/api/admin/auth/profile`, {
+      const response = await fetch(`${baseUrl}/api/v1/admin/auth/profile`, {
         method: 'GET',
         headers: {
           'Cookie': `sess_id=${token}`,

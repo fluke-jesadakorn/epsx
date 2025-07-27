@@ -60,7 +60,7 @@ export const getCachedPublicRankings = createCachedFunction(
 export const getCachedUserPermissions = createCachedFunction(
   async (userId: string) => {
     // Implementation would fetch from backend API
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/auth/permissions/${userId}`);
+    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/v1/auth/permissions/${userId}`);
     if (!response.ok) throw new Error('Failed to fetch permissions');
     return response.json();
   },
@@ -78,7 +78,7 @@ export const getCachedUserPermissions = createCachedFunction(
 export const getCachedAnalytics = createCachedFunction(
   async (userId: string, filters: any) => {
     // Implementation would fetch analytics from backend
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/analytics`, {
+    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/v1/analytics`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, filters }),

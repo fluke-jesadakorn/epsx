@@ -65,7 +65,7 @@ export default function StockRankingPackageAssignment({
   const loadUsers = async () => {
     setIsLoading(prev => ({ ...prev, users: true }));
     try {
-      const response = await fetch('/api/admin/user-management/users');
+      const response = await fetch('/api/v1/admin/user-management/users');
       const data = await response.json();
       setUsers(data.users || []);
     } catch (error) {
@@ -120,7 +120,7 @@ export default function StockRankingPackageAssignment({
         notifyUsers
       };
 
-      const response = await fetch('/api/admin/stock-ranking/assign-bulk', {
+      const response = await fetch('/api/v1/admin/stock-ranking/assign-bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,202 +1,58 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EPSAnalysisForm } from '@/components/analytics/eps/EPSAnalysisForm';
-import { EPSGrowthChart } from '@/components/analytics/eps/EPSGrowthChart';
-import { PatternRecognition } from '@/components/analytics/eps/PatternRecognition';
-import { AnalysisResults } from '@/components/analytics/eps/AnalysisResults';
-import { HistoricalComparison } from '@/components/analytics/eps/HistoricalComparison';
-import { EducationalContext } from '@/components/analytics/eps/EducationalContext';
-import { ComparisonTable } from '@/components/analytics/eps/ComparisonTable';
-import { ExportReport } from '@/components/analytics/eps/ExportReport';
-import { useEPSAnalytics } from '@/hooks/useFirebaseAnalytics';
-import { useAuth } from '@/auth/ctx';
-
-interface EPSAnalysisData {
-  symbol: string;
-  currentEPS: number;
-  previousEPS: number;
-  growth: number;
-  patterns: any[];
-  historicalData: any[];
-  confidence: number;
-  analysis: string;
-}
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function EPSAnalysisPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
-  const [analysisData, setAnalysisData] = useState<EPSAnalysisData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [comparisonSymbols, setComparisonSymbols] = useState<string[]>([]);
-  
-  const { user } = useAuth();
-  const { trackEPSFormSubmit, trackEPSChartView, trackEPSExport } = useEPSAnalytics(user?.id);
-
-  const handleAnalysisSubmit = async (symbol: string, parameters: any) => {
-    setIsLoading(true);
-    setSelectedSymbol(symbol);
-    trackEPSFormSubmit(symbol);
-
-    try {
-      // Simulate API call - replace with actual backend integration
-      const response = await fetch(`/api/v1/analytics/eps/${symbol}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parameters)
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysisData(data);
-      }
-    } catch (error) {
-      console.error('EPS Analysis error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleChartView = (chartType: string) => {
-    if (selectedSymbol) {
-      trackEPSChartView(selectedSymbol, chartType);
-    }
-  };
-
-  const handleExport = (format: string) => {
-    if (selectedSymbol) {
-      trackEPSExport(selectedSymbol, format);
-    }
-  };
-
-  const handleAddComparison = (symbol: string) => {
-    if (!comparisonSymbols.includes(symbol)) {
-      setComparisonSymbols([...comparisonSymbols, symbol]);
-    }
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">EPS Analysis</h1>
-        <p className="text-muted-foreground">
-          Analyze earnings per share growth patterns and trends with AI-powered insights.
-        </p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">EPS Growth Analysis</h1>
+          <p className="text-muted-foreground text-lg">
+            Advanced algorithmic analysis of earnings per share trends and patterns
+          </p>
+        </div>
+
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20">
+              <AlertTriangle className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+            </div>
+            <CardTitle className="text-2xl">Feature Under Development</CardTitle>
+            <CardDescription className="text-base">
+              EPS Growth Analysis algorithms are currently being developed
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              Our team is working on implementing sophisticated EPS growth analysis algorithms. 
+              This feature will provide advanced earnings per share trend analysis, pattern recognition, 
+              and algorithmic insights when completed.
+            </p>
+            <div className="bg-muted/50 p-4 rounded-lg text-sm">
+              <strong>Coming Soon:</strong>
+              <ul className="mt-2 text-left list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Real-time EPS data integration</li>
+                <li>Advanced pattern recognition algorithms</li>
+                <li>Historical trend analysis</li>
+                <li>Comparative company analysis</li>
+                <li>Educational context and explanations</li>
+              </ul>
+            </div>
+            <div className="pt-4">
+              <Button asChild variant="outline">
+                <Link href="/analytics" className="inline-flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Analytics Dashboard
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Educational Context */}
-      <EducationalContext />
-
-      {/* Analysis Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>EPS Analysis Configuration</CardTitle>
-          <CardDescription>
-            Enter a stock symbol and configure analysis parameters to generate insights.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EPSAnalysisForm 
-            onSubmit={handleAnalysisSubmit}
-            isLoading={isLoading}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Analysis Results */}
-      {analysisData && (
-        <>
-          {/* Growth Chart and Pattern Recognition */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>EPS Growth Visualization</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EPSGrowthChart 
-                  data={analysisData.historicalData}
-                  symbol={selectedSymbol}
-                  onChartView={handleChartView}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Pattern Recognition</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PatternRecognition 
-                  patterns={analysisData.patterns}
-                  confidence={analysisData.confidence}
-                  symbol={selectedSymbol}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Detailed Analysis Results */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Analysis Results</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AnalysisResults 
-                data={analysisData}
-                symbol={selectedSymbol}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Historical Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Historical Comparison</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <HistoricalComparison 
-                data={analysisData.historicalData}
-                symbol={selectedSymbol}
-                onChartView={handleChartView}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Multi-Company Comparison */}
-          {comparisonSymbols.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Multi-Company EPS Comparison</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ComparisonTable 
-                  primarySymbol={selectedSymbol}
-                  comparisonSymbols={comparisonSymbols}
-                  onRemoveComparison={(symbol) => 
-                    setComparisonSymbols(comparisonSymbols.filter(s => s !== symbol))
-                  }
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Export Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Export Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExportReport 
-                data={analysisData}
-                symbol={selectedSymbol}
-                onExport={handleExport}
-                onAddComparison={handleAddComparison}
-              />
-            </CardContent>
-          </Card>
-        </>
-      )}
     </div>
   );
 }

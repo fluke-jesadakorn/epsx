@@ -2,8 +2,9 @@
 export const config = {
   // Backend API URL - only available server-side
   getBackendUrl(): string {
-    const url = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-    return url;
+    // Use environment variables to get backend URL
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:8080';
+    return backendUrl;
   },
 
   // Client-side should use relative URLs or API routes
@@ -12,8 +13,28 @@ export const config = {
     return '/api';
   },
 
+  // Get backend API base URL for direct API calls
+  getBackendApiUrl(): string {
+    return `${this.getBackendUrl()}/api`;
+  },
+
+  // Get backend v1 API URL
+  getBackendV1Url(): string {
+    return `${this.getBackendUrl()}/api/v1`;
+  },
+
+  // Get backend admin API URL
+  getBackendAdminUrl(): string {
+    return `${this.getBackendUrl()}/api/admin`;
+  },
+
   // Check if we're on the server side
   isServer(): boolean {
     return typeof window === 'undefined';
+  },
+
+  // Get port from environment
+  getPort(): number {
+    return parseInt(process.env.PORT || '3001', 10);
   }
 };

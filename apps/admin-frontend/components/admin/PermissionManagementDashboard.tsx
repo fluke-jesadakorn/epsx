@@ -47,7 +47,7 @@ export function PermissionManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/iam/custom-permissions');
+      const response = await fetch('/api/v1/admin/iam/custom-permissions');
       if (!response.ok) {
         throw new Error('Failed to fetch permissions');
       }

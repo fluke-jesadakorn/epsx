@@ -21,6 +21,7 @@ pub trait UserRepo: Send + Sync {
     async fn save(&self, user: &User) -> Result<(), RepoError>;
     async fn delete(&self, id: &UserId) -> Result<(), RepoError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepoError>;
+    async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError>;
     async fn find_by_role(&self, role: &Role) -> Result<Vec<User>, RepoError>;
     async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>, RepoError>;
     async fn count(&self) -> Result<u64, RepoError>;

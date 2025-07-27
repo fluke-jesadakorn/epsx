@@ -11,10 +11,9 @@ import type {
 } from '../types/admin/iam';
 import { PackageTier } from '../types/admin/iam';
 
-// Get API client
+// Get API client - will automatically use backend URL
 const getApi = () => {
-  const url = config.getBackendUrl();
-  return createApiClient(url);
+  return createApiClient(); // Will use backend URL from environment
 };
 
 export class IAMService {
@@ -91,7 +90,20 @@ export class IAMService {
     uid: string,
     tier: PackageTier
   ): Promise<void> {
-    return firebaseIAMService.applyPackagePermissions(uid, tier);
+    try {
+      const api = getApi();
+      const res = await api.applyPackagePermissions({
+        userId: uid,
+        packageTier: tier
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to apply package permissions: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('Error applying package permissions:', error);
+      throw error;
+    }
   }
 
   /**
@@ -133,11 +145,21 @@ export class IAMService {
     by: string,
     reason?: string
   ): Promise<void> {
-    return firebaseIAMService.revokeCustomPermission(
-      pid,
-      by,
-      reason
-    );
+    try {
+      const api = getApi();
+      const res = await api.revokeCustomPermission({
+        permissionId: pid,
+        revokedBy: by,
+        reason
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to revoke permission: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('Error revoking permission:', error);
+      throw error;
+    }
   }
 
   /**
@@ -193,11 +215,21 @@ export class IAMService {
     pid: string,
     by: string
   ): Promise<void> {
-    return firebaseIAMService.bulkApplyProfile(
-      uids,
-      pid,
-      by
-    );
+    try {
+      const api = getApi();
+      const res = await api.bulkApplyPermissionProfile({
+        userIds: uids,
+        profileId: pid,
+        appliedBy: by
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to bulk apply permission profile: ${res.error}`);
+      }
+    } catch (error) {
+      console.error('Error bulk applying permission profile:', error);
+      throw error;
+    }
   }
 
   /**
@@ -212,7 +244,27 @@ export class IAMService {
     addedPermissions: any[];
     removedPermissions: any[];
   }> {
-    return firebaseIAMService.previewPackageUpgrade(uid, tier);
+    try {
+      const api = getApi();
+      const res = await api.previewPackageUpgrade({
+        userId: uid,
+        targetTier: tier
+      });
+      
+      if (isApiError(res)) {
+        throw new Error(`Failed to preview package upgrade: ${res.error}`);
+      }
+      
+      return res.data || {
+        currentPermissions: [],
+        newPermissions: [],
+        addedPermissions: [],
+        removedPermissions: []
+      };
+    } catch (error) {
+      console.error('Error previewing package upgrade:', error);
+      throw error;
+    }
   }
 
   /**

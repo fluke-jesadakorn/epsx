@@ -160,7 +160,7 @@ async function getServerUserPreferences() {
     // If authenticated, get from server
     const sessionCookie = cookieStore.get('session');
     if (sessionCookie) {
-      const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/user/preferences`, {
+      const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/users/preferences`, {
         headers: {
           'Cookie': `sess_id=${sessionCookie.value}`,
           'Content-Type': 'application/json'
@@ -208,7 +208,7 @@ async function getServerCacheData(keys: string[]) {
       return null;
     }
 
-    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/cache/bulk`, {
+    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/cache/bulk`, {
       method: 'POST',
       headers: {
         'Cookie': `sess_id=${sessionCookie.value}`,
