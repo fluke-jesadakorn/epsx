@@ -145,7 +145,7 @@ export function AdminUserManagement() {
   const handleSendPasswordReset = async (email: string) => {
     try {
       setActionLoading(email);
-      await AdminService.sendPasswordResetEmail(email);
+      await AdminService.sendResetEmail(email);
       addToast({
         type: 'success',
         title: 'Password reset link generated',
@@ -171,7 +171,7 @@ export function AdminUserManagement() {
   ) => {
     try {
       setActionLoading(uid);
-      await AdminService.setUserLevel(uid, newLevel, reason);
+      await AdminService.setLevel(uid, newLevel, reason);
       await loadUsers(); // Refresh the list
       setShowLevelModal(false);
       setLevelReason('');
@@ -195,7 +195,7 @@ export function AdminUserManagement() {
 
   const handleShowLevelHistory = async (uid: string) => {
     try {
-      const history = await AdminService.getUserLevelHistory(uid);
+      const history = await AdminService.getLevelHistory(uid);
       setLevelHistory(history);
       setShowLevelHistory(true);
     } catch (err: any) {

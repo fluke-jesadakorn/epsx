@@ -16,6 +16,10 @@ path = "src/bin/migrate.rs"
 name = "promote_admin"
 path = "src/bin/promote_admin.rs"
 
+[[bin]]
+name = "assign_iam"
+path = "src/bin/assign_iam.rs"
+
 
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }

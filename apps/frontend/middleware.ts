@@ -21,7 +21,7 @@ const routePermissions: Record<string, { permission: string; profile?: string; f
 };
 
 const authRoutes = ['/login', '/register', '/signup'];
-const publicRoutes = ['/', '/pricing', '/features', '/contact', '/privacy', '/terms', '/rankings', '/verify-email', '/access-denied', '/unauthorized'];
+const publicRoutes = ['/', '/pricing', '/features', '/contact', '/privacy', '/terms', '/rankings', '/verify-email', '/access-denied', '/unauthorized', '/dashboard', '/my-data', '/settings'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

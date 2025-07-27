@@ -5,14 +5,14 @@ import { redirect } from 'next/navigation';
 import { adminLogger } from '../logger';
 import { config } from '../config';
 
-const BACKEND_URL = config.getBackendUrl();
+const URL = config.getBackendUrl();
 
-export async function adminLoginAction(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
+export async function adminLoginAction(form: FormData) {
+  const email = form.get('email') as string;
+  const password = form.get('password') as string;
 
   try {
-    const response = await fetch(`${BACKEND_URL}/login`, {
+    const res = await fetch(`${URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -24,37 +24,37 @@ export async function adminLoginAction(formData: FormData) {
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Login failed' }));
       return { 
         success: false, 
-        error: errorData.message || 'Invalid credentials' 
+        error: err.message || 'Invalid credentials' 
       };
     }
 
-    const userData = await response.json();
+    const data = await res.json();
     
     // Set cookies from backend response
-    const setCookieHeader = response.headers.get('set-cookie');
-    if (setCookieHeader) {
-      const cookieStore = cookies();
-      const cookiePairs = setCookieHeader.split(';');
+    const cookieHeader = res.headers.get('set-cookie');
+    if (cookieHeader) {
+      const store = cookies();
+      const pairs = cookieHeader.split(';');
       
-      for (const cookiePair of cookiePairs) {
-        const [name, value] = cookiePair.trim().split('=');
+      for (const pair of pairs) {
+        const [name, value] = pair.trim().split('=');
         if (name && value) {
-          cookieStore.set(name, value, { httpOnly: true });
+          store.set(name, value, { httpOnly: true });
         }
       }
     }
 
     const user = {
-      uid: userData.user_id,
-      email: userData.email,
-      roles: [userData.role],
-      isAdmin: userData.role === 'admin' || userData.role === 'super_admin',
+      uid: data.user_id,
+      email: data.email,
+      roles: [data.role],
+      isAdmin: data.role === 'admin' || data.role === 'super_admin' || data.role === 'SuperAdmin',
       customClaims: {
-        role: userData.role.toUpperCase(),
+        role: data.role.toUpperCase(),
       },
     };
 
@@ -69,20 +69,20 @@ export async function adminLoginAction(formData: FormData) {
 
 export async function adminLogoutAction() {
   try {
-    const cookieStore = cookies();
-    const cookieHeader = cookieStore.toString();
+    const store = cookies();
+    const header = store.toString();
 
-    await fetch(`${BACKEND_URL}/admin/logout`, {
+    await fetch(`${URL}/admin/logout`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Cookie': cookieHeader,
+        'Cookie': header,
       },
     });
 
     // Clear all cookies
-    cookieStore.getAll().forEach(cookie => {
-      cookieStore.delete(cookie.name);
+    store.getAll().forEach(cookie => {
+      store.delete(cookie.name);
     });
 
     redirect('/admin/login');
