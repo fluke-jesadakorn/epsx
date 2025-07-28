@@ -5,30 +5,43 @@ import { adminLogger } from '@/lib/logger';
 import React, { useEffect, useState } from 'react';
 import type { UserWithPermissions } from '../../types/admin/iam';
 import { PackageTier } from '../../types/admin/iam';
-// import { PERMISSION_PROFILES } from '../../config/packagePermissions'; // Config removed
-// import { iamService } from '../../services/iamService'; // Service removed
+// Note: These functions are not yet implemented in server-actions
+// import {
+//   getIAMUser,
+//   updateUserTier,
+//   previewPackageUpgrade,
+//   grantCustomPermission,
+//   revokeCustomPermission,
+//   bulkApplyPermissionProfile
+// } from '@epsx/server-actions';
+
+// Temporary placeholder functions until server-actions are implemented
+const getIAMUser = async (userId: string) => {
+  throw new Error('getIAMUser not implemented');
+};
+
+const updateUserTier = async (params: any) => {
+  throw new Error('updateUserTier not implemented');
+};
+
+const previewPackageUpgrade = async (params: any) => {
+  throw new Error('previewPackageUpgrade not implemented');
+};
+
+const grantCustomPermission = async (params: any) => {
+  throw new Error('grantCustomPermission not implemented');
+};
+
+const revokeCustomPermission = async (params: any) => {
+  throw new Error('revokeCustomPermission not implemented');
+};
+
+const bulkApplyPermissionProfile = async (params: any) => {
+  throw new Error('bulkApplyPermissionProfile not implemented');
+};
 
 // Placeholder for removed dependencies
 const PERMISSION_PROFILES: any[] = [];
-const iamService = {
-  getUser: async (...args: any[]) => null,
-  updateUserPackageTier: async (...args: any[]) => {},
-  applyPermissionProfileToUser: async (...args: any[]) => {},
-  getUserWithPermissions: async (
-    ...args: any[]
-  ): Promise<UserWithPermissions | null> => null,
-  previewPackageUpgrade: async (...args: any[]) => ({
-    changes: [],
-    newTier: 'FREE',
-    addedPermissions: [],
-    removedPermissions: [],
-    currentPermissions: [],
-    newPermissions: [],
-  }),
-  grantCustomPermission: async (...args: any[]) => {},
-  revokeCustomPermission: async (...args: any[]) => {},
-  bulkApplyProfile: async (...args: any[]) => {},
-};
 
 interface UserPermissionManagerProps {
   userId: string;
@@ -71,7 +84,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
   const loadUserDetails = async () => {
     try {
       setLoading(true);
-      const userData = await iamService.getUserWithPermissions(userId);
+      const userData = await getIAMUser(userId);
       setUser(userData);
     } catch (error) {
       adminLogger.error('Failed to load user details', {
@@ -94,18 +107,21 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     try {
       setIsUpgrading(true);
       // Preview the upgrade first
-      const preview = await iamService.previewPackageUpgrade(userId, newTier);
+      const preview = await previewPackageUpgrade({
+        userId,
+        targetTier: newTier
+      });
 
       if (
         confirm(
-          `This will add ${preview.addedPermissions.length} new permissions. Continue?`
+          `This will add ${preview.addedPermissions?.length || 0} new permissions. Continue?`
         )
       ) {
-        await iamService.updateUserPackageTier(
+        await updateUserTier({
           userId,
           newTier,
-          'current-admin-id'
-        ); // Get from auth context
+          updatedBy: 'current-admin-id' // Get from auth context
+        });
         await loadUserDetails();
         addToast({
           type: 'success',
@@ -135,21 +151,16 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
 
     try {
       setIsGranting(true);
-      await iamService.grantCustomPermission(
+      await grantCustomPermission({
         userId,
-        customPermissionForm.featureId,
-        {
-          action: customPermissionForm.action,
-          resource: customPermissionForm.resource,
-        },
-        'current-admin-id', // Get from auth context
-        {
-          reason: customPermissionForm.reason,
-          expiresAt: customPermissionForm.expiresAt
-            ? new Date(customPermissionForm.expiresAt)
-            : undefined,
-        }
-      );
+        featureId: customPermissionForm.featureId,
+        permission: customPermissionForm.action,
+        grantedBy: 'current-admin-id', // Get from auth context
+        reason: customPermissionForm.reason,
+        expiresAt: customPermissionForm.expiresAt
+          ? new Date(customPermissionForm.expiresAt)
+          : undefined,
+      });
 
       // Reset form
       setCustomPermissionForm({
@@ -187,11 +198,11 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     if (!reason) return;
 
     try {
-      await iamService.revokeCustomPermission(
+      await revokeCustomPermission({
         permissionId,
-        'current-admin-id',
+        revokedBy: 'current-admin-id',
         reason
-      );
+      });
       await loadUserDetails();
       addToast({
         type: 'success',
@@ -215,11 +226,11 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     if (!selectedProfile || !user) return;
 
     try {
-      await iamService.bulkApplyProfile(
-        [userId],
-        selectedProfile,
-        'current-admin-id'
-      );
+      await bulkApplyPermissionProfile({
+        userIds: [userId],
+        profileId: selectedProfile,
+        appliedBy: 'current-admin-id'
+      });
       await loadUserDetails();
       setSelectedProfile('');
       addToast({

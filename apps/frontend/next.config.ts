@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
       '@epsx/ui'
     ],
     useCache: true,
+    // Enhanced cache configuration
+    staleTimes: {
+      dynamic: 300, // 5 minutes for dynamic content
+      static: 3600, // 1 hour for static content
+    },
+    // PPR disabled - requires Next.js canary
+    // ppr: 'incremental',
   },
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -40,7 +47,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   generateEtags: true,
   
-  // Performance optimizations
+  // Enhanced caching and performance optimizations
   async headers() {
     return [
       {
@@ -58,6 +65,24 @@ const nextConfig: NextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/dashboard/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/rankings/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=120, stale-while-revalidate=600',
           },
         ],
       },

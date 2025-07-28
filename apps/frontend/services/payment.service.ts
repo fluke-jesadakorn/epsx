@@ -1,26 +1,17 @@
-import { apiClient, isApiSuccess } from '@/lib/api-client.client';
+import { 
+  createPayment, 
+  validatePayment, 
+  getPaymentStatus as getPaymentStatusAction,
+  getTransactionHistory,
+  initQRPayment,
+  getPlanDetails,
+  type PaymentStatus,
+  type PaymentTransaction as PaymentTx
+} from '@epsx/server-actions';
 import { nanoid } from 'nanoid';
 
-export interface PaymentStatus {
-  paid: boolean;
-  lastPayDate?: Date;
-  expireDate?: Date;
-  userLevel?: string;
-  isNewUser?: boolean;
-}
-
-export interface PaymentTx {
-  orderNo: string;
-  amount: number;
-  currency: string;
-  status: string;
-  finishTime: string;
-  blockchainData: {
-    txHash: string;
-    network: string;
-  };
-  blockExplorerUrl: string;
-}
+// Re-export types for compatibility
+export type { PaymentStatus, PaymentTx };
 
 export const createPaymentService = () => {
   const recordPayment = async (
@@ -29,18 +20,17 @@ export const createPaymentService = () => {
     description?: string,
   ): Promise<string | null> => {
     try {
-      const response = await apiClient.post('/api/v1/payments/musepay/create', {
+      const response = await createPayment({
         amount,
         currency,
         description,
         orderNo: nanoid(),
       });
 
-      if (isApiSuccess(response) && response.data) {
-        return response.data.paymentId || response.data.orderNo;
+      if (response) {
+        return response.paymentId || response.orderNo;
       }
 
-      console.error('Failed to record payment:', response.error);
       return null;
     } catch (error) {
       console.error('Error recording payment:', error);
@@ -57,15 +47,15 @@ export const createPaymentService = () => {
     message: string;
   }> => {
     try {
-      const response = await apiClient.get(`/api/v1/payments/musepay/${txId}/validate`);
+      const response = await validatePayment(txId);
 
-      if (isApiSuccess(response)) {
+      if (response) {
         return { success: true, message: 'Payment confirmed successfully' };
       }
 
       return { 
         success: false, 
-        message: response.error || 'Failed to confirm payment' 
+        message: 'Failed to confirm payment' 
       };
     } catch (error) {
       console.error('Error confirming payment:', error);
@@ -75,25 +65,7 @@ export const createPaymentService = () => {
 
   const getPaymentStatus = async (): Promise<PaymentStatus | null> => {
     try {
-      const response = await apiClient.get('/user/payment-status');
-
-      if (isApiSuccess(response) && response.data) {
-        const data = response.data;
-        return {
-          paid: data.hasPaid || false,
-          lastPayDate: data.lastPaymentDate ? new Date(data.lastPaymentDate) : undefined,
-          expireDate: data.expirationDate ? new Date(data.expirationDate) : undefined,
-          userLevel: data.userLevel || 'BRONZE',
-          isNewUser: !data.hasPaid,
-        };
-      }
-
-      // Return default status if API call fails
-      return {
-        paid: false,
-        userLevel: 'BRONZE',
-        isNewUser: true,
-      };
+      return await getPaymentStatusAction();
     } catch (error) {
       console.error('Error getting payment status:', error);
       return null;
@@ -102,56 +74,30 @@ export const createPaymentService = () => {
 
   const getTxHistory = async (): Promise<PaymentTx[]> => {
     try {
-      const response = await apiClient.get('/user/transactions');
-
-      if (isApiSuccess(response) && response.data) {
-        const transactions = response.data.transactions || [];
-        
-        return transactions.map((tx: any) => ({
-          orderNo: tx.orderNo,
-          amount: tx.amount,
-          currency: tx.currency,
-          status: tx.status,
-          finishTime: tx.finishTime || new Date().toISOString(),
-          blockchainData: tx.blockchainData || { txHash: '', network: '' },
-          blockExplorerUrl: tx.blockExplorerUrl || '',
-        }));
-      }
-
-      return [];
+      return await getTransactionHistory();
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       return [];
     }
   };
 
-  const initQRPayment = async (amount: number, currency: string) => {
+  const initQRPaymentLocal = async (amount: number, currency: string) => {
     try {
-      const response = await apiClient.post('/api/v1/payments/musepay/create', {
+      const response = await initQRPayment({
         amount,
         currency,
       });
 
-      if (isApiSuccess(response)) {
-        return response.data;
-      }
-
-      throw new Error(response.error || 'Failed to initialize QR payment');
+      return response;
     } catch (error) {
       console.error('Error initializing QR payment:', error);
       throw error;
     }
   };
 
-  const getPlanDetails = async (planId: string) => {
+  const getPlanDetailsLocal = async (planId: string) => {
     try {
-      const response = await apiClient.get(`/plans/${planId}`);
-
-      if (isApiSuccess(response)) {
-        return response.data;
-      }
-
-      throw new Error(response.error || 'Failed to get plan details');
+      return await getPlanDetails(planId);
     } catch (error) {
       console.error('Error getting plan details:', error);
       throw error;
@@ -166,25 +112,9 @@ export const createPaymentService = () => {
         return getTxHistory();
       }
 
-      const response = await apiClient.get('/user/transactions?excludePending=true');
-
-      if (isApiSuccess(response) && response.data) {
-        const transactions = response.data.transactions || [];
-        
-        return transactions
-          .filter((tx: any) => tx.status !== 'PENDING' && tx.status !== 'pending')
-          .map((tx: any) => ({
-            orderNo: tx.orderNo,
-            amount: tx.amount,
-            currency: tx.currency,
-            status: tx.status,
-            finishTime: tx.finishTime || new Date().toISOString(),
-            blockchainData: tx.blockchainData || { txHash: '', network: '' },
-            blockExplorerUrl: tx.blockExplorerUrl || '',
-          }));
-      }
-
-      return [];
+      // Use server action with excludePending parameter
+      const transactions = await getTransactionHistory(true);
+      return transactions;
     } catch (error) {
       console.error('Error fetching transaction history for new user:', error);
       return [];
@@ -195,8 +125,8 @@ export const createPaymentService = () => {
     recordPayment,
     confirmPayment,
     getPaymentStatus,
-    initQRPayment,
-    getPlanDetails,
+    initQRPayment: initQRPaymentLocal,
+    getPlanDetails: getPlanDetailsLocal,
     getTxHistory,
     getTxHistoryForNewUser,
   };

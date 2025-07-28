@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { AdminRole } from '@/types/admin/roles';
-import { AdminService } from '@/services/adminService';
+import { evaluatePermission } from '@epsx/server-actions';
+import { getCurrentUser } from '@epsx/server-actions';
 import { adminLogger } from '@/lib/logger';
 
 export function useAdminAuth() {
@@ -12,11 +13,10 @@ export function useAdminAuth() {
   useEffect(() => {
     const loadAdminProfile = async () => {
       try {
-        const response = await fetch('/api/v1/admin/auth/profile');
-        if (response.ok) {
-          const profile = await response.json();
+        const profile = await getCurrentUser();
+        if (profile) {
           setAdminUser({
-            id: profile.user_id,
+            id: profile.user_id || profile.id,
             role: profile.role || AdminRole.ADMIN,
             email: profile.email,
             permissions: profile.permissions || [],
@@ -26,7 +26,7 @@ export function useAdminAuth() {
           });
         }
       } catch (error) {
-        adminLogger.error('Failed to load admin profile', { error: error.message }, 'useAdminAuth');
+        adminLogger.error('Failed to load admin profile', { error: error instanceof Error ? error.message : String(error) }, 'useAdminAuth');
         setAdminUser(null);
       }
       setLoading(false);
@@ -35,28 +35,48 @@ export function useAdminAuth() {
     loadAdminProfile();
   }, []);
 
-  const hasPermission = (resource: string, action: string): boolean => {
-    return AdminService.hasPermission(adminUser.role, resource, action);
+  const hasPermission = async (resource: string, action: string): Promise<boolean> => {
+    if (!adminUser?.id) return false;
+    try {
+      const result = await evaluatePermission({
+        userId: adminUser.id,
+        action: `${action}:${resource}`,
+        resource: `admin:${resource}`
+      });
+      return result?.allowed || false;
+    } catch (error) {
+      adminLogger.error('Permission check failed', { resource, action, error });
+      return false;
+    }
   };
 
   const canManageUsers = (): boolean => {
-    return AdminService.canManageUsers(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const canViewPayments = (): boolean => {
-    return AdminService.canViewPayments(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const canManageSystem = (): boolean => {
-    return AdminService.canManageSystem(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN;
   };
 
   const canViewAnalytics = (): boolean => {
-    return AdminService.canViewAnalytics(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const getAvailableActions = (resource: string): string[] => {
-    return AdminService.getAvailableActions(adminUser.role, resource);
+    if (!adminUser) return [];
+    
+    const baseActions = ['view'];
+    if (adminUser.role === AdminRole.SUPER_ADMIN) {
+      return [...baseActions, 'create', 'edit', 'delete', 'manage'];
+    } else if (adminUser.role === AdminRole.ADMIN) {
+      return [...baseActions, 'create', 'edit'];
+    }
+    
+    return baseActions;
   };
 
   return {

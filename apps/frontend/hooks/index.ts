@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '@/services/api.client';
 import { useAuth as useAuthContext } from '@/context/auth-context';
 
-// Generic data fetching hook
+// DEPRECATED: Generic data fetching hook using deprecated API client
+// Migrate to specific server actions instead of using this hook
 export function useApi<T>(
   endpoint: string,
   options?: { refresh?: number; enabled?: boolean }
@@ -16,16 +16,9 @@ export function useApi<T>(
   const fetchData = useCallback(async () => {
     if (options?.enabled === false) return;
     
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await api.get<T>(endpoint);
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
+    console.warn('useApi hook is deprecated. Please migrate to specific server actions.');
+    setError('useApi hook is deprecated. Please use specific server actions instead.');
+    setLoading(false);
   }, [endpoint, options?.enabled]);
 
   useEffect(() => {

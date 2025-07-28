@@ -220,19 +220,47 @@ class ApiClientImpl implements ApiClient {
   async updateProfile(
     request: ProfileUpdateRequest
   ): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/api/v1/auth/profile', {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    });
+    try {
+      // Use server action instead of direct HTTP request
+      const { updateProfile } = await import('@epsx/server-actions');
+      const result = await updateProfile({
+        name: request.displayName,
+        email: undefined, // Email updates handled separately
+        preferences: { photoURL: request.photoURL }
+      });
+      
+      if (result) {
+        return { data: result as UserProfile };
+      } else {
+        return { error: 'Failed to update profile' };
+      }
+    } catch (error) {
+      return {
+        error: 'Profile update failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   async changePassword(
     request: PasswordChangeRequest
   ): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/api/v1/auth/password', {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    });
+    try {
+      // Use server action instead of direct HTTP request
+      const { changePassword } = await import('@epsx/server-actions');
+      const result = await changePassword(request);
+      
+      if (result) {
+        return { data: { message: 'Password changed successfully' } };
+      } else {
+        return { error: 'Failed to change password' };
+      }
+    } catch (error) {
+      return {
+        error: 'Password change failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 }
 

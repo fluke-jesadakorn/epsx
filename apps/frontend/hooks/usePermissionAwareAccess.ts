@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { createPaymentService } from '@/services/payment.service';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
 
@@ -51,9 +50,9 @@ export function usePermissionAwareAccess(): PermissionAwareAccess {
       }
 
       try {
-        // Legacy payment system integration
-        const paymentService = createPaymentService();
-        const paymentStatus = await paymentService.getPaymentStatus();
+        // Use server action for payment status
+        const { getPaymentStatus } = await import('@epsx/server-actions');
+        const paymentStatus = await getPaymentStatus();
         const level = (paymentStatus?.userLevel as UserLevelType) || 'BRONZE';
         const expired = paymentStatus?.expireDate
           ? new Date() > paymentStatus.expireDate

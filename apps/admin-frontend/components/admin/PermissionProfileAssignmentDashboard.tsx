@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AdminService } from '@/services/adminService';
+import { getPermissionProfiles, assignPermissionProfile, getAdminUsers } from '@epsx/server-actions';
 import { useAdminAuth } from '@/auth/ctx';
 import { 
   Shield, 
@@ -93,19 +93,23 @@ export function PermissionProfileAssignmentDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/v1/admin/permission-profiles?' + new URLSearchParams({
+      // Use the server action to get admin permission profiles from backend
+      const { serverGetAdminPermissionProfiles } = await import('@epsx/api-client');
+      const searchParams = new URLSearchParams({
         category: permissionProfileFilter.category,
         package_tier: permissionProfileFilter.tier,
         active_only: permissionProfileFilter.active_only.toString(),
         limit: '50',
         offset: '0'
-      }));
-
-      if (!response.ok) {
-        throw new Error(`Failed to load permission profiles: ${response.status}`);
+      });
+      
+      const response = await serverGetAdminPermissionProfiles(searchParams);
+      
+      if (response.error) {
+        throw new Error(response.error);
       }
 
-      const data = await response.json();
+      const data = response.data;
       setPermissionProfiles(data.permission_profiles || []);
     } catch (err: any) {
       console.error('Failed to load permission profiles:', err);
@@ -142,6 +146,9 @@ export function PermissionProfileAssignmentDashboard() {
       setLoading(true);
       setError(null);
 
+      // Use the server action to assign permission profiles
+      const { serverAssignPermissionProfile } = await import('@epsx/api-client');
+      
       const assignmentRequest: PermissionProfileAssignmentRequest = {
         permission_profile_id: selectedPermissionProfile.id,
         user_ids: selectedUsers,
@@ -150,20 +157,13 @@ export function PermissionProfileAssignmentDashboard() {
         notify_users: notifyUsers,
       };
 
-      const response = await fetch('/api/v1/admin/permission-profiles/assign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(assignmentRequest),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Assignment failed: ${response.status}`);
+      const response = await serverAssignPermissionProfile(assignmentRequest);
+      
+      if (response.error) {
+        throw new Error(response.error);
       }
 
-      const result: AssignmentResult = await response.json();
+      const result: AssignmentResult = response.data;
       setAssignmentResult(result);
       
       // Clear selections after successful assignment

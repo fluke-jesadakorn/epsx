@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { StockFinancialData } from '@/types/financialChartData';
-import { apiClient, isApiError } from '@epsx/api-client';
+import { 
+  getBatchStocks,
+  getStockData,
+  preloadStocks,
+  checkStockCacheStatus
+} from '@epsx/server-actions';
 
 interface BatchStockData {
   [symbol: string]: StockFinancialData | null;
@@ -38,13 +43,7 @@ export function useBatchStockData(symbols: string[]): BatchFetchState {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      const response = await apiClient.getBatchStocks(symbolsList);
-      
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Failed to fetch batch data');
-      }
-
-      const result = response.data;
+      const result = await getBatchStocks(symbolsList);
       
       if (!result.success) {
         const errorMessage = result.errors?.length > 0 ? result.errors.join(', ') : 'Failed to fetch batch data';
@@ -111,11 +110,8 @@ export function useStockPreloader() {
 
     setPreloading(true);
     try {
-      const response = await apiClient.preloadStocks(symbols);
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Failed to preload symbols');
-      }
-      console.log('Preload completed:', response.data);
+      const response = await preloadStocks(symbols);
+      console.log('Preload completed:', response);
     } catch (error) {
       console.error('Preload error:', error);
     } finally {
@@ -125,11 +121,8 @@ export function useStockPreloader() {
 
   const checkCacheStatus = useCallback(async (symbols: string[]) => {
     try {
-      const response = await apiClient.checkStockCacheStatus(symbols);
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Failed to check cache status');
-      }
-      return response.data.symbols;
+      const response = await checkStockCacheStatus(symbols);
+      return response.symbols || [];
     } catch (error) {
       console.error('Cache status check error:', error);
       return [];

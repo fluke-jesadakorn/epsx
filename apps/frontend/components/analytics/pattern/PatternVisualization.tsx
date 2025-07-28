@@ -25,7 +25,7 @@ import {
   TrendingUp, 
   PieChart as PieChartIcon, 
   BarChart3, 
-  Scatter as ScatterIcon,
+  ScatterChart as ScatterIcon,
   Eye,
   Download
 } from 'lucide-react';

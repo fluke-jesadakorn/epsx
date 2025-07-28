@@ -9,6 +9,11 @@ import type { RoutePermissionConfig } from '@epsx/auth-shared';
 
 // Admin route definitions with strict permission requirements
 const adminRoutePermissions: Record<string, RoutePermissionConfig> = {
+  '/': { 
+    permission: 'admin.dashboard.view', 
+    fallbackRole: 'admin',
+    description: 'Admin dashboard access'
+  },
   '/dashboard': { 
     permission: 'admin.dashboard.view', 
     fallbackRole: 'admin',
@@ -43,6 +48,24 @@ const adminRoutePermissions: Record<string, RoutePermissionConfig> = {
     profile: 'Admin Assistant',
     fallbackRole: 'admin',
     description: 'Admin analytics dashboard'
+  },
+  '/iam': {
+    permission: 'admin.iam.manage',
+    profile: 'System Administrator',
+    fallbackRole: 'admin',
+    description: 'Identity and Access Management'
+  },
+  '/settings': {
+    permission: 'admin.settings.manage',
+    profile: 'System Administrator', 
+    fallbackRole: 'admin',
+    description: 'Admin settings management'
+  },
+  '/database': {
+    permission: 'admin.database.manage',
+    profile: 'System Administrator',
+    fallbackRole: 'admin',
+    description: 'Database management interface'
   },
   '/system': { 
     permission: 'admin.system.configure', 

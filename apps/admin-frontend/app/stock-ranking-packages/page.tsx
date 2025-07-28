@@ -1,6 +1,5 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { SSRAdminGuard } from '@epsx/auth-shared/server';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import StockRankingPackageDashboard from '@/components/admin/StockRankingPackageDashboard';
 
@@ -11,10 +10,8 @@ export const metadata: Metadata = {
 
 export default async function StockRankingPackagesPage() {
   return (
-    <SSRAdminGuard>
-      <AdminLayout>
-        <StockRankingPackageDashboard />
-      </AdminLayout>
-    </SSRAdminGuard>
+    <AdminLayout>
+      <StockRankingPackageDashboard />
+    </AdminLayout>
   );
 }

@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server';
-import type { PermissionCheckResult, RoutePermissionConfig, PermissionCacheEntry } from '../types';
+import type { PermissionCacheEntry, PermissionCheckResult, RoutePermissionConfig } from '../types';
 
 export interface MiddlewareAuthConfig {
   backendUrl?: string;

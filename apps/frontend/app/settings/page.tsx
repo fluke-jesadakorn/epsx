@@ -1,13 +1,12 @@
-'use client';
-
-import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { getCurrentUser } from '@epsx/server-actions';
+import { SettingsClient } from '@/components/settings/SettingsClient';
+import Link from 'next/link';
 
-export default function SettingsPage() {
-  const { user, signOut } = useAuth();
-  const router = useRouter();
+export default async function SettingsPage() {
+  // Fetch user data server-side
+  const user = await getCurrentUser();
 
   // Allow access even without authentication for demo purposes
   if (!user) {
@@ -20,19 +19,16 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <p>You are viewing settings as a guest user. Please log in for full functionality.</p>
-            <Button onClick={() => router.push('/login')} className="mt-4">
-              Log In
-            </Button>
+            <Link href="/login">
+              <Button className="mt-4">
+                Log In
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
-  };
 
   return (
     <div className="container mx-auto p-6">
@@ -46,22 +42,13 @@ export default function SettingsPage() {
           <CardContent>
             <div className="space-y-2">
               <p><strong>Email:</strong> {user.email}</p>
-              <p><strong>User ID:</strong> {user.uid}</p>
+              <p><strong>User ID:</strong> {user.user_id || user.id || user.uid}</p>
               <p><strong>Email Verified:</strong> {user.emailVerified ? 'Yes' : 'No'}</p>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleSignOut} variant="destructive">
-              Sign Out
-            </Button>
-          </CardContent>
-        </Card>
+        <SettingsClient />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminLogger } from '../../lib/logger';
-import { iamService } from '../../services/iamService';
+import { getIAMUsers } from '@epsx/server-actions';
 
 interface IAMStats {
   totalUsers: number;
@@ -27,8 +27,8 @@ export const useIAMStats = () => {
       try {
         setLoading(true);
 
-        // Get basic stats from existing IAM service
-        const users = await iamService.getUsers();
+        // Get basic stats from server action
+        const users = await getIAMUsers();
 
         // Calculate stats
         const totalUsers = users.length;

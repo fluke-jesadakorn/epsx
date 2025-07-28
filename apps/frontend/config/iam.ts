@@ -3,13 +3,13 @@
 export const IAM_CONFIG = {
   // Default role for new users
   defaultRole: 'user',
-  
+
   // Session configuration
   session: {
     cookieName: 'sess_id',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   },
-  
+
   // Route protection configuration
   routes: {
     // Public routes that don't require authentication
@@ -26,7 +26,7 @@ export const IAM_CONFIG = {
       '/public',
       '/static',
     ],
-    
+
     // Protected routes with required permissions
     protected: {
       '/dashboard': ['read:own_data'],
@@ -35,15 +35,11 @@ export const IAM_CONFIG = {
       '/api/v1/admin/moderator': ['moderate:content'],
       '/api/v1/users': ['manage:users'],
     },
-    
+
     // Routes that require authentication but no specific permissions
-    authenticated: [
-      '/profile',
-      '/settings',
-      '/account',
-    ],
+    authenticated: ['/profile', '/settings', '/account'],
   },
-  
+
   // API endpoints - client-side uses relative paths
   api: {
     baseUrl: '/api', // Use Next.js API routes for client-side
@@ -54,7 +50,7 @@ export const IAM_CONFIG = {
       users: '/api/v1/users',
     },
   },
-  
+
   // Backend API configuration - server-side only
   backend: {
     timeout: 10000, // 10 seconds
@@ -67,23 +63,23 @@ export const PERMISSIONS = {
   READ_OWN_DATA: 'read:own_data',
   WRITE_OWN_DATA: 'write:own_data',
   READ_PUBLIC_CONTENT: 'read:public_content',
-  
+
   // Premium user permissions
   READ_PREMIUM_CONTENT: 'read:premium_content',
   WRITE_PREMIUM_CONTENT: 'write:premium_content',
-  
+
   // Moderator permissions
   MODERATE_CONTENT: 'moderate:content',
   READ_MODERATED: 'read:moderated',
   WRITE_MODERATED: 'write:moderated',
-  
+
   // Admin permissions
   ADMIN_ACCESS: 'admin:access',
   MANAGE_USERS: 'manage:users',
   MANAGE_ROLES: 'manage:roles',
   READ_ALL: 'read:all',
   WRITE_ALL: 'write:all',
-  
+
   // Super admin permissions
   SUPER_ADMIN: '*',
 } as const;
