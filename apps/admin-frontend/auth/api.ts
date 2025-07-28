@@ -1,4 +1,4 @@
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { adminLogin, logout, getCurrentUser } from '@epsx/server-actions';
 
 interface AdminLoginReq {
   token: string;
@@ -13,28 +13,20 @@ interface AdminUsrRes {
   };
 }
 
-// Get API client - will automatically use backend URL
-const getApi = () => {
-  return createApiClient();
-};
-
 export const adminAuthApi = {
   login: async (req: AdminLoginReq): Promise<AdminUsrRes> => {
     try {
-      const api = getApi();
-      const response = await api.loginAdmin({ token: req.token });
-      
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Admin login failed');
-      }
+      // The token would be credentials like { email, password }
+      // For now, we'll need to adapt this based on the actual auth flow
+      const response = await adminLogin({ email: '', password: req.token });
       
       // Transform response to match expected format
       return {
         user: {
-          id: response.data?.user_id || '',
-          email: response.data?.email || '',
-          roles: [response.data?.role || 'user'],
-          isAdmin: ['admin', 'super_admin', 'SuperAdmin'].includes(response.data?.role || '')
+          id: response.user_id || '',
+          email: response.email || '',
+          roles: [response.role || 'user'],
+          isAdmin: ['admin', 'super_admin', 'SuperAdmin'].includes(response.role || '')
         }
       };
     } catch (error) {
@@ -44,12 +36,7 @@ export const adminAuthApi = {
 
   logout: async (): Promise<void> => {
     try {
-      const api = getApi();
-      const response = await api.logoutAdmin();
-      
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Admin logout failed');
-      }
+      await logout();
     } catch (error) {
       throw new Error('Admin logout failed');
     }
@@ -57,20 +44,19 @@ export const adminAuthApi = {
 
   me: async (): Promise<AdminUsrRes> => {
     try {
-      const api = getApi();
-      const response = await api.getAdminProfile();
+      const response = await getCurrentUser();
       
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Admin auth check failed');
+      if (!response) {
+        throw new Error('No user data');
       }
       
       // Transform response to match expected format
       return {
         user: {
-          id: response.data?.uid || '',
-          email: response.data?.email || '',
-          roles: [response.data?.role || 'user'],
-          isAdmin: ['admin', 'super_admin', 'SuperAdmin'].includes(response.data?.role || '')
+          id: response.id || response.user_id || '',
+          email: response.email || '',
+          roles: [response.role || 'user'],
+          isAdmin: ['admin', 'super_admin', 'SuperAdmin'].includes(response.role || '')
         }
       };
     } catch (error) {

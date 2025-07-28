@@ -1,16 +1,14 @@
 'use server';
 
 import type { ActionResult, AssignmentResult, StockRankingAssignmentRequest, StockRankingAssignmentExtendRequest, StockRankingAssignmentUpdateRequest, UserSoftDeleteRequest } from '@epsx/api-client';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { 
+  assignPermissionProfile,
+  assignStockRankingPackage,
+  getAdminUsers,
+  updateUserPackageTier
+} from '@epsx/server-actions';
 import { adminLogger } from '../logger';
 import { revalidatePath } from 'next/cache';
-import { config } from '../config';
-
-// Get API client server-side only
-const getApiClient = () => {
-  const backendUrl = config.getBackendUrl();
-  return createApiClient(backendUrl);
-};
 
 // Permission Profile Actions
 export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {

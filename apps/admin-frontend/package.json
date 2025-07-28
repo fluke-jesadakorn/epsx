@@ -23,6 +23,7 @@
     "@epsx/api-client": "workspace:*",
     "@epsx/auth-shared": "workspace:*",
     "@epsx/config": "workspace:*",
+    "@epsx/server-actions": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

@@ -42,7 +42,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
     }
 
     // Determine API endpoint based on session type
-    const endpoint = isAdminSession ? '/api/admin/auth/profile' : '/api/v1/auth/profile';
+    const endpoint = isAdminSession ? '/api/v1/admin/auth/profile' : '/api/v1/auth/profile';
     const cookieHeader = `${isAdminSession ? finalConfig.adminSessionCookieName : finalConfig.sessionCookieName}=${sessionId}`;
 
     try {

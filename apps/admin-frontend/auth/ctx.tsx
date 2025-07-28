@@ -129,21 +129,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       try {
         adminLogger.info('Checking existing session...', {}, 'AdminAuthProvider.checkExistingSession');
         
-        // Check if admin session cookie exists
-        const cookies = document.cookie;
-        const hasAdminSession = cookies.includes('admin_sess_id=');
-        
-        adminLogger.info('Cookie check result', { hasAdminSession, cookies }, 'AdminAuthProvider.checkExistingSession');
-        
-        if (!hasAdminSession) {
-          adminLogger.info('No admin session cookie found', {}, 'AdminAuthProvider.checkExistingSession');
-          setLoading(false);
-          setInit(true);
-          return;
-        }
-        
-        // Try to get admin profile to validate session
-        adminLogger.info('Attempting to validate session...', {}, 'AdminAuthProvider.checkExistingSession');
+        // Skip client-side cookie checking since admin_sess_id is httpOnly
+        // Instead, directly try to validate session with backend
+        adminLogger.info('Attempting to validate session with backend...', {}, 'AdminAuthProvider.checkExistingSession');
         const { serverGetAdminProfile } = await import('@epsx/api-client');
         const response = await serverGetAdminProfile();
         
@@ -170,9 +158,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
           adminLogger.info('Setting user data', { userData }, 'AdminAuthProvider.checkExistingSession');
           setUser(userData);
         } else {
-          adminLogger.warn('Session validation failed', { 
+          adminLogger.info('No valid session found, user will need to login', { 
             error: response.error 
           }, 'AdminAuthProvider.checkExistingSession');
+          // Don't set error here - just leave user as null so middleware can handle redirects
         }
       } catch (error) {
         adminLogger.error('Session check failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.checkExistingSession');

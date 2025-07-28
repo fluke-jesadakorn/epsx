@@ -1,5 +1,8 @@
 'use server';
 
+// Re-export all server actions from the shared package
+export * from '@epsx/server-actions';
+
 import type { TokenFeature } from '@/types/auth/features';
 import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
@@ -102,5 +105,69 @@ export async function getUserStats() {
   } catch (error) {
     console.error('[getUserStats] Exception:', error);
     throw error;
+  }
+}
+
+// IAM Server Actions
+async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+  
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+  const url = `${backendUrl}/api/v1/iam/${endpoint}`;
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cookie': cookieHeader,
+      ...options.headers,
+    },
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+  }
+  
+  return response.json();
+}
+
+export async function getIAMUsers(filters?: any) {
+  try {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+    }
+    
+    const endpoint = `users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return await makeIAMRequest(endpoint);
+  } catch (error) {
+    console.error('Error fetching IAM users:', error);
+    return [];
+  }
+}
+
+export async function getIAMRoles() {
+  try {
+    return await makeIAMRequest('roles');
+  } catch (error) {
+    console.error('Error fetching IAM roles:', error);
+    return [];
+  }
+}
+
+export async function getIAMPolicies() {
+  try {
+    return await makeIAMRequest('policies');
+  } catch (error) {
+    console.error('Error fetching IAM policies:', error);
+    return [];
   }
 }

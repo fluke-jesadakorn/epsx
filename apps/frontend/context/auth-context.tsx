@@ -2,7 +2,6 @@
 
 import { logger } from '@/lib/logger';
 import { useOptimisticUpdates } from '@/lib/state/core';
-import { apiClient, isApiError, isApiSuccess } from '@epsx/api-client';
 import { PackageTier } from '@epsx/types';
 import React, {
   createContext,
@@ -104,9 +103,11 @@ export function AuthProvider({
     actions.ui.setLoading('auth', true);
 
     try {
-      const response = await apiClient.getCurrentUser();
+      // Use server action for getting current user
+      const { getCurrentUser } = await import('@epsx/server-actions');
+      const userData = await getCurrentUser();
 
-      if (isApiError(response)) {
+      if (!userData) {
         // Session expired or invalid
         setUser(null);
         setPermissions([]);
@@ -117,22 +118,19 @@ export function AuthProvider({
         return;
       }
 
-      if (isApiSuccess(response)) {
-        const userData = response.data;
-        const normalizedUserData = normalizeUserData(userData);
+      const normalizedUserData = normalizeUserData(userData);
 
-        // Update both legacy and new state
-        setUser(normalizedUserData);
-        setPermissions(userData.permissions || []);
-        setPackageTier(
-          (userData.package_tier as PackageTier) || PackageTier.FREE
-        );
+      // Update both legacy and new state
+      setUser(normalizedUserData);
+      setPermissions(userData.permissions || []);
+      setPackageTier(
+        (userData.package_tier as PackageTier) || PackageTier.FREE
+      );
 
-        // Update new state management
-        actions.user.setProfile(normalizedUserData);
-        actions.user.updatePermissions(userData.permissions || []);
-        actions.user.setPackageTier(userData.package_tier || 'FREE');
-      }
+      // Update new state management
+      actions.user.setProfile(normalizedUserData);
+      actions.user.updatePermissions(userData.permissions || []);
+      actions.user.setPackageTier(userData.package_tier || 'FREE');
     } catch (error) {
       logger.error('Error loading user session', {
         error: error instanceof Error ? error.message : String(error),
@@ -154,9 +152,25 @@ export function AuthProvider({
     }
   }, [actions, showError]);
 
-  const refreshPermissions = async () => {
-    await loadUserSession();
-  };
+  const refreshPermissions = useCallback(async () => {
+    try {
+      // Use server action to get fresh permissions
+      const { getUserPermissions } = await import('@epsx/server-actions');
+      const freshPermissions = await getUserPermissions();
+      
+      if (freshPermissions) {
+        const permissionNames = freshPermissions.map(p => p.name || p.permission || p);
+        setPermissions(permissionNames);
+        actions.user.updatePermissions(permissionNames);
+      }
+    } catch (error) {
+      logger.error('Failed to refresh permissions', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Fallback to full session reload
+      await loadUserSession();
+    }
+  }, [actions, loadUserSession]);
 
   const initializeFromServer = (serverAuthState?: any) => {
     if (serverAuthState) {
@@ -182,6 +196,10 @@ export function AuthProvider({
       if (userPermission.endsWith('.*')) {
         const prefix = userPermission.slice(0, -2);
         return permission.startsWith(prefix + '.');
+      }
+      if (userPermission.endsWith(':*')) {
+        const prefix = userPermission.slice(0, -2);
+        return permission.startsWith(prefix + ':');
       }
       return false;
     });
@@ -209,40 +227,33 @@ export function AuthProvider({
       actions.ui.setLoading('login', true);
 
       try {
-        const response = await apiClient.login({
-          type: 'credentials',
-          email,
-          password,
-        });
+        // Use server action for login
+        const { login: loginAction } = await import('@epsx/server-actions');
+        const userData = await loginAction({ email, password });
 
-        if (isApiError(response)) {
-          throw new Error(response.error || 'Login failed');
+        if (!userData) {
+          throw new Error('Login failed');
         }
 
-        if (isApiSuccess(response)) {
-          const userData = response.data;
-          const normalizedUserData = normalizeUserData(userData);
+        const normalizedUserData = normalizeUserData(userData);
 
-          // Update both legacy and new state
-          setUser(normalizedUserData);
-          setPermissions(userData.permissions || []);
-          setPackageTier(
-            (userData.package_tier as PackageTier) || PackageTier.FREE
-          );
+        // Update both legacy and new state
+        setUser(normalizedUserData);
+        setPermissions(userData.permissions || []);
+        setPackageTier(
+          (userData.package_tier as PackageTier) || PackageTier.FREE
+        );
 
-          actions.user.setProfile(normalizedUserData);
-          actions.user.updatePermissions(userData.permissions || []);
-          actions.user.setPackageTier(userData.package_tier || 'FREE');
+        actions.user.setProfile(normalizedUserData);
+        actions.user.updatePermissions(userData.permissions || []);
+        actions.user.setPackageTier(userData.package_tier || 'FREE');
 
-          success(
-            'Welcome back!',
-            `Successfully logged in as ${normalizedUserData.email}`
-          );
+        success(
+          'Welcome back!',
+          `Successfully logged in as ${normalizedUserData.email}`
+        );
 
-          return normalizedUserData;
-        }
-
-        throw new Error('Unexpected response format');
+        return normalizedUserData;
       } catch (error) {
         showError(
           'Login Failed',
@@ -262,21 +273,15 @@ export function AuthProvider({
     displayName?: string
   ) => {
     try {
-      const response = await apiClient.register({
+      // Use server action for registration
+      const { register: registerAction } = await import('@epsx/server-actions');
+      const response = await registerAction({
         email,
         password,
         name: displayName,
       });
 
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Registration failed');
-      }
-
-      if (isApiSuccess(response)) {
-        return response.data;
-      }
-
-      throw new Error('Unexpected response format');
+      return response;
     } catch (error) {
       throw error;
     }
@@ -303,11 +308,9 @@ export function AuthProvider({
     );
 
     try {
-      const response = await apiClient.logout();
-
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Logout failed');
-      }
+      // Use server action for logout
+      const { logout: logoutAction } = await import('@epsx/server-actions');
+      await logoutAction();
 
       confirmOptimisticUpdate(updateId);
       success('Logged out', 'You have been successfully logged out');

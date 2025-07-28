@@ -170,11 +170,11 @@ export default function StockRankingPackageAssignment({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h2 className="text-2xl font-bold text-gray-900">
+      <div className="border-b border-border pb-4">
+        <h2 className="text-2xl font-bold text-foreground">
           Stock Ranking Package Assignment
         </h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-muted-foreground">
           Assign stock ranking access packages to users with specific permissions and limits
         </p>
       </div>
@@ -182,7 +182,7 @@ export default function StockRankingPackageAssignment({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Package Selection */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Select Package Tier</h3>
+          <h3 className="text-lg font-medium text-foreground">Select Package Tier</h3>
           
           <div className="grid grid-cols-2 gap-3">
             {Object.values(PackageTier).map((tier) => (
@@ -191,8 +191,8 @@ export default function StockRankingPackageAssignment({
                 onClick={() => handlePackageChange(tier)}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   selectedPackage === tier
-                    ? 'border-blue-500 bg-blue-50 text-blue-900'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300'
+                    : 'border-border hover:border-gray-300 dark:hover:border-gray-600 text-foreground'
                 }`}
               >
                 <div className="font-medium">{tier}</div>
@@ -207,45 +207,45 @@ export default function StockRankingPackageAssignment({
 
           {/* Package Configuration Preview */}
           {showPreview && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-3">
+            <div className="bg-muted rounded-lg p-4">
+              <h4 className="font-medium text-foreground mb-3">
                 {selectedPackage} Package Features
               </h4>
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Max Rankings:</span>
+                  <span className="text-muted-foreground">Max Rankings:</span>
                   <span className="font-medium">
                     {packageConfig.maxRankings === -1 ? 'Unlimited' : packageConfig.maxRankings}
                   </span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Rate Limit:</span>
+                  <span className="text-muted-foreground">Rate Limit:</span>
                   <span className="font-medium">{packageConfig.rateLimitPerMinute}/min</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Real-time Updates:</span>
+                  <span className="text-muted-foreground">Real-time Updates:</span>
                   <span className="font-medium">
                     {packageConfig.realTimeUpdates ? 'Yes' : 'No'}
                   </span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Markets:</span>
+                  <span className="text-muted-foreground">Markets:</span>
                   <span className="font-medium">{formatMarkets(packageConfig.allowedMarkets)}</span>
                 </div>
                 
                 <div>
-                  <span className="text-gray-600">Ranking Types:</span>
+                  <span className="text-muted-foreground">Ranking Types:</span>
                   <div className="mt-1 text-xs">
                     {formatRankingTypes(packageConfig.allowedRankingTypes)}
                   </div>
                 </div>
                 
                 <div>
-                  <span className="text-gray-600">Advanced Features:</span>
+                  <span className="text-muted-foreground">Advanced Features:</span>
                   <div className="mt-1 text-xs">
                     {Object.entries(packageConfig.advancedFeatures)
                       .filter(([_, enabled]) => enabled)
@@ -255,7 +255,7 @@ export default function StockRankingPackageAssignment({
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Exports/Day:</span>
+                  <span className="text-muted-foreground">Exports/Day:</span>
                   <span className="font-medium">
                     {packageConfig.exportOptions.maxExportsPerDay === -1 
                       ? 'Unlimited' 
@@ -270,8 +270,8 @@ export default function StockRankingPackageAssignment({
         {/* User Selection */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900">Select Users</h3>
-            <div className="text-sm text-gray-500">
+            <h3 className="text-lg font-medium text-foreground">Select Users</h3>
+            <div className="text-sm text-muted-foreground">
               {selectedUsers.length} selected
             </div>
           </div>
@@ -283,7 +283,7 @@ export default function StockRankingPackageAssignment({
               placeholder="Search users by email, name, or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-input rounded-lg bg-background focus:ring-2 focus:ring-blue-500 focus:border-transparent text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
@@ -291,38 +291,38 @@ export default function StockRankingPackageAssignment({
           <div className="flex space-x-2">
             <button
               onClick={() => handleBulkUserSelection(true)}
-              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+              className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
             >
               Select All
             </button>
             <button
               onClick={() => handleBulkUserSelection(false)}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              className="px-3 py-1 text-sm bg-muted text-muted-foreground rounded hover:bg-muted/80"
             >
               Clear All
             </button>
           </div>
 
           {/* Users List */}
-          <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+          <div className="border border-border rounded-lg max-h-64 overflow-y-auto bg-background">
             {isLoading.users ? (
-              <div className="p-4 text-center text-gray-500">Loading users...</div>
+              <div className="p-4 text-center text-muted-foreground">Loading users...</div>
             ) : filteredUsers.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">No users found</div>
+              <div className="p-4 text-center text-muted-foreground">No users found</div>
             ) : (
               filteredUsers.map((user) => (
-                <div key={user.id} className="flex items-center p-3 border-b border-gray-100 last:border-b-0">
+                <div key={user.id} className="flex items-center p-3 border-b border-border/50 last:border-b-0 hover:bg-muted/50">
                   <input
                     type="checkbox"
                     checked={selectedUsers.includes(user.id)}
                     onChange={(e) => handleUserSelection(user.id, e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded"
                   />
                   <div className="ml-3 flex-1">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-foreground">
                       {user.name || user.email}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {user.email} • Current: {user.currentPackage || 'None'}
                     </div>
                   </div>
@@ -335,32 +335,32 @@ export default function StockRankingPackageAssignment({
 
       {/* Assignment Details */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">Assignment Details</h3>
+        <h3 className="text-lg font-medium text-foreground">Assignment Details</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Reason for Assignment *
             </label>
             <textarea
               value={assignmentReason}
               onChange={(e) => setAssignmentReason(e.target.value)}
               placeholder="e.g., Promotional upgrade, Trial access, Customer request..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-input rounded-md bg-background focus:ring-2 focus:ring-blue-500 focus:border-transparent text-foreground placeholder:text-muted-foreground"
               rows={3}
               required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Expiration Date (Optional)
             </label>
             <input
               type="datetime-local"
               value={expirationDate}
               onChange={(e) => setExpirationDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-input rounded-md bg-background focus:ring-2 focus:ring-blue-500 focus:border-transparent text-foreground"
             />
           </div>
         </div>
@@ -372,18 +372,18 @@ export default function StockRankingPackageAssignment({
               type="checkbox"
               checked={notifyUsers}
               onChange={(e) => setNotifyUsers(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Notify users via email</span>
+            <span className="ml-2 text-sm text-foreground">Notify users via email</span>
           </label>
         </div>
       </div>
 
       {/* Assignment Summary */}
       {selectedUsers.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 mb-2">Assignment Summary</h4>
-          <div className="text-sm text-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4">
+          <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Assignment Summary</h4>
+          <div className="text-sm text-blue-800 dark:text-blue-200">
             <div>Package: <strong>{selectedPackage}</strong></div>
             <div>Users: <strong>{selectedUsers.length} selected</strong></div>
             <div>Max Rankings: <strong>
@@ -398,7 +398,7 @@ export default function StockRankingPackageAssignment({
       )}
 
       {/* Actions */}
-      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+      <div className="flex justify-end space-x-3 pt-4 border-t border-border">
         <button
           type="button"
           onClick={() => {
@@ -407,7 +407,7 @@ export default function StockRankingPackageAssignment({
             setExpirationDate('');
             setShowPreview(false);
           }}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 text-sm font-medium text-foreground bg-background border border-input rounded-md hover:bg-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           Reset
         </button>

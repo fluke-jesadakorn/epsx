@@ -176,12 +176,12 @@ export async function serverGetAdminUsers(
 ): Promise<ApiResponse<{ users: AdminUser[]; total?: number }>> {
   const queryString = searchParams?.toString() || '';
   return serverRequest(
-    `/admin/users${queryString ? `?${queryString}` : ''}`
+    `/api/admin/users${queryString ? `?${queryString}` : ''}`
   );
 }
 
 export async function serverGetAdminUser(userId: string): Promise<ApiResponse<AdminUser>> {
-  return serverRequest(`/admin/users/${userId}`);
+  return serverRequest(`/api/admin/users/${userId}`);
 }
 
 export async function serverGetAdminPermissionProfiles(searchParams?: URLSearchParams): Promise<
@@ -193,13 +193,13 @@ export async function serverGetAdminPermissionProfiles(searchParams?: URLSearchP
   }>
 > {
   const params = new URLSearchParams(searchParams);
-  return serverRequest(`/admin/permission-profiles?${params.toString()}`);
+  return serverRequest(`/api/admin/permission-profiles?${params.toString()}`);
 }
 
 export async function serverGetAdminPermissionProfile(
   profileId: string
 ): Promise<ApiResponse<PermissionProfile>> {
-  return serverRequest(`/admin/permission-profiles/${profileId}`);
+  return serverRequest(`/api/admin/permission-profiles/${profileId}`);
 }
 
 export async function serverAssignAdminPermissionProfile(request: {
@@ -207,7 +207,7 @@ export async function serverAssignAdminPermissionProfile(request: {
   user_id: string;
   expires_at?: string;
 }): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest('/admin/permission-profiles/assign', 'POST', request);
+  return serverRequest('/api/admin/permission-profiles/assign', 'POST', request);
 }
 
 export async function serverGetStockRankingAssignments(
@@ -216,26 +216,26 @@ export async function serverGetStockRankingAssignments(
   ApiResponse<{ assignments: StockRankingAssignment[]; total?: number }>
 > {
   const params = new URLSearchParams(searchParams);
-  return serverRequest(`/admin/stock-ranking/assignments?${params.toString()}`);
+  return serverRequest(`/api/admin/stock-ranking/assignments?${params.toString()}`);
 }
 
 export async function serverGetStockRankingAssignment(
   assignmentId: string
 ): Promise<ApiResponse<StockRankingAssignment>> {
-  return serverRequest(`/admin/stock-ranking/assignments/${assignmentId}`);
+  return serverRequest(`/api/admin/stock-ranking/assignments/${assignmentId}`);
 }
 
 export async function serverAssignBulkStockRanking(
   request: StockRankingAssignmentRequest
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest('/admin/stock-ranking/assign-bulk', 'POST', request);
+  return serverRequest('/api/admin/stock-ranking/assign-bulk', 'POST', request);
 }
 
 export async function serverRevokeStockRankingAssignment(
   assignmentId: string
 ): Promise<ApiResponse<AssignmentResult>> {
   return serverRequest(
-    `/admin/stock-ranking/assignments/${assignmentId}/revoke`,
+    `/api/admin/stock-ranking/assignments/${assignmentId}/revoke`,
     'POST'
   );
 }
@@ -245,7 +245,7 @@ export async function serverExtendStockRankingAssignment(
   request: StockRankingAssignmentExtendRequest
 ): Promise<ApiResponse<AssignmentResult>> {
   return serverRequest(
-    `/admin/stock-ranking/assignments/${assignmentId}/extend`,
+    `/api/admin/stock-ranking/assignments/${assignmentId}/extend`,
     'POST',
     request
   );
@@ -256,14 +256,14 @@ export async function serverUpdateStockRankingAssignment(
   request: StockRankingAssignmentUpdateRequest
 ): Promise<ApiResponse<AssignmentResult>> {
   return serverRequest(
-    `/admin/stock-ranking/assignments/${assignmentId}`,
+    `/api/admin/stock-ranking/assignments/${assignmentId}`,
     'PUT',
     request
   );
 }
 
 export async function serverGetAnalyticsStatistics(): Promise<ApiResponse<AnalyticsStatistics>> {
-  return serverRequest('/admin/analytics/statistics');
+  return serverRequest('/api/admin/analytics/statistics');
 }
 
 export async function serverGetStockRankingAnalytics(
@@ -271,19 +271,19 @@ export async function serverGetStockRankingAnalytics(
 ): Promise<ApiResponse<StockRankingAnalytics>> {
   const params = new URLSearchParams(searchParams);
   return serverRequest(
-    `/admin/stock-ranking/analytics?${params.toString()}`
+    `/api/admin/stock-ranking/analytics?${params.toString()}`
   );
 }
 
 export async function serverGetAdminProfile(): Promise<ApiResponse<AdminProfile>> {
-  return serverRequest('/admin/auth/profile');
+  return serverRequest('/api/v1/admin/auth/profile');
 }
 
 export async function serverSoftDeleteUser(
   userId: string,
   request: UserSoftDeleteRequest
 ): Promise<ApiResponse<{ message: string }>> {
-  return serverRequest(`/admin/users/${userId}`, 'DELETE', request);
+  return serverRequest(`/api/admin/users/${userId}`, 'DELETE', request);
 }
 
 export async function serverAssignPermissionProfile(

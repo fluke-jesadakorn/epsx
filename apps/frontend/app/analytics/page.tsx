@@ -2,7 +2,10 @@ import * as React from 'react';
 import type { Metadata } from 'next';
 
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsRankingDashboard';
+import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsDynamic';
+
+// ISR configuration for analytics - revalidate every 2 minutes for analytics data
+export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: 'Analytics Dashboard - EPSX',

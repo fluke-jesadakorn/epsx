@@ -6,6 +6,9 @@ import PricingSection from '@/components/home/PricingSection';
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 
+// ISR configuration for homepage - revalidate every 5 minutes
+export const revalidate = 300;
+
 export default async function HomePage() {
   // Server-side data fetching for better SSR performance
   const initialData = await fetchPublicRankingData(10, 10);

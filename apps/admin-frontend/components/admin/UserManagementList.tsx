@@ -1,16 +1,24 @@
 'use client';
 
 import { useToast } from '@/components/ui/toast';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { adminLogger } from '../../lib/logger';
-import { iamService } from '../../services/iamService';
+// Note: updateUserTier is not yet implemented in server-actions
+// import { updateUserTier } from '@epsx/server-actions';
+
+// Temporary placeholder function until server-actions are implemented
+const updateUserTier = async (params: any) => {
+  throw new Error('updateUserTier not implemented');
+};
 import type { UserWithPermissions } from '../../types/admin/iam';
 import { PackageTier, SubscriptionStatus } from '../../types/admin/iam';
 import { UserPermissionManager } from './UserPermissionManager';
 
-export const UserManagementList: React.FC = () => {
-  const [users, setUsers] = useState<UserWithPermissions[]>([]);
-  const [loading, setLoading] = useState(true);
+interface UserManagementListProps {
+  initialUsers: any;
+}
+
+export const UserManagementList: React.FC<UserManagementListProps> = ({ initialUsers }) => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'debug'>('users');
   const [filters, setFilters] = useState({
@@ -20,106 +28,95 @@ export const UserManagementList: React.FC = () => {
   });
   const { addToast } = useToast();
 
-  useEffect(() => {
-    loadUsers();
-  }, [filters]);
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-
-      // Use the API route that properly merges Firebase Auth + Firestore data
-      const response = await fetch('/api/v1/admin/user-management/users');
-      if (!response.ok) {
-        throw new Error('Failed to fetch users from API');
-      }
-
-      const data = await response.json();
-
-      // Transform API response to match UserWithPermissions interface
-      const transformedUsers: UserWithPermissions[] = data.users.map(
-        (user: any) => ({
-          id: user.uid,
-          email: user.email || '',
-          name: user.displayName || '',
-          displayName: user.displayName,
-          emailVerified: user.emailVerified,
-          disabled: user.disabled,
-          roles: [],
-          groups: [],
-          attachedPolicies: [],
-          status: user.disabled ? 'disabled' : 'active',
-          lastActivity: user.metadata?.lastSignInTime || '',
-          createdAt: user.metadata?.creationTime || '',
-          updatedAt: user.lastUpdated || user.metadata?.creationTime || '',
-          packageTier:
-            user.userLevel === 'GOLD'
-              ? PackageTier.GOLD
-              : user.userLevel === 'PLATINUM'
-                ? PackageTier.PLATINUM
-                : user.userLevel === 'BRONZE'
-                  ? PackageTier.BRONZE
-                  : user.userLevel === 'SILVER'
-                    ? PackageTier.SILVER
-                    : user.userLevel === 'ENTERPRISE'
-                      ? PackageTier.ENTERPRISE
-                      : PackageTier.FREE,
-          subscriptionStatus: user.disabled ? 'CANCELLED' : 'ACTIVE',
-          lastPaymentDate: undefined,
-          customPermissions: [],
-          effectivePermissions: [],
-          packagePermissions: [],
-        })
-      );
-
-      // Apply filters on the client side
-      let filteredUsers = transformedUsers;
-
-      if (filters.packageTier) {
-        filteredUsers = filteredUsers.filter(
-          user => user.packageTier === filters.packageTier
-        );
-      }
-
-      if (filters.subscriptionStatus) {
-        filteredUsers = filteredUsers.filter(
-          user => user.subscriptionStatus === filters.subscriptionStatus
-        );
-      }
-
-      if (filters.hasCustomPermissions) {
-        filteredUsers = filteredUsers.filter(
-          user => user.customPermissions.length > 0
-        );
-      }
-
-      setUsers(filteredUsers);
-    } catch (error) {
-      adminLogger.error('Failed to load users', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      addToast({
-        type: 'error',
-        title: 'Failed to load users',
-        description: 'Please try again later',
-      });
-    } finally {
-      setLoading(false);
+  // Transform and filter users from server-side data
+  const users = useMemo(() => {
+    // Handle the case where initialUsers might be null, undefined, or not have users array
+    const userArray = initialUsers?.users || initialUsers || [];
+    
+    // Ensure we have an array to work with
+    if (!Array.isArray(userArray)) {
+      console.warn('initialUsers is not an array:', initialUsers);
+      return [];
     }
-  };
+    
+    // Transform API response to match UserWithPermissions interface
+    const transformedUsers: UserWithPermissions[] = userArray.map(
+      (user: any) => ({
+        id: user.uid || user.id,
+        email: user.email || '',
+        name: user.display_name || user.name || '',
+        displayName: user.display_name || user.displayName,
+        emailVerified: user.email_verified || user.emailVerified,
+        disabled: user.disabled,
+        roles: user.roles || [],
+        groups: user.groups || [],
+        attachedPolicies: user.attachedPolicies || [],
+        status: user.disabled ? 'disabled' : 'active',
+        lastActivity: user.metadata?.last_sign_in_time || user.lastActivity || '',
+        createdAt: user.metadata?.creation_time || user.createdAt || (user.created_at ? new Date(user.created_at * 1000).toISOString() : ''),
+        updatedAt: user.last_updated ? new Date(user.last_updated * 1000).toISOString() : (user.updatedAt || user.createdAt || ''),
+        packageTier:
+          user.sub_tier === 'Gold' || user.packageTier === 'GOLD'
+            ? PackageTier.GOLD
+            : user.sub_tier === 'Platinum' || user.packageTier === 'PLATINUM'
+              ? PackageTier.PLATINUM
+              : user.sub_tier === 'Bronze' || user.packageTier === 'BRONZE'
+                ? PackageTier.BRONZE
+                : user.sub_tier === 'Silver' || user.packageTier === 'SILVER'
+                  ? PackageTier.SILVER
+                  : user.sub_tier === 'Enterprise' || user.packageTier === 'ENTERPRISE'
+                    ? PackageTier.ENTERPRISE
+                    : PackageTier.FREE,
+        subscriptionStatus: user.disabled ? 'CANCELLED' : (user.subscriptionStatus || 'ACTIVE'),
+        lastPaymentDate: user.lastPaymentDate,
+        customPermissions: user.perms || user.customPermissions || [],
+        effectivePermissions: user.perms || user.effectivePermissions || [],
+        packagePermissions: user.perms || user.packagePermissions || [],
+      })
+    );
+
+    // Apply filters on the client side
+    let filteredUsers = transformedUsers;
+
+    if (filters.packageTier) {
+      filteredUsers = filteredUsers.filter(
+        user => user.packageTier === filters.packageTier
+      );
+    }
+
+    if (filters.subscriptionStatus) {
+      filteredUsers = filteredUsers.filter(
+        user => user.subscriptionStatus === filters.subscriptionStatus
+      );
+    }
+
+    if (filters.hasCustomPermissions) {
+      filteredUsers = filteredUsers.filter(
+        user => user.customPermissions.length > 0
+      );
+    }
+
+    return filteredUsers;
+  }, [initialUsers, filters]);
 
   const handlePackageUpgrade = async (userId: string, newTier: PackageTier) => {
     try {
-      await iamService.updateUserPackageTier(
+      const result = await updateUserTier({
         userId,
         newTier,
-        'current-admin-id'
-      );
-      await loadUsers(); // Refresh the list
-      addToast({
-        type: 'success',
-        title: 'Package upgraded successfully!',
+        updatedBy: 'current-admin-id',
+        reason: 'Admin upgrade'
       });
+      
+      if (result.success) {
+        addToast({
+          type: 'success',
+          title: 'Package upgraded successfully!',
+          description: 'Please refresh the page to see the changes.'
+        });
+      } else {
+        throw new Error(result.error?.message || 'Upgrade failed');
+      }
     } catch (error) {
       adminLogger.error('Failed to upgrade package', {
         userId,
@@ -273,14 +270,7 @@ export const UserManagementList: React.FC = () => {
                 </h3>
               </div>
 
-              {loading ? (
-                <div className="p-6 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600 dark:text-gray-400">
-                    Loading users...
-                  </p>
-                </div>
-              ) : users.length === 0 ? (
+              {users.length === 0 ? (
                 <div className="p-6 text-center text-gray-500 dark:text-gray-400">
                   No users found matching the current filters.
                 </div>

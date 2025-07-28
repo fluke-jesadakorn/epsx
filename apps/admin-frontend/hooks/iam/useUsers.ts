@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminLogger } from '../../lib/logger';
-import { iamService } from '../../services/iamService';
+import { getIAMUsers } from '@epsx/server-actions';
 import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {
@@ -26,8 +26,8 @@ export const useUsers = (options: UseUsersOptions) => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      // Get users from existing IAM service
-      const iamUsers = await iamService.getUsers();
+      // Get users from server action
+      const iamUsers = await getIAMUsers();
 
       // Transform to our User interface and apply filters
       let transformedUsers: User[] = iamUsers.map(

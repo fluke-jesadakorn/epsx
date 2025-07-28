@@ -41,8 +41,8 @@ function getBackendUrl(): string {
       process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:8080'
     );
   } else {
-    // Client-side: use relative URLs (Next.js will proxy)
-    return '';
+    // Client-side: use backend URL directly (no proxy)
+    return 'http://localhost:8080';
   }
 }
 
@@ -595,5 +595,161 @@ export class ApiClient {
 
   async unsubscribeFromPushNotifications(): Promise<ApiResponse<void>> {
     return this.delete<void>('/api/notifications/push-subscription');
+  }
+
+  // IAM methods
+  async getIamUsers(_filters?: {
+    packageTier?: string;
+    subscriptionStatus?: string;
+    hasCustomPermissions?: boolean;
+  }): Promise<ApiResponse<any[]>> {
+    // Note: This endpoint doesn't exist in backend yet, returning empty array
+    console.warn('getIamUsers: Backend endpoint not implemented yet');
+    return { data: [] };
+  }
+
+  async getIamUser(_uid: string): Promise<ApiResponse<any>> {
+    // Note: This endpoint doesn't exist in backend yet
+    console.warn('getIamUser: Backend endpoint not implemented yet');
+    return { data: null };
+  }
+
+  async getIamRoles(): Promise<ApiResponse<any[]>> {
+    const response = await this.get<{ success: boolean; data: any[] }>('/api/v1/iam/roles');
+    if (response.error) {
+      // Handle database/backend errors gracefully for now
+      console.warn('getIamRoles: Backend error, returning empty data:', response.error);
+      return { data: [] };
+    }
+    return { data: response.data?.data || [] };
+  }
+
+  async getIamPolicies(): Promise<ApiResponse<any[]>> {
+    const response = await this.get<{ success: boolean; data: any[] }>('/api/v1/iam/policies');
+    if (response.error) {
+      // Handle database/backend errors gracefully for now
+      console.warn('getIamPolicies: Backend error, returning empty data:', response.error);
+      return { data: [] };
+    }
+    return { data: response.data?.data || [] };
+  }
+
+  async updateUserPackageTier(_uid: string, _data: {
+    packageTier: string;
+    updatedBy: string;
+  }): Promise<ApiResponse<void>> {
+    console.warn('updateUserPackageTier: Backend endpoint not implemented yet');
+    return { data: undefined };
+  }
+
+  async applyPackagePermissions(_data: {
+    userId: string;
+    packageTier: string;
+  }): Promise<ApiResponse<void>> {
+    console.warn('applyPackagePermissions: Backend endpoint not implemented yet');
+    return { data: undefined };
+  }
+
+  async grantCustomPermission(_data: {
+    userId: string;
+    featureId: string;
+    permission: string;
+    grantedBy: string;
+    expiresAt?: Date;
+    reason?: string;
+  }): Promise<ApiResponse<any>> {
+    console.warn('grantCustomPermission: Backend endpoint not implemented yet');
+    return { data: null };
+  }
+
+  async revokeCustomPermission(_data: {
+    permissionId: string;
+    revokedBy: string;
+    reason?: string;
+  }): Promise<ApiResponse<void>> {
+    console.warn('revokeCustomPermission: Backend endpoint not implemented yet');
+    return { data: undefined };
+  }
+
+  async evaluatePermission(data: {
+    userId: string;
+    action: string;
+    resource: string;
+  }): Promise<ApiResponse<{ allowed: boolean }>> {
+    const response = await this.post<{ success: boolean; data: { allowed: boolean; reasons: string[]; matching_policies: string[]; package_tier_access: boolean; explicit_permissions: string[] } }>('/api/v1/iam/evaluate', {
+      user_id: data.userId,
+      action: data.action,
+      resource: data.resource
+    });
+    if (response.error) {
+      // Handle database/backend errors gracefully for now
+      console.warn('evaluatePermission: Backend error, returning denied:', response.error);
+      return { data: { allowed: false } };
+    }
+    return { data: { allowed: response.data?.data?.allowed || false } };
+  }
+
+  async getUserEffectivePermissions(_uid: string): Promise<ApiResponse<any[]>> {
+    console.warn('getUserEffectivePermissions: Backend endpoint not implemented yet');
+    return { data: [] };
+  }
+
+  async bulkApplyPermissionProfile(_data: {
+    userIds: string[];
+    profileId: string;
+    appliedBy: string;
+  }): Promise<ApiResponse<void>> {
+    console.warn('bulkApplyPermissionProfile: Backend endpoint not implemented yet');
+    return { data: undefined };
+  }
+
+  async previewPackageUpgrade(_data: {
+    userId: string;
+    targetTier: string;
+  }): Promise<ApiResponse<any>> {
+    console.warn('previewPackageUpgrade: Backend endpoint not implemented yet');
+    return { data: { currentPermissions: [], newPermissions: [], addedPermissions: [], removedPermissions: [] } };
+  }
+
+  async getUserAuditLogs(_uid: string, _limit: number): Promise<ApiResponse<any[]>> {
+    console.warn('getUserAuditLogs: Backend endpoint not implemented yet');
+    return { data: [] };
+  }
+
+  async getAllAuditLogs(_limit: number): Promise<ApiResponse<any[]>> {
+    console.warn('getAllAuditLogs: Backend endpoint not implemented yet');
+    return { data: [] };
+  }
+
+  async getPermissionProfiles(): Promise<ApiResponse<any>> {
+    console.warn('getPermissionProfiles: Backend endpoint not implemented yet');
+    return { data: {} };
+  }
+
+  async createIamRole(data: {
+    name: string;
+    description?: string;
+    packageTier: string;
+    policies: string[];
+    inlinePermissions: any[];
+    assignable: boolean;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.post<{ success: boolean; data: any }>('/api/v1/iam/roles', {
+      name: data.name,
+      description: data.description,
+      package_tier: data.packageTier,
+      policies: data.policies,
+      inline_permissions: data.inlinePermissions,
+      assignable: data.assignable
+    });
+    if (response.error) {
+      return response;
+    }
+    return { data: response.data?.data };
+  }
+
+  async cleanupExpiredPermissions(): Promise<ApiResponse<void>> {
+    console.warn('cleanupExpiredPermissions: Backend endpoint not implemented yet');
+    return { data: undefined };
   }
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { permissionService, UserPermissionStatus } from '@/services/permissionService';
 import { logger } from '@/lib/logger';
 
 interface PermissionHookState {
@@ -42,22 +41,31 @@ export function usePermissions() {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
-      const permissionStatus = await permissionService.getUserPermissionStatus();
+      // Use server actions for permissions
+      const { getUserPermissions, getPermissionProfiles } = await import('@epsx/server-actions');
+      const [permissions, profiles] = await Promise.all([
+        getUserPermissions(),
+        getPermissionProfiles().catch(() => []) // Optional if profiles aren't implemented
+      ]);
       
-      if (permissionStatus) {
+      if (permissions || permissions === []) {
+        const permissionNames = permissions.map(p => p.name || p.permission || p);
+        const profileNames = profiles.map(p => p.name || p);
+        const hasWildcard = permissionNames.some(p => p === '*' || p.endsWith(':*') || p.endsWith('.*'));
+        
         setState({
-          permissions: permissionStatus.permissions,
-          profiles: permissionStatus.profiles,
-          role: permissionStatus.role,
+          permissions: permissionNames,
+          profiles: profileNames,
+          role: 'user', // Default role, could be enhanced with server action
           loading: false,
           error: null,
-          hasWildcardAccess: permissionStatus.hasWildcardAccess,
+          hasWildcardAccess: hasWildcard,
         });
         
         logger.debug('User permissions loaded', {
-          permissionCount: permissionStatus.permissions.length,
-          profileCount: permissionStatus.profiles.length,
-          role: permissionStatus.role
+          permissionCount: permissionNames.length,
+          profileCount: profileNames.length,
+          role: 'user'
         });
       } else {
         setState(prev => ({

@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AdminService  } from '@/services/adminService';
-import type {AdminUser} from '@/services/adminService';
 import { useAdminAuth } from '@/auth/ctx';
 import { Shield, Users, CheckCircle, AlertTriangle, UserX, Crown } from 'lucide-react';
 
@@ -14,58 +11,39 @@ interface UserStats {
   verificationRate: number;
 }
 
-export function AdminDashboard() {
-  const { user } = useAdminAuth();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [recentUsers, setRecentUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load user statistics
-      const userStats = await AdminService.getUserStats();
-      setStats(userStats);
-
-      // Load recent users
-      const userList = await AdminService.listUsers({ maxResults: 10 });
-      setRecentUsers(userList.users);
-    } catch (err: any) {
-      console.error('Failed to load dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+interface AdminUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  emailVerified: boolean;
+  disabled: boolean;
+  customClaims?: {
+    role?: string;
   };
+  metadata?: {
+    creationTime?: string;
+  };
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary/20 border-t-primary"></div>
-      </div>
-    );
-  }
+interface AdminDashboardProps {
+  initialStats: UserStats | null;
+  initialUsers: AdminUser[];
+}
 
-  if (error) {
+export function AdminDashboard({ initialStats, initialUsers }: AdminDashboardProps) {
+  const { user } = useAdminAuth();
+  const stats = initialStats;
+  const recentUsers = initialUsers;
+
+  // Handle case where server-side data fetch failed
+  if (!stats) {
     return (
       <div className="pancake-card pancake-card-hover p-6">
         <div className="flex items-center gap-2 mb-4" style={{ color: 'hsl(var(--pancake-error))' }}>
           <AlertTriangle className="h-6 w-6" />
-          <span className="font-semibold">Error: {error}</span>
+          <span className="font-semibold">Failed to load dashboard data</span>
         </div>
-        <button
-          onClick={loadDashboardData}
-          className="pancake-button"
-        >
-          Retry
-        </button>
+        <p className="text-muted-foreground">Please refresh the page to try again.</p>
       </div>
     );
   }

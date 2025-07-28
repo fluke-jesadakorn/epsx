@@ -22,9 +22,30 @@ export interface SSRMetrics {
   ssrRenderTime: number;
 }
 
+export interface ErrorMetric {
+  id: string;
+  timestamp: number;
+  message: string;
+  stack?: string;
+  route: string;
+  userAgent: string;
+  userId?: string;
+  context?: Record<string, any>;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface SystemHealth {
+  healthy: boolean;
+  errorRate: number;
+  avgResponseTime: number;
+  cacheHitRate: number;
+  timestamp: number;
+}
+
 class SSRPerformanceMonitor {
   private static instance: SSRPerformanceMonitor;
   private metrics: PerformanceMetric[] = [];
+  private errors: ErrorMetric[] = [];
   private startTime: number = performance.now();
   private hydrationStartTime: number | null = null;
 
@@ -38,7 +59,38 @@ class SSRPerformanceMonitor {
   constructor() {
     if (typeof window !== 'undefined') {
       this.initializeMonitoring();
+      this.setupErrorHandling();
     }
+  }
+
+  private setupErrorHandling(): void {
+    // Global error handler
+    window.addEventListener('error', (event) => {
+      this.captureError({
+        message: event.message,
+        stack: event.error?.stack,
+        route: window.location.pathname,
+        severity: 'high',
+        context: {
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+        },
+      });
+    });
+
+    // Unhandled promise rejection handler
+    window.addEventListener('unhandledrejection', (event) => {
+      this.captureError({
+        message: event.reason?.message || 'Unhandled Promise Rejection',
+        stack: event.reason?.stack,
+        route: window.location.pathname,
+        severity: 'critical',
+        context: {
+          reason: event.reason,
+        },
+      });
+    });
   }
 
   private initializeMonitoring(): void {
@@ -215,16 +267,78 @@ class SSRPerformanceMonitor {
     return this.metrics.filter(m => m.metadata?.category === category);
   }
 
+  public captureError(errorData: Omit<ErrorMetric, 'id' | 'timestamp' | 'userAgent'>): void {
+    const error: ErrorMetric = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      ...errorData,
+    };
+
+    this.errors.push(error);
+
+    // Send to monitoring service in production
+    if (process.env.NODE_ENV === 'production') {
+      fetch('/api/monitoring/errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(error),
+      }).catch(console.error);
+    } else {
+      console.error('Error captured:', error);
+    }
+  }
+
+  public getSystemHealth(): SystemHealth {
+    const now = Date.now();
+    const last5Min = now - 5 * 60 * 1000;
+    
+    const recentErrors = this.errors.filter(e => e.timestamp > last5Min);
+    const recentMetrics = this.metrics.filter(m => m.timestamp > last5Min);
+    
+    const avgResponseTime = recentMetrics
+      .filter(m => m.name.includes('load') || m.name.includes('response'))
+      .reduce((acc, m) => acc + m.value, 0) / Math.max(recentMetrics.length, 1);
+      
+    const cachedResources = recentMetrics.filter(m => m.metadata?.cached);
+    const cacheHitRate = cachedResources.length / Math.max(recentMetrics.length, 1);
+
+    return {
+      healthy: recentErrors.length < 10 && avgResponseTime < 2000,
+      errorRate: recentErrors.length,
+      avgResponseTime,
+      cacheHitRate,
+      timestamp: now,
+    };
+  }
+
+  public getErrors(): ErrorMetric[] {
+    return [...this.errors];
+  }
+
+  public getErrorsByRoute(route: string): ErrorMetric[] {
+    return this.errors.filter(e => e.route === route);
+  }
+
   private sendToAnalytics(metric: PerformanceMetric): void {
     // In production, send to your analytics service
-    // For now, just store locally or log
-    if (typeof window !== 'undefined' && window.gtag && process.env.NODE_ENV === 'production') {
-      window.gtag('event', 'performance_metric', {
-        custom_map: { metric_name: 'metric_name' },
-        metric_name: metric.name,
-        metric_value: metric.value,
-        metric_rating: metric.metadata?.rating,
-      });
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+      // Send to monitoring endpoint
+      fetch('/api/monitoring/performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metric),
+      }).catch(console.error);
+
+      // Also send to Google Analytics if available
+      if (window.gtag) {
+        window.gtag('event', 'performance_metric', {
+          custom_map: { metric_name: 'metric_name' },
+          metric_name: metric.name,
+          metric_value: metric.value,
+          metric_rating: metric.metadata?.rating,
+        });
+      }
     }
   }
 

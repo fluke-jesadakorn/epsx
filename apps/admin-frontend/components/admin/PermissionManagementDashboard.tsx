@@ -2,6 +2,7 @@
 
 import { adminLogger } from '@/lib/logger';
 import type { CustomPermission } from '@/types/admin/iam';
+import { getCustomPermissions } from '@epsx/server-actions';
 import { Edit, Eye, Filter, Key, Plus, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -47,12 +48,7 @@ export function PermissionManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/v1/admin/iam/custom-permissions');
-      if (!response.ok) {
-        throw new Error('Failed to fetch permissions');
-      }
-
-      const data = await response.json();
+      const data = await getCustomPermissions();
 
       // Transform permissions and add mock categories/scopes
       const permissionsWithDetails: PermissionWithDetails[] = (data || []).map(
