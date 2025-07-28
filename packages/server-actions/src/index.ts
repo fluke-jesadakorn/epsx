@@ -42,3 +42,23 @@ export {
   requestPasswordReset,
   resetPassword
 } from './actions/auth';
+
+export {
+  getUserPermissions,
+  checkPermission,
+  checkRankingAccess,
+  getPermissionProfiles,
+  assignPermissionProfile,
+  revokePermissionProfile,
+  getPermissionMatrix,
+  getPaginatedFeatureAccess
+} from './actions/permissions';
+
+export {
+  createPayment,
+  validatePayment,
+  getPaymentStatus,
+  getTransactionHistory,
+  getPlanDetails,
+  initQRPayment
+} from './actions/payments';

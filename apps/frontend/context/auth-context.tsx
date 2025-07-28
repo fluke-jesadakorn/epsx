@@ -3,6 +3,7 @@
 import { logger } from '@/lib/logger';
 import { useOptimisticUpdates } from '@/lib/state/core';
 import { PackageTier } from '@epsx/types';
+import { getCurrentUser, getUserPermissions, login as loginAction, logout as logoutAction, register as registerAction } from '@epsx/server-actions';
 import React, {
   createContext,
   useCallback,
@@ -103,11 +104,10 @@ export function AuthProvider({
     actions.ui.setLoading('auth', true);
 
     try {
-      // Use server action for getting current user
-      const { getCurrentUser } = await import('@epsx/server-actions');
+      // Use server action directly
       const userData = await getCurrentUser();
 
-      if (!userData) {
+      if (!userData || userData.error) {
         // Session expired or invalid
         setUser(null);
         setPermissions([]);
@@ -154,12 +154,11 @@ export function AuthProvider({
 
   const refreshPermissions = useCallback(async () => {
     try {
-      // Use server action to get fresh permissions
-      const { getUserPermissions } = await import('@epsx/server-actions');
+      // Use server action directly
       const freshPermissions = await getUserPermissions();
       
       if (freshPermissions) {
-        const permissionNames = freshPermissions.map(p => p.name || p.permission || p);
+        const permissionNames = freshPermissions.map(p => typeof p === 'string' ? p : p.name);
         setPermissions(permissionNames);
         actions.user.updatePermissions(permissionNames);
       }
@@ -223,12 +222,10 @@ export function AuthProvider({
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const updateId = Math.random().toString(36);
       actions.ui.setLoading('login', true);
 
       try {
-        // Use server action for login
-        const { login: loginAction } = await import('@epsx/server-actions');
+        // Use server action directly
         const userData = await loginAction({ email, password });
 
         if (!userData) {
@@ -273,15 +270,12 @@ export function AuthProvider({
     displayName?: string
   ) => {
     try {
-      // Use server action for registration
-      const { register: registerAction } = await import('@epsx/server-actions');
-      const response = await registerAction({
+      // Use server action directly
+      return await registerAction({
         email,
         password,
         name: displayName,
       });
-
-      return response;
     } catch (error) {
       throw error;
     }
@@ -308,8 +302,7 @@ export function AuthProvider({
     );
 
     try {
-      // Use server action for logout
-      const { logout: logoutAction } = await import('@epsx/server-actions');
+      // Use server action directly
       await logoutAction();
 
       confirmOptimisticUpdate(updateId);

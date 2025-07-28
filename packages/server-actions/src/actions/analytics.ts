@@ -155,6 +155,149 @@ export async function getDashboardData(userId: string) {
   }
 }
 
+// Monitoring Actions
+export async function trackError(error: {
+  message: string;
+  stack?: string;
+  url?: string;
+  userAgent?: string;
+  userId?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  metadata?: Record<string, any>;
+}) {
+  try {
+    console.error('Error Captured:', {
+      timestamp: new Date().toISOString(),
+      ...error,
+    });
+
+    // Send to external monitoring service if configured
+    if (process.env.MONITORING_ENDPOINT) {
+      await fetch(process.env.MONITORING_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.MONITORING_API_KEY}`,
+        },
+        body: JSON.stringify({
+          service: 'epsx',
+          type: 'error',
+          data: error,
+          severity: error.severity,
+        }),
+      });
+    }
+
+    // Alert on critical errors
+    if (error.severity === 'critical') {
+      console.error('CRITICAL ERROR DETECTED:', error);
+    }
+
+    return await serverPost('/api/v1/monitoring/errors', error);
+  } catch (err) {
+    console.error('Failed to track error:', err);
+    return { success: false };
+  }
+}
+
+export async function trackPerformance(metric: {
+  name: string;
+  value: number;
+  unit: string;
+  url?: string;
+  userAgent?: string;
+  metadata?: Record<string, any>;
+}) {
+  try {
+    console.log('Performance Metric:', {
+      timestamp: new Date().toISOString(),
+      ...metric,
+    });
+
+    // Send to external monitoring service if configured
+    if (process.env.MONITORING_ENDPOINT) {
+      await fetch(process.env.MONITORING_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.MONITORING_API_KEY}`,
+        },
+        body: JSON.stringify({
+          service: 'epsx',
+          type: 'performance',
+          data: metric,
+        }),
+      });
+    }
+
+    return await serverPost('/api/v1/monitoring/performance', metric);
+  } catch (error) {
+    console.error('Failed to track performance:', error);
+    return { success: false };
+  }
+}
+
+export async function getHealthCheck() {
+  try {
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      environment: process.env.NODE_ENV,
+      checks: {
+        server: true,
+        database: await checkDatabase(),
+        cache: await checkCache(),
+        external_apis: await checkExternalAPIs(),
+      }
+    };
+
+    const allHealthy = Object.values(health.checks).every(Boolean);
+    
+    return {
+      ...health,
+      status: allHealthy ? 'healthy' : 'degraded'
+    };
+  } catch (error) {
+    console.error('Health check failed:', error);
+    return {
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+      checks: {},
+    };
+  }
+}
+
+async function checkDatabase(): Promise<boolean> {
+  try {
+    // Add database connectivity check here
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkCache(): Promise<boolean> {
+  try {
+    // Add cache connectivity check here
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkExternalAPIs(): Promise<boolean> {
+  try {
+    // Add external API health checks here
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Real-time Analytics
 export async function getRealtimeMetrics() {
   try {

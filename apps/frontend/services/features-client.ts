@@ -1,7 +1,9 @@
 /**
  * Client-side features service
- * This wraps server actions for use in client components
+ * This service now uses server actions directly instead of API routes
  */
+
+import { checkFeatureAccess, checkRankingAccess } from '@epsx/server-actions';
 
 export const featuresClient = {
   async checkFeatureAccess(featureId: string): Promise<{
@@ -10,21 +12,7 @@ export const featuresClient = {
     requiredTier?: string;
   }> {
     try {
-      const response = await fetch('/api/features/check', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ featureId }),
-      });
-
-      if (!response.ok) {
-        console.error(`Feature check failed: ${response.statusText}`);
-        return { allowed: false, reason: 'Feature check failed' };
-      }
-
-      return await response.json();
+      return await checkFeatureAccess(featureId);
     } catch (error) {
       console.error('Error checking feature access:', error);
       return { allowed: false, reason: 'Feature check failed' };
@@ -37,20 +25,7 @@ export const featuresClient = {
     reason?: string;
   }> {
     try {
-      const response = await fetch('/api/features/ranking-access', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error(`Ranking access check failed: ${response.statusText}`);
-        return { allowed: false, reason: 'Ranking access check failed' };
-      }
-
-      return await response.json();
+      return await checkRankingAccess();
     } catch (error) {
       console.error('Error checking ranking access:', error);
       return { allowed: false, reason: 'Ranking access check failed' };
