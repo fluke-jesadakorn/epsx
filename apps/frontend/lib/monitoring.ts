@@ -277,14 +277,20 @@ class SSRPerformanceMonitor {
 
     this.errors.push(error);
 
-    // Send to monitoring service in production
-    if (process.env.NODE_ENV === 'production') {
-      fetch('/api/monitoring/errors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
+    // Send to monitoring service via server actions
+    import('@epsx/server-actions').then(({ trackError }) => {
+      trackError({
+        message: error.message,
+        stack: error.stack,
+        url: error.route,
+        userAgent: error.userAgent,
+        userId: error.userId,
+        severity: error.severity,
+        metadata: error.context,
       }).catch(console.error);
-    } else {
+    }).catch(console.error);
+    
+    if (process.env.NODE_ENV === 'development') {
       console.error('Error captured:', error);
     }
   }
@@ -321,13 +327,17 @@ class SSRPerformanceMonitor {
   }
 
   private sendToAnalytics(metric: PerformanceMetric): void {
-    // In production, send to your analytics service
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-      // Send to monitoring endpoint
-      fetch('/api/monitoring/performance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(metric),
+    // Send to monitoring service via server actions
+    if (typeof window !== 'undefined') {
+      import('@epsx/server-actions').then(({ trackPerformance }) => {
+        trackPerformance({
+          name: metric.name,
+          value: metric.value,
+          unit: 'ms',
+          url: window.location.pathname,
+          userAgent: navigator.userAgent,
+          metadata: metric.metadata,
+        }).catch(console.error);
       }).catch(console.error);
 
       // Also send to Google Analytics if available

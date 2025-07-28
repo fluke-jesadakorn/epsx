@@ -1,7 +1,9 @@
 /**
  * Client-side authentication service
- * This wraps server actions for use in client components
+ * This service now uses server actions directly instead of API routes
  */
+
+import { login, logout, register, getCurrentUser } from '@epsx/server-actions';
 
 interface LoginRequest {
   email: string;
@@ -29,27 +31,12 @@ interface BackendUser {
 }
 
 /**
- * Client-side auth API calls that work in browser environment
+ * Client-side auth wrapper that uses server actions
  */
 export const authClient = {
   async getCurrentUser(): Promise<BackendUser | null> {
     try {
-      const response = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          return null; // Not authenticated
-        }
-        throw new Error(`Failed to get current user: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await getCurrentUser();
     } catch (error) {
       console.error('Error getting current user:', error);
       return null;
@@ -58,21 +45,11 @@ export const authClient = {
 
   async login(data: LoginRequest): Promise<BackendUser> {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Login failed: ${response.statusText}`);
+      const result = await login(data);
+      if (!result) {
+        throw new Error('Invalid credentials');
       }
-
-      return await response.json();
+      return result;
     } catch (error) {
       console.error('Error during login:', error);
       throw error;
@@ -86,21 +63,7 @@ export const authClient = {
     message: string;
   }> {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Registration failed: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await register(data);
     } catch (error) {
       console.error('Error during registration:', error);
       throw error;
@@ -109,18 +72,7 @@ export const authClient = {
 
   async logout(): Promise<void> {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Logout failed: ${response.statusText}`);
-      }
+      await logout();
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;

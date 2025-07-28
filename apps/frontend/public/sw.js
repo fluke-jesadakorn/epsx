@@ -163,16 +163,8 @@ self.addEventListener('sync', (event) => {
 
 async function syncAnalytics() {
   try {
-    // Sync any pending analytics data
-    const pendingData = await getStoredAnalytics();
-    if (pendingData.length > 0) {
-      await fetch('/api/analytics/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingData)
-      });
-      await clearStoredAnalytics();
-    }
+    // Analytics sync disabled - API endpoints have been migrated to server actions
+    console.log('[SW] Analytics sync skipped - migrated to server actions');
   } catch (error) {
     console.error('[SW] Analytics sync failed:', error);
   }
@@ -180,23 +172,8 @@ async function syncAnalytics() {
 
 async function syncNotifications() {
   try {
-    // Check for new notifications
-    const response = await fetch('/api/notifications/check');
-    const data = await response.json();
-    
-    if (data.hasNew) {
-      self.registration.showNotification('EPSX', {
-        body: 'You have new trading alerts',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
-        tag: 'new-alerts',
-        requireInteraction: true,
-        actions: [
-          { action: 'view', title: 'View Alerts' },
-          { action: 'dismiss', title: 'Dismiss' }
-        ]
-      });
-    }
+    // Notification sync disabled - API endpoints have been migrated to server actions
+    console.log('[SW] Notification sync skipped - migrated to server actions');
   } catch (error) {
     console.error('[SW] Notification sync failed:', error);
   }

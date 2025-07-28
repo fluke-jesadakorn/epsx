@@ -39,18 +39,19 @@ export async function createPayment(data: {
   }
 }
 
-export async function validatePayment(txId: string) {
+export async function validatePayment(data: { paymentId: string; signature?: string }) {
   try {
-    return await serverGet(`/api/v1/payments/musepay/${txId}/validate`);
+    return await serverPost(`/api/v1/payments/${data.paymentId}/validate`, data.signature ? { signature: data.signature } : {});
   } catch (error) {
     console.error('Error validating payment:', error);
     throw error;
   }
 }
 
-export async function getPaymentStatus(): Promise<PaymentStatus | null> {
+export async function getPaymentStatus(paymentId?: string): Promise<PaymentStatus | null> {
   try {
-    const response = await serverGet('/user/payment-status');
+    const endpoint = paymentId ? `/api/v1/payments/${paymentId}/status` : '/api/v1/users/payment-status';
+    const response = await serverGet(endpoint);
     
     if (response) {
       return {
@@ -97,9 +98,10 @@ export async function getTransactionHistory(excludePending?: boolean): Promise<P
   }
 }
 
-export async function getPlanDetails(planId: string) {
+export async function getPlanDetails(planId?: string) {
   try {
-    return await serverGet(`/plans/${planId}`);
+    const endpoint = planId ? `/api/v1/plans/${planId}` : '/api/v1/plans';
+    return await serverGet(endpoint);
   } catch (error) {
     console.error('Error getting plan details:', error);
     throw error;
@@ -109,6 +111,8 @@ export async function getPlanDetails(planId: string) {
 export async function initQRPayment(data: {
   amount: number;
   currency: string;
+  orderNo?: string;
+  description?: string;
 }) {
   try {
     return await serverPost('/api/v1/payments/musepay/create', data);

@@ -8,7 +8,7 @@ export async function login(credentials: {
   password: string;
 }) {
   try {
-    return await serverPost('/api/auth/login', credentials);
+    return await serverPost('/api/v1/auth/login', credentials);
   } catch (error) {
     console.error('Error during login:', error);
     throw error;
@@ -17,7 +17,7 @@ export async function login(credentials: {
 
 export async function logout() {
   try {
-    return await serverPost('/api/auth/logout');
+    return await serverPost('/api/v1/auth/logout');
   } catch (error) {
     console.error('Error during logout:', error);
     throw error;
@@ -26,7 +26,7 @@ export async function logout() {
 
 export async function getCurrentUser() {
   try {
-    return await serverGet('/api/auth/me');
+    return await serverGet('/api/v1/auth/profile');
   } catch (error) {
     console.error('Error fetching current user:', error);
     return null;
@@ -35,7 +35,7 @@ export async function getCurrentUser() {
 
 export async function refreshToken() {
   try {
-    return await serverPost('/api/auth/refresh');
+    return await serverPost('/api/v1/auth/refresh');
   } catch (error) {
     console.error('Error refreshing token:', error);
     throw error;
@@ -124,7 +124,43 @@ export async function checkFeatureAccess(featureId: string) {
 
 export async function getUserFeatures() {
   try {
-    return await serverGet('/api/auth/features');
+    const user = await getCurrentUser();
+    if (!user) {
+      return [];
+    }
+    
+    // Derive features from user subscription tier and permissions
+    const tier = user.subscription_tier?.toLowerCase() || 'free';
+    const baseFeatures = [];
+    
+    // Add tier-based features
+    switch (tier) {
+      case 'bronze':
+        baseFeatures.push('basic_rankings', 'eps_analysis', 'basic_market_data');
+        break;
+      case 'silver':
+        baseFeatures.push('advanced_rankings', 'technical_indicators', 'price_alerts', 'market_screener');
+        break;
+      case 'gold':
+      case 'platinum':
+      case 'diamond':
+        baseFeatures.push('ai_insights', 'pattern_recognition', 'custom_metrics', 'advanced_analytics');
+        break;
+      case 'admin':
+        baseFeatures.push('user_management', 'basic_admin_analytics', 'audit_logs');
+        break;
+      default:
+        // Free tier - limited features
+        baseFeatures.push('limited_access');
+        break;
+    }
+    
+    // Add permission-based features
+    if (user.permissions?.includes('admin')) {
+      baseFeatures.push('full_admin_access', 'system_configuration', 'permission_management');
+    }
+    
+    return baseFeatures;
   } catch (error) {
     console.error('Error fetching user features:', error);
     return [];

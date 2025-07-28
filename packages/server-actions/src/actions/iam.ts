@@ -5,7 +5,7 @@ import { withServerAction, type ServerActionResult } from '../core/error-handler
 import { validateSchema, updateUserTierSchema } from '../core/validation';
 
 // IAM User Actions
-export async function getIAMUsers(filters?: {
+export async function getIAMUsers(_filters?: {
   packageTier?: string;
   subscriptionStatus?: string;
   hasCustomPermissions?: boolean;
