@@ -31,6 +31,7 @@
   "dependencies": {
     "@epsx/api-client": "workspace:*",
     "@epsx/config": "workspace:*",
+    "@epsx/firebase-analytics": "workspace:*",
     "@epsx/server-actions": "workspace:*",
     "@epsx/server-providers": "workspace:*",
     "@epsx/shared-core": "workspace:*",
