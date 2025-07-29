@@ -35,6 +35,10 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist node_modules/.cache .turbo"
   },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "@epsx/shared-core": "workspace:*"
+  },
   "devDependencies": {
     "@epsx/config": "workspace:*",
     "tsup": "^8.0.2",

@@ -277,22 +277,13 @@ class SSRPerformanceMonitor {
 
     this.errors.push(error);
 
-    // Send to monitoring service via server actions
-    import('@epsx/server-actions').then(({ trackError }) => {
-      trackError({
-        message: error.message,
-        stack: error.stack,
-        url: error.route,
-        userAgent: error.userAgent,
-        userId: error.userId,
-        severity: error.severity,
-        metadata: error.context,
-      }).catch(console.error);
-    }).catch(console.error);
-    
+    // Use client-side logging only - no server action imports
     if (process.env.NODE_ENV === 'development') {
       console.error('Error captured:', error);
     }
+
+    // Could integrate with client-side error reporting service here
+    // e.g., Sentry, LogRocket, etc.
   }
 
   public getSystemHealth(): SystemHealth {
@@ -327,20 +318,9 @@ class SSRPerformanceMonitor {
   }
 
   private sendToAnalytics(metric: PerformanceMetric): void {
-    // Send to monitoring service via server actions
+    // Use client-side analytics only - no server action imports
     if (typeof window !== 'undefined') {
-      import('@epsx/server-actions').then(({ trackPerformance }) => {
-        trackPerformance({
-          name: metric.name,
-          value: metric.value,
-          unit: 'ms',
-          url: window.location.pathname,
-          userAgent: navigator.userAgent,
-          metadata: metric.metadata,
-        }).catch(console.error);
-      }).catch(console.error);
-
-      // Also send to Google Analytics if available
+      // Send to Google Analytics if available
       if (window.gtag) {
         window.gtag('event', 'performance_metric', {
           custom_map: { metric_name: 'metric_name' },
@@ -349,6 +329,9 @@ class SSRPerformanceMonitor {
           metric_rating: metric.metadata?.rating,
         });
       }
+
+      // Could integrate with other client-side analytics services here
+      // e.g., Mixpanel, Amplitude, etc.
     }
   }
 

@@ -1,18 +1,18 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import { requireAuth } from '@/lib/server-auth';
+import { PaymentPageClient } from './PaymentPageClient';
+import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
 import { Suspense } from 'react';
-import { PaymentStatusSection } from '@/components/sections/payment/PaymentStatusSection';
-import { useSearchParams } from 'next/navigation';
 
-const OneClickPayment = dynamic(
-  () => import('@/components/features/payment/OneClickPayment'),
-  { ssr: false },
-);
+interface PaymentPageProps {
+  searchParams: { package?: string };
+}
 
-export default function PaymentPage() {
-  const searchParams = useSearchParams();
-  const selectedPackageId = searchParams.get('package') || '';
+export default async function PaymentPage({ searchParams }: PaymentPageProps) {
+  // Server-side auth check - redirect to login if not authenticated
+  await requireAuth('/payment');
+  
+  // Extract package parameter from search params
+  const selectedPackageId = searchParams.package || '';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">
@@ -46,22 +46,24 @@ export default function PaymentPage() {
           </p>
         </div>
 
-        {/* OneClickPayment handles package selection UI */}
-        <Suspense
-          fallback={
-            <div className="flex justify-center items-center min-h-[400px]">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-pink-200 dark:border-pink-800 rounded-full animate-spin"></div>
-                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-pink-500 rounded-full animate-spin"></div>
-              </div>
-            </div>
-          }
-        >
-          <OneClickPayment className="mb-12" preselectedPackage={selectedPackageId} />
-        </Suspense>
+        <PaymentPageClient selectedPackageId={selectedPackageId} />
 
         <div className="mb-12">
-          <PaymentStatusSection className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
+          <Suspense
+            fallback={
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
+                <div className="animate-pulse">
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
+          </Suspense>
         </div>
       </div>
     </main>

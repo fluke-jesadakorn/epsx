@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BulkStockRankingAssignmentResult } from '@epsx/types/src/permission_profile';
+import { BulkStockRankingAssignmentResult } from '@epsx/types';
 import StockRankingPackageAssignment from './StockRankingPackageAssignment';
 import StockRankingAssignmentList from './StockRankingAssignmentList';
 

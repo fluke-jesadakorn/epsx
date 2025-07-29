@@ -76,8 +76,10 @@ export async function SSRRoleContent({
   
   // Check permission if required
   if (requiredPermission) {
-    const hasPermission = authResult.user?.permissions?.includes(requiredPermission) ||
-      authResult.user?.permissions?.some(permission => {
+    // For UserProfile, we need to check if it's actually a BackendUser with permissions
+    const user = authResult.user as any; // Use any to access legacy properties
+    const hasPermission = user?.permissions?.includes(requiredPermission) ||
+      user?.permissions?.some((permission: string) => {
         if (permission.endsWith('.*') || permission.endsWith(':*')) {
           const prefix = permission.slice(0, -2);
           return requiredPermission.startsWith(prefix + '.') || requiredPermission.startsWith(prefix + ':');
@@ -152,12 +154,12 @@ export async function SSRUserInfo({
       )}
       {showPermissions && (
         <div className="text-gray-500">
-          {user.permissions?.length || 0} permissions
+          {(user as any)?.permissions?.length || 0} permissions
         </div>
       )}
-      {showPackageTier && user.package_tier && (
+      {showPackageTier && (user as any)?.package_tier && (
         <div className="text-xs text-blue-600 capitalize">
-          {user.package_tier} tier
+          {(user as any).package_tier} tier
         </div>
       )}
     </div>

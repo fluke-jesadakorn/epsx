@@ -142,9 +142,22 @@ export async function scheduleReport(data: {
 }
 
 // Dashboard Data Actions
-export async function getDashboardData(userId: string) {
+export async function getDashboardData(userId?: string) {
   try {
-    return await serverGet(`/api/v1/analytics/dashboard/${userId}`);
+    // Use profile endpoint to get user data as basis for dashboard
+    const profileResponse = await serverGet('/api/v1/auth/profile');
+    
+    // For now, construct dashboard data from profile and other available data
+    return {
+      overview: {
+        userId: profileResponse?.user_id || userId,
+        userLevel: profileResponse?.package_tier || 'BRONZE',
+        hasAccess: profileResponse?.hasPaid || false,
+        expiresAt: profileResponse?.expires_at
+      },
+      charts: [],
+      alerts: []
+    };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     return {

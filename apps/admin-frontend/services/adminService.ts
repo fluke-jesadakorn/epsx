@@ -10,7 +10,12 @@ import {
   assignPermissionProfile,
   getStockRankingPackages,
   assignStockRankingPackage,
-  getAnalyticsData
+  getAnalyticsData,
+  getCustomPermissions,
+  getIAMRoles,
+  evaluatePermission,
+  getCurrentUser,
+  updateSettings
 } from '@epsx/server-actions';
 
 export interface AdminUser {
@@ -192,6 +197,70 @@ export class AdminService {
     } catch (error) {
       adminLogger.error('Failed to search users', { query, error });
       return [];
+    }
+  }
+
+  /**
+   * Get custom permissions
+   */
+  static async getCustomPermissions(): Promise<any[]> {
+    try {
+      return await getCustomPermissions();
+    } catch (error) {
+      adminLogger.error('Failed to fetch custom permissions', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get IAM roles
+   */
+  static async getIAMRoles(): Promise<any[]> {
+    try {
+      return await getIAMRoles();
+    } catch (error) {
+      adminLogger.error('Failed to fetch IAM roles', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Evaluate user permission
+   */
+  static async evaluatePermission(params: {
+    userId: string;
+    action: string;
+    resource: string;
+  }): Promise<{ allowed: boolean }> {
+    try {
+      return await evaluatePermission(params);
+    } catch (error) {
+      adminLogger.error('Failed to evaluate permission', { params, error });
+      return { allowed: false };
+    }
+  }
+
+  /**
+   * Get current user
+   */
+  static async getCurrentUser(): Promise<any> {
+    try {
+      return await getCurrentUser();
+    } catch (error) {
+      adminLogger.error('Failed to get current user', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update settings
+   */
+  static async updateSettings(settings: any): Promise<void> {
+    try {
+      await updateSettings(settings);
+    } catch (error) {
+      adminLogger.error('Failed to update settings', { settings, error });
+      throw error;
     }
   }
 }

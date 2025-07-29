@@ -11,31 +11,76 @@ export async function makeServerRequest<T = any>(
 ): Promise<T> {
   const { endpoint, baseUrl, ...fetchOptions } = options;
   
-  // Import cookies dynamically to avoid client-side import issues
-  const { cookies } = await import('next/headers');
-  const cookieStore = await cookies();
-  const allCookies = cookieStore.getAll();
-  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-  
-  // Use environment variable for backend URL
-  const backendUrl = baseUrl || process.env.BACKEND_URL || 'http://localhost:8080';
-  const url = `${backendUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers: {
+  try {
+    let cookieHeader = '';
+    
+    try {
+      // Import cookies dynamically to avoid client-side import issues
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const allCookies = cookieStore.getAll();
+      cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    } catch (cookiesError) {
+      // Handle case where cookies() is called outside request context
+      if (typeof cookiesError === 'object' && cookiesError && 'message' in cookiesError) {
+        const errorMessage = String(cookiesError.message);
+        if (errorMessage.includes('cookies" was called outside a request scope')) {
+          console.warn('Cookies not available - running outside request context. Proceeding without authentication headers.');
+          // Continue without cookies - this allows server actions to work in client context for development
+        } else {
+          throw cookiesError;
+        }
+      } else {
+        throw cookiesError;
+      }
+    }
+    
+    // Use environment variable for backend URL
+    const backendUrl = baseUrl || process.env.BACKEND_URL || 'http://localhost:8080';
+    const url = `${backendUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Cookie': cookieHeader,
       ...fetchOptions.headers,
-    },
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+    };
+    
+    // Only add Cookie header if we have cookies
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader;
+    }
+    
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      const errorMessage = `HTTP ${response.status}: ${errorText || 'Request failed'}`;
+      
+      // Add more context for common errors
+      if (response.status === 404) {
+        console.error(`API endpoint not found: ${url}. Please check if the backend implements this endpoint.`);
+        throw new Error(`${errorMessage}\nEndpoint: ${url}\nBackend URL: ${backendUrl}`);
+      } else if (response.status === 401) {
+        console.error(`Authentication failed for: ${url}. Please check if user is logged in.`);
+        throw new Error(`${errorMessage}\nAuthentication required for: ${endpoint}`);
+      } else if (response.status >= 500) {
+        console.error(`Server error for: ${url}. Backend may be down or misconfigured.`);
+        throw new Error(`${errorMessage}\nServer error at: ${endpoint}`);
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  } catch (error) {
+    // Handle network failures more gracefully
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      throw new Error(`Network connection failed: Unable to reach backend at ${baseUrl || process.env.BACKEND_URL || 'http://localhost:8080'}`);
+    }
+    throw error;
   }
-  
-  return response.json();
 }
 
 /**

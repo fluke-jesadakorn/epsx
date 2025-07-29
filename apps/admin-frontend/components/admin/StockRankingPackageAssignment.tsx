@@ -9,7 +9,7 @@ import {
   BulkStockRankingAssignment,
   BulkStockRankingAssignmentResult,
   StockRankingPackageAssignment
-} from '@epsx/types/src/permission_profile';
+} from '@epsx/types';
 
 interface User {
   id: string;

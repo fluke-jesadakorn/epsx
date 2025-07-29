@@ -50,8 +50,14 @@ export async function validatePayment(data: { paymentId: string; signature?: str
 
 export async function getPaymentStatus(paymentId?: string): Promise<PaymentStatus | null> {
   try {
-    const endpoint = paymentId ? `/api/v1/payments/${paymentId}/status` : '/api/v1/users/payment-status';
-    const response = await serverGet(endpoint);
+    let response;
+    if (paymentId) {
+      // For specific payment status
+      response = await serverGet(`/api/v1/payments/${paymentId}/status`);
+    } else {
+      // For user payment status, use profile endpoint which includes payment info
+      response = await serverGet('/api/v1/auth/profile');
+    }
     
     if (response) {
       return {
@@ -76,7 +82,8 @@ export async function getPaymentStatus(paymentId?: string): Promise<PaymentStatu
 
 export async function getTransactionHistory(excludePending?: boolean): Promise<PaymentTransaction[]> {
   try {
-    const endpoint = excludePending ? '/user/transactions?excludePending=true' : '/user/transactions';
+    // Fix endpoint to use proper API versioning
+    const endpoint = excludePending ? '/api/v1/user/transactions?excludePending=true' : '/api/v1/user/transactions';
     const response = await serverGet(endpoint);
     
     if (response?.transactions) {

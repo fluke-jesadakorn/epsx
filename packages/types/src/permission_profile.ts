@@ -1,4 +1,5 @@
 import type { UserRole } from './auth/roles';
+import { StockRankingType } from './domains/analytics';
 
 /**
  * Dynamic Permission Profile System Types
@@ -156,16 +157,6 @@ export interface StockRankingConfig {
   exportOptions: StockRankingExportOptions;
 }
 
-export enum StockRankingType {
-  EPS_GROWTH = 'eps_growth',
-  MARKET_CAP = 'market_cap',
-  VOLUME = 'volume',
-  PRICE_CHANGE = 'price_change',
-  TECHNICAL_INDICATORS = 'technical_indicators',
-  AI_INSIGHTS = 'ai_insights',
-  PATTERN_RECOGNITION = 'pattern_recognition',
-  CUSTOM_METRICS = 'custom_metrics'
-}
 
 export interface StockRankingAdvancedFeatures {
   /** Custom ranking algorithms */

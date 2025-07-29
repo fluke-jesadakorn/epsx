@@ -1,302 +1,50 @@
-// Unified API client to replace Firebase SDK
-// Handles all backend communication with cookie-based authentication
+// Unified API client using the refactored package structure
+// This file provides backward compatibility and convenience exports
 
+import { apiClient, ApiClientFactory } from '@epsx/api-client';
 import { logger } from './logger';
 
-interface ApiResponse<T = any> {
-  data?: T;
-  error?: string;
-  details?: string;
-}
+// Re-export the main API client instance
+export { apiClient } from '@epsx/api-client';
 
-interface LoginRequest {
-  type: 'credentials';
-  email: string;
-  password: string;
-}
-
-interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-  package_tier?: string;
-}
-
-interface UserProfile {
-  user_id: string;
-  email: string;
-  role: string;
-  permissions: string[];
-  subscription_tier: string;
-  package_tier: string;
-  expires_at: string;
-  session_type: string;
-}
-
-interface PasswordResetRequest {
-  email: string;
-}
-
-interface ProfileUpdateRequest {
-  displayName?: string;
-  photoURL?: string;
-}
-
-interface PasswordChangeRequest {
-  currentPassword: string;
-  newPassword: string;
-}
-
-export interface ApiClient {
-  // Core HTTP methods
-  get<T>(
-    endpoint: string,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>>;
-  post<T, TData = unknown>(
-    endpoint: string,
-    data: TData,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>>;
-  put<T, TData = unknown>(
-    endpoint: string,
-    data: TData,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>>;
-  delete<T>(
-    endpoint: string,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<void>>;
-
-  // Authentication methods
-  login(credentials: LoginRequest): Promise<ApiResponse<UserProfile>>;
-  register(
-    userData: RegisterRequest
-  ): Promise<
-    ApiResponse<{
-      user_id: string;
-      email: string;
-      verification_sent: boolean;
-      message: string;
-    }>
-  >;
-  logout(): Promise<ApiResponse<void>>;
-  getCurrentUser(): Promise<ApiResponse<UserProfile>>;
-  refreshSession(): Promise<ApiResponse<{ expires_at: string }>>;
-  resetPassword(
-    request: PasswordResetRequest
-  ): Promise<ApiResponse<{ message: string; reset_sent: boolean }>>;
-  updateProfile(
-    request: ProfileUpdateRequest
-  ): Promise<ApiResponse<UserProfile>>;
-  changePassword(
-    request: PasswordChangeRequest
-  ): Promise<ApiResponse<{ message: string }>>;
-}
-
-class ApiClientImpl implements ApiClient {
-  private baseUrl = '';
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        credentials: 'include', // Include cookies
-        ...options,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          error: data.error || 'Request failed',
-          details: data.details,
-        };
-      }
-
-      return { data };
-    } catch (error) {
-      return {
-        error: 'Network error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  // Core HTTP methods
-  async get<T>(
-    endpoint: string,
-    headers: Record<string, string> = {}
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET', headers });
-  }
-
-  async post<T, TData = unknown>(
-    endpoint: string,
-    data: TData,
-    headers: Record<string, string> = {}
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
-    });
-  }
-
-  async put<T, TData = unknown>(
-    endpoint: string,
-    data: TData,
-    headers: Record<string, string> = {}
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(data),
-    });
-  }
-
-  async delete<T>(
-    endpoint: string,
-    headers: Record<string, string> = {}
-  ): Promise<ApiResponse<void>> {
-    return this.request<void>(endpoint, { method: 'DELETE', headers });
-  }
-
-  // Authentication methods
-  async login(credentials: LoginRequest): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/api/v1/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  }
-
-  async register(
-    userData: RegisterRequest
-  ): Promise<
-    ApiResponse<{
-      user_id: string;
-      email: string;
-      verification_sent: boolean;
-      message: string;
-    }>
-  > {
-    return this.request('/api/v1/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async logout(): Promise<ApiResponse<void>> {
-    return this.request('/api/v1/auth/logout', {
-      method: 'POST',
-    });
-  }
-
-  async getCurrentUser(): Promise<ApiResponse<UserProfile>> {
-    return this.request<UserProfile>('/api/v1/auth/profile');
-  }
-
-  async refreshSession(): Promise<ApiResponse<{ expires_at: string }>> {
-    return this.request('/api/v1/auth/refresh', {
-      method: 'POST',
-    });
-  }
-
-  async resetPassword(
-    request: PasswordResetRequest
-  ): Promise<ApiResponse<{ message: string; reset_sent: boolean }>> {
-    return this.request('/api/v1/auth/password-reset', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  async updateProfile(
-    request: ProfileUpdateRequest
-  ): Promise<ApiResponse<UserProfile>> {
-    try {
-      // Use server action instead of direct HTTP request
-      const { updateProfile } = await import('@epsx/server-actions');
-      const result = await updateProfile({
-        name: request.displayName,
-        email: undefined, // Email updates handled separately
-        preferences: { photoURL: request.photoURL }
-      });
-      
-      if (result) {
-        return { data: result as UserProfile };
-      } else {
-        return { error: 'Failed to update profile' };
-      }
-    } catch (error) {
-      return {
-        error: 'Profile update failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async changePassword(
-    request: PasswordChangeRequest
-  ): Promise<ApiResponse<{ message: string }>> {
-    try {
-      // Use server action instead of direct HTTP request
-      const { changePassword } = await import('@epsx/server-actions');
-      const result = await changePassword(request);
-      
-      if (result) {
-        return { data: { message: 'Password changed successfully' } };
-      } else {
-        return { error: 'Failed to change password' };
-      }
-    } catch (error) {
-      return {
-        error: 'Password change failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-}
-
-// Create singleton instance
-export const apiClient = new ApiClientImpl();
-
-// Export types for use in components
+// Re-export types for backward compatibility
 export type {
   ApiResponse,
   LoginRequest,
-  PasswordChangeRequest,
-  PasswordResetRequest,
-  ProfileUpdateRequest,
   RegisterRequest,
   UserProfile,
-};
+  PasswordResetRequest,
+  ProfileUpdateRequest,
+  PasswordChangeRequest,
+} from '@epsx/types';
 
-// Utility functions for common patterns
+// Utility functions for common patterns (using shared-core error handling)
+import { ErrorHandler } from '@epsx/shared-core';
+
 export const isApiError = (
-  response: ApiResponse
+  response: any
 ): response is { error: string; details?: string } => {
   return 'error' in response && !!response.error;
 };
 
 export const isApiSuccess = <T>(
-  response: ApiResponse<T>
+  response: any
 ): response is { data: T } => {
   return 'data' in response && !response.error;
 };
 
-// Authentication helpers
+// Authentication helpers using the new client structure
 export const loginWithCredentials = async (email: string, password: string) => {
-  return apiClient.login({ type: 'credentials', email, password });
+  return apiClient.auth.login({ type: 'credentials', email, password });
 };
 
-// Real-time communication interfaces
+// Export domain-specific clients for direct access
+export const authClient = apiClient.auth;
+export const paymentClient = apiClient.payments;
+export const analyticsClient = apiClient.analytics;
+export const permissionsClient = apiClient.permissions;
+
+// Real-time communication interfaces (keeping existing implementation)
 interface PaymentStatusUpdate {
   customerRefId: string;
   status: string;

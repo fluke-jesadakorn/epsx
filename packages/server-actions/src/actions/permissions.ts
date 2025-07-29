@@ -25,8 +25,18 @@ export interface PermissionProfile {
 // Permission Actions
 export async function getUserPermissions(): Promise<UserPermission[]> {
   try {
-    const response = await serverGet('/api/v1/user/permissions');
-    return response || [];
+    // Use existing auth/profile endpoint which includes permissions
+    const response = await serverGet('/api/v1/auth/profile');
+    if (response?.permissions) {
+      // Convert string permissions to UserPermission objects
+      return response.permissions.map((perm: string) => ({
+        id: perm,
+        name: perm,
+        resource: perm.split('.')[0] || perm,
+        action: perm.split('.').slice(1).join('.') || perm
+      }));
+    }
+    return [];
   } catch (error) {
     console.error('Error fetching user permissions:', error);
     return [];
@@ -35,7 +45,11 @@ export async function getUserPermissions(): Promise<UserPermission[]> {
 
 export async function checkPermission(permission: string): Promise<boolean> {
   try {
-    const response = await serverGet('/api/v1/user/permissions/check', { permission });
+    // Use IAM evaluate endpoint for permission checking
+    const response = await serverPost('/api/v1/iam/evaluate', {
+      action: permission.split('.').pop() || permission,
+      resource: permission.split('.').slice(0, -1).join('.') || permission
+    });
     return response?.allowed || false;
   } catch (error) {
     console.error('Error checking permission:', error);
@@ -49,8 +63,16 @@ export async function checkFeatureAccess(featureId: string): Promise<{
   requiredTier?: string;
 }> {
   try {
-    const response = await serverGet('/api/v1/user/features/access', { featureId });
-    return response || { allowed: false };
+    // Use IAM evaluate endpoint for feature access checking
+    const response = await serverPost('/api/v1/iam/evaluate', {
+      action: 'access',
+      resource: `feature.${featureId}`
+    });
+    return {
+      allowed: response?.allowed || false,
+      reason: response?.reason,
+      requiredTier: response?.required_tier
+    };
   } catch (error) {
     console.error('Error checking feature access:', error);
     return { allowed: false };
@@ -63,8 +85,25 @@ export async function checkRankingAccess(): Promise<{
   expiresAt?: string;
 }> {
   try {
-    const response = await serverGet('/api/v1/user/ranking-access');
-    return response || { allowed: false, tier: 'BRONZE' };
+    // Get profile first to get user_id for IAM evaluation
+    const profileResponse = await serverGet('/api/v1/auth/profile');
+    
+    if (!profileResponse?.user_id) {
+      return { allowed: false, tier: 'BRONZE' };
+    }
+    
+    // Use IAM evaluate for ranking access with user_id
+    const evaluateResponse = await serverPost('/api/v1/iam/evaluate', {
+      user_id: profileResponse.user_id,
+      action: 'access',
+      resource: 'feature.rankings'
+    });
+    
+    return {
+      allowed: evaluateResponse?.allowed || false,
+      tier: profileResponse?.package_tier || 'BRONZE',
+      expiresAt: profileResponse?.expires_at
+    };
   } catch (error) {
     console.error('Error checking ranking access:', error);
     return { allowed: false, tier: 'BRONZE' };
@@ -108,9 +147,30 @@ export async function revokePermissionProfile(data: {
 
 export async function getPermissionMatrix(userId?: string): Promise<Record<string, string[]>> {
   try {
-    const params = userId ? { userId } : undefined;
-    const response = await serverGet('/api/v1/permissions/matrix', params);
-    return response || {};
+    if (userId) {
+      // For specific user, get their roles and overrides
+      const [rolesResponse, overridesResponse] = await Promise.all([
+        serverGet(`/api/v1/iam/users/${userId}/roles`),
+        serverGet(`/api/v1/iam/users/${userId}/overrides`)
+      ]);
+      
+      const matrix: Record<string, string[]> = {};
+      if (rolesResponse?.roles) {
+        rolesResponse.roles.forEach((role: any) => {
+          if (role.permissions) {
+            matrix[role.name] = role.permissions;
+          }
+        });
+      }
+      if (overridesResponse?.overrides) {
+        matrix['user_overrides'] = overridesResponse.overrides;
+      }
+      return matrix;
+    } else {
+      // For current user, use profile endpoint
+      const response = await serverGet('/api/v1/auth/profile');
+      return response?.permissions ? { current_user: response.permissions } : {};
+    }
   } catch (error) {
     console.error('Error fetching permission matrix:', error);
     return {};
@@ -132,16 +192,47 @@ export async function getPaginatedFeatureAccess(params: {
   };
 }> {
   try {
-    // Convert features array to a comma-separated string for the API and filter undefined values
-    const processedParams: Record<string, string | number | boolean> = {};
-    if (params.page !== undefined) processedParams.page = params.page;
-    if (params.limit !== undefined) processedParams.limit = params.limit;
-    if (params.features && params.features.length > 0) {
-      processedParams.features = params.features.join(',');
-    }
+    const features = params.features || ['trading', 'analytics', 'premium', 'rankings'];
+    const limit = params.limit || 10;
+    const page = params.page || 1;
     
-    const response = await serverGet('/api/v1/user/features/access/paginated', processedParams);
-    return response || { data: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } };
+    // Use IAM evaluate for each feature
+    const evaluationPromises = features.map(async (featureId) => {
+      try {
+        const response = await serverPost('/api/v1/iam/evaluate', {
+          action: 'access',
+          resource: `feature.${featureId}`
+        });
+        return {
+          featureId,
+          allowed: response?.allowed || false,
+          reason: response?.reason
+        };
+      } catch (error) {
+        return {
+          featureId,
+          allowed: false,
+          reason: 'Evaluation failed'
+        };
+      }
+    });
+    
+    const allResults = await Promise.all(evaluationPromises);
+    
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = allResults.slice(startIndex, endIndex);
+    
+    return {
+      data: paginatedData,
+      pagination: {
+        page,
+        limit,
+        total: allResults.length,
+        totalPages: Math.ceil(allResults.length / limit)
+      }
+    };
   } catch (error) {
     console.error('Error fetching paginated feature access:', error);
     return { data: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } };

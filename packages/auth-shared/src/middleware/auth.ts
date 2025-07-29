@@ -101,6 +101,7 @@ export async function checkPermissionAccess(
       // Cache the permissions
       if (finalConfig.enableCaching) {
         permissionCache.set(cacheKey, {
+          userId: cacheKey.split('_')[1] || 'unknown', // Extract userId from cacheKey
           permissions: userPermissions,
           role: userRole,
           profiles: userProfiles,

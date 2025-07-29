@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
+import { usePermissionContext } from '@epsx/server-providers';
 
 interface PermissionHookState {
   permissions: string[];
@@ -20,6 +21,7 @@ interface PermissionCheckResult {
  * React hook for permission-based component rendering and access control
  */
 export function usePermissions() {
+  const { permissions: serverPermissions, error: contextError } = usePermissionContext();
   const [state, setState] = useState<PermissionHookState>({
     permissions: [],
     profiles: [],
@@ -32,57 +34,49 @@ export function usePermissions() {
   const [cache, setCache] = useState<Map<string, { result: boolean; timestamp: number }>>(new Map());
   const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
-  // Load user permissions on mount
+  // Load user permissions from context
   useEffect(() => {
-    loadUserPermissions();
-  }, []);
+    if (contextError) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: contextError
+      }));
+      return;
+    }
 
-  const loadUserPermissions = async () => {
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      // Use server actions for permissions
-      const { getUserPermissions, getPermissionProfiles } = await import('@epsx/server-actions');
-      const [permissions, profiles] = await Promise.all([
-        getUserPermissions(),
-        getPermissionProfiles().catch(() => []) // Optional if profiles aren't implemented
-      ]);
-      
-      if (permissions || permissions === []) {
-        const permissionNames = permissions.map(p => p.name || p.permission || p);
-        const profileNames = profiles.map(p => p.name || p);
+    if (serverPermissions) {
+      try {
+        const permissionNames = Array.isArray(serverPermissions) 
+          ? serverPermissions.map(p => p.name || p.permission || p)
+          : [];
+        const profileNames = []; // Will be enhanced when profiles are implemented
         const hasWildcard = permissionNames.some(p => p === '*' || p.endsWith(':*') || p.endsWith('.*'));
         
         setState({
           permissions: permissionNames,
           profiles: profileNames,
-          role: 'user', // Default role, could be enhanced with server action
+          role: 'user', // Default role, could be enhanced with server data
           loading: false,
           error: null,
           hasWildcardAccess: hasWildcard,
         });
         
-        logger.debug('User permissions loaded', {
+        logger.debug('User permissions loaded from context', {
           permissionCount: permissionNames.length,
           profileCount: profileNames.length,
           role: 'user'
         });
-      } else {
+      } catch (error) {
+        logger.error('Error processing permissions from context', { error: error instanceof Error ? error.message : error });
         setState(prev => ({
           ...prev,
           loading: false,
-          error: 'Failed to load user permissions'
+          error: error instanceof Error ? error.message : 'Unknown error'
         }));
       }
-    } catch (error) {
-      logger.error('Error loading user permissions', { error: error instanceof Error ? error.message : error });
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }));
     }
-  };
+  }, [serverPermissions, contextError]);
 
   /**
    * Check if user has a specific permission
@@ -257,7 +251,8 @@ export function usePermissions() {
    */
   const refreshPermissions = useCallback(async () => {
     setCache(new Map()); // Clear cache
-    await loadUserPermissions();
+    // Note: Refreshing now requires parent component to refetch server data
+    // This maintains the server/client separation
   }, []);
 
   return {

@@ -1,30 +1,63 @@
-// Export all auth types
+// Export consolidated auth types that eliminate duplication with @epsx/types
 export type {
+  // Main auth types from @epsx/types
+  UserProfile,
+  LoginRequest,
+  RegisterRequest,
+  EnhancedRegisterRequest,
+  PasswordChangeRequest,
+  PasswordResetRequest,
+  ProfileUpdateRequest,
+  RegistrationResponse,
+  AuthCookies,
+  UserPreferences,
+  NotificationPreferences,
+  
+  // Auth-shared specific types
+  AuthContextState,
+  AuthService,
+  AuthResult,
+  AuthError,
+  
+  // Legacy types (deprecated)
   BaseUser,
   AuthenticatedUser,
   FrontendUser,
   AdminUser,
-  BackendUser
-} from './user';
-
-export type {
+  BackendUser,
   SignInCredentials,
   SignUpData,
-  UserCredentials,
-  AuthContextState,
-  AuthService,
-  AuthResult,
-  AuthError
-} from './auth';
+  UserCredentials
+} from './consolidated-auth';
+
+export type {
+  // Main permission types from @epsx/types
+  Permission,
+  Role,
+  PermissionCheckRequest,
+  PermissionCheckResponse,
+  UserPermissionStatus,
+  DynamicPermissionProfile,
+  PermissionProfilePermission,
+  PermissionCondition,
+  PermissionCategory,
+  PermissionScope,
+  PermissionProfileScope,
+  PermissionProfileStatus,
+  PackageTier,
+  
+  // Auth-shared specific permission types
+  PermissionCheckResult,
+  RoutePermissionConfig,
+  PermissionCacheEntry,
+  PermissionProfile,
+  AuthMiddlewareConfig,
+  AuthGuardProps,
+  PermissionChecker,
+  RoleChecker
+} from './consolidated-permissions';
 
 export {
   UserRole,
   ROLE_HIERARCHY
-} from './permissions';
-
-export type {
-  PermissionCheckResult,
-  RoutePermissionConfig,
-  PermissionCacheEntry,
-  PermissionProfile
-} from './permissions';
+} from './consolidated-permissions';

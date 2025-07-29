@@ -2,8 +2,8 @@
 
 import { logger } from '@/lib/logger';
 import { useOptimisticUpdates } from '@/lib/state/core';
+import { ApiClientFactory } from '@epsx/api-client';
 import { PackageTier } from '@epsx/types';
-import { getCurrentUser, getUserPermissions, login as loginAction, logout as logoutAction, register as registerAction } from '@epsx/server-actions';
 import React, {
   createContext,
   useCallback,
@@ -43,12 +43,7 @@ interface AuthContextType {
     email: string,
     password: string,
     displayName?: string
-  ) => Promise<{
-    user_id: string;
-    email: string;
-    verification_sent: boolean;
-    message: string;
-  }>;
+  ) => Promise<any>;
   logout: () => Promise<void>;
   initializeFromServer: (serverAuthState?: any) => void;
 }
@@ -81,6 +76,9 @@ export function AuthProvider({
   const { state, actions } = useAppState();
   const { success, error: showError } = useToasts();
 
+  // Initialize API client for auth operations
+  const apiClient = ApiClientFactory.getClientInstance();
+
   // Legacy state for backward compatibility
   const [user, setUser] = useState<BackendUser | null>(
     initialAuthState?.user || null
@@ -100,76 +98,18 @@ export function AuthProvider({
     rollbackOptimisticUpdate,
   } = useOptimisticUpdates();
 
-  const loadUserSession = useCallback(async () => {
-    actions.ui.setLoading('auth', true);
-
-    try {
-      // Use server action directly
-      const userData = await getCurrentUser();
-
-      if (!userData || userData.error) {
-        // Session expired or invalid
-        setUser(null);
-        setPermissions([]);
-        setPackageTier(PackageTier.FREE);
-        actions.user.setProfile(null);
-        actions.user.updatePermissions([]);
-        actions.user.setPackageTier('FREE');
-        return;
-      }
-
-      const normalizedUserData = normalizeUserData(userData);
-
-      // Update both legacy and new state
-      setUser(normalizedUserData);
-      setPermissions(userData.permissions || []);
-      setPackageTier(
-        (userData.package_tier as PackageTier) || PackageTier.FREE
-      );
-
-      // Update new state management
-      actions.user.setProfile(normalizedUserData);
-      actions.user.updatePermissions(userData.permissions || []);
-      actions.user.setPackageTier(userData.package_tier || 'FREE');
-    } catch (error) {
-      logger.error('Error loading user session', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      setUser(null);
-      setPermissions([]);
-      setPackageTier(PackageTier.FREE);
-
-      actions.user.setProfile(null);
-      actions.user.updatePermissions([]);
-      actions.user.setPackageTier('FREE');
-
-      showError(
-        'Session Error',
-        'Failed to load your session. Please try logging in again.'
-      );
-    } finally {
-      actions.ui.setLoading('auth', false);
-    }
-  }, [actions, showError]);
+  // Removed loadUserSession - auth state now provided server-side via ServerAuthProvider
 
   const refreshPermissions = useCallback(async () => {
-    try {
-      // Use server action directly
-      const freshPermissions = await getUserPermissions();
-      
-      if (freshPermissions) {
-        const permissionNames = freshPermissions.map(p => typeof p === 'string' ? p : p.name);
-        setPermissions(permissionNames);
-        actions.user.updatePermissions(permissionNames);
-      }
-    } catch (error) {
-      logger.error('Failed to refresh permissions', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      // Fallback to full session reload
-      await loadUserSession();
-    }
-  }, [actions, loadUserSession]);
+    // Note: In the new architecture, permissions are managed server-side
+    // This function is kept for compatibility but does not fetch from server
+    logger.info(
+      'refreshPermissions: Permissions are now managed server-side through ServerAuthProvider'
+    );
+
+    // For now, this is a no-op. Future enhancement could trigger a page refresh
+    // or emit an event to reload server state if needed
+  }, []);
 
   const initializeFromServer = (serverAuthState?: any) => {
     if (serverAuthState) {
@@ -205,18 +145,14 @@ export function AuthProvider({
   };
 
   useEffect(() => {
-    // Only initialize from client if we don't have initial server state
+    // In the new server-side auth architecture, we rely entirely on server-provided state
+    // If no initial auth state is provided, set as not authenticated
     if (!initialAuthState && !isInitialized) {
-      const initAuth = async () => {
-        try {
-          await loadUserSession();
-        } finally {
-          setLoading(false);
-          setIsInitialized(true);
-        }
-      };
-
-      initAuth();
+      setUser(null);
+      setPermissions([]);
+      setPackageTier(PackageTier.FREE);
+      setLoading(false);
+      setIsInitialized(true);
     }
   }, [initialAuthState, isInitialized]);
 
@@ -225,13 +161,18 @@ export function AuthProvider({
       actions.ui.setLoading('login', true);
 
       try {
-        // Use server action directly
-        const userData = await loginAction({ email, password });
+        // Use API client instead of server action
+        const response = await apiClient.auth.login({ 
+          type: 'credentials',
+          email, 
+          password 
+        });
 
-        if (!userData) {
-          throw new Error('Login failed');
+        if (response.error || !response.data) {
+          throw new Error(response.error || 'Login failed');
         }
 
+        const userData = response.data as any; // Cast to any since the backend returns extended user data
         const normalizedUserData = normalizeUserData(userData);
 
         // Update both legacy and new state
@@ -261,7 +202,7 @@ export function AuthProvider({
         actions.ui.setLoading('login', false);
       }
     },
-    [actions, success, showError]
+    [actions, success, showError, apiClient.auth]
   );
 
   const register = async (
@@ -270,12 +211,18 @@ export function AuthProvider({
     displayName?: string
   ) => {
     try {
-      // Use server action directly
-      return await registerAction({
+      // Use API client instead of server action
+      const response = await apiClient.auth.register({
         email,
         password,
         name: displayName,
       });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      return response.data;
     } catch (error) {
       throw error;
     }
@@ -296,14 +243,21 @@ export function AuthProvider({
         actions.user.setPackageTier('FREE');
       },
       () => {
-        // Rollback if logout fails - restore previous state
-        loadUserSession();
+        // Rollback if logout fails - in new architecture, would need to refresh page
+        // or re-fetch server state, but for now we'll just log the error
+        logger.error(
+          'Logout rollback: Cannot restore state in server-side auth architecture'
+        );
       }
     );
 
     try {
-      // Use server action directly
-      await logoutAction();
+      // Use API client instead of server action
+      const response = await apiClient.auth.logout();
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
 
       confirmOptimisticUpdate(updateId);
       success('Logged out', 'You have been successfully logged out');
@@ -321,7 +275,7 @@ export function AuthProvider({
     startOptimisticUpdate,
     confirmOptimisticUpdate,
     rollbackOptimisticUpdate,
-    loadUserSession,
+    apiClient.auth,
   ]);
 
   // Memoize context value to prevent unnecessary re-renders

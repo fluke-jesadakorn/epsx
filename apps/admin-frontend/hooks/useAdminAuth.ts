@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AdminRole } from '@/types/admin/roles';
-import { evaluatePermission } from '@epsx/server-actions';
-import { getCurrentUser } from '@epsx/server-actions';
+import { AdminService } from '@/services/adminService';
 import { adminLogger } from '@/lib/logger';
 
 export function useAdminAuth() {
@@ -13,7 +12,7 @@ export function useAdminAuth() {
   useEffect(() => {
     const loadAdminProfile = async () => {
       try {
-        const profile = await getCurrentUser();
+        const profile = await AdminService.getCurrentUser();
         if (profile) {
           setAdminUser({
             id: profile.user_id || profile.id,
@@ -38,7 +37,7 @@ export function useAdminAuth() {
   const hasPermission = async (resource: string, action: string): Promise<boolean> => {
     if (!adminUser?.id) return false;
     try {
-      const result = await evaluatePermission({
+      const result = await AdminService.evaluatePermission({
         userId: adminUser.id,
         action: `${action}:${resource}`,
         resource: `admin:${resource}`

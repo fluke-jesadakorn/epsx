@@ -96,6 +96,9 @@ importers:
       '@epsx/server-actions':
         specifier: workspace:*
         version: link:../../packages/server-actions
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../../packages/shared-core
       '@epsx/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -246,6 +249,12 @@ importers:
       '@epsx/server-actions':
         specifier: workspace:*
         version: link:../../packages/server-actions
+      '@epsx/server-providers':
+        specifier: workspace:*
+        version: link:../../packages/server-providers
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../../packages/shared-core
       '@epsx/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -448,6 +457,12 @@ importers:
 
   packages/api-client:
     dependencies:
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
+      '@epsx/types':
+        specifier: workspace:*
+        version: link:../types
       next:
         specifier: '>=14.0.0'
         version: 15.4.2(@opentelemetry/api@1.9.0)(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -473,6 +488,12 @@ importers:
 
   packages/auth-shared:
     dependencies:
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
+      '@epsx/types':
+        specifier: workspace:*
+        version: link:../types
       next:
         specifier: ^14.0.0
         version: 14.2.30(@opentelemetry/api@1.9.0)(@playwright/test@1.54.1)(react-dom@19.1.0(react@18.3.1))(react@18.3.1)
@@ -535,6 +556,12 @@ importers:
 
   packages/server-actions:
     dependencies:
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
+      '@epsx/types':
+        specifier: workspace:*
+        version: link:../types
       next:
         specifier: 15.4.4
         version: 15.4.4(@opentelemetry/api@1.9.0)(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -552,6 +579,50 @@ importers:
         specifier: ^5.0.0
         version: 5.8.3
 
+  packages/server-providers:
+    dependencies:
+      '@epsx/server-actions':
+        specifier: workspace:*
+        version: link:../server-actions
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
+      '@epsx/types':
+        specifier: workspace:*
+        version: link:../types
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.23
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+
+  packages/shared-core:
+    dependencies:
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.67
+    devDependencies:
+      '@epsx/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.9
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+
   packages/theme:
     dependencies:
       next-themes:
@@ -563,6 +634,9 @@ importers:
 
   packages/types:
     dependencies:
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
       zod:
         specifier: ^3.22.4
         version: 3.25.67

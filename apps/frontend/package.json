@@ -32,6 +32,8 @@
     "@epsx/api-client": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/server-actions": "workspace:*",
+    "@epsx/server-providers": "workspace:*",
+    "@epsx/shared-core": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

@@ -11,6 +11,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@epsx/shared-core": "workspace:*",
+    "@epsx/types": "workspace:*",
     "next": "15.4.4",
     "zod": "^3.22.0"
   },
