@@ -32,6 +32,15 @@ use super::{service::ScreenerService, models::TableDataMetrics};
 
 pub fn screener_router(screener_service: Arc<ScreenerService>) -> Router {
     Router::new()
+        .route("/market-data/stocks/screener", get(stock_screener))
+        .route("/market-data/stocks/eps-growth-ranking", get(eps_growth_ranking))
+        .route("/market-data/stocks/screener/ws", get(ws_handler))
+        .with_state(screener_service)
+}
+
+/// Create legacy screener routes (backward compatibility)
+pub fn screener_router_legacy(screener_service: Arc<ScreenerService>) -> Router {
+    Router::new()
         .route("/screener", get(stock_screener))
         .route("/eps-growth-ranking", get(eps_growth_ranking))
         .route("/screener/ws", get(ws_handler))
@@ -117,7 +126,7 @@ async fn eps_growth_ranking(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{db::DB, config::Config};
+    use crate::config::Config;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -125,18 +134,16 @@ mod tests {
     use tower_service::Service;
     use std::{env, pin::Pin};
 
-    async fn setup_test() -> (Arc<DB>, Config) {
-        env::set_var("MONGODB_URI", "mongodb://localhost:27017");
-        env::set_var("MONGODB_DB", "test_db");
+    async fn setup_test() -> Config {
+        env::set_var("DATABASE_URL", "postgresql://localhost:5432/test_db");
         env::set_var("TRADINGVIEW_AUTH_TOKEN", "test_token");
         env::set_var("MUSEPAY_PARTNER_ID", "test_partner");
         env::set_var("MUSEPAY_PRIVATE_KEY", "test_key");
         env::set_var("FIREBASE_SERVICE_ACCOUNT_PATH", "./test-service-account.json");
         
-        let db = Arc::new(crate::db::connect_db().await.expect("Failed to connect to test DB"));
         let config = Config::from_env();
         
-        (db, config)
+        config
     }
 
     async fn test_request(mut app: Router, uri: &str) -> StatusCode {
@@ -155,8 +162,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_stock_screener() {
-        let (db, config) = setup_test().await;
-        let service = Arc::new(ScreenerService::new(&config, db));
+        let config = setup_test().await;
+        let service = Arc::new(ScreenerService::new(&config));
         let app = screener_router(service);
 
         let status = test_request(app, "/screener").await;
@@ -165,8 +172,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_eps_growth_ranking() {
-        let (db, config) = setup_test().await;
-        let service = Arc::new(ScreenerService::new(&config, db));
+        let config = setup_test().await;
+        let service = Arc::new(ScreenerService::new(&config));
         let app = screener_router(service);
 
         let status = test_request(app, "/eps-growth-ranking?limit=10&skip=0&sort_by=activityScore").await;

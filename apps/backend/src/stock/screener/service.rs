@@ -1,6 +1,5 @@
 use std::time::Duration;
 use std::sync::Arc;
-use mongodb::bson::doc;
 use reqwest::{Client, ClientBuilder};
 use serde_json::json;
 use tokio_retry::{
@@ -10,18 +9,17 @@ use tokio_retry::{
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-use crate::{config::Config, db::DB};
+use crate::config::Config;
 use crate::stock::common::{StockServiceError, TradingViewResponse, TradingViewStock, StockDataField, NumberFormatter, WebSocketClient};
 use super::models::{TableDataMetrics, QuoteSessionCreate};
 
 pub struct ScreenerService {
     client: Client,
-    db: Arc<DB>,
     ws_client: WebSocketClient,
 }
 
 impl ScreenerService {
-    pub fn new(config: &Config, db: Arc<DB>) -> Self {
+    pub fn new(config: &Config) -> Self {
         let client = ClientBuilder::new()
             .timeout(Duration::from_secs(10))
             .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)")
@@ -35,7 +33,6 @@ impl ScreenerService {
 
         Self { 
             client,
-            db, 
             ws_client 
         }
     }
@@ -68,27 +65,14 @@ impl ScreenerService {
     }
 
     async fn get_todays_data(&self) -> Result<Option<Vec<TableDataMetrics>>, StockServiceError> {
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        
-        let result = self.db.get_stock_data()
-            .find_one(
-                doc! { "fetch_date": &today },
-                None
-            )
-            .await
-            .map_err(|e| StockServiceError::from(e))?;
-
-        Ok(result.map(|data| data.stocks))
+        // TODO: Implement PostgreSQL-based caching
+        // For now, always fetch fresh data
+        Ok(None)
     }
 
-    async fn save_stock_data(&self, stocks: Vec<TableDataMetrics>) -> Result<(), StockServiceError> {
-        let stock_data = crate::db::models::StockData::new(stocks);
-        
-        self.db.get_stock_data()
-            .insert_one(&stock_data, None)
-            .await
-            .map_err(|e| StockServiceError::from(e))?;
-
+    async fn save_stock_data(&self, _stocks: Vec<TableDataMetrics>) -> Result<(), StockServiceError> {
+        // TODO: Implement PostgreSQL-based caching
+        // For now, skip caching
         Ok(())
     }
 
@@ -109,9 +93,9 @@ impl ScreenerService {
     }
 
     pub async fn fetch_stock_screener_data(&self) -> Result<Vec<TableDataMetrics>, StockServiceError> {
-        // First try to get today's data from MongoDB
+        // First try to get today's data from cache
         if let Some(data) = self.get_todays_data().await? {
-            info!("Returning today's cached data from MongoDB");
+            info!("Returning today's cached data");
             return Ok(data);
         }
 
@@ -157,7 +141,7 @@ impl ScreenerService {
 
         let stocks = self.process_trading_view_response(result);
 
-        // Save the fetched data to MongoDB
+        // Save the fetched data to database
         self.save_stock_data(stocks.clone()).await?;
         
         Ok(stocks)
@@ -275,36 +259,7 @@ impl ScreenerService {
         }
     }
 
-    pub async fn fetch_eps_growth_ranking(
-        &self,
-        limit: Option<i32>,
-        skip: Option<i32>,
-        sort_by: Option<String>,
-    ) -> Result<Vec<TableDataMetrics>, StockServiceError> {
-        let mut data = self.fetch_stock_screener_data().await?;
-
-        // Sort data based on the sort_by parameter
-        if let Some(sort_field) = sort_by {
-            data.sort_by(|a, b| {
-                match sort_field.as_str() {
-                    "activityScore" => {
-                        let score_a = super::models::parse_formatted_number(&a.activity_score);
-                        let score_b = super::models::parse_formatted_number(&b.activity_score);
-                        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                    _ => { // Default to growth indicator
-                        let growth_a = a.growth_indicator.replace('%', "").parse::<f64>().unwrap_or(0.0);
-                        let growth_b = b.growth_indicator.replace('%', "").parse::<f64>().unwrap_or(0.0);
-                        growth_b.partial_cmp(&growth_a).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                }
-            });
-        }
-
-        // Apply pagination
-        let start = skip.unwrap_or(0) as usize;
-        let end = start + limit.unwrap_or(10) as usize;
-
-        Ok(data.into_iter().skip(start).take(end - start).collect())
-    }
+    // REMOVED: fetch_eps_growth_ranking - was not a real algorithm, just sorting existing data
+    // This was a placeholder implementation that should be replaced with actual EPS analysis
+    // when proper market data integration is implemented
 }

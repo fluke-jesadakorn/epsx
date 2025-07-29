@@ -1,17 +1,9 @@
-'use client';
-
-import { useAuth } from '@/context/shared-auth-provider';
-import { useRouter } from 'next/navigation';
+import { requireAuth } from '@/lib/server-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function TradingPage() {
-  const { user } = useAuth();
-  const router = useRouter();
-
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
+export default async function TradingPage() {
+  // Server-side auth check with automatic redirect if not authenticated
+  const user = await requireAuth('/trading');
 
   return (
     <div className="container mx-auto p-6">

@@ -48,11 +48,11 @@ export function BulkUserLevelAssignment() {
 
       const updates = identifiers.map(identifier => ({
         uid: identifier.trim(),
-        userLevel: selectedLevel,
+        level: selectedLevel,
         reason: reason || 'Bulk assignment'
       }));
 
-      const response = await AdminService.bulkUpdateUserLevels(updates);
+      const response = await AdminService.bulkUpdateLevels(updates);
       
       // Debug logging
       console.log('Bulk assignment response:', response);

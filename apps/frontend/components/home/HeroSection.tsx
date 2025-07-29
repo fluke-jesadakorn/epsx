@@ -27,10 +27,12 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
   }, []);
 
   const handleShare = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      toast.success('URL copied to clipboard!');
-    });
+    if (typeof window !== 'undefined') {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        toast.success('URL copied to clipboard!');
+      });
+    }
   };
 
   return (

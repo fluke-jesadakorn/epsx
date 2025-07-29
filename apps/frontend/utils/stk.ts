@@ -51,7 +51,13 @@ export const xformPrice = (data: any): StockData[] =>
   }))
 
 // Stock data helpers
-export const latest = (stock: StockData): Quarter => stock.quarters[0]
+export const latest = (stock: StockData): Quarter => {
+  const firstQuarter = stock.quarters[0];
+  if (!firstQuarter) {
+    throw new Error('No quarters available in stock data');
+  }
+  return firstQuarter;
+}
 
 export const avgEps = (stock: StockData): number | null => {
   const growth = stock.quarters.map(q => q.eps_growth).filter(g => g !== undefined && g !== null) as number[]

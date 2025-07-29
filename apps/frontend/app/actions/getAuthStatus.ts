@@ -11,7 +11,7 @@ interface AuthStatus {
 
 export async function getAuthStatus(): Promise<AuthStatus> {
   const cookieStore = await cookies();
-  const session = cookieStore.get('__session')?.value;
+  const session = cookieStore.get('sess_id')?.value;
   const email = cookieStore.get('email')?.value;
   const role = cookieStore.get('role')?.value;
 

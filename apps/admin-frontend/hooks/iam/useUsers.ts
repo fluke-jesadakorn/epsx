@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { iamService } from '../../services/iamService';
-import type { UserWithPermissions } from '../../types/admin/iam-enhanced';
+import { adminLogger } from '../../lib/logger';
+import { getIAMUsers } from '@epsx/server-actions';
+import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {
   searchTerm: string;
@@ -25,8 +26,8 @@ export const useUsers = (options: UseUsersOptions) => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      // Get users from existing IAM service
-      const iamUsers = await iamService.getUsers();
+      // Get users from server action
+      const iamUsers = await getIAMUsers();
 
       // Transform to our User interface and apply filters
       let transformedUsers: User[] = iamUsers.map(
@@ -39,56 +40,42 @@ export const useUsers = (options: UseUsersOptions) => {
           lastActive: user.lastActivity
             ? new Date(user.lastActivity).toLocaleDateString()
             : 'Never',
-          permissions: user.effectivePermissions?.map((p) => p.featureId) || [],
-        }),
+          permissions: user.effectivePermissions?.map(p => p.featureId) || [],
+        })
       );
 
       // Apply filters
       if (options.searchTerm) {
         const searchLower = options.searchTerm.toLowerCase();
         transformedUsers = transformedUsers.filter(
-          (user) =>
+          user =>
             user.name.toLowerCase().includes(searchLower) ||
-            user.email.toLowerCase().includes(searchLower),
+            user.email.toLowerCase().includes(searchLower)
         );
       }
 
       if (options.statusFilter && options.statusFilter !== 'all') {
         transformedUsers = transformedUsers.filter(
-          (user) => user.status === options.statusFilter,
+          user => user.status === options.statusFilter
         );
       }
 
       if (options.packageFilter && options.packageFilter !== 'all') {
         transformedUsers = transformedUsers.filter(
-          (user) => user.packageTier === options.packageFilter,
+          user => user.packageTier === options.packageFilter
         );
       }
 
       setUsers(transformedUsers);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      // Fallback to mock data for development
-      setUsers([
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'john@example.com',
-          packageTier: 'premium',
-          status: 'active',
-          lastActive: '2024-01-15',
-          permissions: ['user.read', 'user.write'],
-        },
-        {
-          id: '2',
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          packageTier: 'free',
-          status: 'active',
-          lastActive: '2024-01-14',
-          permissions: ['user.read'],
-        },
-      ]);
+      adminLogger.error('Error fetching users', {
+        error: error instanceof Error ? error.message : String(error),
+        searchTerm: options.searchTerm,
+        statusFilter: options.statusFilter,
+        packageFilter: options.packageFilter,
+      });
+      // Set empty array on error - no more mock data fallback
+      setUsers([]);
     } finally {
       setLoading(false);
     }

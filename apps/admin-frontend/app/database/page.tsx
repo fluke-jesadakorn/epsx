@@ -1,13 +1,10 @@
 import { DatabaseDashboard } from '@/components/admin/DatabaseDashboard';
-import { AdminGuard } from '@/components/auth/AdminGuard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 
-export default function DatabasePage() {
+export default async function DatabasePage() {
   return (
-    <AdminGuard>
-      <AdminLayout>
-        <DatabaseDashboard />
-      </AdminLayout>
-    </AdminGuard>
+    <AdminLayout>
+      <DatabaseDashboard />
+    </AdminLayout>
   );
 }

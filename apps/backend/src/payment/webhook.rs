@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use crate::config::Config;
 use crate::payment::service::{PaymentService, PaymentStatusUpdate, PaymentStatus};
+use crate::dom::services::auto_assignment::AutoAssignmentEngine;
+use crate::dom::entities::permission_profile::PermissionProfileId;
+use crate::dom::values::UserId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use sha2::{Sha256, Digest};
@@ -15,6 +18,10 @@ pub struct WebhookPayload {
     pub currency: Option<String>,
     pub timestamp: String,
     pub signature: String,
+    // Enhanced fields for permission profile auto-assignment
+    pub user_id: Option<String>,
+    pub permission_profile_id: Option<String>,
+    pub metadata: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -22,6 +29,37 @@ pub struct WebhookResponse {
     pub success: bool,
     pub message: String,
     pub processed_at: String,
+    // Enhanced fields for auto-assignment feedback
+    pub features_activated: Option<bool>,
+    pub permission_profile_assigned: Option<String>,
+    pub assignment_details: Option<AssignmentDetails>,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct AssignmentDetails {
+    pub permission_profile_id: String,
+    pub permission_profile_name: String,
+    pub features_unlocked: Vec<String>,
+    pub expires_at: Option<String>,
+    pub activated_at: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PaymentAssignmentContext {
+    pub payment_id: String,
+    pub amount: Option<f64>,
+    pub currency: String,
+    pub network: Option<String>,
+    pub transaction_hash: Option<String>,
+    pub metadata: std::collections::HashMap<String, String>,
+    pub processed_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PaymentAssignmentResult {
+    pub permission_profile_name: Option<String>,
+    pub features_unlocked: Vec<String>,
+    pub assignment_id: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,13 +76,19 @@ pub enum WebhookError {
 
 pub struct WebhookHandler {
     payment_service: Arc<PaymentService>,
+    auto_assignment_engine: Arc<AutoAssignmentEngine>,
     config: Arc<Config>,
 }
 
 impl WebhookHandler {
-    pub fn new(payment_service: Arc<PaymentService>, config: Arc<Config>) -> Self {
+    pub fn new(
+        payment_service: Arc<PaymentService>, 
+        auto_assignment_engine: Arc<AutoAssignmentEngine>,
+        config: Arc<Config>
+    ) -> Self {
         Self {
             payment_service,
+            auto_assignment_engine,
             config,
         }
     }
@@ -78,17 +122,159 @@ impl WebhookHandler {
                 if let Some(network) = payload.network {
                     metadata.insert("network".to_string(), network);
                 }
+                // Add payment metadata if provided
+                if let Some(ref payload_metadata) = payload.metadata {
+                    for (key, value) in payload_metadata {
+                        metadata.insert(key.clone(), value.clone());
+                    }
+                }
                 metadata
             }),
         };
 
-        match self.payment_service.update_payment_status(update).await {
-            Ok(_) => Ok(WebhookResponse {
-                success: true,
-                message: "Payment status updated successfully".to_string(),
-                processed_at: chrono::Utc::now().to_rfc3339(),
-            }),
-            Err(e) => Err(WebhookError::ProcessingFailed(e.to_string())),
+        // Update payment status first
+        self.payment_service.update_payment_status(update).await
+            .map_err(|e| WebhookError::ProcessingFailed(e.to_string()))?;
+
+        // Process auto-assignment if payment succeeded and we have the required data
+        let assignment_result = if status == PaymentStatus::Succeeded {
+            self.process_payment_auto_assignment(&payload).await
+        } else {
+            None
+        };
+
+        // Build response with assignment details
+        let response = WebhookResponse {
+            success: true,
+            message: if assignment_result.is_some() {
+                "Payment processed and features activated successfully".to_string()
+            } else {
+                "Payment status updated successfully".to_string()
+            },
+            processed_at: chrono::Utc::now().to_rfc3339(),
+            features_activated: assignment_result.as_ref().map(|_| true),
+            permission_profile_assigned: assignment_result.as_ref().map(|r| r.permission_profile_name.clone()),
+            assignment_details: assignment_result,
+        };
+
+        tracing::info!(
+            "Payment webhook processed: {} - Status: {} - Features activated: {}",
+            payload.payment_id,
+            payload.status,
+            response.features_activated.unwrap_or(false)
+        );
+
+        Ok(response)
+    }
+
+    /// Process auto-assignment for successful payments
+    async fn process_payment_auto_assignment(
+        &self,
+        payload: &WebhookPayload,
+    ) -> Option<AssignmentDetails> {
+        // Check if we have required data for auto-assignment
+        let user_id = payload.user_id.as_ref()?;
+        let permission_profile_id = payload.permission_profile_id.as_ref()?;
+
+        // Parse IDs
+        let user_id = match UserId::new(user_id.clone()) {
+            user_id => user_id,
+        };
+        let permission_profile_id = match PermissionProfileId::new(permission_profile_id.clone()) {
+            permission_profile_id => permission_profile_id,
+        };
+
+        // Process auto-assignment
+        match self.process_permission_profile_assignment(&user_id, &permission_profile_id, payload).await {
+            Ok(details) => {
+                tracing::info!(
+                    "Auto-assignment successful: User {} assigned permission profile {} via payment {}",
+                    user_id, permission_profile_id, payload.payment_id
+                );
+                Some(details)
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Auto-assignment failed for payment {}: {}",
+                    payload.payment_id, e
+                );
+                None
+            }
+        }
+    }
+
+    /// Process permission profile assignment for payment
+    async fn process_permission_profile_assignment(
+        &self,
+        user_id: &UserId,
+        permission_profile_id: &PermissionProfileId,
+        payload: &WebhookPayload,
+    ) -> Result<AssignmentDetails, String> {
+        // Create assignment context from payment data
+        let context = self.create_payment_assignment_context(payload);
+
+        // Use auto-assignment engine to process the assignment
+        let assignment_result = self.auto_assignment_engine
+            .process_payment_completion(
+                &payload.payment_id,
+                user_id,
+                permission_profile_id,
+                &context,
+            )
+            .await
+            .map_err(|e| format!("Assignment failed: {}", e))?;
+
+        // Calculate expiration based on payment amount or metadata
+        let expires_at = self.calculate_feature_expiration(payload);
+
+        Ok(AssignmentDetails {
+            permission_profile_id: permission_profile_id.value().to_string(),
+            permission_profile_name: assignment_result.permission_profile_name.unwrap_or_else(|| "Unknown".to_string()),
+            features_unlocked: assignment_result.features_unlocked,
+            expires_at: expires_at.map(|dt| dt.to_rfc3339()),
+            activated_at: chrono::Utc::now().to_rfc3339(),
+        })
+    }
+
+    /// Create assignment context from payment webhook data
+    fn create_payment_assignment_context(&self, payload: &WebhookPayload) -> PaymentAssignmentContext {
+        PaymentAssignmentContext {
+            payment_id: payload.payment_id.clone(),
+            amount: payload.amount,
+            currency: payload.currency.clone().unwrap_or_else(|| "USD".to_string()),
+            network: payload.network.clone(),
+            transaction_hash: payload.transaction_hash.clone(),
+            metadata: payload.metadata.clone().unwrap_or_default(),
+            processed_at: chrono::Utc::now(),
+        }
+    }
+
+    /// Calculate feature expiration based on payment data
+    fn calculate_feature_expiration(&self, payload: &WebhookPayload) -> Option<chrono::DateTime<chrono::Utc>> {
+        // Check metadata for expiration information
+        if let Some(ref metadata) = payload.metadata {
+            if let Some(duration) = metadata.get("subscription_duration") {
+                return match duration.as_str() {
+                    "monthly" => Some(chrono::Utc::now() + chrono::Duration::days(30)),
+                    "quarterly" => Some(chrono::Utc::now() + chrono::Duration::days(90)),
+                    "yearly" => Some(chrono::Utc::now() + chrono::Duration::days(365)),
+                    "lifetime" => None, // No expiration for lifetime purchases
+                    _ => Some(chrono::Utc::now() + chrono::Duration::days(30)), // Default to monthly
+                };
+            }
+        }
+
+        // Fallback: calculate based on amount (example logic)
+        if let Some(amount) = payload.amount {
+            if amount >= 100.0 {
+                Some(chrono::Utc::now() + chrono::Duration::days(365)) // Yearly for $100+
+            } else if amount >= 30.0 {
+                Some(chrono::Utc::now() + chrono::Duration::days(90)) // Quarterly for $30+
+            } else {
+                Some(chrono::Utc::now() + chrono::Duration::days(30)) // Monthly for less
+            }
+        } else {
+            Some(chrono::Utc::now() + chrono::Duration::days(30)) // Default monthly
         }
     }
 

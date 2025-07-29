@@ -17,28 +17,30 @@ import { useRouter } from 'next/navigation';
 
 interface PublicRankingPreviewProps {
   className?: string;
+  initialData?: StockFinancialData[];
 }
 
-export function PublicRankingPreview({ className }: PublicRankingPreviewProps) {
-  const [data, setData] = useState<StockFinancialData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function PublicRankingPreview({ className, initialData }: PublicRankingPreviewProps) {
+  const [data, setData] = useState<StockFinancialData[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const router = useRouter();
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Fetch rankings 100-110 for public preview
-        const publicData = await fetchPublicRankingData(10, 10);
-        setData(publicData);
-      } catch (error) {
-        console.error('Failed to load public ranking data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+    // Only fetch if no initial data provided (fallback for client-side usage)
+    if (!initialData) {
+      const loadData = async () => {
+        try {
+          const publicData = await fetchPublicRankingData(10, 10);
+          setData(publicData);
+        } catch (error) {
+          console.error('Failed to load public ranking data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadData();
+    }
+  }, [initialData]);
 
   const handleUpgrade = () => {
     router.push('/payment');

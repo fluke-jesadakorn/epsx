@@ -1,11 +1,7 @@
 'use client';
 
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updatePassword,
-  updateProfile,
-} from 'firebase/auth';
+import { apiClient, isApiError   } from '@/lib/api-client.client';
+import type {ProfileUpdateRequest, PasswordChangeRequest} from '@/lib/api-client.client';
 import { useEffect, useState } from 'react';
 
 import type { UserLevelType } from '@/app/constants/packages';
@@ -22,6 +18,10 @@ import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';
 
 export function ProfileSettings() {
   const { user } = useAuth();
+  
+  // All users are now backend-authenticated
+  const isBackendUser = true;
+  
   const [displayName, setDisplayName] = useState<string>('');
   const [photoURL, setPhotoURL] = useState<string>('');
   const [showProfileForm, setShowProfileForm] = useState(false);
@@ -49,10 +49,13 @@ export function ProfileSettings() {
   };
 
   const levelGradients = {
+    BRONZE: 'from-amber-400 to-amber-600',
     BASIC: 'from-gray-400 to-gray-600',
     SILVER: 'from-slate-400 to-slate-600',
     GOLD: 'from-yellow-400 to-orange-500',
     PLATINUM: 'from-purple-500 to-pink-600',
+    DIAMOND: 'from-blue-500 to-cyan-600',
+    VIP: 'from-red-500 to-pink-600',
     API_PERSONAL: 'from-indigo-500 to-blue-600',
     API_COMPANY: 'from-blue-600 to-cyan-600',
     API_PARTNER: 'from-purple-600 to-indigo-700',
@@ -91,12 +94,17 @@ export function ProfileSettings() {
     setSuccess(false);
 
     try {
-      await updateProfile(user, {
+      const response = await apiClient.updateProfile({
         displayName,
         photoURL: photoURL || '',
       });
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+
+      if (isApiError(response)) {
+        setError(response.error || 'Failed to update profile. Please try again.');
+      } else {
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
+      }
     } catch (err) {
       setError('Failed to update profile. Please try again.');
       console.error('Profile update error:', err);
@@ -119,20 +127,20 @@ export function ProfileSettings() {
     setPasswordSuccess(false);
 
     try {
-      // Reauthenticate user before changing password
-      const credential = EmailAuthProvider.credential(
-        user.email || '',
+      const response = await apiClient.changePassword({
         currentPassword,
-      );
-      await reauthenticateWithCredential(user, credential);
+        newPassword,
+      });
 
-      // Update password
-      await updatePassword(user, newPassword);
-      setPasswordSuccess(true);
-      setTimeout(() => setPasswordSuccess(false), 3000);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      if (isApiError(response)) {
+        setPasswordError(response.error || 'Failed to change password. Please check your current password and try again.');
+      } else {
+        setPasswordSuccess(true);
+        setTimeout(() => setPasswordSuccess(false), 3000);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
     } catch (err) {
       setPasswordError(
         'Failed to change password. Please check your current password and try again.',
@@ -152,6 +160,8 @@ export function ProfileSettings() {
       </Alert>
     );
   }
+
+  // All users can now edit their profiles through the backend API
 
   const currentPackage = getPackageByLevel(userLevel);
 
@@ -306,6 +316,7 @@ export function ProfileSettings() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter your name"
                 className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
+                error={undefined}
               />
             </div>
             <div className="grid gap-2">
@@ -334,6 +345,7 @@ export function ProfileSettings() {
                 onChange={(e) => setPhotoURL(e.target.value)}
                 placeholder="Enter URL for profile picture"
                 className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
+                error={undefined}
               />
             </div>
             <Button
@@ -390,6 +402,7 @@ export function ProfileSettings() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
                   className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
+                  error={undefined}
                 />
               </div>
               <div className="grid gap-2">
@@ -407,6 +420,7 @@ export function ProfileSettings() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
                   className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
+                  error={undefined}
                 />
               </div>
               <div className="grid gap-2">
@@ -424,6 +438,7 @@ export function ProfileSettings() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   className="transition-all duration-200 focus:ring-2 focus:ring-primary/20 h-9 sm:h-10 text-sm sm:text-base"
+                  error={undefined}
                 />
               </div>
               <Button

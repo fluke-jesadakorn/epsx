@@ -65,7 +65,7 @@ export default function LazyStockRankingTable({
       {shouldUseBatchLoading ? (
         <BatchFinancialDataTable 
           maxCards={maxCards}
-          useBatchLoading={true}
+          useBatchLoading
           className="min-h-screen"
         />
       ) : (

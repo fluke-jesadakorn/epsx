@@ -9,7 +9,7 @@ pub enum AuthError {
     #[error("Unauthorized")]
     Unauthorized,
     #[error("Initialization failed: {0}")] InitializationFailed(String),
-    #[error("Database error: {0}")] DatabaseError(#[from] mongodb::error::Error),
+    #[error("Database error: {0}")] DatabaseError(String),
     #[error("Internal server error: {0}")] InternalError(String),
 }
 

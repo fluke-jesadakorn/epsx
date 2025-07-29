@@ -1,27 +1,42 @@
 {
   "name": "@epsx/api-client",
-  "version": "0.1.0",
-  "private": true,
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "version": "1.0.0",
+  "description": "Unified API client with cookie-based authentication for EPSX frontends",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "lint": "eslint src",
     "build": "tsup",
     "dev": "tsup --watch",
-    "clean": "rm -rf dist node_modules/.cache",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
-    "@epsx/types": "workspace:*",
-    "@epsx/utils": "workspace:*",
-    "axios": "^1.6.7",
-    "zod": "^3.22.4"
+    "@epsx/shared-core": "workspace:*",
+    "@epsx/types": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "22.13.11",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.2"
+    "@epsx/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.8.3",
+    "eslint": "^9.23.0"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0",
+    "react": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "restricted"
   }
 }

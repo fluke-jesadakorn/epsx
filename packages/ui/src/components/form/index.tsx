@@ -1,20 +1,24 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "../../lib/utils";
-import * as LabelPrimitive from "@radix-ui/react-label";
 import * as Slot from "@radix-ui/react-slot";
-import { Label } from "../label";
+import * as React from "react";
 import {
   Controller,
   FormProvider,
   useFormContext,
-  type ControllerProps,
-  type ControllerRenderProps,
-  type FieldValues,
-  type Path,
 } from "react-hook-form";
+
+import { cn } from "../../lib/utils";
+import { Label } from "../label";
+
 import type { FormFieldContextValue, FormItemContextValue } from "../../types/form";
+import type * as LabelPrimitive from "@radix-ui/react-label";
+import type {
+  ControllerProps,
+  ControllerRenderProps,
+  FieldValues,
+  Path,
+} from "react-hook-form";
 
 const Form = FormProvider;
 
@@ -37,7 +41,7 @@ function FormField<
   ...props
 }: ControllerProps<TFieldValues, TName> & {
   render: (props: FormFieldRenderProps<TFieldValues, TName>) => React.ReactElement | null;
-}) {
+}): React.ReactElement {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller
@@ -152,7 +156,18 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = "FormMessage";
 
-function useFormField() {
+function useFormField(): {
+  id: string;
+  name: string;
+  formItemId: string;
+  formDescriptionId: string;
+  formMessageId: string;
+  error?: { message?: string };
+  isDirty: boolean;
+  isTouched: boolean;
+  isValidating: boolean;
+  invalid: boolean;
+} {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
   const { getFieldState, formState } = useFormContext();

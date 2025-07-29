@@ -1,10 +1,28 @@
-import { ApiClient } from './lib/api-client';
+// Main API client factory
+export { ApiClientFactory, apiClient } from './ApiClientFactory';
 
-export type { ChatRequest, ChatResponse } from '@epsx/types';
-export { ApiClient };
+// Individual clients for custom usage
+export { AuthClient } from './clients/AuthClient';
+export { PaymentClient } from './clients/PaymentClient';
+export { AnalyticsClient } from './clients/AnalyticsClient';
+export { PermissionsClient } from './clients/PermissionsClient';
 
-// Create default instance
-export const apiClient = new ApiClient();
+// Base classes
+export { BaseHttpClient } from './base/BaseHttpClient';
+export { ClientApiClient } from './base/ClientApiClient';
+export { ServerApiClient } from './base/ServerApiClient';
 
-// Export types
-export type { AxiosInstance, AxiosError } from 'axios';
+// Legacy exports (cookie manager still needed)
+export { CookieManager } from './cookie-manager';
+
+// Re-export types for convenience
+export * from '@epsx/types';
+
+// Legacy API client (for backward compatibility)
+export { ApiClient } from './api-client';
+
+// Server API functions
+export { serverGetAdminProfile } from './api-server';
+
+// Type guards and utilities
+export { isApiError, isApiSuccess } from './types';
