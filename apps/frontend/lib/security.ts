@@ -2,7 +2,7 @@
 
 import { headers, cookies } from 'next/headers';
 import { z } from 'zod';
-import { trackUserAction, trackError, trackSecurityEvent } from './firebase-analytics';
+import { trackUserAction, trackError, trackSecurityEvent } from '@epsx/firebase-analytics/server';
 import { logger } from './logger';
 
 // Security event constants and enums
