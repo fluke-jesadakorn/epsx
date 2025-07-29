@@ -1,10 +1,14 @@
 'use server';
 
-import { cookies } from 'next/headers';
+// Re-export all server actions from the shared package
+export * from '@epsx/server-actions';
 
-import type { TokenFeature, Permission } from '@/types/auth/features';
+import type { TokenFeature } from '@/types/auth/features';
+import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
-
+import type { AdminUser } from '@epsx/api-client';
+import { isApiError } from '@epsx/api-client';
+import { serverGetAdminUsers, serverSetUserRole, serverGetUserStats } from '@epsx/api-client';
 
 interface User {
   userId: string;
@@ -17,70 +21,153 @@ interface User {
 
 export async function fetchUserDetails() {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('__session');
-    const email = cookieStore.get('email');
-    const role = cookieStore.get('role');
+    const res = await serverGetAdminUsers();
 
-    if (!sessionToken || !email || !role) {
-      throw new Error('Unauthorized access. Please login.');
+    if (isApiError(res)) {
+      throw new Error(`Failed to fetch users: ${res.error}`);
     }
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/roles`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken.value}`,
-        },
-        credentials: 'include',
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to fetch users: ${errorData}`);
+    if (!res.data) {
+      throw new Error('No user data received');
     }
 
-    const data = await response.json();
-    return data.users as User[];
+    // Transform AdminUser[] to User[] format for backward compatibility
+    const users: User[] = res.data.users.map((u: AdminUser) => ({
+      userId: u.uid,
+      email: u.email,
+      role: (u.role || 'user') as UserRole,
+      tokenBalance: 0, // Not available in AdminUser, set default
+      features: [], // Not available in AdminUser, set default
+      permissions: (u.permissions || [])
+        .map(p => p as Permission)
+        .filter(p => Object.values(Permission).includes(p)),
+    }));
+
+    return users;
   } catch (error) {
-    // console.error('Error fetching user details:', error);
     throw error;
   }
 }
 
-export async function updateUserRole(userId: string, role: string) {
+export async function updateUserRole(uid: string, role: string) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('__session');
+    const res = await serverSetUserRole(uid, role);
 
-    if (!sessionToken) {
-      throw new Error('Unauthorized access. Please login.');
+    if (isApiError(res)) {
+      throw new Error(`Failed to update user role: ${res.error}`);
     }
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/roles/${userId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken.value}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ role }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to update user role: ${errorData}`);
-    }
-
-    return await response.json();
+    return { success: true, message: 'User role updated successfully' };
   } catch (error) {
-    // console.error('Error updating user role:', error);
     throw error;
+  }
+}
+
+export async function getUserStats() {
+  try {
+    // Use direct fetch approach for debugging
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    console.log('[getUserStats] Available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
+    
+    // Build cookie header manually
+    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    console.log('[getUserStats] Cookie header length:', cookieHeader.length);
+    
+    // Direct fetch to backend
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
+    
+    console.log('[getUserStats] Making direct request to:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': cookieHeader,
+      },
+    });
+    
+    console.log('[getUserStats] Response status:', response.status);
+    console.log('[getUserStats] Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[getUserStats] Error response:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+    }
+    
+    const data = await response.json();
+    console.log('[getUserStats] Success response received');
+    return data;
+    
+  } catch (error) {
+    console.error('[getUserStats] Exception:', error);
+    throw error;
+  }
+}
+
+// IAM Server Actions
+async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+  
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+  const url = `${backendUrl}/api/v1/iam/${endpoint}`;
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cookie': cookieHeader,
+      ...options.headers,
+    },
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+  }
+  
+  return response.json();
+}
+
+export async function getIAMUsers(filters?: any) {
+  try {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined) {
+          queryParams.append(key, filters[key]);
+        }
+      });
+    }
+    
+    const endpoint = `users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return await makeIAMRequest(endpoint);
+  } catch (error) {
+    console.error('Error fetching IAM users:', error);
+    return [];
+  }
+}
+
+export async function getIAMRoles() {
+  try {
+    return await makeIAMRequest('roles');
+  } catch (error) {
+    console.error('Error fetching IAM roles:', error);
+    return [];
+  }
+}
+
+export async function getIAMPolicies() {
+  try {
+    return await makeIAMRequest('policies');
+  } catch (error) {
+    console.error('Error fetching IAM policies:', error);
+    return [];
   }
 }

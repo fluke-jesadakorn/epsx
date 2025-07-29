@@ -1,6 +1,5 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
   "globalDependencies": [
     "**/.env*",
     "tsconfig.base.json",
@@ -11,7 +10,6 @@
     "NODE_ENV",
     "CI",
     "VERCEL",
-    "NEXT_PUBLIC_*",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "FIREBASE_*"
@@ -60,7 +58,7 @@
     "build:frontend": {
       "dependsOn": ["^build"],
       "outputs": [".next/**"],
-      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"],
+      "env": ["FIREBASE_*"],
       "inputs": [
         "app/**",
         "components/**",
@@ -75,7 +73,7 @@
     "build:admin": {
       "dependsOn": ["^build"],
       "outputs": [".next/**"],
-      "env": ["NEXT_PUBLIC_*"],
+      "env": [],
       "inputs": [
         "app/**",
         "components/**",
@@ -112,7 +110,7 @@
       "cache": false,
       "persistent": true,
       "dependsOn": ["^build:packages"],
-      "env": ["NEXT_PUBLIC_*"]
+      "env": []
     },
     "dev:backend": {
       "cache": false,
@@ -130,7 +128,7 @@
     "start:admin": {
       "dependsOn": ["build:admin"],
       "cache": false,
-      "env": ["NEXT_PUBLIC_*"]
+      "env": []
     },
     "start:backend": {
       "dependsOn": ["build:backend"],

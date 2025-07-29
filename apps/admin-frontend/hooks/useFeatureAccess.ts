@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { iamService } from '../services/iamService';
+import { evaluatePermission } from '@epsx/server-actions';
 
 export const useFeatureAccess = (featureId: string, userId?: string) => {
   const [hasAccess, setHasAccess] = useState(false);
@@ -17,7 +17,12 @@ export const useFeatureAccess = (featureId: string, userId?: string) => {
       try {
         setLoading(true);
         setError(null);
-        const access = await iamService.hasFeatureAccess(userId, featureId);
+        const result = await evaluatePermission({
+          userId,
+          action: `access:${featureId}`,
+          resource: `feature:${featureId}`
+        });
+        const access = result?.allowed || false;
         setHasAccess(access);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to check feature access');
@@ -54,7 +59,12 @@ export const useMultipleFeatureAccess = (featureIds: string[], userId?: string) 
         // Check access for each feature
         const results = await Promise.all(
           featureIds.map(async (featureId) => {
-            const access = await iamService.hasFeatureAccess(userId, featureId);
+            const result = await evaluatePermission({
+          userId,
+          action: `access:${featureId}`,
+          resource: `feature:${featureId}`
+        });
+        const access = result?.allowed || false;
             return { featureId, access };
           })
         );

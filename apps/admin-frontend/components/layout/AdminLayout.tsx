@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/context/admin-auth';
+import { useAdminAuth } from '@/auth/ctx';
 import {
   Activity,
   BarChart3,
@@ -16,6 +16,7 @@ import {
   Lock,
   LogOut,
   Menu,
+  Package,
   Palette,
   PanelLeft,
   Search,
@@ -24,6 +25,7 @@ import {
   Shield,
   UserCheck,
   Users,
+  User,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -35,7 +37,7 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, signOut } = useAdminAuth();
+  const { user, loading, init, signOut } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,10 +55,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Only redirect if auth context is fully initialized and no user is found
+    if (init && !loading && !user) {
       router.replace('/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, init, router]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -136,7 +139,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading) {
+  if (loading || !init) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -199,11 +202,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           description: 'Identity and access management dashboard',
         },
         {
-          id: 'iam-templates',
-          label: 'Permission Templates',
-          href: '/iam?section=templates',
+          id: 'iam-permission-profiles',
+          label: 'Permission Profiles',
+          href: '/iam?section=permission-profiles',
           icon: Shield,
-          description: 'Create and manage permission templates',
+          description: 'Create and manage permission profiles',
+        },
+        {
+          id: 'permission-profile-assignment',
+          label: 'Profile Assignment',
+          href: '/permission-profiles/assign',
+          icon: User,
+          description: 'Assign feature permission profiles directly to users',
+        },
+        {
+          id: 'stock-ranking-packages',
+          label: 'Stock Ranking Packages',
+          href: '/stock-ranking-packages',
+          icon: Package,
+          description: 'Assign stock ranking access packages to users',
         },
         {
           id: 'iam-logs',

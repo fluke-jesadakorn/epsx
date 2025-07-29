@@ -1,0 +1,21 @@
+{
+  "buildCommand": "cd ../.. && pnpm build:frontend",
+  "devCommand": "cd ../.. && pnpm dev:frontend",
+  "installCommand": "cd ../.. && pnpm install",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "SITE_URL": "@site_url",
+    "API_URL": "@api_url"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
+}

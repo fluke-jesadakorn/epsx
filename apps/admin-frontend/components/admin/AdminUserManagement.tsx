@@ -3,6 +3,7 @@
 import { AdminService  } from '@/services/adminService';
 import type {AdminUser} from '@/services/adminService';
 import { USER_LEVEL_CONFIGS, UserLevel } from '@/types/admin/userLevels';
+import { adminLogger } from '@/lib/logger';
 import {
   AlertTriangle,
   CheckCircle,
@@ -76,7 +77,7 @@ export function AdminUserManagement() {
       const result = await AdminService.listUsers({ maxResults: 1000 });
       setUsers(result.users);
     } catch (err: any) {
-      console.error('Failed to load users:', err);
+      adminLogger.error('Failed to load users', { error: err instanceof Error ? err.message : err }, 'AdminUserManagement.loadUsers');
       setError(err.message || 'Failed to load users');
     } finally {
       setLoading(false);
@@ -89,7 +90,7 @@ export function AdminUserManagement() {
       await AdminService.setUserRole(uid, newRole);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
-      console.error('Failed to change role:', err);
+      adminLogger.error('Failed to change role', { error: err instanceof Error ? err.message : err, uid, newRole }, 'AdminUserManagement.handleRoleChange');
       addToast({
         type: 'error',
         title: 'Failed to change user role',
@@ -106,7 +107,7 @@ export function AdminUserManagement() {
       await AdminService.updateUserStatus(uid, !disabled);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
-      console.error('Failed to toggle status:', err);
+      adminLogger.error('Failed to toggle status', { error: err instanceof Error ? err.message : err, uid, disabled }, 'AdminUserManagement.handleStatusToggle');
       addToast({
         type: 'error',
         title: 'Failed to update user status',
@@ -129,7 +130,7 @@ export function AdminUserManagement() {
       await loadUsers();
       setConfirmDialog({ open: false });
     } catch (err: any) {
-      console.error('Failed to delete user:', err);
+      adminLogger.error('Failed to delete user', { error: err instanceof Error ? err.message : err, uid: confirmDialog.uid, email: confirmDialog.email }, 'AdminUserManagement.handleConfirmDelete');
       addToast({
         type: 'error',
         title: 'Failed to delete user',
@@ -144,14 +145,14 @@ export function AdminUserManagement() {
   const handleSendPasswordReset = async (email: string) => {
     try {
       setActionLoading(email);
-      await AdminService.sendPasswordResetEmail(email);
+      await AdminService.sendResetEmail(email);
       addToast({
         type: 'success',
         title: 'Password reset link generated',
         description: 'Check console for link',
       });
     } catch (err: any) {
-      console.error('Failed to send password reset:', err);
+      adminLogger.error('Failed to send password reset', { error: err instanceof Error ? err.message : err, email }, 'AdminUserManagement.handleSendPasswordReset');
       addToast({
         type: 'error',
         title: 'Failed to send password reset',
@@ -170,12 +171,12 @@ export function AdminUserManagement() {
   ) => {
     try {
       setActionLoading(uid);
-      await AdminService.setUserLevel(uid, newLevel, reason);
+      await AdminService.setLevel(uid, newLevel, reason);
       await loadUsers(); // Refresh the list
       setShowLevelModal(false);
       setLevelReason('');
     } catch (err: any) {
-      console.error('Failed to change user level:', err);
+      adminLogger.error('Failed to change user level', { error: err instanceof Error ? err.message : err, uid, newLevel, reason }, 'AdminUserManagement.handleLevelChange');
       addToast({
         type: 'error',
         title: 'Failed to change user level',
@@ -194,11 +195,11 @@ export function AdminUserManagement() {
 
   const handleShowLevelHistory = async (uid: string) => {
     try {
-      const history = await AdminService.getUserLevelHistory(uid);
+      const history = await AdminService.getLevelHistory(uid);
       setLevelHistory(history);
       setShowLevelHistory(true);
     } catch (err: any) {
-      console.error('Failed to fetch level history:', err);
+      adminLogger.error('Failed to fetch level history', { error: err instanceof Error ? err.message : err, uid }, 'AdminUserManagement.handleShowLevelHistory');
       addToast({
         type: 'error',
         title: 'Failed to fetch level history',

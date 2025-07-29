@@ -1,4 +1,111 @@
 // IAM Types for AWS-style permission system
+export interface UserWithPermissions extends User {
+  packageTier: PackageTier;
+  customPermissions: CustomPermission[];
+  effectivePermissions: EffectivePermission[];
+  packagePermissions: PackagePermission[];
+  subscriptionStatus: SubscriptionStatus;
+  lastPaymentDate?: Date;
+}
+
+export interface CustomPermission {
+  id: string;
+  userId: string;
+  featureId: string;
+  permission: Permission;
+  grantedBy: string; // Admin who granted this
+  grantedAt: Date;
+  expiresAt?: Date;
+  reason?: string;
+  isActive: boolean;
+}
+
+export interface PackagePermission {
+  id: string;
+  packageTier: PackageTier;
+  featureId: string;
+  permission: Permission;
+  isDefault: boolean;
+  autoGranted: boolean;
+}
+
+export interface EffectivePermission {
+  featureId: string;
+  permission: Permission;
+  source: PermissionSource;
+  grantedAt: Date;
+  expiresAt?: Date;
+  grantedBy?: string;
+}
+
+export enum PermissionSource {
+  PACKAGE = 'package',
+  CUSTOM = 'custom',
+  ROLE = 'role',
+  GROUP = 'group',
+}
+
+export enum PackageTier {
+  FREE = 'free',
+  BRONZE = 'bronze',
+  SILVER = 'silver',
+  GOLD = 'gold',
+  PLATINUM = 'platinum',
+  ENTERPRISE = 'enterprise',
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'active',
+  EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
+  PENDING = 'pending',
+  TRIAL = 'trial',
+}
+
+export interface Permission {
+  action: string;
+  resource: string;
+  conditions?: PermissionCondition[];
+}
+
+export interface PermissionCondition {
+  type: 'usage_limit' | 'time_range' | 'ip_restriction' | 'resource_owner';
+  value: any;
+  operator: 'eq' | 'gt' | 'lt' | 'in' | 'between';
+}
+
+export interface PermissionProfile {
+  id: string;
+  name: string;
+  description: string;
+  permissions: Permission[];
+  category: string;
+  isSystem: boolean;
+}
+
+// Feature definitions for the EPSX system
+export interface Feature {
+  id: string;
+  name: string;
+  description: string;
+  category: FeatureCategory;
+  permissions: Permission[];
+  requiredTier?: PackageTier;
+  isAdmin?: boolean;
+}
+
+export enum FeatureCategory {
+  DASHBOARD = 'dashboard',
+  PACKAGES = 'packages',
+  API_ACCESS = 'api_access',
+  PROFILE = 'profile',
+  SUPPORT = 'support',
+  ADMIN_USER = 'admin_user',
+  ADMIN_IAM = 'admin_iam',
+  ADMIN_PACKAGE = 'admin_package',
+  ADMIN_SYSTEM = 'admin_system',
+  ADMIN_SUPPORT = 'admin_support',
+}
 
 export interface User {
   id: string;
@@ -72,7 +179,7 @@ export interface Permission {
   action: string;
   resource: string;
   effect: 'Allow' | 'Deny';
-  conditions?: Record<string, any>;
+  conditions?: PermissionCondition[];
 }
 
 export interface UserPermission {
@@ -140,47 +247,64 @@ export interface GroupFormData {
   path?: string;
 }
 
-// Policy templates
-export const POLICY_TEMPLATES = {
+// Policy permission profiles
+export const POLICY_PERMISSION_PROFILES = {
   Bronze: {
     Version: '2012-10-17' as const,
     Statement: [
       {
         Effect: 'Allow' as const,
         Action: ['dashboard:read', 'profile:read', 'profile:update'],
-        Resource: ['user:self']
-      }
-    ]
+        Resource: ['user:self'],
+      },
+    ],
   },
   Silver: {
     Version: '2012-10-17' as const,
     Statement: [
       {
         Effect: 'Allow' as const,
-        Action: ['dashboard:read', 'profile:read', 'profile:update', 'analytics:read'],
-        Resource: ['user:self', 'analytics:basic']
-      }
-    ]
+        Action: [
+          'dashboard:read',
+          'profile:read',
+          'profile:update',
+          'analytics:read',
+        ],
+        Resource: ['user:self', 'analytics:basic'],
+      },
+    ],
   },
   Gold: {
     Version: '2012-10-17' as const,
     Statement: [
       {
         Effect: 'Allow' as const,
-        Action: ['dashboard:read', 'profile:read', 'profile:update', 'analytics:read', 'trading:read'],
-        Resource: ['user:self', 'analytics:*', 'trading:*']
-      }
-    ]
+        Action: [
+          'dashboard:read',
+          'profile:read',
+          'profile:update',
+          'analytics:read',
+          'trading:read',
+        ],
+        Resource: ['user:self', 'analytics:*', 'trading:*'],
+      },
+    ],
   },
   Platinum: {
     Version: '2012-10-17' as const,
     Statement: [
       {
         Effect: 'Allow' as const,
-        Action: ['dashboard:*', 'profile:*', 'analytics:*', 'trading:*', 'api:read'],
-        Resource: ['user:self', 'analytics:*', 'trading:*', 'api:*']
-      }
-    ]
+        Action: [
+          'dashboard:*',
+          'profile:*',
+          'analytics:*',
+          'trading:*',
+          'api:read',
+        ],
+        Resource: ['user:self', 'analytics:*', 'trading:*', 'api:*'],
+      },
+    ],
   },
   Admin: {
     Version: '2012-10-17' as const,
@@ -188,8 +312,8 @@ export const POLICY_TEMPLATES = {
       {
         Effect: 'Allow' as const,
         Action: ['*'],
-        Resource: ['*']
-      }
-    ]
-  }
+        Resource: ['*'],
+      },
+    ],
+  },
 };

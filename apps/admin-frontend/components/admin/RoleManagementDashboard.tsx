@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, Users, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import type { Role } from '@/types/admin/iam';
+import { AdminService } from '@/services/adminService';
 
 interface RoleStats {
   totalRoles: number;
@@ -28,18 +29,14 @@ export function RoleManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/iam/roles');
-      if (!response.ok) {
-        throw new Error('Failed to fetch roles');
-      }
-
-      const data = await response.json();
-      setRoles(data.roles || []);
+      const data = await AdminService.getIAMRoles();
+      const rolesArray = data?.roles || data || [];
+      setRoles(rolesArray);
       
       // Calculate stats
       setStats({
-        totalRoles: data.roles?.length || 0,
-        activeRoles: data.roles?.length || 0,
+        totalRoles: rolesArray.length || 0,
+        activeRoles: rolesArray.length || 0,
         totalUsers: 0, // TODO: Implement user count
         recentChanges: 0, // TODO: Implement change tracking
       });

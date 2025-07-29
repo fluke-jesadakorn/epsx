@@ -1,6 +1,6 @@
 'use client';
-import React, { useState } from "react";
-import { AuthGuard } from '@/components/auth/AuthGuard';
+import { useState } from "react";
+// Removed AuthGuard to allow free user access
 
 type Asset = {
   symbol: string;
@@ -40,7 +40,6 @@ export default function MarketDataSyncPage() {
     MOCK_MARKET_DATA.find((d) => d.symbol === symbol);
 
   return (
-    <AuthGuard requireAuth>
       <div className="max-w-2xl mx-auto py-10 px-4">
         <h1 className="text-2xl font-bold mb-6">My Data</h1>
         {step === 1 && (
@@ -126,6 +125,5 @@ export default function MarketDataSyncPage() {
         </div>
       )}
     </div>
-    </AuthGuard>
   );
 }

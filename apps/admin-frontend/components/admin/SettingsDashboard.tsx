@@ -12,9 +12,32 @@ import {
   Shield,
 } from 'lucide-react';
 import * as React from 'react';
+import { AdminService } from '@/services/adminService';
 
-export const SettingsDashboard: React.FC = () => {
+interface SettingsDashboardProps {
+  initialSystemConfig: any;
+  initialGeneralSettings: any;
+  initialNotificationSettings: any;
+  initialSecuritySettings: any;
+  initialFeatureFlags: any;
+  initialEnvironmentConfig: any;
+}
+
+export const SettingsDashboard: React.FC<SettingsDashboardProps> = ({
+  initialSystemConfig,
+  initialGeneralSettings,
+  initialNotificationSettings,
+  initialSecuritySettings,
+  initialFeatureFlags,
+  initialEnvironmentConfig
+}) => {
   const [activeView, setActiveView] = React.useState('general');
+  const [settings, setSettings] = React.useState({
+    general: initialGeneralSettings,
+    notifications: initialNotificationSettings,
+    security: initialSecuritySettings,
+    system: initialSystemConfig
+  });
 
   const settingsViews = [
     {
@@ -43,6 +66,32 @@ export const SettingsDashboard: React.FC = () => {
     },
   ];
 
+  const handleSettingChange = (category: string, key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      for (const [category, categorySettings] of Object.entries(settings)) {
+        await AdminService.updateSettings({
+          category,
+          settings: categorySettings,
+          updatedBy: 'current-admin-id'
+        });
+      }
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Failed to save settings');
+    }
+  };
+
   const renderContent = () => {
     switch (activeView) {
       case 'general':
@@ -62,7 +111,8 @@ export const SettingsDashboard: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    defaultValue="EPSX Admin Console"
+                    value={settings.general?.systemName || settings.system?.name || 'EPSX Admin Console'}
+                    onChange={(e) => handleSettingChange('general', 'systemName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -72,7 +122,8 @@ export const SettingsDashboard: React.FC = () => {
                   </label>
                   <input
                     type="email"
-                    defaultValue="admin@epsx.com"
+                    value={settings.general?.adminEmail || settings.system?.adminEmail || 'admin@epsx.com'}
+                    onChange={(e) => handleSettingChange('general', 'adminEmail', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -86,10 +137,142 @@ export const SettingsDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="relative inline-block w-12 h-6">
-                    <input type="checkbox" className="sr-only" />
+                    <input 
+                      type="checkbox" 
+                      className="sr-only"
+                      checked={settings.general?.maintenanceMode || settings.system?.maintenanceMode || false}
+                      onChange={(e) => handleSettingChange('general', 'maintenanceMode', e.target.checked)}
+                    />
                     <div className="block bg-gray-200 dark:bg-gray-600 w-12 h-6 rounded-full"></div>
                     <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'notifications':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-blue-600" />
+                  Notification Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  {Object.entries(settings.notifications || {}).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Enable {key.toLowerCase()} notifications
+                        </div>
+                      </div>
+                      <div className="relative inline-block w-12 h-6">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only"
+                          checked={Boolean(value)}
+                          onChange={(e) => handleSettingChange('notifications', key, e.target.checked)}
+                        />
+                        <div className="block bg-gray-200 dark:bg-gray-600 w-12 h-6 rounded-full"></div>
+                        <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'security':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-blue-600" />
+                  Security Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Session Timeout (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={settings.security?.sessionTimeout || 30}
+                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        Two-Factor Authentication
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Require 2FA for admin access
+                      </div>
+                    </div>
+                    <div className="relative inline-block w-12 h-6">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only"
+                        checked={settings.security?.twoFactorAuth || false}
+                        onChange={(e) => handleSettingChange('security', 'twoFactorAuth', e.target.checked)}
+                      />
+                      <div className="block bg-gray-200 dark:bg-gray-600 w-12 h-6 rounded-full"></div>
+                      <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'appearance':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-blue-600" />
+                  Appearance Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Theme
+                  </label>
+                  <select
+                    value={settings.general?.theme || 'light'}
+                    onChange={(e) => handleSettingChange('general', 'theme', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="auto">Auto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Primary Color
+                  </label>
+                  <input
+                    type="color"
+                    value={settings.general?.primaryColor || '#3B82F6'}
+                    onChange={(e) => handleSettingChange('general', 'primaryColor', e.target.value)}
+                    className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -105,7 +288,7 @@ export const SettingsDashboard: React.FC = () => {
               {settingsViews.find((v) => v.id === activeView)?.label}
             </h3>
             <p className="text-gray-500 dark:text-gray-400">
-              This section is under development
+              Loading settings data...
             </p>
           </div>
         );
@@ -129,7 +312,10 @@ export const SettingsDashboard: React.FC = () => {
             <RotateCcw className="h-4 w-4" />
             <span className="text-sm">Reset</span>
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={handleSaveSettings}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
             <Save className="h-4 w-4" />
             <span className="text-sm">Save Changes</span>
           </button>

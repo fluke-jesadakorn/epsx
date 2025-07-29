@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createPaymentService } from '@/services/payment.service';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +25,7 @@ import {
   validatePayment,
 } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/context/auth-context';
 import PaymentDetails from './PaymentDetails';
 import { QRCodeCanvas } from 'qrcode.react';
 interface OneClickPaymentProps {
@@ -101,7 +102,11 @@ export default function OneClickPayment({
 }: OneClickPaymentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const paymentService = createPaymentService();
+  
+  // Create API client instance
+  const apiClient = createApiClient('/api');
 
   // State management
   const [step, setStep] = useState<'select' | 'pay' | 'success'>('select');
@@ -152,7 +157,6 @@ export default function OneClickPayment({
   const handleQuickPay = async () => {
     if (!selectedPackageData || !selectedMethodData) return;
 
-    const user = auth.currentUser;
     if (!user) {
       setError('Please login to continue with payment');
       return;
@@ -164,24 +168,21 @@ export default function OneClickPayment({
       setError('');
 
       try {
-        const response = await fetch('/api/payment/deposit-address', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            currency: selectedMethodData.id,
-            userId: user.uid,
-            packageId: selectedPackage,
-          }),
+        const response = await apiClient.post('/api/v1/payments/crypto/deposit-address', {
+          currency: selectedMethodData.id,
+          userId: user.uid,
+          packageId: selectedPackage,
         });
 
-        const result = await response.json();
-        if (!response.ok || !result.deposit) {
-          throw new Error(result.error || 'Failed to get deposit address');
+        if (isApiError(response)) {
+          throw new Error(response.error || 'Failed to get deposit address');
         }
 
-        setDeposit({ address: result.deposit.address, currency: result.deposit.currency });
+        if (!response.data.deposit) {
+          throw new Error('No deposit address returned');
+        }
+
+        setDeposit({ address: response.data.deposit.address, currency: response.data.deposit.currency });
         setStep('pay');
       } catch (err) {
         setError(

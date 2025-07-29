@@ -3,13 +3,13 @@
 export const IAM_CONFIG = {
   // Default role for new users
   defaultRole: 'user',
-  
+
   // Session configuration
   session: {
-    cookieName: '__session',
+    cookieName: 'sess_id',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   },
-  
+
   // Route protection configuration
   routes: {
     // Public routes that don't require authentication
@@ -19,51 +19,41 @@ export const IAM_CONFIG = {
       '/register',
       '/forgot-password',
       '/reset-password',
-      '/api/auth',
+      '/api/v1/auth',
       '/api/public',
       '/_next',
       '/favicon.ico',
       '/public',
       '/static',
     ],
-    
+
     // Protected routes with required permissions
     protected: {
       '/dashboard': ['read:own_data'],
       '/premium': ['read:premium_content'],
       '/moderator': ['moderate:content'],
-      '/api/moderator': ['moderate:content'],
-      '/api/users': ['manage:users'],
+      '/api/v1/admin/moderator': ['moderate:content'],
+      '/api/v1/users': ['manage:users'],
     },
-    
+
     // Routes that require authentication but no specific permissions
-    authenticated: [
-      '/profile',
-      '/settings',
-      '/account',
-    ],
+    authenticated: ['/profile', '/settings', '/account'],
   },
-  
-  // API endpoints
+
+  // API endpoints - client-side uses relative paths
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002',
+    baseUrl: '/api', // Use Next.js API routes for client-side
     endpoints: {
-      auth: '/api/auth',
-      permissions: '/api/permissions',
-      roles: '/api/roles',
-      users: '/api/users',
+      auth: '/api/v1/auth',
+      permissions: '/api/v1/iam/permissions',
+      roles: '/api/v1/iam/roles',
+      users: '/api/v1/users',
     },
   },
-  
-  // Firebase configuration
-  firebase: {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+
+  // Backend API configuration - server-side only
+  backend: {
+    timeout: 10000, // 10 seconds
   },
 };
 
@@ -73,23 +63,23 @@ export const PERMISSIONS = {
   READ_OWN_DATA: 'read:own_data',
   WRITE_OWN_DATA: 'write:own_data',
   READ_PUBLIC_CONTENT: 'read:public_content',
-  
+
   // Premium user permissions
   READ_PREMIUM_CONTENT: 'read:premium_content',
   WRITE_PREMIUM_CONTENT: 'write:premium_content',
-  
+
   // Moderator permissions
   MODERATE_CONTENT: 'moderate:content',
   READ_MODERATED: 'read:moderated',
   WRITE_MODERATED: 'write:moderated',
-  
+
   // Admin permissions
   ADMIN_ACCESS: 'admin:access',
   MANAGE_USERS: 'manage:users',
   MANAGE_ROLES: 'manage:roles',
   READ_ALL: 'read:all',
   WRITE_ALL: 'write:all',
-  
+
   // Super admin permissions
   SUPER_ADMIN: '*',
 } as const;

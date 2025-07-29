@@ -1,5 +1,5 @@
 import { Navigation } from '@/components/nav';
-import { AuthProvider } from '@/lib/auth';
+import { AuthProvider } from '@/context/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 
 interface LayoutProps {

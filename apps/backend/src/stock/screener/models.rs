@@ -65,13 +65,13 @@ impl TableDataMetrics {
         (
             PhaseInfo {
                 date: entry_date.format("%Y-%m-%d").to_string(),
-                active: now >= entry_date.timestamp_millis() &&
-                now < monitor_date.timestamp_millis(),
+                active: now >= entry_date.timestamp() * 1000 &&
+                now < monitor_date.timestamp() * 1000,
             },
             PhaseStatus {
                 date: monitor_date.format("%Y-%m-%d").to_string(),
                 phase_type: PhaseType::Monitor,
-                active: now >= monitor_date.timestamp_millis(),
+                active: now >= monitor_date.timestamp() * 1000,
             },
         )
     }

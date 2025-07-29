@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import { cn } from "../../lib/utils";
 
 interface DialogProps {
@@ -26,7 +27,7 @@ interface DialogTitleProps {
 
 const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
   React.useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    const handleEscape = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
         onOpenChange(false);
       }

@@ -20,12 +20,12 @@
       "@/context/*": ["./context/*"],
       "@/services/*": ["./services/*"],
       "@epsx/config/*": ["../../packages/config/*"],
-      "@epsx/api-client/*": ["../../packages/api-client/*"],
-      "@epsx/shared/*": ["../../packages/shared/*"],
       "@epsx/types/*": ["../../packages/types/*"],
       "@epsx/utils/*": ["../../packages/utils/*"],
       "@epsx/ui": ["../../packages/ui/src"],
       "@epsx/ui/*": ["../../packages/ui/src/*"],
+      "@epsx/api-client": ["../../packages/api-client/src"],
+      "@epsx/api-client/*": ["../../packages/api-client/src/*"],
       "@types/react": ["node_modules/@types/react"]
     },
     "target": "ES2022",
@@ -54,7 +54,6 @@
     "eslint.config.js",
     "lib/store/**/*.ts",
     "lib/store/**/*.tsx",
-    "lib/firebase-admin.d.ts",
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

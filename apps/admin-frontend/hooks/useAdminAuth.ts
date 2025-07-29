@@ -1,47 +1,86 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { AdminRole } from '@/types/admin/roles';
 import { AdminService } from '@/services/adminService';
+import { adminLogger } from '@/lib/logger';
 
 export function useAdminAuth() {
-  // This would connect to your admin auth system
-  // For now, using mock data - replace with actual auth implementation
-  const adminUser = {
-    id: 'admin-1',
-    role: AdminRole.ADMIN, // This should come from your auth system
-    email: 'admin@example.com',
-    permissions: [],
-    assignedBy: 'system',
-    assignedAt: new Date(),
-    isActive: true
-  };
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const hasPermission = (resource: string, action: string): boolean => {
-    return AdminService.hasPermission(adminUser.role, resource, action);
+  useEffect(() => {
+    const loadAdminProfile = async () => {
+      try {
+        const profile = await AdminService.getCurrentUser();
+        if (profile) {
+          setAdminUser({
+            id: profile.user_id || profile.id,
+            role: profile.role || AdminRole.ADMIN,
+            email: profile.email,
+            permissions: profile.permissions || [],
+            assignedBy: 'system',
+            assignedAt: new Date(),
+            isActive: true
+          });
+        }
+      } catch (error) {
+        adminLogger.error('Failed to load admin profile', { error: error instanceof Error ? error.message : String(error) }, 'useAdminAuth');
+        setAdminUser(null);
+      }
+      setLoading(false);
+    };
+
+    loadAdminProfile();
+  }, []);
+
+  const hasPermission = async (resource: string, action: string): Promise<boolean> => {
+    if (!adminUser?.id) return false;
+    try {
+      const result = await AdminService.evaluatePermission({
+        userId: adminUser.id,
+        action: `${action}:${resource}`,
+        resource: `admin:${resource}`
+      });
+      return result?.allowed || false;
+    } catch (error) {
+      adminLogger.error('Permission check failed', { resource, action, error });
+      return false;
+    }
   };
 
   const canManageUsers = (): boolean => {
-    return AdminService.canManageUsers(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const canViewPayments = (): boolean => {
-    return AdminService.canViewPayments(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const canManageSystem = (): boolean => {
-    return AdminService.canManageSystem(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN;
   };
 
   const canViewAnalytics = (): boolean => {
-    return AdminService.canViewAnalytics(adminUser.role);
+    return adminUser?.role === AdminRole.SUPER_ADMIN || adminUser?.role === AdminRole.ADMIN;
   };
 
   const getAvailableActions = (resource: string): string[] => {
-    return AdminService.getAvailableActions(adminUser.role, resource);
+    if (!adminUser) return [];
+    
+    const baseActions = ['view'];
+    if (adminUser.role === AdminRole.SUPER_ADMIN) {
+      return [...baseActions, 'create', 'edit', 'delete', 'manage'];
+    } else if (adminUser.role === AdminRole.ADMIN) {
+      return [...baseActions, 'create', 'edit'];
+    }
+    
+    return baseActions;
   };
 
   return {
     adminUser,
+    loading,
     hasPermission,
     canManageUsers,
     canViewPayments,

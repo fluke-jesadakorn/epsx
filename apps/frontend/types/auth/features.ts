@@ -1,13 +1,18 @@
 import { UserRole } from './roles';
-import type { User as FirebaseUser } from 'firebase/auth';
 import type { UserSubscription } from '@epsx/types';
 
-export interface User extends FirebaseUser {
+export interface User {
+  user_id: string;
+  email: string;
   role: UserRole;
   token_balance: number;
   features: TokenFeature[];
   permissions: Permission[];
   subscription?: UserSubscription; // New payment system
+  // Optional backend compatibility fields
+  emailVerified?: boolean;
+  displayName?: string;
+  photoURL?: string;
 }
 
 export enum TokenFeature {

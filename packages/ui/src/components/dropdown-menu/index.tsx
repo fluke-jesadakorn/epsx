@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import { cn } from "../../lib/utils";
 
 interface DropdownMenuProps {
@@ -44,7 +45,7 @@ const DropdownMenuTrigger: React.FC<DropdownMenuTriggerProps> = ({
   const context = React.useContext(DropdownMenuContext);
   if (!context) throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
 
-  const handleClick = () => {
+  const handleClick = (): void => {
     context.setIsOpen(!context.isOpen);
   };
 
@@ -71,7 +72,7 @@ const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({
   if (!context) throw new Error("DropdownMenuContent must be used within DropdownMenu");
 
   React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent): void => {
       const target = e.target as Element;
       if (!target.closest("[data-dropdown-menu]")) {
         context.setIsOpen(false);
@@ -82,10 +83,10 @@ const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({
       document.addEventListener("click", handleClickOutside);
     }
 
-    return () => {
+    return (): void => {
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [context.isOpen]);
+  }, [context.isOpen, context]);
 
   if (!context.isOpen) return null;
 
@@ -110,7 +111,7 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({ onClick, children }
   const context = React.useContext(DropdownMenuContext);
   if (!context) throw new Error("DropdownMenuItem must be used within DropdownMenu");
 
-  const handleClick = () => {
+  const handleClick = (): void => {
     onClick?.();
     context.setIsOpen(false);
   };

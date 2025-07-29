@@ -13,6 +13,8 @@ coverage/
 **/coverage/
 reports/
 **/junit/
+**/__test__/
+**/**/__tests__/
 
 # Production
 build/

@@ -14,13 +14,6 @@ export {
   FinancialDataHeader,
 } from './components/LayoutComponents';
 
-// PancakeSwap-style components
-export {
-  FloatingElements,
-  PancakeButton,
-  GlowCard,
-  EmojiBadge,
-} from './components/PancakeElements';
 
 // Hooks
 export {

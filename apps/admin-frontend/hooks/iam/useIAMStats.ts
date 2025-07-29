@@ -1,23 +1,24 @@
-import { useState, useEffect } from 'react';
-import { iamService } from '../../services/iamService';
+import { useEffect, useState } from 'react';
+import { adminLogger } from '../../lib/logger';
+import { getIAMUsers } from '@epsx/server-actions';
 
 interface IAMStats {
   totalUsers: number;
   activeSubscriptions: number;
-  permissionTemplates: number;
+  permissionProfiles: number;
   userGrowth: { value: number; isPositive: boolean };
   subscriptionGrowth: { value: number; isPositive: boolean };
-  templateGrowth: { value: number; isPositive: boolean };
+  permissionProfileGrowth: { value: number; isPositive: boolean };
 }
 
 export const useIAMStats = () => {
   const [stats, setStats] = useState<IAMStats>({
     totalUsers: 0,
     activeSubscriptions: 0,
-    permissionTemplates: 0,
+    permissionProfiles: 0,
     userGrowth: { value: 0, isPositive: true },
     subscriptionGrowth: { value: 0, isPositive: true },
-    templateGrowth: { value: 0, isPositive: true }
+    permissionProfileGrowth: { value: 0, isPositive: true },
   });
   const [loading, setLoading] = useState(true);
 
@@ -25,35 +26,39 @@ export const useIAMStats = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        
-        // Get basic stats from existing IAM service
-        const users = await iamService.getUsers();
-        
+
+        // Get basic stats from server action
+        const users = await getIAMUsers();
+
         // Calculate stats
         const totalUsers = users.length;
-        const activeSubscriptions = users.filter(u => u.subscriptionStatus === 'active').length;
-        
+        const activeSubscriptions = users.filter(
+          u => u.subscriptionStatus === 'active'
+        ).length;
+
         // Mock growth data - in real implementation, this would come from analytics
         const statsData: IAMStats = {
           totalUsers,
           activeSubscriptions,
-          permissionTemplates: 5, // Mock value
+          permissionProfiles: 5, // Mock value
           userGrowth: { value: 12, isPositive: true },
           subscriptionGrowth: { value: 8, isPositive: true },
-          templateGrowth: { value: 3, isPositive: true }
+          permissionProfileGrowth: { value: 3, isPositive: true },
         };
-        
+
         setStats(statsData);
       } catch (error) {
-        console.error('Failed to fetch IAM stats:', error);
+        adminLogger.error('Failed to fetch IAM stats', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         // Set fallback values
         setStats({
           totalUsers: 0,
           activeSubscriptions: 0,
-          permissionTemplates: 0,
+          permissionProfiles: 0,
           userGrowth: { value: 0, isPositive: true },
           subscriptionGrowth: { value: 0, isPositive: true },
-          templateGrowth: { value: 0, isPositive: true }
+          permissionProfileGrowth: { value: 0, isPositive: true },
         });
       } finally {
         setLoading(false);

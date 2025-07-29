@@ -1,5 +1,22 @@
-// Client-side admin service - makes API calls to server endpoints
+// New admin service using only server actions
 import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
+import { adminLogger } from '@/lib/logger';
+import { 
+  getAdminUsers, 
+  getUserStats,
+  updateUserRole,
+  updateUserPackageTier,
+  getPermissionProfiles,
+  assignPermissionProfile,
+  getStockRankingPackages,
+  assignStockRankingPackage,
+  getAnalyticsData,
+  getCustomPermissions,
+  getIAMRoles,
+  evaluatePermission,
+  getCurrentUser,
+  updateSettings
+} from '@epsx/server-actions';
 
 export interface AdminUser {
   uid: string;
@@ -20,379 +37,229 @@ export interface AdminUser {
   numericLevel?: number;
   levelAssignedBy?: string;
   levelAssignedAt?: string;
-  levelUpdateReason?: string;
-  maxTokens?: number;
-  tokenMultiplier?: number;
-  lastUpdated?: string;
-  metadata: {
-    creationTime?: string;
-    lastSignInTime?: string;
-    lastRefreshTime?: string | null;
-  };
-}
-
-export interface UserListOptions {
-  maxResults?: number;
-  pageToken?: string;
-}
-
-export interface UserListResult {
-  users: AdminUser[];
-  pageToken?: string;
+  levelHistory?: UserLevelAssignment[];
 }
 
 export interface UserStats {
   totalUsers: number;
-  verifiedUsers: number;
-  disabledUsers: number;
-  adminUsers: number;
-  verificationRate: number;
+  activeUsers: number;
+  newUsersThisMonth: number;
+  usersByRole: Record<string, number>;
+  usersByTier: Record<string, number>;
 }
 
 export class AdminService {
-  // List users
-  static async listUsers(options: UserListOptions = {}): Promise<UserListResult> {
+  /**
+   * Get all admin users with optional filtering
+   */
+  static async getUsers(filters?: {
+    role?: string;
+    status?: string;
+    packageTier?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AdminUser[]> {
     try {
-      const params = new URLSearchParams();
-      if (options.maxResults) params.set('maxResults', options.maxResults.toString());
-      if (options.pageToken) params.set('pageToken', options.pageToken);
-
-      const response = await fetch(`/api/admin/users?${params.toString()}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch users');
-      }
-      
-      return await response.json();
+      const response = await getAdminUsers(filters);
+      return response.users || [];
     } catch (error) {
-      console.error('Failed to list users:', error);
+      adminLogger.error('Failed to fetch users', error);
       throw error;
     }
   }
 
-  // Get user by UID
-  static async getUser(uid: string): Promise<AdminUser> {
-    try {
-      const response = await fetch(`/api/admin/users/${uid}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user');
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error(`Failed to get user ${uid}:`, error);
-      throw error;
-    }
-  }
-
-  // Set user role
-  static async setUserRole(uid: string, role: string): Promise<void> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateRole',
-          uid,
-          data: { role }
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user role');
-      }
-    } catch (error) {
-      console.error(`Failed to set role for user ${uid}:`, error);
-      throw error;
-    }
-  }
-
-  // Update user status (enable/disable)
-  static async updateUserStatus(uid: string, disabled: boolean): Promise<void> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateStatus',
-          uid,
-          data: { disabled }
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user status');
-      }
-    } catch (error) {
-      console.error(`Failed to update status for user ${uid}:`, error);
-      throw error;
-    }
-  }
-
-  // Delete user
-  static async deleteUser(uid: string): Promise<void> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'deleteUser',
-          uid
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
-      }
-    } catch (error) {
-      console.error(`Failed to delete user ${uid}:`, error);
-      throw error;
-    }
-  }
-
-  // Send password reset email
-  static async sendPasswordResetEmail(email: string): Promise<string> {
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'sendPasswordReset',
-          data: { email }
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send password reset');
-      }
-
-      const result = await response.json();
-      return result.link;
-    } catch (error) {
-      console.error(`Failed to generate password reset for ${email}:`, error);
-      throw error;
-    }
-  }
-
-  // Get user statistics
+  /**
+   * Get user statistics
+   */
   static async getUserStats(): Promise<UserStats> {
     try {
-      const response = await fetch('/api/admin/stats');
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user statistics');
-      }
-      
-      return await response.json();
+      return await getUserStats();
     } catch (error) {
-      console.error('Failed to get user stats:', error);
+      adminLogger.error('Failed to fetch user stats', error);
       throw error;
     }
   }
 
-  // Set user level
-  static async setUserLevel(uid: string, userLevel: UserLevel, reason?: string): Promise<void> {
+  /**
+   * Update user role
+   */
+  static async updateUserRole(uid: string, role: string): Promise<void> {
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateUserLevel',
-          uid,
-          data: { userLevel, reason }
-        }),
+      await updateUserRole(uid, role);
+    } catch (error) {
+      adminLogger.error('Failed to update user role', { uid, role, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update user package tier
+   */
+  static async updateUserPackageTier(
+    uid: string, 
+    tier: string, 
+    updatedBy: string
+  ): Promise<void> {
+    try {
+      await updateUserPackageTier(uid, tier, updatedBy);
+    } catch (error) {
+      adminLogger.error('Failed to update package tier', { uid, tier, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get permission profiles
+   */
+  static async getPermissionProfiles(): Promise<any> {
+    try {
+      return await getPermissionProfiles();
+    } catch (error) {
+      adminLogger.error('Failed to fetch permission profiles', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Assign permission profile to users
+   */
+  static async assignPermissionProfile(
+    userIds: string[], 
+    profileId: string, 
+    assignedBy: string
+  ): Promise<void> {
+    try {
+      await assignPermissionProfile(userIds, profileId, assignedBy);
+    } catch (error) {
+      adminLogger.error('Failed to assign permission profile', { 
+        userIds, 
+        profileId, 
+        error 
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user level');
-      }
-    } catch (error) {
-      console.error(`Failed to set user level for user ${uid}:`, error);
       throw error;
     }
   }
 
-  // Get user level history
-  static async getUserLevelHistory(uid: string): Promise<UserLevelAssignment[]> {
+  /**
+   * Get stock ranking packages
+   */
+  static async getStockRankingPackages(): Promise<any[]> {
     try {
-      const response = await fetch(`/api/admin/users/${uid}/level-history`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch user level history');
-      }
-      return await response.json();
+      return await getStockRankingPackages();
     } catch (error) {
-      console.error(`Failed to get user level history for ${uid}:`, error);
-      throw error;
+      adminLogger.error('Failed to fetch stock ranking packages', error);
+      return [];
     }
   }
 
-  // Bulk update user levels
-  static async bulkUpdateUserLevels(updates: Array<{uid: string, userLevel: UserLevel, reason?: string}>): Promise<any> {
+  /**
+   * Assign stock ranking package to users
+   */
+  static async assignStockRankingPackage(
+    userIds: string[], 
+    packageId: string, 
+    assignedBy: string
+  ): Promise<void> {
     try {
-      const response = await fetch('/api/admin/users/bulk-update-levels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ updates }),
+      await assignStockRankingPackage(userIds, packageId, assignedBy);
+    } catch (error) {
+      adminLogger.error('Failed to assign stock ranking package', { 
+        userIds, 
+        packageId, 
+        error 
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to bulk update user levels');
-      }
-      
-      const result = await response.json();
-      
-      // Ensure the result has the expected structure
-      if (!result || typeof result !== 'object') {
-        throw new Error('Invalid response from server');
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Failed to bulk update user levels:', error);
       throw error;
     }
   }
 
-  // Permission checking methods
-  static hasPermission(role: string, _resource: string, _action: string): boolean {
-    // Simple role-based permission check
-    if (role === 'ADMIN') {
-      return true; // Admins have all permissions
-    }
-    
-    // For other roles, implement specific permission logic
-    return false;
-  }
-
-  static canManageUsers(role: string): boolean {
-    return this.hasPermission(role, 'users', 'manage');
-  }
-
-  static canAssignUserLevels(role: string): boolean {
-    return this.hasPermission(role, 'users', 'assign_levels');
-  }
-
-  static canViewAnalytics(role: string): boolean {
-    return this.hasPermission(role, 'analytics', 'view');
-  }
-
-  static canViewPayments(role: string): boolean {
-    return this.hasPermission(role, 'payments', 'view');
-  }
-
-  static canManageSystem(role: string): boolean {
-    return this.hasPermission(role, 'system', 'manage');
-  }
-
-  static getAvailableActions(role: string, resource: string): string[] {
-    if (role === 'ADMIN') {
-      // Admins can do everything
-      switch (resource) {
-        case 'users':
-          return ['create', 'read', 'update', 'delete', 'assign_levels'];
-        case 'payments':
-          return ['read', 'refund', 'process'];
-        case 'system':
-          return ['configure', 'backup', 'restore'];
-        case 'analytics':
-          return ['view', 'export'];
-        default:
-          return [];
-      }
-    }
-    
-    // For other roles, return empty array or specific permissions
-    return [];
-  }
-
-  static getRolePriority(role: string): number {
-    switch (role) {
-      case 'ADMIN':
-        return 100;
-      case 'USER':
-        return 1;
-      default:
-        return 0;
-    }
-  }
-
-  // IAM Methods
-  static async listRoles(): Promise<{ roles: any[] }> {
+  /**
+   * Get analytics data
+   */
+  static async getAnalyticsData(type: string, filters?: any): Promise<any> {
     try {
-      const response = await fetch('/api/admin/iam/roles', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch roles');
-      }
-      
-      return await response.json();
+      return await getAnalyticsData(type, filters);
     } catch (error) {
-      console.error('Failed to list roles:', error);
+      adminLogger.error(`Failed to fetch ${type} analytics`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Search users by email or name
+   */
+  static async searchUsers(query: string): Promise<AdminUser[]> {
+    try {
+      const allUsers = await this.getUsers();
+      return allUsers.filter(user => 
+        user.email.toLowerCase().includes(query.toLowerCase()) ||
+        user.displayName?.toLowerCase().includes(query.toLowerCase())
+      );
+    } catch (error) {
+      adminLogger.error('Failed to search users', { query, error });
+      return [];
+    }
+  }
+
+  /**
+   * Get custom permissions
+   */
+  static async getCustomPermissions(): Promise<any[]> {
+    try {
+      return await getCustomPermissions();
+    } catch (error) {
+      adminLogger.error('Failed to fetch custom permissions', error);
       throw error;
     }
   }
 
-  static async listPolicies(): Promise<{ policies: any[] }> {
+  /**
+   * Get IAM roles
+   */
+  static async getIAMRoles(): Promise<any[]> {
     try {
-      const response = await fetch('/api/admin/iam/policies', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch policies');
-      }
-      
-      return await response.json();
+      return await getIAMRoles();
     } catch (error) {
-      console.error('Failed to list policies:', error);
+      adminLogger.error('Failed to fetch IAM roles', error);
       throw error;
     }
   }
 
-  static async listGroups(): Promise<{ groups: any[] }> {
+  /**
+   * Evaluate user permission
+   */
+  static async evaluatePermission(params: {
+    userId: string;
+    action: string;
+    resource: string;
+  }): Promise<{ allowed: boolean }> {
     try {
-      const response = await fetch('/api/admin/iam/groups', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch groups');
-      }
-      
-      return await response.json();
+      return await evaluatePermission(params);
     } catch (error) {
-      console.error('Failed to list groups:', error);
+      adminLogger.error('Failed to evaluate permission', { params, error });
+      return { allowed: false };
+    }
+  }
+
+  /**
+   * Get current user
+   */
+  static async getCurrentUser(): Promise<any> {
+    try {
+      return await getCurrentUser();
+    } catch (error) {
+      adminLogger.error('Failed to get current user', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update settings
+   */
+  static async updateSettings(settings: any): Promise<void> {
+    try {
+      await updateSettings(settings);
+    } catch (error) {
+      adminLogger.error('Failed to update settings', { settings, error });
       throw error;
     }
   }

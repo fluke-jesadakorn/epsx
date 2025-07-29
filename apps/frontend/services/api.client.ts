@@ -1,0 +1,300 @@
+// Updated to use the refactored API client packages
+import { apiClient } from '@epsx/api-client';
+
+// Server actions for server-side operations
+import {
+  // Auth actions
+  getCurrentUser,
+  updateProfile,
+  login,
+  logout,
+  
+  // Stock actions
+  getBatchStocks,
+  getStockData,
+  getStockRankings,
+  getUserStockAccess,
+  getWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  
+  // Payment actions
+  createPayment,
+  validatePayment,
+  getPaymentStatus,
+  getTransactionHistory,
+  getPlanDetails,
+  initQRPayment,
+  
+  // Permission actions
+  getUserPermissions,
+  checkPermission,
+  checkFeatureAccess,
+  checkRankingAccess
+} from '@epsx/server-actions';
+
+// Legacy wrapper class for backward compatibility
+class ApiService {
+  async get<T>(endpoint: string): Promise<T> {
+    // This method is deprecated - use apiClient domain-specific methods instead
+    throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
+  }
+
+  async post<T>(endpoint: string, data?: any): Promise<T> {
+    // This method is deprecated - use apiClient domain-specific methods instead
+    throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
+  }
+
+  async put<T>(endpoint: string, data?: any): Promise<T> {
+    // This method is deprecated - use apiClient domain-specific methods instead
+    throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    // This method is deprecated - use apiClient domain-specific methods instead
+    throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
+  }
+}
+
+export const api = new ApiService();
+
+// Domain-specific API endpoints using the new client structure
+export const stockApi = {
+  getStocks: async () => {
+    const result = await apiClient.analytics.getStockRankings();
+    return result;
+  },
+  
+  getSymbols: async (query?: string) => {
+    const result = await apiClient.analytics.searchStocks(query || '');
+    return result;
+  },
+  
+  getStock: async (symbol: string) => {
+    return await apiClient.analytics.getStockDetails(symbol);
+  },
+  
+  searchStocks: async (query: string, limit?: number) => {
+    return await apiClient.analytics.searchStocks(query, limit);
+  },
+  
+  getStockHistory: async (symbol: string) => {
+    return await apiClient.analytics.getStockFinancials(symbol);
+  },
+
+  // Watchlist operations
+  getWatchlist: async () => {
+    return await apiClient.analytics.getWatchlist();
+  },
+
+  addToWatchlist: async (symbol: string, notes?: string) => {
+    return await apiClient.analytics.addToWatchlist({ symbol, notes });
+  },
+
+  removeFromWatchlist: async (symbol: string) => {
+    return await apiClient.analytics.removeFromWatchlist(symbol);
+  },
+};
+
+export const rankingApi = {
+  getRankings: async (category?: string, limit?: number, page?: number) => {
+    return await apiClient.analytics.getStockRankings(category, limit, page);
+  },
+  
+  getUserRanking: async (userId: string) => {
+    // This would need to be implemented as a new server action
+    throw new Error('getUserRanking needs to be implemented as a server action');
+  },
+  
+  updateRanking: async (data: any) => {
+    // This would need to be implemented as a new server action
+    throw new Error('updateRanking needs to be implemented as a server action');
+  },
+};
+
+export const paymentApi = {
+  createPayment: async (data: {
+    planId: string;
+    paymentMethod: string;
+    billingAddress?: any;
+    couponCode?: string;
+  }) => {
+    return await apiClient.payments.createPayment(data);
+  },
+  
+  getPaymentStatus: async (paymentIntentId: string) => {
+    return await apiClient.payments.getPaymentStatus(paymentIntentId);
+  },
+  
+  verifyPayment: async (paymentId: string) => {
+    return await validatePayment(paymentId); // Use server action for verification
+  },
+  
+  getPlans: async () => {
+    return await apiClient.payments.getPlans();
+  },
+
+  getPlan: async (id: string) => {
+    return await apiClient.payments.getPlan(id);
+  },
+
+  getUserSubscription: async () => {
+    return await apiClient.payments.getUserSubscription();
+  },
+
+  cancelSubscription: async (subscriptionId: string) => {
+    return await apiClient.payments.cancelSubscription(subscriptionId);
+  },
+
+  getPaymentHistory: async (page: number = 1, limit: number = 10) => {
+    return await apiClient.payments.getPaymentHistory(page, limit);
+  },
+  
+  getCryptoDepositAddress: async () => {
+    // This would need to be implemented as a new server action
+    throw new Error('getCryptoDepositAddress needs to be implemented as a server action');
+  },
+  
+  getQrCode: async (paymentId: string) => {
+    // This would need to be implemented as a new server action
+    throw new Error('getQrCode needs to be implemented as a server action');
+  },
+};
+
+export const userApi = {
+  getProfile: async () => {
+    return await apiClient.auth.getCurrentUser();
+  },
+  
+  updateProfile: async (data: {
+    name?: string;
+    displayName?: string;
+    avatar?: string;
+    preferences?: any;
+  }) => {
+    return await apiClient.auth.updateProfile(data);
+  },
+  
+  getUserData: async () => {
+    return await apiClient.auth.getCurrentUser();
+  },
+  
+  updateUserData: async (data: {
+    name?: string;
+    displayName?: string;
+    avatar?: string;
+    preferences?: any;
+  }) => {
+    return await apiClient.auth.updateProfile(data);
+  },
+  
+  login: async (email: string, password: string) => {
+    return await apiClient.auth.login({ type: 'credentials', email, password });
+  },
+
+  register: async (data: { email: string; password: string; name?: string; package_tier?: string }) => {
+    return await apiClient.auth.register(data);
+  },
+
+  logout: async () => {
+    return await apiClient.auth.logout();
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    return await apiClient.auth.changePassword({ currentPassword, newPassword });
+  },
+
+  resetPassword: async (email: string) => {
+    return await apiClient.auth.resetPassword({ email });
+  },
+  
+  getUserById: async (id: string) => {
+    // This would need to be implemented as a new server action for admin users
+    throw new Error('getUserById needs to be implemented as a server action');
+  },
+  
+  listUsers: async () => {
+    // This would need to be implemented as a new server action for admin users
+    throw new Error('listUsers needs to be implemented as a server action');
+  },
+  
+  deleteUser: async (id: string) => {
+    // This would need to be implemented as a new server action for admin users
+    throw new Error('deleteUser needs to be implemented as a server action');
+  },
+};
+
+export const permissionsApi = {
+  getUserPermissions: async () => {
+    return await apiClient.permissions.getCurrentUserPermissions();
+  },
+
+  checkPermission: async (permission: string, resource?: string, context?: any) => {
+    return await apiClient.permissions.checkPermission({ 
+      userId: '', // Will be filled by server
+      permission, 
+      resource, 
+      context 
+    });
+  },
+
+  checkFeatureAccess: async (feature: string) => {
+    return await checkFeatureAccess(feature); // Use server action
+  },
+
+  checkRankingAccess: async () => {
+    return await checkRankingAccess(); // Use server action
+  },
+};
+
+// Legacy export for backward compatibility
+export const legacyApiClient = {
+  // Auth methods using new structure
+  getCurrentUser: () => apiClient.auth.getCurrentUser(),
+  updateProfile: (data: any) => apiClient.auth.updateProfile(data),
+  login: (credentials: any) => apiClient.auth.login(credentials),
+  logout: () => apiClient.auth.logout(),
+  register: (data: any) => apiClient.auth.register(data),
+
+  // Stock methods using new structure
+  getBatchStocks: () => stockApi.getStocks(),
+  getStockData: (symbol: string) => stockApi.getStock(symbol),
+  getStockRankings: () => stockApi.getStocks(),
+  getUserStockAccess,
+  getWatchlist: () => stockApi.getWatchlist(),
+  addToWatchlist: (symbol: string, notes?: string) => stockApi.addToWatchlist(symbol, notes),
+  removeFromWatchlist: (symbol: string) => stockApi.removeFromWatchlist(symbol),
+
+  // Payment methods using new structure
+  createPayment: (data: any) => paymentApi.createPayment(data),
+  validatePayment,
+  getPaymentStatus: (paymentId: string) => paymentApi.getPaymentStatus(paymentId),
+  getTransactionHistory: () => paymentApi.getPaymentHistory(),
+  getPlanDetails: (id: string) => paymentApi.getPlan(id),
+  initQRPayment,
+
+  // Permission methods using new structure
+  getUserPermissions: () => permissionsApi.getUserPermissions(),
+  checkPermission: (data: any) => apiClient.permissions.checkPermission(data),
+  checkFeatureAccess,
+  checkRankingAccess,
+  
+  // Deprecated methods that will throw errors
+  get: () => { throw new Error('Use apiClient.domain.method() instead of generic get()'); },
+  post: () => { throw new Error('Use apiClient.domain.method() instead of generic post()'); },
+  put: () => { throw new Error('Use apiClient.domain.method() instead of generic put()'); },
+  delete: () => { throw new Error('Use apiClient.domain.method() instead of generic delete()'); },
+  
+  getStocks: stockApi.getStocks,
+  preloadStocks: async (symbols: string[]) => {
+    // This should be called from server context only
+    throw new Error('preloadStocks must be called from server components or server actions');
+  },
+  checkStockCacheStatus: async (symbols: string[]) => {
+    // This should be called from server context only
+    throw new Error('checkStockCacheStatus must be called from server components or server actions');
+  },
+};
+
+// Export the new structure as the primary interface
+export { apiClient };

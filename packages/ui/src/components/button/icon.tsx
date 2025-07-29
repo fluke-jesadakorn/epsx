@@ -1,8 +1,11 @@
 "use client";
 
 import * as React from "react";
+
 import { cn } from "../../lib/utils";
+
 import { buttonVariants } from "./variants";
+
 import type { VariantProps } from "class-variance-authority";
 
 export interface ButtonIconProps
@@ -19,7 +22,7 @@ const ButtonIcon = React.forwardRef<HTMLButtonElement, ButtonIconProps>(
     className, 
     variant = "ghost", 
     size = "icon", 
-    asChild = false, 
+    asChild: _asChild = false, 
     children, 
     tooltip,
     srLabel,

@@ -1,18 +1,26 @@
-'use client';
-
-import { IAMGuard } from '@/components/auth/IAMGuard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { ToastProvider } from '@/components/ui/toast';
-import { IAMDashboardContent } from '../../components/iam/IAMDashboardContent';
+import { IAMDashboard } from '@/components/admin/IAMDashboard';
+import { getIAMUsers, getIAMRoles, getIAMPolicies } from '@epsx/server-actions';
 
-export default function IAMPage() {
+export default async function IAMPage() {
+  // Fetch IAM data server-side
+  const [usersResult, rolesResult, policiesResult] = await Promise.allSettled([
+    getIAMUsers(),
+    getIAMRoles(),
+    getIAMPolicies()
+  ]);
+
+  const users = usersResult.status === 'fulfilled' ? usersResult.value : [];
+  const roles = rolesResult.status === 'fulfilled' ? rolesResult.value : [];
+  const policies = policiesResult.status === 'fulfilled' ? policiesResult.value : [];
+
   return (
-    <IAMGuard>
-      <AdminLayout>
-        <ToastProvider>
-          <IAMDashboardContent />
-        </ToastProvider>
-      </AdminLayout>
-    </IAMGuard>
+    <AdminLayout>
+      <IAMDashboard 
+        initialUsers={users}
+        initialRoles={roles}
+        initialPolicies={policies}
+      />
+    </AdminLayout>
   );
 }
