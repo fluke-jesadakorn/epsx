@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { useTheme, ThemeVariantSelector, DarkModeToggle } from "../../../../packages/ui/src/providers/theme-provider";
+import { useTheme, ThemeVariantSelector, DarkModeToggle } from "@epsx/ui";
 
 export function AuthProviders() {
   const { user } = useAuth();

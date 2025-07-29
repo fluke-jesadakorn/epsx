@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getPermissionProfiles, assignPermissionProfile, getAdminUsers } from '@epsx/server-actions';
+import { AdminService } from '@/services/adminService';
 import { useAdminAuth } from '@/auth/ctx';
 import { 
   Shield, 

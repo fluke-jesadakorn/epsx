@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import type { AuthResult, BackendUser } from '../types';
+import type { AuthResult, UserProfile } from '../types';
 
 export interface ServerAuthResult extends AuthResult {
-  user?: BackendUser;
+  user?: UserProfile;
 }
 
 export interface AuthServerConfig {
@@ -67,18 +67,21 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
       return {
         isAuthenticated: true,
         user: {
-          user_id: userData.user_id,
+          id: userData.user_id || userData.id,
           email: userData.email,
           role: userData.role,
-          permissions: userData.permissions || [],
-          subscription_tier: userData.subscription_tier,
-          package_tier: userData.package_tier,
-          expires_at: userData.expires_at,
-          session_type: isAdminSession ? 'admin' : 'user',
-          permission_profiles: userData.permission_profiles || [],
-          emailVerified: userData.emailVerified ?? true,
+          isActive: true,
+          createdAt: new Date(userData.created_at || Date.now()),
+          updatedAt: new Date(userData.updated_at || Date.now()),
           displayName: userData.displayName || userData.display_name || userData.email?.split('@')[0],
-          photoURL: userData.photoURL || userData.photo_url,
+          avatar: userData.photoURL || userData.photo_url,
+        } as UserProfile & { 
+          permissions?: string[];
+          session_type?: string;
+          package_tier?: string;
+          subscription_tier?: string;
+          expires_at?: string;
+          permission_profiles?: string[];
         },
       };
     } catch (networkError) {
@@ -101,18 +104,21 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
           return {
             isAuthenticated: true,
             user: {
-              user_id: parsedSession.user_id,
+              id: parsedSession.user_id || parsedSession.id,
               email: parsedSession.email,
               role: parsedSession.role || 'user',
-              permissions: parsedSession.permissions || [],
-              subscription_tier: parsedSession.subscription_tier || 'free',
-              package_tier: parsedSession.package_tier || 'free',
-              expires_at: parsedSession.expires_at,
-              session_type: isAdminSession ? 'admin' : 'user',
-              permission_profiles: parsedSession.permission_profiles || [],
-              emailVerified: true,
+              isActive: true,
+              createdAt: new Date(parsedSession.created_at || Date.now()),
+              updatedAt: new Date(parsedSession.updated_at || Date.now()),
               displayName: parsedSession.displayName || parsedSession.display_name || parsedSession.email?.split('@')[0],
-              photoURL: parsedSession.photoURL || parsedSession.photo_url,
+              avatar: parsedSession.photoURL || parsedSession.photo_url,
+            } as UserProfile & { 
+              permissions?: string[];
+              session_type?: string;
+              package_tier?: string;
+              subscription_tier?: string;
+              expires_at?: string;
+              permission_profiles?: string[];
             },
           };
         }
@@ -149,7 +155,7 @@ export async function requireAuth(
   const authResult = await getServerAuth(config);
   
   if (!authResult.isAuthenticated) {
-    const loginUrl = authResult.user?.session_type === 'admin' ? '/login' : '/login';
+    const loginUrl = (authResult.user as any)?.session_type === 'admin' ? '/login' : '/login';
     const searchParams = redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : '';
     redirect(`${loginUrl}${searchParams}`);
   }
@@ -166,11 +172,11 @@ export async function hasServerPermission(
 ): Promise<boolean> {
   const authResult = await getServerAuth(config);
   
-  if (!authResult.isAuthenticated || !authResult.user?.permissions) {
+  if (!authResult.isAuthenticated || !(authResult.user as any)?.permissions) {
     return false;
   }
   
-  const permissions = authResult.user.permissions;
+  const permissions = (authResult.user as any).permissions;
   
   // Check exact match
   if (permissions.includes(permission)) {
@@ -178,7 +184,7 @@ export async function hasServerPermission(
   }
   
   // Check wildcard permissions
-  return permissions.some(userPermission => {
+  return permissions.some((userPermission: string) => {
     if (userPermission.endsWith('.*') || userPermission.endsWith(':*')) {
       const prefix = userPermission.slice(0, -2);
       return permission.startsWith(prefix + '.') || permission.startsWith(prefix + ':');

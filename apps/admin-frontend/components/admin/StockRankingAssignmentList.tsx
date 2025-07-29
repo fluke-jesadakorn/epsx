@@ -3,7 +3,7 @@
 import {
   PackageTier,
   StockRankingPackageAssignment,
-} from '@epsx/types/src/permission_profile';
+} from '@epsx/types';
 import { useEffect, useState } from 'react';
 
 interface User {

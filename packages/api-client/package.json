@@ -18,7 +18,10 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@epsx/shared-core": "workspace:*",
+    "@epsx/types": "workspace:*"
+  },
   "devDependencies": {
     "@epsx/config": "workspace:*",
     "@types/node": "^20.0.0",

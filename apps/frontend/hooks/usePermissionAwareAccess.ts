@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
+import { usePermissionContext } from '@epsx/server-providers';
 import type { UserLevelType } from '@/app/constants/packages';
 
 interface PermissionAwareAccess {
@@ -36,41 +37,38 @@ interface PermissionAwareAccess {
  */
 export function usePermissionAwareAccess(): PermissionAwareAccess {
   const { user } = useAuth();
+  const { paymentStatus, error } = usePermissionContext();
   const [userLevel, setUserLevel] = useState<UserLevelType>('BRONZE');
   const [isExpired, setIsExpired] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUserAccess = async () => {
-      if (!user) {
-        setUserLevel('BRONZE');
-        setIsExpired(true);
-        setIsLoading(false);
-        return;
-      }
+    if (!user) {
+      setUserLevel('BRONZE');
+      setIsExpired(true);
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        // Use server action for payment status
-        const { getPaymentStatus } = await import('@epsx/server-actions');
-        const paymentStatus = await getPaymentStatus();
-        const level = (paymentStatus?.userLevel as UserLevelType) || 'BRONZE';
-        const expired = paymentStatus?.expireDate
-          ? new Date() > paymentStatus.expireDate
-          : !paymentStatus?.paid;
+    if (error) {
+      console.error('Permission context error:', error);
+      setUserLevel('BRONZE');
+      setIsExpired(true);
+      setIsLoading(false);
+      return;
+    }
 
-        setUserLevel(level);
-        setIsExpired(expired);
-      } catch (error) {
-        console.error('Failed to fetch user access:', error);
-        setUserLevel('BRONZE');
-        setIsExpired(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (paymentStatus) {
+      const level = (paymentStatus?.userLevel as UserLevelType) || 'BRONZE';
+      const expired = paymentStatus?.expireDate
+        ? new Date() > paymentStatus.expireDate
+        : !paymentStatus?.paid;
 
-    fetchUserAccess();
-  }, [user]);
+      setUserLevel(level);
+      setIsExpired(expired);
+      setIsLoading(false);
+    }
+  }, [user, paymentStatus, error]);
 
   // Calculate permissions based on current level and expiration
   const permissions = {
