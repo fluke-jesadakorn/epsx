@@ -34,7 +34,7 @@ use user::user_routes_v1;
 use realtime::realtime_routes;
 use modules::create_modules_router;
 use middleware::{auth_middleware::auth_middleware, permission_middleware::permission_middleware};
-use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public};
+use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public, validate_session_handler, validate_route_access_handler, validate_bulk_routes_handler, check_permission_handler};
 use auth::multi_handlers::{multi_login_handler, register_handler, auto_register_handler, password_reset_handler};
 
 /// Health check handler
@@ -77,6 +77,11 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .route("/auth/refresh", post(refresh_handler))
         .route("/auth/profile", get(me_handler))
         .route("/auth/session/clear", post(logout_handler))
+        // Phase 1: Centralized auth API endpoints
+        .route("/auth/validate-session", post(validate_session_handler))
+        .route("/auth/validate-access", post(validate_route_access_handler))
+        .route("/auth/validate-routes", post(validate_bulk_routes_handler))
+        .route("/auth/check-permission", post(check_permission_handler))
         .route_layer(from_fn_with_state(
             app_state.clone(),
             auth_middleware,
@@ -179,6 +184,7 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
 }
 
 /// Get available trading symbols
+#[allow(dead_code)]
 async fn get_available_symbols() -> Json<Value> {
     Json(json!({
         "symbols": ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "META"],

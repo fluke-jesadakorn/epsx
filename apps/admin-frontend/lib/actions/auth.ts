@@ -35,7 +35,7 @@ export async function adminLoginAction(form: FormData) {
 
     const data = await res.json();
     
-    // Set cookies from backend response
+    // Get cookies from backend response headers
     const cookieHeaders = res.headers.getSetCookie?.() || [];
     console.log('[adminLoginAction] Backend response cookies:', cookieHeaders);
     console.log('[adminLoginAction] Backend response data:', { 
@@ -44,52 +44,40 @@ export async function adminLoginAction(form: FormData) {
       hasRole: !!data.role 
     });
     
-    const store = await cookies();
+    // Handle cookies properly in server action context
+    let sessionId: string | null = null;
     
     if (cookieHeaders.length > 0) {
       for (const cookieHeader of cookieHeaders) {
         // Parse cookie string: "name=value; Path=/; HttpOnly; ..."
-        const [cookiePair, ...attributes] = cookieHeader.split(';').map(s => s.trim());
+        const [cookiePair] = cookieHeader.split(';').map(s => s.trim());
         const [name, value] = cookiePair.split('=');
         
-        console.log('[adminLoginAction] Processing cookie:', { name, value: value ? '***' : null, attributes });
+        console.log('[adminLoginAction] Processing cookie:', { name, value: value ? '***' : null });
         
-        if (name && value) {
-          // For admin session, use admin_sess_id
-          if (name === 'sess_id') {
-            console.log('[adminLoginAction] Setting admin_sess_id cookie');
-            store.set('admin_sess_id', value, { 
-              httpOnly: true, 
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              maxAge: 60 * 60 * 24 * 7 // 7 days
-            });
-          } else {
-            console.log(`[adminLoginAction] Setting ${name} cookie`);
-            store.set(name, value, { httpOnly: true });
-          }
+        if (name === 'sess_id' && value) {
+          sessionId = value;
+          console.log('[adminLoginAction] Found sess_id cookie');
         }
-      }
-    } else {
-      console.log('[adminLoginAction] No cookies received from backend, trying manual session token');
-      
-      // If no cookies from backend but we have session token in response, set it manually
-      if (data.session_token) {
-        console.log('[adminLoginAction] Setting admin_sess_id from response session_token');
-        store.set('admin_sess_id', data.session_token, { 
-          httpOnly: true, 
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 7 // 7 days
-        });
-      } else {
-        console.log('[adminLoginAction] No session token in response data either');
       }
     }
     
-    // Verify cookies were set
-    const allCookies = store.getAll();
-    console.log('[adminLoginAction] All cookies after login:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
+    // Set the session cookie properly using Next.js cookies API
+    // Use 'sess_id' to match backend expectations for unified session handling
+    if (sessionId) {
+      const cookieStore = await cookies();
+      cookieStore.set('sess_id', sessionId, { 
+        httpOnly: true, 
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+      console.log('[adminLoginAction] Set sess_id cookie successfully');
+    } else {
+      console.log('[adminLoginAction] No session ID found in backend response');
+      return { success: false, error: 'No session created' };
+    }
 
     const user = {
       uid: data.user_id,
@@ -101,6 +89,7 @@ export async function adminLoginAction(form: FormData) {
       },
     };
 
+    console.log('[adminLoginAction] Login successful, redirecting to dashboard');
     return { success: true, user };
   } catch (error) {
     adminLogger.error('Admin login error', { 
@@ -115,7 +104,7 @@ export async function adminLogoutAction() {
     const store = await cookies();
     const header = store.toString();
 
-    await fetch(`${URL}/api/v1/admin/logout`, {
+    await fetch(`${URL}/api/admin/auth/logout`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

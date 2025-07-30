@@ -15,7 +15,7 @@ export interface AuthServerConfig {
 const DEFAULT_CONFIG: Required<AuthServerConfig> = {
   backendUrl: process.env.BACKEND_URL || process.env.NEXTAUTH_URL || 'http://localhost:8080',
   sessionCookieName: 'sess_id',
-  adminSessionCookieName: 'admin_sess_id',
+  adminSessionCookieName: 'sess_id', // Use unified session cookie name
   fallbackToLocalParsing: true,
 };
 
@@ -38,41 +38,55 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
       throw cookieError;
     }
     
-    // Try admin session first, then regular session
-    const adminSession = cookieStore.get(finalConfig.adminSessionCookieName);
-    const userSession = cookieStore.get(finalConfig.sessionCookieName);
-    
-    const sessionId = adminSession?.value || userSession?.value;
-    const isAdminSession = !!adminSession?.value;
+    // Get unified session cookie
+    const sessionCookie = cookieStore.get(finalConfig.sessionCookieName);
+    const sessionId = sessionCookie?.value;
     
     if (!sessionId) {
       return { isAuthenticated: false };
     }
 
-    // Determine API endpoint based on session type
-    const endpoint = isAdminSession ? '/api/v1/admin/auth/profile' : '/api/v1/auth/profile';
-    const cookieHeader = `${isAdminSession ? finalConfig.adminSessionCookieName : finalConfig.sessionCookieName}=${sessionId}`;
+    const cookieHeader = `${finalConfig.sessionCookieName}=${sessionId}`;
 
-    try {
-      const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Cookie': cookieHeader,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Auth-Shared Server Component',
-        },
-      });
+    // Try multiple endpoints to handle both admin and regular users
+    const endpoints = ['/api/v1/auth/profile', '/api/admin/auth/profile'];
+    
+    let userData = null;
+    let lastError = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {
+          method: 'GET',
+          headers: {
+            'Cookie': cookieHeader,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Auth-Shared Server Component',
+          },
+        });
 
-      if (!response.ok) {
-        return { 
-          isAuthenticated: false, 
-          error: response.status === 401 ? 'Session expired' : 'Authentication failed'
-        };
+        if (response.ok) {
+          userData = await response.json();
+          break;
+        } else if (response.status === 401) {
+          lastError = 'Session expired';
+        } else {
+          lastError = 'Authentication failed';
+        }
+      } catch (fetchError) {
+        lastError = fetchError;
+        continue;
       }
+    }
 
-      const userData = await response.json();
-      
-      return {
+    if (!userData) {
+      return { 
+        isAuthenticated: false, 
+        error: lastError || 'Authentication failed'
+      };
+    }
+
+    return {
         isAuthenticated: true,
         user: {
           id: userData.user_id || userData.id,

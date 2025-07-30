@@ -24,7 +24,7 @@ pub struct EndpointConfig {
     pub allow_wildcards: bool,
 }
 
-/// Enhanced permission middleware that checks API endpoint access and applies rate limiting
+/// Enhanced permission middleware that checks API endpoint access from cookie session
 pub async fn permission_middleware(
     State(app_state): State<AppState>,
     auth_ctx: Option<AuthCtx>,
@@ -42,18 +42,20 @@ pub async fn permission_middleware(
     // Require authentication for protected endpoints
     let auth_ctx = auth_ctx.ok_or(StatusCode::UNAUTHORIZED)?;
     
-    // Check API endpoint permissions
-    let has_access = check_api_endpoint_access(
+    // Check permissions directly from user's IAM roles (from cookie session)
+    let has_access = check_route_permission_from_session(
         &app_state,
         &auth_ctx.user_id,
+        &auth_ctx.role,
         path,
         method,
     ).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     if !has_access.allowed {
         tracing::warn!(
-            "API access denied for user {} to {} {}: {}",
+            "Access denied for user {} (role: {:?}) to {} {}: {}",
             auth_ctx.user_id,
+            auth_ctx.role,
             method,
             path,
             has_access.reason
@@ -94,42 +96,78 @@ pub async fn permission_middleware(
     Ok(next.run(req).await)
 }
 
-/// Check if user has access to a specific API endpoint
-async fn check_api_endpoint_access(
+/// Streamlined permission check using session data (no additional DB calls)
+async fn check_route_permission_from_session(
     app_state: &AppState,
     user_id: &UserId,
+    user_role: &Role,
     path: &str,
     method: &Method,
 ) -> Result<AccessCheckResult, PermissionError> {
-    // Get user's permission profiles
-    let user_permission_profiles = get_user_permission_profiles(app_state, user_id).await?;
-    
-    // Check against each permission profile's API endpoint configuration
-    for permission_profile in &user_permission_profiles {
-        if let Some(api_config) = get_api_endpoint_config(permission_profile) {
-            if endpoint_matches_pattern(path, method, &api_config.allowed_endpoints) {
-                return Ok(AccessCheckResult {
-                    allowed: true,
-                    reason: format!("Access granted via permission profile: {}", permission_profile.name()),
-                });
-            }
-        }
-    }
-    
-    // Check role-based access as fallback
-    let user = app_state.user_repo.find_by_id(user_id).await
-        .map_err(|e| PermissionError::UserNotFound(format!("Failed to find user: {}", e)))?;
-    
-    if has_role_based_access(user.role(), path, method) {
-        return Ok(AccessCheckResult {
-            allowed: true,
-            reason: "Access granted via role-based permissions".to_string(),
+    // Get user roles from IAM (already loaded in auth context)
+    let roles = app_state.iam_repo.get_user_roles(user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
         });
-    }
+    
+    // Use unified permission system - derive from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            // Map IAM role names to user roles for permission derivation
+            let user_role = match role.name() {
+                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
+                "user" => crate::dom::values::Role::User,
+                "premium_user" => crate::dom::values::Role::Premium,
+                "moderator" => crate::dom::values::Role::Moderator,
+                "super_admin" => crate::dom::values::Role::SuperAdmin,
+                _ => crate::dom::values::Role::Free,
+            };
+            
+            crate::dom::services::permissions::get_role_permissions(&user_role)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect();
+    
+    // Check route-specific permissions using unified permission system
+    let allowed = match path {
+        p if p.starts_with("/api/v1/dashboard") => {
+            permission_strings.iter().any(|perm| {
+                crate::dom::services::permissions::permission_matches(perm, "dashboard:*:*") ||
+                perm.contains("dashboard:")
+            })
+        },
+        p if p.starts_with("/api/v1/analytics") => {
+            permission_strings.iter().any(|perm| {
+                crate::dom::services::permissions::permission_matches(perm, "analytics:*:*") ||
+                perm.contains("analytics:")
+            })
+        },
+        p if p.starts_with("/api/v1/admin") => {
+            permission_strings.iter().any(|perm| {
+                crate::dom::services::permissions::permission_matches(perm, "admin:*:*") ||
+                perm.contains("admin:")
+            })
+        },
+        p if p.starts_with("/api/v1/rankings") => {
+            permission_strings.iter().any(|perm| perm.contains("rankings:"))
+        },
+        p if p.starts_with("/api/v1/market") => {
+            permission_strings.iter().any(|perm| perm.contains("market:"))
+        },
+        p if p.starts_with("/api/v1/auth") => true, // Auth endpoints allowed for authenticated users
+        _ => has_role_based_access(user_role, path, method), // Fallback to role-based
+    };
     
     Ok(AccessCheckResult {
-        allowed: false,
-        reason: format!("No permission profile or role grants access to {} {}", method, path),
+        allowed,
+        reason: if allowed {
+            "Access granted via session permissions".to_string()
+        } else {
+            format!("Insufficient permissions for {} {}", method, path)
+        },
     })
 }
 
@@ -307,6 +345,7 @@ async fn get_user_rate_limits(
 }
 
 /// Check if endpoint matches any of the allowed patterns
+#[allow(dead_code)]
 fn endpoint_matches_pattern(
     path: &str,
     method: &Method,
@@ -417,6 +456,7 @@ fn max_option(a: Option<u32>, b: Option<u32>) -> Option<u32> {
 // Supporting types and structs
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ApiEndpointConfig {
     allowed_endpoints: Vec<EndpointPattern>,
     rate_limits: RateLimitConfig,
@@ -430,6 +470,7 @@ struct RateLimitResultInternal {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct EndpointPattern {
     path_pattern: String,
     allowed_methods: Vec<String>,
@@ -443,6 +484,7 @@ impl EndpointPattern {
         }
     }
     
+    #[allow(dead_code)]
     fn matches(&self, path: &str, method: &Method) -> bool {
         // Check method
         if !self.allowed_methods.contains(&method.as_str().to_string()) {
