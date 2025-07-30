@@ -6,14 +6,18 @@ This directory contains administrative scripts for managing users and permission
 
 ### 1. promote-user-admin.js
 
-Multi-purpose script for promoting users to SuperAdmin role and assigning IAM/ACL permission profiles.
+Multi-purpose script for promoting users to SuperAdmin role with various access levels and assigning IAM/ACL permission profiles.
 
 #### Usage
 
 ```bash
-# Promote user to SuperAdmin
+# Promote user to SuperAdmin (standard permissions)
 node scripts/promote-user-admin.js promote user@example.com
 node scripts/promote-user-admin.js promote user@example.com "Emergency access needed"
+
+# Promote user to SuperAdmin with ALL ACCESS (recommended for full system access)
+node scripts/promote-user-admin.js super-admin user@example.com
+node scripts/promote-user-admin.js super-admin user@example.com "Full system access granted"
 
 # Assign permission profile
 node scripts/promote-user-admin.js assign user@example.com user-premium-002
@@ -23,36 +27,20 @@ node scripts/promote-user-admin.js assign user@example.com mod-standard-003 --re
 node scripts/promote-user-admin.js user@example.com
 ```
 
-### 2. assign-iam-acl.js
-
-Dedicated script for IAM/ACL permission profile management.
-
-#### Usage
-
-```bash
-# List available permission profiles
-node scripts/assign-iam-acl.js list
-
-# Assign permission profile
-node scripts/assign-iam-acl.js assign user@example.com user-premium-002
-node scripts/assign-iam-acl.js assign user@example.com user-premium-002 --reason "Upgrade to premium"
-node scripts/assign-iam-acl.js assign user@example.com mod-standard-003 --expires-at "2024-12-31T23:59:59Z"
-node scripts/assign-iam-acl.js assign user@example.com admin-full-004 --merge-permissions false
-```
 
 ## Package.json Scripts
 
 For convenience, you can use the following npm/pnpm scripts:
 
 ```bash
-# Promote user to admin
+# Promote user to admin (standard)
 pnpm promote-admin user@example.com "Emergency access"
 
-# Assign IAM profile
-pnpm assign-iam user@example.com user-premium-002 --reason "Upgrade"
+# Promote user to super admin with all access
+pnpm super-admin user@example.com "Full system access granted"
 
-# List available profiles
-pnpm list-profiles
+# Assign IAM profile using the main script
+pnpm promote-admin assign user@example.com user-premium-002 --reason "Upgrade"
 ```
 
 ## Backend Binaries
@@ -61,8 +49,10 @@ The scripts invoke Rust binaries in the backend:
 
 ### promote_admin
 - Located: `apps/backend/src/bin/promote_admin.rs`
-- Purpose: Promote users to SuperAdmin role
-- Usage: `cargo run --bin promote_admin -- --email="user@example.com" --reason="Emergency"`
+- Purpose: Promote users to SuperAdmin role with configurable permission levels
+- Usage: 
+  - Standard: `cargo run --bin promote_admin -- --email="user@example.com" --reason="Emergency"`
+  - Full Access: `cargo run --bin promote_admin -- --email="user@example.com" --reason="Full access" --super-admin`
 
 ### assign_iam
 - Located: `apps/backend/src/bin/assign_iam.rs`
@@ -92,25 +82,28 @@ Current system supports these permission profiles:
 
 ### Promote User to SuperAdmin
 ```bash
-# Using script directly
+# Using script directly (standard permissions)
 node scripts/promote-user-admin.js promote admin@company.com "New admin setup"
 
-# Using package script
+# Using script directly (ALL ACCESS - recommended for full system control)
+node scripts/promote-user-admin.js super-admin admin@company.com "Full system access granted"
+
+# Using package script (standard)
 pnpm promote-admin admin@company.com "New admin setup"
+
+# Using package script (super admin with all access)
+pnpm super-admin admin@company.com "Full system access granted"
 ```
 
 ### Assign Premium User Profile
 ```bash
-# Using dedicated script
-node scripts/assign-iam-acl.js assign user@example.com user-premium-002 --reason "Upgrade to premium plan"
-
-# Using package script
-pnpm assign-iam user@example.com user-premium-002 --reason "Upgrade to premium plan"
+# Using main script
+node scripts/promote-user-admin.js assign user@example.com user-premium-002 --reason "Upgrade to premium plan"
 ```
 
 ### Assign Temporary Moderator Access
 ```bash
-node scripts/assign-iam-acl.js assign moderator@example.com mod-standard-003 \
+node scripts/promote-user-admin.js assign moderator@example.com mod-standard-003 \
   --reason "Temporary moderator access" \
   --expires-at "2024-12-31T23:59:59Z"
 ```

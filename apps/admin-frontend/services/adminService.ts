@@ -17,13 +17,15 @@ import {
   getCurrentUser,
   updateSettings,
   getModules,
-  getUserModuleAssignments,
   assignModulesToUser,
   revokeModuleAccess,
   createApiKey,
   listApiKeys,
   revokeApiKey
 } from '@epsx/server-actions';
+
+// Import local version that doesn't use cookies
+import { getUserModuleAssignments } from '@/lib/actions/module-management';
 
 export interface AdminUser {
   uid: string;
@@ -305,14 +307,6 @@ export class AdminService {
       const response = await getUserModuleAssignments({ userId });
       return { success: true, data: response };
     } catch (error) {
-      // Handle cookie context errors gracefully
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('cookies() was called outside a request scope') || 
-          errorMessage.includes('cookies" was called outside a request scope')) {
-        adminLogger.info('Module assignments not available - no request context', { userId });
-        return { success: true, data: { assignments: [] } };
-      }
-      
       adminLogger.error('Failed to fetch user module assignments', { userId, error });
       return { success: false, data: { assignments: [] } };
     }

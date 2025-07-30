@@ -32,13 +32,12 @@ impl FromRequestParts<crate::web::auth::AppState> for AuthCtx
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-        // Try to get session from either admin_sess_id or sess_id cookie
-        let session_cookie = cookies.get("admin_sess_id").or_else(|| cookies.get("sess_id"));
+        // Unified session system - use only sess_id cookie for all users
+        let session_cookie = cookies.get("sess_id");
         
         if let Some(session_cookie) = session_cookie {
             let session_id = session_cookie.value();
-            let cookie_type = if session_cookie.name() == "admin_sess_id" { "admin" } else { "user" };
-            tracing::debug!("Found {} session cookie: {}", cookie_type, session_id);
+            tracing::debug!("Found unified session cookie: {}", session_id);
             
             // Parse session ID
             let sess_id = SessId::from_str(session_id)

@@ -219,8 +219,8 @@ async fn handle_admin_login(
         return Err(StatusCode::FORBIDDEN);
     }
     
-    // Create HTTP-only admin session cookie
-    let admin_session_cookie = Cookie::build(("admin_sess_id", login_res.sess_id.to_string()))
+    // Create HTTP-only session cookie (unified for all users)
+    let session_cookie = Cookie::build(("sess_id", login_res.sess_id.to_string()))
         .http_only(true)
         .secure(false) // Disable for development HTTP, enable in production with HTTPS
         .same_site(tower_cookies::cookie::SameSite::Lax)
@@ -228,7 +228,7 @@ async fn handle_admin_login(
         .path("/")
         .build();
     
-    cookies.add(admin_session_cookie);
+    cookies.add(session_cookie);
     
     // For now, ignore admin_token but log if provided for future MFA implementation
     if admin_token.is_some() {

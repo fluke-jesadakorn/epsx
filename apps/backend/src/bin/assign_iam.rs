@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Initialize use case
-    let user_mgmt = UserMgmtUC::new(
+    let _user_mgmt = UserMgmtUC::new(
         user_repo.clone(),
         event_dispatcher.clone(),
         level_history_repo
@@ -239,7 +239,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn list_available_profiles(
-    permission_profile_repo: &Arc<dyn PermissionProfileRepo>
+    _permission_profile_repo: &Arc<dyn PermissionProfileRepo>
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("📋 Available Permission Profiles:");
     println!("(Note: This is a placeholder - actual implementation would query the repository)");

@@ -8,6 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_cookies::{Cookie, Cookies};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use crate::app::dtos::auth::{LoginReq, RefreshReq, LogoutReq, ValidateReq};
 use crate::web::middleware::AuthCtx;
 use super::AppState;
@@ -214,6 +215,358 @@ pub async fn me_handler_public(
     } else {
         Err(StatusCode::UNAUTHORIZED)
     }
+}
+
+// Phase 1 API Endpoints for centralized auth
+
+/// Session validation request
+#[derive(Debug, Deserialize)]
+pub struct SessionValidationRequest {
+    pub app_type: String,
+}
+
+/// Session validation response
+#[derive(Debug, Serialize)]
+pub struct SessionValidationResponse {
+    pub authenticated: bool,
+    pub user_id: String,
+    pub email: String,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub subscription_tier: String,
+    pub session_type: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Route access validation request
+#[derive(Debug, Deserialize)]
+pub struct RouteAccessRequest {
+    pub route: String,
+    pub method: String,
+    pub app_type: String,
+}
+
+/// Route access validation response
+#[derive(Debug, Serialize)]
+pub struct RouteAccessResponse {
+    pub allowed: bool,
+    pub reason: Option<String>,
+    pub required_permissions: Vec<String>,
+    pub user_permissions: Vec<String>,
+}
+
+/// Bulk route validation request
+#[derive(Debug, Deserialize)]
+pub struct BulkRouteValidationRequest {
+    pub routes: Vec<RouteInfo>,
+    pub app_type: String,
+}
+
+/// Route information for bulk validation
+#[derive(Debug, Deserialize)]
+pub struct RouteInfo {
+    pub route: String,
+    pub method: String,
+}
+
+/// Bulk route validation response
+#[derive(Debug, Serialize)]
+pub struct BulkRouteValidationResponse {
+    pub results: HashMap<String, RouteAccessResult>,
+    pub user_permissions: Vec<String>,
+}
+
+/// Individual route access result for bulk validation
+#[derive(Debug, Serialize)]
+pub struct RouteAccessResult {
+    pub allowed: bool,
+    pub reason: Option<String>,
+    pub required_permissions: Vec<String>,
+}
+
+/// Permission check request
+#[derive(Debug, Deserialize)]
+pub struct PermissionCheckRequest {
+    pub permission: String,
+    pub resource: Option<String>,
+    pub app_type: String,
+}
+
+/// Permission check response
+#[derive(Debug, Serialize)]
+pub struct PermissionCheckResponse {
+    pub has_permission: bool,
+    pub reason: Option<String>,
+    pub user_permissions: Vec<String>,
+    pub matching_permissions: Vec<String>,
+}
+
+/// Session validation handler - validates current session and returns user info
+pub async fn validate_session_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Json(request): Json<SessionValidationRequest>,
+) -> Result<Json<SessionValidationResponse>, StatusCode> {
+    tracing::info!("Validating session for app_type: {}", request.app_type);
+    
+    // Get user details from repository
+    let user = app_state.user_repo.find_by_id(&auth_ctx.user_id).await
+        .map_err(|e| {
+            tracing::error!("Failed to get user details: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Get user roles from IAM repository and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    // Use unified permission system - derive from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            // Map IAM role names to user roles for permission derivation
+            let user_role = match role.name() {
+                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
+                "user" => crate::dom::values::Role::User,
+                "premium_user" => crate::dom::values::Role::Premium,
+                "moderator" => crate::dom::values::Role::Moderator,
+                "super_admin" => crate::dom::values::Role::SuperAdmin,
+                _ => crate::dom::values::Role::Free,
+            };
+            
+            crate::dom::services::permissions::get_role_permissions(&user_role)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect();
+    
+    let response = SessionValidationResponse {
+        authenticated: true,
+        user_id: auth_ctx.user_id.to_string(),
+        email: user.email().value().to_string(),
+        role: auth_ctx.role.to_string(),
+        permissions: permission_strings,
+        subscription_tier: user.sub().tier().to_string(),
+        session_type: "regular".to_string(), // TODO: implement session types
+        expires_at: chrono::Utc::now() + chrono::Duration::days(7),
+    };
+    
+    Ok(Json(response))
+}
+
+/// Route access validation handler - checks if user can access a specific route
+pub async fn validate_route_access_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Json(request): Json<RouteAccessRequest>,
+) -> Result<Json<RouteAccessResponse>, StatusCode> {
+    tracing::info!("Validating route access: {} {} for app: {}", 
+                   request.method, request.route, request.app_type);
+    
+    // Get user roles and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    // Use unified permission system - derive from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            // Map IAM role names to user roles for permission derivation
+            let user_role = match role.name() {
+                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
+                "user" => crate::dom::values::Role::User,
+                "premium_user" => crate::dom::values::Role::Premium,
+                "moderator" => crate::dom::values::Role::Moderator,
+                "super_admin" => crate::dom::values::Role::SuperAdmin,
+                _ => crate::dom::values::Role::Free,
+            };
+            
+            crate::dom::services::permissions::get_role_permissions(&user_role)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect();
+    
+    // Basic route validation logic - extend based on your route-permission mapping
+    let allowed = match request.route.as_str() {
+        "/dashboard" => permission_strings.iter().any(|p| p.starts_with("dashboard:")),
+        "/analytics" => permission_strings.iter().any(|p| p.starts_with("analytics:")),
+        "/admin" => auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator",
+        _ => true, // Allow access to other routes by default
+    };
+    
+    let required_perms = match request.route.as_str() {
+        "/dashboard" => vec!["dashboard:view".to_string()],
+        "/analytics" => vec!["analytics:view".to_string()],
+        "/admin" => vec!["admin:access".to_string()],
+        _ => vec![],
+    };
+    
+    let response = RouteAccessResponse {
+        allowed,
+        reason: if allowed { None } else { Some("Insufficient permissions".to_string()) },
+        required_permissions: required_perms,
+        user_permissions: permission_strings,
+    };
+    
+    Ok(Json(response))
+}
+
+/// Bulk route validation handler - validates multiple routes at once for efficient frontend middleware
+pub async fn validate_bulk_routes_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Json(request): Json<BulkRouteValidationRequest>,
+) -> Result<Json<BulkRouteValidationResponse>, StatusCode> {
+    tracing::info!("Validating {} routes for app: {}", request.routes.len(), request.app_type);
+    
+    // Get user roles and derive permissions once
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    // Derive permissions from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            match role.name() {
+                "admin" | "system_administrator" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "admin:access".to_string(),
+                    "users:manage".to_string(),
+                ],
+                "user" | "premium_user" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                ],
+                _ => vec!["basic:access".to_string()],
+            }
+        })
+        .collect();
+    
+    // Validate each route
+    let mut results = HashMap::new();
+    
+    for route_info in request.routes {
+        let route_key = format!("{} {}", route_info.method, route_info.route);
+        
+        // Apply same route validation logic as single route handler
+        let allowed = match route_info.route.as_str() {
+            "/dashboard" => permission_strings.iter().any(|p| p.starts_with("dashboard:")),
+            "/analytics" => permission_strings.iter().any(|p| p.starts_with("analytics:")),
+            "/admin" => auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator",
+            _ => true, // Allow access to other routes by default
+        };
+        
+        let required_perms = match route_info.route.as_str() {
+            "/dashboard" => vec!["dashboard:view".to_string()],
+            "/analytics" => vec!["analytics:view".to_string()],
+            "/admin" => vec!["admin:access".to_string()],
+            _ => vec![],
+        };
+        
+        let result = RouteAccessResult {
+            allowed,
+            reason: if allowed { None } else { Some("Insufficient permissions".to_string()) },
+            required_permissions: required_perms,
+        };
+        
+        results.insert(route_key, result);
+    }
+    
+    let response = BulkRouteValidationResponse {
+        results,
+        user_permissions: permission_strings,
+    };
+    
+    Ok(Json(response))
+}
+
+/// Permission check handler - validates if user has a specific permission
+pub async fn check_permission_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Json(request): Json<PermissionCheckRequest>,
+) -> Result<Json<PermissionCheckResponse>, StatusCode> {
+    tracing::info!("Checking permission '{}' for user {} in app: {}", 
+                   request.permission, auth_ctx.user_id, request.app_type);
+    
+    // Get user roles and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    // Derive permissions from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            match role.name() {
+                "admin" | "system_administrator" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "admin:access".to_string(),
+                    "users:manage".to_string(),
+                ],
+                "user" | "premium_user" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                ],
+                _ => vec!["basic:access".to_string()],
+            }
+        })
+        .collect();
+    
+    // Check if user has the requested permission
+    let matching_permissions: Vec<String> = permission_strings.iter()
+        .filter(|perm| {
+            // Direct match
+            if **perm == request.permission {
+                return true;
+            }
+            
+            // Wildcard matching - if permission ends with :*, match prefix
+            if perm.ends_with(":*") {
+                let prefix = &perm[..perm.len() - 1]; // Remove *
+                return request.permission.starts_with(prefix);
+            }
+            
+            // Check if requested permission matches a wildcard pattern
+            if request.permission.contains(':') {
+                let parts: Vec<&str> = request.permission.split(':').collect();
+                if parts.len() >= 2 {
+                    let wildcard_pattern = format!("{}:*", parts[0]);
+                    return permission_strings.contains(&wildcard_pattern);
+                }
+            }
+            
+            false
+        })
+        .cloned()
+        .collect();
+    
+    let has_permission = !matching_permissions.is_empty();
+    
+    let response = PermissionCheckResponse {
+        has_permission,
+        reason: if has_permission { 
+            None 
+        } else { 
+            Some(format!("User does not have permission: {}", request.permission))
+        },
+        user_permissions: permission_strings,
+        matching_permissions,
+    };
+    
+    Ok(Json(response))
 }
 
 #[cfg(test)]

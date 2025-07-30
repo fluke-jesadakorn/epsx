@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Cross-platform script to promote a user from email to SuperAdmin role
+ * Cross-platform script to promote a user from email to SuperAdmin role with all access
  * or assign IAM/ACL permission profiles
  * Usage: 
  *   node scripts/promote-user-admin.js promote <email> [reason]
  *   node scripts/promote-user-admin.js assign <email> <profile_id> [options]
+ *   node scripts/promote-user-admin.js super-admin <email> [reason]  # Full SuperAdmin with all access
  */
 
 import { execSync } from 'child_process';
@@ -44,6 +45,17 @@ function getPromoteCommand(email, reason = 'Admin promotion via script') {
     return `cd /d "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg}`;
   } else {
     return `cd "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg}`;
+  }
+}
+
+function getSuperAdminCommand(email, reason = 'Super Admin promotion with full access via script') {
+  const isWindows = platform() === 'win32';
+  const reasonArg = reason ? `--reason="${reason}"` : '';
+  
+  if (isWindows) {
+    return `cd /d "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg} --super-admin`;
+  } else {
+    return `cd "${CONFIG.backendPath}" && cargo run --bin promote_admin -- --email="${email}" ${reasonArg} --super-admin`;
   }
 }
 
@@ -108,11 +120,16 @@ Usage: node scripts/promote-user-admin.js <command> [arguments]
 
 Commands:
   promote <email> [reason]                      Promote user to SuperAdmin role
+  super-admin <email> [reason]                  Promote user to SuperAdmin with ALL ACCESS
   assign <email> <profile_id> [options]        Assign IAM/ACL permission profile
 
 Promote Arguments:
   email     Email address of user to promote to SuperAdmin
   reason    Optional reason for the promotion (default: "Admin promotion via script")
+
+Super-Admin Arguments:
+  email     Email address of user to promote to SuperAdmin with ALL ACCESS
+  reason    Optional reason for the promotion (default: "Super Admin promotion with full access via script")
 
 Assign Arguments:
   email         Email address of user to assign permissions to
@@ -122,6 +139,10 @@ Examples:
   # Promote to SuperAdmin
   node scripts/promote-user-admin.js promote user@example.com
   node scripts/promote-user-admin.js promote user@example.com "Emergency admin access needed"
+  
+  # Promote to SuperAdmin with ALL ACCESS (recommended)
+  node scripts/promote-user-admin.js super-admin user@example.com
+  node scripts/promote-user-admin.js super-admin user@example.com "Full system access granted"
   
   # Assign permission profile
   node scripts/promote-user-admin.js assign user@example.com user-premium-002
@@ -193,6 +214,48 @@ function main() {
       process.exit(1);
     }
 
+  } else if (command === 'super-admin') {
+    // Handle super-admin command
+    if (args.length < 2) {
+      console.error('❌ Error: super-admin command requires email');
+      console.error('Usage: node scripts/promote-user-admin.js super-admin <email> [reason]');
+      process.exit(1);
+    }
+
+    const email = args[1];
+    const reason = args[2];
+
+    // Validate inputs
+    if (!validateEmail(email)) {
+      console.error(`❌ Error: Invalid email format: ${email}`);
+      process.exit(1);
+    }
+
+    console.log(`🔄 Promoting user ${email} to SuperAdmin with ALL ACCESS...`);
+    console.log(`📍 Platform: ${platform()}`);
+    if (reason) {
+      console.log(`📝 Reason: ${reason}`);
+    }
+
+    // Execute super admin promotion
+    const cmd = getSuperAdminCommand(email, reason);
+    const result = executeCargoCommand(cmd);
+
+    if (result.success) {
+      console.log('✅ SuperAdmin promotion with ALL ACCESS successful!');
+      console.log('🔑 User now has full system access and all permissions');
+      if (result.output) {
+        console.log('📋 Output:', result.output);
+      }
+    } else {
+      console.error('❌ SuperAdmin promotion failed!');
+      console.error('🚨 Error:', result.error);
+      if (result.output) {
+        console.error('📋 Output:', result.output);
+      }
+      process.exit(1);
+    }
+
   } else if (command === 'assign') {
     // Handle assign command
     if (args.length < 3) {
@@ -251,40 +314,42 @@ function main() {
     }
 
   } else {
-    // Handle legacy usage (backward compatibility)
+    // Handle legacy usage (backward compatibility) or unknown command
     const email = command;
     const reason = args[1];
 
-    // Validate inputs
-    if (!validateEmail(email)) {
-      console.error(`❌ Error: Invalid command or email format: ${command}`);
-      console.error('Available commands: promote, assign');
-      console.error('Use --help for more information');
-      process.exit(1);
-    }
+    // Check if it looks like an email (legacy usage)
+    if (validateEmail(email)) {
+      console.log('⚠️  Using legacy format. Consider using: node scripts/promote-user-admin.js super-admin ' + email);
+      console.log('⚠️  Note: For full system access, use the "super-admin" command instead of legacy format');
+      console.log(`🔄 Promoting user ${email} to SuperAdmin...`);
+      console.log(`📍 Platform: ${platform()}`);
+      if (reason) {
+        console.log(`📝 Reason: ${reason}`);
+      }
 
-    console.log('⚠️  Using legacy format. Consider using: node scripts/promote-user-admin.js promote ' + email);
-    console.log(`🔄 Promoting user ${email} to SuperAdmin...`);
-    console.log(`📍 Platform: ${platform()}`);
-    if (reason) {
-      console.log(`📝 Reason: ${reason}`);
-    }
+      // Execute promotion (legacy)
+      const cmd = getPromoteCommand(email, reason);
+      const result = executeCargoCommand(cmd);
 
-    // Execute promotion (legacy)
-    const cmd = getPromoteCommand(email, reason);
-    const result = executeCargoCommand(cmd);
-
-    if (result.success) {
-      console.log('✅ User promotion successful!');
-      if (result.output) {
-        console.log('📋 Output:', result.output);
+      if (result.success) {
+        console.log('✅ User promotion successful!');
+        console.log('💡 Tip: Use "super-admin" command for full system access next time');
+        if (result.output) {
+          console.log('📋 Output:', result.output);
+        }
+      } else {
+        console.error('❌ User promotion failed!');
+        console.error('🚨 Error:', result.error);
+        if (result.output) {
+          console.error('📋 Output:', result.output);
+        }
+        process.exit(1);
       }
     } else {
-      console.error('❌ User promotion failed!');
-      console.error('🚨 Error:', result.error);
-      if (result.output) {
-        console.error('📋 Output:', result.output);
-      }
+      console.error(`❌ Error: Unknown command: ${command}`);
+      console.error('Available commands: promote, super-admin, assign');
+      console.error('Use --help for more information');
       process.exit(1);
     }
   }

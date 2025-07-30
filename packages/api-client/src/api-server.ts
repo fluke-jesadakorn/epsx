@@ -276,7 +276,7 @@ export async function serverGetStockRankingAnalytics(
 }
 
 export async function serverGetAdminProfile(): Promise<ApiResponse<AdminProfile>> {
-  return serverRequest('/api/v1/admin/auth/profile');
+  return serverRequest('/api/admin/auth/profile');
 }
 
 export async function serverSoftDeleteUser(
