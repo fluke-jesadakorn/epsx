@@ -1,4 +1,5 @@
-import { ErrorHandler, logger, type Result } from '@epsx/shared-core';
+import { ErrorHandler, logger } from '@epsx/shared-core';
+import type { Result } from '@epsx/shared-core';
 import { z } from 'zod';
 
 export interface ActionContext {
@@ -101,7 +102,17 @@ export function withServerAction<TInput = any, TOutput = any>(
         error: error instanceof Error ? error.message : error
       }, context);
 
-      const processedError = ErrorHandler.handle(error, context);
+      // Check if this is a handled cookie context error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isCookieContextError = errorMessage && 
+        (errorMessage.includes('cookies() was called outside a request scope') ||
+         errorMessage.includes('cookies" was called outside a request scope'));
+         
+      const contextWithHandled = isCookieContextError 
+        ? { ...context, isHandled: true }
+        : context;
+        
+      const processedError = ErrorHandler.handle(error, contextWithHandled);
       return ErrorHandler.createErrorResult(processedError);
     }
   };

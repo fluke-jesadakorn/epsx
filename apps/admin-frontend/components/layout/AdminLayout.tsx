@@ -7,6 +7,7 @@ import {
   Bell,
   ChevronRight,
   Database,
+  ExternalLink,
   Eye,
   FileText,
   Globe,
@@ -214,6 +215,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           href: '/permission-profiles/assign',
           icon: User,
           description: 'Assign feature permission profiles directly to users',
+        },
+        {
+          id: 'module-management',
+          label: 'Module Management',
+          href: '/admin/modules',
+          icon: Settings,
+          description: 'Manage system modules and their configurations',
+        },
+        {
+          id: 'developer-portal',
+          label: 'Developer Portal',
+          href: '/admin/developer-portal',
+          icon: ExternalLink,
+          description: 'Access developer tools and API documentation',
         },
         {
           id: 'stock-ranking-packages',

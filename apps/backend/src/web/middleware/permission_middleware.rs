@@ -351,6 +351,10 @@ fn has_role_based_access(role: &Role, path: &str, method: &Method) -> bool {
             has_role_based_access(&Role::Premium, path, method) ||
             path.starts_with("/api/v1/moderation/")
         }
+        Role::ApiClient => {
+            // API clients have limited access to API endpoints only
+            path.starts_with("/api/v1/") && !path.starts_with("/api/v1/admin/")
+        }
     }
 }
 
@@ -394,6 +398,9 @@ fn get_default_permission_profiles_for_role(role: &Role) -> Vec<PermissionProfil
         Role::SuperAdmin => vec![
             DefaultPermissionProfiles::gold_user(creator_id.clone()),
             DefaultPermissionProfiles::admin_assistant(creator_id),
+        ],
+        Role::ApiClient => vec![
+            DefaultPermissionProfiles::bronze_user(creator_id), // API clients get basic access
         ],
     }
 }

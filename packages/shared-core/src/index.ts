@@ -1,5 +1,6 @@
 // Error handling
 export * from './error-handling';
+export type { Result } from './error-handling/types';
 
 // Logging
 export * from './logging';

@@ -496,6 +496,7 @@ impl PackageTier {
             UserRole::Moderator => PackageTier::Silver,
             UserRole::Admin => PackageTier::Admin,
             UserRole::SuperAdmin => PackageTier::SuperAdmin,
+            UserRole::ApiClient => PackageTier::Free, // API clients get free tier by default
         }
     }
 }

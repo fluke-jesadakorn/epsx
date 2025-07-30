@@ -5,13 +5,15 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::app::ports::repositories::{AuditRepo, ExportFormat};
+use crate::app::ports::repositories::{AuditRepo, ExportFormat, UsageRepo};
 use crate::dom::entities::audit::{
     AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, 
     AuditError, AuditAction, AuditResult
 };
+use crate::dom::entities::module::ModuleUsageLog;
 use crate::dom::values::UserId;
 use crate::dom::entities::permission_profile::PermissionProfileId;
+use crate::dom::error::DomainError;
 
 /// In-memory audit repository implementation (for development/testing)
 /// In production, this would be replaced with a database implementation
@@ -373,6 +375,22 @@ impl AuditRepo for AuditRepoImpl {
         let _entries = self.entries.lock()
             .map_err(|e| AuditError::StorageError(format!("Health check failed: {}", e)))?;
         Ok(())
+    }
+}
+
+// Stub implementation of UsageRepo for AuditRepoImpl (temporary)
+#[async_trait]
+impl UsageRepo for AuditRepoImpl {
+    async fn log_usage(&self, _usage_log: ModuleUsageLog) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn get_usage_stats(&self, _user_id: &UserId, _module_name: &str) -> Result<HashMap<String, i32>, DomainError> {
+        Ok(HashMap::new()) // Stub implementation
+    }
+
+    async fn get_current_usage(&self, _user_id: &UserId, _module_name: &str, _quota_type: &str) -> Result<i32, DomainError> {
+        Ok(0) // Stub implementation
     }
 }
 

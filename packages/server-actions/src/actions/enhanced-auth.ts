@@ -8,43 +8,21 @@ import {
 } from '../core/action-wrapper';
 import { serverGet, serverPost } from '../core/enhanced-request';
 import { z } from 'zod';
-import type { 
-  LoginRequest, 
-  RegisterRequest, 
-  UserProfile, 
-  PasswordChangeRequest, 
-  PasswordResetRequest,
-  ProfileUpdateRequest 
+import { 
+  LoginRequestSchema, 
+  RegisterRequestSchema, 
+  UserProfileSchema, 
+  PasswordChangeRequestSchema, 
+  PasswordResetRequestSchema,
+  ProfileUpdateRequestSchema 
 } from '@epsx/types';
 
-// Enhanced Input/Output Schemas
-const LoginInputSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  type: z.literal('credentials').default('credentials')
-});
-
-const RegisterInputSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  package_tier: z.string().optional()
-});
-
-const UserProfileSchema = z.object({
-  id: z.string(),
-  email: z.string().email(),
-  name: z.string().optional(),
-  role: z.string(),
-  isActive: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date()
-});
+// Use imported schemas from @epsx/types
 
 // Enhanced Authentication Actions
 export const enhancedLogin = withServerAction(
   'auth.login',
-  async (credentials: LoginRequest, context) => {
+  async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
     const result = await serverPost('/api/v1/auth/login', credentials, {
       action: context.action,
       userId: context.userId,
@@ -53,7 +31,7 @@ export const enhancedLogin = withServerAction(
     return result;
   },
   {
-    validateInput: LoginInputSchema,
+    validateInput: LoginRequestSchema,
     validateOutput: UserProfileSchema,
     logLevel: 'info'
   }
@@ -83,21 +61,21 @@ export const enhancedGetCurrentUser = createServerAction(
 
 export const enhancedRegister = withServerAction(
   'auth.register',
-  async (userData: RegisterRequest, context) => {
+  async (userData: z.infer<typeof RegisterRequestSchema>, context) => {
     return await serverPost('/api/v1/auth/register', userData, {
       action: context.action,
       requestId: context.requestId
     });
   },
   {
-    validateInput: RegisterInputSchema,
+    validateInput: RegisterRequestSchema,
     logLevel: 'info'
   }
 );
 
 export const enhancedUpdateProfile = createAuthenticatedAction(
   'auth.updateProfile',
-  async (data: ProfileUpdateRequest, context) => {
+  async (data: z.infer<typeof ProfileUpdateRequestSchema>, context) => {
     return await serverPost('/api/v1/auth/profile/update', data, {
       action: context.action,
       userId: context.userId,
@@ -105,18 +83,13 @@ export const enhancedUpdateProfile = createAuthenticatedAction(
     });
   },
   {
-    validateInput: z.object({
-      name: z.string().min(2).optional(),
-      displayName: z.string().min(2).optional(),
-      avatar: z.string().url().optional(),
-      preferences: z.record(z.any()).optional()
-    })
+    validateInput: ProfileUpdateRequestSchema
   }
 );
 
 export const enhancedChangePassword = createAuthenticatedAction(
   'auth.changePassword',
-  async (data: PasswordChangeRequest, context) => {
+  async (data: z.infer<typeof PasswordChangeRequestSchema>, context) => {
     return await serverPost('/api/v1/auth/change-password', data, {
       action: context.action,
       userId: context.userId,
@@ -124,26 +97,21 @@ export const enhancedChangePassword = createAuthenticatedAction(
     });
   },
   {
-    validateInput: z.object({
-      currentPassword: z.string().min(1, 'Current password is required'),
-      newPassword: z.string().min(8, 'New password must be at least 8 characters')
-    }),
+    validateInput: PasswordChangeRequestSchema,
     logLevel: 'warn' // Higher log level for security operations
   }
 );
 
 export const enhancedResetPassword = withServerAction(
   'auth.resetPassword',
-  async (data: PasswordResetRequest, context) => {
+  async (data: z.infer<typeof PasswordResetRequestSchema>, context) => {
     return await serverPost('/api/v1/auth/password-reset', data, {
       action: context.action,
       requestId: context.requestId
     });
   },
   {
-    validateInput: z.object({
-      email: z.string().email('Please enter a valid email address')
-    }),
+    validateInput: PasswordResetRequestSchema,
     logLevel: 'warn' // Higher log level for security operations
   }
 );
@@ -188,14 +156,14 @@ export const enhancedGetUserFeatures = createAuthenticatedAction(
 // Admin authentication functions  
 export const enhancedAdminLogin = withServerAction(
   'auth.adminLogin',
-  async (credentials: LoginRequest, context) => {
+  async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
     return await serverPost('/api/v1/admin/auth/login', credentials, {
       action: context.action,
       requestId: context.requestId
     });
   },
   {
-    validateInput: LoginInputSchema,
+    validateInput: LoginRequestSchema,
     logLevel: 'warn' // Higher log level for admin operations
   }
 );
@@ -216,6 +184,6 @@ export const enhancedCheckAdminPermission = createAuthenticatedAction(
 );
 
 // Type exports for enhanced actions
-export type EnhancedLoginResult = ActionResult<UserProfile>;
+export type EnhancedLoginResult = ActionResult<z.infer<typeof UserProfileSchema>>;
 export type EnhancedRegisterResult = ActionResult<{ message: string; userId: string }>;
-export type EnhancedProfileResult = ActionResult<UserProfile>;
+export type EnhancedProfileResult = ActionResult<z.infer<typeof UserProfileSchema>>;

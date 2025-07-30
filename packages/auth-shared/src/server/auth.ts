@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { AuthResult, UserProfile } from '../types';
 
@@ -28,7 +27,16 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
   try {
-    const cookieStore = await cookies();
+    let cookieStore;
+    try {
+      const { cookies } = await import('next/headers');
+      cookieStore = await cookies();
+    } catch (cookieError) {
+      if (cookieError instanceof Error && cookieError.message.includes('cookies() was called outside a request scope')) {
+        return { isAuthenticated: false, error: 'Request scope unavailable' };
+      }
+      throw cookieError;
+    }
     
     // Try admin session first, then regular session
     const adminSession = cookieStore.get(finalConfig.adminSessionCookieName);

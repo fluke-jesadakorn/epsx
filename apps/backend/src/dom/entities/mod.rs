@@ -7,6 +7,7 @@ pub mod stock;
 pub mod iam;
 pub mod audit;
 pub mod permission_profile;
+pub mod module;
 
 pub use user::*;
 pub use auth::*;
@@ -15,6 +16,7 @@ pub use stock::*;
 pub use iam::*;
 pub use audit::*;
 pub use permission_profile::*;
+pub use module::*;
 
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};

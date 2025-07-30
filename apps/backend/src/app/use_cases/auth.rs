@@ -136,6 +136,7 @@ impl AuthUC {
             crate::dom::values::Role::Premium => PermissionGroups::premium_tier(),
             crate::dom::values::Role::User => PermissionGroups::user_tier(),
             crate::dom::values::Role::Free => PermissionGroups::free_tier(),
+            crate::dom::values::Role::ApiClient => PermissionGroups::user_tier(), // API clients get user-level permissions
         };
         
         perms.into_iter().map(|s| s.to_string()).collect()
