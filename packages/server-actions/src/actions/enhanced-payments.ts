@@ -9,54 +9,20 @@ import {
 } from '../core/action-wrapper';
 import { serverGet, serverPost } from '../core/enhanced-request';
 import { z } from 'zod';
-import type { 
-  CreatePaymentRequest,
-  CreatePaymentResponse,
-  PaymentStatusResponse,
-  PaymentPlan,
-  UserSubscription
+import { 
+  CreatePaymentRequestSchema,
+  CreatePaymentResponseSchema,
+  PaymentStatusResponseSchema,
+  PaymentPlanSchema,
+  UserSubscriptionSchema
 } from '@epsx/types';
 
-// Enhanced Payment Schemas
-const CreatePaymentSchema = z.object({
-  planId: z.string().min(1, 'Plan ID is required'),
-  paymentMethod: z.string().min(1, 'Payment method is required'),
-  billingAddress: z.object({
-    line1: z.string().min(1, 'Address line 1 is required'),
-    line2: z.string().optional(),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    postalCode: z.string().min(1, 'Postal code is required'),
-    country: z.string().min(2, 'Country is required'),
-  }).optional(),
-  couponCode: z.string().optional()
-});
-
-const PaymentStatusSchema = z.object({
-  paymentIntentId: z.string(),
-  subscriptionId: z.string(),
-  status: z.enum(['PENDING', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'REFUNDED']),
-  amount: z.number().nonnegative(),
-  currency: z.string().length(3),
-  nextBillingDate: z.date().optional()
-});
-
-const PaymentPlanSchema = z.object({
-  id: z.string(),
-  tier: z.enum(['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']),
-  name: z.string(),
-  price: z.number().nonnegative(),
-  currency: z.string().length(3),
-  features: z.array(z.string()),
-  duration: z.number().positive(),
-  numericLevel: z.number().nonnegative(),
-  color: z.string()
-});
+// Using imported schemas from @epsx/types
 
 // Enhanced Payment Actions
 export const enhancedCreatePayment = createAuthenticatedAction(
   'payments.createPayment',
-  async (data: CreatePaymentRequest, context) => {
+  async (data: z.infer<typeof CreatePaymentRequestSchema>, context) => {
     const result = await serverPost('/api/v1/payments/create', data, {
       action: context.action,
       userId: context.userId,
@@ -65,7 +31,7 @@ export const enhancedCreatePayment = createAuthenticatedAction(
     return result;
   },
   {
-    validateInput: CreatePaymentSchema,
+    validateInput: CreatePaymentRequestSchema,
     logLevel: 'info'
   }
 );
@@ -81,7 +47,7 @@ export const enhancedGetPaymentStatus = createAuthenticatedAction(
   },
   {
     validateInput: z.string().min(1, 'Payment intent ID is required'),
-    validateOutput: PaymentStatusSchema,
+    validateOutput: PaymentStatusResponseSchema,
     logLevel: 'info'
   }
 );
@@ -266,7 +232,7 @@ export const enhancedInitQRPayment = createAuthenticatedAction(
 );
 
 // Type exports for enhanced actions
-export type EnhancedCreatePaymentResult = ActionResult<CreatePaymentResponse>;
-export type EnhancedPaymentStatusResult = ActionResult<PaymentStatusResponse>;
-export type EnhancedPaymentPlansResult = ActionResult<PaymentPlan[]>;
-export type EnhancedUserSubscriptionResult = ActionResult<UserSubscription>;
+export type EnhancedCreatePaymentResult = ActionResult<z.infer<typeof CreatePaymentResponseSchema>>;
+export type EnhancedPaymentStatusResult = ActionResult<z.infer<typeof PaymentStatusResponseSchema>>;
+export type EnhancedPaymentPlansResult = ActionResult<z.infer<typeof PaymentPlanSchema>[]>;
+export type EnhancedUserSubscriptionResult = ActionResult<z.infer<typeof UserSubscriptionSchema>>;

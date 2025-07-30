@@ -4,12 +4,16 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::app::ports::repositories::IamRepo;
+use crate::app::ports::repositories::{IamRepo, ModuleRepo};
 use crate::dom::entities::iam::{
     IamRole, IamPolicy, IamGroup, UserPermissionOverride, 
     RoleId, PolicyId, GroupId, IamError,
 };
+use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::UserId;
+use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
+use crate::dom::error::DomainError;
+use uuid::Uuid;
 
 /// In-memory IAM repository implementation (temporary)
 pub struct IamRepoImpl {
@@ -199,5 +203,101 @@ impl IamRepo for IamRepoImpl {
         let mut user_overrides = self.user_overrides.lock().unwrap();
         user_overrides.remove(&user_id.to_string());
         Ok(())
+    }
+}
+
+// Stub implementation of ModuleRepo for IamRepoImpl (temporary)
+#[async_trait]
+impl ModuleRepo for IamRepoImpl {
+    async fn create_sub_module(&self, _module: &SubModule) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn update_sub_module(&self, _module: &SubModule) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn delete_sub_module(&self, _module_id: &Uuid) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn get_sub_module(&self, _module_id: &Uuid) -> Result<Option<SubModule>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn get_sub_module_by_name(&self, _name: &str) -> Result<Option<SubModule>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn list_active_modules(&self) -> Result<Vec<SubModule>, DomainError> {
+        Ok(vec![]) // Stub implementation
+    }
+
+    async fn create_assignment(&self, _assignment: &UserSubModuleAssignment) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn update_assignment(&self, _assignment: &UserSubModuleAssignment) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn delete_assignment(&self, _assignment_id: &Uuid) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn get_assignment(&self, _assignment_id: &Uuid) -> Result<Option<UserSubModuleAssignment>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn get_user_module_assignments(&self, _user_id: &UserId) -> Result<Vec<UserModuleAccess>, DomainError> {
+        Ok(vec![]) // Stub implementation
+    }
+
+    async fn has_user_module_access(&self, _user_id: &UserId, _module_name: &str) -> Result<bool, DomainError> {
+        Ok(false) // Stub implementation
+    }
+
+    async fn get_user_access_level(&self, _user_id: &UserId, _module_name: &str) -> Result<Option<String>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn create_api_key(&self, _api_key: &ApiKey) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn update_api_key(&self, _api_key: &ApiKey) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn delete_api_key(&self, _key_id: &Uuid) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn get_api_key(&self, _key_id: &Uuid) -> Result<Option<ApiKey>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn get_api_key_by_hash(&self, _key_hash: &str) -> Result<Option<ApiKey>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn get_api_key_access(&self, _key_hash: &str) -> Result<Option<ApiKeyAccess>, DomainError> {
+        Ok(None) // Stub implementation
+    }
+
+    async fn log_usage(&self, _usage_log: &ModuleUsageLog) -> Result<(), DomainError> {
+        Ok(()) // Stub implementation
+    }
+
+    async fn get_current_usage(&self, _user_id: &UserId, _module_name: &str, _quota_type: &str) -> Result<i32, DomainError> {
+        Ok(0) // Stub implementation
+    }
+
+    async fn get_quota_limits(&self, _user_id: &UserId, _module_name: &str) -> Result<HashMap<String, i32>, DomainError> {
+        Ok(HashMap::new()) // Stub implementation
+    }
+
+    async fn check_quota_availability(&self, _user_id: &UserId, _module_name: &str, _quota_type: &str, _amount: i32) -> Result<bool, DomainError> {
+        Ok(true) // Stub implementation - always allow
     }
 }

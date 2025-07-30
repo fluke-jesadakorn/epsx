@@ -150,3 +150,18 @@ export {
   getEnvironmentConfig,
   updateEnvironmentConfig
 } from './actions/settings';
+
+// Module system management
+export {
+  getModules,
+  getUserModuleAssignments,
+  assignModulesToUser,
+  revokeModuleAccess,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  getModuleUsageAnalytics,
+  type ModuleAssignment,
+  type ApiKeyCreation,
+  type BulkModuleAssignment
+} from './actions/modules';

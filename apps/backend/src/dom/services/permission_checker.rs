@@ -103,6 +103,10 @@ impl PermissionChecker {
                 "manage:system",
                 "write:all",
             ],
+            Role::ApiClient => vec![
+                "read:basic",
+                "api:access",
+            ],
         }
     }
     

@@ -15,7 +15,14 @@ import {
   getIAMRoles,
   evaluatePermission,
   getCurrentUser,
-  updateSettings
+  updateSettings,
+  getModules,
+  getUserModuleAssignments,
+  assignModulesToUser,
+  revokeModuleAccess,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey
 } from '@epsx/server-actions';
 
 export interface AdminUser {
@@ -261,6 +268,161 @@ export class AdminService {
     } catch (error) {
       adminLogger.error('Failed to update settings', { settings, error });
       throw error;
+    }
+  }
+
+  // ========================================
+  // MODULE MANAGEMENT METHODS
+  // ========================================
+
+  /**
+   * Get modules with optional filtering
+   */
+  static async getModules(filters?: {
+    category?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; data: { modules: any[] } }> {
+    try {
+      const response = await getModules(filters);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to fetch modules', { filters, error });
+      return { success: false, data: { modules: [] } };
+    }
+  }
+
+  /**
+   * Get user module assignments
+   */
+  static async getUserModuleAssignments(userId: string): Promise<{ 
+    success: boolean; 
+    data: { assignments: any[] } 
+  }> {
+    try {
+      const response = await getUserModuleAssignments({ userId });
+      return { success: true, data: response };
+    } catch (error) {
+      // Handle cookie context errors gracefully
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('cookies() was called outside a request scope') || 
+          errorMessage.includes('cookies" was called outside a request scope')) {
+        adminLogger.info('Module assignments not available - no request context', { userId });
+        return { success: true, data: { assignments: [] } };
+      }
+      
+      adminLogger.error('Failed to fetch user module assignments', { userId, error });
+      return { success: false, data: { assignments: [] } };
+    }
+  }
+
+  /**
+   * Assign modules to user
+   */
+  static async assignModulesToUser(request: {
+    user_id: string;
+    assignments: Array<{
+      module_id: string;
+      access_level: string;
+      custom_quotas?: Record<string, any>;
+      restrictions?: Record<string, any>;
+      expires_at?: string;
+    }>;
+    reason: string;
+  }): Promise<{ 
+    success: boolean; 
+    data: { 
+      successful_count: number; 
+      failed_count: number; 
+      results: any[] 
+    } 
+  }> {
+    try {
+      const response = await assignModulesToUser(request);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to assign modules to user', { request, error });
+      return { 
+        success: false, 
+        data: { successful_count: 0, failed_count: 0, results: [] } 
+      };
+    }
+  }
+
+  /**
+   * Revoke module access from user
+   */
+  static async revokeModuleAccess(
+    userId: string, 
+    moduleId: string, 
+    reason: string
+  ): Promise<{ success: boolean; data?: any }> {
+    try {
+      const response = await revokeModuleAccess(userId, moduleId, reason);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to revoke module access', { userId, moduleId, reason, error });
+      return { success: false };
+    }
+  }
+
+  /**
+   * Create API key for third-party access
+   */
+  static async createApiKey(request: {
+    client_name: string;
+    client_description?: string;
+    client_contact_email?: string;
+    allowed_modules: Array<{
+      module_id: string;
+      access_level: string;
+      custom_quotas?: Record<string, any>;
+    }>;
+    ip_restrictions: string[];
+    expires_at?: string;
+  }): Promise<{ success: boolean; data?: any }> {
+    try {
+      const response = await createApiKey(request);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to create API key', { request, error });
+      return { success: false };
+    }
+  }
+
+  /**
+   * List API keys with filtering
+   */
+  static async listApiKeys(filters?: {
+    client_name?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; data: { api_keys: any[] } }> {
+    try {
+      const response = await listApiKeys(filters);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to list API keys', { filters, error });
+      return { success: false, data: { api_keys: [] } };
+    }
+  }
+
+  /**
+   * Revoke API key
+   */
+  static async revokeApiKey(
+    keyId: string, 
+    reason: string
+  ): Promise<{ success: boolean; data?: any }> {
+    try {
+      const response = await revokeApiKey(keyId, reason);
+      return { success: true, data: response };
+    } catch (error) {
+      adminLogger.error('Failed to revoke API key', { keyId, reason, error });
+      return { success: false };
     }
   }
 }

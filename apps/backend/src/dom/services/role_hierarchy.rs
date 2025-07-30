@@ -37,6 +37,7 @@ impl RoleHierarchy {
             Role::Moderator => Some(Role::Admin),
             Role::Admin => Some(Role::SuperAdmin),
             Role::SuperAdmin => None,
+            Role::ApiClient => None, // API clients cannot be upgraded
         }
     }
 }

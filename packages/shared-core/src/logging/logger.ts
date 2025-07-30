@@ -26,6 +26,41 @@ export class AppLogger implements Logger {
     return `${prefix}${context} ${timestamp} [${entry.level.toUpperCase()}] ${entry.message}`;
   }
 
+  private serializeData(data: any): any {
+    if (!data) return undefined;
+    
+    // Handle Error objects specially
+    if (data instanceof Error) {
+      return {
+        name: data.name,
+        message: data.message,
+        stack: data.stack,
+        ...Object.getOwnPropertyNames(data).reduce((acc, key) => {
+          acc[key] = (data as any)[key];
+          return acc;
+        }, {} as any)
+      };
+    }
+    
+    // Handle plain objects - recursively serialize nested objects
+    if (typeof data === 'object' && data !== null) {
+      const result: any = {};
+      let hasContent = false;
+      
+      for (const [key, value] of Object.entries(data)) {
+        const serializedValue = this.serializeData(value);
+        if (serializedValue !== undefined) {
+          result[key] = serializedValue;
+          hasContent = true;
+        }
+      }
+      
+      return hasContent ? result : undefined;
+    }
+    
+    return data;
+  }
+
   private log(level: LogLevel, message: string, data?: any, context?: LogContext): void {
     if (!this.shouldLog(level)) return;
 
@@ -38,19 +73,36 @@ export class AppLogger implements Logger {
     };
 
     const formattedMessage = this.formatMessage(entry);
+    const serializedData = this.serializeData(data);
 
     switch (level) {
       case 'debug':
-        console.debug(formattedMessage, data || '');
+        if (serializedData !== undefined) {
+          console.debug(formattedMessage, serializedData);
+        } else {
+          console.debug(formattedMessage);
+        }
         break;
       case 'info':
-        console.info(formattedMessage, data || '');
+        if (serializedData !== undefined) {
+          console.info(formattedMessage, serializedData);
+        } else {
+          console.info(formattedMessage);
+        }
         break;
       case 'warn':
-        console.warn(formattedMessage, data || '');
+        if (serializedData !== undefined) {
+          console.warn(formattedMessage, serializedData);
+        } else {
+          console.warn(formattedMessage);
+        }
         break;
       case 'error':
-        console.error(formattedMessage, data || '');
+        if (serializedData !== undefined) {
+          console.error(formattedMessage, serializedData);
+        } else {
+          console.error(formattedMessage);
+        }
         break;
     }
   }

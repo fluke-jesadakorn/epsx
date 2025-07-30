@@ -80,7 +80,7 @@ export class CookieManager {
       // Debug: Log all available cookies
       const allCookies = cookieStore.getAll();
       console.log('🍪 [CookieManager] All cookies available:', 
-        allCookies.map(c => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
+        allCookies.map((c: any) => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
       );
       
       const authCookies = {

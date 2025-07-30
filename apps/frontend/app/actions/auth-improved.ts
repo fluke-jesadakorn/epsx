@@ -3,12 +3,12 @@
 import { redirect } from 'next/navigation';
 import { getServerAuth, createServerSession, destroyServerSession } from '@/lib/auth-server';
 import { ServerCookies } from '@/lib/cookies';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { ServerApiClient, isApiError } from '@epsx/api-client';
 import type { User } from '@/types/auth/user';
 
 // Get API client - will automatically use backend URL
 const getApi = () => {
-  return createApiClient();
+  return new ServerApiClient();
 };
 
 /**

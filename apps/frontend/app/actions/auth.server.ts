@@ -19,7 +19,7 @@ import {
   validatePasswordStrength,
 } from '@/lib/security';
 import type { User } from '@/types/auth/user';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { ServerApiClient, isApiError } from '@epsx/api-client';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
@@ -288,7 +288,7 @@ export async function registerAction(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const apiClient = createApiClient(backendUrl);
+    const apiClient = new ServerApiClient();
     const response = await apiClient.register({
       email: sanitizedEmail,
       password: sanitizedPassword,
@@ -397,7 +397,7 @@ export async function requestPasswordResetAction(email: string): Promise<{
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const apiClient = createApiClient(backendUrl);
+    const apiClient = new ServerApiClient();
     const response = await apiClient.resetPassword({ email });
 
     if (isApiError(response)) {
@@ -435,7 +435,7 @@ export async function resetPasswordAction(
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const apiClient = createApiClient(backendUrl);
+    const apiClient = new ServerApiClient();
     const response = await apiClient.resetPassword({
       token,
       new_password: newPassword,
@@ -502,7 +502,7 @@ export async function needsSessionRefresh(): Promise<boolean> {
     if (!backendUrl) {
       throw new Error('BACKEND_URL environment variable is required');
     }
-    const apiClient = createApiClient(backendUrl);
+    const apiClient = new ServerApiClient();
     const response = await apiClient.refreshSession();
 
     return isApiError(response);
@@ -623,7 +623,7 @@ export async function registerUserWithPermissionProfiles(
     // Call enhanced registration endpoint
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
     console.log('BACKEND_URL from env:', process.env.BACKEND_URL, '-> Using:', backendUrl); // Debug log
-    const apiClient = createApiClient(backendUrl);
+    const apiClient = new ServerApiClient();
     console.log('Sending registration data:', JSON.stringify(validation.data, null, 2)); // Debug log
     const response = await apiClient.enhancedRegister(validation.data);
     console.log('Registration response:', JSON.stringify(response, null, 2)); // Debug log

@@ -8,8 +8,13 @@ use crate::dom::entities::{User, Session, Payment, Stock};
 use crate::dom::entities::iam::{IamRole, IamPolicy, IamGroup, UserPermissionOverride, RoleId, PolicyId, GroupId, IamError};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
 use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, ApplyPermissionProfileResult, PermissionProfileError};
+use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, Role, PayStatus, Market};
+use crate::dom::error::DomainError;
 use crate::app::dtos::LevelChangeRecord;
+use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
@@ -229,6 +234,49 @@ pub trait PermissionProfileRepo: Send + Sync {
     async fn extend_assignment_expiration(&self, user_id: &UserId, profile_id: &PermissionProfileId, new_expiration: DateTime<Utc>) -> Result<(), PermissionProfileError>;
     async fn find_by_id(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
     async fn health_check(&self) -> Result<(), PermissionProfileError>;
+}
+
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait ModuleRepo: Send + Sync {
+    // Sub-module management
+    async fn create_sub_module(&self, module: &SubModule) -> Result<(), DomainError>;
+    async fn update_sub_module(&self, module: &SubModule) -> Result<(), DomainError>;
+    async fn delete_sub_module(&self, module_id: &Uuid) -> Result<(), DomainError>;
+    async fn get_sub_module(&self, module_id: &Uuid) -> Result<Option<SubModule>, DomainError>;
+    async fn get_sub_module_by_name(&self, name: &str) -> Result<Option<SubModule>, DomainError>;
+    async fn list_active_modules(&self) -> Result<Vec<SubModule>, DomainError>;
+
+    // User module assignments
+    async fn create_assignment(&self, assignment: &UserSubModuleAssignment) -> Result<(), DomainError>;
+    async fn update_assignment(&self, assignment: &UserSubModuleAssignment) -> Result<(), DomainError>;
+    async fn delete_assignment(&self, assignment_id: &Uuid) -> Result<(), DomainError>;
+    async fn get_assignment(&self, assignment_id: &Uuid) -> Result<Option<UserSubModuleAssignment>, DomainError>;
+    async fn get_user_module_assignments(&self, user_id: &UserId) -> Result<Vec<UserModuleAccess>, DomainError>;
+    async fn has_user_module_access(&self, user_id: &UserId, module_name: &str) -> Result<bool, DomainError>;
+    async fn get_user_access_level(&self, user_id: &UserId, module_name: &str) -> Result<Option<String>, DomainError>;
+
+    // API key management
+    async fn create_api_key(&self, api_key: &ApiKey) -> Result<(), DomainError>;
+    async fn update_api_key(&self, api_key: &ApiKey) -> Result<(), DomainError>;
+    async fn delete_api_key(&self, key_id: &Uuid) -> Result<(), DomainError>;
+    async fn get_api_key(&self, key_id: &Uuid) -> Result<Option<ApiKey>, DomainError>;
+    async fn get_api_key_by_hash(&self, key_hash: &str) -> Result<Option<ApiKey>, DomainError>;
+    async fn get_api_key_access(&self, key_hash: &str) -> Result<Option<ApiKeyAccess>, DomainError>;
+
+    // Usage logging
+    async fn log_usage(&self, usage_log: &ModuleUsageLog) -> Result<(), DomainError>;
+    async fn get_current_usage(&self, user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
+    async fn get_quota_limits(&self, user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
+    async fn check_quota_availability(&self, user_id: &UserId, module_name: &str, quota_type: &str, amount: i32) -> Result<bool, DomainError>;
+}
+
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait UsageRepo: Send + Sync {
+    async fn log_usage(&self, usage_log: ModuleUsageLog) -> Result<(), DomainError>;
+    async fn get_usage_stats(&self, user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
+    async fn get_current_usage(&self, user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
 }
 
 // Supporting types

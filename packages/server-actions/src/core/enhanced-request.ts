@@ -36,20 +36,43 @@ export async function makeServerRequest<T = any>(
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
       const allCookies = cookieStore.getAll();
-      cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+      cookieHeader = allCookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
     } catch (cookiesError) {
       // Handle case where cookies() is called outside request context
       if (typeof cookiesError === 'object' && cookiesError && 'message' in cookiesError) {
         const errorMessage = String(cookiesError.message);
-        if (errorMessage.includes('cookies" was called outside a request scope')) {
-          logger.warn('Cookies not available - running outside request context', {}, {
+        if (errorMessage.includes('cookies" was called outside a request scope') || 
+            errorMessage.includes('cookies() was called outside a request scope')) {
+          logger.debug('Cookies not available - running outside request context', {
+            endpoint,
+            context: 'no-request-scope'
+          }, {
             component: 'server-request',
             action: context?.action
           });
+          // Continue without cookies - this is expected in some server action contexts
+          cookieHeader = '';
         } else {
+          // Re-throw unexpected cookie errors
+          logger.error('Unexpected cookie access error', {
+            endpoint,
+            errorMessage,
+            errorName: 'name' in cookiesError ? String(cookiesError.name) : 'Unknown'
+          }, {
+            component: 'server-request',
+            action: context?.action
+          });
           throw cookiesError;
         }
       } else {
+        // Re-throw non-object errors
+        logger.error('Non-object cookie error', {
+          endpoint,
+          error: cookiesError
+        }, {
+          component: 'server-request',
+          action: context?.action
+        });
         throw cookiesError;
       }
     }
@@ -133,7 +156,10 @@ export async function makeServerRequest<T = any>(
   } catch (error) {
     logger.error('Server request exception', {
       endpoint,
-      error: error instanceof Error ? error.message : String(error)
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorStack: error instanceof Error ? error.stack : undefined,
+      error
     }, {
       component: 'server-request',
       action: context?.action,
