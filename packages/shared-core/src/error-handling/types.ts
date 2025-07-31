@@ -33,4 +33,5 @@ export interface ErrorContext {
   component?: string;
   action?: string;
   metadata?: Record<string, any>;
+  isHandled?: boolean;
 }

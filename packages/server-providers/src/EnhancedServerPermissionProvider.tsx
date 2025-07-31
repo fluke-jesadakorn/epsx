@@ -5,7 +5,7 @@ import type {
 import { 
   getUserPermissions, 
   getPaymentStatus, 
-  enhancedGetPaymentPlans, 
+  getPlanDetails, 
   checkFeatureAccess, 
   checkRankingAccess,
   type UserPermission,
@@ -43,8 +43,11 @@ async function getPaymentData(): Promise<Result<ServerPaymentStatus | null>> {
   });
 
   return ErrorHandler.withErrorHandling(async () => {
-    const result = await getPaymentStatus();
-    return result;
+    const result = await getPaymentStatus('');
+    if (result && typeof result === 'object' && 'success' in result) {
+      return result.success ? result.data : null;
+    }
+    return result as ServerPaymentStatus | null;
   });
 }
 
@@ -55,7 +58,7 @@ async function getPlansData(): Promise<Result<PaymentPlan[]>> {
   });
 
   return ErrorHandler.withErrorHandling(async () => {
-    const result = await enhancedGetPaymentPlans(undefined);
+    const result = await getPlanDetails('');
     if (result && typeof result === 'object' && 'success' in result) {
       return result.success ? result.data : [];
     }
@@ -86,7 +89,7 @@ async function getFeatureAccessData(features: string[]): Promise<Result<Record<s
         if (result.status === 'fulfilled') {
           const accessResult = result.value.result;
           featureAccess[feature] = accessResult && typeof accessResult === 'object' && 'allowed' in accessResult 
-            ? accessResult.allowed 
+            ? Boolean(accessResult.allowed)
             : Boolean(accessResult);
         } else {
           featureAccess[feature] = false;

@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { AuthResult, UserProfile } from '../types';
 
@@ -16,7 +15,7 @@ export interface AuthServerConfig {
 const DEFAULT_CONFIG: Required<AuthServerConfig> = {
   backendUrl: process.env.BACKEND_URL || process.env.NEXTAUTH_URL || 'http://localhost:8080',
   sessionCookieName: 'sess_id',
-  adminSessionCookieName: 'admin_sess_id',
+  adminSessionCookieName: 'sess_id', // Use unified session cookie name
   fallbackToLocalParsing: true,
 };
 
@@ -28,43 +27,66 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
   try {
-    const cookieStore = await cookies();
+    let cookieStore;
+    try {
+      const { cookies } = await import('next/headers');
+      cookieStore = await cookies();
+    } catch (cookieError) {
+      if (cookieError instanceof Error && cookieError.message.includes('cookies() was called outside a request scope')) {
+        return { isAuthenticated: false, error: 'Request scope unavailable' };
+      }
+      throw cookieError;
+    }
     
-    // Try admin session first, then regular session
-    const adminSession = cookieStore.get(finalConfig.adminSessionCookieName);
-    const userSession = cookieStore.get(finalConfig.sessionCookieName);
-    
-    const sessionId = adminSession?.value || userSession?.value;
-    const isAdminSession = !!adminSession?.value;
+    // Get unified session cookie
+    const sessionCookie = cookieStore.get(finalConfig.sessionCookieName);
+    const sessionId = sessionCookie?.value;
     
     if (!sessionId) {
       return { isAuthenticated: false };
     }
 
-    // Determine API endpoint based on session type
-    const endpoint = isAdminSession ? '/api/v1/admin/auth/profile' : '/api/v1/auth/profile';
-    const cookieHeader = `${isAdminSession ? finalConfig.adminSessionCookieName : finalConfig.sessionCookieName}=${sessionId}`;
+    const cookieHeader = `${finalConfig.sessionCookieName}=${sessionId}`;
 
-    try {
-      const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Cookie': cookieHeader,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Auth-Shared Server Component',
-        },
-      });
+    // Try multiple endpoints to handle both admin and regular users
+    const endpoints = ['/api/v1/auth/profile', '/api/admin/auth/profile'];
+    
+    let userData = null;
+    let lastError: string | null = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {
+          method: 'GET',
+          headers: {
+            'Cookie': cookieHeader,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Auth-Shared Server Component',
+          },
+        });
 
-      if (!response.ok) {
-        return { 
-          isAuthenticated: false, 
-          error: response.status === 401 ? 'Session expired' : 'Authentication failed'
-        };
+        if (response.ok) {
+          userData = await response.json();
+          break;
+        } else if (response.status === 401) {
+          lastError = 'Session expired';
+        } else {
+          lastError = 'Authentication failed';
+        }
+      } catch (fetchError) {
+        lastError = fetchError instanceof Error ? fetchError.message : 'Network error';
+        continue;
       }
+    }
 
-      const userData = await response.json();
-      
-      return {
+    if (!userData) {
+      return { 
+        isAuthenticated: false, 
+        error: lastError || 'Authentication failed'
+      };
+    }
+
+    return {
         isAuthenticated: true,
         user: {
           id: userData.user_id || userData.id,
@@ -84,7 +106,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
           permission_profiles?: string[];
         },
       };
-    } catch (networkError) {
+  } catch (networkError) {
       console.warn('Backend not available for auth check, attempting local session parsing', { 
         error: networkError instanceof Error ? networkError.message : networkError 
       });
@@ -96,35 +118,49 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
         };
       }
       
-      // Fallback: try to parse session data locally
+      // Get session from cookies again for fallback
       try {
-        const parsedSession = JSON.parse(sessionId);
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const sessionCookie = cookieStore.get(finalConfig.sessionCookieName);
+        const sessionId = sessionCookie?.value;
         
-        if (parsedSession && parsedSession.user_id) {
-          return {
-            isAuthenticated: true,
-            user: {
-              id: parsedSession.user_id || parsedSession.id,
-              email: parsedSession.email,
-              role: parsedSession.role || 'user',
-              isActive: true,
-              createdAt: new Date(parsedSession.created_at || Date.now()),
-              updatedAt: new Date(parsedSession.updated_at || Date.now()),
-              displayName: parsedSession.displayName || parsedSession.display_name || parsedSession.email?.split('@')[0],
-              avatar: parsedSession.photoURL || parsedSession.photo_url,
-            } as UserProfile & { 
-              permissions?: string[];
-              session_type?: string;
-              package_tier?: string;
-              subscription_tier?: string;
-              expires_at?: string;
-              permission_profiles?: string[];
-            },
-          };
+        // Fallback: try to parse session data locally
+        if (sessionId) {
+          try {
+            const parsedSession = JSON.parse(sessionId);
+            
+            if (parsedSession && parsedSession.user_id) {
+              return {
+                isAuthenticated: true,
+                user: {
+                  id: parsedSession.user_id || parsedSession.id,
+                  email: parsedSession.email,
+                  role: parsedSession.role || 'user',
+                  isActive: true,
+                  createdAt: new Date(parsedSession.created_at || Date.now()),
+                  updatedAt: new Date(parsedSession.updated_at || Date.now()),
+                  displayName: parsedSession.displayName || parsedSession.display_name || parsedSession.email?.split('@')[0],
+                  avatar: parsedSession.photoURL || parsedSession.photo_url,
+                } as UserProfile & { 
+                  permissions?: string[];
+                  session_type?: string;
+                  package_tier?: string;
+                  subscription_tier?: string;
+                  expires_at?: string;
+                  permission_profiles?: string[];
+                },
+              };
+            }
+          } catch (parseError) {
+            console.error('Failed to parse session data', { 
+              error: parseError instanceof Error ? parseError.message : parseError 
+            });
+          }
         }
-      } catch (parseError) {
-        console.error('Failed to parse session data', { 
-          error: parseError instanceof Error ? parseError.message : parseError 
+      } catch (cookieError) {
+        console.error('Failed to access cookies in fallback', {
+          error: cookieError instanceof Error ? cookieError.message : cookieError
         });
       }
       
@@ -132,15 +168,6 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
         isAuthenticated: false, 
         error: 'Backend unavailable and session data invalid'
       };
-    }
-  } catch (error) {
-    console.error('Server auth check failed', { 
-      error: error instanceof Error ? error.message : error 
-    });
-    return { 
-      isAuthenticated: false, 
-      error: 'Authentication check failed' 
-    };
   }
 }
 

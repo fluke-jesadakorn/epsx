@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, ScatterChart, Scatter } from 'recharts';
+import { fmtDateTime } from '@epsx/shared-utils/formatting';
 
 interface AssignmentRuleData {
   ruleId: string;
@@ -185,9 +186,6 @@ const AssignmentAnalytics: React.FC = () => {
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   const calculateOverallSuccessRate = () => {
     const totalEvaluations = assignmentRules.reduce((sum, rule) => sum + rule.totalEvaluations, 0);
@@ -352,7 +350,7 @@ const AssignmentAnalytics: React.FC = () => {
                         </td>
                         <td className="p-3">{rule.avgEvaluationTime}ms</td>
                         <td className="p-3 text-sm text-gray-600">
-                          {formatDateTime(rule.lastTriggered)}
+                          {fmtDateTime(rule.lastTriggered)}
                         </td>
                         <td className="p-3">
                           <Badge className={rule.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>

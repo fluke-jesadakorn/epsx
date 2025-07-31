@@ -26,6 +26,8 @@
     "@epsx/firebase-analytics": "workspace:*",
     "@epsx/server-actions": "workspace:*",
     "@epsx/shared-core": "workspace:*",
+    "@epsx/shared-utils": "workspace:*",
+    "@epsx/theme": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",
@@ -53,13 +55,13 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.60.0",
+    "react-hot-toast": "^2.5.2",
     "sonner": "^2.0.6",
     "swr": "^2.3.4",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "3.25.67",
-    "zustand": "^5.0.6",
-    "@epsx/theme": "workspace:*"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

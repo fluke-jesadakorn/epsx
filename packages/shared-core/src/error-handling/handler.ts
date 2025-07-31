@@ -13,12 +13,20 @@ export class ErrorHandler {
       details: error.details
     };
 
-    if (error.status && error.status >= 500) {
-      console.error('🚨 Critical Error:', errorInfo);
+    // Use proper logger instead of direct console calls
+    const { logger } = require('../logging/logger');
+    
+    // Don't log as critical if it's a handled cookie context error
+    const isCookieContextError = error.message && 
+      (error.message.includes('cookies() was called outside a request scope') ||
+       error.message.includes('cookies" was called outside a request scope'));
+       
+    if (error.status && error.status >= 500 && !isCookieContextError && !context?.isHandled) {
+      logger.error('🚨 Critical Error', errorInfo);
     } else if (error.status && error.status >= 400) {
-      console.warn('⚠️  Client Error:', errorInfo);
+      logger.warn('⚠️  Client Error', errorInfo);
     } else {
-      console.info('ℹ️  Error:', errorInfo);
+      logger.info('ℹ️  Error', errorInfo);
     }
   }
 

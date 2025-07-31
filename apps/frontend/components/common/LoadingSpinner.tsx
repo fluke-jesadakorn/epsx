@@ -1,21 +1,38 @@
-interface LoadingSpinnerProps {
-  size?: "sm" | "md" | "lg";
+"use client";
+
+import * as React from "react";
+import { cn } from "../../lib/utils";
+
+interface LoadingProps {
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
+  text?: string;
 }
 
-export function LoadingSpinner({ size = "md", className = "" }: LoadingSpinnerProps) {
+export function Loading({ size = 'md', className, text }: LoadingProps) {
   const sizeClasses = {
-    sm: "w-4 h-4",
-    md: "w-8 h-8",
-    lg: "w-12 h-12"
+    sm: 'h-4 w-4',
+    md: 'h-8 w-8',
+    lg: 'h-12 w-12',
   };
 
   return (
-    <div role="status" className={`flex items-center justify-center ${className}`}>
+    <div className={cn('flex flex-col items-center justify-center', className)}>
       <div
-        className={`${sizeClasses[size]} animate-spin rounded-full border-4 border-primary border-r-transparent`}
-        aria-label="loading"
+        className={cn(
+          'animate-spin rounded-full border-2 border-primary border-t-transparent',
+          sizeClasses[size]
+        )}
+        role="status"
+        aria-label="Loading"
       />
+      {text && <p className="mt-2 text-sm text-muted-foreground">{text}</p>}
     </div>
   );
 }
+
+export function LoadingSpinner({ size = 'md', className }: Omit<LoadingProps, 'text'>) {
+  return <Loading size={size} className={className} />;
+}
+
+export const OptimizedLoadingSpinner = React.memo(LoadingSpinner);

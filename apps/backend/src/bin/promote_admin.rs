@@ -15,7 +15,7 @@ use sqlx::PgPool;
 
 #[derive(Parser)]
 #[command(name = "promote_admin")]
-#[command(about = "Promote user to SuperAdmin role")]
+#[command(about = "Promote user to SuperAdmin role with full access")]
 struct Args {
   /// Email of user to promote
   #[arg(long)]
@@ -28,6 +28,10 @@ struct Args {
   /// Admin user ID performing the promotion (optional, uses system admin)
   #[arg(long)]
   admin_id: Option<String>,
+
+  /// Promote to SuperAdmin with ALL permissions (full system access)
+  #[arg(long)]
+  super_admin: bool,
 }
 
 #[tokio::main]
@@ -67,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   );
 
   // Initialize use case
-  let user_mgmt = UserMgmtUC::new(
+  let _user_mgmt = UserMgmtUC::new(
     user_repo.clone(),
     event_dispatcher.clone(),
     level_history_repo
@@ -98,10 +102,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   println!("Found user: {} ({})", user.email().value(), user.id());
   println!("Current role: {:?}", user.role());
 
+  // Check promotion mode
+  if args.super_admin {
+    println!("🚀 Super Admin mode: Promoting with ALL ACCESS");
+  } else {
+    println!("🔧 Standard Admin mode: Promoting to SuperAdmin");
+  }
+
   // Check if already SuperAdmin
   if matches!(user.role(), Role::SuperAdmin) {
-    println!("User is already a SuperAdmin");
-    return Ok(());
+    if args.super_admin {
+      println!("User is already a SuperAdmin, ensuring full permissions...");
+    } else {
+      println!("User is already a SuperAdmin");
+      return Ok(());
+    }
   }
 
   // Admin script mode: bypass permissions and directly upgrade role
@@ -117,13 +132,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let old_role = target_user.role().clone();
 
+  // Determine permissions based on super-admin flag
+  let permissions = if args.super_admin {
+    // Grant ALL permissions for super admin mode
+    use epsx::dom::values::Permissions;
+    let mut all_perms = PermSet::new();
+    
+    // Add all available permissions for full system access
+    all_perms.add_permission(Permissions::READ_ALL.to_string());
+    all_perms.add_permission(Permissions::WRITE_ALL.to_string());
+    all_perms.add_permission(Permissions::DELETE_ALL.to_string());
+    all_perms.add_permission(Permissions::MANAGE_USERS.to_string());
+    all_perms.add_permission(Permissions::DELETE_USERS.to_string());
+    all_perms.add_permission(Permissions::MANAGE_SYSTEM.to_string());
+    all_perms.add_permission(Permissions::MANAGE_ADMIN.to_string());
+    all_perms.add_permission(Permissions::MODERATE_CONTENT.to_string());
+    all_perms.add_permission(Permissions::MODERATE_USERS.to_string());
+    all_perms.add_permission(Permissions::WRITE_CONTENT.to_string());
+    all_perms.add_permission(Permissions::ACCESS_PREMIUM.to_string());
+    all_perms.add_permission(Permissions::ACCESS_PREMIUM_FEATURES.to_string());
+    all_perms.add_permission(Permissions::READ_PREMIUM.to_string());
+    all_perms.add_permission(Permissions::READ_ADVANCED_ANALYTICS.to_string());
+    all_perms.add_permission(Permissions::READ_ALL_DATA.to_string());
+    all_perms.add_permission(Permissions::WRITE_USER_DATA.to_string());
+    all_perms.add_permission(Permissions::READ_USER_REPORTS.to_string());
+    
+    println!("🔑 Granting ALL SYSTEM PERMISSIONS for super admin access");
+    all_perms
+  } else {
+    // Standard SuperAdmin permissions
+    PermSet::for_role(&Role::SuperAdmin)
+  };
+
   // Use reconstruct to create user with SuperAdmin role, preserving all other fields
   let promoted_user = User::reconstruct(
     target_user.id().clone(),
     target_user.firebase_uid().to_string(),
     target_user.email().clone(),
     Role::SuperAdmin,
-    PermSet::for_role(&Role::SuperAdmin),
+    permissions,
     target_user.sub().clone(),
     target_user.created_at(),
     Utc::now(), // updated_at

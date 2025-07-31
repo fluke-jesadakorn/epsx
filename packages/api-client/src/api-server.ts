@@ -276,7 +276,7 @@ export async function serverGetStockRankingAnalytics(
 }
 
 export async function serverGetAdminProfile(): Promise<ApiResponse<AdminProfile>> {
-  return serverRequest('/api/v1/admin/auth/profile');
+  return serverRequest('/api/admin/auth/profile');
 }
 
 export async function serverSoftDeleteUser(
@@ -309,7 +309,7 @@ async function serverRequest<T>(
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     const allCookies = cookieStore.getAll();
-    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    const cookieHeader = allCookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
     
     console.log('🍪 [serverRequest] Cookie header built:', {
       totalCookies: allCookies.length,

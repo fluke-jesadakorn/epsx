@@ -4,11 +4,10 @@ import { BackgroundDecorationsClient } from '@/components/layout/BackgroundDecor
 import { Navigation } from '@/components/nav';
 import { ToastProvider } from '@/components/ui/toaster';
 import { AppStateProvider } from '@/context/app-state';
-import { ServerAuthProvider } from '@/components/auth/ServerAuthProvider';
+import { AuthProvider } from '@/context/auth-context';
+import { PermissionProvider } from '@epsx/server-providers/client';
 import { UIProvider } from '@/context/ui-context';
 import { GlobalThemeProvider } from '@epsx/theme';
-import { getPermissionData } from '@epsx/server-providers/server';
-import { PermissionProviderWrapper } from '@/components/providers/PermissionProviderWrapper';
 import { Kanit } from 'next/font/google';
 import './globals.css';
 
@@ -24,13 +23,11 @@ export const metadata = {
   description: 'Advanced stock trading and analytics platform',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch permission data server-side
-  const permissionData = await getPermissionData();
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -39,8 +36,14 @@ export default async function RootLayout({
           <PerformanceProvider>
             <AppStateProvider>
               <UIProvider>
-                <ServerAuthProvider>
-                  <PermissionProviderWrapper serverData={permissionData}>
+                <AuthProvider>
+                  <PermissionProvider serverData={{
+                    paymentStatus: null,
+                    permissions: [],
+                    featureAccess: {},
+                    rankingAccess: {},
+                    error: null
+                  }}>
                     <ToastProvider>
                       <BackgroundDecorationsClient />
 
@@ -52,8 +55,8 @@ export default async function RootLayout({
                         {children}
                       </OptimizedSuspenseBoundary>
                     </ToastProvider>
-                  </PermissionProviderWrapper>
-                </ServerAuthProvider>
+                  </PermissionProvider>
+                </AuthProvider>
               </UIProvider>
             </AppStateProvider>
           </PerformanceProvider>

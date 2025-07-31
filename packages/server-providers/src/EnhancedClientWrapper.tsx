@@ -173,13 +173,16 @@ export function PaymentTierGuard({
   }
 
   // Check payment tier
-  if (state.paymentStatus && state.paymentStatus.paid) {
-    const tierLevels = { BRONZE: 1, SILVER: 2, GOLD: 3, PLATINUM: 4 };
-    const userLevel = tierLevels[(state.paymentStatus.userLevel as keyof typeof tierLevels) || 'BRONZE'] || 0;
-    const requiredLevel = tierLevels[minimumTier];
+  if (state.paymentStatus && typeof state.paymentStatus === 'object' && 'status' in state.paymentStatus) {
+    const paymentData = state.paymentStatus as any;
+    if (paymentData.status === 'completed') {
+      const tierLevels = { BRONZE: 1, SILVER: 2, GOLD: 3, PLATINUM: 4 };
+      const userLevel = tierLevels[(paymentData.userLevel as keyof typeof tierLevels) || 'BRONZE'] || 0;
+      const requiredLevel = tierLevels[minimumTier];
 
-    if (userLevel >= requiredLevel) {
-      return <>{children}</>;
+      if (userLevel >= requiredLevel) {
+        return <>{children}</>;
+      }
     }
   }
 

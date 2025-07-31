@@ -1,4 +1,30 @@
-// Action modules - use specific imports to avoid conflicts
+// ============================================================================
+// CONSOLIDATED SERVER ACTIONS - Single Entry Point for All Server Operations
+// ============================================================================
+
+// Primary auth actions (most commonly used)
+export {
+  login,
+  logout,
+  getCurrentUser,
+  register,
+  checkFeatureAccess,
+  getUserFeatures,
+  requestPasswordReset,
+  resetPassword,
+  refreshToken,
+  updateProfile,
+  changePassword
+} from './actions/auth';
+
+// Admin auth actions
+export {
+  adminLogin,
+  checkAdminPermission,
+  getAdminSession
+} from './actions/auth';
+
+// User & admin management
 export {
   getAdminUsers,
   getUserStats,
@@ -8,49 +34,17 @@ export {
   assignStockRankingPackage
 } from './actions/admin';
 
+// Payment operations
 export {
-  getIAMUsers,
-  getIAMRoles,
-  getIAMPolicies,
-  getCustomPermissions,
-  grantCustomPermission,
-  revokeCustomPermission,
-  getUserEffectivePermissions,
-  evaluatePermission
-} from './actions/iam';
+  createPayment,
+  validatePayment,
+  getPaymentStatus,
+  getTransactionHistory,
+  getPlanDetails,
+  initQRPayment
+} from './actions/payments';
 
-export {
-  getAnalyticsData,
-  getUserAnalytics,
-  getSystemMetrics,
-  getRevenueAnalytics,
-  getRealtimeMetrics,
-  generateReports,
-  getScheduledReports,
-  scheduleReport,
-  getDashboardData,
-  trackError,
-  trackPerformance,
-  getHealthCheck
-} from './actions/analytics';
-
-export {
-  login,
-  logout,
-  getCurrentUser,
-  refreshToken,
-  adminLogin,
-  checkAdminPermission,
-  getAdminSession,
-  updateProfile,
-  changePassword,
-  register,
-  checkFeatureAccess,
-  getUserFeatures,
-  requestPasswordReset,
-  resetPassword
-} from './actions/auth';
-
+// Permission operations
 export {
   getUserPermissions,
   checkPermission,
@@ -59,94 +53,85 @@ export {
   assignPermissionProfile,
   revokePermissionProfile,
   getPermissionMatrix,
-  getPaginatedFeatureAccess,
-  type UserPermission,
-  type PermissionProfile
+  getPaginatedFeatureAccess
 } from './actions/permissions';
 
+// IAM operations
 export {
-  createPayment,
-  validatePayment,
-  getPaymentStatus,
-  getTransactionHistory,
-  getPlanDetails,
-  initQRPayment,
-  type PaymentStatus,
-  type PaymentTransaction
-} from './actions/payments';
+  getIAMUsers,
+  getIAMRoles,
+  getIAMPolicies,
+  evaluatePermission
+} from './actions/iam';
 
-// Enhanced server actions with improved error handling and validation
+// Analytics & monitoring
 export {
-  enhancedLogin,
-  enhancedLogout,
-  enhancedGetCurrentUser,
-  enhancedRegister,
-  enhancedUpdateProfile,
-  enhancedChangePassword,
-  enhancedResetPassword,
-  enhancedRefreshToken,
-  enhancedCheckFeatureAccess,
-  enhancedGetUserFeatures,
-  enhancedAdminLogin,
-  enhancedCheckAdminPermission,
-  type EnhancedLoginResult,
-  type EnhancedRegisterResult,
-  type EnhancedProfileResult
-} from './actions/enhanced-auth';
+  getAnalyticsData,
+  getUserAnalytics,
+  getSystemMetrics,
+  getRevenueAnalytics,
+  getRealtimeMetrics,
+  getDashboardData,
+  trackError,
+  trackPerformance,
+  getHealthCheck
+} from './actions/analytics';
 
+// Module system
 export {
-  enhancedCreatePayment,
-  enhancedGetPaymentStatus,
-  enhancedValidatePayment,
-  enhancedGetPaymentPlans,
-  enhancedGetPaymentPlan,
-  enhancedGetUserSubscription,
-  enhancedCancelSubscription,
-  enhancedUpdateSubscription,
-  enhancedGetPaymentHistory,
-  enhancedDownloadInvoice,
-  enhancedApplyPromoCode,
-  enhancedCreateLegacyPayment,
-  enhancedInitQRPayment,
-  type EnhancedCreatePaymentResult,
-  type EnhancedPaymentStatusResult,
-  type EnhancedPaymentPlansResult,
-  type EnhancedUserSubscriptionResult
-} from './actions/enhanced-payments';
+  getModules,
+  getUserModuleAssignments,
+  assignModulesToUser,
+  revokeModuleAccess,
+  getModuleUsageAnalytics,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey
+} from './actions/modules';
 
-// Core utilities for creating enhanced server actions
-export {
-  withServerAction,
-  createServerAction,
-  createAuthenticatedAction,
-  CommonSchemas,
-  type ActionResult,
-  type ActionContext,
-  type ActionOptions
-} from './core/action-wrapper';
-
-// Enhanced request utilities
-export {
-  makeServerRequest,
-  serverGet,
-  serverPost,
-  serverPut,
-  serverDelete,
-  serverPatch,
-  type ServerRequestOptions
-} from './core/enhanced-request';
-
-// Settings management
+// Settings
 export {
   getSystemConfig,
   updateSettings,
-  getSettingsByCategory,
   getUserSettings,
   updateUserSettings,
-  getFeatureFlags,
-  updateFeatureFlag,
-  getConfigTemplates,
-  applyConfigTemplate,
-  getEnvironmentConfig,
-  updateEnvironmentConfig
+  getFeatureFlags
 } from './actions/settings';
+
+// Core utilities (for custom actions)
+export {
+  withServerAction,
+  createServerAction,
+  createAuthenticatedAction
+} from './core/action-wrapper';
+
+export {
+  makeServerRequest
+} from './core/request';
+
+// Essential types
+export type {
+  ActionResult
+} from './core/action-wrapper';
+
+export type {
+  PaymentStatus,
+  PaymentTransaction
+} from './actions/payments';
+
+export type {
+  UserPermission,
+  PermissionProfile
+} from './actions/permissions';
+
+// ============================================================================
+// IMPORT GUIDANCE - Use specific imports to minimize bundle size:
+// 
+// Auth:            import { login, logout, getCurrentUser } from '@epsx/server-actions';
+// Payments:        import { createPayment, getPaymentStatus } from '@epsx/server-actions';
+// Permissions:     import { checkPermission, getUserPermissions } from '@epsx/server-actions';
+// Admin:           import { getAdminUsers, getUserStats } from '@epsx/server-actions';
+// Analytics:       import { getDashboardData, trackError } from '@epsx/server-actions';
+// 
+// Avoid: import * from '@epsx/server-actions' (pulls entire package)
+// ============================================================================

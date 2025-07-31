@@ -1,12 +1,31 @@
-// Error handling
-export * from './error-handling';
+// ============================================================================
+// CONSOLIDATED SHARED CORE - Single Entry Point for Core Utilities
+// ============================================================================
 
-// Logging
+// Error handling & logging (most commonly used)
+export * from './error-handling';
 export * from './logging';
+export type { Result } from './error-handling/types';
 
 // Environment detection
 export * from './environment';
 
-// Validation (with specific exports to avoid conflicts)
+// Validation (specific exports to avoid conflicts)
 export { Validator, CommonSchemas } from './validation';
-export type { ValidationResult, ValidationError as ValidationErrorType, Schema, ValidatedData } from './validation';
+export type { 
+  ValidationResult, 
+  ValidationError as ValidationErrorType, 
+  Schema, 
+  ValidatedData 
+} from './validation';
+
+// ============================================================================
+// IMPORT GUIDANCE - Use specific imports to minimize dependencies:
+// 
+// Error handling:  import { ErrorHandler, logger } from '@epsx/shared-core';
+// Environment:     import { Environment, getApiBaseUrl } from '@epsx/shared-core';
+// Validation:      import { Validator, CommonSchemas } from '@epsx/shared-core';
+// Types only:      import type { Result, ValidationResult } from '@epsx/shared-core';
+// 
+// Avoid: import * from '@epsx/shared-core' (pulls entire package)
+// ============================================================================

@@ -3,7 +3,7 @@
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAdminAuth } from '@/auth/ctx';
-import { BarChart, Home, LogIn, LogOut } from 'lucide-react';
+import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -12,6 +12,10 @@ import { useState } from 'react';
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/analytics', label: 'Analytics', icon: BarChart },
+  { href: '/admin/billing', label: 'Billing', icon: DollarSign },
+  { href: '/admin/modules', label: 'Modules', icon: Settings },
+  { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/developer', label: 'Developer Portal', icon: Code },
 ];
 
 export function Navigation() {

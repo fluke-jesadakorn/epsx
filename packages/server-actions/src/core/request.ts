@@ -24,7 +24,8 @@ export async function makeServerRequest<T = any>(
       // Handle case where cookies() is called outside request context
       if (typeof cookiesError === 'object' && cookiesError && 'message' in cookiesError) {
         const errorMessage = String(cookiesError.message);
-        if (errorMessage.includes('cookies" was called outside a request scope')) {
+        if (errorMessage.includes('cookies" was called outside a request scope') || 
+            errorMessage.includes('cookies() was called outside a request scope')) {
           console.warn('Cookies not available - running outside request context. Proceeding without authentication headers.');
           // Continue without cookies - this allows server actions to work in client context for development
         } else {
@@ -41,7 +42,7 @@ export async function makeServerRequest<T = any>(
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...fetchOptions.headers,
+      ...(fetchOptions.headers as Record<string, string> || {}),
     };
     
     // Only add Cookie header if we have cookies

@@ -34,6 +34,7 @@ pub enum Role {
     Moderator,
     Admin,
     SuperAdmin,
+    ApiClient,
 }
 
 impl Role {
@@ -53,6 +54,7 @@ impl Role {
             Role::Moderator => 3,
             Role::Admin => 4,
             Role::SuperAdmin => 5,
+            Role::ApiClient => 1, // Similar to User but for API access
         }
     }
 
@@ -62,6 +64,16 @@ impl Role {
 
     pub fn from_string(s: &str) -> Result<Self, String> {
         s.parse()
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        s.parse()
+    }
+}
+
+impl Default for Role {
+    fn default() -> Self {
+        Role::Free
     }
 }
 
@@ -74,6 +86,7 @@ impl std::fmt::Display for Role {
             Role::Moderator => write!(f, "moderator"),
             Role::Admin => write!(f, "admin"),
             Role::SuperAdmin => write!(f, "super_admin"),
+            Role::ApiClient => write!(f, "api_client"),
         }
     }
 }
@@ -89,6 +102,7 @@ impl std::str::FromStr for Role {
             "moderator" => Ok(Role::Moderator),
             "admin" => Ok(Role::Admin),
             "super_admin" | "superadmin" => Ok(Role::SuperAdmin),
+            "api_client" | "apiclient" => Ok(Role::ApiClient),
             _ => Err(format!("Invalid role: {}", s)),
         }
     }
@@ -159,6 +173,10 @@ impl PermSet {
                 permissions.insert("manage:users".to_string());
                 permissions.insert("manage:system".to_string());
                 permissions.insert("moderate:content".to_string());
+            },
+            Role::ApiClient => {
+                permissions.insert("read:api".to_string());
+                permissions.insert("module:access".to_string());
             },
         }
         Self::with_permissions(permissions)
