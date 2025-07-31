@@ -21,6 +21,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@epsx/shared-utils": "workspace:*",
     "@radix-ui/react-label": "^2.0.0",
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
@@ -35,6 +36,7 @@
     "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {
+    "@epsx/config": "workspace:*",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "tsup": "^8.0.2",

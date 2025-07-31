@@ -6,6 +6,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form-compone
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AdminService } from '@/services/adminService';
 import { useModuleAuth, useUserAccess, ModuleAccessStatus } from '@/auth/module-ctx';
+import { useAdminAuth } from '@/auth/ctx';
 import { toast } from 'react-hot-toast';
 import { Eye, Settings, UserPlus, Shield, AlertTriangle, Plus, Search, Filter, Lock } from 'lucide-react';
 
@@ -91,6 +92,7 @@ const MODULE_CATEGORIES = [
 
 export const ModuleManagementClient: React.FC = () => {
   const { hasModuleAccess, canPerformAction, getAccessLevel, moduleAccess } = useModuleAuth();
+  const { user } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<'modules' | 'assignments' | 'users'>('modules');
   const [modules, setModules] = useState<Module[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -278,10 +280,11 @@ export const ModuleManagementClient: React.FC = () => {
     );
   }
 
-  // Check if user has admin permissions for module management
-  const canManageModules = hasModuleAccess('admin') && canPerformAction('admin', 'manage_modules');
-  const canAssignModules = hasModuleAccess('admin') && canPerformAction('admin', 'assign_modules');
-  const canViewUsers = hasModuleAccess('admin') && canPerformAction('admin', 'view_users');
+  // Check if user has admin permissions for module management - allow super_admin bypass
+  const isSuperAdmin = user?.roles?.includes('super_admin') || user?.claims?.role === 'super_admin';
+  const canManageModules = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'manage_modules'));
+  const canAssignModules = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'assign_modules'));
+  const canViewUsers = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'view_users'));
 
   // Show access denied if user doesn't have permission
   if (!canManageModules) {

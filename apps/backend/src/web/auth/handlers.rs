@@ -301,6 +301,25 @@ pub struct PermissionCheckResponse {
     pub matching_permissions: Vec<String>,
 }
 
+/// User features response
+#[derive(Debug, Serialize)]
+pub struct UserFeaturesResponse {
+    pub user_id: String,
+    pub role: String,
+    pub subscription_tier: String,
+    pub features: Vec<FeatureAccess>,
+    pub permissions: Vec<String>,
+}
+
+/// Individual feature access information
+#[derive(Debug, Serialize)]
+pub struct FeatureAccess {
+    pub feature: String,
+    pub enabled: bool,
+    pub tier_required: String,
+    pub permission_required: Option<String>,
+}
+
 /// Session validation handler - validates current session and returns user info
 pub async fn validate_session_handler(
     State(app_state): State<AppState>,
@@ -564,6 +583,109 @@ pub async fn check_permission_handler(
         },
         user_permissions: permission_strings,
         matching_permissions,
+    };
+    
+    Ok(Json(response))
+}
+
+/// User features handler - returns available features based on user role and permissions
+pub async fn user_features_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+) -> Result<Json<UserFeaturesResponse>, StatusCode> {
+    tracing::info!("Getting user features for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
+    
+    // Get user details from repository
+    let user = app_state.user_repo.find_by_id(&auth_ctx.user_id).await
+        .map_err(|e| {
+            tracing::error!("Failed to get user details: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Get user roles from IAM repository and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    // Use unified permission system - derive from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            // Map IAM role names to user roles for permission derivation
+            let user_role = match role.name() {
+                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
+                "user" => crate::dom::values::Role::User,
+                "premium_user" => crate::dom::values::Role::Premium,
+                "moderator" => crate::dom::values::Role::Moderator,
+                "super_admin" => crate::dom::values::Role::SuperAdmin,
+                _ => crate::dom::values::Role::Free,
+            };
+            
+            crate::dom::services::permissions::get_role_permissions(&user_role)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect();
+    
+    // Define available features with their requirements
+    let is_admin = auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator";
+    let is_premium = user.sub().tier().to_string() == "premium" || user.sub().tier().to_string() == "enterprise";
+    let has_analytics_perm = permission_strings.iter().any(|p| p.starts_with("analytics:"));
+    let has_dashboard_perm = permission_strings.iter().any(|p| p.starts_with("dashboard:"));
+    
+    let features = vec![
+        FeatureAccess {
+            feature: "TRADING".to_string(),
+            enabled: has_dashboard_perm || is_premium,
+            tier_required: "user".to_string(),
+            permission_required: Some("dashboard:view".to_string()),
+        },
+        FeatureAccess {
+            feature: "ADMIN_ACCESS".to_string(),
+            enabled: is_admin,
+            tier_required: "admin".to_string(),
+            permission_required: Some("admin:access".to_string()),
+        },
+        FeatureAccess {
+            feature: "REAL_TIME_ANALYSIS".to_string(),
+            enabled: is_premium && has_analytics_perm,
+            tier_required: "premium".to_string(),
+            permission_required: Some("analytics:realtime".to_string()),
+        },
+        FeatureAccess {
+            feature: "TRADING_BOT".to_string(),
+            enabled: is_premium,
+            tier_required: "premium".to_string(),
+            permission_required: Some("trading:bot".to_string()),
+        },
+        FeatureAccess {
+            feature: "AI_ANALYSIS".to_string(),
+            enabled: is_premium && has_analytics_perm,
+            tier_required: "premium".to_string(),
+            permission_required: Some("analytics:ai".to_string()),
+        },
+        FeatureAccess {
+            feature: "PORTFOLIO_MANAGEMENT".to_string(),
+            enabled: has_dashboard_perm,
+            tier_required: "user".to_string(),
+            permission_required: Some("portfolio:manage".to_string()),
+        },
+        FeatureAccess {
+            feature: "ADVANCED_TOOLS".to_string(),
+            enabled: is_premium,
+            tier_required: "premium".to_string(),
+            permission_required: Some("tools:advanced".to_string()),
+        },
+    ];
+    
+    let response = UserFeaturesResponse {
+        user_id: auth_ctx.user_id.to_string(),
+        role: auth_ctx.role.to_string(),
+        subscription_tier: user.sub().tier().to_string(),
+        features,
+        permissions: permission_strings,
     };
     
     Ok(Json(response))

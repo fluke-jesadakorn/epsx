@@ -2,7 +2,6 @@
 import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
 import { adminLogger } from '@/lib/logger';
 import { 
-  getAdminUsers, 
   getUserStats,
   updateUserRole,
   updateUserPackageTier,
@@ -11,12 +10,11 @@ import {
   getStockRankingPackages,
   assignStockRankingPackage,
   getAnalyticsData,
-  getCustomPermissions,
+  getUserPermissions,
   getIAMRoles,
   evaluatePermission,
   getCurrentUser,
   updateSettings,
-  getModules,
   assignModulesToUser,
   revokeModuleAccess,
   createApiKey,
@@ -24,8 +22,8 @@ import {
   revokeApiKey
 } from '@epsx/server-actions';
 
-// Import local version that doesn't use cookies
-import { getUserModuleAssignments } from '@/lib/actions/module-management';
+// Import local versions that don't use cookies
+import { getUserModuleAssignments, getModules, getAdminUsers } from '@/lib/actions/module-management';
 
 export interface AdminUser {
   uid: string;
@@ -214,7 +212,7 @@ export class AdminService {
    */
   static async getCustomPermissions(): Promise<any[]> {
     try {
-      return await getCustomPermissions();
+      return await getUserPermissions();
     } catch (error) {
       adminLogger.error('Failed to fetch custom permissions', error);
       throw error;

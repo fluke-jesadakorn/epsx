@@ -1,190 +1,205 @@
 'use server';
 
-import { serverGet, serverPost } from '../core/request';
+import { 
+  withServerAction, 
+  createServerAction, 
+  createAuthenticatedAction,
+  type ActionResult 
+} from '../core/action-wrapper';
+import { serverGet, serverPost } from '../core/enhanced-request';
+import { z } from 'zod';
+import { 
+  LoginRequestSchema, 
+  RegisterRequestSchema, 
+  UserProfileSchema, 
+  PasswordChangeRequestSchema, 
+  PasswordResetRequestSchema,
+  ProfileUpdateRequestSchema 
+} from '@epsx/types';
 
-// Authentication Actions
-export async function login(credentials: {
-  email: string;
-  password: string;
-}) {
-  try {
-    return await serverPost('/api/v1/auth/login', credentials);
-  } catch (error) {
-    console.error('Error during login:', error);
-    throw error;
-  }
-}
+// Use imported schemas from @epsx/types
 
-export async function logout() {
-  try {
-    return await serverPost('/api/v1/auth/logout');
-  } catch (error) {
-    console.error('Error during logout:', error);
-    throw error;
+// Enhanced Authentication Actions
+export const enhancedLogin = withServerAction(
+  'auth.login',
+  async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
+    const result = await serverPost('/api/v1/auth/login', credentials, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
+    return result;
+  },
+  {
+    validateInput: LoginRequestSchema,
+    validateOutput: UserProfileSchema,
+    logLevel: 'info'
   }
-}
+);
 
-export async function getCurrentUser() {
-  try {
-    return await serverGet('/api/v1/auth/profile');
-  } catch (error) {
-    console.error('Error fetching current user:', error);
-    return null;
+export const enhancedLogout = createServerAction(
+  'auth.logout',
+  async (_, context) => {
+    return await serverPost('/api/v1/auth/logout', undefined, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
   }
-}
+);
 
-export async function refreshToken() {
-  try {
-    return await serverPost('/api/v1/auth/refresh');
-  } catch (error) {
-    console.error('Error refreshing token:', error);
-    throw error;
+export const enhancedGetCurrentUser = createServerAction(
+  'auth.getCurrentUser',
+  async (_, context) => {
+    return await serverGet('/api/v1/auth/profile', undefined, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
   }
-}
+);
 
-// Admin Authentication
-export async function adminLogin(credentials: {
-  email: string;
-  password: string;
-}) {
-  try {
-    return await serverPost('/api/auth/admin/login', credentials);
-  } catch (error) {
-    console.error('Error during admin login:', error);
-    throw error;
+export const enhancedRegister = withServerAction(
+  'auth.register',
+  async (userData: z.infer<typeof RegisterRequestSchema>, context) => {
+    return await serverPost('/api/v1/auth/register', userData, {
+      action: context.action,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: RegisterRequestSchema,
+    logLevel: 'info'
   }
-}
+);
 
-export async function checkAdminPermission(permission: string) {
-  try {
-    return await serverGet('/api/auth/admin/check-permission', { permission });
-  } catch (error) {
-    console.error('Error checking admin permission:', error);
-    return { allowed: false };
+export const enhancedUpdateProfile = createAuthenticatedAction(
+  'auth.updateProfile',
+  async (data: z.infer<typeof ProfileUpdateRequestSchema>, context) => {
+    return await serverPost('/api/v1/auth/profile/update', data, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: ProfileUpdateRequestSchema
   }
-}
+);
 
-export async function getAdminSession() {
-  try {
-    return await serverGet('/api/auth/admin/session');
-  } catch (error) {
-    console.error('Error fetching admin session:', error);
-    return null;
+export const enhancedChangePassword = createAuthenticatedAction(
+  'auth.changePassword',
+  async (data: z.infer<typeof PasswordChangeRequestSchema>, context) => {
+    return await serverPost('/api/v1/auth/change-password', data, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: PasswordChangeRequestSchema,
+    logLevel: 'warn' // Higher log level for security operations
   }
-}
+);
 
-// User Profile Actions
-export async function updateProfile(data: {
-  name?: string;
-  email?: string;
-  preferences?: any;
-}) {
-  try {
-    return await serverPost('/api/auth/profile/update', data);
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    throw error;
+export const enhancedResetPassword = withServerAction(
+  'auth.resetPassword',
+  async (data: z.infer<typeof PasswordResetRequestSchema>, context) => {
+    return await serverPost('/api/v1/auth/password-reset', data, {
+      action: context.action,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: PasswordResetRequestSchema,
+    logLevel: 'warn' // Higher log level for security operations
   }
-}
+);
 
-export async function changePassword(data: {
-  currentPassword: string;
-  newPassword: string;
-}) {
-  try {
-    return await serverPost('/api/auth/password/change', data);
-  } catch (error) {
-    console.error('Error changing password:', error);
-    throw error;
+export const enhancedRefreshToken = createServerAction(
+  'auth.refreshToken',
+  async (_, context) => {
+    return await serverPost('/api/v1/auth/refresh', undefined, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
   }
-}
+);
 
-export async function register(data: {
-  email: string;
-  password: string;
-  name?: string;
-}) {
-  try {
-    return await serverPost('/api/auth/register', data);
-  } catch (error) {
-    console.error('Error during registration:', error);
-    throw error;
+// Feature access functions with enhanced error handling
+export const enhancedCheckFeatureAccess = createAuthenticatedAction(
+  'auth.checkFeatureAccess',
+  async (feature: string, context) => {
+    return await serverGet('/api/v1/auth/features/check', { feature }, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: z.string().min(1, 'Feature name is required')
   }
-}
+);
 
-// Feature Access
-export async function checkFeatureAccess(featureId: string) {
-  try {
-    return await serverGet('/api/auth/features/check', { featureId });
-  } catch (error) {
-    console.error('Error checking feature access:', error);
-    return { allowed: false };
+export const enhancedGetUserFeatures = createAuthenticatedAction(
+  'auth.getUserFeatures',
+  async (_, context) => {
+    return await serverGet('/api/v1/auth/features', undefined, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
   }
-}
+);
 
-export async function getUserFeatures() {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return [];
-    }
-    
-    // Derive features from user subscription tier and permissions
-    const tier = user.subscription_tier?.toLowerCase() || 'free';
-    const baseFeatures = [];
-    
-    // Add tier-based features
-    switch (tier) {
-      case 'bronze':
-        baseFeatures.push('basic_rankings', 'eps_analysis', 'basic_market_data');
-        break;
-      case 'silver':
-        baseFeatures.push('advanced_rankings', 'technical_indicators', 'price_alerts', 'market_screener');
-        break;
-      case 'gold':
-      case 'platinum':
-      case 'diamond':
-        baseFeatures.push('ai_insights', 'pattern_recognition', 'custom_metrics', 'advanced_analytics');
-        break;
-      case 'admin':
-        baseFeatures.push('user_management', 'basic_admin_analytics', 'audit_logs');
-        break;
-      default:
-        // Free tier - limited features
-        baseFeatures.push('limited_access');
-        break;
-    }
-    
-    // Add permission-based features
-    if (user.permissions?.includes('admin')) {
-      baseFeatures.push('full_admin_access', 'system_configuration', 'permission_management');
-    }
-    
-    return baseFeatures;
-  } catch (error) {
-    console.error('Error fetching user features:', error);
-    return [];
+// Admin authentication functions  
+export const enhancedAdminLogin = withServerAction(
+  'auth.adminLogin',
+  async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
+    return await serverPost('/api/v1/admin/auth/login', credentials, {
+      action: context.action,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: LoginRequestSchema,
+    logLevel: 'warn' // Higher log level for admin operations
   }
-}
+);
 
-// Password Reset Actions
-export async function requestPasswordReset(email: string) {
-  try {
-    return await serverPost('/api/auth/password/reset/request', { email });
-  } catch (error) {
-    console.error('Error requesting password reset:', error);
-    throw error;
+export const enhancedCheckAdminPermission = createAuthenticatedAction(
+  'auth.checkAdminPermission',
+  async (permission: string, context) => {
+    return await serverGet('/api/v1/admin/auth/permissions/check', { permission }, {
+      action: context.action,
+      userId: context.userId,
+      requestId: context.requestId
+    });
+  },
+  {
+    validateInput: z.string().min(1, 'Permission name is required'),
+    logLevel: 'info'
   }
-}
+);
 
-export async function resetPassword(data: {
-  token: string;
-  newPassword: string;
-}) {
-  try {
-    return await serverPost('/api/auth/password/reset/confirm', data);
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    throw error;
-  }
-}
+// Backward compatibility exports (legacy simple versions)
+export const login = enhancedLogin;
+export const logout = enhancedLogout;
+export const getCurrentUser = enhancedGetCurrentUser;
+export const register = enhancedRegister;
+export const updateProfile = enhancedUpdateProfile;
+export const changePassword = enhancedChangePassword;
+export const resetPassword = enhancedResetPassword;
+export const refreshToken = enhancedRefreshToken;
+export const checkFeatureAccess = enhancedCheckFeatureAccess;
+export const getUserFeatures = enhancedGetUserFeatures;
+export const adminLogin = enhancedAdminLogin;
+export const checkAdminPermission = enhancedCheckAdminPermission;
+
+// Additional exports needed by index.ts
+export const getAdminSession = enhancedGetCurrentUser; // Admin session is same as getCurrentUser
+export const requestPasswordReset = enhancedResetPassword; // Reset password functionality\n\n// Type exports for enhanced actions
+export type EnhancedLoginResult = ActionResult<z.infer<typeof UserProfileSchema>>;
+export type EnhancedRegisterResult = ActionResult<{ message: string; userId: string }>;
+export type EnhancedProfileResult = ActionResult<z.infer<typeof UserProfileSchema>>;

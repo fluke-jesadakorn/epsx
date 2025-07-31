@@ -1,6 +1,7 @@
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeTransition } from '@/components/ui/theme-transition';
-import { AppAdminAuthProvider } from '@/auth/ctx';
+import { UnifiedAuthProvider } from '@epsx/auth-shared/client';
+import { AdminAuthProvider } from '@/auth/ctx';
 import { ModuleAuthProvider } from '@/auth/module-ctx';
 import type { Metadata } from 'next';
 import { GlobalThemeProvider } from '@epsx/theme';
@@ -45,7 +46,7 @@ export default function RootLayout({
       <body className="min-h-screen font-sans antialiased bg-background text-foreground">
         <GlobalThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <ThemeTransition />
-          <AppAdminAuthProvider>
+          <AdminAuthProvider>
             <ModuleAuthProvider>
               <ToastProvider>
                 {/* <Navigation /> removed as requested */}
@@ -54,7 +55,7 @@ export default function RootLayout({
                 </div>
               </ToastProvider>
             </ModuleAuthProvider>
-          </AppAdminAuthProvider>
+          </AdminAuthProvider>
         </GlobalThemeProvider>
       </body>
     </html>

@@ -1,14 +1,9 @@
-import { defineConfig } from 'tsup';
+import { createTsupConfig } from '@epsx/config/tsup';
 
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm', 'cjs'],
-  dts: true,
-  splitting: false,
-  sourcemap: true,
-  clean: true,
+export default createTsupConfig({
   external: ['next', 'react', 'next/cache', 'next/headers'],
-  target: 'node18',
-  minify: false,
-  treeshake: false,
+  override: {
+    target: 'node18',
+    treeshake: false,
+  },
 });

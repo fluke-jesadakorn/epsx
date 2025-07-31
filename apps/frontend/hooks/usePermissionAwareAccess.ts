@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { getRankingLimitByLevel } from '@/app/constants/packages';
-import { usePermissionContext } from '@epsx/server-providers';
+import { usePermissionContext } from '@epsx/server-providers/client';
 import type { UserLevelType } from '@/app/constants/packages';
 
 interface PermissionAwareAccess {

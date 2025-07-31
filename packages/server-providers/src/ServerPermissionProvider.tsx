@@ -33,7 +33,7 @@ export async function getPermissionData(): Promise<PermissionServerData> {
       analyticsFeatureResult,
       rankingResult
     ] = await Promise.allSettled([
-      getPaymentStatus(),
+      getPaymentStatus(''),
       getUserPermissions(),
       checkFeatureAccess('trading'),
       checkFeatureAccess('analytics'),

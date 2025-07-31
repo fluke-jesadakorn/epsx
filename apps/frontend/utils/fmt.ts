@@ -1,6 +1,6 @@
-// Formatting utilities
-export const cur = (amt: number, cur = 'USD'): string => 
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).format(amt)
+// Import base formatting utilities\nimport { fmtCurrency } from '@epsx/shared-utils/formatting';\n\n// Specialized financial formatting utilities
+// Use shared utility with legacy naming\nexport const cur = (amt: number, currency = 'USD'): string => 
+  fmtCurrency(amt, currency)
 
 export const dt = (date: string | Date, fmt: 'short' | 'medium' | 'long' = 'medium'): string => {
   const d = typeof date === 'string' ? new Date(date) : date

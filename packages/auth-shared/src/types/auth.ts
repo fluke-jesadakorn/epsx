@@ -24,6 +24,15 @@ export interface AuthContextState {
   error: string | null;
 }
 
+// Unified auth state
+export interface AuthState {
+  user: UserProfile | null;
+  isLoading: boolean;
+  isInitialized: boolean;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+}
+
 // Auth service interface
 export interface AuthService {
   signInWithEmailAndPassword(credentials: SignInCredentials): Promise<any>;

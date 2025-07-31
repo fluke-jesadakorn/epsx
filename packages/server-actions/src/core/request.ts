@@ -42,7 +42,7 @@ export async function makeServerRequest<T = any>(
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...fetchOptions.headers,
+      ...(fetchOptions.headers as Record<string, string> || {}),
     };
     
     // Only add Cookie header if we have cookies

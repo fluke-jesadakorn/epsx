@@ -11,7 +11,9 @@
   ],
   "exports": {
     "./eslint/base": "./dist/eslint/base.cjs",
-    "./typescript/base.json": "./typescript/base.json"
+    "./typescript/base.json": "./typescript/base.json",
+    "./tsup": "./dist/tsup/index.js",
+    "./tailwind": "./dist/tailwind/index.js"
   },
   "scripts": {
     "build": "tsc && node scripts/build-eslint.cjs"
@@ -23,7 +25,9 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-jsx-a11y": "^6.8.0",
     "eslint-plugin-react": "^7.33.2",
-    "eslint-plugin-react-hooks": "5.2.0"
+    "eslint-plugin-react-hooks": "5.2.0",
+    "tailwindcss": "^4.0.15",
+    "tsup": "^8.5.0"
   },
   "devDependencies": {
     "@types/node": "24.0.3",

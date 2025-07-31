@@ -15,6 +15,7 @@ export interface ButtonIconProps
   children?: React.ReactNode;
   tooltip?: string;
   srLabel?: string; // Screen reader label for accessibility
+  active?: boolean;
 }
 
 const ButtonIcon = React.forwardRef<HTMLButtonElement, ButtonIconProps>(
@@ -26,6 +27,7 @@ const ButtonIcon = React.forwardRef<HTMLButtonElement, ButtonIconProps>(
     children, 
     tooltip,
     srLabel,
+    active = false,
     "aria-label": ariaLabel,
     ...props 
   }, ref) => {
@@ -33,15 +35,16 @@ const ButtonIcon = React.forwardRef<HTMLButtonElement, ButtonIconProps>(
       <button
         className={cn(
           buttonVariants({ variant, size }), 
-          "rounded-full focus:ring-ring/10 dark:focus:ring-ring/20 dark:outline-ring/40 outline-ring/50",
+          "rounded-full focus-visible:ring-4 focus-visible:ring-accent/10 focus-visible:outline-1",
           "[&_svg:not([class*='text-'])]:text-muted-foreground",
           "[&_svg:not([class*='size-'])]:size-4",
-          "transition-colors hover:bg-primary/10 text-muted-foreground hover:text-primary",
+          active && "bg-accent/50 text-accent-foreground",
           className
         )}
         ref={ref}
         aria-label={ariaLabel || srLabel}
         title={tooltip}
+        data-active={active}
         {...props}
       >
         {children}
