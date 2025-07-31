@@ -13,6 +13,9 @@ export default defineConfig({
     "react-hook-form",
     "@radix-ui/react-label",
     "@radix-ui/react-slot",
+    "zod",
+    "zustand",
+    "zustand/middleware"
   ],
   esbuildOptions(options) {
     options.banner = {

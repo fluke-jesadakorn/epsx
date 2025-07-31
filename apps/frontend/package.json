@@ -30,11 +30,13 @@
   },
   "dependencies": {
     "@epsx/api-client": "workspace:*",
+    "@epsx/auth-shared": "workspace:*",
     "@epsx/config": "workspace:*",
     "@epsx/firebase-analytics": "workspace:*",
     "@epsx/server-actions": "workspace:*",
     "@epsx/server-providers": "workspace:*",
     "@epsx/shared-core": "workspace:*",
+    "@epsx/shared-utils": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

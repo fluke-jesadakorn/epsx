@@ -20,6 +20,7 @@ import { BillingAlerts } from './BillingAlerts';
 import { BillingService, type UsageBill } from '@/services/billingService';
 import { useModuleAuth } from '@/auth/module-ctx';
 import { toast } from 'react-hot-toast';
+import { fmtCurrency } from '@epsx/shared-utils/formatting';
 
 interface InvoiceData {
   id: string;
@@ -119,12 +120,6 @@ export const BillingDashboard: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -217,7 +212,7 @@ export const BillingDashboard: React.FC = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Current Bill</h3>
                       <div className="text-3xl font-bold text-gray-900 mt-2">
-                        {formatCurrency(currentBill.pricing.totalCost)}
+                        {fmtCurrency(currentBill.pricing.totalCost)}
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
                         Due: {new Date(currentBill.paymentDue).toLocaleDateString()}
@@ -289,7 +284,7 @@ export const BillingDashboard: React.FC = () => {
                             {module.requests.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                            {formatCurrency(module.cost)}
+                            {fmtCurrency(module.cost)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                             ${(module.cost / module.requests * 1000).toFixed(4)}/1K
@@ -310,7 +305,7 @@ export const BillingDashboard: React.FC = () => {
                       <div key={index} className="flex justify-between items-center">
                         <span className="text-green-800">{discount.description}</span>
                         <span className="font-semibold text-green-900">
-                          -{formatCurrency(discount.amount)}
+                          -{fmtCurrency(discount.amount)}
                         </span>
                       </div>
                     ))}
@@ -350,7 +345,7 @@ export const BillingDashboard: React.FC = () => {
                             <div className="font-medium text-gray-900">{invoice.period}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                            {formatCurrency(invoice.amount)}
+                            {fmtCurrency(invoice.amount)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>

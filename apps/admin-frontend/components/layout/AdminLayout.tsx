@@ -157,7 +157,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       id: 'dashboard',
       label: 'Dashboard',
       icon: Home,
-      href: '/',
+      href: '/admin',
       type: 'single' as const,
     },
     {
@@ -169,21 +169,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'user-list',
           label: 'User Accounts',
-          href: '/users',
+          href: '/admin/users',
           icon: Users,
           description: 'Manage user accounts and profiles',
         },
         {
           id: 'user-roles',
           label: 'User Roles',
-          href: '/users/roles',
+          href: '/admin/users/roles',
           icon: UserCheck,
           description: 'Define and assign user roles',
         },
         {
           id: 'user-permissions',
           label: 'User Permissions',
-          href: '/users/permissions',
+          href: '/admin/users/permissions',
           icon: Lock,
           description: 'Configure user permissions',
         },
@@ -198,21 +198,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'iam-overview',
           label: 'IAM Overview',
-          href: '/iam?section=overview',
+          href: '/admin/iam?section=overview',
           icon: BarChart3,
           description: 'Identity and access management dashboard',
         },
         {
           id: 'iam-permission-profiles',
           label: 'Permission Profiles',
-          href: '/iam?section=permission-profiles',
+          href: '/admin/iam?section=permission-profiles',
           icon: Shield,
           description: 'Create and manage permission profiles',
         },
         {
           id: 'permission-profile-assignment',
           label: 'Profile Assignment',
-          href: '/permission-profiles/assign',
+          href: '/admin/permission-profiles/assign',
           icon: User,
           description: 'Assign feature permission profiles directly to users',
         },
@@ -233,14 +233,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'stock-ranking-packages',
           label: 'Stock Ranking Packages',
-          href: '/stock-ranking-packages',
+          href: '/admin/stock-ranking-packages',
           icon: Package,
           description: 'Assign stock ranking access packages to users',
         },
         {
           id: 'iam-logs',
           label: 'Activity Logs',
-          href: '/iam?section=logs',
+          href: '/admin/iam?section=logs',
           icon: Activity,
           description: 'View system activity and audit logs',
         },
@@ -262,7 +262,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'analytics-overview',
           label: 'Analytics Dashboard',
-          href: '/analytics',
+          href: '/admin/analytics',
           icon: BarChart3,
           description: 'Performance metrics and insights',
         },
@@ -291,7 +291,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'database',
           label: 'Database',
-          href: '/database',
+          href: '/admin/database',
           icon: Database,
           description: 'Database management and monitoring',
         },
@@ -320,7 +320,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'general-settings',
           label: 'General Settings',
-          href: '/settings',
+          href: '/admin/settings',
           icon: Settings,
           description: 'Basic system configuration',
         },
@@ -441,7 +441,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const isMenuExpanded = (menuId: string) => expandedMenus.includes(menuId);
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
+    if (href === '/admin') return pathname === '/admin' || pathname === '/';
     return pathname.startsWith(href);
   };
 

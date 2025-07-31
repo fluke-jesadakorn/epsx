@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { fmtDateTime } from '@epsx/shared-utils/formatting';
 
 interface PermissionUsageData {
   permission: string;
@@ -177,9 +178,6 @@ const PermissionAnalytics: React.FC = () => {
     return 'bg-red-100 text-red-800';
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   const calculateSuccessRate = (data: PermissionTrendData[]) => {
     const totalRequests = data.reduce((sum, item) => sum + item.totalRequests, 0);
@@ -368,7 +366,7 @@ const PermissionAnalytics: React.FC = () => {
                         </td>
                         <td className="p-2">{permission.avgResponseTime}ms</td>
                         <td className="p-2 text-sm text-gray-600">
-                          {formatDateTime(permission.lastUsed)}
+                          {fmtDateTime(permission.lastUsed)}
                         </td>
                       </tr>
                     ))}
@@ -439,7 +437,7 @@ const PermissionAnalytics: React.FC = () => {
                           </Badge>
                         </td>
                         <td className="p-3 text-sm text-gray-600">
-                          {formatDateTime(user.lastActivity)}
+                          {fmtDateTime(user.lastActivity)}
                         </td>
                       </tr>
                     ))}

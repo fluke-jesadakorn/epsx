@@ -52,7 +52,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
     const endpoints = ['/api/v1/auth/profile', '/api/admin/auth/profile'];
     
     let userData = null;
-    let lastError = null;
+    let lastError: string | null = null;
     
     for (const endpoint of endpoints) {
       try {
@@ -74,7 +74,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
           lastError = 'Authentication failed';
         }
       } catch (fetchError) {
-        lastError = fetchError;
+        lastError = fetchError instanceof Error ? fetchError.message : 'Network error';
         continue;
       }
     }
@@ -106,7 +106,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
           permission_profiles?: string[];
         },
       };
-    } catch (networkError) {
+  } catch (networkError) {
       console.warn('Backend not available for auth check, attempting local session parsing', { 
         error: networkError instanceof Error ? networkError.message : networkError 
       });
@@ -118,35 +118,49 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
         };
       }
       
-      // Fallback: try to parse session data locally
+      // Get session from cookies again for fallback
       try {
-        const parsedSession = JSON.parse(sessionId);
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const sessionCookie = cookieStore.get(finalConfig.sessionCookieName);
+        const sessionId = sessionCookie?.value;
         
-        if (parsedSession && parsedSession.user_id) {
-          return {
-            isAuthenticated: true,
-            user: {
-              id: parsedSession.user_id || parsedSession.id,
-              email: parsedSession.email,
-              role: parsedSession.role || 'user',
-              isActive: true,
-              createdAt: new Date(parsedSession.created_at || Date.now()),
-              updatedAt: new Date(parsedSession.updated_at || Date.now()),
-              displayName: parsedSession.displayName || parsedSession.display_name || parsedSession.email?.split('@')[0],
-              avatar: parsedSession.photoURL || parsedSession.photo_url,
-            } as UserProfile & { 
-              permissions?: string[];
-              session_type?: string;
-              package_tier?: string;
-              subscription_tier?: string;
-              expires_at?: string;
-              permission_profiles?: string[];
-            },
-          };
+        // Fallback: try to parse session data locally
+        if (sessionId) {
+          try {
+            const parsedSession = JSON.parse(sessionId);
+            
+            if (parsedSession && parsedSession.user_id) {
+              return {
+                isAuthenticated: true,
+                user: {
+                  id: parsedSession.user_id || parsedSession.id,
+                  email: parsedSession.email,
+                  role: parsedSession.role || 'user',
+                  isActive: true,
+                  createdAt: new Date(parsedSession.created_at || Date.now()),
+                  updatedAt: new Date(parsedSession.updated_at || Date.now()),
+                  displayName: parsedSession.displayName || parsedSession.display_name || parsedSession.email?.split('@')[0],
+                  avatar: parsedSession.photoURL || parsedSession.photo_url,
+                } as UserProfile & { 
+                  permissions?: string[];
+                  session_type?: string;
+                  package_tier?: string;
+                  subscription_tier?: string;
+                  expires_at?: string;
+                  permission_profiles?: string[];
+                },
+              };
+            }
+          } catch (parseError) {
+            console.error('Failed to parse session data', { 
+              error: parseError instanceof Error ? parseError.message : parseError 
+            });
+          }
         }
-      } catch (parseError) {
-        console.error('Failed to parse session data', { 
-          error: parseError instanceof Error ? parseError.message : parseError 
+      } catch (cookieError) {
+        console.error('Failed to access cookies in fallback', {
+          error: cookieError instanceof Error ? cookieError.message : cookieError
         });
       }
       
@@ -154,15 +168,6 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
         isAuthenticated: false, 
         error: 'Backend unavailable and session data invalid'
       };
-    }
-  } catch (error) {
-    console.error('Server auth check failed', { 
-      error: error instanceof Error ? error.message : error 
-    });
-    return { 
-      isAuthenticated: false, 
-      error: 'Authentication check failed' 
-    };
   }
 }
 

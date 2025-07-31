@@ -98,6 +98,11 @@ export function ModuleAuthProvider({ children }: { children: ReactNode }) {
 
   // Permission checking methods
   const hasModuleAccess = (moduleName: string): boolean => {
+    // Super admin bypass
+    if (user?.roles?.includes('super_admin') || user?.claims?.role === 'super_admin') {
+      return true;
+    }
+    
     return moduleAccess.some(access => 
       access.module_name === moduleName && 
       access.status === 'active' &&
@@ -106,6 +111,11 @@ export function ModuleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const getAccessLevel = (moduleName: string): string | null => {
+    // Super admin gets enterprise level access
+    if (user?.roles?.includes('super_admin') || user?.claims?.role === 'super_admin') {
+      return 'enterprise';
+    }
+    
     const access = moduleAccess.find(access => 
       access.module_name === moduleName && 
       access.status === 'active' &&
@@ -115,6 +125,11 @@ export function ModuleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canPerformAction = (moduleName: string, action: string): boolean => {
+    // Super admin bypass
+    if (user?.roles?.includes('super_admin') || user?.claims?.role === 'super_admin') {
+      return true;
+    }
+    
     const access = moduleAccess.find(access => 
       access.module_name === moduleName && 
       access.status === 'active' &&

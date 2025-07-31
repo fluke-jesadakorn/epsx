@@ -96,7 +96,7 @@ export async function checkPermissionAccess(
       userPermissions = userData.permissions || [];
       userRole = userData.role || 'user';
       userProfiles = userData.permission_profiles || [];
-      isAdminUser = ['admin', 'super_admin', 'moderator'].includes(userRole.toLowerCase());
+      isAdminUser = ['admin', 'super_admin', 'superadmin', 'moderator'].includes(userRole.toLowerCase());
       
       // Cache the permissions
       if (finalConfig.enableCaching) {
@@ -179,13 +179,33 @@ export async function checkPermissionAccess(
     
     // Check for wildcard permissions
     const hasWildcardPermission = userPermissions.some((permission: string) => {
-      if (permission === '*') {
+      // SuperAdmin full wildcard permission
+      if (permission === '*:*:*' || permission === '*') {
         return true;
       }
-      if (permission.endsWith('.*') || permission.endsWith(':*')) {
+      
+      // Admin wildcard permission
+      if (permission === 'admin:*:*' && requiredPermission.startsWith('admin.')) {
+        return true;
+      }
+      
+      // Handle dot notation wildcards (frontend format)
+      if (permission.endsWith('.*')) {
+        const prefix = permission.slice(0, -2);
+        return requiredPermission.startsWith(prefix + '.');
+      }
+      
+      // Handle colon notation wildcards (backend format)
+      if (permission.endsWith(':*:*')) {
+        const domain = permission.slice(0, -4);
+        return requiredPermission.startsWith(domain + '.') || requiredPermission.startsWith(domain + ':');
+      }
+      
+      if (permission.endsWith(':*')) {
         const prefix = permission.slice(0, -2);
         return requiredPermission.startsWith(prefix + '.') || requiredPermission.startsWith(prefix + ':');
       }
+      
       return false;
     });
 
@@ -244,7 +264,8 @@ export function checkRoleHierarchy(userRole: string, requiredRole: string): bool
     'premium': 2,
     'moderator': 3,
     'admin': 4,
-    'super_admin': 5
+    'super_admin': 5,
+    'superadmin': 5  // Handle backend SuperAdmin role format
   };
 
   const userLevel = roleHierarchy[userRole.toLowerCase()] || 0;

@@ -1,76 +1,47 @@
 'use server';
 
+// Re-export from consolidated server actions package
+export {
+  login as loginAction,
+  register as registerAction,
+  logout as logoutAction,
+  getCurrentUser,
+  refreshToken,
+  updateProfile,
+  changePassword,
+  resetPassword,
+  checkFeatureAccess,
+  getUserFeatures
+} from '@epsx/server-actions/actions/auth';
+
+// Legacy compatibility functions if needed
 import { redirect } from 'next/navigation';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { login, register } from '@epsx/server-actions/actions/auth';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
-const apiClient = createApiClient(BACKEND_URL);
-
-export async function loginAction(formData: FormData) {
+export async function loginWithRedirect(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
-  try {
-    const response = await apiClient.login({
-      type: 'credentials',
-      email,
-      password,
-    });
-
-    if (isApiError(response)) {
-      return { success: false, error: response.error || 'Login failed' };
-    }
-
-    return { success: true, user: response.data };
-  } catch (error) {
-    return { success: false, error: 'Login failed' };
+  const result = await login({ type: 'credentials', email, password });
+  
+  if (result.success) {
+    redirect('/dashboard');
   }
+  
+  return result;
 }
 
-export async function registerAction(formData: FormData) {
+export async function registerWithRedirect(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
+  const name = formData.get('name') as string;
+  const packageTier = formData.get('packageTier') as string;
 
-  try {
-    const response = await apiClient.register({
-      email,
-      password,
-    });
-
-    if (isApiError(response)) {
-      return { success: false, error: response.error || 'Registration failed' };
-    }
-
-    return { success: true, user: response.data };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Registration failed' };
+  const result = await register({ email, password, name, package_tier: packageTier });
+  
+  if (result.success) {
+    redirect('/dashboard');
   }
-}
-
-export async function logoutAction() {
-  try {
-    const response = await apiClient.logout();
-
-    if (isApiError(response)) {
-      return { success: false, error: response.error || 'Logout failed' };
-    }
-
-    redirect('/login');
-  } catch (error) {
-    return { success: false, error: 'Logout failed' };
-  }
-}
-
-export async function clearSessionAction() {
-  try {
-    const response = await apiClient.logout();
-
-    if (isApiError(response)) {
-      return { success: false, error: response.error || 'Failed to clear session' };
-    }
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: 'Failed to clear session' };
-  }
+  
+  return result;
 }

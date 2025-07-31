@@ -396,3 +396,70 @@ export async function revokeApiKey(keyId: string, reason: string) {
     throw new Error('Failed to revoke API key');
   }
 }
+
+export async function getAdminUsers(filters?: {
+  role?: string;
+  status?: string;
+  packageTier?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  try {
+    adminLogger.info('Fetching admin users', { filters });
+    
+    // Mock users data - replace with actual API call
+    const mockUsers = [
+      {
+        uid: '38b978cb-a9d2-5a8b-88df-d7a79abd87cc',
+        email: 'jesadakorn.kirtnu@gmail.com',
+        emailVerified: true,
+        displayName: 'Admin User',
+        disabled: false,
+        customClaims: {
+          role: 'super_admin',
+          tokenBalance: 1000,
+          emailVerified: true,
+          permissions: ['admin:all'],
+          createdAt: Date.now(),
+          lastUpdated: Date.now()
+        }
+      },
+      {
+        uid: 'user-2',
+        email: 'test@example.com',
+        emailVerified: true,
+        displayName: 'Test User',
+        disabled: false,
+        customClaims: {
+          role: 'user',
+          tokenBalance: 100,
+          emailVerified: true,
+          permissions: [],
+          createdAt: Date.now(),
+          lastUpdated: Date.now()
+        }
+      }
+    ];
+
+    // Apply filters
+    let filteredUsers = mockUsers;
+    
+    if (filters?.role && filters.role !== 'all') {
+      filteredUsers = filteredUsers.filter(u => u.customClaims?.role === filters.role);
+    }
+    
+    if (filters?.status && filters.status === 'disabled') {
+      filteredUsers = filteredUsers.filter(u => u.disabled);
+    } else if (filters?.status && filters.status === 'active') {
+      filteredUsers = filteredUsers.filter(u => !u.disabled);
+    }
+
+    return {
+      users: filteredUsers,
+      total: filteredUsers.length
+    };
+  } catch (error) {
+    adminLogger.error('Failed to fetch admin users', { filters, error });
+    throw new Error('Failed to fetch admin users');
+  }
+}

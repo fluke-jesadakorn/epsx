@@ -11,3 +11,11 @@ export {
 export type {
   MiddlewareAuthConfig
 } from './auth';
+
+// Unified middleware
+export {
+  createUnifiedMiddleware,
+  createFrontendMiddleware,
+  createAdminMiddleware,
+  type UnifiedMiddlewareConfig,
+} from './unified-middleware';

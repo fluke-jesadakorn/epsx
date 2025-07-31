@@ -32,6 +32,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { getModuleUsageAnalytics } from '@epsx/server-actions';
+import { fmtCurrency } from '@epsx/shared-utils/formatting';
 import { useModuleAuth } from '@/auth/module-ctx';
 import { toast } from 'react-hot-toast';
 
@@ -172,12 +173,6 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
     fetchAnalytics();
   }, [dateRange, selectedModule]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US').format(num);
@@ -285,7 +280,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                 {[
                   { label: 'Total Requests', value: formatNumber(metrics.totalRequests), icon: Activity, color: 'blue' },
                   { label: 'Active Users', value: formatNumber(metrics.totalUsers), icon: Users, color: 'green' },
-                  { label: 'Revenue', value: formatCurrency(metrics.totalRevenue), icon: DollarSign, color: 'yellow' },
+                  { label: 'Revenue', value: fmtCurrency(metrics.totalRevenue), icon: DollarSign, color: 'yellow' },
                   { label: 'Avg Response', value: `${metrics.averageResponseTime}ms`, icon: TrendingUp, color: 'purple' },
                   { label: 'Error Rate', value: `${metrics.errorRate}%`, icon: AlertTriangle, color: 'red' },
                   { label: 'Active Keys', value: formatNumber(metrics.activeApiKeys), icon: CheckCircle, color: 'indigo' }
@@ -354,7 +349,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                             {formatNumber(module.users)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                            {formatCurrency(module.revenue)}
+                            {fmtCurrency(module.revenue)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -412,7 +407,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Cost:</span>
-                      <span className="font-semibold">{formatCurrency(billingData.currentPeriod.totalCost)}</span>
+                      <span className="font-semibold">{fmtCurrency(billingData.currentPeriod.totalCost)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Requests:</span>
@@ -433,7 +428,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Amount:</span>
-                      <span className="font-semibold text-green-600">{formatCurrency(billingData.upcomingInvoice.amount)}</span>
+                      <span className="font-semibold text-green-600">{fmtCurrency(billingData.upcomingInvoice.amount)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Due Date:</span>
@@ -468,7 +463,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                         <p className="text-sm text-gray-600">{formatNumber(item.requests)} requests</p>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-gray-900">{formatCurrency(item.cost)}</div>
+                        <div className="font-semibold text-gray-900">{fmtCurrency(item.cost)}</div>
                         <div className="text-sm text-gray-600">
                           ${(item.cost / item.requests * 1000).toFixed(3)}/1K
                         </div>

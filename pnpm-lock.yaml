@@ -102,6 +102,9 @@ importers:
       '@epsx/shared-core':
         specifier: workspace:*
         version: link:../../packages/shared-core
+      '@epsx/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
       '@epsx/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -186,6 +189,9 @@ importers:
       react-hook-form:
         specifier: ^7.60.0
         version: 7.60.0(react@19.1.0)
+      react-hot-toast:
+        specifier: ^2.5.2
+        version: 2.5.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       sonner:
         specifier: ^2.0.6
         version: 2.0.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -246,6 +252,9 @@ importers:
       '@epsx/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@epsx/auth-shared':
+        specifier: workspace:*
+        version: link:../../packages/auth-shared
       '@epsx/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -261,6 +270,9 @@ importers:
       '@epsx/shared-core':
         specifier: workspace:*
         version: link:../../packages/shared-core
+      '@epsx/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
       '@epsx/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -549,6 +561,12 @@ importers:
       prettier:
         specifier: ^3.5.2
         version: 3.6.2
+      tailwindcss:
+        specifier: ^4.0.15
+        version: 4.0.15
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
     devDependencies:
       '@types/node':
         specifier: 24.0.3
@@ -657,6 +675,28 @@ importers:
         specifier: ^5.3.3
         version: 5.8.3
 
+  packages/shared-utils:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      tailwind-merge:
+        specifier: ^2.5.4
+        version: 2.6.0
+    devDependencies:
+      '@epsx/config':
+        specifier: workspace:*
+        version: link:../config
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.6.2
+        version: 5.8.3
+
   packages/theme:
     dependencies:
       next-themes:
@@ -690,6 +730,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@epsx/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       '@radix-ui/react-label':
         specifier: ^2.0.0
         version: 2.1.7(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -727,12 +770,40 @@ importers:
         specifier: ^2.2.1
         version: 2.6.0
     devDependencies:
+      '@epsx/config':
+        specifier: workspace:*
+        version: link:../config
       '@types/react':
         specifier: ^19.0.12
         version: 19.1.8
       '@types/react-dom':
         specifier: ^19.0.4
         version: 19.1.6(@types/react@19.1.8)
+      tsup:
+        specifier: ^8.0.2
+        version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.2
+        version: 5.8.3
+
+  packages/unified-data-access:
+    dependencies:
+      '@epsx/shared-core':
+        specifier: workspace:*
+        version: link:../shared-core
+      '@epsx/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
+      '@epsx/types':
+        specifier: workspace:*
+        version: link:../types
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.67
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.9
       tsup:
         specifier: ^8.0.2
         version: 8.5.0(jiti@2.4.2)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)
@@ -5087,6 +5158,11 @@ packages:
     resolution: {integrity: sha512-jhIXaOzy1sb8IyocaruWSn1TjmnBVs8Ayhcy83rmxNJ8q2uWKCAj3CnJY+KpGSXCueAPc0i05kVvVKtP1t9S3g==}
     engines: {node: '>=10'}
 
+  goober@2.1.16:
+    resolution: {integrity: sha512-erjk19y1U33+XAMe1VTvIONHYoSqE4iS7BYUZfHaqeohLmnC0FdxEh7rQU+6MZ4OajItzjZFSRtVANrQwNq6/g==}
+    peerDependencies:
+      csstype: ^3.0.10
+
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
@@ -6386,6 +6462,13 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
+
+  react-hot-toast@2.5.2:
+    resolution: {integrity: sha512-Tun3BbCxzmXXM7C+NI4qiv6lT0uwGh4oAfeJyNOjYUejTsm35mK9iCaYLGv8cBz9L5YxZLx/2ii7zsIwPtPUdw==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>=16'
+      react-dom: '>=16'
 
   react-icons@5.5.0:
     resolution: {integrity: sha512-MEFcXdkP3dLo8uumGI5xN3lDFNsRtrjbOEKDLD7yv76v4wpnEq2Lt2qeHaQOr34I/wPN3s3+N08WkQ+CW37Xiw==}
@@ -13123,6 +13206,10 @@ snapshots:
       merge2: 1.4.1
       slash: 3.0.0
 
+  goober@2.1.16(csstype@3.1.3):
+    dependencies:
+      csstype: 3.1.3
+
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
@@ -14650,6 +14737,13 @@ snapshots:
   react-hook-form@7.60.0(react@19.1.0):
     dependencies:
       react: 19.1.0
+
+  react-hot-toast@2.5.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+    dependencies:
+      csstype: 3.1.3
+      goober: 2.1.16(csstype@3.1.3)
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
 
   react-icons@5.5.0(react@19.1.0):
     dependencies:
