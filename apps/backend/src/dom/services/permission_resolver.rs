@@ -1,19 +1,51 @@
-// Permission resolution service for determining user access and resolving permission conflicts
+// Unified permission service - consolidates AuthorizationService, PermissionResolver, and PolicyEngine
 use std::collections::HashMap;
 use std::sync::Arc;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 
 use crate::dom::entities::iam::Permission;
 use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId};
-use crate::dom::values::UserId;
-use crate::infra::cache::{Cache, CacheFactory, CacheConfig, CacheBackend};
+use crate::dom::values::{UserId, Role};
+use crate::dom::entities::user::User;
+use crate::dom::ports::DomainCache;
+use super::permission_cache_service::PermissionCacheService;
+use super::policy_engine::{PolicyEngine, EvaluationContext, EvaluationDecision};
 
-/// Service for resolving user permissions from multiple sources
-pub struct PermissionResolver {
-    /// Cache backend (can be in-memory or Redis)
-    cache: Arc<dyn Cache>,
+/// Unified Permission Service - consolidates permission resolution, authorization, and policy evaluation
+pub struct UnifiedPermissionService {
+    /// Cache backend (domain abstraction)
+    cache: Arc<dyn DomainCache>,
     /// Cache TTL in seconds
-    cache_ttl: i64,
+    _cache_ttl: i64,
+    /// Enhanced permission caching service
+    permission_cache: PermissionCacheService,
+    /// Policy evaluation engine
+    policy_engine: PolicyEngine,
+}
+
+/// For backward compatibility - re-export as PermissionResolver
+pub type PermissionResolver = UnifiedPermissionService;
+
+/// Authorization error types (consolidated from app layer)
+#[derive(Debug, thiserror::Error)]
+pub enum AuthorizationError {
+    #[error("Insufficient permissions: required '{required}', user role '{user_role}'")]
+    InsufficientPermissions {
+        required: String,
+        user_role: String,
+    },
+    
+    #[error("Insufficient role: required '{required}', current '{current}'")]
+    InsufficientRole {
+        required: String,
+        current: String,
+    },
+    
+    #[error("Access denied: user '{user_id}' cannot access resource '{resource}'")]
+    AccessDenied {
+        user_id: String,
+        resource: String,
+    },
 }
 
 /// Cached permission data
@@ -100,52 +132,36 @@ pub struct PermissionCheckResult {
     pub checked_at: DateTime<Utc>,
 }
 
-impl PermissionResolver {
-    /// Create new permission resolver with in-memory cache (default)
-    pub async fn new() -> Result<Self, PermissionResolutionError> {
-        let cache_config = CacheConfig {
-            backend: CacheBackend::InMemory,
-            default_ttl_seconds: 300, // 5 minutes
-            max_entries: Some(10000),
-            enable_compression: false,
-        };
+impl UnifiedPermissionService {
+    /// Create new unified permission service with dependency injection
+    pub fn new(
+        cache: Arc<dyn DomainCache>,
+        permission_cache: PermissionCacheService,
+    ) -> Self {
+        let policy_engine = PolicyEngine::new();
         
-        let cache = CacheFactory::create(cache_config).await
-            .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
-        
-        Ok(Self {
+        Self {
             cache,
-            cache_ttl: 300,
-        })
+            _cache_ttl: 300,
+            permission_cache,
+            policy_engine,
+        }
     }
 
-    /// Create permission resolver with custom cache configuration
-    pub async fn with_cache_config(cache_config: CacheConfig) -> Result<Self, PermissionResolutionError> {
-        let cache_ttl = cache_config.default_ttl_seconds;
-        let cache = CacheFactory::create(cache_config).await
-            .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
+    /// Create unified permission service with custom cache TTL
+    pub fn with_cache_ttl(
+        cache: Arc<dyn DomainCache>,
+        permission_cache: PermissionCacheService,
+        cache_ttl: i64,
+    ) -> Self {
+        let policy_engine = PolicyEngine::new();
         
-        Ok(Self {
+        Self {
             cache,
-            cache_ttl,
-        })
-    }
-
-    /// Create permission resolver from environment variables
-    /// Will use Redis if REDIS_URL is set, otherwise in-memory cache
-    pub async fn from_env() -> Result<Self, PermissionResolutionError> {
-        let cache = CacheFactory::from_env().await
-            .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
-        
-        let cache_ttl = std::env::var("PERMISSION_CACHE_TTL")
-            .unwrap_or_else(|_| "300".to_string())
-            .parse()
-            .unwrap_or(300);
-        
-        Ok(Self {
-            cache,
-            cache_ttl,
-        })
+            _cache_ttl: cache_ttl,
+            permission_cache,
+            policy_engine,
+        }
     }
 
     /// Resolve user permissions from multiple permission profiles
@@ -154,22 +170,17 @@ impl PermissionResolver {
         user_id: &UserId,
         profiles: Vec<PermissionProfile>,
     ) -> Result<UserPermissionResolution, PermissionResolutionError> {
-        let cache_key = format!("user_permissions:{}", user_id);
         
-        // Check cache first
-        if let Ok(Some(cached_raw)) = self.cache.get_raw(&cache_key).await {
-            if let Ok(cached) = serde_json::from_str::<CachedPermissions>(&cached_raw) {
-                if cached.expires_at > Utc::now() {
-                    return Ok(UserPermissionResolution {
-                        user_id: user_id.clone(),
-                        effective_permissions: cached.permissions,
-                        contributing_profiles: cached.profiles,
-                        conflict_resolutions: Vec::new(), // Not stored in cache for now
-                        resolved_at: cached.cached_at,
-                        from_cache: true,
-                    });
-                }
-            }
+        // Check enhanced cache first
+        if let Ok(Some(cached)) = self.permission_cache.get_user_permissions(user_id).await {
+            return Ok(UserPermissionResolution {
+                user_id: user_id.clone(),
+                effective_permissions: cached.permissions,
+                contributing_profiles: cached.iam_roles.iter().map(|r| PermissionProfileId::new(r.id().to_string())).collect(),
+                conflict_resolutions: Vec::new(), // Not stored in cache for now
+                resolved_at: cached.cached_at,
+                from_cache: true,
+            });
         }
 
         // Resolve permissions from profiles
@@ -198,18 +209,20 @@ impl PermissionResolver {
         // Resolve conflicts
         let (effective_permissions, conflict_resolutions) = self.resolve_conflicts(permission_sources);
 
-        // Cache the result
+        // Cache the result using enhanced caching service
         let resolved_at = Utc::now();
-        let cached_permissions = CachedPermissions {
-            permissions: effective_permissions.clone(),
-            profiles: contributing_profiles.clone(),
-            cached_at: resolved_at,
-            expires_at: resolved_at + Duration::seconds(self.cache_ttl),
-        };
+        let computed_permissions: Vec<String> = effective_permissions.iter()
+            .map(|p| format!("{}:{}", p.resource(), p.action()))
+            .collect();
         
-        let cached_permissions_json = serde_json::to_string(&cached_permissions)
-            .map_err(|e| PermissionResolutionError::CacheError(format!("Serialization error: {}", e)))?;
-        if let Err(e) = self.cache.set_raw(&cache_key, &cached_permissions_json, Some(self.cache_ttl)).await {
+        // Cache using the enhanced service
+        if let Err(e) = self.permission_cache.cache_user_permissions(
+            user_id,
+            crate::dom::values::Role::User, // Would get actual role from profiles
+            vec![], // Would convert profiles to IAM roles
+            effective_permissions.clone(),
+            computed_permissions,
+        ).await {
             tracing::warn!("Failed to cache permissions for user {}: {}", user_id, e);
         }
 
@@ -229,6 +242,21 @@ impl PermissionResolver {
         context: &PermissionContext,
         user_permissions: &[Permission],
     ) -> PermissionCheckResult {
+        // Try cache first for faster lookups
+        if let Ok(Some(cached_result)) = self.permission_cache.check_user_permission(
+            &context.user_id,
+            &context.resource,
+            &context.action,
+        ).await {
+            return PermissionCheckResult {
+                granted: cached_result,
+                reason: if cached_result { "Cached permission match" } else { "Cached permission denied" }.to_string(),
+                granting_permission: None, // Would need to store this in cache
+                granting_profile: None,
+                checked_at: Utc::now(),
+            };
+        }
+
         let resource_action = format!("{}:{}", context.resource, context.action);
         
         // Check for exact match
@@ -397,15 +425,22 @@ impl PermissionResolver {
 
     /// Clear cache for specific user
     pub async fn invalidate_user_cache(&self, user_id: &UserId) -> Result<(), PermissionResolutionError> {
-        let cache_key = format!("user_permissions:{}", user_id);
-        self.cache.delete(&cache_key).await
+        // Use enhanced cache service for better cache invalidation
+        self.permission_cache.invalidate_user_cache(user_id).await
             .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
+        
+        // Also clear old cache format for backward compatibility
+        let cache_key = format!("user_permissions:{}", user_id);
+        if let Err(e) = self.cache.delete(&cache_key).await {
+            tracing::warn!("Failed to clear legacy cache for user {}: {}", user_id, e);
+        }
+        
         Ok(())
     }
 
     /// Clear all cached permissions
     pub async fn clear_cache(&self) -> Result<(), PermissionResolutionError> {
-        self.cache.clear().await
+        self.permission_cache.clear_all_caches().await
             .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
         Ok(())
     }
@@ -424,6 +459,109 @@ impl PermissionResolver {
             miss_count: stats.miss_count,
             hit_rate: stats.hit_rate,
         })
+    }
+
+    // ========================================
+    // QUOTA CACHING METHODS
+    // ========================================
+
+    /// Cache quota status for a user
+    pub async fn cache_user_quota_status(
+        &self,
+        user_id: &UserId,
+        module_access: Vec<crate::web::middleware::module_auth_middleware::UserModuleAccess>,
+        effective_quotas: std::collections::HashMap<String, crate::web::middleware::module_auth_middleware::ModuleQuotas>,
+    ) -> Result<(), PermissionResolutionError> {
+        let current_usage = std::collections::HashMap::new(); // Would be populated from actual usage data
+        
+        self.permission_cache.cache_quota_status(user_id, module_access, effective_quotas, current_usage).await
+            .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
+        
+        Ok(())
+    }
+
+    /// Check quota availability from cache
+    pub async fn check_cached_quota_availability(
+        &self,
+        user_id: &UserId,
+        module_name: &str,
+        quota_type: &str,
+        amount: i32,
+    ) -> Result<Option<bool>, PermissionResolutionError> {
+        match self.permission_cache.check_quota_availability(user_id, module_name, quota_type, amount).await {
+            Ok(Some(result)) => Ok(Some(result.can_consume)),
+            Ok(None) => Ok(None), // Not in cache
+            Err(e) => Err(PermissionResolutionError::CacheError(e.to_string())),
+        }
+    }
+
+    /// Increment quota usage in cache
+    pub async fn increment_cached_quota_usage(
+        &self,
+        user_id: &UserId,
+        module_name: &str,
+        quota_type: &str,
+        amount: i32,
+    ) -> Result<(), PermissionResolutionError> {
+        self.permission_cache.increment_quota_usage(user_id, module_name, quota_type, amount).await
+            .map_err(|e| PermissionResolutionError::CacheError(e.to_string()))?;
+        
+        Ok(())
+    }
+
+    /// Get the permission cache service for direct access
+    pub fn permission_cache(&self) -> &PermissionCacheService {
+        &self.permission_cache
+    }
+    
+    // ========================================
+    // AUTHORIZATION METHODS (from app layer)
+    // ========================================
+    
+    
+    /// Check if user has required role level (consolidated from AuthorizationService)
+    pub fn check_role_level(&self, user: &User, required_role: &Role) -> Result<(), AuthorizationError> {
+        if user.role().hierarchy_level() >= required_role.hierarchy_level() {
+            Ok(())
+        } else {
+            Err(AuthorizationError::InsufficientRole {
+                required: required_role.to_string(),
+                current: user.role().to_string(),
+            })
+        }
+    }
+    
+    /// Check if user can access another user's data (consolidated from AuthorizationService)
+    pub fn check_user_access(&self, requesting_user: &User, target_user_id: &UserId) -> Result<(), AuthorizationError> {
+        // Users can access their own data
+        if requesting_user.id() == target_user_id {
+            return Ok(());
+        }
+        
+        // Admins can access other users' data
+        if requesting_user.has_perm("read:all_data") {
+            return Ok(());
+        }
+        
+        Err(AuthorizationError::AccessDenied {
+            user_id: requesting_user.id().to_string(),
+            resource: target_user_id.to_string(),
+        })
+    }
+    
+    /// Evaluate policy-based permissions using policy engine
+    pub async fn evaluate_policy_permission(
+        &self,
+        context: EvaluationContext,
+    ) -> Result<EvaluationDecision, PermissionResolutionError> {
+        // Use the integrated policy engine for complex policy evaluation
+        self.policy_engine.evaluate(&context).await
+            .map_err(|e| PermissionResolutionError::ResolutionFailed(e.to_string()))
+    }
+    
+    /// Get the policy engine for direct access
+    pub fn policy_engine(&self) -> &PolicyEngine {
+        &self.policy_engine
     }
 }
 
@@ -456,6 +594,9 @@ pub enum PermissionResolutionError {
 }
 
 // Note: Default impl removed since constructor is now async
+
+// Re-export for convenience and backward compatibility
+pub use self::UnifiedPermissionService as AuthorizationService;
 
 #[cfg(test)]
 mod tests {

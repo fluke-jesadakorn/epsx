@@ -1,8 +1,7 @@
 // Auto-assignment engine for permission_profile assignment during user registration
 use crate::dom::values::UserId;
 use crate::dom::entities::permission_profile::PermissionProfileId;
-use crate::app::ports::repositories::{PermissionProfileRepo, UserRepo};
-use crate::infra::db::postgres::permission_assignment_repo::PostgresPermissionAssignmentRepo;
+use crate::app::ports::repositories::{PermissionProfileRepo, UserRepo, PermissionAssignmentRepo};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
@@ -116,14 +115,14 @@ pub enum AutoAssignmentError {
 
 pub struct AutoAssignmentEngine {
     permission_profile_repo: Arc<dyn PermissionProfileRepo>,
-    assignment_repo: Arc<PostgresPermissionAssignmentRepo>,
+    assignment_repo: Arc<dyn PermissionAssignmentRepo>,
     user_repo: Arc<dyn UserRepo>,
 }
 
 impl AutoAssignmentEngine {
     pub fn new(
         permission_profile_repo: Arc<dyn PermissionProfileRepo>,
-        assignment_repo: Arc<PostgresPermissionAssignmentRepo>,
+        assignment_repo: Arc<dyn PermissionAssignmentRepo>,
         user_repo: Arc<dyn UserRepo>,
     ) -> Self {
         Self {
@@ -450,7 +449,7 @@ impl AutoAssignmentEngine {
     }
 }
 
-// Auto-assignment integration completed - using PostgresPermissionAssignmentRepo directly
+// Auto-assignment integration completed - using PermissionAssignmentRepo port trait for clean architecture
 
 #[cfg(test)]
 mod tests {

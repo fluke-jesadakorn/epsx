@@ -5,6 +5,8 @@ import type { FrontendUser } from '@epsx/types';
 
 // Extended user profile with auth-specific data
 interface AuthUserProfile extends FrontendUser {
+  id: string;
+  role: string;
   permissions: string[];
   permission_profiles?: string[];
   emailVerified?: boolean;

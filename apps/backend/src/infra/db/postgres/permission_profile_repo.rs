@@ -604,6 +604,7 @@ impl PermissionProfileRepo for PostgresPermissionProfileRepo {
         expires_at,
         assigned_by,
         reason,
+        is_active: true, // Active assignments from the database
       });
     }
 
@@ -725,6 +726,7 @@ impl PermissionProfileRepo for PostgresPermissionProfileRepo {
         expires_at,
         assigned_by,
         reason,
+        is_active: true, // Active assignments from the database
       });
     }
 

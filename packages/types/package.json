@@ -17,6 +17,16 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
+    "./schemas/payment": {
+      "types": "./dist/schemas/payment.d.ts",
+      "import": "./dist/schemas/payment.mjs",
+      "require": "./dist/schemas/payment.js"
+    },
+    "./schemas/user": {
+      "types": "./dist/schemas/user.d.ts",
+      "import": "./dist/schemas/user.mjs",
+      "require": "./dist/schemas/user.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

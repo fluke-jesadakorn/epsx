@@ -2,36 +2,27 @@ use async_trait::async_trait;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde_json::json;
+use std::sync::Arc;
 
 use crate::app::ports::services::{EmailSvc, EmailServiceError};
+use crate::config::Config;
 
 /// Simple email service implementation using SendGrid
 pub struct SendGridEmailService {
     client: Client,
-    api_key: String,
-    from_email: String,
-    from_name: String,
+    config: Arc<Config>,
 }
 
 impl SendGridEmailService {
-    pub fn new(api_key: String, from_email: String, from_name: String) -> Self {
+    pub fn new(config: Arc<Config>) -> Self {
         Self {
             client: Client::new(),
-            api_key,
-            from_email,
-            from_name,
+            config,
         }
     }
 
-    pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let api_key = std::env::var("SENDGRID_API_KEY")
-            .map_err(|_| "SENDGRID_API_KEY environment variable not set")?;
-        let from_email = std::env::var("FROM_EMAIL")
-            .unwrap_or_else(|_| "noreply@epsx.com".to_string());
-        let from_name = std::env::var("FROM_NAME")
-            .unwrap_or_else(|_| "EPSX Trading Platform".to_string());
-
-        Ok(Self::new(api_key, from_email, from_name))
+    pub fn from_config(config: Arc<Config>) -> Self {
+        Self::new(config)
     }
 
     async fn send_email(
@@ -50,8 +41,8 @@ impl SendGridEmailService {
                 }]
             }],
             "from": {
-                "email": self.from_email,
-                "name": self.from_name
+                "email": self.config.email.from_email,
+                "name": self.config.email.from_name
             },
             "subject": subject,
             "content": [
@@ -69,7 +60,7 @@ impl SendGridEmailService {
         let response = self
             .client
             .post("https://api.sendgrid.com/v3/mail/send")
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Authorization", format!("Bearer {}", self.config.email.sendgrid_api_key))
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
@@ -91,15 +82,18 @@ impl SendGridEmailService {
 #[async_trait]
 impl EmailSvc for SendGridEmailService {
     async fn send_welcome_email(&self, email: &str, name: &str) -> Result<(), EmailServiceError> {
-        let subject = "Welcome to EPSX Trading Platform";
+        let subject = format!("Welcome to {}", self.config.branding.platform_name);
+        let welcome_message = self.config.branding.welcome_message_template
+            .replace("{}", &self.config.branding.platform_name)
+            .replace("{}", name);
         let html_content = format!(
             r#"
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1 style="color: #1a1a1a;">Welcome to EPSX, {}!</h1>
+                <h1 style="color: #1a1a1a;">{}</h1>
                 <p>Thank you for joining our EPS growth-based trading platform.</p>
                 <p>Get started by exploring your dashboard and discovering trading opportunities based on EPS growth strategies.</p>
                 <div style="margin: 30px 0;">
-                    <a href="https://epsx.com/dashboard" 
+                    <a href="{}" 
                        style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                         Go to Dashboard
                     </a>
@@ -109,15 +103,15 @@ impl EmailSvc for SendGridEmailService {
                 </p>
             </div>
             "#,
-            name
+            welcome_message, self.config.branding.dashboard_url
         );
 
         let text_content = format!(
-            "Welcome to EPSX, {}!\n\nThank you for joining our EPS growth-based trading platform. Get started by exploring your dashboard at https://epsx.com/dashboard\n\nIf you have any questions, feel free to contact our support team.",
-            name
+            "{}\n\nThank you for joining our EPS growth-based trading platform. Get started by exploring your dashboard at {}\n\nIf you have any questions, feel free to contact our support team at {}.",
+            welcome_message, self.config.branding.dashboard_url, self.config.branding.support_email
         );
 
-        self.send_email(email, name, subject, &html_content, &text_content)
+        self.send_email(email, name, &subject, &html_content, &text_content)
             .await
     }
 

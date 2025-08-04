@@ -4,7 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
+use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
+use serde_json::json;
 use crate::dom::values::UserId;
+use crate::config::Config;
 
 /// Time window for rate limiting
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +37,24 @@ pub struct RateLimitConfig {
     pub requests_per_minute: Option<u32>,
     pub requests_per_hour: Option<u32>,
     pub requests_per_day: Option<u32>,
+}
+
+/// Client identifier for rate limiting
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ClientId {
+    User(UserId),
+    IpAddress(String),
+    ApiKey(String),
+}
+
+impl std::fmt::Display for ClientId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClientId::User(user_id) => write!(f, "user:{}", user_id),
+            ClientId::IpAddress(ip) => write!(f, "ip:{}", ip),
+            ClientId::ApiKey(key) => write!(f, "api_key:{}", &key[..std::cmp::min(8, key.len())]),
+        }
+    }
 }
 
 impl Default for RateLimitConfig {
@@ -164,22 +185,34 @@ pub struct RateLimitResult {
     pub limit: u32,
 }
 
-/// In-memory rate limiter (in production, use Redis for distributed rate limiting)
-pub struct InMemoryRateLimiter {
+/// Unified rate limiter supporting both user and IP-based rate limiting
+pub struct UnifiedRateLimiter {
     entries: Arc<RwLock<HashMap<String, RateLimitEntry>>>,
+    config: Arc<Config>,
 }
 
-impl InMemoryRateLimiter {
+/// In-memory rate limiter (in production, use Redis for distributed rate limiting)
+pub type InMemoryRateLimiter = UnifiedRateLimiter;
+
+impl UnifiedRateLimiter {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(HashMap::new())),
+            config: Arc::new(Config::from_env()),
         }
     }
     
-    /// Check and update rate limits for a user-endpoint combination
-    pub async fn check_rate_limit(
+    pub fn with_config(config: Arc<Config>) -> Self {
+        Self {
+            entries: Arc::new(RwLock::new(HashMap::new())),
+            config,
+        }
+    }
+    
+    /// Check and update rate limits for any client type (user, IP, API key)
+    pub async fn check_client_rate_limit(
         &self,
-        user_id: &UserId,
+        client_id: &ClientId,
         endpoint: &str,
         method: &str,
         config: &RateLimitConfig,
@@ -189,7 +222,7 @@ impl InMemoryRateLimiter {
             .map_err(|e| RateLimitError::SystemTimeError(e.to_string()))?
             .as_secs();
         
-        let key = format!("{}:{}:{}", user_id, method, endpoint);
+        let key = format!("{}:{}:{}", client_id, method, endpoint);
         
         let mut entries = self.entries.write().await;
         
@@ -203,7 +236,7 @@ impl InMemoryRateLimiter {
         // Check limits
         let result = entry.check_limits(config);
         
-        // Clean up old entries periodically (simple cleanup every 1000 requests)
+        // Clean up old entries periodically
         if entries.len() > 1000 {
             self.cleanup_old_entries(&mut entries, now).await;
         }
@@ -219,14 +252,78 @@ impl InMemoryRateLimiter {
         Ok(result)
     }
     
-    /// Get current rate limit status for a user-endpoint combination
-    pub async fn get_status(
+    /// Check and update rate limits for IP address using configuration-based limits
+    pub async fn check_ip_rate_limit(
+        &self,
+        client_ip: &str,
+        endpoint: &str,
+    ) -> Result<(), RateLimitError> {
+        let (limit, window_seconds) = self.get_rate_limit_config(endpoint);
+        let config = RateLimitConfig {
+            requests_per_minute: Some(limit),
+            requests_per_hour: None,
+            requests_per_day: None,
+        };
+        
+        let client_id = ClientId::IpAddress(client_ip.to_string());
+        let result = self.check_client_rate_limit(&client_id, endpoint, "ANY", &config).await?;
+        
+        if !result.allowed {
+            return Err(RateLimitError::RateLimitExceeded {
+                message: format!("Rate limit exceeded for endpoint {}", endpoint),
+                retry_after: result.retry_after_seconds.unwrap_or(window_seconds),
+                limit,
+                window: window_seconds,
+            });
+        }
+        
+        Ok(())
+    }
+    
+    /// Get rate limit configuration for an endpoint (from rate_limit.rs functionality)
+    fn get_rate_limit_config(&self, endpoint: &str) -> (u32, u64) {
+        // Check for endpoint-specific limits first
+        if let Some(endpoint_config) = self.config.rate_limiting.endpoint_specific.get(endpoint) {
+            return (endpoint_config.per_minute, 60);
+        }
+        
+        // Check for pattern-based limits
+        if endpoint.contains("/login") {
+            return (5, 60); // 5 requests per minute for login
+        }
+        
+        if endpoint.contains("/payment") {
+            return (10, 60); // 10 requests per minute for payments
+        }
+        
+        if endpoint.contains("/admin") {
+            return (20, 60); // 20 requests per minute for admin endpoints
+        }
+        
+        // Default rate limit
+        (self.config.rate_limiting.default_per_minute, 60)
+    }
+    
+    /// Check and update rate limits for a user-endpoint combination (backward compatibility)
+    pub async fn check_rate_limit(
         &self,
         user_id: &UserId,
         endpoint: &str,
         method: &str,
+        config: &RateLimitConfig,
+    ) -> Result<RateLimitResult, RateLimitError> {
+        let client_id = ClientId::User(user_id.clone());
+        self.check_client_rate_limit(&client_id, endpoint, method, config).await
+    }
+    
+    /// Get current rate limit status for any client type
+    pub async fn get_client_status(
+        &self,
+        client_id: &ClientId,
+        endpoint: &str,
+        method: &str,
     ) -> Option<RateLimitStatus> {
-        let key = format!("{}:{}:{}", user_id, method, endpoint);
+        let key = format!("{}:{}:{}", client_id, method, endpoint);
         let entries = self.entries.read().await;
         
         entries.get(&key).map(|entry| RateLimitStatus {
@@ -237,10 +334,21 @@ impl InMemoryRateLimiter {
         })
     }
     
-    /// Reset rate limits for a user (admin function)
-    pub async fn reset_user_limits(&self, user_id: &UserId) -> Result<u32, RateLimitError> {
+    /// Get current rate limit status for a user-endpoint combination (backward compatibility)
+    pub async fn get_status(
+        &self,
+        user_id: &UserId,
+        endpoint: &str,
+        method: &str,
+    ) -> Option<RateLimitStatus> {
+        let client_id = ClientId::User(user_id.clone());
+        self.get_client_status(&client_id, endpoint, method).await
+    }
+    
+    /// Reset rate limits for any client type (admin function)
+    pub async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
         let mut entries = self.entries.write().await;
-        let prefix = format!("{}:", user_id);
+        let prefix = format!("{}:", client_id);
         
         let keys_to_remove: Vec<String> = entries
             .keys()
@@ -253,8 +361,14 @@ impl InMemoryRateLimiter {
             entries.remove(&key);
         }
         
-        tracing::info!("Reset {} rate limit entries for user {}", count, user_id);
+        tracing::info!("Reset {} rate limit entries for client {}", count, client_id);
         Ok(count)
+    }
+    
+    /// Reset rate limits for a user (backward compatibility)
+    pub async fn reset_user_limits(&self, user_id: &UserId) -> Result<u32, RateLimitError> {
+        let client_id = ClientId::User(user_id.clone());
+        self.reset_client_limits(&client_id).await
     }
     
     /// Clean up entries older than 24 hours
@@ -275,6 +389,39 @@ impl InMemoryRateLimiter {
         if count > 0 {
             tracing::info!("Cleaned up {} old rate limit entries", count);
         }
+    }
+    
+    /// Clean up expired entries (public method)
+    pub async fn cleanup_expired_entries(&self) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+            
+        let mut entries = self.entries.write().await;
+        self.cleanup_old_entries(&mut entries, now).await;
+    }
+    
+    /// Get statistics about rate limiter usage
+    pub async fn get_stats(&self) -> HashMap<String, u32> {
+        let entries = self.entries.read().await;
+        let mut stats = HashMap::new();
+        
+        stats.insert("total_entries".to_string(), entries.len() as u32);
+        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+            
+        let active_entries = entries
+            .values()
+            .filter(|entry| now - entry.last_updated < 300) // 5 minutes
+            .count();
+            
+        stats.insert("active_entries".to_string(), active_entries as u32);
+        
+        stats
     }
 }
 
@@ -298,31 +445,69 @@ pub enum RateLimitError {
     
     #[error("Internal error: {0}")]
     InternalError(String),
+    
+    #[error("Rate limit exceeded: {message}")]
+    RateLimitExceeded {
+        message: String,
+        retry_after: u64,
+        limit: u32,
+        window: u64,
+    },
+}
+
+impl IntoResponse for RateLimitError {
+    fn into_response(self) -> Response {
+        match self {
+            RateLimitError::RateLimitExceeded { message, retry_after, limit, window } => {
+                let status = StatusCode::TOO_MANY_REQUESTS;
+                let body = Json(json!({
+                    "error": "rate_limit_exceeded",
+                    "message": message,
+                    "retry_after": retry_after,
+                    "limit": limit,
+                    "window": window
+                }));
+                (status, body).into_response()
+            }
+            _ => {
+                let status = StatusCode::INTERNAL_SERVER_ERROR;
+                let body = Json(json!({
+                    "error": "internal_error",
+                    "message": self.to_string()
+                }));
+                (status, body).into_response()
+            }
+        }
+    }
 }
 
 /// Trait for different rate limiter implementations
 #[async_trait::async_trait]
 pub trait RateLimiter: Send + Sync {
-    async fn check_rate_limit(
+    /// Check rate limits for any client type
+    async fn check_client_rate_limit(
         &self,
-        user_id: &UserId,
+        client_id: &ClientId,
         endpoint: &str,
         method: &str,
         config: &RateLimitConfig,
     ) -> Result<RateLimitResult, RateLimitError>;
     
-    async fn get_status(
+    /// Get status for any client type
+    async fn get_client_status(
         &self,
-        user_id: &UserId,
+        client_id: &ClientId,
         endpoint: &str,
         method: &str,
     ) -> Option<RateLimitStatus>;
     
-    async fn reset_user_limits(&self, user_id: &UserId) -> Result<u32, RateLimitError>;
-}
-
-#[async_trait::async_trait]
-impl RateLimiter for InMemoryRateLimiter {
+    /// Reset limits for any client type
+    async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError>;
+    
+    /// Check IP-based rate limits using configuration
+    async fn check_ip_rate_limit(&self, client_ip: &str, endpoint: &str) -> Result<(), RateLimitError>;
+    
+    // Backward compatibility methods
     async fn check_rate_limit(
         &self,
         user_id: &UserId,
@@ -330,7 +515,8 @@ impl RateLimiter for InMemoryRateLimiter {
         method: &str,
         config: &RateLimitConfig,
     ) -> Result<RateLimitResult, RateLimitError> {
-        self.check_rate_limit(user_id, endpoint, method, config).await
+        let client_id = ClientId::User(user_id.clone());
+        self.check_client_rate_limit(&client_id, endpoint, method, config).await
     }
     
     async fn get_status(
@@ -339,11 +525,43 @@ impl RateLimiter for InMemoryRateLimiter {
         endpoint: &str,
         method: &str,
     ) -> Option<RateLimitStatus> {
-        self.get_status(user_id, endpoint, method).await
+        let client_id = ClientId::User(user_id.clone());
+        self.get_client_status(&client_id, endpoint, method).await
     }
     
     async fn reset_user_limits(&self, user_id: &UserId) -> Result<u32, RateLimitError> {
-        self.reset_user_limits(user_id).await
+        let client_id = ClientId::User(user_id.clone());
+        self.reset_client_limits(&client_id).await
+    }
+}
+
+#[async_trait::async_trait]
+impl RateLimiter for UnifiedRateLimiter {
+    async fn check_client_rate_limit(
+        &self,
+        client_id: &ClientId,
+        endpoint: &str,
+        method: &str,
+        config: &RateLimitConfig,
+    ) -> Result<RateLimitResult, RateLimitError> {
+        self.check_client_rate_limit(client_id, endpoint, method, config).await
+    }
+    
+    async fn get_client_status(
+        &self,
+        client_id: &ClientId,
+        endpoint: &str,
+        method: &str,
+    ) -> Option<RateLimitStatus> {
+        self.get_client_status(client_id, endpoint, method).await
+    }
+    
+    async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
+        self.reset_client_limits(client_id).await
+    }
+    
+    async fn check_ip_rate_limit(&self, client_ip: &str, endpoint: &str) -> Result<(), RateLimitError> {
+        self.check_ip_rate_limit(client_ip, endpoint).await
     }
 }
 
@@ -355,7 +573,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_rate_limiting_per_minute() {
-        let limiter = InMemoryRateLimiter::new();
+        let limiter = UnifiedRateLimiter::new();
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(2),
@@ -381,8 +599,31 @@ mod tests {
     }
     
     #[tokio::test]
+    async fn test_ip_based_rate_limiting() {
+        let limiter = UnifiedRateLimiter::new();
+        let client_id = ClientId::IpAddress("192.168.1.100".to_string());
+        let config = RateLimitConfig {
+            requests_per_minute: Some(3),
+            requests_per_hour: None,
+            requests_per_day: None,
+        };
+        
+        // First few requests should pass
+        for i in 1..=3 {
+            let result = limiter.check_client_rate_limit(&client_id, "/api/test", "GET", &config).await.unwrap();
+            assert!(result.allowed, "Request {} should be allowed", i);
+            assert_eq!(result.current_count, i);
+        }
+        
+        // Fourth request should fail
+        let result = limiter.check_client_rate_limit(&client_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(!result.allowed);
+        assert_eq!(result.current_count, 4);
+    }
+    
+    #[tokio::test]
     async fn test_different_endpoints_have_separate_limits() {
-        let limiter = InMemoryRateLimiter::new();
+        let limiter = UnifiedRateLimiter::new();
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
@@ -409,7 +650,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_rate_limit_reset() {
-        let limiter = InMemoryRateLimiter::new();
+        let limiter = UnifiedRateLimiter::new();
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
@@ -431,6 +672,40 @@ mod tests {
         // Should be able to make request again
         let result3 = limiter.check_rate_limit(&user_id, "/api/test", "GET", &config).await.unwrap();
         assert!(result3.allowed);
+    }
+    
+    #[tokio::test]
+    async fn test_different_client_types() {
+        let limiter = UnifiedRateLimiter::new();
+        let user_id = ClientId::User(UserId::new("test_user".to_string()));
+        let ip_id = ClientId::IpAddress("192.168.1.100".to_string());
+        let api_key_id = ClientId::ApiKey("ak_test123".to_string());
+        
+        let config = RateLimitConfig {
+            requests_per_minute: Some(1),
+            requests_per_hour: None,
+            requests_per_day: None,
+        };
+        
+        // Each client type should have separate counters
+        let result1 = limiter.check_client_rate_limit(&user_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(result1.allowed);
+        
+        let result2 = limiter.check_client_rate_limit(&ip_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(result2.allowed);
+        
+        let result3 = limiter.check_client_rate_limit(&api_key_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(result3.allowed);
+        
+        // Each should now be rate limited independently
+        let result4 = limiter.check_client_rate_limit(&user_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(!result4.allowed);
+        
+        let result5 = limiter.check_client_rate_limit(&ip_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(!result5.allowed);
+        
+        let result6 = limiter.check_client_rate_limit(&api_key_id, "/api/test", "GET", &config).await.unwrap();
+        assert!(!result6.allowed);
     }
     
     #[test]

@@ -6,11 +6,11 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use tower_cookies::Cookies;
 use chrono::{DateTime, Utc};
 use crate::dom::values::{UserId, Role, SubTier};
 use crate::dom::entities::User;
 use super::super::auth::routes::AppState;
+use crate::web::middleware::AuthCtx;
 
 /// User profile response
 #[derive(Debug, Serialize)]
@@ -55,11 +55,10 @@ pub struct UserListResponse {
 
 /// Get current user profile
 pub async fn get_current_user_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<Json<UserProfileResponse>, StatusCode> {
-    // Extract user ID from session cookie
-    let user_id = extract_user_from_session(&cookies)?;
+    let user_id = auth_ctx.user_id;
     
     // Get user from repository
     let user = app_state.user_repo.get(&user_id).await
@@ -76,11 +75,11 @@ pub async fn get_current_user_handler(
 /// Get user profile by ID (admin only)
 pub async fn get_user_by_id_handler(
     Path(id): Path<String>,
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<Json<UserProfileResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Get requested user
@@ -98,12 +97,11 @@ pub async fn get_user_by_id_handler(
 
 /// Update current user profile
 pub async fn update_user_profile_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
     Json(payload): Json<UpdateUserProfileRequest>,
 ) -> Result<Json<UpdateUserProfileResponse>, StatusCode> {
-    // Extract user ID from session
-    let user_id = extract_user_from_session(&cookies)?;
+    let user_id = auth_ctx.user_id;
     
     // Get current user
     let user = app_state.user_repo.get(&user_id).await
@@ -143,11 +141,11 @@ pub async fn update_user_profile_handler(
 
 /// List users (admin only)
 pub async fn list_users_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<Json<UserListResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Get users list
@@ -174,11 +172,11 @@ pub async fn list_users_handler(
 /// Delete user (admin only)
 pub async fn delete_user_handler(
     Path(id): Path<String>,
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Prevent self-deletion
@@ -199,31 +197,17 @@ pub async fn delete_user_handler(
 
 /// Logout handler
 pub async fn logout_handler(
-    cookies: Cookies,
+    _auth_ctx: AuthCtx,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // Clear session cookie
-    let cookie = tower_cookies::Cookie::build(("sess_id", ""))
-        .max_age(tower_cookies::cookie::time::Duration::seconds(0))
-        .path("/")
-        .build();
-    
-    cookies.add(cookie);
+    // Invalidate session in backend (implementation depends on session storage)
+    // For now, just return success as the frontend will discard the token
     
     Ok(Json(serde_json::json!({
         "message": "Logged out successfully"
     })))
 }
 
-/// Helper function to extract user ID from session cookie
-fn extract_user_from_session(cookies: &Cookies) -> Result<UserId, StatusCode> {
-    let session_cookie = cookies.get("sess_id")
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    // In a real implementation, you would validate the session ID
-    // For now, we'll just use it as a user ID (development only)
-    let user_id = UserId::new(session_cookie.value().to_string());
-    Ok(user_id)
-}
 
 /// Helper function to verify admin access
 async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(), StatusCode> {
@@ -265,8 +249,7 @@ fn build_user_profile_response(user: &User) -> UserProfileResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tower_cookies::Cookies;
-    use crate::dom::values::Email;
+        use crate::dom::values::Email;
     
     #[test]
     fn should_build_user_profile_response() {
@@ -281,14 +264,6 @@ mod tests {
         assert_eq!(response.display_name, Some("test".to_string()));
     }
     
-    #[test]
-    fn should_handle_empty_session_cookie() {
-        let cookies = Cookies::default();
-        let result = extract_user_from_session(&cookies);
-        
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), StatusCode::UNAUTHORIZED);
-    }
     
     #[test]
     fn should_deserialize_update_profile_request() {

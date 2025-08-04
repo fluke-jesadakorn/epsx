@@ -5,7 +5,7 @@ use std::sync::Arc;
 use serde_json;
 
 pub mod user_repo;
-pub mod user_repo_soft_delete;
+// pub mod user_repo_soft_delete;
 pub mod session_repo;
 pub mod payment_repo;
 pub mod stock_repo;
@@ -17,7 +17,7 @@ pub mod permission_assignment_repo;
 // pub mod level_history_repo;
 
 pub use user_repo::*;
-pub use user_repo_soft_delete::*;
+// pub use user_repo_soft_delete::*;
 pub use session_repo::*;
 pub use payment_repo::*;
 pub use stock_repo::*;

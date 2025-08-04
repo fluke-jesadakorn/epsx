@@ -17,7 +17,7 @@ use axum::{
 use crate::web::{
     auth::AppState,
     middleware::{
-        auth_middleware::auth_middleware,
+        auth_middleware,
         module_auth_middleware::{module_auth_middleware, require_module_access, AccessLevel},
         module_permission_middleware::module_permission_middleware,
     },

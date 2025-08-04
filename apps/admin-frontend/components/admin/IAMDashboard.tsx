@@ -1,5 +1,6 @@
 import { Shield, Users, Key, FileText, Settings, Plus } from 'lucide-react';
 import { IAMContent } from './IAMContent';
+import { StatsGrid } from '@/components/ui/StatsCard';
 
 // Define types directly in component since we don't have the types file
 interface UserWithPermissions {
@@ -33,25 +34,25 @@ export function IAMDashboard({ initialUsers, initialRoles, initialPolicies }: IA
       title: 'Total Users',
       value: initialUsers.length,
       icon: Users,
-      color: 'from-blue-500 to-blue-600'
+      gradient: 'from-blue-500 to-blue-600'
     },
     {
       title: 'Active Roles',
       value: initialRoles.length,
       icon: Shield,
-      color: 'from-green-500 to-green-600'
+      gradient: 'from-green-500 to-green-600'
     },
     {
       title: 'Policies',
       value: initialPolicies.length,
       icon: FileText,
-      color: 'from-purple-500 to-purple-600'
+      gradient: 'from-purple-500 to-purple-600'
     },
     {
       title: 'Custom Permissions',
       value: initialUsers.reduce((acc, user) => acc + user.customPermissions.length, 0),
       icon: Key,
-      color: 'from-orange-500 to-orange-600'
+      gradient: 'from-orange-500 to-orange-600'
     }
   ];
 
@@ -74,21 +75,11 @@ export function IAMDashboard({ initialUsers, initialRoles, initialPolicies }: IA
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <div key={index} className="pancake-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-                <p className="text-2xl font-bold mt-1">{stat.value}</p>
-              </div>
-              <div className={`p-3 rounded-full bg-gradient-to-r ${stat.color}`}>
-                <stat.icon className="h-6 w-6 text-white" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <StatsGrid 
+        stats={stats}
+        variant="simple"
+        columns={{ default: 1, md: 2, lg: 4 }}
+      />
 
       {/* Interactive Content */}
       <IAMContent 

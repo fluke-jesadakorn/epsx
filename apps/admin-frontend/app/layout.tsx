@@ -1,5 +1,6 @@
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeTransition } from '@/components/ui/theme-transition';
+import { Navigation } from '@/components/layout/nav';
 import { UnifiedAuthProvider } from '@epsx/auth-shared/client';
 import { AdminAuthProvider } from '@/auth/ctx';
 import { ModuleAuthProvider } from '@/auth/module-ctx';
@@ -49,7 +50,7 @@ export default function RootLayout({
           <AdminAuthProvider>
             <ModuleAuthProvider>
               <ToastProvider>
-                {/* <Navigation /> removed as requested */}
+                <Navigation />
                 <div className="relative flex min-h-screen flex-col card">
                   {children}
                 </div>

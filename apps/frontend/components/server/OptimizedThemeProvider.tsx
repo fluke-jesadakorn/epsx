@@ -10,7 +10,7 @@ interface OptimizedThemeProviderProps {
  */
 export async function OptimizedThemeProvider({ children }: OptimizedThemeProviderProps) {
   // Get theme from server-side cookies
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const themeCookie = cookieStore.get('theme');
   const serverTheme = themeCookie?.value || 'system';
   

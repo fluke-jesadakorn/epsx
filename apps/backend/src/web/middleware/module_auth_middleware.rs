@@ -14,7 +14,83 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 use crate::dom::values::{UserId, Role, SessId};
-use super::auth_middleware::AuthCtx;
+
+// ========================================
+// AUTHENTICATION TYPES
+// ========================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthCtx {
+    pub user_id: UserId,
+    pub role: Role,
+    pub sess: SessId,
+}
+
+#[async_trait]
+impl FromRequestParts<crate::web::auth::AppState> for AuthCtx
+{
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &crate::web::auth::AppState,
+    ) -> Result<Self, Self::Rejection> {
+        // Only validate Bearer tokens from Authorization header
+        let auth_header = parts
+            .headers
+            .get(AUTHORIZATION)
+            .and_then(|header| header.to_str().ok())
+            .ok_or_else(|| {
+                tracing::warn!("No Authorization header found in request");
+                StatusCode::UNAUTHORIZED
+            })?;
+
+        let token = auth_header.strip_prefix("Bearer ")
+            .ok_or_else(|| {
+                tracing::warn!("Invalid Authorization header format, expected 'Bearer <token>'");
+                StatusCode::UNAUTHORIZED
+            })?;
+
+        tracing::debug!("Found Bearer token: {}", &token[..std::cmp::min(10, token.len())]);
+        
+        // Parse token as session ID (in production, this should be a proper JWT)
+        let sess_id = SessId::from_str(token)
+            .map_err(|_| {
+                tracing::warn!("Invalid bearer token format: {}", &token[..std::cmp::min(10, token.len())]);
+                StatusCode::UNAUTHORIZED
+            })?;
+        
+        // Validate session using PostgreSQL repository
+        match state.session_repo.get(&sess_id).await {
+            Ok(Some(session)) => {
+                tracing::debug!("Valid session found for user: {}", session.user_id());
+                
+                // Get user details to determine role
+                match state.user_repo.find_by_id(session.user_id()).await {
+                    Ok(user) => {
+                        Ok(AuthCtx {
+                            user_id: user.id().clone(),
+                            role: user.role().clone(),
+                            sess: sess_id,
+                        })
+                    },
+                    Err(_) => {
+                        tracing::warn!("User not found for session: {}", session.user_id());
+                        Err(StatusCode::UNAUTHORIZED)
+                    }
+                }
+            },
+            Ok(None) => {
+                tracing::warn!("Session not found or expired: {}", token);
+                Err(StatusCode::UNAUTHORIZED)
+            },
+            Err(e) => {
+                tracing::error!("Database error during session validation: {:?}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        }
+    }
+}
 
 // ========================================
 // MODULE AUTHENTICATION TYPES
@@ -274,12 +350,8 @@ impl ModuleAuthCtx {
     ) -> Result<Self, StatusCode> {
         tracing::debug!("Attempting API key authentication: {}...", &api_key[..std::cmp::min(8, api_key.len())]);
         
-        // Hash the API key to match database
-        let key_hash = Self::hash_api_key(api_key);
-        
-        // Validate API key and get access info
-        // Note: This would need to be implemented in your repository layer
-        match state.module_repo.get_api_key_access(&key_hash).await {
+        // Validate API key and get access info by passing the raw key for verification
+        match state.module_repo.get_api_key_access(api_key).await {
             Ok(Some(api_access)) => {
                 // Check if API key is expired
                 if let Some(expires_at) = api_access.expires_at {
@@ -354,12 +426,44 @@ impl ModuleAuthCtx {
         })
     }
 
-    // Helper function to hash API keys
-    fn hash_api_key(api_key: &str) -> String {
-        use sha2::{Sha256, Digest};
-        let mut hasher = Sha256::new();
-        hasher.update(api_key.as_bytes());
-        format!("{:x}", hasher.finalize())
+    // Helper function to hash API keys using Argon2 with salt (for storing new keys)
+    pub fn hash_api_key_for_storage(api_key: &str) -> Result<String, &'static str> {
+        use argon2::{Argon2, PasswordHasher};
+        use argon2::password_hash::{SaltString, rand_core::OsRng};
+        
+        // Generate a random salt for each API key
+        let salt = SaltString::generate(&mut OsRng);
+        
+        // Hash the API key with Argon2
+        let argon2 = Argon2::default();
+        match argon2.hash_password(api_key.as_bytes(), &salt) {
+            Ok(hash) => Ok(hash.to_string()),
+            Err(_) => Err("Failed to hash API key")
+        }
+    }
+
+    // Helper function to verify API key against stored hash
+    fn _verify_api_key(api_key: &str, stored_hash: &str) -> bool {
+        Self::verify_api_key_internal(api_key, stored_hash)
+    }
+
+    // Internal verification function that can be called from other modules
+    pub fn verify_api_key_internal(api_key: &str, stored_hash: &str) -> bool {
+        use argon2::{Argon2, PasswordVerifier};
+        use argon2::password_hash::PasswordHash;
+        
+        // Parse the stored hash
+        let parsed_hash = match PasswordHash::new(stored_hash) {
+            Ok(hash) => hash,
+            Err(e) => {
+                tracing::error!("Failed to parse stored API key hash: {:?}", e);
+                return false;
+            }
+        };
+        
+        // Verify the API key against the stored hash
+        let argon2 = Argon2::default();
+        argon2.verify_password(api_key.as_bytes(), &parsed_hash).is_ok()
     }
 }
 

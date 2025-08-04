@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig([
-  // Server and base builds
+  // Main builds (index, server) - clean first
   {
     entry: {
       index: 'src/index.ts',
@@ -16,13 +16,14 @@ export default defineConfig([
     sourcemap: true,
     treeshake: true,
   },
-  // Client build with "use client" directive
+  // Client build - no clean to avoid race condition
   {
     entry: {
       client: 'src/client.ts',
     },
     format: ['cjs', 'esm'],
     dts: true,
+    clean: false,
     external: ['react', '@epsx/server-actions'],
     target: 'es2020',
     splitting: false,

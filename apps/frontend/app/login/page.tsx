@@ -1,4 +1,3 @@
-import { requireGuest } from '@/app/actions/auth-improved';
 import { LoginFormServer } from '@/components/auth/LoginForm.server';
 
 interface LoginPageProps {
@@ -9,8 +8,6 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  // Redirect to dashboard if already authenticated
-  await requireGuest();
 
   const awaitedSearchParams = await searchParams;
   const redirectTo = awaitedSearchParams.redirect;

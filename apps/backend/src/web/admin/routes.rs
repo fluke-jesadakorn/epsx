@@ -47,5 +47,5 @@ pub fn create_admin_routes() -> Router<AppState> {
 pub fn create_admin_public_routes() -> Router<AppState> {
     Router::new()
         // Public admin authentication routes (no auth required)
-        .route("/auth/login", post(super::super::auth::multi_handlers::multi_login_handler))
+        .route("/auth/login", post(super::super::auth::handlers::login_handler))
 }

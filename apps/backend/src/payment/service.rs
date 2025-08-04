@@ -114,19 +114,21 @@ impl PaymentService {
         let expiration = now + chrono::Duration::hours(24); // 24 hours expiration
         let payment_method = request.payment_method.unwrap_or_else(|| "crypto".to_string());
 
-        // Generate QR code for crypto payments
+        // Generate QR code for crypto payments using configuration
         let qr_code = if payment_method == "crypto" || payment_method == "usdt" {
             Some(format!(
-                "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={}",
+                "{}?size={}&data={}",
+                self.config.external_services.qr_code.api_base_url,
+                self.config.external_services.qr_code.default_size,
                 format!("payment:{}:{}:{}", payment_id, request.amount, request.currency)
             ))
         } else {
             None
         };
 
-        // Generate checkout URL for card payments
+        // Generate checkout URL for card payments using configuration
         let checkout_url = if payment_method == "card" {
-            Some(format!("https://checkout.example.com/pay/{}", payment_id))
+            Some(self.config.network.default_checkout_url_template.replace("{}", &payment_id))
         } else {
             None
         };
@@ -134,7 +136,11 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id,
             amount: request.amount,
-            currency: request.currency,
+            currency: if self.config.business.supported_currencies.contains(&request.currency) {
+                request.currency
+            } else {
+                self.config.business.default_currency.clone()
+            },
             status: PaymentStatus::Pending,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
@@ -158,7 +164,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id.to_string(),
             amount: 1000,
-            currency: "USD".to_string(),
+            currency: self.config.business.default_currency.clone(),
             status: PaymentStatus::Processing,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
@@ -182,7 +188,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: request.payment_id,
             amount: 1000,
-            currency: "USD".to_string(),
+            currency: self.config.business.default_currency.clone(),
             status: PaymentStatus::Processing,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
@@ -206,7 +212,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: update.payment_id,
             amount: 1000,
-            currency: "USD".to_string(),
+            currency: self.config.business.default_currency.clone(),
             status: update.status,
             created_at: now.to_rfc3339(),
             updated_at: update.updated_at,
@@ -230,7 +236,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id.to_string(),
             amount: 1000,
-            currency: "USD".to_string(),
+            currency: self.config.business.default_currency.clone(),
             status: PaymentStatus::Cancelled,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),

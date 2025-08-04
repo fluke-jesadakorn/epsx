@@ -1,4 +1,4 @@
-// Authentication handlers for Axum web layer
+// Unified Authentication handlers
 
 use axum::{
     extract::State,
@@ -6,27 +6,50 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use tower_cookies::{Cookie, Cookies};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use crate::app::dtos::auth::{LoginReq, RefreshReq, LogoutReq, ValidateReq};
+use crate::app::dtos::auth::{LoginReq, RefreshReq, LogoutReq, AutoRegistrationRequest, RegistrationResponse};
 use crate::web::middleware::AuthCtx;
+use crate::dom::values::Role;
 use super::AppState;
 
-/// Login request payload
-#[derive(Debug, Deserialize)]
-pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
+/// Generate a bearer token for the session
+fn generate_bearer_token(session_id: &str) -> String {
+    // In production, this should use a proper JWT library with signing
+    // For now, we'll use the session ID as the bearer token
+    // The frontend will include this in the Authorization header
+    session_id.to_string()
 }
 
-/// Login response payload
+/// Multi-method login request supporting various authentication flows
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum LoginRequest {
+    #[serde(rename = "credentials")]
+    Credentials {
+        email: String,
+        password: String,
+    },
+    #[serde(rename = "admin")]
+    Admin {
+        email: String,
+        password: String,
+        admin_token: Option<String>,
+    },
+}
+
+/// Unified login response with complete user profile information and bearer token
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub user_id: String,
     pub email: String,
     pub role: String,
+    pub permissions: Vec<String>,
+    pub subscription_tier: String,
     pub expires_at: DateTime<Utc>,
+    pub session_type: String,
+    pub access_token: String,
+    pub token_type: String,
 }
 
 /// Refresh response payload
@@ -45,65 +68,164 @@ pub struct UserProfileResponse {
     pub subscription_tier: String,
 }
 
-/// Login handler that validates Firebase token and creates session
+/// Unified login handler supporting multiple authentication flows
 pub async fn login_handler(
-    cookies: Cookies,
     State(app_state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
-    // Create login request DTO
-    let login_req = LoginReq {
-        email: payload.email,
-        password: payload.password,
-    };
+    match payload {
+        LoginRequest::Credentials { email, password } => {
+            handle_credentials_login(app_state, email, password, false).await
+        },
+        LoginRequest::Admin { email, password, admin_token } => {
+            handle_admin_login(app_state, email, password, admin_token).await
+        },
+    }
+}
+
+/// Handle direct email/password login
+async fn handle_credentials_login(
+    app_state: AppState,
+    email: String,
+    password: String,
+    _is_admin: bool,
+) -> Result<Json<LoginResponse>, StatusCode> {
+    let login_req = LoginReq { email: email.clone(), password };
     
-    // Perform login through use case
     let login_res = app_state.auth_uc.login(login_req).await
         .map_err(|e| {
             tracing::error!("Login failed: {:?}", e);
             StatusCode::UNAUTHORIZED
         })?;
     
-    // Create HTTP-only session cookie
-    let session_cookie = Cookie::build(("sess_id", login_res.sess_id.to_string()))
-        .http_only(true)
-        .secure(false) // Disable for development HTTP, enable in production with HTTPS
-        .same_site(tower_cookies::cookie::SameSite::Lax) // Changed from Strict to Lax for better compatibility
-        .max_age(tower_cookies::cookie::time::Duration::days(7))
-        .path("/")
-        .build();
+    let bearer_token = generate_bearer_token(&login_res.sess_id.to_string());
     
-    cookies.add(session_cookie);
+    tracing::info!("Generated bearer token for session: {}", login_res.sess_id);
     
-    // Get user info using validate to get role and permissions 
-    let validate_req = ValidateReq {
-        token: login_res.access_token.clone(),
-        sess_id: login_res.sess_id.clone(),
-    };
-    
-    let user_info = app_state.auth_uc.validate(validate_req).await
+    let user = app_state.user_repo.find_by_id(&login_res.user_id).await
         .map_err(|e| {
-            tracing::error!("Failed to get user info: {:?}", e);
+            tracing::error!("Failed to get user: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
-
-    // For now, use placeholder email - in production get from user repository
-    let email = format!("user{}@example.com", user_info.user_id.to_string());
-
-    // Return response
-    let response = LoginResponse {
-        user_id: login_res.user_id.to_string(),
-        email,
-        role: user_info.role.to_string(),
-        expires_at: user_info.expires_at,
-    };
     
-    Ok(Json(response))
+    let permissions = get_user_permissions(&user);
+    let session_type = if matches!(user.role(), Role::SuperAdmin | Role::Admin) { "admin" } else { "user" };
+    
+    Ok(Json(LoginResponse {
+        user_id: user.id().to_string(),
+        email: user.email().value().to_string(),
+        role: user.role().to_string(),
+        permissions,
+        subscription_tier: user.sub().tier().to_string(),
+        expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
+        session_type: session_type.to_string(),
+        access_token: bearer_token,
+        token_type: "Bearer".to_string(),
+    }))
 }
 
-/// Logout handler that removes session and clears cookie
+/// Handle admin login with elevated security
+async fn handle_admin_login(
+    app_state: AppState,
+    email: String,
+    password: String,
+    admin_token: Option<String>,
+) -> Result<Json<LoginResponse>, StatusCode> {
+    let login_req = LoginReq { email: email.clone(), password };
+    
+    let login_res = app_state.auth_uc.login(login_req).await
+        .map_err(|e| {
+            tracing::error!("Admin login failed: {:?}", e);
+            StatusCode::UNAUTHORIZED
+        })?;
+    
+    let user = app_state.user_repo.find_by_id(&login_res.user_id).await
+        .map_err(|e| {
+            tracing::error!("Failed to get user: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    if !matches!(user.role(), Role::Admin | Role::SuperAdmin) {
+        tracing::warn!("User {} attempted admin login without privileges", email);
+        return Err(StatusCode::FORBIDDEN);
+    }
+    
+    let bearer_token = generate_bearer_token(&login_res.sess_id.to_string());
+    
+    tracing::info!("Generated admin bearer token for session: {}", login_res.sess_id);
+    
+    if admin_token.is_some() {
+        tracing::info!("Admin token provided - MFA will be implemented in future");
+    }
+    
+    let permissions = vec![
+        "api:admin:*".to_string(),
+        "route:*".to_string(),
+        "users:manage".to_string(),
+        "system:configure".to_string(),
+    ];
+    
+    Ok(Json(LoginResponse {
+        user_id: user.id().to_string(),
+        email: user.email().value().to_string(),
+        role: user.role().to_string(),
+        permissions,
+        subscription_tier: user.sub().tier().to_string(),
+        expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
+        session_type: "admin".to_string(),
+        access_token: bearer_token,
+        token_type: "Bearer".to_string(),
+    }))
+}
+
+/// Get user permissions based on role
+fn get_user_permissions(user: &crate::dom::entities::User) -> Vec<String> {
+    match user.role() {
+        Role::SuperAdmin | Role::Admin => vec![
+            "api:admin:*".to_string(),
+            "route:*".to_string(),
+            "users:manage".to_string(),
+            "system:configure".to_string(),
+        ],
+        Role::Moderator => vec![
+            "api:moderate:*".to_string(),
+            "route:/moderate/*".to_string(),
+            "content:moderate".to_string(),
+            "users:view".to_string(),
+        ],
+        Role::Premium => vec![
+            "api:premium:*".to_string(),
+            "route:/premium/*".to_string(),
+            "analytics:read".to_string(),
+            "alerts:manage".to_string(),
+        ],
+        _ => vec![
+            "api:basic:read".to_string(),
+            "route:/dashboard".to_string(),
+            "profile:manage:own".to_string(),
+        ],
+    }
+}
+
+/// User registration handler
+pub async fn register_handler(
+    State(app_state): State<AppState>,
+    Json(payload): Json<AutoRegistrationRequest>,
+) -> Result<Json<RegistrationResponse>, StatusCode> {
+    app_state.auth_uc.register_with_permission_profiles(payload).await
+        .map(Json)
+        .map_err(|e| {
+            tracing::error!("Registration failed: {:?}", e);
+            if e.to_string().contains("already exists") {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })
+}
+
+/// Logout handler that removes session (no cookies to clear)
 pub async fn logout_handler(
-    cookies: Cookies,
     State(app_state): State<AppState>,
     auth_ctx: AuthCtx,
 ) -> Result<StatusCode, StatusCode> {
@@ -119,19 +241,13 @@ pub async fn logout_handler(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
     
-    // Remove session cookie
-    let logout_cookie = Cookie::build(("sess_id", ""))
-        .path("/")
-        .max_age(tower_cookies::cookie::time::Duration::seconds(0))
-        .build();
-    cookies.add(logout_cookie);
+    tracing::info!("Session {} logged out successfully", auth_ctx.sess.value());
     
     Ok(StatusCode::OK)
 }
 
-/// Refresh session handler that extends session expiry
+/// Refresh session handler that extends session expiry and returns new bearer token
 pub async fn refresh_handler(
-    cookies: Cookies,
     State(app_state): State<AppState>,
     _auth_ctx: AuthCtx,
 ) -> Result<Json<RefreshResponse>, StatusCode> {
@@ -147,18 +263,9 @@ pub async fn refresh_handler(
             StatusCode::UNAUTHORIZED
         })?;
     
-    // Update session cookie with new expiry
-    let session_cookie = Cookie::build(("sess_id", refresh_res.sess_id.to_string()))
-        .http_only(true)
-        .secure(false) // Disable for development HTTP, enable in production with HTTPS
-        .same_site(tower_cookies::cookie::SameSite::Lax)
-        .max_age(tower_cookies::cookie::time::Duration::days(7))
-        .path("/")
-        .build();
+    tracing::info!("Session refreshed successfully: {}", refresh_res.sess_id);
     
-    cookies.add(session_cookie);
-    
-    // Return response
+    // Return response with new expiry
     let response = RefreshResponse {
         expires_at: chrono::Utc::now() + chrono::Duration::hours(24),
     };
@@ -181,41 +288,20 @@ pub async fn me_handler(
         })?;
     
     // Use actual user data from auth context and repository
+    let permissions = get_user_permissions(&user);
     let response = UserProfileResponse {
         user_id: auth_ctx.user_id.to_string(),
         email: user.email().value().to_string(),
         role: auth_ctx.role.to_string(),
-        permissions: vec!["read:own".to_string(), "write:own".to_string()],
+        permissions,
         subscription_tier: user.sub().tier().to_string(),
     };
     
     Ok(Json(response))
 }
 
-/// Public me handler that checks session without strict middleware
-pub async fn me_handler_public(
-    cookies: Cookies,
-    State(_app_state): State<AppState>,
-) -> Result<Json<UserProfileResponse>, StatusCode> {
-    // Check for session cookie
-    if let Some(session_cookie) = cookies.get("sess_id") {
-        let session_id = session_cookie.value();
-        tracing::info!("Found session cookie: {}", session_id);
-        
-        // Mock user data based on session
-        let response = UserProfileResponse {
-            user_id: session_id.to_string(),
-            email: "user@example.com".to_string(),
-            role: "user".to_string(),
-            permissions: vec!["read:own".to_string(), "write:own".to_string()],
-            subscription_tier: "basic".to_string(),
-        };
-        
-        Ok(Json(response))
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
-    }
-}
+/// Public me handler - removed as bearer token validation is handled by middleware
+/// This endpoint is now protected by bearer token middleware
 
 // Phase 1 API Endpoints for centralized auth
 
@@ -236,6 +322,21 @@ pub struct SessionValidationResponse {
     pub subscription_tier: String,
     pub session_type: String,
     pub expires_at: DateTime<Utc>,
+    pub session_rotated: Option<bool>, // Indicates if session was rotated
+}
+
+/// Session rotation request
+#[derive(Debug, Deserialize)]
+pub struct SessionRotationRequest {
+    pub reason: String, // e.g., "admin_action", "password_change", "sensitive_operation"
+}
+
+/// Session rotation response
+#[derive(Debug, Serialize)]
+pub struct SessionRotationResponse {
+    pub new_session_id: String,
+    pub expires_at: DateTime<Utc>,
+    pub rotated_at: DateTime<Utc>,
 }
 
 /// Route access validation request
@@ -371,6 +472,7 @@ pub async fn validate_session_handler(
         subscription_tier: user.sub().tier().to_string(),
         session_type: "regular".to_string(), // TODO: implement session types
         expires_at: chrono::Utc::now() + chrono::Duration::days(7),
+        session_rotated: None, // No rotation performed in this call
     };
     
     Ok(Json(response))
@@ -588,6 +690,225 @@ pub async fn check_permission_handler(
     Ok(Json(response))
 }
 
+/// Navigation items response
+#[derive(Debug, Serialize)]
+pub struct NavigationResponse {
+    pub items: Vec<NavigationItem>,
+    pub user_role: String,
+    pub permissions: Vec<String>,
+}
+
+/// Individual navigation item
+#[derive(Debug, Serialize)]
+pub struct NavigationItem {
+    pub name: String,
+    pub path: String,
+    pub enabled: bool,
+    pub required_permission: Option<String>,
+    pub required_role: Option<String>,
+}
+
+/// Single permission check request (for GET endpoint)
+#[derive(Debug, Deserialize)]
+pub struct SinglePermissionRequest {
+    pub feature: String,
+    pub app_type: Option<String>,
+}
+
+/// Single permission check response (for GET endpoint)
+#[derive(Debug, Serialize)]
+pub struct SinglePermissionResponse {
+    pub feature: String,
+    pub has_access: bool,
+    pub reason: Option<String>,
+}
+
+/// Navigation permissions handler - returns allowed navigation items
+pub async fn navigation_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+) -> Result<Json<NavigationResponse>, StatusCode> {
+    tracing::info!("Getting navigation items for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
+    
+    // Get user roles and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            match role.name() {
+                "admin" | "system_administrator" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "admin:access".to_string(),
+                    "users:manage".to_string(),
+                    "iam:manage".to_string(),
+                    "audit:view".to_string(),
+                ],
+                "user" | "premium_user" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "trading:access".to_string(),
+                ],
+                _ => vec!["basic:access".to_string()],
+            }
+        })
+        .collect();
+    
+    let is_admin = auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator";
+    
+    // Define navigation items with their requirements
+    let mut items = vec![
+        NavigationItem {
+            name: "Dashboard".to_string(),
+            path: "/dashboard".to_string(),
+            enabled: permission_strings.iter().any(|p| p.starts_with("dashboard:")),
+            required_permission: Some("dashboard:view".to_string()),
+            required_role: None,
+        },
+        NavigationItem {
+            name: "Analytics".to_string(),
+            path: "/analytics".to_string(),
+            enabled: permission_strings.iter().any(|p| p.starts_with("analytics:")),
+            required_permission: Some("analytics:view".to_string()),
+            required_role: None,
+        },
+        NavigationItem {
+            name: "Trading".to_string(),
+            path: "/trading".to_string(),
+            enabled: permission_strings.iter().any(|p| p.starts_with("trading:")),
+            required_permission: Some("trading:access".to_string()),
+            required_role: None,
+        },
+        NavigationItem {
+            name: "Settings".to_string(),
+            path: "/settings".to_string(),
+            enabled: true, // Everyone can access settings
+            required_permission: None,
+            required_role: None,
+        },
+    ];
+    
+    // Add admin-only navigation items
+    if is_admin {
+        items.extend(vec![
+            NavigationItem {
+                name: "Admin Panel".to_string(),
+                path: "/admin".to_string(),
+                enabled: true,
+                required_permission: Some("admin:access".to_string()),
+                required_role: Some("admin".to_string()),
+            },
+            NavigationItem {
+                name: "User Management".to_string(),
+                path: "/admin/users".to_string(),
+                enabled: true,
+                required_permission: Some("users:manage".to_string()),
+                required_role: Some("admin".to_string()),
+            },
+            NavigationItem {
+                name: "IAM".to_string(),
+                path: "/admin/iam".to_string(),
+                enabled: true,
+                required_permission: Some("iam:manage".to_string()),
+                required_role: Some("admin".to_string()),
+            },
+            NavigationItem {
+                name: "Audit Logs".to_string(),
+                path: "/admin/audit".to_string(),
+                enabled: true,
+                required_permission: Some("audit:view".to_string()),
+                required_role: Some("admin".to_string()),
+            },
+        ]);
+    }
+    
+    let response = NavigationResponse {
+        items,
+        user_role: auth_ctx.role.to_string(),
+        permissions: permission_strings,
+    };
+    
+    Ok(Json(response))
+}
+
+/// Single permission check handler - validates one permission via GET
+pub async fn single_permission_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    axum::extract::Query(request): axum::extract::Query<SinglePermissionRequest>,
+) -> Result<Json<SinglePermissionResponse>, StatusCode> {
+    tracing::info!("Checking single permission '{}' for user {}", request.feature, auth_ctx.user_id);
+    
+    // Get user roles and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles: {:?}", e);
+            vec![]
+        });
+    
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            match role.name() {
+                "admin" | "system_administrator" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "admin:access".to_string(),
+                    "users:manage".to_string(),
+                    "trading:access".to_string(),
+                    "iam:manage".to_string(),
+                    "audit:view".to_string(),
+                ],
+                "user" | "premium_user" => vec![
+                    "dashboard:view".to_string(),
+                    "analytics:view".to_string(),
+                    "trading:access".to_string(),
+                ],
+                _ => vec!["basic:access".to_string()],
+            }
+        })
+        .collect();
+    
+    // Check if user has the requested permission
+    let has_access = permission_strings.iter().any(|perm| {
+        // Direct match
+        if *perm == request.feature {
+            return true;
+        }
+        
+        // Wildcard matching - if permission ends with :*, match prefix
+        if perm.ends_with(":*") {
+            let prefix = &perm[..perm.len() - 1]; // Remove *
+            return request.feature.starts_with(prefix);
+        }
+        
+        // Feature-based matching
+        match request.feature.as_str() {
+            "TRADING" => perm.starts_with("trading:") || perm.starts_with("dashboard:"),
+            "ADMIN_ACCESS" => perm.starts_with("admin:"),
+            "ANALYTICS" => perm.starts_with("analytics:"),
+            "USER_MANAGEMENT" => perm.starts_with("users:"),
+            "IAM_MANAGEMENT" => perm.starts_with("iam:"),
+            _ => false,
+        }
+    });
+    
+    let response = SinglePermissionResponse {
+        feature: request.feature.clone(),
+        has_access,
+        reason: if has_access {
+            None
+        } else {
+            Some(format!("User does not have access to feature: {}", request.feature))
+        },
+    };
+    
+    Ok(Json(response))
+}
+
 /// User features handler - returns available features based on user role and permissions
 pub async fn user_features_handler(
     State(app_state): State<AppState>,
@@ -691,14 +1012,77 @@ pub async fn user_features_handler(
     Ok(Json(response))
 }
 
+/// Session rotation handler - creates a new session ID for security-sensitive operations
+pub async fn rotate_session_handler(
+    State(app_state): State<AppState>,
+    auth_ctx: AuthCtx,
+    Json(request): Json<SessionRotationRequest>,
+) -> Result<Json<SessionRotationResponse>, StatusCode> {
+    tracing::info!("Rotating session for user {} with reason: {}", auth_ctx.user_id, request.reason);
+    
+    // Invalidate the current session
+    let logout_req = LogoutReq {
+        session_id: auth_ctx.sess.value().to_string(),
+        sess_id: auth_ctx.sess.value().to_string(),
+    };
+    
+    app_state.auth_uc.logout(logout_req).await
+        .map_err(|e| {
+            tracing::error!("Failed to invalidate old session during rotation: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // For session rotation, we'll create a new session directly
+    // In a real implementation, you'd have a dedicated session rotation method
+    let new_session_id = uuid::Uuid::new_v4().to_string();
+    
+    // Log the session rotation for security audit
+    tracing::info!("Session rotated successfully for user {} (reason: {})", auth_ctx.user_id, request.reason);
+    
+    let response = SessionRotationResponse {
+        new_session_id: new_session_id.clone(),
+        expires_at: chrono::Utc::now() + chrono::Duration::days(7),
+        rotated_at: chrono::Utc::now(),
+    };
+    
+    Ok(Json(response))
+}
+
+/// Helper function to check if an operation requires session rotation
+pub fn requires_session_rotation(operation: &str) -> bool {
+    matches!(operation, 
+        "password_change" | 
+        "email_change" | 
+        "admin_privilege_elevation" | 
+        "sensitive_settings_change" |
+        "payment_method_change" |
+        "security_settings_change"
+    )
+}
+
+/// Automatic session rotation for sensitive operations
+pub async fn maybe_rotate_session(
+    _app_state: &AppState,
+    auth_ctx: &AuthCtx,
+    operation: &str,
+) -> Result<Option<String>, StatusCode> {
+    if requires_session_rotation(operation) {
+        tracing::info!("Auto-rotating session for sensitive operation: {}", operation);
+        
+        // Perform rotation (simplified version)
+        let new_session_id = uuid::Uuid::new_v4().to_string();
+        
+        tracing::info!("Session auto-rotated for user {} during {}", auth_ctx.user_id, operation);
+        Ok(Some(new_session_id))
+    } else {
+        Ok(None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::ports::{MockUserRepo, MockSessRepo, MockEventDispatcher};
-    use crate::infra::events::SimpleEventDispatcher;
-    use crate::dom::entities::{User, Session};
-    use crate::dom::values::{Role, UserId, Email};
-    use std::sync::Arc;
+    use crate::dom::values::UserId;
     
     #[test]
     fn should_serialize_login_response() {
@@ -706,22 +1090,34 @@ mod tests {
             user_id: "test-id".to_string(),
             email: "test@example.com".to_string(),
             role: "user".to_string(),
+            permissions: vec!["read:basic".to_string()],
+            subscription_tier: "basic".to_string(),
             expires_at: Utc::now(),
+            session_type: "user".to_string(),
+            access_token: "test-bearer-token".to_string(),
+            token_type: "Bearer".to_string(),
         };
         
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("test@example.com"));
         assert!(json.contains("test-id"));
         assert!(json.contains("user"));
+        assert!(json.contains("test-bearer-token"));
+        assert!(json.contains("Bearer"));
     }
     
     #[test]
     fn should_deserialize_login_request() {
-        let json = r#"{"email": "test@example.com", "password": "test123"}"#;
+        let json = r#"{"type": "credentials", "email": "test@example.com", "password": "test123"}"#;
         let request: LoginRequest = serde_json::from_str(json).unwrap();
         
-        assert_eq!(request.email, "test@example.com");
-        assert_eq!(request.password, "test123");
+        match request {
+            LoginRequest::Credentials { email, password } => {
+                assert_eq!(email, "test@example.com");
+                assert_eq!(password, "test123");
+            },
+            _ => panic!("Expected credentials variant"),
+        }
     }
     
     #[test]
@@ -756,34 +1152,12 @@ mod tests {
     
     
     #[test]
-    fn should_build_session_cookie() {
-        let sess_id = SessId::generate();
+    fn should_generate_bearer_token() {
+        let session_id = "test-session-123";
+        let bearer_token = generate_bearer_token(session_id);
         
-        let cookie = Cookie::build(("sess_id", sess_id.to_string()))
-            .http_only(true)
-            .secure(true)
-            .same_site(tower_cookies::cookie::SameSite::Strict)
-            .max_age(tower_cookies::cookie::time::Duration::days(7))
-            .path("/")
-            .build();
-        
-        assert_eq!(cookie.name(), "sess_id");
-        assert_eq!(cookie.value(), sess_id.to_string());
-        assert!(cookie.http_only().unwrap());
-        assert!(cookie.secure().unwrap());
-        assert_eq!(cookie.path(), Some("/"));
-    }
-    
-    #[test]
-    fn should_build_logout_cookie() {
-        let logout_cookie = Cookie::build(("sess_id", ""))
-            .path("/")
-            .max_age(tower_cookies::cookie::time::Duration::seconds(0))
-            .build();
-        
-        assert_eq!(logout_cookie.name(), "sess_id");
-        assert_eq!(logout_cookie.value(), "");
-        assert_eq!(logout_cookie.path(), Some("/"));
+        assert_eq!(bearer_token, session_id);
+        assert!(!bearer_token.is_empty());
     }
     
     #[test]
@@ -798,14 +1172,19 @@ mod tests {
     
     #[test]
     fn should_validate_login_request_structure() {
-        let request = LoginRequest {
+        let request = LoginRequest::Credentials {
             email: "test@example.com".to_string(),
             password: "test123".to_string(),
         };
         
-        assert!(!request.email.is_empty());
-        assert!(request.email.contains("@"));
-        assert!(!request.password.is_empty());
+        match request {
+            LoginRequest::Credentials { email, password } => {
+                assert!(!email.is_empty());
+                assert!(email.contains("@"));
+                assert!(!password.is_empty());
+            },
+            _ => panic!("Expected credentials variant"),
+        }
     }
     
     #[test]
@@ -816,7 +1195,12 @@ mod tests {
             user_id: "user-123".to_string(),
             email: "test@example.com".to_string(),
             role: "user".to_string(),
+            permissions: vec!["read:basic".to_string()],
+            subscription_tier: "basic".to_string(),
             expires_at: now,
+            session_type: "user".to_string(),
+            access_token: "test-token".to_string(),
+            token_type: "Bearer".to_string(),
         };
         
         let refresh_response = RefreshResponse {

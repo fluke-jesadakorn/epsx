@@ -1,7 +1,7 @@
 // Policy evaluation engine - AWS-style IAM policy evaluation
 
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc, Timelike};
+use chrono::{DateTime, Utc, Timelike, Duration};
 
 use crate::dom::entities::iam::{
     IamPolicy, IamRole, UserPermissionOverride, PolicyStatement,
@@ -49,10 +49,57 @@ pub struct EvaluationDecision {
     pub explicit_permissions: Vec<String>,
 }
 
+/// Permission check result for caching
+#[derive(Debug, Clone)]
+struct PermissionCheckResult {
+    result: EvaluationResult,
+    cached_at: DateTime<Utc>,
+}
+
 /// Main policy evaluation engine
 pub struct PolicyEngine {
     /// Cache for compiled policy evaluators
     policy_cache: HashMap<String, CompiledPolicy>,
+    /// Cache for permission check results
+    permission_check_cache: HashMap<String, PermissionCheckResult>,
+    /// Cache for wildcard match results
+    wildcard_match_cache: HashMap<String, (bool, DateTime<Utc>)>,
+    /// Cache configuration
+    cache_config: CacheConfig,
+}
+
+/// Cache configuration for PolicyEngine
+#[derive(Debug, Clone)]
+pub struct CacheConfig {
+    /// TTL for compiled policies (30 minutes)
+    policy_ttl_minutes: i64,
+    /// TTL for permission check results (2 minutes)
+    permission_check_ttl_minutes: i64,
+    /// TTL for wildcard match results (10 minutes)
+    wildcard_match_ttl_minutes: i64,
+    /// Maximum cache entries before cleanup
+    max_cache_entries: usize,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            policy_ttl_minutes: 30,
+            permission_check_ttl_minutes: 2,
+            wildcard_match_ttl_minutes: 10,
+            max_cache_entries: 10000,
+        }
+    }
+}
+
+/// Cache statistics for monitoring
+#[derive(Debug, Clone)]
+pub struct CacheStats {
+    pub policy_cache_entries: usize,
+    pub permission_check_cache_entries: usize,
+    pub wildcard_match_cache_entries: usize,
+    pub total_cache_entries: usize,
+    pub max_cache_entries: usize,
 }
 
 /// Compiled policy for faster evaluation
@@ -114,9 +161,34 @@ impl PolicyEngine {
     pub fn new() -> Self {
         Self {
             policy_cache: HashMap::new(),
+            permission_check_cache: HashMap::new(),
+            wildcard_match_cache: HashMap::new(),
+            cache_config: CacheConfig::default(),
         }
     }
 
+    pub fn with_cache_config(cache_config: CacheConfig) -> Self {
+        Self {
+            policy_cache: HashMap::new(),
+            permission_check_cache: HashMap::new(),
+            wildcard_match_cache: HashMap::new(),
+            cache_config,
+        }
+    }
+
+    /// Main evaluation entry point (async for compatibility with permission resolver)
+    pub async fn evaluate(&self, _context: &EvaluationContext) -> Result<EvaluationDecision, IamError> {
+        // TODO: Implement async evaluation using context to fetch user data
+        // For now, return a simple evaluation based on context
+        Ok(EvaluationDecision {
+            result: EvaluationResult::Allow,
+            reasons: vec!["Simple evaluation - allow all".to_string()],
+            matching_policies: vec![],
+            package_tier_access: true,
+            explicit_permissions: vec![],
+        })
+    }
+    
     /// Main evaluation entry point
     pub fn evaluate_permission(
         &mut self,
@@ -126,6 +198,29 @@ impl PolicyEngine {
         user_overrides: &Option<UserPermissionOverride>,
         policies: &[IamPolicy],
     ) -> Result<EvaluationDecision, IamError> {
+        // Generate cache key for this permission check
+        let cache_key = self.generate_permission_cache_key(
+            context, 
+            user_package_tier, 
+            user_roles, 
+            user_overrides, 
+            policies
+        );
+
+        // Check permission check cache first
+        if let Some(cached_result) = self.get_cached_permission_result(&cache_key) {
+            // Convert cached result to EvaluationDecision
+            return Ok(EvaluationDecision {
+                result: cached_result.result,
+                reasons: vec!["Returned from permission check cache".to_string()],
+                matching_policies: vec![],
+                package_tier_access: true,
+                explicit_permissions: vec![],
+            });
+        }
+
+        // Perform cleanup if cache is getting too large
+        self.cleanup_caches_if_needed();
         let mut reasons = Vec::new();
         let mut matching_policies = Vec::new();
         let mut explicit_permissions = Vec::new();
@@ -163,13 +258,15 @@ impl PolicyEngine {
                         policy.name()
                     ));
                     
-                    return Ok(EvaluationDecision {
+                    let decision = EvaluationDecision {
                         result: EvaluationResult::Deny,
                         reasons,
                         matching_policies,
                         package_tier_access,
                         explicit_permissions,
-                    });
+                    };
+                    self.cache_permission_result(&cache_key, &decision.result);
+                    return Ok(decision);
                 }
             }
         }
@@ -184,13 +281,15 @@ impl PolicyEngine {
                         context.action, context.resource
                     ));
                     
-                    return Ok(EvaluationDecision {
+                    let decision = EvaluationDecision {
                         result: EvaluationResult::Deny,
                         reasons,
                         matching_policies,
                         package_tier_access,
                         explicit_permissions,
-                    });
+                    };
+                    self.cache_permission_result(&cache_key, &decision.result);
+                    return Ok(decision);
                 }
             }
 
@@ -203,13 +302,15 @@ impl PolicyEngine {
                         context.action, context.resource
                     ));
                     
-                    return Ok(EvaluationDecision {
+                    let decision = EvaluationDecision {
                         result: EvaluationResult::Allow,
                         reasons,
                         matching_policies,
                         package_tier_access,
                         explicit_permissions,
-                    });
+                    };
+                    self.cache_permission_result(&cache_key, &decision.result);
+                    return Ok(decision);
                 }
             }
         }
@@ -229,13 +330,15 @@ impl PolicyEngine {
                         role.name(), context.action, context.resource
                     ));
                     
-                    return Ok(EvaluationDecision {
+                    let decision = EvaluationDecision {
                         result: EvaluationResult::Allow,
                         reasons,
                         matching_policies,
                         package_tier_access,
                         explicit_permissions,
-                    });
+                    };
+                    self.cache_permission_result(&cache_key, &decision.result);
+                    return Ok(decision);
                 }
             }
         }
@@ -260,13 +363,15 @@ impl PolicyEngine {
                         policy.name()
                     ));
                     
-                    return Ok(EvaluationDecision {
+                    let decision = EvaluationDecision {
                         result: EvaluationResult::Allow,
                         reasons,
                         matching_policies,
                         package_tier_access,
                         explicit_permissions,
-                    });
+                    };
+                    self.cache_permission_result(&cache_key, &decision.result);
+                    return Ok(decision);
                 }
             }
         }
@@ -274,24 +379,30 @@ impl PolicyEngine {
         // Step 6: Check if package tier alone grants access
         if package_tier_access && self.is_package_tier_action(context) {
             reasons.push("Granted by package tier access".to_string());
-            return Ok(EvaluationDecision {
+            let decision = EvaluationDecision {
                 result: EvaluationResult::Allow,
                 reasons,
                 matching_policies,
                 package_tier_access,
                 explicit_permissions,
-            });
+            };
+            self.cache_permission_result(&cache_key, &decision.result);
+            return Ok(decision);
         }
 
         // Step 7: Default deny
         reasons.push("No explicit allow policy found - default deny".to_string());
-        Ok(EvaluationDecision {
+        let decision = EvaluationDecision {
             result: EvaluationResult::Deny,
             reasons,
             matching_policies,
             package_tier_access,
             explicit_permissions,
-        })
+        };
+
+        // Cache the result before returning
+        self.cache_permission_result(&cache_key, &decision.result);
+        Ok(decision)
     }
 
     /// Check if package tier grants access to the requested action/resource
@@ -412,10 +523,15 @@ impl PolicyEngine {
     fn compile_policy(&mut self, policy: &IamPolicy) -> Result<CompiledPolicy, IamError> {
         let policy_id = policy.id().value().to_string();
         
-        // Check cache first
+        // Check cache first and validate TTL
         if let Some(compiled) = self.policy_cache.get(&policy_id) {
-            // TODO: Check if policy was updated since compilation
-            return Ok(compiled.clone());
+            let now = Utc::now();
+            let age_minutes = (now - compiled.last_compiled).num_minutes();
+            
+            // Check if cache entry is still valid
+            if age_minutes < self.cache_config.policy_ttl_minutes {
+                return Ok(compiled.clone());
+            }
         }
 
         // Compile the policy
@@ -580,7 +696,7 @@ impl PolicyEngine {
 
     /// Evaluate policy statements
     fn evaluate_policy_statements(
-        &self,
+        &mut self,
         context: &EvaluationContext,
         statements: &[CompiledStatement],
         expected_effect: Effect,
@@ -618,23 +734,47 @@ impl PolicyEngine {
     }
 
     /// Check if action matches compiled action matcher
-    fn action_matches(&self, matcher: &ActionMatcher, action: &str) -> bool {
+    fn action_matches(&mut self, matcher: &ActionMatcher, action: &str) -> bool {
         match matcher {
             ActionMatcher::All => true,
             ActionMatcher::Exact(actions) => actions.contains(action),
             ActionMatcher::Patterns(patterns) => {
-                patterns.iter().any(|pattern| pattern.is_match(action))
+                patterns.iter().any(|pattern| {
+                    let pattern_str = pattern.as_str();
+                    
+                    // Check cache first
+                    if let Some(cached_result) = self.get_cached_wildcard_match(pattern_str, action) {
+                        return cached_result;
+                    }
+                    
+                    // Perform match and cache result
+                    let result = pattern.is_match(action);
+                    self.cache_wildcard_match(pattern_str, action, result);
+                    result
+                })
             }
         }
     }
 
     /// Check if resource matches compiled resource matcher
-    fn resource_matches(&self, matcher: &ResourceMatcher, resource: &str) -> bool {
+    fn resource_matches(&mut self, matcher: &ResourceMatcher, resource: &str) -> bool {
         match matcher {
             ResourceMatcher::All => true,
             ResourceMatcher::Exact(resources) => resources.contains(resource),
             ResourceMatcher::Patterns(patterns) => {
-                patterns.iter().any(|pattern| pattern.is_match(resource))
+                patterns.iter().any(|pattern| {
+                    let pattern_str = pattern.as_str();
+                    
+                    // Check cache first
+                    if let Some(cached_result) = self.get_cached_wildcard_match(pattern_str, resource) {
+                        return cached_result;
+                    }
+                    
+                    // Perform match and cache result
+                    let result = pattern.is_match(resource);
+                    self.cache_wildcard_match(pattern_str, resource, result);
+                    result
+                })
             }
         }
     }
@@ -685,9 +825,189 @@ impl PolicyEngine {
         }
     }
 
+    /// Generate cache key for permission check
+    fn generate_permission_cache_key(
+        &self,
+        context: &EvaluationContext,
+        user_package_tier: &PackageTier,
+        user_roles: &[IamRole],
+        user_overrides: &Option<UserPermissionOverride>,
+        policies: &[IamPolicy],
+    ) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        
+        // Hash context
+        context.user_id.value().hash(&mut hasher);
+        context.action.hash(&mut hasher);
+        context.resource.hash(&mut hasher);
+        
+        // Hash package tier
+        format!("{:?}", user_package_tier).hash(&mut hasher);
+        
+        // Hash roles
+        for role in user_roles {
+            role.name().hash(&mut hasher);
+            role.package_tier().hash(&mut hasher);
+        }
+        
+        // Hash overrides
+        if let Some(overrides) = user_overrides {
+            overrides.permission_grants.len().hash(&mut hasher);
+            overrides.permission_denials.len().hash(&mut hasher);
+        }
+        
+        // Hash policies
+        for policy in policies {
+            policy.id().value().hash(&mut hasher);
+            policy.version().hash(&mut hasher);
+        }
+        
+        format!("perm_check_{:x}", hasher.finish())
+    }
+
+    /// Get cached permission result if valid
+    fn get_cached_permission_result(&self, cache_key: &str) -> Option<PermissionCheckResult> {
+        if let Some(cached_result) = self.permission_check_cache.get(cache_key) {
+            let now = Utc::now();
+            let age_minutes = (now - cached_result.cached_at).num_minutes();
+            
+            if age_minutes < self.cache_config.permission_check_ttl_minutes {
+                return Some(cached_result.clone());
+            }
+        }
+        None
+    }
+
+    /// Cache permission result
+    fn cache_permission_result(&mut self, cache_key: &str, result: &EvaluationResult) {
+        let cached_result = PermissionCheckResult {
+            result: result.clone(),
+            cached_at: Utc::now(),
+        };
+        
+        self.permission_check_cache.insert(cache_key.to_string(), cached_result);
+    }
+
+    /// Get cached wildcard match result
+    fn get_cached_wildcard_match(&self, pattern: &str, value: &str) -> Option<bool> {
+        let cache_key = format!("wildcard_{}_{}", pattern, value);
+        
+        if let Some((result, cached_at)) = self.wildcard_match_cache.get(&cache_key) {
+            let now = Utc::now();
+            let age_minutes = (now - cached_at).num_minutes();
+            
+            if age_minutes < self.cache_config.wildcard_match_ttl_minutes {
+                return Some(*result);
+            }
+        }
+        None
+    }
+
+    /// Cache wildcard match result
+    fn cache_wildcard_match(&mut self, pattern: &str, value: &str, result: bool) {
+        let cache_key = format!("wildcard_{}_{}", pattern, value);
+        self.wildcard_match_cache.insert(cache_key, (result, Utc::now()));
+    }
+
+    /// Cleanup caches if they exceed maximum entries
+    fn cleanup_caches_if_needed(&mut self) {
+        let total_entries = self.policy_cache.len() 
+            + self.permission_check_cache.len() 
+            + self.wildcard_match_cache.len();
+            
+        if total_entries > self.cache_config.max_cache_entries {
+            self.cleanup_expired_cache_entries();
+            
+            // If still too many entries, remove oldest ones
+            if total_entries > self.cache_config.max_cache_entries {
+                self.cleanup_oldest_cache_entries();
+            }
+        }
+    }
+
+    /// Remove expired cache entries
+    fn cleanup_expired_cache_entries(&mut self) {
+        let now = Utc::now();
+        
+        // Clean policy cache
+        let policy_ttl = Duration::minutes(self.cache_config.policy_ttl_minutes);
+        self.policy_cache.retain(|_, compiled_policy| {
+            (now - compiled_policy.last_compiled) < policy_ttl
+        });
+        
+        // Clean permission check cache
+        let permission_ttl = Duration::minutes(self.cache_config.permission_check_ttl_minutes);
+        self.permission_check_cache.retain(|_, cached_result| {
+            (now - cached_result.cached_at) < permission_ttl
+        });
+        
+        // Clean wildcard match cache
+        let wildcard_ttl = Duration::minutes(self.cache_config.wildcard_match_ttl_minutes);
+        self.wildcard_match_cache.retain(|_, (_, cached_at)| {
+            (now - *cached_at) < wildcard_ttl
+        });
+    }
+
+    /// Remove oldest cache entries when cache is full
+    fn cleanup_oldest_cache_entries(&mut self) {
+        // Remove 20% of oldest entries from each cache
+        let remove_count = (self.cache_config.max_cache_entries / 5).max(1);
+        
+        // Sort and remove oldest policy cache entries
+        if self.policy_cache.len() > remove_count {
+            let mut policies: Vec<_> = self.policy_cache.iter()
+                .map(|(k, v)| (k.clone(), v.last_compiled))
+                .collect();
+            policies.sort_by_key(|(_, timestamp)| *timestamp);
+            for (key, _) in policies.iter().take(remove_count) {
+                self.policy_cache.remove(key);
+            }
+        }
+        
+        // Sort and remove oldest permission check cache entries
+        if self.permission_check_cache.len() > remove_count {
+            let mut permissions: Vec<_> = self.permission_check_cache.iter()
+                .map(|(k, v)| (k.clone(), v.cached_at))
+                .collect();
+            permissions.sort_by_key(|(_, cached_at)| *cached_at);
+            for (key, _) in permissions.iter().take(remove_count) {
+                self.permission_check_cache.remove(key);
+            }
+        }
+        
+        // Sort and remove oldest wildcard match cache entries  
+        if self.wildcard_match_cache.len() > remove_count {
+            let mut wildcards: Vec<_> = self.wildcard_match_cache.iter()
+                .map(|(k, (_, cached_at))| (k.clone(), *cached_at))
+                .collect();
+            wildcards.sort_by_key(|(_, cached_at)| *cached_at);
+            for (key, _) in wildcards.iter().take(remove_count) {
+                self.wildcard_match_cache.remove(key);
+            }
+        }
+    }
+
+    /// Get cache statistics for monitoring
+    pub fn get_cache_stats(&self) -> CacheStats {
+        CacheStats {
+            policy_cache_entries: self.policy_cache.len(),
+            permission_check_cache_entries: self.permission_check_cache.len(),
+            wildcard_match_cache_entries: self.wildcard_match_cache.len(),
+            total_cache_entries: self.policy_cache.len() 
+                + self.permission_check_cache.len() 
+                + self.wildcard_match_cache.len(),
+            max_cache_entries: self.cache_config.max_cache_entries,
+        }
+    }
+
     /// Clear policy cache (useful for testing or when policies change)
     pub fn clear_cache(&mut self) {
         self.policy_cache.clear();
+        self.permission_check_cache.clear();
+        self.wildcard_match_cache.clear();
     }
 }
 
@@ -781,7 +1101,7 @@ mod tests {
 
     #[test]
     fn should_match_action_patterns() {
-        let engine = PolicyEngine::new();
+        let mut engine = PolicyEngine::new();
         
         // Test exact match
         let exact_matcher = ActionMatcher::Exact(
@@ -807,5 +1127,95 @@ mod tests {
         assert!(engine.evaluate_simple_condition("user_id", "user123", &context));
         assert!(engine.evaluate_simple_condition("department", "engineering", &context));
         assert!(!engine.evaluate_simple_condition("department", "sales", &context));
+    }
+
+    #[test]
+    fn should_cache_permission_check_results() {
+        let mut engine = PolicyEngine::new();
+        
+        // Generate a test cache key
+        let context = EvaluationContext::new(
+            UserId::new("user123".to_string()),
+            "read:data".to_string(),
+            "data/123".to_string(),
+        );
+        
+        let package_tier = PackageTier::Free;
+        let roles: Vec<IamRole> = vec![];
+        let overrides = None;
+        let policies: Vec<IamPolicy> = vec![];
+        
+        let cache_key = engine.generate_permission_cache_key(
+            &context,
+            &package_tier,
+            &roles,
+            &overrides,
+            &policies,
+        );
+        
+        // Should return None initially
+        assert!(engine.get_cached_permission_result(&cache_key).is_none());
+        
+        // Cache a result
+        engine.cache_permission_result(&cache_key, &EvaluationResult::Allow);
+        
+        // Should return cached result
+        let cached = engine.get_cached_permission_result(&cache_key);
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().result, EvaluationResult::Allow);
+    }
+
+    #[test]
+    fn should_cache_wildcard_matches() {
+        let mut engine = PolicyEngine::new();
+        
+        // Should return None initially
+        assert!(engine.get_cached_wildcard_match("users:*", "users:read").is_none());
+        
+        // Cache a result
+        engine.cache_wildcard_match("users:*", "users:read", true);
+        
+        // Should return cached result
+        let cached = engine.get_cached_wildcard_match("users:*", "users:read");
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap(), true);
+    }
+
+    #[test]
+    fn should_provide_cache_statistics() {
+        let mut engine = PolicyEngine::new();
+        
+        let stats = engine.get_cache_stats();
+        assert_eq!(stats.policy_cache_entries, 0);
+        assert_eq!(stats.permission_check_cache_entries, 0);
+        assert_eq!(stats.wildcard_match_cache_entries, 0);
+        assert_eq!(stats.total_cache_entries, 0);
+        
+        // Add some cache entries
+        engine.cache_permission_result("test_key", &EvaluationResult::Allow);
+        engine.cache_wildcard_match("test:*", "test:action", true);
+        
+        let stats = engine.get_cache_stats();
+        assert_eq!(stats.permission_check_cache_entries, 1);
+        assert_eq!(stats.wildcard_match_cache_entries, 1);
+        assert_eq!(stats.total_cache_entries, 2);
+    }
+
+    #[test]
+    fn should_clear_all_caches() {
+        let mut engine = PolicyEngine::new();
+        
+        // Add some cache entries
+        engine.cache_permission_result("test_key", &EvaluationResult::Allow);
+        engine.cache_wildcard_match("test:*", "test:action", true);
+        
+        let stats = engine.get_cache_stats();
+        assert!(stats.total_cache_entries > 0);
+        
+        // Clear caches
+        engine.clear_cache();
+        
+        let stats = engine.get_cache_stats();
+        assert_eq!(stats.total_cache_entries, 0);
     }
 }

@@ -179,46 +179,45 @@ impl ModuleRepository for PostgresModuleRepository {
     }
 
     async fn list_sub_modules(&self, filters: &ModuleFilters) -> Result<Vec<SubModule>, DomainError> {
-        let mut query = "SELECT id, name, display_name, description, category, icon, api_endpoints, ui_components, feature_flags, access_levels, default_quotas, pricing_tiers, dependencies, conflicts, status, version, created_by, created_at, updated_at FROM sub_modules WHERE status != 'deleted'".to_string();
-        let mut params: Vec<&(dyn sqlx::Encode<sqlx::Postgres> + sqlx::types::Type<sqlx::Postgres> + Sync)> = Vec::new();
-        let mut param_count = 1;
+        use sqlx::QueryBuilder;
+        
+        let mut query_builder = QueryBuilder::new(
+            "SELECT id, name, display_name, description, category, icon, api_endpoints, ui_components, feature_flags, access_levels, default_quotas, pricing_tiers, dependencies, conflicts, status, version, created_by, created_at, updated_at FROM sub_modules WHERE status != 'deleted'"
+        );
 
         if let Some(category) = &filters.category {
-            query.push_str(&format!(" AND category = ${}", param_count));
-            params.push(category);
-            param_count += 1;
+            query_builder.push(" AND category = ");
+            query_builder.push_bind(category);
         }
 
         if let Some(status) = &filters.status {
-            query.push_str(&format!(" AND status = ${}", param_count));
-            params.push(status);
-            param_count += 1;
+            query_builder.push(" AND status = ");
+            query_builder.push_bind(status);
         }
 
         if let Some(search) = &filters.search {
-            query.push_str(&format!(" AND (name ILIKE ${} OR display_name ILIKE ${})", param_count, param_count + 1));
             let search_pattern = format!("%{}%", search);
-            params.push(&search_pattern);
-            params.push(&search_pattern);
-            param_count += 2;
+            query_builder.push(" AND (name ILIKE ");
+            query_builder.push_bind(&search_pattern);
+            query_builder.push(" OR display_name ILIKE ");
+            query_builder.push_bind(&search_pattern);
+            query_builder.push(")");
         }
 
-        query.push_str(" ORDER BY created_at DESC");
+        query_builder.push(" ORDER BY created_at DESC");
 
         if let Some(limit) = filters.limit {
-            query.push_str(&format!(" LIMIT ${}", param_count));
-            params.push(&limit);
-            param_count += 1;
+            query_builder.push(" LIMIT ");
+            query_builder.push_bind(limit);
         }
 
         if let Some(offset) = filters.offset {
-            query.push_str(&format!(" OFFSET ${}", param_count));
-            params.push(&offset);
+            query_builder.push(" OFFSET ");
+            query_builder.push_bind(offset);
         }
 
-        // Note: This is a simplified version. In practice, you'd use a query builder
-        // or handle the dynamic parameters more elegantly
-        let rows = sqlx::query(&query)
+        let rows = query_builder
+            .build()
             .fetch_all(&self.pool)
             .await
             .map_err(|e| DomainError::RepositoryError(format!("Failed to list modules: {}", e)))?;
@@ -233,6 +232,7 @@ impl ModuleRepository for PostgresModuleRepository {
     async fn list_active_modules(&self) -> Result<Vec<SubModule>, DomainError> {
         let filters = ModuleFilters {
             status: Some("active".to_string()),
+            limit: Some(100), // Add reasonable default limit to prevent large result sets
             ..Default::default()
         };
         self.list_sub_modules(&filters).await
@@ -364,6 +364,8 @@ impl ModuleRepository for PostgresModuleRepository {
               AND uma.status = 'active'
               AND sm.status = 'active'
               AND (uma.expires_at IS NULL OR uma.expires_at > NOW())
+            ORDER BY uma.created_at DESC
+            LIMIT 100
         "#;
 
         let rows = sqlx::query(query)
@@ -520,8 +522,64 @@ impl ModuleRepository for PostgresModuleRepository {
         Err(DomainError::NotImplementedError("get_api_key_by_hash not implemented".to_string()))
     }
 
-    async fn get_api_key_access(&self, key_hash: &str) -> Result<Option<ApiKeyAccess>, DomainError> {
-        Err(DomainError::NotImplementedError("get_api_key_access not implemented".to_string()))
+    async fn get_api_key_access(&self, provided_key: &str) -> Result<Option<ApiKeyAccess>, DomainError> {
+        // Get active API keys and verify against the provided key
+        // Note: This fetches all API keys for verification. For better performance with many keys,
+        // consider adding a prefix-based lookup or implementing caching.
+        let query = r#"
+            SELECT ak.id, ak.key_hash, ak.client_name, ak.allowed_modules, 
+                   ak.rate_limits, ak.expires_at, ak.total_requests, ak.last_used_at
+            FROM api_keys ak
+            WHERE ak.status = 'active' 
+              AND (ak.expires_at IS NULL OR ak.expires_at > NOW())
+              AND (ak.starts_at IS NULL OR ak.starts_at <= NOW())
+            ORDER BY ak.last_used_at DESC NULLS LAST
+            LIMIT 1000
+        "#;
+
+        let rows = sqlx::query(query)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DomainError::RepositoryError(format!("Failed to get API keys: {}", e)))?;
+
+        // Verify the provided key against each stored hash
+        for row in rows {
+            let stored_hash: String = row.get("key_hash");
+            
+            // Use the verification function from the middleware
+            if crate::web::middleware::module_auth_middleware::ModuleAuthCtx::verify_api_key_internal(provided_key, &stored_hash) {
+                // Found matching API key, build the access information
+                let key_id: Uuid = row.get("id");
+                let client_name: String = row.get("client_name");
+                let allowed_modules_json: serde_json::Value = row.get("allowed_modules");
+                let rate_limits_json: serde_json::Value = row.get("rate_limits");
+                let expires_at: Option<DateTime<Utc>> = row.get("expires_at");
+                let total_requests: i32 = row.get("total_requests");
+                let last_used_at: Option<DateTime<Utc>> = row.get("last_used_at");
+
+                // Parse allowed modules
+                let allowed_modules = self.parse_api_key_modules(&allowed_modules_json)?;
+                
+                // Parse rate limits  
+                let rate_limits = rate_limits_json.as_object()
+                    .map(|obj| obj.iter()
+                        .filter_map(|(k, v)| v.as_i64().map(|i| (k.clone(), i as i32)))
+                        .collect())
+                    .unwrap_or_default();
+
+                return Ok(Some(ApiKeyAccess {
+                    key_id,
+                    client_name,
+                    allowed_modules,
+                    rate_limits,
+                    expires_at,
+                    total_requests,
+                    last_used_at,
+                }));
+            }
+        }
+
+        Ok(None) // No matching API key found
     }
 
     async fn list_api_keys(&self, filters: &ApiKeyFilters) -> Result<Vec<ApiKey>, DomainError> {
@@ -728,6 +786,43 @@ impl PostgresModuleRepository {
         // This would convert a database row to a SubModule entity
         // For now, return a placeholder error
         Err(DomainError::NotImplementedError("row_to_sub_module not fully implemented".to_string()))
+    }
+
+    fn parse_api_key_modules(&self, modules_json: &serde_json::Value) -> Result<Vec<UserModuleAccess>, DomainError> {
+        let modules_array = modules_json.as_array()
+            .ok_or_else(|| DomainError::ValidationError("allowed_modules must be an array".to_string()))?;
+
+        let mut allowed_modules = Vec::new();
+        for module in modules_array {
+            let module_id = module.get("module_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Uuid::parse_str(s).ok())
+                .ok_or_else(|| DomainError::ValidationError("Invalid module_id in API key".to_string()))?;
+
+            let access_level_str = module.get("access_level")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| DomainError::ValidationError("Missing access_level in API key module".to_string()))?;
+
+            let access_level = AccessLevel::from_string(access_level_str)
+                .map_err(|e| DomainError::ValidationError(format!("Invalid access level: {}", e)))?;
+
+            // For simplicity, create a placeholder UserModuleAccess
+            // In a real implementation, you'd fetch the actual module details from the database
+            allowed_modules.push(UserModuleAccess {
+                assignment_id: Uuid::new_v4(), // Placeholder
+                module_id,
+                module_name: format!("module_{}", module_id), // Placeholder
+                display_name: format!("Module {}", module_id), // Placeholder
+                access_level,
+                quotas: ModuleQuotas::default(),
+                restrictions: ModuleRestrictions::default(),
+                status: "active".to_string(),
+                expires_at: None,
+                assigned_at: Utc::now(),
+            });
+        }
+
+        Ok(allowed_modules)
     }
 }
 

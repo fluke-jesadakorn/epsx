@@ -6,6 +6,7 @@ pub mod values;
 pub mod services;
 pub mod events;
 pub mod error;
+pub mod ports;
 
 #[allow(ambiguous_glob_reexports)]
 pub use entities::*;

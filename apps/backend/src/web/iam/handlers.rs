@@ -1,9 +1,9 @@
-// IAM API handlers - HTTP endpoints for IAM operations
+// IAM API handlers - HTTP endpoints for IAM operations with enhanced error handling
 
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::Json,
+    response::{Json, Response, IntoResponse},
     Extension,
 };
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,10 @@ use crate::app::use_cases::iam::{
     CreateRoleReq, UpdateRoleReq, CreatePolicyReq, EvaluatePermissionReq,
     SetUserOverrideReq, RoleResponse, PolicyResponse, EvaluatePermissionRes,
 };
+use crate::core::errors::{AppError, ErrorKind, ErrorContextBuilder};
 use crate::dom::values::UserId;
 use crate::web::AppState;
+use crate::web::middleware::error_handling::app_error_to_response;
 
 /// Query parameters for listing roles
 #[derive(Debug, Deserialize)]
@@ -46,48 +48,92 @@ pub struct SuccessResponse<T> {
     pub data: T,
 }
 
-/// Create a new IAM role
+/// Create a new IAM role with enhanced error handling
 pub async fn create_role_handler(
     State(app_state): State<AppState>,
     Extension(user_id): Extension<UserId>,
     Json(req): Json<CreateRoleReq>,
-) -> Result<Json<SuccessResponse<RoleResponse>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Response {
+    let operation = "create_role";
+    let service = "iam";
+    
+    // Create error context
+    let error_context = ErrorContextBuilder::new(operation, service)
+        .user_id(user_id.to_string())
+        .metadata("role_name", req.name.clone())
+        .build();
+    
     let iam_uc = &app_state.iam_uc;
     
-    match iam_uc.create_role(req, user_id).await {
-        Ok(role) => Ok(Json(SuccessResponse {
-            success: true,
-            data: role,
-        })),
-        Err(err) => Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "CreateRoleFailed".to_string(),
-                message: err.to_string(),
-            }),
-        )),
+    match iam_uc.create_role(req, user_id.clone()).await {
+        Ok(role) => {
+            // Log successful operation
+            tracing::info!(
+                user_id = %user_id,
+                role_id = %role.id,
+                role_name = %role.name,
+                operation = operation,
+                "Role created successfully"
+            );
+            
+            Json(SuccessResponse {
+                success: true,
+                data: role,
+            }).into_response()
+        },
+        Err(err) => {
+            // Convert to AppError with proper context
+            let app_error = AppError::new(
+                ErrorKind::InternalError,
+                format!("Failed to create role: {}", err)
+            ).with_context(error_context);
+            
+            app_error_to_response(app_error, None)
+        },
     }
 }
 
-/// Get all IAM roles
+/// Get all IAM roles with enhanced error handling and pagination
 pub async fn list_roles_handler(
     State(app_state): State<AppState>,
-    Query(_query): Query<ListRolesQuery>,
-) -> Result<Json<SuccessResponse<Vec<RoleResponse>>>, (StatusCode, Json<ErrorResponse>)> {
+    Query(query): Query<ListRolesQuery>,
+) -> Response {
+    let operation = "list_roles";
+    let service = "iam";
+    
+    // Create error context
+    let error_context = ErrorContextBuilder::new(operation, service)
+        .metadata("limit", query.limit.unwrap_or(50).to_string())
+        .metadata("offset", query.offset.unwrap_or(0).to_string())
+        .build();
+    
     let iam_uc = &app_state.iam_uc;
     
     match iam_uc.list_roles().await {
-        Ok(roles) => Ok(Json(SuccessResponse {
-            success: true,
-            data: roles,
-        })),
-        Err(err) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "ListRolesFailed".to_string(),
-                message: err.to_string(),
-            }),
-        )),
+        Ok(roles) => {
+            // Log successful operation with metrics
+            tracing::info!(
+                operation = operation,
+                role_count = roles.len(),
+                limit = query.limit.unwrap_or(50),
+                offset = query.offset.unwrap_or(0),
+                "Roles listed successfully"
+            );
+            
+            Json(SuccessResponse {
+                success: true,
+                data: roles,
+            }).into_response()
+        },
+        Err(err) => {
+            // Convert to AppError with proper context
+            let app_error = AppError::new(
+                ErrorKind::InternalError,
+                format!("Failed to list roles: {}", err)
+            ).with_context(error_context);
+            
+            app_error_to_response(app_error, None)
+        },
     }
 }
 

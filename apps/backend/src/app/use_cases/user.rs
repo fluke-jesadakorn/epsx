@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::dom::entities::User;
 use crate::dom::values::{UserId, Email, Role};
-use crate::dom::services::PermissionChecker;
+// Simple permission helpers for user management
 use crate::dom::events::{DomainEvent, UserDeletedEvent};
 use crate::app::ports::{UserRepo, EventDispatcher, LevelHistoryRepo};
 use crate::app::dtos::{CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes, ListUsersReq, ListUsersRes, UserDto, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq, UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, FailedUpdate, RoleCount, TierCount, LevelChangeRecord, SoftDeleteUserReq, SoftDeleteUserRes};
@@ -79,7 +79,7 @@ impl UserMgmtUC {
             .ok_or_else(|| UserUseCaseError::UserNotFound(req.usr_id.to_string()))?;
         
         // Check permissions
-        if !PermissionChecker::can_upgrade_user_to_role(&admin, &target, &new_role) {
+        if !Self::can_upgrade_user_to_role(&admin, &target, &new_role) {
             return Err(UserUseCaseError::PermissionDenied);
         }
         
@@ -240,7 +240,7 @@ impl UserMgmtUC {
             .ok_or_else(|| UserUseCaseError::UserNotFound(update.usr_id.to_string()))?;
 
         // Check permissions
-        if !PermissionChecker::can_upgrade_user_to_role(admin, &target, &new_role) {
+        if !Self::can_upgrade_user_to_role(admin, &target, &new_role) {
             return Err(UserUseCaseError::PermissionDenied);
         }
 
@@ -400,7 +400,7 @@ impl UserMgmtUC {
         }
         
         // Prevent deletion of users with higher or equal role (except SuperAdmin can delete Admin)
-        if !PermissionChecker::can_admin_modify_user(&admin, &target) {
+        if !Self::can_admin_modify_user(&admin, &target) {
             return Err(UserUseCaseError::PermissionDenied);
         }
         
@@ -444,6 +444,25 @@ impl UserMgmtUC {
             usr: UserDto::from_entity(&target),
             deleted_at: target.deleted_at().unwrap(),
         })
+    }
+    
+    // Helper methods for permission checking
+    fn can_upgrade_user_to_role(admin: &User, _target: &User, new_role: &Role) -> bool {
+        // Only admins and super admins can upgrade users
+        match admin.role() {
+            Role::SuperAdmin => true,
+            Role::Admin => !matches!(new_role, Role::SuperAdmin), // Admin can't create SuperAdmin
+            _ => false,
+        }
+    }
+    
+    fn can_admin_modify_user(admin: &User, target: &User) -> bool {
+        match (admin.role(), target.role()) {
+            (Role::SuperAdmin, _) => true, // SuperAdmin can modify anyone
+            (Role::Admin, Role::SuperAdmin) => false, // Admin can't modify SuperAdmin
+            (Role::Admin, _) => true, // Admin can modify users below SuperAdmin
+            _ => false, // Non-admins can't modify anyone
+        }
     }
 }
 

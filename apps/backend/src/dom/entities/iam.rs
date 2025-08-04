@@ -610,8 +610,14 @@ pub enum IamError {
     #[error("Role not found: {0}")]
     RoleNotFound(String),
     
+    #[error("Role already exists: {0}")]
+    RoleAlreadyExists(String),
+    
     #[error("Policy not found: {0}")]
     PolicyNotFound(String),
+    
+    #[error("Internal error: {0}")]
+    InternalError(String),
     
     #[error("Group not found: {0}")]
     GroupNotFound(String),

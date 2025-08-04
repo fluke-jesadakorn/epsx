@@ -36,7 +36,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/auth-context';
-import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
 import { navigationService } from '@/services/navigation.service';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
 
@@ -51,7 +50,8 @@ const iconMap = {
 function NavigationComponent() {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
-  const { userLevel, isLoading: levelLoading } = usePermissionAwareAccess();
+  const userLevel = user?.subscription_tier || 'free';
+  const levelLoading = loading;
   // Get user email and admin status from user object
   const userEmail = user?.email;
   const [isOpen, setIsOpen] = useState(false);

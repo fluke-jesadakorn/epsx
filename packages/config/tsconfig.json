@@ -7,6 +7,7 @@
     "moduleResolution": "NodeNext",
     "declaration": true,
     "emitDeclarationOnly": false,
+    "noEmit": false,
     "types": ["node"]
   },
   "include": ["src/**/*"],

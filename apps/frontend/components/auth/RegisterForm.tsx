@@ -1,11 +1,11 @@
 'use client';
 
-import { registerUserWithPermissionProfiles } from '@/app/actions/auth.server';
 import {
   calculatePasswordStrength,
   isPasswordWeak,
 } from '@/lib/password-strength';
 import { useRouter } from 'next/navigation';
+import { mainAuthAPI } from '@/lib/auth-api';
 import React, { useState } from 'react';
 
 interface RegisterFormProps {
@@ -49,24 +49,32 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
     }
 
     try {
-      // Use server action for registration
-      console.log('🔄 Using server action for registration');
-      const result = await registerUserWithPermissionProfiles(
-        email,
-        password,
-        'Free', // package tier
-        undefined, // referral code
-        undefined, // utm source
-        undefined // utm campaign
-      );
+      // Use centralized auth API for registration
+      console.log('🔄 Using centralized auth API for registration');
+      
+      // Create registration request to backend
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const registerResponse = await fetch(`${backendUrl}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          type: 'credentials',
+          email,
+          password,
+          displayName,
+        }),
+      });
 
-      console.log('📡 Server action result:', result);
-
-      if (!result.success) {
-        throw new Error(result.error || 'Registration failed');
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.text();
+        throw new Error(errorData || 'Registration failed');
       }
 
-      console.log('✅ Registration successful');
+      // Then login automatically
+      await mainAuthAPI.login(email, password);
+
+      console.log('✅ Registration and login successful');
 
       // Redirect to dashboard
       router.push(redirectTo || '/dashboard');

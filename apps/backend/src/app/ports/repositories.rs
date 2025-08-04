@@ -288,6 +288,37 @@ pub struct PermissionAssignment {
     pub expires_at: Option<DateTime<Utc>>,
     pub assigned_by: String,
     pub reason: String,
+    pub is_active: bool,
+}
+
+/// Repository trait for permission assignments
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait PermissionAssignmentRepo: Send + Sync {
+    /// Get all assignments for a user
+    async fn get_user_assignments(&self, user_id: &UserId) -> Result<Vec<PermissionAssignment>, RepoError>;
+    
+    /// Assign permission profile to user
+    async fn assign_permission_profile(
+        &self,
+        user_id: &UserId,
+        permission_profile_id: &PermissionProfileId,
+        assigned_by: &UserId,
+        expires_at: Option<DateTime<Utc>>,
+        reason: Option<String>,
+    ) -> Result<(), RepoError>;
+    
+    /// Revoke permission assignment
+    async fn revoke_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<(), RepoError>;
+    
+    /// Check if user has active assignment for permission profile
+    async fn has_active_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<bool, RepoError>;
+    
+    /// Get assignments expiring before a date
+    async fn get_assignments_expiring_before(&self, cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, RepoError>;
+    
+    /// Clean up expired assignments
+    async fn cleanup_expired_assignments(&self) -> Result<i64, RepoError>;
 }
 
 #[derive(Debug, Clone)]

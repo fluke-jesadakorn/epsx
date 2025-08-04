@@ -113,7 +113,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/settings">
-                <Button variant="pancake-secondary" className="w-full">
+                <Button variant="pancake-blue" className="w-full">
                   <Settings className="mr-2 h-4 w-4" />
                   Open Settings
                 </Button>
@@ -138,10 +138,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/analytics">
-                <Button
-                  variant="pancake"
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                >
+                <Button variant="pancake-green" className="w-full">
                   <BarChart3 className="mr-2 h-4 w-4" />
                   View Analytics
                 </Button>
@@ -166,10 +163,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/premium">
-                <Button
-                  variant="pancake"
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                >
+                <Button variant="pancake-purple" className="w-full">
                   <Lock className="mr-2 h-4 w-4" />
                   Access Premium
                 </Button>
@@ -194,10 +188,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/moderator">
-                <Button
-                  variant="pancake"
-                  className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
-                >
+                <Button variant="pancake-red" className="w-full">
                   <Shield className="mr-2 h-4 w-4" />
                   Open Moderator Panel
                 </Button>
@@ -270,7 +261,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             <Button
               onClick={logout}
               variant="pancake-outline"
-              className="px-8 py-3 text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+              className="px-8 py-3 text-lg font-semibold"
             >
               <Lock className="mr-2 h-5 w-5" />
               🚪 Sign Out
@@ -279,7 +270,7 @@ export function DashboardClient({ user, permissions, dashboardData }: DashboardC
             <Link href="/login">
               <Button
                 variant="pancake"
-                className="px-8 py-3 text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                className="px-8 py-3 text-lg font-semibold"
               >
                 <Lock className="mr-2 h-5 w-5" />
                 🚪 Log In

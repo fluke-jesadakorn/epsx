@@ -1,114 +1,90 @@
 import type { NextRequest } from 'next/server';
-import { createAdminMiddleware } from '@epsx/auth-shared/middleware';
-import type { RoutePermissionConfig } from '@epsx/auth-shared';
+import { NextResponse } from 'next/server';
 
-// Admin route definitions with strict permission requirements
-const adminRoutePermissions: Record<string, RoutePermissionConfig> = {
-  '/': { 
-    permission: 'admin.dashboard.view', 
-    fallbackRole: 'admin',
-    description: 'Admin dashboard access'
-  },
-  '/dashboard': { 
-    permission: 'admin.dashboard.view', 
-    fallbackRole: 'admin',
-    description: 'Admin dashboard access'
-  },
-  '/users': { 
-    permission: 'admin.users.manage', 
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'User management interface'
-  },
-  '/user-management': { 
-    permission: 'admin.users.manage', 
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'Enhanced user management'
-  },
-  '/permission-profiles': {
-    permission: 'admin.permission_profiles.manage',
-    profile: 'System Administrator',
-    fallbackRole: 'admin',
-    description: 'Permission profile management'
-  },
-  '/stock-ranking-packages': {
-    permission: 'admin.stock_rankings.manage',
-    profile: 'Content Manager',
-    fallbackRole: 'admin', 
-    description: 'Stock ranking package management'
-  },
-  '/analytics': { 
-    permission: 'admin.analytics.view', 
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'Admin analytics dashboard'
-  },
-  '/iam': {
-    permission: 'admin.iam.manage',
-    profile: 'System Administrator',
-    fallbackRole: 'admin',
-    description: 'Identity and Access Management'
-  },
-  '/settings': {
-    permission: 'admin.settings.manage',
-    profile: 'System Administrator', 
-    fallbackRole: 'admin',
-    description: 'Admin settings management'
-  },
-  '/database': {
-    permission: 'admin.database.manage',
-    profile: 'System Administrator',
-    fallbackRole: 'admin',
-    description: 'Database management interface'
-  },
-  '/system': { 
-    permission: 'admin.system.configure', 
-    profile: 'System Administrator',
-    fallbackRole: 'super_admin',
-    description: 'System configuration'
-  },
-  '/audit': { 
-    permission: 'admin.audit.view', 
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'Audit log access'
-  },
-  '/api/admin': { 
-    permission: 'api:admin:*', 
-    fallbackRole: 'admin',
-    description: 'Admin API access'
-  },
-  '/billing': {
-    permission: 'admin.billing.manage',
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'Billing and subscription management'
-  },
-  '/developer-portal': {
-    permission: 'admin.developer_portal.manage',
-    profile: 'System Administrator',
-    fallbackRole: 'admin',
-    description: 'Developer portal management'
-  },
-  '/modules': {
-    permission: 'admin.modules.manage',
-    profile: 'System Administrator',
-    fallbackRole: 'admin',
-    description: 'Module system management'
-  },
-  '/permissions-demo': {
-    permission: 'admin.permissions.demo',
-    profile: 'Admin Assistant',
-    fallbackRole: 'admin',
-    description: 'Permission system demonstration'
+const AUTH_COOKIE_NAME = 'admin_bearer_token';
+
+// Combined validation to prevent double backend calls using bearer token
+async function validateSessionAndAccess(request: NextRequest, route?: string) {
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+  
+  // Get bearer token from HTTP-only cookie
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  
+  if (!token) {
+    return { valid: false, allowed: false, authData: null };
   }
-};
+  
+  try {
+    // Use validate-access endpoint which also validates session
+    const response = await fetch(`${backendUrl}/api/v1/auth/validate-access`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        route: route || request.nextUrl.pathname,
+        method: 'GET',
+        app_type: 'admin',
+      }),
+    });
 
-// Create the unified middleware with admin configuration
-const middleware = createAdminMiddleware(adminRoutePermissions);
+    if (!response.ok) {
+      return { valid: false, allowed: false, authData: null };
+    }
 
-export default middleware;
+    const result = await response.json();
+    return {
+      valid: true,
+      allowed: result.allowed || false,
+      authData: result.user_data || result,
+    };
+  } catch (error) {
+    console.error('Combined validation failed:', error);
+    return { valid: false, allowed: false, authData: null };
+  }
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip auth for public routes
+  if (pathname === '/login' || pathname === '/unauthorized' || pathname === '/access-denied' || pathname === '/api' || pathname.startsWith('/_next') || pathname.startsWith('/public')) {
+    return NextResponse.next();
+  }
+
+  // Combined session and access validation in single call
+  const validation = await validateSessionAndAccess(request, pathname);
+  
+  if (!validation.valid) {
+    // No valid session, redirect to login
+    const loginUrl = new URL('/login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Check if user has admin role
+  const authData = validation.authData;
+  const isAdmin = authData?.role === 'admin' || 
+                  authData?.role === 'system_administrator' ||
+                  authData?.role === 'super_admin';
+  
+  if (!isAdmin) {
+    const unauthorizedUrl = new URL('/unauthorized', request.url);
+    return NextResponse.redirect(unauthorizedUrl);
+  }
+
+  // For protected admin routes, check if access is allowed
+  const protectedRoutes = ['/admin', '/users', '/iam', '/analytics', '/settings', '/billing', '/modules'];
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  
+  // Bypass route validation for super_admin users during development
+  if (isProtectedRoute && !validation.allowed && authData?.role !== 'super_admin') {
+    const accessDeniedUrl = new URL('/access-denied', request.url);
+    return NextResponse.redirect(accessDeniedUrl);
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
@@ -118,7 +94,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public (public assets)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],

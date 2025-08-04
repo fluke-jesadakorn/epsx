@@ -1,8 +1,14 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::app::ports::services::NotificationServiceError;
+use crate::dom::ports::notification::{
+    NotificationPort, DomainNotification, NotificationRecipient, 
+    DomainNotificationType, DomainNotificationPriority, NotificationStatus, NotificationError
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Notification {
@@ -338,5 +344,78 @@ mod tests {
         );
         assert_eq!(security_notif.notification_type, NotificationType::Security);
         assert_eq!(security_notif.priority, NotificationPriority::Critical);
+    }
+}
+
+/// Adapter to implement NotificationPort using NotificationService
+pub struct NotificationPortAdapter {
+    notification_service: Arc<dyn NotificationService>,
+}
+
+impl NotificationPortAdapter {
+    pub fn new(notification_service: Arc<dyn NotificationService>) -> Self {
+        Self { notification_service }
+    }
+}
+
+#[async_trait]
+impl NotificationPort for NotificationPortAdapter {
+    async fn send_notification(&self, domain_notification: DomainNotification) -> Result<(), NotificationError> {
+        // Convert domain notification to infrastructure notification
+        let infra_notification = Notification {
+            id: domain_notification.id.unwrap_or_else(|| Uuid::new_v4().to_string()),
+            user_id: match domain_notification.recipient {
+                NotificationRecipient::User(user_id) => user_id.value().to_string(),
+                NotificationRecipient::Email(email) => email,
+                NotificationRecipient::AdminGroup => "admin".to_string(),
+                NotificationRecipient::Broadcast => "broadcast".to_string(),
+            },
+            title: domain_notification.title,
+            message: domain_notification.message,
+            notification_type: match domain_notification.notification_type {
+                DomainNotificationType::FeatureExpiration => NotificationType::System,
+                DomainNotificationType::ModuleAccessChanged => NotificationType::UserUpdate,
+                DomainNotificationType::QuotaWarning => NotificationType::System,
+                DomainNotificationType::SecurityAlert => NotificationType::Security,
+                DomainNotificationType::SystemMaintenance => NotificationType::System,
+                DomainNotificationType::AccountUpdate => NotificationType::UserUpdate,
+                DomainNotificationType::PaymentNotification => NotificationType::Payment,
+            },
+            priority: match domain_notification.priority {
+                DomainNotificationPriority::Low => NotificationPriority::Low,
+                DomainNotificationPriority::Normal => NotificationPriority::Medium,
+                DomainNotificationPriority::High => NotificationPriority::High,
+                DomainNotificationPriority::Critical => NotificationPriority::Critical,
+            },
+            read: false,
+            created_at: chrono::Utc::now(),
+            expires_at: domain_notification.expires_at,
+            metadata: domain_notification.data
+                .map(|data| {
+                    // Convert JSON value to string map
+                    if let Ok(map) = serde_json::from_value::<HashMap<String, String>>(data) {
+                        map
+                    } else {
+                        HashMap::new()
+                    }
+                })
+                .unwrap_or_default(),
+        };
+
+        self.notification_service.send_notification(infra_notification)
+            .await
+            .map_err(|e| NotificationError::SendFailed(e.to_string()))
+    }
+
+    async fn send_bulk_notifications(&self, notifications: Vec<DomainNotification>) -> Result<(), NotificationError> {
+        for notification in notifications {
+            self.send_notification(notification).await?;
+        }
+        Ok(())
+    }
+
+    async fn get_notification_status(&self, _notification_id: &str) -> Result<NotificationStatus, NotificationError> {
+        // This is a simplified implementation - in reality you'd track status
+        Ok(NotificationStatus::Sent)
     }
 }

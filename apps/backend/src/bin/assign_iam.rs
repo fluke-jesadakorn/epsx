@@ -9,7 +9,7 @@ use epsx::dom::entities::permission_profile::{ PermissionProfileId, ApplyPermiss
 use epsx::infra::db::postgres::user_repo::PostgresUserRepo;
 use epsx::infra::db::level_history_repo::InMemoryLevelHistoryRepo;
 use epsx::infra::events::simple_dispatcher::SimpleEventDispatcher;
-use epsx::infra::repos::permission_profile_repo::PermissionProfileRepoImpl;
+use epsx::infra::db::postgres::permission_profile_repo::PostgresPermissionProfileRepo;
 use epsx::config::Config;
 use sqlx::PgPool;
 use chrono::{DateTime, Utc};
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         InMemoryLevelHistoryRepo::new()
     );
     let permission_profile_repo: Arc<dyn PermissionProfileRepo> = Arc::new(
-        PermissionProfileRepoImpl::new()
+        PostgresPermissionProfileRepo::new(pool.clone())
     );
 
     // Handle list profiles command

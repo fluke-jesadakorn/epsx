@@ -15,7 +15,7 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::{broadcast, RwLock};
-use tower_cookies::Cookies;
+use crate::web::middleware::AuthCtx;
 use tracing::{info, warn, error};
 
 use crate::dom::values::UserId;
@@ -123,11 +123,10 @@ pub struct ConnectionStats {
 pub async fn websocket_handler(
     ws: WebSocketUpgrade,
     Query(params): Query<WsParams>,
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<Response, StatusCode> {
-    // Extract user from session
-    let user_id = extract_user_from_session(&cookies)?;
+    let user_id = auth_ctx.user_id;
     let session_id = uuid::Uuid::new_v4().to_string();
     
     // Parse subscribed events
@@ -316,15 +315,6 @@ fn should_send_event(event: &EventMessage, connection_info: &ConnectionInfo) -> 
     true
 }
 
-/// Extract user ID from session cookie
-fn extract_user_from_session(cookies: &Cookies) -> Result<UserId, StatusCode> {
-    let session_cookie = cookies.get("sess_id")
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    // In production, validate session properly
-    let user_id = UserId::new(session_cookie.value().to_string());
-    Ok(user_id)
-}
 
 /// Get connection manager from app state
 fn get_connection_manager(_app_state: &AppState) -> ConnectionManager {

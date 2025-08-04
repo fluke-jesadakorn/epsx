@@ -47,6 +47,64 @@ pub struct BulkAssignmentResult {
   pub assignment_id: String,
 }
 
+use crate::app::ports::{PermissionAssignmentRepo, RepoError};
+
+#[async_trait::async_trait]
+impl PermissionAssignmentRepo for PostgresPermissionAssignmentRepo {
+    async fn get_user_assignments(&self, user_id: &UserId) -> Result<Vec<crate::app::ports::PermissionAssignment>, RepoError> {
+        let assignments = self.get_user_assignments(user_id).await
+            .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        
+        let converted = assignments.into_iter().map(|a| crate::app::ports::PermissionAssignment {
+            user_id: a.user_id,
+            permission_profile_id: a.permission_profile_id,
+            assigned_at: a.assigned_at,
+            expires_at: a.expires_at,
+            assigned_by: a.assigned_by.to_string(),
+            reason: a.reason.unwrap_or_default(),
+            is_active: a.is_active,
+        }).collect();
+        
+        Ok(converted)
+    }
+    
+    async fn assign_permission_profile(
+        &self,
+        user_id: &UserId,
+        permission_profile_id: &PermissionProfileId,
+        assigned_by: &UserId,
+        expires_at: Option<DateTime<Utc>>,
+        reason: Option<String>,
+    ) -> Result<(), RepoError> {
+        self.assign_permission_profile(user_id, permission_profile_id, assigned_by, expires_at, reason).await
+            .map_err(|e| RepoError::QueryError(e.to_string()))
+    }
+    
+    async fn revoke_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<(), RepoError> {
+        self.revoke_permission_profile(user_id, permission_profile_id, user_id, None).await
+            .map_err(|e| RepoError::QueryError(e.to_string()))
+    }
+    
+    async fn has_active_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<bool, RepoError> {
+        let assignments = self.get_user_assignments(user_id).await
+            .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        
+        Ok(assignments.iter().any(|a| a.permission_profile_id == *permission_profile_id && a.is_active))
+    }
+    
+    async fn get_assignments_expiring_before(&self, _cutoff_date: DateTime<Utc>) -> Result<Vec<crate::app::ports::PermissionAssignment>, RepoError> {
+        // Implementation would query database for assignments expiring before cutoff_date
+        // For now, return empty vec as placeholder
+        Ok(vec![])
+    }
+    
+    async fn cleanup_expired_assignments(&self) -> Result<i64, RepoError> {
+        let cleaned = self.cleanup_expired_assignments().await
+            .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        Ok(cleaned as i64)
+    }
+}
+
 impl PostgresPermissionAssignmentRepo {
   pub fn new(pool: PgPool) -> Self {
     Self { pool }

@@ -1,4 +1,5 @@
 import { logger, Environment, getApiBaseUrl } from '@epsx/shared-core';
+import type { Logger } from '@epsx/shared-core';
 import type { ApiResponse, RequestConfig } from '@epsx/types';
 import { CookieManager } from '../cookie-manager';
 
@@ -18,7 +19,7 @@ export abstract class BaseHttpClient {
     const url = `${this.baseUrl}${endpoint}`;
     
     try {
-      logger.debug('Making HTTP request', { url, method: config.method || 'GET' }, {
+      (logger as Logger).debug('Making HTTP request', { url, method: config.method || 'GET' }, {
         component: 'BaseHttpClient',
         action: 'request'
       });
@@ -51,7 +52,7 @@ export abstract class BaseHttpClient {
       }
 
       if (!response.ok) {
-        logger.warn('HTTP request failed', {
+        (logger as Logger).warn('HTTP request failed', {
           url,
           status: response.status,
           statusText: response.statusText,
@@ -67,14 +68,14 @@ export abstract class BaseHttpClient {
         };
       }
 
-      logger.debug('HTTP request successful', { url, status: response.status }, {
+      (logger as Logger).debug('HTTP request successful', { url, status: response.status }, {
         component: 'BaseHttpClient',
         action: 'request'
       });
 
       return { data };
     } catch (error) {
-      logger.error('HTTP request exception', { 
+      (logger as Logger).error('HTTP request exception', { 
         url, 
         error: error instanceof Error ? error.message : String(error) 
       }, {

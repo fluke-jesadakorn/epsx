@@ -17,7 +17,7 @@ use crate::dom::entities::permission_profile::{
     PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, PermissionProfileCategory
 };
 use crate::dom::entities::iam::PackageTier;
-use crate::web::middleware::auth_middleware::AuthCtx;
+use crate::web::middleware::module_auth_middleware::AuthCtx;
 use crate::web::AppState;
 use chrono::{DateTime, Utc};
 

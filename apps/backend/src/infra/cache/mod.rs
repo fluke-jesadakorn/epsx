@@ -116,7 +116,7 @@ pub trait CacheExt: Cache {
 }
 
 /// Blanket implementation for all Cache implementors
-impl<T: Cache> CacheExt for T {}
+impl<T: ?Sized + Cache> CacheExt for T {}
 
 /// Cache statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]

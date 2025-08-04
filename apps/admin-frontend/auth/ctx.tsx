@@ -1,205 +1,123 @@
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { adminLogger } from '@/lib/logger';
-import { apiClient, isApiError } from '@epsx/api-client';
 
-interface AdminUser {
-  uid: string;
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginAction, logoutAction } from '@/lib/actions/server-auth';
+import { adminAuthAPI } from '@/lib/auth-api';
+
+interface AuthUser {
+  user_id: string;
   email: string;
-  name?: string;
-  roles: string[];
-  isAdmin: boolean;
-  verified?: boolean;
-  disabled?: boolean;
-  claims?: {
-    role?: string;
-  };
-  meta?: {
-    created?: string;
-    lastLogin?: string;
-  };
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+  session_type: string;
+  expires_at: string;
 }
 
-interface AdminAuthCtx {
-  user: AdminUser | null;
+interface AuthState {
+  user: AuthUser | null;
   loading: boolean;
-  init: boolean;
-  isAdmin: boolean;
   error: string | null;
-  login: (token: string) => Promise<void>;
-  logout: () => Promise<void>;
-  signOut: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  initialized: boolean;
+  navigating: boolean;
 }
 
-const AuthCtx = createContext<AdminAuthCtx | null>(null);
+interface AuthContextType extends AuthState {
+  signIn: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
+}
 
-export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [init, setInit] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Admin auth context with signIn function
+const AdminAuthContext = createContext<AuthContextType | null>(null);
 
-  const login = async (token: string) => {
-    try {
-      setError(null);
-      const response = await apiClient.serverLogin({ token });
-      if (isApiError(response)) {
-        setError(response.error || 'Login failed');
-        return;
-      }
-      const data = response.data;
-      setUser({
-        uid: data.user_id,
-        email: data.email,
-        name: data.displayName,
-        roles: [data.role], // Convert single role to array
-        isAdmin: data.role === 'admin' || data.role === 'ADMIN',
-        verified: true, // Assume verified if profile is accessible
-        disabled: false,
-        claims: { role: data.role },
-        meta: undefined
-      });
-    } catch (error) {
-      adminLogger.error('Admin login failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.login');
-      setError('Network error occurred');
-    }
-  };
+export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    error: null,
+    initialized: false,
+    navigating: false,
+  });
 
   const signIn = async (email: string, password: string) => {
+    setState(prev => ({ ...prev, loading: true, error: null, navigating: true }));
+    
     try {
-      setError(null);
-      setLoading(true);
-      
-      // Use server action for admin login
+      // Create FormData for server action
       const formData = new FormData();
       formData.append('email', email);
       formData.append('password', password);
       
-      const { adminLoginAction } = await import('@/lib/actions/auth');
-      const result = await adminLoginAction(formData);
+      // Call server action
+      const result = await loginAction(formData);
       
       if (!result.success) {
-        const errorMessage = result.error || 'Invalid credentials';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+        throw new Error(result.error || 'Login failed');
       }
       
-      const data = result.user;
-      if (data) {
-        setUser({
-          uid: data.uid,
-          email: data.email,
-          name: data.email, // Use email as display name since displayName doesn't exist
-          roles: data.roles || [data.customClaims?.role || 'admin'],
-          isAdmin: data.isAdmin,
-          verified: true,
-          disabled: false,
-          claims: data.customClaims,
-          meta: undefined // Set to undefined since it doesn't exist in the user object
-        });
-      }
+      // After successful login, get user data
+      const user = await adminAuthAPI.getCurrentUser();
+      setState(prev => ({ ...prev, user, loading: false, navigating: false, initialized: true }));
     } catch (error) {
-      adminLogger.error('Admin sign in failed', { error: error instanceof Error ? error.message : error, email }, 'AdminAuthProvider.signIn');
-      const errorMessage = error instanceof Error ? error.message : 'Network error occurred';
-      setError(errorMessage);
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Login failed',
+        loading: false,
+        navigating: false
+      }));
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = async () => {
+    setState(prev => ({ ...prev, loading: true, navigating: true }));
     try {
-      const response = await apiClient.logout();
-      if (isApiError(response)) {
-        adminLogger.error('Admin logout failed', { error: response.error }, 'AdminAuthProvider.logout');
-      }
-      setUser(null);
-      setError(null);
+      // Call server action (this will redirect automatically)
+      await logoutAction();
+      setState({ user: null, loading: false, error: null, initialized: true, navigating: false });
     } catch (error) {
-      adminLogger.error('Admin logout failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.logout');
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Logout failed',
+        loading: false,
+        navigating: false
+      }));
     }
   };
 
-  const signOut = logout; // Alias for logout
+  const checkAuth = async () => {
+    setState(prev => ({ ...prev, loading: true }));
+    try {
+      const user = await adminAuthAPI.getCurrentUser();
+      setState({ user, loading: false, error: null, initialized: true, navigating: false });
+    } catch (error) {
+      setState({ user: null, loading: false, error: null, initialized: true, navigating: false });
+    }
+  };
 
   useEffect(() => {
-    const checkExistingSession = async () => {
-      try {
-        adminLogger.info('Checking existing session...', {}, 'AdminAuthProvider.checkExistingSession');
-        
-        // Skip client-side cookie checking since admin_sess_id is httpOnly
-        // Instead, directly try to validate session with backend
-        adminLogger.info('Attempting to validate session with backend...', {}, 'AdminAuthProvider.checkExistingSession');
-        const { serverGetAdminProfile } = await import('@epsx/api-client');
-        const response = await serverGetAdminProfile();
-        
-        adminLogger.info('Session validation response', { 
-          hasData: !!response.data, 
-          hasError: !!response.error,
-          error: response.error 
-        }, 'AdminAuthProvider.checkExistingSession');
-        
-        if (response.data && !response.error) {
-          const data = response.data;
-          const userData = {
-            uid: data.user_id || data.id,
-            email: data.email,
-            name: data.name || data.email,
-            roles: [data.role || 'admin'],
-            isAdmin: true,
-            verified: true,
-            disabled: false,
-            claims: { role: data.role },
-            meta: undefined
-          };
-          
-          adminLogger.info('Setting user data', { userData }, 'AdminAuthProvider.checkExistingSession');
-          setUser(userData);
-        } else {
-          adminLogger.info('No valid session found, user will need to login', { 
-            error: response.error 
-          }, 'AdminAuthProvider.checkExistingSession');
-          // Don't set error here - just leave user as null so middleware can handle redirects
-        }
-      } catch (error) {
-        adminLogger.error('Session check failed', { error: error instanceof Error ? error.message : error }, 'AdminAuthProvider.checkExistingSession');
-        // Continue with no user - let middleware handle redirects
-      } finally {
-        setLoading(false);
-        setInit(true);
-        adminLogger.info('Session check complete', { loading: false, init: true }, 'AdminAuthProvider.checkExistingSession');
-      }
-    };
-    
-    checkExistingSession();
+    checkAuth();
   }, []);
 
-  const isAdmin = user?.isAdmin || user?.claims?.role === 'ADMIN' || user?.claims?.role === 'SUPER_ADMIN' || false;
+  const contextValue: AuthContextType = {
+    ...state,
+    signIn,
+    logout,
+    checkAuth,
+  };
 
   return (
-    <AuthCtx.Provider value={{ 
-      user, 
-      loading, 
-      init, 
-      isAdmin, 
-      error,
-      login, 
-      logout, 
-      signOut,
-      signIn
-    }}>
+    <AdminAuthContext.Provider value={contextValue}>
       {children}
-    </AuthCtx.Provider>
+    </AdminAuthContext.Provider>
   );
 }
 
-export const useAdminAuth = () => {
-  const ctx = useContext(AuthCtx);
-  if (!ctx) throw new Error('useAdminAuth must be used within AdminAuthProvider');
-  return ctx;
-};
-
-// Export the provider with the expected name
-export const AppAdminAuthProvider = AdminAuthProvider;
+export function useAdminAuth() {
+  const context = useContext(AdminAuthContext);
+  if (!context) {
+    throw new Error('useAdminAuth must be used within AdminAuthProvider');
+  }
+  return context;
+}

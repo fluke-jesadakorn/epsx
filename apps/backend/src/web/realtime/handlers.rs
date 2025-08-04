@@ -6,7 +6,7 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use tower_cookies::Cookies;
+use crate::web::middleware::AuthCtx;
 use tracing::{info, error};
 
 use crate::dom::values::UserId;
@@ -57,12 +57,12 @@ pub struct BroadcastResponse {
 
 /// Broadcast a system notification to all or specific users
 pub async fn broadcast_notification_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
     Json(payload): Json<BroadcastNotificationRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Parse notification level
@@ -107,12 +107,12 @@ pub async fn broadcast_notification_handler(
 
 /// Simulate a payment event (for testing)
 pub async fn simulate_payment_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
     Json(payload): Json<SimulatePaymentRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Create payment event based on type
@@ -159,12 +159,12 @@ pub async fn simulate_payment_handler(
 
 /// Simulate a stock price update (for testing)
 pub async fn simulate_stock_update_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
     Json(payload): Json<SimulateStockUpdateRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Create stock price update event
@@ -195,11 +195,11 @@ pub async fn simulate_stock_update_handler(
 
 /// Get real-time connection statistics
 pub async fn get_connection_stats_handler(
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
 ) -> Result<Json<ConnectionStats>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     let connection_manager = get_connection_manager(&app_state);
@@ -211,12 +211,12 @@ pub async fn get_connection_stats_handler(
 /// Send a targeted notification to a specific user
 pub async fn send_user_notification_handler(
     Path(user_id): Path<String>,
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(app_state): State<AppState>,
     Json(payload): Json<BroadcastNotificationRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = extract_user_from_session(&cookies)?;
+    let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
     // Parse notification level
@@ -257,15 +257,6 @@ pub async fn send_user_notification_handler(
     }))
 }
 
-/// Extract user ID from session cookie
-fn extract_user_from_session(cookies: &Cookies) -> Result<UserId, StatusCode> {
-    let session_cookie = cookies.get("sess_id")
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    // In production, validate session properly
-    let user_id = UserId::new(session_cookie.value().to_string());
-    Ok(user_id)
-}
 
 /// Verify admin access
 async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(), StatusCode> {

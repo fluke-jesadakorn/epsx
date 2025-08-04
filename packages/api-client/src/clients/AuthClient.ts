@@ -25,7 +25,7 @@ export class AuthClient extends BaseHttpClient {
   }
 
   async logout(): Promise<ApiResponse<void>> {
-    return this.post<void>('/api/auth/logout');
+    return this.post<void>('/auth/logout');
   }
 
   async refreshToken(): Promise<ApiResponse<UserProfile>> {

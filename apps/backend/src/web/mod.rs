@@ -9,6 +9,8 @@ pub mod user;
 pub mod realtime;
 pub mod middleware;
 pub mod modules;
+pub mod validation;
+pub mod market_data;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -18,7 +20,6 @@ use axum::{
 };
 use serde_json::{json, Value};
 use tower_http::cors::CorsLayer;
-use tower_cookies::CookieManagerLayer;
 use std::sync::Arc;
 
 use crate::infra::AppContainer;
@@ -33,9 +34,14 @@ use permission_profile::create_permission_profile_router;
 use user::user_routes_v1;
 use realtime::realtime_routes;
 use modules::create_modules_router;
-use middleware::{auth_middleware::auth_middleware, permission_middleware::permission_middleware};
-use auth::handlers::{logout_handler, refresh_handler, me_handler, me_handler_public, validate_session_handler, validate_route_access_handler, validate_bulk_routes_handler, check_permission_handler, user_features_handler};
-use auth::multi_handlers::{multi_login_handler, register_handler, auto_register_handler, password_reset_handler};
+use middleware::{
+    auth_middleware, 
+    permission_middleware::permission_middleware,
+    error_handling::error_handling_middleware
+};
+use validation::comprehensive_validation_middleware;
+use auth::handlers::{logout_handler, refresh_handler, me_handler, validate_session_handler, validate_route_access_handler, validate_bulk_routes_handler, check_permission_handler, user_features_handler, navigation_handler, single_permission_handler, rotate_session_handler};
+use auth::handlers::{login_handler as multi_login_handler, register_handler, register_handler as auto_register_handler, register_handler as password_reset_handler};
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -62,6 +68,48 @@ pub async fn premium_rankings_handler() -> Json<Value> {
     }))
 }
 
+/// Create CORS layer with environment-based allowed origins
+fn create_cors_layer() -> CorsLayer {
+    let frontend_url = std::env::var("FRONTEND_URL")
+        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let admin_frontend_url = std::env::var("ADMIN_FRONTEND_URL")
+        .unwrap_or_else(|_| "http://localhost:3001".to_string());
+    
+    // Production URLs (fallback to development if not set)
+    let production_frontend_url = std::env::var("PRODUCTION_FRONTEND_URL")
+        .unwrap_or_else(|_| "https://epsx.com".to_string());
+    let production_admin_url = std::env::var("PRODUCTION_ADMIN_URL")
+        .unwrap_or_else(|_| "https://admin.epsx.com".to_string());
+    
+    let allowed_origins = vec![
+        frontend_url.parse().expect("Invalid FRONTEND_URL"),
+        admin_frontend_url.parse().expect("Invalid ADMIN_FRONTEND_URL"),
+        production_frontend_url.parse().expect("Invalid PRODUCTION_FRONTEND_URL"),
+        production_admin_url.parse().expect("Invalid PRODUCTION_ADMIN_URL"),
+    ];
+    
+    tracing::info!("CORS allowed origins: {:?}", allowed_origins);
+    
+    CorsLayer::new()
+        .allow_origin(allowed_origins)
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+            axum::http::header::ORIGIN,
+            axum::http::header::USER_AGENT,
+        ])
+        .allow_credentials(true)
+        .max_age(std::time::Duration::from_secs(3600))
+}
+
 /// Create v1 API routes
 fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Router<AppState> {
     // Create public authentication routes (no auth required)
@@ -69,7 +117,11 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .route("/auth/login", post(multi_login_handler))
         .route("/auth/register", post(register_handler))
         .route("/auth/register-auto", post(auto_register_handler))
-        .route("/auth/password-reset", post(password_reset_handler));
+        .route("/auth/password-reset", post(password_reset_handler))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            comprehensive_validation_middleware,
+        ));
 
     // Create protected authentication routes (auth required)
     let protected_auth_routes = Router::new()
@@ -82,10 +134,17 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .route("/auth/validate-access", post(validate_route_access_handler))
         .route("/auth/validate-routes", post(validate_bulk_routes_handler))
         .route("/auth/check-permission", post(check_permission_handler))
+        .route("/auth/permission", get(single_permission_handler))
         .route("/auth/features", get(user_features_handler))
+        .route("/auth/navigation", get(navigation_handler))
+        .route("/auth/rotate-session", post(rotate_session_handler))
         .route_layer(from_fn_with_state(
             app_state.clone(),
             auth_middleware,
+        ))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            comprehensive_validation_middleware,
         ));
 
     // Create user admin routes (auth required)
@@ -241,10 +300,54 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
         )),
     ));
     
-    // Create temporary stub implementations for module and usage repos
+    // Create temporary stub implementations for module and usage repos  
     // TODO: Replace with proper implementations
-    let stub_module_repo: Arc<dyn crate::app::ports::repositories::ModuleRepo> = Arc::new(crate::infra::repos::StubModuleRepo::new());
-    let stub_usage_repo: Arc<dyn crate::app::ports::repositories::UsageRepo> = Arc::new(crate::infra::repos::StubUsageRepo::new());
+    use crate::app::ports::repositories::{ModuleRepo, UsageRepo};
+    
+    struct StubModuleRepo;
+    impl StubModuleRepo {
+        fn new() -> Self { Self }
+    }
+    #[async_trait::async_trait]
+    impl ModuleRepo for StubModuleRepo {
+        async fn create_sub_module(&self, _module: &crate::dom::entities::SubModule) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn update_sub_module(&self, _module: &crate::dom::entities::SubModule) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn delete_sub_module(&self, _module_id: &uuid::Uuid) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn get_sub_module(&self, _module_id: &uuid::Uuid) -> Result<Option<crate::dom::entities::SubModule>, crate::dom::error::DomainError> { Ok(None) }
+        async fn get_sub_module_by_name(&self, _name: &str) -> Result<Option<crate::dom::entities::SubModule>, crate::dom::error::DomainError> { Ok(None) }
+        async fn list_active_modules(&self) -> Result<Vec<crate::dom::entities::SubModule>, crate::dom::error::DomainError> { Ok(vec![]) }
+        async fn create_assignment(&self, _assignment: &crate::dom::entities::UserSubModuleAssignment) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn update_assignment(&self, _assignment: &crate::dom::entities::UserSubModuleAssignment) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn delete_assignment(&self, _assignment_id: &uuid::Uuid) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn get_assignment(&self, _assignment_id: &uuid::Uuid) -> Result<Option<crate::dom::entities::UserSubModuleAssignment>, crate::dom::error::DomainError> { Ok(None) }
+        async fn get_user_module_assignments(&self, _user_id: &crate::dom::values::UserId) -> Result<Vec<crate::web::middleware::module_auth_middleware::UserModuleAccess>, crate::dom::error::DomainError> { Ok(vec![]) }
+        async fn has_user_module_access(&self, _user_id: &crate::dom::values::UserId, _module_name: &str) -> Result<bool, crate::dom::error::DomainError> { Ok(false) }
+        async fn get_user_access_level(&self, _user_id: &crate::dom::values::UserId, _module_name: &str) -> Result<Option<String>, crate::dom::error::DomainError> { Ok(None) }
+        async fn create_api_key(&self, _api_key: &crate::dom::entities::ApiKey) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn update_api_key(&self, _api_key: &crate::dom::entities::ApiKey) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn delete_api_key(&self, _key_id: &uuid::Uuid) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn get_api_key(&self, _key_id: &uuid::Uuid) -> Result<Option<crate::dom::entities::ApiKey>, crate::dom::error::DomainError> { Ok(None) }
+        async fn get_api_key_by_hash(&self, _key_hash: &str) -> Result<Option<crate::dom::entities::ApiKey>, crate::dom::error::DomainError> { Ok(None) }
+        async fn get_api_key_access(&self, _key_hash: &str) -> Result<Option<crate::web::middleware::module_auth_middleware::ApiKeyAccess>, crate::dom::error::DomainError> { Ok(None) }
+        async fn log_usage(&self, _usage_log: &crate::dom::entities::ModuleUsageLog) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn get_current_usage(&self, _user_id: &crate::dom::values::UserId, _module_name: &str, _quota_type: &str) -> Result<i32, crate::dom::error::DomainError> { Ok(0) }
+        async fn get_quota_limits(&self, _user_id: &crate::dom::values::UserId, _module_name: &str) -> Result<std::collections::HashMap<String, i32>, crate::dom::error::DomainError> { Ok(std::collections::HashMap::new()) }
+        async fn check_quota_availability(&self, _user_id: &crate::dom::values::UserId, _module_name: &str, _quota_type: &str, _amount: i32) -> Result<bool, crate::dom::error::DomainError> { Ok(true) }
+    }
+    
+    struct StubUsageRepo;
+    impl StubUsageRepo {
+        fn new() -> Self { Self }
+    }
+    #[async_trait::async_trait]
+    impl UsageRepo for StubUsageRepo {
+        async fn log_usage(&self, _usage: crate::dom::entities::ModuleUsageLog) -> Result<(), crate::dom::error::DomainError> { Ok(()) }
+        async fn get_usage_stats(&self, _user_id: &crate::dom::values::UserId, _module_name: &str) -> Result<std::collections::HashMap<String, i32>, crate::dom::error::DomainError> { Ok(std::collections::HashMap::new()) }
+        async fn get_current_usage(&self, _user_id: &crate::dom::values::UserId, _module_name: &str, _quota_type: &str) -> Result<i32, crate::dom::error::DomainError> { Ok(0) }
+    }
+    
+    let stub_module_repo: Arc<dyn ModuleRepo> = Arc::new(StubModuleRepo::new());
+    let stub_usage_repo: Arc<dyn UsageRepo> = Arc::new(StubUsageRepo::new());
 
     // Create app state
     let app_state = AppState::new(
@@ -263,8 +366,8 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
     
     // Create public routes
     let public_routes = Router::new()
-        .route("/health", get(health_handler))
-        .route("/auth/me-public", get(me_handler_public));
+        .route("/health", get(health_handler));
+        // .route("/auth/me-public", get(me_handler_public)); // Removed: no longer needed with bearer tokens
 
     // Real-time routes moved to v1 API structure - legacy routes removed
 
@@ -293,10 +396,13 @@ pub fn create_router(container: Arc<AppContainer>) -> Router {
         .merge(admin_api_public_routes)
         .merge(admin_api_protected_routes)
         .merge(admin_module_routes)
-        // Add cookie middleware
-        .layer(CookieManagerLayer::new())
-        // Add CORS middleware
-        .layer(CorsLayer::permissive())
+        // Add error handling middleware (first layer to catch all errors)
+        .layer(from_fn_with_state(
+            app_state.clone(),
+            error_handling_middleware,
+        ))
+        // Add CORS middleware with environment-based origins
+        .layer(create_cors_layer())
         // Add application state
         .with_state(app_state)
 }

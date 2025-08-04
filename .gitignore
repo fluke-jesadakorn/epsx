@@ -167,3 +167,6 @@ yarn-cache/
 .vercel/*.log
 
 .devtools/
+
+# Crush agent
+.crush/

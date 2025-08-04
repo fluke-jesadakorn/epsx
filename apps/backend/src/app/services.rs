@@ -3,8 +3,7 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 
-use crate::dom::entities::User;
-use crate::dom::values::{UserId, Role};
+use crate::dom::values::UserId;
 use crate::app::use_cases::{AuthUC, UserMgmtUC, PayUC, StockUC};
 
 // Main application service that coordinates use cases
@@ -47,83 +46,11 @@ impl AppService {
     }
 }
 
-// Authorization service for checking permissions
-pub struct AuthorizationService;
+// AuthorizationService is now re-exported from domain layer as UnifiedPermissionService
 
-impl AuthorizationService {
-    pub fn check_permission(user: &User, required_permission: &str) -> Result<(), AuthorizationError> {
-        if user.has_perm(required_permission) {
-            Ok(())
-        } else {
-            Err(AuthorizationError::InsufficientPermissions {
-                required: required_permission.to_string(),
-                user_role: user.role().to_string(),
-            })
-        }
-    }
-    
-    pub fn check_role_level(user: &User, required_role: &Role) -> Result<(), AuthorizationError> {
-        if user.role().hierarchy_level() >= required_role.hierarchy_level() {
-            Ok(())
-        } else {
-            Err(AuthorizationError::InsufficientRole {
-                required: required_role.to_string(),
-                current: user.role().to_string(),
-            })
-        }
-    }
-    
-    pub fn check_user_access(requesting_user: &User, target_user_id: &UserId) -> Result<(), AuthorizationError> {
-        // Users can access their own data
-        if requesting_user.id() == target_user_id {
-            return Ok(());
-        }
-        
-        // Admins can access other users' data
-        if requesting_user.has_perm("read:all_data") {
-            return Ok(());
-        }
-        
-        Err(AuthorizationError::AccessDenied {
-            user_id: requesting_user.id().to_string(),
-            resource: target_user_id.to_string(),
-        })
-    }
-}
-
-// Audit logging service
-pub struct AuditService;
-
-impl AuditService {
-    pub fn log_user_action(user_id: &UserId, action: &str, resource: &str) {
-        // TODO: Implement proper audit logging
-        tracing::info!(
-            user_id = %user_id,
-            action = action,
-            resource = resource,
-            "User action performed"
-        );
-    }
-    
-    pub fn log_admin_action(admin_id: &UserId, action: &str, target_id: &str, details: &str) {
-        tracing::warn!(
-            admin_id = %admin_id,
-            action = action,
-            target_id = target_id,
-            details = details,
-            "Admin action performed"
-        );
-    }
-    
-    pub fn log_security_event(event_type: &str, user_id: Option<&UserId>, details: &str) {
-        tracing::error!(
-            event_type = event_type,
-            user_id = ?user_id.map(|id| id.to_string()),
-            details = details,
-            "Security event detected"
-        );
-    }
-}
+// Re-export comprehensive services from domain layer
+pub use crate::dom::services::audit_service::AuditService;
+pub use crate::dom::services::permission_resolver::{UnifiedPermissionService as AuthorizationService, AuthorizationError};
 
 // Rate limiting service
 pub struct RateLimitService;
@@ -190,18 +117,7 @@ impl CacheService for InMemoryCache {
     }
 }
 
-// Error types
-#[derive(Debug, thiserror::Error)]
-pub enum AuthorizationError {
-    #[error("Insufficient permissions: required '{required}', user has role '{user_role}'")]
-    InsufficientPermissions { required: String, user_role: String },
-    
-    #[error("Insufficient role: required '{required}', current '{current}'")]
-    InsufficientRole { required: String, current: String },
-    
-    #[error("Access denied: user '{user_id}' cannot access resource '{resource}'")]
-    AccessDenied { user_id: String, resource: String },
-}
+// AuthorizationError is now re-exported from domain layer
 
 #[derive(Debug, thiserror::Error)]
 pub enum RateLimitError {

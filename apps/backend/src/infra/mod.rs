@@ -1,17 +1,17 @@
 // Infrastructure layer implementations
 
-pub mod auth;
+// pub mod auth;
 pub mod cache;
 pub mod db;
-pub mod repos;
+// pub mod repos;
 pub mod services;
 pub mod events;
 pub mod firebase_admin;
 pub mod jobs;
 
 // Re-export commonly used implementations
-pub use db::{InMemoryLevelHistoryRepo, PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool, create_pool, DatabaseConfig};
-pub use repos::{IamRepoImpl, AuditRepoImpl, PermissionProfileRepoImpl};
+pub use db::{PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool, create_pool, DatabaseConfig};
+// pub use repos::{IamRepoImpl, AuditRepoImpl, PermissionProfileRepoImpl};
 pub use services::{SendGridEmailService, MockEmailService, notification::*};
 pub use events::{SimpleEventDispatcher};
 pub use firebase_admin::FirebaseAdmin;
@@ -19,7 +19,8 @@ pub use jobs::{JobScheduler, ExpirationChecker, NotificationService as JobNotifi
 
 use std::sync::Arc;
 use crate::app::ports::{repositories::*, services::*, events::*};
-use crate::core::plugins::{PluginManager, PluginRegistry};
+use crate::dom::ports::NotificationPort;
+// use crate::core::plugins::{PluginManager, PluginRegistry};
 use crate::dom::services::feature_expiration::FeatureExpirationService;
 use crate::infra::db::MigrationRunner;
 
@@ -81,7 +82,7 @@ impl InfraFactory {
     }
 
     pub fn create_level_history_repo(&self) -> Arc<dyn LevelHistoryRepo> {
-        Arc::new(InMemoryLevelHistoryRepo::new())
+        Arc::new(crate::infra::db::InMemoryLevelHistoryRepo::new())
     }
 
     pub fn create_iam_repo(&self) -> Arc<dyn IamRepo> {
@@ -98,17 +99,16 @@ impl InfraFactory {
 
     // Service factories
 
-    pub fn create_email_svc(&self) -> Arc<dyn EmailSvc> {
+    pub fn create_email_svc(&self, config: Arc<crate::config::Config>) -> Arc<dyn EmailSvc> {
         // Use environment variable to determine which email service to use
         if std::env::var("USE_MOCK_EMAIL").unwrap_or_else(|_| "false".to_string()) == "true" {
             Arc::new(MockEmailService::new())
         } else {
-            match SendGridEmailService::from_env() {
-                Ok(service) => Arc::new(service),
-                Err(_) => {
-                    tracing::warn!("SendGrid configuration not found, using mock email service");
-                    Arc::new(MockEmailService::new())
-                }
+            if config.email.enabled && !config.email.sendgrid_api_key.is_empty() {
+                Arc::new(SendGridEmailService::from_config(config))
+            } else {
+                tracing::warn!("SendGrid configuration not found or disabled, using mock email service");
+                Arc::new(MockEmailService::new())
             }
         }
     }
@@ -143,10 +143,16 @@ impl InfraFactory {
         notification_service: Arc<dyn NotificationService>,
     ) -> Arc<dyn FeatureExpirationService> {
         use crate::dom::services::feature_expiration::{FeatureExpirationServiceImpl, ExpirationConfig};
+        use crate::infra::services::NotificationPortAdapter;
+        
+        // Create adapter to convert NotificationService to NotificationPort
+        let notification_port: Arc<dyn NotificationPort> = Arc::new(
+            NotificationPortAdapter::new(notification_service)
+        );
         
         Arc::new(FeatureExpirationServiceImpl::new(
             user_repo,
-            notification_service,
+            notification_port,
             Some(ExpirationConfig::default()),
         ))
     }
@@ -157,13 +163,13 @@ impl InfraFactory {
     }
     
     // Plugin services
-    pub fn create_plugin_manager(&self) -> PluginManager {
-        PluginManager::new()
-    }
+    // pub fn create_plugin_manager(&self) -> PluginManager {
+    //     PluginManager::new()
+    // }
     
-    pub fn create_plugin_registry(&self) -> PluginRegistry {
-        PluginRegistry::new()
-    }
+    // pub fn create_plugin_registry(&self) -> PluginRegistry {
+    //     PluginRegistry::new()
+    // }
 }
 
 /// Application-wide dependency injection container
@@ -188,12 +194,13 @@ pub struct AppContainer {
     pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
     
     // Plugin system
-    pub plugin_manager: Arc<tokio::sync::Mutex<PluginManager>>,
-    pub plugin_registry: Arc<tokio::sync::Mutex<PluginRegistry>>,
+    // pub plugin_manager: Arc<tokio::sync::Mutex<PluginManager>>,
+    // pub plugin_registry: Arc<tokio::sync::Mutex<PluginRegistry>>,
 }
 
 impl AppContainer {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let config = Arc::new(crate::config::Config::from_env());
         let infra = InfraFactory::from_env()?;
         
         // Run database migrations automatically
@@ -207,7 +214,7 @@ impl AppContainer {
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let permission_profile_repo = infra.create_permission_profile_repo();
-        let email_svc = infra.create_email_svc();
+        let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
         let firebase_admin = infra.create_firebase_admin()?;
         let notification_service = infra.create_notification_service();
@@ -215,8 +222,8 @@ impl AppContainer {
             user_repo.clone(),
             notification_service.clone(),
         );
-        let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
-        let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
+        // let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
+        // let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
         Ok(Self {
             infra,
@@ -233,12 +240,13 @@ impl AppContainer {
             firebase_admin,
             notification_service,
             feature_expiration_service,
-            plugin_manager,
-            plugin_registry,
+            // plugin_manager,
+            // plugin_registry,
         })
     }
     
     pub fn from_infra(infra: InfraFactory) -> Self {
+        let config = Arc::new(crate::config::Config::from_env());
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
         let payment_repo = infra.create_payment_repo();
@@ -247,7 +255,7 @@ impl AppContainer {
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let permission_profile_repo = infra.create_permission_profile_repo();
-        let email_svc = infra.create_email_svc();
+        let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
         let firebase_admin = infra.create_firebase_admin().unwrap_or_else(|e| {
             tracing::warn!("Failed to create Firebase Admin: {}, using mock", e);
@@ -258,8 +266,8 @@ impl AppContainer {
             user_repo.clone(),
             notification_service.clone(),
         );
-        let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
-        let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
+        // let plugin_manager = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_manager()));
+        // let plugin_registry = Arc::new(tokio::sync::Mutex::new(infra.create_plugin_registry()));
         
         Self {
             infra,
@@ -276,62 +284,62 @@ impl AppContainer {
             firebase_admin,
             notification_service,
             feature_expiration_service,
-            plugin_manager,
-            plugin_registry,
+            // plugin_manager,
+            // plugin_registry,
         }
     }
     
     /// Initialize and start all plugins
-    pub async fn initialize_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::core::plugin_examples::{
-            SimpleAnalysisPlugin, MockDataProviderPlugin, EmailNotificationPlugin
-        };
-        use crate::core::plugins::PluginConfig;
-        use std::collections::HashMap;
-        
-        let mut plugin_manager = self.plugin_manager.lock().await;
-        
-        // Create plugin configurations
-        let mut settings = HashMap::new();
-        settings.insert("environment".to_string(), serde_json::Value::String("development".to_string()));
-        
-        let config = PluginConfig {
-            enabled: true,
-            settings,
-            environment: "development".to_string(),
-        };
-        
-        // Register example plugins
-        plugin_manager.register_plugin(
-            Arc::new(SimpleAnalysisPlugin::new()),
-            config.clone(),
-        ).await?;
-        
-        plugin_manager.register_plugin(
-            Arc::new(MockDataProviderPlugin::new()),
-            config.clone(),
-        ).await?;
-        
-        plugin_manager.register_plugin(
-            Arc::new(EmailNotificationPlugin::new()),
-            config.clone(),
-        ).await?;
-        
-        // Initialize and start all plugins
-        plugin_manager.initialize_all().await?;
-        plugin_manager.start_all().await?;
-        
-        tracing::info!("Plugin system initialized with {} plugins", plugin_manager.list_plugins().len());
-        Ok(())
-    }
+    // pub async fn initialize_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     use crate::core::plugin_examples::{
+    //         SimpleAnalysisPlugin, MockDataProviderPlugin, EmailNotificationPlugin
+    //     };
+    //     use crate::core::plugins::PluginConfig;
+    //     use std::collections::HashMap;
+    //     
+    //     let mut plugin_manager = self.plugin_manager.lock().await;
+    //     
+    //     // Create plugin configurations
+    //     let mut settings = HashMap::new();
+    //     settings.insert("environment".to_string(), serde_json::Value::String("development".to_string()));
+    //     
+    //     let config = PluginConfig {
+    //         enabled: true,
+    //         settings,
+    //         environment: "development".to_string(),
+    //     };
+    //     
+    //     // Register example plugins
+    //     plugin_manager.register_plugin(
+    //         Arc::new(SimpleAnalysisPlugin::new()),
+    //         config.clone(),
+    //     ).await?;
+    //     
+    //     plugin_manager.register_plugin(
+    //         Arc::new(MockDataProviderPlugin::new()),
+    //         config.clone(),
+    //     ).await?;
+    //     
+    //     plugin_manager.register_plugin(
+    //         Arc::new(EmailNotificationPlugin::new()),
+    //         config.clone(),
+    //     ).await?;
+    //     
+    //     // Initialize and start all plugins
+    //     plugin_manager.initialize_all().await?;
+    //     plugin_manager.start_all().await?;
+    //     
+    //     tracing::info!("Plugin system initialized with {} plugins", plugin_manager.list_plugins().len());
+    //     Ok(())
+    // }
     
     /// Stop all plugins gracefully
-    pub async fn shutdown_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut plugin_manager = self.plugin_manager.lock().await;
-        plugin_manager.stop_all().await?;
-        tracing::info!("Plugin system shut down");
-        Ok(())
-    }
+    // pub async fn shutdown_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     let mut plugin_manager = self.plugin_manager.lock().await;
+    //     plugin_manager.stop_all().await?;
+    //     tracing::info!("Plugin system shut down");
+    //     Ok(())
+    // }
     
     /// Create database if it doesn't exist and run migrations automatically
     async fn run_migrations(pool: &DatabasePool) -> Result<(), Box<dyn std::error::Error>> {

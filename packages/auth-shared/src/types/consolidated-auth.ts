@@ -13,7 +13,7 @@ export type {
   NotificationPreferences
 } from '@epsx/types';
 
-// Import types for local usage
+// Import types for local usage  
 import type { UserProfile, RegistrationResponse } from '@epsx/types';
 
 // Auth-shared specific extensions and context types

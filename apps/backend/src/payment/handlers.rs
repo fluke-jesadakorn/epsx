@@ -3,6 +3,7 @@ use std::sync::Arc;
 use utoipa::{OpenApi, ToSchema};
 use serde::Serialize;
 use crate::auth::UserClaims;
+use crate::config::Config;
 use super::service::{PaymentService, PaymentError, CreatePaymentRequest, PaymentResponse};
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -97,10 +98,16 @@ pub async fn validate_payment(
     tag = "Payments"
 )]
 pub async fn get_qrcode(
-    State(_payment_service): State<Arc<PaymentService>>,
+    State(payment_service): State<Arc<PaymentService>>,
+    State(config): State<Arc<Config>>,
     Path(payment_id): Path<String>,
 ) -> Result<Json<String>, PaymentError> {
-    let qr_code = format!("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={}", payment_id);
+    let qr_code = format!(
+        "{}?size={}&data={}",
+        config.external_services.qr_code.api_base_url,
+        config.external_services.qr_code.default_size,
+        payment_id
+    );
     
     Ok(Json(qr_code))
 }

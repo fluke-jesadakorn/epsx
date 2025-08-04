@@ -13,7 +13,7 @@ use serde::Deserialize;
 use std::{convert::Infallible, time::Duration};
 use tokio::sync::broadcast;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt as _};
-use tower_cookies::Cookies;
+use crate::web::middleware::AuthCtx;
 use tracing::{info, error};
 
 use crate::dom::values::UserId;
@@ -34,11 +34,11 @@ pub struct SseParams {
 /// SSE handler for real-time events
 pub async fn sse_handler(
     Query(params): Query<SseParams>,
-    cookies: Cookies,
+    auth_ctx: AuthCtx,
     State(_app_state): State<AppState>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
     // Extract user from session
-    let user_id = extract_user_from_session(&cookies)?;
+    let user_id = auth_ctx.user_id;
     
     // Parse subscribed events
     let subscribed_events: Vec<String> = params.events
@@ -188,16 +188,6 @@ fn should_send_sse_event(
     }
     
     true
-}
-
-/// Extract user ID from session cookie
-fn extract_user_from_session(cookies: &Cookies) -> Result<UserId, StatusCode> {
-    let session_cookie = cookies.get("sess_id")
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    // In production, validate session properly
-    let user_id = UserId::new(session_cookie.value().to_string());
-    Ok(user_id)
 }
 
 /// Simulate events for testing (remove in production)

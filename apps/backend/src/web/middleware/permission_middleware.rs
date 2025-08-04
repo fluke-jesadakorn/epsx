@@ -9,7 +9,7 @@ use axum::{
 };
 use serde_json::json;
 
-use crate::web::middleware::auth_middleware::AuthCtx;
+use crate::web::middleware::module_auth_middleware::AuthCtx;
 use crate::web::middleware::rate_limiter::{RateLimitConfig, InMemoryRateLimiter};
 use crate::web::auth::AppState;
 use crate::dom::entities::permission_profile::PermissionProfile;
@@ -24,7 +24,7 @@ pub struct EndpointConfig {
     pub allow_wildcards: bool,
 }
 
-/// Enhanced permission middleware that checks API endpoint access from cookie session
+/// Enhanced permission middleware that checks API endpoint access from bearer token session
 pub async fn permission_middleware(
     State(app_state): State<AppState>,
     auth_ctx: Option<AuthCtx>,
@@ -42,8 +42,8 @@ pub async fn permission_middleware(
     // Require authentication for protected endpoints
     let auth_ctx = auth_ctx.ok_or(StatusCode::UNAUTHORIZED)?;
     
-    // Check permissions directly from user's IAM roles (from cookie session)
-    let has_access = check_route_permission_from_session(
+    // Check permissions directly from user's IAM roles (from bearer token session)
+    let has_access = check_route_permission_from_bearer_session(
         &app_state,
         &auth_ctx.user_id,
         &auth_ctx.role,
@@ -96,8 +96,8 @@ pub async fn permission_middleware(
     Ok(next.run(req).await)
 }
 
-/// Streamlined permission check using session data (no additional DB calls)
-async fn check_route_permission_from_session(
+/// Streamlined permission check using bearer token session data
+async fn check_route_permission_from_bearer_session(
     app_state: &AppState,
     user_id: &UserId,
     user_role: &Role,
@@ -164,7 +164,7 @@ async fn check_route_permission_from_session(
     Ok(AccessCheckResult {
         allowed,
         reason: if allowed {
-            "Access granted via session permissions".to_string()
+            "Access granted via bearer token permissions".to_string()
         } else {
             format!("Insufficient permissions for {} {}", method, path)
         },

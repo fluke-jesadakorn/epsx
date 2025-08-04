@@ -8,7 +8,7 @@ use crate::app::ports::repositories::UserRepo;
 use crate::dom::entities::permission_profile::PermissionProfileId;
 use crate::dom::entities::user::User;
 use crate::dom::values::UserId;
-use crate::infra::services::notification::{NotificationService, Notification, NotificationType, NotificationPriority};
+use crate::dom::ports::{NotificationPort, DomainNotification, NotificationRecipient, DomainNotificationType, DomainNotificationPriority};
 
 #[derive(Debug, Clone)]
 pub struct FeatureExpiration {
@@ -74,7 +74,7 @@ pub trait FeatureExpirationService: Send + Sync {
 
 pub struct FeatureExpirationServiceImpl {
     user_repo: Arc<dyn UserRepo>,
-    notification_service: Arc<dyn NotificationService>,
+    notification_service: Arc<dyn NotificationPort>,
     config: ExpirationConfig,
     // In-memory tracking for notification state
     notification_state: Arc<RwLock<HashMap<String, NotificationState>>>,
@@ -90,7 +90,7 @@ struct NotificationState {
 impl FeatureExpirationServiceImpl {
     pub fn new(
         user_repo: Arc<dyn UserRepo>,
-        notification_service: Arc<dyn NotificationService>,
+        notification_service: Arc<dyn NotificationPort>,
         config: Option<ExpirationConfig>,
     ) -> Self {
         Self {
@@ -125,7 +125,7 @@ impl FeatureExpirationServiceImpl {
         user: &User,
         expiration: &FeatureExpiration,
         days_until_expiry: u32,
-    ) -> Notification {
+    ) -> DomainNotification {
         let mut metadata = HashMap::new();
         metadata.insert("permission_profile_id".to_string(), expiration.permission_profile_id.value().to_string());
         metadata.insert("permission_profile_name".to_string(), expiration.permission_profile_name.clone());
@@ -141,7 +141,7 @@ impl FeatureExpirationServiceImpl {
                     expiration.permission_profile_name,
                     expiration.grace_period_days
                 ),
-                NotificationPriority::Critical
+                DomainNotificationPriority::Critical
             ),
             1 => (
                 "Subscription Expires Tomorrow!".to_string(),
@@ -150,7 +150,7 @@ impl FeatureExpirationServiceImpl {
                     expiration.permission_profile_name,
                     expiration.features.len()
                 ),
-                NotificationPriority::Critical
+                DomainNotificationPriority::Critical
             ),
             days if days <= 3 => (
                 format!("Subscription Expires in {} Days", days),
@@ -159,7 +159,7 @@ impl FeatureExpirationServiceImpl {
                     expiration.permission_profile_name,
                     days
                 ),
-                NotificationPriority::High
+                DomainNotificationPriority::High
             ),
             days if days <= 7 => (
                 format!("Subscription Expires in {} Days", days),
@@ -168,7 +168,7 @@ impl FeatureExpirationServiceImpl {
                     expiration.permission_profile_name,
                     days
                 ),
-                NotificationPriority::High
+                DomainNotificationPriority::High
             ),
             days => (
                 "Subscription Renewal Reminder".to_string(),
@@ -177,29 +177,26 @@ impl FeatureExpirationServiceImpl {
                     expiration.permission_profile_name,
                     days
                 ),
-                NotificationPriority::Medium
+                DomainNotificationPriority::Normal
             ),
         };
 
-        Notification {
-            id: uuid::Uuid::new_v4().to_string(),
-            user_id: user.id().value().to_string(),
+        DomainNotification::new(
+            NotificationRecipient::User(user.id().clone()),
+            DomainNotificationType::FeatureExpiration,
             title,
             message,
-            notification_type: NotificationType::System,
-            priority,
-            read: false,
-            created_at: Utc::now(),
-            expires_at: Some(expiration.expires_at + Duration::days(expiration.grace_period_days as i64)),
-            metadata,
-        }
+        )
+        .with_priority(priority)
+        .with_expiration(expiration.expires_at + Duration::days(expiration.grace_period_days as i64))
+        .with_data(serde_json::to_value(metadata).unwrap_or_default())
     }
 
     async fn create_final_warning_notification(
         &self,
         user: &User,
         expiration: &FeatureExpiration,
-    ) -> Notification {
+    ) -> DomainNotification {
         let mut metadata = HashMap::new();
         metadata.insert("permission_profile_id".to_string(), expiration.permission_profile_id.value().to_string());
         metadata.insert("permission_profile_name".to_string(), expiration.permission_profile_name.clone());
@@ -207,22 +204,19 @@ impl FeatureExpirationServiceImpl {
         metadata.insert("grace_period_ends".to_string(), (expiration.expires_at + Duration::days(expiration.grace_period_days as i64)).to_rfc3339());
         metadata.insert("features".to_string(), expiration.features.join(", "));
 
-        Notification {
-            id: uuid::Uuid::new_v4().to_string(),
-            user_id: user.id().value().to_string(),
-            title: "Final Notice: Features Will Be Deactivated".to_string(),
-            message: format!(
+        DomainNotification::new(
+            NotificationRecipient::User(user.id().clone()),
+            DomainNotificationType::FeatureExpiration,
+            "Final Notice: Features Will Be Deactivated".to_string(),
+            format!(
                 "Your {} subscription expired and the grace period ends today. Your features will be deactivated unless you renew immediately. Affected features: {}",
                 expiration.permission_profile_name,
                 expiration.features.join(", ")
             ),
-            notification_type: NotificationType::System,
-            priority: NotificationPriority::Critical,
-            read: false,
-            created_at: Utc::now(),
-            expires_at: Some(Utc::now() + Duration::days(30)), // Keep this notification for 30 days
-            metadata,
-        }
+        )
+        .with_priority(DomainNotificationPriority::Critical)
+        .with_expiration(Utc::now() + Duration::days(30)) // Keep this notification for 30 days
+        .with_data(serde_json::to_value(&metadata).unwrap_or_default())
     }
 
     async fn should_send_warning(&self, expiration: &FeatureExpiration, days_until_expiry: u32) -> bool {
@@ -426,25 +420,22 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
             .map_err(|e| ExpirationError::DatabaseError(format!("Failed to find user: {}", e)))?;
 
         // Send deactivation notification
-        let notification = Notification {
-            id: uuid::Uuid::new_v4().to_string(),
-            user_id: user.id().value().to_string(),
-            title: "Features Deactivated".to_string(),
-            message: format!(
-                "Your subscription has expired and the grace period has ended. Some features have been deactivated. Renew your subscription to reactivate them."
-            ),
-            notification_type: NotificationType::System,
-            priority: NotificationPriority::High,
-            read: false,
-            created_at: Utc::now(),
-            expires_at: Some(Utc::now() + Duration::days(60)),
-            metadata: {
-                let mut meta = HashMap::new();
-                meta.insert("permission_profile_id".to_string(), permission_profile_id.value().to_string());
-                meta.insert("deactivated_at".to_string(), Utc::now().to_rfc3339());
-                meta
-            },
+        let metadata = {
+            let mut meta = HashMap::new();
+            meta.insert("permission_profile_id".to_string(), permission_profile_id.value().to_string());
+            meta.insert("deactivated_at".to_string(), Utc::now().to_rfc3339());
+            meta
         };
+        
+        let notification = DomainNotification::new(
+            NotificationRecipient::User(user.id().clone()),
+            DomainNotificationType::FeatureExpiration,
+            "Features Deactivated".to_string(),
+            "Your subscription has expired and the grace period has ended. Some features have been deactivated. Renew your subscription to reactivate them.".to_string(),
+        )
+        .with_priority(DomainNotificationPriority::High)
+        .with_expiration(Utc::now() + Duration::days(60))
+        .with_data(serde_json::to_value(&metadata).unwrap_or_default());
 
         self.notification_service.send_notification(notification).await
             .map_err(|e| ExpirationError::NotificationError(e.to_string()))?;
@@ -523,7 +514,7 @@ impl ExpirationScheduler {
 mod tests {
     use super::*;
     use mockall::mock;
-    use crate::infra::services::notification::InMemoryNotificationService;
+    // Use mock implementation instead of concrete infrastructure service
 
     mock! {
         UserRepoMock {}
@@ -538,27 +529,22 @@ mod tests {
     }
 
     mock! {
-        PermissionProfileRepoMock {}
+        NotificationPortMock {}
         #[async_trait]
-        impl PermissionProfileRepo for PermissionProfileRepoMock {
-            async fn find_by_id(&self, id: &PermissionProfileId) -> Result<crate::dom::entities::permission_profile::PermissionProfile, String>;
-            async fn create(&self, profile: crate::dom::entities::permission_profile::PermissionProfile) -> Result<crate::dom::entities::permission_profile::PermissionProfile, String>;
-            async fn update(&self, profile: crate::dom::entities::permission_profile::PermissionProfile) -> Result<crate::dom::entities::permission_profile::PermissionProfile, String>;
-            async fn delete(&self, id: &PermissionProfileId) -> Result<(), String>;
-            async fn list_by_user(&self, user_id: &UserId) -> Result<Vec<crate::dom::entities::permission_profile::PermissionProfile>, String>;
-            async fn find_active_profiles(&self) -> Result<Vec<crate::dom::entities::permission_profile::PermissionProfile>, String>;
+        impl NotificationPort for NotificationPortMock {
+            async fn send_notification(&self, notification: DomainNotification) -> Result<(), crate::dom::ports::NotificationError>;
+            async fn send_bulk_notifications(&self, notifications: Vec<DomainNotification>) -> Result<(), crate::dom::ports::NotificationError>;
+            async fn get_notification_status(&self, notification_id: &str) -> Result<crate::dom::ports::NotificationStatus, crate::dom::ports::NotificationError>;
         }
     }
 
     #[tokio::test]
     async fn test_expiration_service_creation() {
         let user_repo = Arc::new(MockUserRepoMock::new());
-        let permission_profile_repo = Arc::new(MockPermissionProfileRepoMock::new());
-        let notification_service = Arc::new(InMemoryNotificationService::new());
+        let notification_service = Arc::new(MockNotificationPortMock::new());
 
         let service = FeatureExpirationServiceImpl::new(
             user_repo,
-            permission_profile_repo,
             notification_service,
             None,
         );
@@ -571,12 +557,10 @@ mod tests {
     #[tokio::test]
     async fn test_warning_timing_logic() {
         let user_repo = Arc::new(MockUserRepoMock::new());
-        let permission_profile_repo = Arc::new(MockPermissionProfileRepoMock::new());
-        let notification_service = Arc::new(InMemoryNotificationService::new());
+        let notification_service = Arc::new(MockNotificationPortMock::new());
 
         let service = FeatureExpirationServiceImpl::new(
             user_repo,
-            permission_profile_repo,
             notification_service,
             Some(ExpirationConfig {
                 warning_days_before: vec![7, 3, 1],

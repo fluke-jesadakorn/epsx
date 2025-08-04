@@ -519,6 +519,9 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1
     devDependencies:
+      '@epsx/config':
+        specifier: workspace:*
+        version: link:../config
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.9
@@ -621,6 +624,9 @@ importers:
         specifier: ^3.22.0
         version: 3.25.67
     devDependencies:
+      '@epsx/config':
+        specifier: workspace:*
+        version: link:../config
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.9

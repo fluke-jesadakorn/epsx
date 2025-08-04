@@ -12,18 +12,18 @@ export default function AdminRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading, init } = useAdminAuth();
+  const { user, loading: authLoading, initialized, navigating } = useAdminAuth();
   const { hasModuleAccess, canPerformAction, loading: moduleLoading } = useModuleAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect if auth context is fully initialized and no user is found
-    if (init && !authLoading && !user) {
+    // Only redirect if auth context is fully initialized, not navigating, and no user is found
+    if (initialized && !authLoading && !navigating && !user) {
       router.replace('/login');
     }
-  }, [user, authLoading, init, router]);
+  }, [user, authLoading, initialized, navigating, router]);
 
-  if (authLoading || moduleLoading || !init) {
+  if (authLoading || moduleLoading || !initialized || navigating) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

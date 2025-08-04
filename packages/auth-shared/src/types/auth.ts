@@ -1,3 +1,5 @@
+import type { UserProfile } from '@epsx/types';
+
 // Authentication credentials and service interfaces
 export interface SignInCredentials {
   email: string;

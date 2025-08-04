@@ -171,6 +171,165 @@ pub trait ErrorRecovery<T>: Send + Sync {
 /// Result type alias for convenience
 pub type AppResult<T> = Result<T, AppError>;
 
+/// Enhanced error context builder
+pub struct ErrorContextBuilder {
+    context: ErrorContext,
+}
+
+impl ErrorContextBuilder {
+    pub fn new(operation: impl Into<String>, service: impl Into<String>) -> Self {
+        Self {
+            context: ErrorContext {
+                operation: operation.into(),
+                service: service.into(),
+                ..Default::default()
+            }
+        }
+    }
+    
+    pub fn user_id(mut self, user_id: impl Into<String>) -> Self {
+        self.context.user_id = Some(user_id.into());
+        self
+    }
+    
+    pub fn request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.context.request_id = Some(request_id.into());
+        self
+    }
+    
+    pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.context.metadata.insert(key.into(), value.into());
+        self
+    }
+    
+    pub fn build(self) -> ErrorContext {
+        self.context
+    }
+}
+
+/// Error aggregation for collecting multiple errors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorCollection {
+    pub errors: Vec<AppError>,
+    pub summary: String,
+}
+
+impl ErrorCollection {
+    pub fn new() -> Self {
+        Self {
+            errors: Vec::new(),
+            summary: String::new(),
+        }
+    }
+    
+    pub fn add(&mut self, error: AppError) {
+        self.errors.push(error);
+        self.update_summary();
+    }
+    
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+    
+    pub fn into_result<T>(self, value: T) -> Result<T, AppError> {
+        if self.has_errors() {
+            Err(AppError::new(
+                ErrorKind::ValidationError,
+                format!("Multiple errors occurred: {}", self.summary)
+            ).with_context(ErrorContext {
+                operation: "error_aggregation".to_string(),
+                service: "core".to_string(),
+                metadata: {
+                    let mut metadata = HashMap::new();
+                    metadata.insert("error_count".to_string(), self.errors.len().to_string());
+                    metadata
+                },
+                ..Default::default()
+            }))
+        } else {
+            Ok(value)
+        }
+    }
+    
+    fn update_summary(&mut self) {
+        self.summary = format!("{} validation errors", self.errors.len());
+    }
+}
+
+/// Structured error logging
+pub struct ErrorLogger;
+
+impl ErrorLogger {
+    pub fn log_error(error: &AppError) {
+        tracing::error!(
+            correlation_id = %error.correlation_id,
+            error_kind = %error.kind,
+            timestamp = %error.timestamp,
+            user_id = ?error.context.user_id,
+            request_id = ?error.context.request_id,
+            operation = %error.context.operation,
+            service = %error.context.service,
+            metadata = ?error.context.metadata,
+            stack_trace = ?error.stack_trace,
+            "Error occurred: {}", error.message
+        );
+    }
+    
+    pub fn log_warning(error: &AppError) {
+        tracing::warn!(
+            correlation_id = %error.correlation_id,
+            error_kind = %error.kind,
+            user_id = ?error.context.user_id,
+            operation = %error.context.operation,
+            service = %error.context.service,
+            "Warning: {}", error.message
+        );
+    }
+    
+    pub fn log_recovery_attempt(error: &AppError, recovery_strategy: &str) {
+        tracing::info!(
+            correlation_id = %error.correlation_id,
+            error_kind = %error.kind,
+            recovery_strategy = recovery_strategy,
+            "Attempting error recovery for: {}", error.message
+        );
+    }
+}
+
+/// Error sanitization for removing sensitive information
+pub struct ErrorSanitizer;
+
+impl ErrorSanitizer {
+    pub fn sanitize_for_user(error: &AppError) -> AppError {
+        let sanitized_message = Self::sanitize_message(&error.message);
+        let mut sanitized_error = error.clone();
+        sanitized_error.message = sanitized_message;
+        sanitized_error.stack_trace = None; // Never expose stack traces to users
+        sanitized_error.context.metadata = HashMap::new(); // Remove internal metadata
+        sanitized_error
+    }
+    
+    fn sanitize_message(message: &str) -> String {
+        let sensitive_patterns = [
+            r"password\s*[:=]\s*\S+",
+            r"token\s*[:=]\s*\S+",
+            r"key\s*[:=]\s*\S+",
+            r"secret\s*[:=]\s*\S+",
+            r"connection\s+string",
+            r"database\s+url",
+            r"\b\d{3,4}-\d{2}-\d{4}\b", // SSN pattern
+            r"\b\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}\b", // Credit card pattern
+        ];
+        
+        let mut sanitized = message.to_string();
+        for pattern in &sensitive_patterns {
+            let regex = regex::Regex::new(pattern).unwrap();
+            sanitized = regex.replace_all(&sanitized, "[REDACTED]").to_string();
+        }
+        sanitized
+    }
+}
+
 /// Conversion from standard errors
 impl From<Box<dyn std::error::Error>> for AppError {
     fn from(err: Box<dyn std::error::Error>) -> Self {
@@ -206,5 +365,78 @@ macro_rules! business_error {
 macro_rules! not_found_error {
     ($entity:expr, $id:expr) => {
         AppError::new(ErrorKind::AggregateNotFound, format!("{} with id {} not found", $entity, $id))
+    };
+}
+
+#[macro_export]
+macro_rules! database_error {
+    ($operation:expr, $details:expr) => {
+        AppError::new(
+            ErrorKind::DatabaseError, 
+            format!("Database operation '{}' failed: {}", $operation, $details)
+        ).with_context(
+            ErrorContextBuilder::new($operation, "database")
+                .metadata("error_type", "database_operation_failed")
+                .build()
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! external_service_error {
+    ($service:expr, $operation:expr, $details:expr) => {
+        AppError::new(
+            ErrorKind::ExternalServiceError,
+            format!("External service '{}' operation '{}' failed: {}", $service, $operation, $details)
+        ).with_context(
+            ErrorContextBuilder::new($operation, $service)
+                .metadata("service_name", $service)
+                .metadata("error_type", "external_service_failure")
+                .build()
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! auth_error {
+    ($msg:expr) => {
+        AppError::new(ErrorKind::AuthenticationError, $msg)
+    };
+    ($msg:expr, $($arg:tt)*) => {
+        AppError::new(ErrorKind::AuthenticationError, format!($msg, $($arg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! authz_error {
+    ($msg:expr) => {
+        AppError::new(ErrorKind::AuthorizationError, $msg)
+    };
+    ($msg:expr, $($arg:tt)*) => {
+        AppError::new(ErrorKind::AuthorizationError, format!($msg, $($arg)*))
+    };
+}
+
+/// Enhanced error context creation macro
+#[macro_export]
+macro_rules! error_context {
+    ($operation:expr, $service:expr) => {
+        ErrorContextBuilder::new($operation, $service).build()
+    };
+    ($operation:expr, $service:expr, user_id = $user_id:expr) => {
+        ErrorContextBuilder::new($operation, $service)
+            .user_id($user_id)
+            .build()
+    };
+    ($operation:expr, $service:expr, request_id = $request_id:expr) => {
+        ErrorContextBuilder::new($operation, $service)
+            .request_id($request_id)
+            .build()  
+    };
+    ($operation:expr, $service:expr, user_id = $user_id:expr, request_id = $request_id:expr) => {
+        ErrorContextBuilder::new($operation, $service)
+            .user_id($user_id)
+            .request_id($request_id)
+            .build()
     };
 }
