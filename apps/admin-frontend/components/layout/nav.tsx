@@ -110,13 +110,27 @@ export function Navigation() {
               ),
             )}
             {user ? (
-              <button
-                onClick={signOut}
-                className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </button>
+              <>
+                {/* Client-side logout with JS */}
+                <button
+                  onClick={signOut}
+                  className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+                
+                {/* Fallback form-based logout for server-side redirect (hidden, for no-JS scenarios) */}
+                <form action="/api/auth/logout" method="POST" className="hidden">
+                  <button
+                    type="submit"
+                    className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </form>
+              </>
             ) : (
               <Link href="/login">
                 <button className="pancake-button flex items-center gap-2 text-sm font-medium">

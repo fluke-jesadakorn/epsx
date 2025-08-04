@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginAction, logoutAction } from '@/lib/actions/server-auth';
-import { adminAuthAPI } from '@/lib/auth-api';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface AuthUser {
   user_id: string;
@@ -25,6 +25,7 @@ interface AuthState {
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
 
@@ -32,6 +33,8 @@ interface AuthContextType extends AuthState {
 const AdminAuthContext = createContext<AuthContextType | null>(null);
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [state, setState] = useState<AuthState>({
     user: null,
     loading: true,
@@ -40,25 +43,59 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     navigating: false,
   });
 
+  // Update state based on NextAuth session
+  useEffect(() => {
+    if (status === 'loading') {
+      setState(prev => ({ ...prev, loading: true, initialized: false }));
+      return;
+    }
+
+    if (status === 'authenticated' && session) {
+      const user: AuthUser = {
+        user_id: session.user.id,
+        email: session.user.email,
+        role: session.user.role,
+        permissions: session.user.permissions,
+        subscription_tier: session.user.subscription_tier,
+        session_type: 'admin',
+        expires_at: session.expires_at,
+      };
+      setState({
+        user,
+        loading: false,
+        error: null,
+        initialized: true,
+        navigating: false,
+      });
+    } else {
+      setState({
+        user: null,
+        loading: false,
+        error: null,
+        initialized: true,
+        navigating: false,
+      });
+    }
+  }, [session, status]);
+
   const signIn = async (email: string, password: string) => {
     setState(prev => ({ ...prev, loading: true, error: null, navigating: true }));
     
     try {
-      // Create FormData for server action
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('password', password);
-      
-      // Call server action
-      const result = await loginAction(formData);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Login failed');
+      const result = await nextAuthSignIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
       }
-      
-      // After successful login, get user data
-      const user = await adminAuthAPI.getCurrentUser();
-      setState(prev => ({ ...prev, user, loading: false, navigating: false, initialized: true }));
+
+      if (result?.ok) {
+        // NextAuth will handle the session update
+        router.push('/');
+      }
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
@@ -73,9 +110,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setState(prev => ({ ...prev, loading: true, navigating: true }));
     try {
-      // Call server action (this will redirect automatically)
-      await logoutAction();
-      setState({ user: null, loading: false, error: null, initialized: true, navigating: false });
+      await nextAuthSignOut({ redirect: false });
+      router.push('/login');
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
@@ -87,23 +123,15 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = async () => {
-    setState(prev => ({ ...prev, loading: true }));
-    try {
-      const user = await adminAuthAPI.getCurrentUser();
-      setState({ user, loading: false, error: null, initialized: true, navigating: false });
-    } catch (error) {
-      setState({ user: null, loading: false, error: null, initialized: true, navigating: false });
-    }
+    // NextAuth handles this automatically through useSession
+    return Promise.resolve();
   };
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
 
   const contextValue: AuthContextType = {
     ...state,
     signIn,
     logout,
+    signOut: logout, // Alias for logout to match navigation component
     checkAuth,
   };
 

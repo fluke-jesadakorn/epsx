@@ -12,27 +12,61 @@ export async function makeServerRequest<T = any>(
   const { endpoint, baseUrl, ...fetchOptions } = options;
   
   try {
-    let cookieHeader = '';
+    let authToken = '';
     
     try {
-      // Import cookies dynamically to avoid client-side import issues
-      const { cookies } = await import('next/headers');
-      const cookieStore = await cookies();
-      const allCookies = cookieStore.getAll();
-      cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-    } catch (cookiesError) {
-      // Handle case where cookies() is called outside request context
-      if (typeof cookiesError === 'object' && cookiesError && 'message' in cookiesError) {
-        const errorMessage = String(cookiesError.message);
-        if (errorMessage.includes('cookies" was called outside a request scope') || 
-            errorMessage.includes('cookies() was called outside a request scope')) {
-          console.warn('Cookies not available - running outside request context. Proceeding without authentication headers.');
-          // Continue without cookies - this allows server actions to work in client context for development
-        } else {
-          throw cookiesError;
+      // Import NextAuth functions dynamically to avoid client-side import issues
+      const { getServerSession } = await import('next-auth');
+      
+      // Try different possible auth config locations
+      let authOptions;
+      try {
+        const authConfig = await import('@/auth');
+        authOptions = authConfig.authOptions;
+      } catch {
+        try {
+          const authConfig = await import('@/lib/auth');
+          authOptions = authConfig.authOptions;
+        } catch {
+          const authConfig = await import('../../apps/admin-frontend/auth');
+          authOptions = authConfig.authOptions;
         }
-      } else {
-        throw cookiesError;
+      }
+      
+      // Get NextAuth session
+      const session = await getServerSession(authOptions);
+      
+      if (session?.accessToken) {
+        // Use the access token from backend authentication
+        authToken = session.accessToken;
+        console.log('🔑 Using NextAuth access token for backend request');
+      } else if (session?.user?.id) {
+        // Fallback to user ID if no access token
+        authToken = session.user.id;
+        console.log('🔑 Using NextAuth user ID as fallback token for backend request');
+      }
+    } catch (authError) {
+      console.warn('NextAuth session not available, proceeding without authentication:', authError);
+      
+      // Fallback to cookies approach
+      try {
+        // Import cookies dynamically to avoid client-side import issues
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const allCookies = cookieStore.getAll();
+        
+        // Look for NextAuth session token in cookies
+        const sessionToken = allCookies.find(c => 
+          c.name.includes('next-auth.session-token') || 
+          c.name.includes('__Secure-next-auth.session-token')
+        );
+        
+        if (sessionToken) {
+          authToken = sessionToken.value;
+          console.log('🔑 Using NextAuth cookie token for backend request');
+        }
+      } catch (cookiesError) {
+        console.warn('Cookies also not available - proceeding without authentication headers.');
       }
     }
     
@@ -45,9 +79,9 @@ export async function makeServerRequest<T = any>(
       ...(fetchOptions.headers as Record<string, string> || {}),
     };
     
-    // Only add Cookie header if we have cookies
-    if (cookieHeader) {
-      headers['Cookie'] = cookieHeader;
+    // Add Authorization header with Bearer token if we have auth token
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
     }
     
     const response = await fetch(url, {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { mainAuthAPI } from '@/lib/auth-api';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface LoginFormServerProps {
@@ -24,8 +24,19 @@ export function LoginFormServer({ redirectTo = '/dashboard' }: LoginFormServerPr
     const password = formData.get('password') as string;
     
     try {
-      await mainAuthAPI.login(email, password);
-      router.push(redirectTo);
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      if (result?.ok) {
+        router.push(redirectTo);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

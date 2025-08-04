@@ -1,13 +1,4 @@
-import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
-import { PerformanceProvider } from '@/components/common/PerformanceProvider';
-import { BackgroundDecorationsClient } from '@/components/layout/BackgroundDecorations.client';
-import { Navigation } from '@/components/nav';
-import { ToastProvider } from '@/components/ui/toaster';
-import { AppStateProvider } from '@/context/app-state';
-import { AuthProvider } from '@/context/auth-context';
-import { PermissionProvider } from '@epsx/server-providers/client';
-import { UIProvider } from '@/context/ui-context';
-import { GlobalThemeProvider } from '@epsx/theme';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 import { Kanit } from 'next/font/google';
 import './globals.css';
 
@@ -28,39 +19,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${kanit.variable} font-sans antialiased`}>
-        <GlobalThemeProvider defaultTheme="system" enableSystem>
-          <PerformanceProvider>
-            <AppStateProvider>
-              <UIProvider>
-                <AuthProvider>
-                  <PermissionProvider serverData={{
-                    paymentStatus: null,
-                    permissions: [],
-                    featureAccess: {},
-                    rankingAccess: {},
-                    error: null
-                  }}>
-                    <ToastProvider>
-                      <BackgroundDecorationsClient />
-
-                      <OptimizedSuspenseBoundary identifier="navigation">
-                        <Navigation />
-                      </OptimizedSuspenseBoundary>
-
-                      <OptimizedSuspenseBoundary identifier="main content">
-                        {children}
-                      </OptimizedSuspenseBoundary>
-                    </ToastProvider>
-                  </PermissionProvider>
-                </AuthProvider>
-              </UIProvider>
-            </AppStateProvider>
-          </PerformanceProvider>
-        </GlobalThemeProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

@@ -1,10 +1,2 @@
-export {
-  AuthGuard,
-  PermissionGuard,
-  RoleGuard,
-  AdminGuard,
-  type AuthGuardProps,
-  type PermissionGuardProps,
-  type RoleGuardProps,
-  type AdminGuardProps,
-} from './unified-guards';
+// Legacy guards have been migrated to NextAuth.js
+// Use NextAuth middleware and session checks instead

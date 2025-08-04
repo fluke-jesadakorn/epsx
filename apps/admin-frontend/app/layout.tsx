@@ -1,11 +1,5 @@
-import { ToastProvider } from '@/components/ui/toast';
-import { ThemeTransition } from '@/components/ui/theme-transition';
-import { Navigation } from '@/components/layout/nav';
-import { UnifiedAuthProvider } from '@epsx/auth-shared/client';
-import { AdminAuthProvider } from '@/auth/ctx';
-import { ModuleAuthProvider } from '@/auth/module-ctx';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 import type { Metadata } from 'next';
-import { GlobalThemeProvider } from '@epsx/theme';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -45,19 +39,9 @@ export default function RootLayout({
       className={`preload ${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen font-sans antialiased bg-background text-foreground">
-        <GlobalThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <ThemeTransition />
-          <AdminAuthProvider>
-            <ModuleAuthProvider>
-              <ToastProvider>
-                <Navigation />
-                <div className="relative flex min-h-screen flex-col card">
-                  {children}
-                </div>
-              </ToastProvider>
-            </ModuleAuthProvider>
-          </AdminAuthProvider>
-        </GlobalThemeProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

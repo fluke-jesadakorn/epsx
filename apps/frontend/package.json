@@ -29,6 +29,7 @@
     "clean": "rm -rf .next out node_modules .turbo reports"
   },
   "dependencies": {
+    "@auth/core": "^0.40.0",
     "@epsx/api-client": "workspace:*",
     "@epsx/auth-shared": "workspace:*",
     "@epsx/config": "workspace:*",
@@ -37,6 +38,7 @@
     "@epsx/server-providers": "workspace:*",
     "@epsx/shared-core": "workspace:*",
     "@epsx/shared-utils": "workspace:*",
+    "@epsx/theme": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",
@@ -66,6 +68,7 @@
     "lucide-react": "0.525.0",
     "nanoid": "^5.1.5",
     "next": "15.4.2",
+    "next-auth": "^4.24.11",
     "next-themes": "0.4.6",
     "qrcode.react": "^4.2.0",
     "react": "19.1.0",
@@ -78,8 +81,7 @@
     "tailwindcss-animate": "^1.0.7",
     "ws": "^8.18.3",
     "zod": "3.25.67",
-    "zustand": "^5.0.3",
-    "@epsx/theme": "workspace:*"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.0",

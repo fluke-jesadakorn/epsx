@@ -6,7 +6,6 @@
 export { ApiClientFactory, apiClient } from './ApiClientFactory';
 
 // Specialized clients (for advanced usage)
-export { AuthClient } from './clients/AuthClient';
 export { PaymentClient } from './clients/PaymentClient';
 export { AnalyticsClient } from './clients/AnalyticsClient';
 export { PermissionsClient } from './clients/PermissionsClient';

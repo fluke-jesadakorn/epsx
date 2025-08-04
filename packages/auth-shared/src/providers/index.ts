@@ -1,8 +1,2 @@
-export {
-  UnifiedAuthProvider,
-  useUnifiedAuth,
-  useAuth,
-  usePermissions,
-  type UnifiedAuthContextType,
-  type UnifiedAuthProviderProps,
-} from './unified-auth';
+// Auth providers have been migrated to NextAuth.js
+// This package now only provides shared types and utilities
