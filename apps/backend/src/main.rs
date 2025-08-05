@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Background job scheduler started");
     
     // Create application router
-    let app = create_router(container);
+    let app = create_router(container).await;
     
     // Determine server address
     let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());

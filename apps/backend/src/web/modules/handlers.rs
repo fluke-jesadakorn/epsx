@@ -133,7 +133,6 @@ pub async fn list_available_modules(
     Query(filters): Query<ModuleFilters>,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     // Get all active modules
     let modules = match state.module_repo.list_active_modules().await {
         Ok(modules) => modules,
@@ -145,7 +144,6 @@ pub async fn list_available_modules(
 
     // Filter modules based on user's access and query filters
     let mut filtered_modules = Vec::new();
-    
     for module in modules {
         // Check if user has access to this module
         let has_access = auth.has_module_access(module.name());
@@ -185,7 +183,6 @@ pub async fn list_available_modules(
     let total = filtered_modules.len();
     let offset = filters.offset.unwrap_or(0) as usize;
     let limit = filters.limit.unwrap_or(50) as usize;
-    
     let paginated_modules: Vec<_> = filtered_modules
         .into_iter()
         .skip(offset)
@@ -207,10 +204,8 @@ pub async fn get_module_details(
     Path(module_id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     let module_uuid = Uuid::parse_str(&module_id)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
     let module = match state.module_repo.get_sub_module(&module_uuid).await {
         Ok(Some(module)) => module,
         Ok(None) => return Err(StatusCode::NOT_FOUND),
@@ -264,7 +259,6 @@ pub async fn check_module_access(
     Path(module_name): Path<String>,
     State(_state): State<AppState>,
 ) -> Result<Json<ModuleAccessInfo>, StatusCode> {
-    
     let has_access = auth.has_module_access(&module_name);
     let access_level = auth.get_access_level(&module_name);
     let quota_status = auth.get_quota_status(&module_name);
@@ -300,7 +294,6 @@ pub async fn get_module_quota_status(
     Path(module_name): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<QuotaStatus>, StatusCode> {
-    
     if !auth.has_module_access(&module_name) {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -357,7 +350,6 @@ pub async fn create_module(
     State(state): State<AppState>,
     Json(request): Json<CreateModuleRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     // Check admin permissions
     if !matches!(auth.role, crate::dom::values::Role::Admin | crate::dom::values::Role::SuperAdmin) {
         return Err(StatusCode::FORBIDDEN);
@@ -390,7 +382,6 @@ pub async fn assign_user_modules(
     State(state): State<AppState>,
     Json(request): Json<AssignModulesRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     // Check admin permissions
     if !matches!(auth.role, crate::dom::values::Role::Admin | crate::dom::values::Role::SuperAdmin) {
         return Err(StatusCode::FORBIDDEN);
@@ -445,11 +436,9 @@ pub async fn get_user_modules(
     Path(user_id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     // Check admin permissions or self-access
     let target_user_id = crate::dom::values::UserId::from_str(&user_id)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
     if auth.user_id != target_user_id && !matches!(auth.role, crate::dom::values::Role::Admin | crate::dom::values::Role::SuperAdmin) {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -475,7 +464,6 @@ pub async fn create_api_key(
     State(state): State<AppState>,
     Json(request): Json<CreateApiKeyRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    
     // Check admin permissions
     if !matches!(auth.role, crate::dom::values::Role::Admin | crate::dom::values::Role::SuperAdmin) {
         return Err(StatusCode::FORBIDDEN);
@@ -535,7 +523,6 @@ fn generate_api_key() -> String {
     use rand::Rng;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const KEY_LEN: usize = 64;
-    
     let mut rng = rand::thread_rng();
     (0..KEY_LEN)
         .map(|_| {

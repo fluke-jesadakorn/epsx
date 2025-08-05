@@ -9,16 +9,28 @@ use super::handlers::{
     create_user_handler,
     get_user_handler,
     list_users_handler,
-    update_user_role_handler,
-    bulk_update_levels_handler,
+    update_user_handler,
+    delete_user_handler,
     get_user_stats_handler,
     get_level_history_handler,
-    list_permission_profiles_handler,
-    assign_permission_profile_directly_handler,
-    get_permission_profile_details_handler,
-    soft_delete_user_handler,
+    bulk_update_users_handler,
+    assign_permission_profiles_handler,
 };
-use crate::web::AppState;
+use super::casbin_handlers::{
+    get_all_policies_handler,
+    add_policy_handler,
+    remove_policy_handler,
+    add_batch_policies_handler,
+    assign_role_handler,
+    remove_role_handler,
+    get_user_roles_handler,
+    get_user_permissions_handler,
+    test_policy_handler,
+    reload_policies_handler,
+    get_cache_stats_handler,
+    clear_cache_handler,
+};
+use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
     Router::new()
@@ -33,15 +45,31 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users", get(list_users_handler))
         .route("/users", post(create_user_handler))
         .route("/users/:user_id", get(get_user_handler))
-        .route("/users/:user_id", put(update_user_role_handler))
-        .route("/users/:user_id", delete(soft_delete_user_handler))
-        .route("/users/batch-update-roles", post(bulk_update_levels_handler))
-        .route("/users/:user_id/role-history", get(get_level_history_handler))
+        .route("/users/:user_id", put(update_user_handler))
+        .route("/users/:user_id", delete(delete_user_handler))
+        .route("/users/bulk-update", post(bulk_update_users_handler))
+        .route("/users/level-history", get(get_level_history_handler))
         
         // Permission profile management routes
-        .route("/permission-profiles", get(list_permission_profiles_handler))
-        .route("/permission-profiles/:profile_id", get(get_permission_profile_details_handler))
-        .route("/permission-profiles/assign", post(assign_permission_profile_directly_handler))
+        .route("/permission-profiles/assign", post(assign_permission_profiles_handler))
+        
+        // Casbin policy management routes
+        .route("/casbin/policies", get(get_all_policies_handler))
+        .route("/casbin/policies", post(add_policy_handler))
+        .route("/casbin/policies", delete(remove_policy_handler))
+        .route("/casbin/policies/batch", post(add_batch_policies_handler))
+        .route("/casbin/policies/test", post(test_policy_handler))
+        .route("/casbin/policies/reload", post(reload_policies_handler))
+        
+        // Casbin role management routes
+        .route("/casbin/roles", post(assign_role_handler))
+        .route("/casbin/roles", delete(remove_role_handler))
+        .route("/casbin/users/:user_id/roles", get(get_user_roles_handler))
+        .route("/casbin/users/:user_id/permissions", get(get_user_permissions_handler))
+        
+        // Casbin cache management routes
+        .route("/casbin/cache/stats", get(get_cache_stats_handler))
+        .route("/casbin/cache/clear", post(clear_cache_handler))
 }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

@@ -1,5 +1,5 @@
-// Market data module handlers
-// Placeholder implementation for market data endpoints
+// Market data module handlers - SIMPLIFIED DURING CASBIN MIGRATION
+// TODO: Fix handler signatures and re-enable full functionality after Casbin integration
 
 use axum::{
     extract::{Path, State},
@@ -7,142 +7,136 @@ use axum::{
     response::Json,
 };
 use serde_json::{json, Value};
+use crate::web::auth::AppState;
 
-use crate::web::{
-    auth::AppState,
-    middleware::module_auth_middleware::ModuleAccess,
-};
-
-// Placeholder handlers for market data endpoints
+// Simplified placeholder handlers for market data endpoints
 
 pub async fn get_quote(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "message": "Get quote - implementation pending"
+        "quote": {},
+        "message": "Quote data - implementation pending"
     })))
 }
 
 pub async fn get_batch_quotes(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "quotes": [],
         "message": "Batch quotes - implementation pending"
     })))
 }
 
 pub async fn get_live_quote(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "live_quote": {},
         "message": "Live quote - implementation pending"
     })))
 }
 
 pub async fn connect_data_stream(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "message": "Data stream - implementation pending"
+        "message": "Data stream connection - implementation pending"
     })))
 }
 
 pub async fn get_historical_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "historical": [],
         "message": "Historical data - implementation pending"
     })))
 }
 
 pub async fn get_intraday_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "intraday": [],
         "message": "Intraday data - implementation pending"
     })))
 }
 
 pub async fn get_bulk_historical(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "message": "Bulk historical - implementation pending"
+        "bulk_historical": [],
+        "message": "Bulk historical data - implementation pending"
     })))
 }
 
 pub async fn get_sma(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "sma": [],
         "message": "SMA indicator - implementation pending"
     })))
 }
 
 pub async fn get_ema(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "ema": [],
         "message": "EMA indicator - implementation pending"
     })))
 }
 
 pub async fn get_rsi(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "rsi": [],
         "message": "RSI indicator - implementation pending"
     })))
 }
 
 pub async fn get_macd(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "macd": [],
         "message": "MACD indicator - implementation pending"
     })))
 }
 
 pub async fn get_bollinger_bands(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "bollinger": [],
         "message": "Bollinger Bands - implementation pending"
     })))
 }
 
 pub async fn get_market_alerts(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "alerts": [],
         "message": "Market alerts - implementation pending"
     })))
 }
 
 pub async fn create_market_alert(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -151,7 +145,6 @@ pub async fn create_market_alert(
 }
 
 pub async fn delete_market_alert(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -161,100 +154,97 @@ pub async fn delete_market_alert(
 }
 
 pub async fn list_symbols(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "symbols": ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"],
-        "message": "List symbols - basic implementation"
+        "symbols": [],
+        "message": "Symbol list - implementation pending"
     })))
 }
 
 pub async fn search_symbols(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "message": "Search symbols - implementation pending"
+        "results": [],
+        "message": "Symbol search - implementation pending"
     })))
 }
 
 pub async fn list_exchanges(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "exchanges": ["NYSE", "NASDAQ", "AMEX"],
-        "message": "List exchanges - basic implementation"
+        "exchanges": [],
+        "message": "Exchange list - implementation pending"
     })))
 }
 
 pub async fn list_sectors(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
-        "sectors": ["Technology", "Healthcare", "Finance", "Energy"],
-        "message": "List sectors - basic implementation"
+        "sectors": [],
+        "message": "Sector list - implementation pending"
     })))
 }
 
 pub async fn get_level2_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "level2": {},
         "message": "Level 2 data - implementation pending"
     })))
 }
 
 pub async fn get_options_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "options": [],
         "message": "Options data - implementation pending"
     })))
 }
 
 pub async fn get_futures_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "futures": [],
         "message": "Futures data - implementation pending"
     })))
 }
 
 pub async fn get_international_quotes(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "quotes": [],
         "message": "International quotes - implementation pending"
     })))
 }
 
 pub async fn get_forex_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "forex": {},
         "message": "Forex data - implementation pending"
     })))
 }
 
 pub async fn get_crypto_data(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
+        "crypto": {},
         "message": "Crypto data - implementation pending"
     })))
 }

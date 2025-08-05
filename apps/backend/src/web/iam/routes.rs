@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 
-use crate::web::AppState;
+use crate::web::auth::AppState;
 use super::handlers::*;
 
 /// Create IAM router with all endpoints
@@ -33,6 +33,6 @@ pub fn create_iam_router() -> Router<AppState> {
         
         // User-role assignment routes
         .route("/users/:user_id/roles/:role_id", post(assign_role_to_user_handler))
-        .route("/users/:user_id/roles/:role_id", delete(remove_role_from_user_handler))
-        .route("/users/:user_id/roles", get(get_user_roles_handler))
+        .route("/users/:user_id/roles/:role_id", delete(revoke_role_from_user_handler))
+        .route("/users/:user_id/roles", get(list_user_roles_handler))
 }

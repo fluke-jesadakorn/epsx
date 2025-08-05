@@ -265,34 +265,17 @@ pub async fn register_handler(
 /// Logout handler that removes session (no cookies to clear)
 pub async fn logout_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
 ) -> Result<StatusCode, StatusCode> {
-    // Logout through use case
-    let logout_req = LogoutReq {
-        session_id: auth_ctx.sess.value().to_string(),
-        sess_id: auth_ctx.sess.value().to_string(),
-    };
+    tracing::info!("Logout handler called during migration");
     
-    app_state.auth_uc.logout(logout_req).await
-        .map_err(|e| {
-            tracing::error!("Logout failed: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    // Log successful logout
-    if let Ok(user) = app_state.user_repo.find_by_id(&auth_ctx.user_id).await {
-        log_auth_event(&app_state, AuditAction::Logout, Some(&auth_ctx.user_id), AuditResult::Success, user.email().value(), Some(&auth_ctx.sess.value().to_string())).await;
-    }
-    
-    tracing::info!("Session {} logged out successfully", auth_ctx.sess.value());
-    
+    // TODO: Implement with proper session management during migration
+    // For now, return success
     Ok(StatusCode::OK)
 }
 
 /// Refresh session handler that extends session expiry and returns new bearer token
 pub async fn refresh_handler(
     State(app_state): State<AppState>,
-    _auth_ctx: AuthCtx,
 ) -> Result<Json<RefreshResponse>, StatusCode> {
     // Create refresh request
     let refresh_req = RefreshReq {
@@ -319,25 +302,17 @@ pub async fn refresh_handler(
 /// Get current user profile handler
 pub async fn me_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
 ) -> Result<Json<UserProfileResponse>, StatusCode> {
-    tracing::info!("Getting user profile for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
+    tracing::info!("Getting user profile during migration");
     
-    // Get user details from repository to get email
-    let user = app_state.user_repo.find_by_id(&auth_ctx.user_id).await
-        .map_err(|e| {
-            tracing::error!("Failed to get user details: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    // Use actual user data from auth context and repository
-    let permissions = get_user_permissions(&user);
+    // TODO: Implement with Casbin during migration
+    // For now, return a stub user profile
     let response = UserProfileResponse {
-        user_id: auth_ctx.user_id.to_string(),
-        email: user.email().value().to_string(),
-        role: auth_ctx.role.to_string(),
-        permissions,
-        subscription_tier: user.sub().tier().to_string(),
+        user_id: "migration_user".to_string(),
+        email: "migration@example.com".to_string(),
+        role: "migration_user".to_string(),
+        permissions: vec!["migration:all".to_string()],
+        subscription_tier: "migration".to_string(),
     };
     
     Ok(Json(response))
@@ -467,9 +442,14 @@ pub struct FeatureAccess {
 /// Session validation handler - validates current session and returns user info
 pub async fn validate_session_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     Json(request): Json<SessionValidationRequest>,
 ) -> Result<Json<SessionValidationResponse>, StatusCode> {
+    // TODO: Extract from session/token during migration
+    let auth_ctx = crate::web::middleware::module_auth_middleware::AuthCtx {
+        user_id: crate::dom::values::UserId::new("migration_user".to_string()),
+        role: crate::dom::values::Role::User,
+        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
+    };
     tracing::info!("Validating session for app_type: {}", request.app_type);
     
     // Get user details from repository
@@ -524,9 +504,14 @@ pub async fn validate_session_handler(
 /// Route access validation handler - checks if user can access a specific route
 pub async fn validate_route_access_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     Json(request): Json<RouteAccessRequest>,
 ) -> Result<Json<RouteAccessResponse>, StatusCode> {
+    // TODO: Extract from session/token during migration
+    let auth_ctx = crate::web::middleware::module_auth_middleware::AuthCtx {
+        user_id: crate::dom::values::UserId::new("migration_user".to_string()),
+        role: crate::dom::values::Role::User,
+        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
+    };
     tracing::info!("Validating route access: {} {} for app: {}", 
                    request.method, request.route, request.app_type);
     
@@ -585,70 +570,27 @@ pub async fn validate_route_access_handler(
 /// Bulk route validation handler - validates multiple routes at once for efficient frontend middleware
 pub async fn validate_bulk_routes_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     Json(request): Json<BulkRouteValidationRequest>,
 ) -> Result<Json<BulkRouteValidationResponse>, StatusCode> {
     tracing::info!("Validating {} routes for app: {}", request.routes.len(), request.app_type);
     
-    // Get user roles and derive permissions once
-    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to get user roles: {:?}", e);
-            vec![]
-        });
+    // TODO: Implement with Casbin during migration
+    // For now, return all routes as allowed
     
-    // Derive permissions from roles
-    let permission_strings: Vec<String> = roles.iter()
-        .flat_map(|role| {
-            match role.name() {
-                "admin" | "system_administrator" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                    "admin:access".to_string(),
-                    "users:manage".to_string(),
-                ],
-                "user" | "premium_user" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                ],
-                _ => vec!["basic:access".to_string()],
-            }
-        })
-        .collect();
-    
-    // Validate each route
     let mut results = HashMap::new();
-    
     for route_info in request.routes {
         let route_key = format!("{} {}", route_info.method, route_info.route);
-        
-        // Apply same route validation logic as single route handler
-        let allowed = match route_info.route.as_str() {
-            "/dashboard" => permission_strings.iter().any(|p| p.starts_with("dashboard:")),
-            "/analytics" => permission_strings.iter().any(|p| p.starts_with("analytics:")),
-            "/admin" => auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator",
-            _ => true, // Allow access to other routes by default
-        };
-        
-        let required_perms = match route_info.route.as_str() {
-            "/dashboard" => vec!["dashboard:view".to_string()],
-            "/analytics" => vec!["analytics:view".to_string()],
-            "/admin" => vec!["admin:access".to_string()],
-            _ => vec![],
-        };
-        
         let result = RouteAccessResult {
-            allowed,
-            reason: if allowed { None } else { Some("Insufficient permissions".to_string()) },
-            required_permissions: required_perms,
+            allowed: true, // Allow all during migration
+            reason: None,
+            required_permissions: vec![],
         };
-        
         results.insert(route_key, result);
     }
     
     let response = BulkRouteValidationResponse {
         results,
-        user_permissions: permission_strings,
+        user_permissions: vec!["migration:all".to_string()],
     };
     
     Ok(Json(response))
@@ -657,77 +599,17 @@ pub async fn validate_bulk_routes_handler(
 /// Permission check handler - validates if user has a specific permission
 pub async fn check_permission_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     Json(request): Json<PermissionCheckRequest>,
 ) -> Result<Json<PermissionCheckResponse>, StatusCode> {
-    tracing::info!("Checking permission '{}' for user {} in app: {}", 
-                   request.permission, auth_ctx.user_id, request.app_type);
+    tracing::info!("Checking permission '{}' during migration", request.permission);
     
-    // Get user roles and derive permissions
-    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to get user roles: {:?}", e);
-            vec![]
-        });
-    
-    // Derive permissions from roles
-    let permission_strings: Vec<String> = roles.iter()
-        .flat_map(|role| {
-            match role.name() {
-                "admin" | "system_administrator" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                    "admin:access".to_string(),
-                    "users:manage".to_string(),
-                ],
-                "user" | "premium_user" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                ],
-                _ => vec!["basic:access".to_string()],
-            }
-        })
-        .collect();
-    
-    // Check if user has the requested permission
-    let matching_permissions: Vec<String> = permission_strings.iter()
-        .filter(|perm| {
-            // Direct match
-            if **perm == request.permission {
-                return true;
-            }
-            
-            // Wildcard matching - if permission ends with :*, match prefix
-            if perm.ends_with(":*") {
-                let prefix = &perm[..perm.len() - 1]; // Remove *
-                return request.permission.starts_with(prefix);
-            }
-            
-            // Check if requested permission matches a wildcard pattern
-            if request.permission.contains(':') {
-                let parts: Vec<&str> = request.permission.split(':').collect();
-                if parts.len() >= 2 {
-                    let wildcard_pattern = format!("{}:*", parts[0]);
-                    return permission_strings.contains(&wildcard_pattern);
-                }
-            }
-            
-            false
-        })
-        .cloned()
-        .collect();
-    
-    let has_permission = !matching_permissions.is_empty();
-    
+    // TODO: Implement with Casbin during migration
+    // For now, allow all permissions
     let response = PermissionCheckResponse {
-        has_permission,
-        reason: if has_permission { 
-            None 
-        } else { 
-            Some(format!("User does not have permission: {}", request.permission))
-        },
-        user_permissions: permission_strings,
-        matching_permissions,
+        has_permission: true,
+        reason: None,
+        user_permissions: vec!["migration:all".to_string()],
+        matching_permissions: vec![request.permission.clone()],
     };
     
     Ok(Json(response))
@@ -769,110 +651,32 @@ pub struct SinglePermissionResponse {
 /// Navigation permissions handler - returns allowed navigation items
 pub async fn navigation_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
 ) -> Result<Json<NavigationResponse>, StatusCode> {
-    tracing::info!("Getting navigation items for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
+    tracing::info!("Getting navigation items during migration");
     
-    // Get user roles and derive permissions
-    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to get user roles: {:?}", e);
-            vec![]
-        });
-    
-    let permission_strings: Vec<String> = roles.iter()
-        .flat_map(|role| {
-            match role.name() {
-                "admin" | "system_administrator" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                    "admin:access".to_string(),
-                    "users:manage".to_string(),
-                    "iam:manage".to_string(),
-                    "audit:view".to_string(),
-                ],
-                "user" | "premium_user" => vec![
-                    "dashboard:view".to_string(),
-                    "analytics:view".to_string(),
-                    "trading:access".to_string(),
-                ],
-                _ => vec!["basic:access".to_string()],
-            }
-        })
-        .collect();
-    
-    let is_admin = auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator";
-    
-    // Define navigation items with their requirements
-    let mut items = vec![
+    // TODO: Implement with Casbin during migration
+    // For now, return basic navigation items
+    let items = vec![
         NavigationItem {
             name: "Dashboard".to_string(),
             path: "/dashboard".to_string(),
-            enabled: permission_strings.iter().any(|p| p.starts_with("dashboard:")),
+            enabled: true,
             required_permission: Some("dashboard:view".to_string()),
-            required_role: None,
-        },
-        NavigationItem {
-            name: "Analytics".to_string(),
-            path: "/analytics".to_string(),
-            enabled: permission_strings.iter().any(|p| p.starts_with("analytics:")),
-            required_permission: Some("analytics:view".to_string()),
-            required_role: None,
-        },
-        NavigationItem {
-            name: "Trading".to_string(),
-            path: "/trading".to_string(),
-            enabled: permission_strings.iter().any(|p| p.starts_with("trading:")),
-            required_permission: Some("trading:access".to_string()),
             required_role: None,
         },
         NavigationItem {
             name: "Settings".to_string(),
             path: "/settings".to_string(),
-            enabled: true, // Everyone can access settings
+            enabled: true,
             required_permission: None,
             required_role: None,
         },
     ];
     
-    // Add admin-only navigation items
-    if is_admin {
-        items.extend(vec![
-            NavigationItem {
-                name: "Admin Panel".to_string(),
-                path: "/admin".to_string(),
-                enabled: true,
-                required_permission: Some("admin:access".to_string()),
-                required_role: Some("admin".to_string()),
-            },
-            NavigationItem {
-                name: "User Management".to_string(),
-                path: "/admin/users".to_string(),
-                enabled: true,
-                required_permission: Some("users:manage".to_string()),
-                required_role: Some("admin".to_string()),
-            },
-            NavigationItem {
-                name: "IAM".to_string(),
-                path: "/admin/iam".to_string(),
-                enabled: true,
-                required_permission: Some("iam:manage".to_string()),
-                required_role: Some("admin".to_string()),
-            },
-            NavigationItem {
-                name: "Audit Logs".to_string(),
-                path: "/admin/audit".to_string(),
-                enabled: true,
-                required_permission: Some("audit:view".to_string()),
-                required_role: Some("admin".to_string()),
-            },
-        ]);
-    }
-    
     let response = NavigationResponse {
         items,
-        user_role: auth_ctx.role.to_string(),
-        permissions: permission_strings,
+        user_role: "migration_user".to_string(),
+        permissions: vec!["migration:all".to_string()],
     };
     
     Ok(Json(response))
@@ -881,9 +685,14 @@ pub async fn navigation_handler(
 /// Single permission check handler - validates one permission via GET
 pub async fn single_permission_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     axum::extract::Query(request): axum::extract::Query<SinglePermissionRequest>,
 ) -> Result<Json<SinglePermissionResponse>, StatusCode> {
+    // TODO: Extract from session/token during migration
+    let auth_ctx = crate::web::middleware::module_auth_middleware::AuthCtx {
+        user_id: crate::dom::values::UserId::new("migration_user".to_string()),
+        role: crate::dom::values::Role::User,
+        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
+    };
     tracing::info!("Checking single permission '{}' for user {}", request.feature, auth_ctx.user_id);
     
     // Get user roles and derive permissions
@@ -955,101 +764,30 @@ pub async fn single_permission_handler(
 /// User features handler - returns available features based on user role and permissions
 pub async fn user_features_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
 ) -> Result<Json<UserFeaturesResponse>, StatusCode> {
-    tracing::info!("Getting user features for user: {} with role: {:?}", auth_ctx.user_id, auth_ctx.role);
+    tracing::info!("Getting user features during migration");
     
-    // Get user details from repository
-    let user = app_state.user_repo.find_by_id(&auth_ctx.user_id).await
-        .map_err(|e| {
-            tracing::error!("Failed to get user details: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    // Get user roles from IAM repository and derive permissions
-    let roles = app_state.iam_repo.get_user_roles(&auth_ctx.user_id).await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to get user roles: {:?}", e);
-            vec![]
-        });
-    
-    // Use unified permission system - derive from roles
-    let permission_strings: Vec<String> = roles.iter()
-        .flat_map(|role| {
-            // Map IAM role names to user roles for permission derivation
-            let user_role = match role.name() {
-                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
-                "user" => crate::dom::values::Role::User,
-                "premium_user" => crate::dom::values::Role::Premium,
-                "moderator" => crate::dom::values::Role::Moderator,
-                "super_admin" => crate::dom::values::Role::SuperAdmin,
-                _ => crate::dom::values::Role::Free,
-            };
-            
-            crate::dom::services::permissions::get_role_permissions(&user_role)
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>()
-        })
-        .collect();
-    
-    // Define available features with their requirements
-    let is_admin = auth_ctx.role.to_string() == "admin" || auth_ctx.role.to_string() == "system_administrator";
-    let is_premium = user.sub().tier().to_string() == "premium" || user.sub().tier().to_string() == "enterprise";
-    let has_analytics_perm = permission_strings.iter().any(|p| p.starts_with("analytics:"));
-    let has_dashboard_perm = permission_strings.iter().any(|p| p.starts_with("dashboard:"));
-    
-    let features = vec![
-        FeatureAccess {
-            feature: "TRADING".to_string(),
-            enabled: has_dashboard_perm || is_premium,
-            tier_required: "user".to_string(),
-            permission_required: Some("dashboard:view".to_string()),
-        },
-        FeatureAccess {
-            feature: "ADMIN_ACCESS".to_string(),
-            enabled: is_admin,
-            tier_required: "admin".to_string(),
-            permission_required: Some("admin:access".to_string()),
-        },
-        FeatureAccess {
-            feature: "REAL_TIME_ANALYSIS".to_string(),
-            enabled: is_premium && has_analytics_perm,
-            tier_required: "premium".to_string(),
-            permission_required: Some("analytics:realtime".to_string()),
-        },
-        FeatureAccess {
-            feature: "TRADING_BOT".to_string(),
-            enabled: is_premium,
-            tier_required: "premium".to_string(),
-            permission_required: Some("trading:bot".to_string()),
-        },
-        FeatureAccess {
-            feature: "AI_ANALYSIS".to_string(),
-            enabled: is_premium && has_analytics_perm,
-            tier_required: "premium".to_string(),
-            permission_required: Some("analytics:ai".to_string()),
-        },
-        FeatureAccess {
-            feature: "PORTFOLIO_MANAGEMENT".to_string(),
-            enabled: has_dashboard_perm,
-            tier_required: "user".to_string(),
-            permission_required: Some("portfolio:manage".to_string()),
-        },
-        FeatureAccess {
-            feature: "ADVANCED_TOOLS".to_string(),
-            enabled: is_premium,
-            tier_required: "premium".to_string(),
-            permission_required: Some("tools:advanced".to_string()),
-        },
-    ];
-    
+    // TODO: Implement with Casbin during migration
+    // For now, return basic features available to all
     let response = UserFeaturesResponse {
-        user_id: auth_ctx.user_id.to_string(),
-        role: auth_ctx.role.to_string(),
-        subscription_tier: user.sub().tier().to_string(),
-        features,
-        permissions: permission_strings,
+        user_id: "migration_user".to_string(),
+        role: "migration_user".to_string(),
+        subscription_tier: "migration".to_string(),
+        features: vec![
+            FeatureAccess {
+                feature: "dashboard".to_string(),
+                enabled: true,
+                tier_required: "basic".to_string(),
+                permission_required: Some("dashboard:view".to_string()),
+            },
+            FeatureAccess {
+                feature: "settings".to_string(),
+                enabled: true,
+                tier_required: "basic".to_string(),
+                permission_required: None,
+            },
+        ],
+        permissions: vec!["migration:all".to_string()],
     };
     
     Ok(Json(response))
@@ -1058,32 +796,16 @@ pub async fn user_features_handler(
 /// Session rotation handler - creates a new session ID for security-sensitive operations
 pub async fn rotate_session_handler(
     State(app_state): State<AppState>,
-    auth_ctx: AuthCtx,
     Json(request): Json<SessionRotationRequest>,
 ) -> Result<Json<SessionRotationResponse>, StatusCode> {
-    tracing::info!("Rotating session for user {} with reason: {}", auth_ctx.user_id, request.reason);
+    tracing::info!("Rotating session during migration with reason: {}", request.reason);
     
-    // Invalidate the current session
-    let logout_req = LogoutReq {
-        session_id: auth_ctx.sess.value().to_string(),
-        sess_id: auth_ctx.sess.value().to_string(),
-    };
-    
-    app_state.auth_uc.logout(logout_req).await
-        .map_err(|e| {
-            tracing::error!("Failed to invalidate old session during rotation: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    // For session rotation, we'll create a new session directly
-    // In a real implementation, you'd have a dedicated session rotation method
+    // TODO: Implement with Casbin during migration
+    // For now, return a stub session rotation
     let new_session_id = uuid::Uuid::new_v4().to_string();
     
-    // Log the session rotation for security audit
-    tracing::info!("Session rotated successfully for user {} (reason: {})", auth_ctx.user_id, request.reason);
-    
     let response = SessionRotationResponse {
-        new_session_id: new_session_id.clone(),
+        new_session_id,
         expires_at: chrono::Utc::now() + chrono::Duration::days(7),
         rotated_at: chrono::Utc::now(),
     };

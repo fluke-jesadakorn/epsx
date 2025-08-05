@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
-use crate::app::use_cases::iam::IamUC;
+use crate::app::use_cases::iam::IamUseCase;
 use crate::app::ports::repositories::{SessRepo, UserRepo, IamRepo, AuditRepo, PermissionProfileRepo, ModuleRepo, UsageRepo};
 use crate::infra::firebase_admin::FirebaseAdmin;
+use crate::dom::services::casbin_service::CasbinService;
 
 
 /// Application state for dependency injection
@@ -14,7 +15,7 @@ use crate::infra::firebase_admin::FirebaseAdmin;
 pub struct AppState {
     pub auth_uc: Arc<AuthUC>,
     pub user_mgmt_uc: Arc<UserMgmtUC>,
-    pub iam_uc: Arc<IamUC>,
+    pub iam_uc: Arc<IamUseCase>,
     pub session_repo: Arc<dyn SessRepo>,
     pub user_repo: Arc<dyn UserRepo>,
     pub iam_repo: Arc<dyn IamRepo>,
@@ -23,6 +24,7 @@ pub struct AppState {
     pub module_repo: Arc<dyn ModuleRepo>,
     pub usage_repo: Arc<dyn UsageRepo>,
     pub firebase_admin: Arc<FirebaseAdmin>,
+    pub casbin_service: Arc<CasbinService>,
 }
 
 impl Default for AppState {
@@ -36,7 +38,7 @@ impl AppState {
     pub fn new(
         auth_uc: Arc<AuthUC>,
         user_mgmt_uc: Arc<UserMgmtUC>,
-        iam_uc: Arc<IamUC>,
+        iam_uc: Arc<IamUseCase>,
         session_repo: Arc<dyn SessRepo>,
         user_repo: Arc<dyn UserRepo>,
         iam_repo: Arc<dyn IamRepo>,
@@ -45,6 +47,7 @@ impl AppState {
         module_repo: Arc<dyn ModuleRepo>,
         usage_repo: Arc<dyn UsageRepo>,
         firebase_admin: Arc<FirebaseAdmin>,
+        casbin_service: Arc<CasbinService>,
     ) -> Self {
         Self {
             auth_uc,
@@ -58,6 +61,7 @@ impl AppState {
             module_repo,
             usage_repo,
             firebase_admin,
+            casbin_service,
         }
     }
 }

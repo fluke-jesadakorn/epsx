@@ -50,7 +50,7 @@ impl AppService {
 
 // Re-export comprehensive services from domain layer
 pub use crate::dom::services::audit_service::AuditService;
-pub use crate::dom::services::permission_resolver::{UnifiedPermissionService as AuthorizationService, AuthorizationError};
+pub use crate::dom::services::permission_resolver::PermissionResolver;
 
 // Rate limiting service
 pub struct RateLimitService;

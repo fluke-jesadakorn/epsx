@@ -1,0 +1,77 @@
+# Multi-stage production Dockerfile for EPSX Backend with Casbin
+# Optimized for security, performance, and minimal image size
+
+# Stage 1: Build dependencies and cache them
+FROM rust:1.75-slim-bullseye AS dependencies
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy manifests first for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY src/lib.rs src/lib.rs
+
+# Create a dummy main.rs to satisfy cargo
+RUN mkdir -p src/bin && echo "fn main() {}" > src/bin/main.rs
+
+# Build dependencies (this layer will be cached if Cargo.toml doesn't change)
+RUN cargo build --release --bin main
+RUN rm src/bin/main.rs
+
+# Stage 2: Build the application
+FROM dependencies AS builder
+
+# Copy source code
+COPY src ./src
+COPY migrations ./migrations
+COPY casbin_model.conf ./
+
+# Build the application
+RUN cargo build --release --bin epsx
+
+# Stage 3: Runtime image
+FROM debian:bullseye-slim AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl1.1 \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user for security
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+# Create app directory
+WORKDIR /app
+
+# Copy the built binary
+COPY --from=builder /app/target/release/epsx ./epsx
+COPY --from=builder /app/casbin_model.conf ./
+COPY --from=builder /app/migrations ./migrations
+
+# Set ownership
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v1/health/liveness || exit 1
+
+# Expose port
+EXPOSE 8080
+
+# Set environment
+ENV RUST_ENV=production
+ENV RUST_LOG=info
+
+# Run the application
+CMD ["./epsx"]

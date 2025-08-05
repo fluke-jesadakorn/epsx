@@ -8,15 +8,11 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-use crate::web::{
-    auth::AppState,
-    middleware::module_auth_middleware::ModuleAccess,
-};
+use crate::web::auth::AppState;
 
 // Placeholder handlers for trading signals endpoints
 
 pub async fn get_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -26,7 +22,6 @@ pub async fn get_signals(
 }
 
 pub async fn get_symbol_signals(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -36,7 +31,6 @@ pub async fn get_symbol_signals(
 }
 
 pub async fn generate_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -45,7 +39,6 @@ pub async fn generate_signals(
 }
 
 pub async fn get_technical_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -54,7 +47,6 @@ pub async fn get_technical_signals(
 }
 
 pub async fn get_fundamental_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -63,7 +55,6 @@ pub async fn get_fundamental_signals(
 }
 
 pub async fn get_sentiment_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -72,7 +63,6 @@ pub async fn get_sentiment_signals(
 }
 
 pub async fn get_ai_signals(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -81,7 +71,6 @@ pub async fn get_ai_signals(
 }
 
 pub async fn train_ai_model(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -90,7 +79,6 @@ pub async fn train_ai_model(
 }
 
 pub async fn list_strategies(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -100,7 +88,6 @@ pub async fn list_strategies(
 }
 
 pub async fn create_strategy(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -109,7 +96,6 @@ pub async fn create_strategy(
 }
 
 pub async fn get_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -119,7 +105,6 @@ pub async fn get_strategy(
 }
 
 pub async fn update_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -129,7 +114,6 @@ pub async fn update_strategy(
 }
 
 pub async fn delete_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -139,7 +123,6 @@ pub async fn delete_strategy(
 }
 
 pub async fn backtest_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -149,7 +132,6 @@ pub async fn backtest_strategy(
 }
 
 pub async fn list_backtests(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -159,7 +141,6 @@ pub async fn list_backtests(
 }
 
 pub async fn get_backtest_results(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -169,7 +150,6 @@ pub async fn get_backtest_results(
 }
 
 pub async fn optimize_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -179,7 +159,6 @@ pub async fn optimize_strategy(
 }
 
 pub async fn genetic_optimization(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -188,7 +167,6 @@ pub async fn genetic_optimization(
 }
 
 pub async fn deploy_strategy(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -198,7 +176,6 @@ pub async fn deploy_strategy(
 }
 
 pub async fn start_paper_trading(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -208,7 +185,6 @@ pub async fn start_paper_trading(
 }
 
 pub async fn get_live_positions(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -218,7 +194,6 @@ pub async fn get_live_positions(
 }
 
 pub async fn get_live_orders(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -228,7 +203,6 @@ pub async fn get_live_orders(
 }
 
 pub async fn get_strategy_performance(
-    _module_access: ModuleAccess,
     _path: Path<String>,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -238,7 +212,6 @@ pub async fn get_strategy_performance(
 }
 
 pub async fn get_signal_performance(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({
@@ -247,7 +220,6 @@ pub async fn get_signal_performance(
 }
 
 pub async fn get_strategy_leaderboard(
-    _module_access: ModuleAccess,
     _state: State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
     Ok(Json(json!({

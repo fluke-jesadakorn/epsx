@@ -1,8 +1,8 @@
 // Module-based API routing system
 // New IAM v2 architecture with module-scoped endpoints
 
-pub mod handlers;
-pub mod routes;
+// pub mod handlers; // Temporarily disabled during migration
+// pub mod routes; // Temporarily disabled during migration
 pub mod stock_ranking;
 pub mod portfolio_analysis;
 pub mod market_data;
@@ -18,13 +18,13 @@ use crate::web::{
     auth::AppState,
     middleware::{
         auth_middleware,
-        module_auth_middleware::{module_auth_middleware, require_module_access, AccessLevel},
-        module_permission_middleware::module_permission_middleware,
+        module_auth_middleware::{module_auth_middleware, AccessLevel},
+        module_permission_middleware::module_casbin_middleware,
     },
 };
 
-use handlers::*;
-use routes::*;
+// use handlers::*; // Temporarily commented during migration
+// use routes::*; // Temporarily commented during migration
 
 // ========================================
 // MODULE ROUTER CREATION
@@ -33,20 +33,22 @@ use routes::*;
 /// Create the main modules router
 pub fn create_modules_router(app_state: AppState) -> Router<AppState> {
     Router::new()
-        // Module discovery and management
-        .route("/modules", get(list_available_modules))
-        .route("/modules/:module_id", get(get_module_details))
-        .route("/modules/:module_name/access", get(check_module_access))
-        .route("/modules/:module_name/quota", get(get_module_quota_status))
+        // TODO: Re-enable module discovery routes after fixing ModuleAuthCtx signatures
+        // Module discovery and management - temporarily commented out during migration
+        // .route("/modules", get(list_available_modules))
+        // .route("/modules/:module_id", get(get_module_details))
+        // .route("/modules/:module_name/access", get(check_module_access))
+        // .route("/modules/:module_name/quota", get(get_module_quota_status))
         
+        // TODO: Re-enable module routers after fixing handler signatures during Casbin migration
         // Stock ranking module
-        .nest("/stock-ranking", create_stock_ranking_router())
+        // .nest("/stock-ranking", create_stock_ranking_router())
         
         // Portfolio analysis module  
-        .nest("/portfolio-analysis", create_portfolio_analysis_router())
+        // .nest("/portfolio-analysis", create_portfolio_analysis_router())
         
         // Market data module
-        .nest("/market-data", create_market_data_router())
+        // .nest("/market-data", create_market_data_router())
         
         // Trading signals module
         .nest("/trading-signals", create_trading_signals_router())
@@ -54,57 +56,16 @@ pub fn create_modules_router(app_state: AppState) -> Router<AppState> {
         // Apply module permission middleware (includes auth + quota checking)
         .route_layer(from_fn_with_state(
             app_state,
-            module_permission_middleware,
+            module_casbin_middleware,
         ))
 }
 
-/// Create admin module management router
-pub fn create_admin_modules_router(app_state: AppState) -> Router<AppState> {
+/// Create admin module management router - TEMPORARILY DISABLED DURING CASBIN MIGRATION
+/// TODO: Re-enable after fixing handler signatures
+pub fn create_admin_modules_router(_app_state: AppState) -> Router<AppState> {
     Router::new()
-        // Module definition management
-        .route("/modules", post(create_module))
-        .route("/modules", get(list_all_modules))
-        .route("/modules/:module_id", get(get_module_admin_details))
-        .route("/modules/:module_id", put(update_module))
-        .route("/modules/:module_id", delete(delete_module))
-        .route("/modules/:module_id/status", put(update_module_status))
-        
-        // User module assignments
-        .route("/users/:user_id/modules", get(get_user_modules))
-        .route("/users/:user_id/modules", post(assign_user_modules))
-        .route("/users/:user_id/modules/:module_id", put(update_user_module_access))
-        .route("/users/:user_id/modules/:module_id", delete(revoke_user_module_access))
-        
-        // Bulk operations
-        .route("/users/bulk/assign-modules", post(bulk_assign_modules))
-        .route("/users/bulk/revoke-modules", post(bulk_revoke_modules))
-        .route("/modules/:module_id/users", get(list_module_users))
-        
-        // API key management
-        .route("/api-keys", post(create_api_key))
-        .route("/api-keys", get(list_api_keys))
-        .route("/api-keys/:key_id", get(get_api_key_details))
-        .route("/api-keys/:key_id", put(update_api_key))
-        .route("/api-keys/:key_id", delete(revoke_api_key))
-        .route("/api-keys/:key_id/modules", put(update_api_key_modules))
-        .route("/api-keys/:key_id/usage", get(get_api_key_usage))
-        
-        // Analytics and reporting
-        .route("/analytics/modules", get(get_module_analytics))
-        .route("/analytics/users", get(get_user_analytics))
-        .route("/analytics/api-keys", get(get_api_key_analytics))
-        .route("/analytics/usage", get(get_usage_analytics))
-        
-        // Audit and compliance
-        .route("/audit/assignments", get(get_assignment_audit_logs))
-        .route("/audit/api-usage", get(get_api_usage_audit_logs))
-        .route("/audit/quota-violations", get(get_quota_violation_logs))
-        
-        // Apply authentication middleware (admin access required)
-        .route_layer(from_fn_with_state(
-            app_state,
-            auth_middleware,
-        ))
+        // TODO: Re-enable all admin module routes after fixing ModuleAuthCtx signatures
+        // All routes temporarily commented out during Casbin migration
 }
 
 // ========================================
@@ -286,21 +247,15 @@ fn create_trading_signals_router() -> Router<AppState> {
 // UTILITY FUNCTIONS
 // ========================================
 
-/// Apply access level requirement to a router
-pub fn require_access_level(router: Router<AppState>, level: AccessLevel, app_state: AppState) -> Router<AppState> {
-    router.route_layer(from_fn_with_state(
-        app_state,
-        require_module_access("", level), // Module name will be extracted from path
-    ))
+/// Apply access level requirement to a router (placeholder during migration)
+pub fn require_access_level(router: Router<AppState>, _level: AccessLevel, _app_state: AppState) -> Router<AppState> {
+    // TODO: Implement with Casbin during migration
+    router
 }
 
-/// Create module-specific middleware stack
-pub fn create_module_middleware_stack(module_name: &str, min_level: AccessLevel, app_state: AppState) -> Router<AppState> {
+/// Create module-specific middleware stack (placeholder during migration)
+pub fn create_module_middleware_stack(_module_name: &str, _min_level: AccessLevel, app_state: AppState) -> Router<AppState> {
     Router::new()
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            require_module_access(module_name, min_level),
-        ))
         .route_layer(from_fn_with_state(
             app_state,
             module_auth_middleware,

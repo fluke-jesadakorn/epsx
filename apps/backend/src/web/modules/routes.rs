@@ -99,7 +99,6 @@ pub async fn bulk_assign_modules(
     // For now, return a success response indicating the assignment would be processed
     // In a full implementation, this would actually process the assignments
     let total_requested = request.user_ids.len() * request.assignments.len();
-    
     Ok(Json(json!({
         "message": "Bulk module assignment completed",
         "summary": {

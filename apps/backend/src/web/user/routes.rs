@@ -4,17 +4,22 @@ use axum::{
     routing::{get, post, put, delete},
     Router,
 };
-use super::super::auth::routes::AppState;
-use super::handlers::*;
+use crate::web::auth::AppState;
+use super::handlers::{
+    get_profile_handler,
+    update_profile_handler,
+    delete_user_handler,
+    logout_handler,
+    list_users_handler,
+};
 
 /// Create v1 API routes for user operations
 pub fn user_routes_v1() -> Router<AppState> {
     Router::new()
         // User profile operations (will be nested under /api/v1/users)
-        .route("/users/profile", get(get_current_user_handler))
-        .route("/users/profile", put(update_user_profile_handler))
+        .route("/users/profile", get(get_profile_handler))
+        .route("/users/profile", put(update_profile_handler))
         .route("/users", get(list_users_handler))
-        .route("/users/:id", get(get_user_by_id_handler))
         .route("/users/:id", delete(delete_user_handler))
 }
 
@@ -22,12 +27,11 @@ pub fn user_routes_v1() -> Router<AppState> {
 pub fn user_routes() -> Router<AppState> {
     Router::new()
         // Current user profile operations
-        .route("/me", get(get_current_user_handler))
-        .route("/me", put(update_user_profile_handler))
+        .route("/me", get(get_profile_handler))
+        .route("/me", put(update_profile_handler))
         
         // Admin operations
         .route("/users", get(list_users_handler))
-        .route("/users/:id", get(get_user_by_id_handler))
         .route("/users/:id", delete(delete_user_handler))
         
         // Auth operations
