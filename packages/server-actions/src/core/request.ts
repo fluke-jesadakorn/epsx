@@ -15,59 +15,47 @@ export async function makeServerRequest<T = any>(
     let authToken = '';
     
     try {
-      // Import NextAuth functions dynamically to avoid client-side import issues
-      const { getServerSession } = await import('next-auth');
+      // Import cookies for session token access
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const allCookies = cookieStore.getAll();
       
-      // Try different possible auth config locations
-      let authOptions;
-      try {
-        const authConfig = await import('@/auth');
-        authOptions = authConfig.authOptions;
-      } catch {
+      // Look for NextAuth session token in cookies
+      const sessionToken = allCookies.find(c => 
+        c.name.includes('next-auth.session-token') || 
+        c.name.includes('__Secure-next-auth.session-token')
+      );
+      
+      if (sessionToken) {
+        // Decode the NextAuth JWT token to get the access token
         try {
-          const authConfig = await import('@/lib/auth');
-          authOptions = authConfig.authOptions;
-        } catch {
-          const authConfig = await import('../../apps/admin-frontend/auth');
-          authOptions = authConfig.authOptions;
+          const { decode } = await import('next-auth/jwt');
+          const secret = process.env.NEXTAUTH_SECRET;
+          
+          if (secret) {
+            const token = await decode({
+              token: sessionToken.value,
+              secret: secret,
+            });
+            
+            if (token?.accessToken) {
+              authToken = token.accessToken as string;
+              console.log('🔑 Using NextAuth access token from JWT for backend request');
+            } else if (token?.sub) {
+              // Fallback to user ID if no access token
+              authToken = token.sub;
+              console.log('🔑 Using NextAuth user ID as fallback token for backend request');
+            }
+          }
+        } catch (jwtError) {
+          console.warn('Failed to decode NextAuth JWT token:', jwtError);
+          // Use raw session token as fallback
+          authToken = sessionToken.value;
+          console.log('🔑 Using raw NextAuth session token for backend request');
         }
-      }
-      
-      // Get NextAuth session
-      const session = await getServerSession(authOptions);
-      
-      if (session?.accessToken) {
-        // Use the access token from backend authentication
-        authToken = session.accessToken;
-        console.log('🔑 Using NextAuth access token for backend request');
-      } else if (session?.user?.id) {
-        // Fallback to user ID if no access token
-        authToken = session.user.id;
-        console.log('🔑 Using NextAuth user ID as fallback token for backend request');
       }
     } catch (authError) {
-      console.warn('NextAuth session not available, proceeding without authentication:', authError);
-      
-      // Fallback to cookies approach
-      try {
-        // Import cookies dynamically to avoid client-side import issues
-        const { cookies } = await import('next/headers');
-        const cookieStore = await cookies();
-        const allCookies = cookieStore.getAll();
-        
-        // Look for NextAuth session token in cookies
-        const sessionToken = allCookies.find(c => 
-          c.name.includes('next-auth.session-token') || 
-          c.name.includes('__Secure-next-auth.session-token')
-        );
-        
-        if (sessionToken) {
-          authToken = sessionToken.value;
-          console.log('🔑 Using NextAuth cookie token for backend request');
-        }
-      } catch (cookiesError) {
-        console.warn('Cookies also not available - proceeding without authentication headers.');
-      }
+      console.warn('NextAuth authentication failed, proceeding without authentication:', authError);
     }
     
     // Use environment variable for backend URL

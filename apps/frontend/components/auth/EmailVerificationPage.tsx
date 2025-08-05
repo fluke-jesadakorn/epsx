@@ -17,7 +17,7 @@ export function EmailVerificationPage() {
 
   const handleResendSuccess = () => {
     // Optionally show a toast or feedback
-    console.log('Verification email resent successfully');
+    // Verification email resent successfully
   };
 
   return (

@@ -65,7 +65,7 @@ export default function StockRankingPackageAssignment({
   const loadUsers = async () => {
     setIsLoading(prev => ({ ...prev, users: true }));
     try {
-      const response = await fetch('/api/v1/admin/user-management/users');
+      const response = await fetch('/api/v1/admin/users');
       const data = await response.json();
       setUsers(data.users || []);
     } catch (error) {
@@ -110,17 +110,19 @@ export default function StockRankingPackageAssignment({
     setIsLoading(prev => ({ ...prev, assignment: true }));
 
     try {
-      const assignmentData: BulkStockRankingAssignment = {
-        userIds: selectedUsers,
-        packageTier: selectedPackage,
-        permissionProfileId: `${selectedPackage.toLowerCase()}_stock_ranking`,
-        reason: assignmentReason,
-        expiresAt: expirationDate ? new Date(expirationDate) : undefined,
-        assignedBy: 'current_admin', // This should come from auth context
-        notifyUsers
+      const assignmentData = {
+        user_ids: selectedUsers,
+        assignments: [{
+          module_id: 'stock-ranking-module-id', // This should come from a module registry
+          access_level: selectedPackage.toLowerCase(),
+          custom_quotas: null,
+          restrictions: null,
+          expires_at: expirationDate ? new Date(expirationDate).toISOString() : null
+        }],
+        reason: assignmentReason
       };
 
-      const response = await fetch('/api/v1/admin/stock-ranking/assign-bulk', {
+      const response = await fetch('/api/admin/users/bulk/assign-modules', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,10 +130,16 @@ export default function StockRankingPackageAssignment({
         body: JSON.stringify(assignmentData),
       });
 
-      const result: BulkStockRankingAssignmentResult = await response.json();
+      const result = await response.json();
 
       if (response.ok) {
-        onAssignmentComplete?.(result);
+        // Create a compatible result object for the callback
+        const compatibleResult = {
+          summary: result.summary,
+          failed: result.failed || [],
+          message: result.message
+        };
+        onAssignmentComplete?.(compatibleResult);
         
         // Reset form
         setSelectedUsers([]);
@@ -142,7 +150,7 @@ export default function StockRankingPackageAssignment({
         // Show success message
         alert(`Successfully assigned ${result.summary.successful} users to ${selectedPackage} package`);
         
-        if (result.failed.length > 0) {
+        if (result.failed && result.failed.length > 0) {
           console.warn('Some assignments failed:', result.failed);
         }
       } else {

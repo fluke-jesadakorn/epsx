@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StateConfig, StateAction, StateMiddleware, AsyncState } from './types';
-import { logger } from '../logger';
 
 // Storage utilities
 export const storage = {
@@ -19,7 +18,7 @@ export const storage = {
     try {
       window[storageType].setItem(key, JSON.stringify(value));
     } catch (error) {
-      logger.warn('Failed to save to storage', { error: error instanceof Error ? error.message : error, key, storageType });
+      console.warn('Failed to save to storage:', error instanceof Error ? error.message : error, 'key:', key, 'storageType:', storageType);
     }
   },
   
@@ -28,7 +27,7 @@ export const storage = {
     try {
       window[storageType].removeItem(key);
     } catch (error) {
-      logger.warn('Failed to remove from storage', { error: error instanceof Error ? error.message : error, key, storageType });
+      console.warn('Failed to remove from storage:', error instanceof Error ? error.message : error, 'key:', key, 'storageType:', storageType);
     }
   }
 };
@@ -46,12 +45,7 @@ export function createAsyncState<T = any>(initialData: T | null = null): AsyncSt
 // State middleware for logging
 export const loggingMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
   if (process.env.NODE_ENV === 'development') {
-    logger.debug(`State change: ${store}:${action.type}`, {
-      store,
-      actionType: action.type,
-      action,
-      hasStateChange: JSON.stringify(prevState) !== JSON.stringify(nextState)
-    });
+    // State change debug logging removed for production
   }
 };
 
@@ -226,7 +220,7 @@ export function useStatePerformance(stateName: string) {
     const timeSinceLastRender = now - lastRenderTime.current;
     
     if (process.env.NODE_ENV === 'development' && timeSinceLastRender < 16) {
-      logger.warn(`${stateName} is rendering frequently`, { 
+      console.warn(`${stateName} is rendering frequently:`, { 
         stateName, 
         timeSinceLastRender, 
         totalRenders: renderCount.current 

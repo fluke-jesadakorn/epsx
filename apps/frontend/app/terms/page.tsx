@@ -33,8 +33,8 @@ function SubscribeForm() {
   });
 
   const handleSubmit = (values: SubscribeForm) => {
-    console.info("Email to store:", values.email);
     // TODO: Implement actual email storage
+    // Email will be stored: values.email
   };
 
   return (

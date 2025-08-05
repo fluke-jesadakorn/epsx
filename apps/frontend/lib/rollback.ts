@@ -129,7 +129,7 @@ class RollbackService {
       // Step 5: Log rollback event
       await this.logRollbackEvent(trigger);
       
-      console.log('✅ Rollback completed successfully');
+      // Rollback completed successfully
       
     } catch (error) {
       console.error('❌ Rollback failed:', error);
@@ -142,7 +142,7 @@ class RollbackService {
     featureFlags.emergencyDisable('server-side-migration');
     featureFlags.updateFlag('legacy-fallback', { enabled: true, rolloutPercentage: 100 });
     
-    console.log('Disabled server-side migration, enabled legacy fallback');
+    // Disabled server-side migration, enabled legacy fallback
   }
 
   private async enableFallbacks(): Promise<void> {
@@ -158,7 +158,7 @@ class RollbackService {
       rolloutPercentage: 0 
     });
     
-    console.log('Enabled fallback mechanisms');
+    // Enabled fallback mechanisms
   }
 
   private async clearCaches(): Promise<void> {
@@ -169,7 +169,7 @@ class RollbackService {
         headers: { 'Content-Type': 'application/json' },
       });
       
-      console.log('Cleared server-side caches');
+      // Cleared server-side caches
     } catch (error) {
       console.error('Failed to clear caches:', error);
     }
@@ -261,14 +261,14 @@ class RollbackService {
       return;
     }
 
-    console.log(`Gradually re-enabling '${featureKey}' by ${stepPercentage}%`);
+    // Gradually re-enabling feature flag
     featureFlags.increaseRollout(featureKey, stepPercentage);
     
     // Monitor for 5 minutes before allowing next increase
     setTimeout(() => {
       const currentHealth = this.getCurrentHealth();
       if (currentHealth.healthy) {
-        console.log(`Health check passed for '${featureKey}', safe to continue gradual rollout`);
+        // Health check passed, safe to continue gradual rollout
       } else {
         console.warn(`Health check failed for '${featureKey}', reverting rollout`);
         featureFlags.decreaseRollout(featureKey, stepPercentage);

@@ -58,10 +58,7 @@ export function TransactionHistory({
   useEffect(() => {
     const checkScreenSize = () => {
       const isMobileCheck = window.innerWidth < 768;
-      console.log('Screen size check:', {
-        width: window.innerWidth,
-        isMobile: isMobileCheck,
-      });
+      // Screen size check complete
       setIsMobile(isMobileCheck);
     };
 
@@ -294,10 +291,7 @@ export function TransactionHistory({
         {/* Responsive transaction display */}
         {/* Debug: Current screen state - Window width: {typeof window !== 'undefined' ? window.innerWidth : 'SSR'}, isMobile: {isMobile.toString()} */}
         {(() => {
-          console.log('Rendering decision:', {
-            isMobile,
-            currentTransactions: currentTransactions.length,
-          });
+          // Rendering decision made
           return null;
         })()}
         {isMobile ? (

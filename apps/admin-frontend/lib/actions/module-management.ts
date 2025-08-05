@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { adminLogger } from '@/lib/logger';
 
 // ========================================
 // MODULE MANAGEMENT SERVER ACTIONS
@@ -18,7 +17,6 @@ export async function getModules(filters?: {
   offset?: number;
 }) {
   try {
-    adminLogger.info('Fetching modules', { filters });
     
     // Placeholder data - replace with actual API call
     const mockModules = [
@@ -141,14 +139,13 @@ export async function getModules(filters?: {
       total: filteredModules.length
     };
   } catch (error) {
-    adminLogger.error('Failed to fetch modules', error);
+    console.error('Failed to fetch modules', error);
     throw new Error('Failed to fetch modules');
   }
 }
 
 export async function getUserModuleAssignments(userId: string) {
   try {
-    adminLogger.info('Fetching user module assignments', { userId });
     
     // Placeholder data - replace with actual API call
     const mockAssignments = [
@@ -203,7 +200,7 @@ export async function getUserModuleAssignments(userId: string) {
       total: mockAssignments.length
     };
   } catch (error) {
-    adminLogger.error('Failed to fetch user module assignments', { userId, error });
+    console.error('Failed to fetch user module assignments', { userId, error });
     throw new Error('Failed to fetch user module assignments');
   }
 }
@@ -220,7 +217,6 @@ export async function assignModulesToUser(request: {
   reason: string;
 }) {
   try {
-    adminLogger.info('Assigning modules to user', { request });
     
     // Simulate assignment logic
     const results = request.assignments.map(assignment => ({
@@ -242,7 +238,7 @@ export async function assignModulesToUser(request: {
       failed_count: results.filter(r => !r.success).length
     };
   } catch (error) {
-    adminLogger.error('Failed to assign modules to user', { request, error });
+    console.error('Failed to assign modules to user', { request, error });
     throw new Error('Failed to assign modules to user');
   }
 }
@@ -253,7 +249,6 @@ export async function revokeModuleAccess(
   reason: string
 ) {
   try {
-    adminLogger.info('Revoking module access', { userId, moduleId, reason });
     
     // Simulate revocation logic
     // In real implementation, this would call your backend API
@@ -268,7 +263,7 @@ export async function revokeModuleAccess(
       message: 'Module access revoked successfully'
     };
   } catch (error) {
-    adminLogger.error('Failed to revoke module access', { userId, moduleId, reason, error });
+    console.error('Failed to revoke module access', { userId, moduleId, reason, error });
     throw new Error('Failed to revoke module access');
   }
 }
@@ -286,7 +281,6 @@ export async function createApiKey(request: {
   expires_at?: string;
 }) {
   try {
-    adminLogger.info('Creating API key', { request: { ...request, client_contact_email: '[REDACTED]' } });
     
     // Generate a mock API key
     const apiKey = `ak_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
@@ -305,7 +299,7 @@ export async function createApiKey(request: {
       message: 'API key created successfully. Store this key securely - it won\'t be shown again.'
     };
   } catch (error) {
-    adminLogger.error('Failed to create API key', { request, error });
+    console.error('Failed to create API key', { request, error });
     throw new Error('Failed to create API key');
   }
 }
@@ -317,7 +311,6 @@ export async function listApiKeys(filters?: {
   offset?: number;
 }) {
   try {
-    adminLogger.info('Listing API keys', { filters });
     
     // Mock API keys data
     const mockApiKeys = [
@@ -372,14 +365,13 @@ export async function listApiKeys(filters?: {
       total: filteredKeys.length
     };
   } catch (error) {
-    adminLogger.error('Failed to list API keys', { filters, error });
+    console.error('Failed to list API keys', { filters, error });
     throw new Error('Failed to list API keys');
   }
 }
 
 export async function revokeApiKey(keyId: string, reason: string) {
   try {
-    adminLogger.info('Revoking API key', { keyId, reason });
     
     // Simulate revocation logic
     // In real implementation, this would call your backend API
@@ -392,7 +384,7 @@ export async function revokeApiKey(keyId: string, reason: string) {
       message: `API key revoked: ${reason}`
     };
   } catch (error) {
-    adminLogger.error('Failed to revoke API key', { keyId, reason, error });
+    console.error('Failed to revoke API key', { keyId, reason, error });
     throw new Error('Failed to revoke API key');
   }
 }
@@ -405,7 +397,6 @@ export async function getAdminUsers(filters?: {
   offset?: number;
 }) {
   try {
-    adminLogger.info('Fetching admin users', { filters });
     
     // Mock users data - replace with actual API call
     const mockUsers = [
@@ -459,7 +450,7 @@ export async function getAdminUsers(filters?: {
       total: filteredUsers.length
     };
   } catch (error) {
-    adminLogger.error('Failed to fetch admin users', { filters, error });
+    console.error('Failed to fetch admin users', { filters, error });
     throw new Error('Failed to fetch admin users');
   }
 }

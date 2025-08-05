@@ -1,4 +1,4 @@
-import { logger, HttpError, getApiBaseUrl } from '@epsx/shared-core';
+import { HttpError, getApiBaseUrl } from '@epsx/shared-core';
 
 export interface ServerRequestOptions extends RequestInit {
   endpoint: string;
@@ -19,10 +19,9 @@ export async function makeServerRequest<T = any>(
   const { endpoint, baseUrl, context, ...fetchOptions } = options;
   
   try {
-    logger.debug('Making server request', { 
+    console.debug('Making server request', { 
       endpoint, 
-      method: fetchOptions.method || 'GET' 
-    }, {
+      method: fetchOptions.method || 'GET',
       component: 'server-request',
       action: context?.action || 'makeServerRequest',
       userId: context?.userId,
@@ -43,10 +42,9 @@ export async function makeServerRequest<T = any>(
         const errorMessage = String(cookiesError.message);
         if (errorMessage.includes('cookies" was called outside a request scope') || 
             errorMessage.includes('cookies() was called outside a request scope')) {
-          logger.debug('Cookies not available - running outside request context', {
+          console.debug('Cookies not available - running outside request context', {
             endpoint,
-            context: 'no-request-scope'
-          }, {
+            context: 'no-request-scope',
             component: 'server-request',
             action: context?.action
           });
@@ -54,11 +52,10 @@ export async function makeServerRequest<T = any>(
           cookieHeader = '';
         } else {
           // Re-throw unexpected cookie errors
-          logger.error('Unexpected cookie access error', {
+          console.error('Unexpected cookie access error', {
             endpoint,
             errorMessage,
-            errorName: 'name' in cookiesError ? String(cookiesError.name) : 'Unknown'
-          }, {
+            errorName: 'name' in cookiesError ? String(cookiesError.name) : 'Unknown',
             component: 'server-request',
             action: context?.action
           });
@@ -66,10 +63,9 @@ export async function makeServerRequest<T = any>(
         }
       } else {
         // Re-throw non-object errors
-        logger.error('Non-object cookie error', {
+        console.error('Non-object cookie error', {
           endpoint,
-          error: cookiesError
-        }, {
+          error: cookiesError,
           component: 'server-request',
           action: context?.action
         });
@@ -125,12 +121,11 @@ export async function makeServerRequest<T = any>(
       const message = errorData?.error || errorData?.message || errorText || 'Request failed';
       const details = errorData?.details || `HTTP ${response.status}`;
       
-      logger.error('Server request failed', {
+      console.error('Server request failed', {
         url,
         status: response.status,
         statusText: response.statusText,
-        errorData
-      }, {
+        errorData,
         component: 'server-request',
         action: context?.action,
         userId: context?.userId,
@@ -142,10 +137,9 @@ export async function makeServerRequest<T = any>(
     
     const result = await response.json();
     
-    logger.debug('Server request successful', { 
+    console.debug('Server request successful', { 
       endpoint, 
-      status: response.status 
-    }, {
+      status: response.status,
       component: 'server-request',
       action: context?.action,
       userId: context?.userId,
@@ -154,13 +148,12 @@ export async function makeServerRequest<T = any>(
     
     return result;
   } catch (error) {
-    logger.error('Server request exception', {
+    console.error('Server request exception', {
       endpoint,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorName: error instanceof Error ? error.name : typeof error,
       errorStack: error instanceof Error ? error.stack : undefined,
-      error
-    }, {
+      error,
       component: 'server-request',
       action: context?.action,
       userId: context?.userId,

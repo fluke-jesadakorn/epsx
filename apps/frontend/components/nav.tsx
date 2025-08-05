@@ -15,7 +15,6 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { logger } from '@/lib/logger';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -100,7 +99,7 @@ function NavigationComponent() {
       await logout();
       router.push('/login');
     } catch (error) {
-      logger.error('Error signing out', { error: error instanceof Error ? error.message : String(error) });
+      console.error('Error signing out:', error instanceof Error ? error.message : String(error));
     }
   };
 

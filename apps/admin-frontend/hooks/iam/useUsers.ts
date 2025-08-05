@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { adminLogger } from '../../lib/logger';
 import { getIAMUsers } from '@epsx/server-actions';
 import type { UserWithPermissions } from '../../types/admin/iam';
 
@@ -68,7 +67,7 @@ export const useUsers = (options: UseUsersOptions) => {
 
       setUsers(transformedUsers);
     } catch (error) {
-      adminLogger.error('Error fetching users', {
+      console.error('Error fetching users', {
         error: error instanceof Error ? error.message : String(error),
         searchTerm: options.searchTerm,
         statusFilter: options.statusFilter,

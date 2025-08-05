@@ -1,4 +1,4 @@
-import { ErrorHandler, logger, type Result } from '@epsx/shared-core';
+import { ErrorHandler, type Result } from '@epsx/shared-core';
 import type { 
   PaymentPlan
 } from '@epsx/types';
@@ -25,10 +25,7 @@ export interface EnhancedServerData {
 
 // Data fetchers
 async function getPermissionsData(): Promise<Result<UserPermission[]>> {
-  logger.debug('Fetching user permissions', {}, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getPermissionsData'
-  });
+  console.debug('Fetching user permissions', { component: 'EnhancedServerPermissionProvider' });
 
   return ErrorHandler.withErrorHandling(async () => {
     const result = await getUserPermissions();
@@ -37,10 +34,7 @@ async function getPermissionsData(): Promise<Result<UserPermission[]>> {
 }
 
 async function getPaymentData(): Promise<Result<ServerPaymentStatus | null>> {
-  logger.debug('Fetching payment status', {}, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getPaymentData'
-  });
+  console.debug('Fetching payment status', { component: 'EnhancedServerPermissionProvider' });
 
   return ErrorHandler.withErrorHandling(async () => {
     const result = await getPaymentStatus('');
@@ -52,10 +46,7 @@ async function getPaymentData(): Promise<Result<ServerPaymentStatus | null>> {
 }
 
 async function getPlansData(): Promise<Result<PaymentPlan[]>> {
-  logger.debug('Fetching payment plans', {}, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getPlansData'
-  });
+  console.debug('Fetching payment plans', { component: 'EnhancedServerPermissionProvider' });
 
   return ErrorHandler.withErrorHandling(async () => {
     const result = await getPlanDetails('');
@@ -67,10 +58,7 @@ async function getPlansData(): Promise<Result<PaymentPlan[]>> {
 }
 
 async function getFeatureAccessData(features: string[]): Promise<Result<Record<string, boolean>>> {
-  logger.debug('Fetching feature access', { features }, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getFeatureAccessData'
-  });
+  console.debug('Fetching feature access', { features, component: 'EnhancedServerPermissionProvider' });
 
   return ErrorHandler.withErrorHandling(async () => {
     const featureAccess: Record<string, boolean> = {};
@@ -93,7 +81,7 @@ async function getFeatureAccessData(features: string[]): Promise<Result<Record<s
             : Boolean(accessResult);
         } else {
           featureAccess[feature] = false;
-          logger.warn(`Failed to check feature access for ${feature}`, {
+          console.warn(`Failed to check feature access for ${feature}`, {
             error: result.reason
           });
         }
@@ -105,10 +93,7 @@ async function getFeatureAccessData(features: string[]): Promise<Result<Record<s
 }
 
 async function getRankingAccessData(): Promise<Result<{ allowed: boolean; tier: string; expiresAt?: string }>> {
-  logger.debug('Fetching ranking access', {}, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getRankingAccessData'
-  });
+  console.debug('Fetching ranking access', { component: 'EnhancedServerPermissionProvider' });
 
   return ErrorHandler.withErrorHandling(async () => {
     const result = await checkRankingAccess();
@@ -134,10 +119,7 @@ export async function getEnhancedPermissionData(options: {
     includeRanking = true
   } = options;
 
-  logger.info('Fetching enhanced permission data', options, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getEnhancedPermissionData'
-  });
+  console.info('Fetching enhanced permission data', { options, component: 'EnhancedServerPermissionProvider' });
 
   const data: EnhancedServerData = {
     permissions: null,
@@ -207,19 +189,19 @@ export async function getEnhancedPermissionData(options: {
         } else {
           const errorMsg = `Failed to fetch ${type}: ${result.error?.message || 'Unknown error'}`;
           errors.push(errorMsg);
-          logger.warn(errorMsg, { error: result.error });
+          console.warn(errorMsg, { error: result.error });
         }
       } else {
         const errorMsg = `Promise rejected: ${promiseResult.reason}`;
         errors.push(errorMsg);
-        logger.error(errorMsg, { reason: promiseResult.reason });
+        console.error(errorMsg, { reason: promiseResult.reason });
       }
     });
 
   } catch (error) {
     const errorMsg = `Unexpected error in getEnhancedPermissionData: ${error instanceof Error ? error.message : error}`;
     errors.push(errorMsg);
-    logger.error(errorMsg, { error });
+    console.error(errorMsg, { error });
   }
 
   // Set combined error if any occurred
@@ -227,16 +209,14 @@ export async function getEnhancedPermissionData(options: {
     data.error = errors.join('; ');
   }
 
-  logger.info('Enhanced permission data fetched', {
+  console.info('Enhanced permission data fetched', {
     hasPermissions: !!data.permissions,
     hasPaymentStatus: !!data.paymentStatus,
     hasPlans: !!data.plans,
     featureCount: Object.keys(data.featureAccess).length,
     hasRankingAccess: data.rankingAccess,
-    errorCount: errors.length
-  }, {
-    component: 'EnhancedServerPermissionProvider',
-    action: 'getEnhancedPermissionData'
+    errorCount: errors.length,
+    component: 'EnhancedServerPermissionProvider'
   });
 
   return data;

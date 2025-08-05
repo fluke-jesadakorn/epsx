@@ -88,19 +88,19 @@ export const BaseSchemas = {
     .min(ValidationConfig.password.minLength, ValidationMessages.password.minLength)
     .max(ValidationConfig.password.maxLength, ValidationMessages.password.maxLength)
     .refine(
-      (password) => !ValidationConfig.password.requireUppercase || /[A-Z]/.test(password),
+      (password: string) => !ValidationConfig.password.requireUppercase || /[A-Z]/.test(password),
       ValidationMessages.password.requireUppercase
     )
     .refine(
-      (password) => !ValidationConfig.password.requireLowercase || /[a-z]/.test(password),
+      (password: string) => !ValidationConfig.password.requireLowercase || /[a-z]/.test(password),
       ValidationMessages.password.requireLowercase
     )
     .refine(
-      (password) => !ValidationConfig.password.requireNumbers || /\d/.test(password),
+      (password: string) => !ValidationConfig.password.requireNumbers || /\d/.test(password),
       ValidationMessages.password.requireNumbers
     )
     .refine(
-      (password) => {
+      (password: string) => {
         if (!ValidationConfig.password.requireSpecialChars) return true;
         const specialCharsRegex = new RegExp(`[${ValidationConfig.password.specialChars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`);
         return specialCharsRegex.test(password);
@@ -117,20 +117,20 @@ export const BaseSchemas = {
     .string()
     .optional()
     .refine(
-      (phone) => !phone || ValidationConfig.phone.pattern.test(phone),
+      (phone: string | undefined) => !phone || ValidationConfig.phone.pattern.test(phone),
       ValidationMessages.phone.invalid
     )
-    .transform((phone) => phone?.replace(/\s+/g, '') || undefined),
+    .transform((phone: string | undefined) => phone?.replace(/\s+/g, '') || undefined),
 
   // URL validation
   url: z
     .string()
     .url(ValidationMessages.url.invalid)
     .refine(
-      (url) => {
+      (url: string) => {
         try {
           const parsed = new URL(url);
-          return ValidationConfig.url.protocols.includes(parsed.protocol.slice(0, -1));
+          return ValidationConfig.url.protocols.includes(parsed.protocol.slice(0, -1) as 'http' | 'https');
         } catch {
           return false;
         }
@@ -151,8 +151,8 @@ export const BaseSchemas = {
     }
     
     return schema
-      .refine((text) => !text || text.length <= max, ValidationMessages.text.maxLength(max))
-      .transform((text) => text?.trim() || (required ? '' : undefined));
+      .refine((text: string | undefined) => !text || text.length <= max, ValidationMessages.text.maxLength(max))
+      .transform((text: string | undefined) => text?.trim() || (required ? '' : undefined));
   },
 
   // Name fields (person names, display names, etc.)
@@ -169,14 +169,14 @@ export const BaseSchemas = {
     
     return schema
       .refine(
-        (name) => !name || ValidationConfig.name.pattern.test(name),
+        (name: string | undefined) => !name || ValidationConfig.name.pattern.test(name),
         ValidationMessages.name.invalid
       )
       .refine(
-        (name) => !name || name.length <= ValidationConfig.name.maxLength,
+        (name: string | undefined) => !name || name.length <= ValidationConfig.name.maxLength,
         ValidationMessages.name.maxLength
       )
-      .transform((name) => name?.trim() || (required ? '' : undefined));
+      .transform((name: string | undefined) => name?.trim() || (required ? '' : undefined));
   },
 
   // UUID validation
@@ -185,7 +185,7 @@ export const BaseSchemas = {
   // Boolean with string coercion
   boolean: z
     .union([z.boolean(), z.string()])
-    .transform((val) => val === true || val === 'true'),
+    .transform((val: boolean | string) => val === true || val === 'true'),
 
   // Number with string coercion
   number: (options: { min?: number; max?: number; integer?: boolean } = {}) => {
@@ -193,22 +193,22 @@ export const BaseSchemas = {
     
     let schema = z
       .union([z.number(), z.string()])
-      .transform((val) => {
+      .transform((val: number | string) => {
         const num = typeof val === 'string' ? parseFloat(val) : val;
         return isNaN(num) ? undefined : num;
       })
-      .refine((val) => val !== undefined, 'Must be a valid number');
+      .refine((val: number | undefined) => val !== undefined, 'Must be a valid number');
     
     if (min !== undefined) {
-      schema = schema.refine((val) => val! >= min, `Must be at least ${min}`);
+      schema = schema.refine((val: number | undefined) => val! >= min, `Must be at least ${min}`);
     }
     
     if (max !== undefined) {
-      schema = schema.refine((val) => val! <= max, `Must be at most ${max}`);
+      schema = schema.refine((val: number | undefined) => val! <= max, `Must be at most ${max}`);
     }
     
     if (integer) {
-      schema = schema.refine((val) => Number.isInteger(val), 'Must be a whole number');
+      schema = schema.refine((val: number | undefined) => Number.isInteger(val), 'Must be a whole number');
     }
     
     return schema;
@@ -217,12 +217,12 @@ export const BaseSchemas = {
   // Date validation
   date: z
     .union([z.date(), z.string()])
-    .transform((val) => {
+    .transform((val: Date | string) => {
       if (val instanceof Date) return val;
       const date = new Date(val);
       return isNaN(date.getTime()) ? undefined : date;
     })
-    .refine((val) => val !== undefined, 'Must be a valid date'),
+    .refine((val: Date | undefined) => val !== undefined, 'Must be a valid date'),
 
   // File validation
   file: (options: {
@@ -240,14 +240,14 @@ export const BaseSchemas = {
     
     if (maxSize) {
       schema = schema.refine(
-        (file) => !file || file.size <= maxSize,
+        (file: File | undefined) => !file || file.size <= maxSize,
         ValidationMessages.file.tooLarge(fmtFileSize(maxSize))
       );
     }
     
     if (allowedTypes?.length) {
       schema = schema.refine(
-        (file) => !file || allowedTypes.includes(file.type),
+        (file: File | undefined) => !file || allowedTypes.includes(file.type),
         ValidationMessages.file.invalidType(allowedTypes)
       );
     }
@@ -272,10 +272,10 @@ export const AuthSchemas = {
       password: BaseSchemas.password,
       confirmPassword: z.string().min(1, ValidationMessages.required('Confirm Password')),
       displayName: BaseSchemas.name({ required: false }),
-      terms: BaseSchemas.boolean.refine((val) => val === true, 'You must accept the terms and conditions'),
+      terms: BaseSchemas.boolean.refine((val: boolean) => val === true, 'You must accept the terms and conditions'),
     })
     .refine(
-      (data) => data.password === data.confirmPassword,
+      (data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword,
       {
         message: ValidationMessages.password.mismatch,
         path: ['confirmPassword'],
@@ -295,7 +295,7 @@ export const AuthSchemas = {
       confirmPassword: z.string().min(1, ValidationMessages.required('Confirm Password')),
     })
     .refine(
-      (data) => data.password === data.confirmPassword,
+      (data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword,
       {
         message: ValidationMessages.password.mismatch,
         path: ['confirmPassword'],
@@ -310,7 +310,7 @@ export const AuthSchemas = {
       confirmPassword: z.string().min(1, ValidationMessages.required('Confirm Password')),
     })
     .refine(
-      (data) => data.newPassword === data.confirmPassword,
+      (data: { newPassword: string; confirmPassword: string }) => data.newPassword === data.confirmPassword,
       {
         message: ValidationMessages.password.mismatch,
         path: ['confirmPassword'],

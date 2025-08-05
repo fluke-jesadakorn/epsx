@@ -199,7 +199,7 @@ class FeatureFlagService {
     if (flag) {
       const newPercentage = Math.min(100, flag.rolloutPercentage + percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
-      console.log(`Increased rollout for '${flagKey}' to ${newPercentage}%`);
+      // Increased rollout for feature flag
     }
   }
 
@@ -208,7 +208,7 @@ class FeatureFlagService {
     if (flag) {
       const newPercentage = Math.max(0, flag.rolloutPercentage - percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
-      console.log(`Decreased rollout for '${flagKey}' to ${newPercentage}%`);
+      // Decreased rollout for feature flag
     }
   }
 

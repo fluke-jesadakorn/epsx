@@ -111,7 +111,7 @@ export function useStockPreloader() {
     setPreloading(true);
     try {
       const response = await preloadStocks(symbols);
-      console.log('Preload completed:', response);
+      // Preload completed
     } catch (error) {
       console.error('Preload error:', error);
     } finally {

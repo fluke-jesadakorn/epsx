@@ -94,7 +94,6 @@ export const ApiKeyRequestForm: React.FC = () => {
       // Simulate API call - in real implementation, this would send to your backend
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log('API Key Request:', formData);
       
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');

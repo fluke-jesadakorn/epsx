@@ -1,6 +1,5 @@
 // New admin service using only server actions
 import type { UserLevel, UserLevelAssignment } from '@/types/admin/userLevels';
-import { adminLogger } from '@/lib/logger';
 import { 
   getUserStats,
   updateUserRole,
@@ -70,7 +69,7 @@ export class AdminService {
       const response = await getAdminUsers(filters);
       return response.users || [];
     } catch (error) {
-      adminLogger.error('Failed to fetch users', error);
+      console.error('Failed to fetch users', error);
       throw error;
     }
   }
@@ -82,7 +81,7 @@ export class AdminService {
     try {
       return await getUserStats();
     } catch (error) {
-      adminLogger.error('Failed to fetch user stats', error);
+      console.error('Failed to fetch user stats', error);
       throw error;
     }
   }
@@ -94,7 +93,7 @@ export class AdminService {
     try {
       await updateUserRole(uid, role);
     } catch (error) {
-      adminLogger.error('Failed to update user role', { uid, role, error });
+      console.error('Failed to update user role', { uid, role, error });
       throw error;
     }
   }
@@ -110,7 +109,7 @@ export class AdminService {
     try {
       await updateUserPackageTier(uid, tier, updatedBy);
     } catch (error) {
-      adminLogger.error('Failed to update package tier', { uid, tier, error });
+      console.error('Failed to update package tier', { uid, tier, error });
       throw error;
     }
   }
@@ -122,7 +121,7 @@ export class AdminService {
     try {
       return await getPermissionProfiles();
     } catch (error) {
-      adminLogger.error('Failed to fetch permission profiles', error);
+      console.error('Failed to fetch permission profiles', error);
       throw error;
     }
   }
@@ -138,7 +137,7 @@ export class AdminService {
     try {
       await assignPermissionProfile(userIds, profileId, assignedBy);
     } catch (error) {
-      adminLogger.error('Failed to assign permission profile', { 
+      console.error('Failed to assign permission profile', { 
         userIds, 
         profileId, 
         error 
@@ -154,7 +153,7 @@ export class AdminService {
     try {
       return await getStockRankingPackages();
     } catch (error) {
-      adminLogger.error('Failed to fetch stock ranking packages', error);
+      console.error('Failed to fetch stock ranking packages', error);
       return [];
     }
   }
@@ -170,7 +169,7 @@ export class AdminService {
     try {
       await assignStockRankingPackage(userIds, packageId, assignedBy);
     } catch (error) {
-      adminLogger.error('Failed to assign stock ranking package', { 
+      console.error('Failed to assign stock ranking package', { 
         userIds, 
         packageId, 
         error 
@@ -186,7 +185,7 @@ export class AdminService {
     try {
       return await getAnalyticsData(type, filters);
     } catch (error) {
-      adminLogger.error(`Failed to fetch ${type} analytics`, error);
+      console.error(`Failed to fetch ${type} analytics`, error);
       return null;
     }
   }
@@ -202,7 +201,7 @@ export class AdminService {
         user.displayName?.toLowerCase().includes(query.toLowerCase())
       );
     } catch (error) {
-      adminLogger.error('Failed to search users', { query, error });
+      console.error('Failed to search users', { query, error });
       return [];
     }
   }
@@ -214,7 +213,7 @@ export class AdminService {
     try {
       return await getUserPermissions();
     } catch (error) {
-      adminLogger.error('Failed to fetch custom permissions', error);
+      console.error('Failed to fetch custom permissions', error);
       throw error;
     }
   }
@@ -226,7 +225,7 @@ export class AdminService {
     try {
       return await getIAMRoles();
     } catch (error) {
-      adminLogger.error('Failed to fetch IAM roles', error);
+      console.error('Failed to fetch IAM roles', error);
       throw error;
     }
   }
@@ -242,7 +241,7 @@ export class AdminService {
     try {
       return await evaluatePermission(params);
     } catch (error) {
-      adminLogger.error('Failed to evaluate permission', { params, error });
+      console.error('Failed to evaluate permission', { params, error });
       return { allowed: false };
     }
   }
@@ -254,7 +253,7 @@ export class AdminService {
     try {
       return await getCurrentUser();
     } catch (error) {
-      adminLogger.error('Failed to get current user', error);
+      console.error('Failed to get current user', error);
       return null;
     }
   }
@@ -266,7 +265,7 @@ export class AdminService {
     try {
       await updateSettings(settings);
     } catch (error) {
-      adminLogger.error('Failed to update settings', { settings, error });
+      console.error('Failed to update settings', { settings, error });
       throw error;
     }
   }
@@ -289,7 +288,7 @@ export class AdminService {
       const response = await getModules(filters);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to fetch modules', { filters, error });
+      console.error('Failed to fetch modules', { filters, error });
       return { success: false, data: { modules: [] } };
     }
   }
@@ -305,7 +304,7 @@ export class AdminService {
       const response = await getUserModuleAssignments({ userId });
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to fetch user module assignments', { userId, error });
+      console.error('Failed to fetch user module assignments', { userId, error });
       return { success: false, data: { assignments: [] } };
     }
   }
@@ -335,7 +334,7 @@ export class AdminService {
       const response = await assignModulesToUser(request);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to assign modules to user', { request, error });
+      console.error('Failed to assign modules to user', { request, error });
       return { 
         success: false, 
         data: { successful_count: 0, failed_count: 0, results: [] } 
@@ -355,7 +354,7 @@ export class AdminService {
       const response = await revokeModuleAccess(userId, moduleId, reason);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to revoke module access', { userId, moduleId, reason, error });
+      console.error('Failed to revoke module access', { userId, moduleId, reason, error });
       return { success: false };
     }
   }
@@ -379,7 +378,7 @@ export class AdminService {
       const response = await createApiKey(request);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to create API key', { request, error });
+      console.error('Failed to create API key', { request, error });
       return { success: false };
     }
   }
@@ -397,7 +396,7 @@ export class AdminService {
       const response = await listApiKeys(filters);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to list API keys', { filters, error });
+      console.error('Failed to list API keys', { filters, error });
       return { success: false, data: { api_keys: [] } };
     }
   }
@@ -413,7 +412,7 @@ export class AdminService {
       const response = await revokeApiKey(keyId, reason);
       return { success: true, data: response };
     } catch (error) {
-      adminLogger.error('Failed to revoke API key', { keyId, reason, error });
+      console.error('Failed to revoke API key', { keyId, reason, error });
       return { success: false };
     }
   }

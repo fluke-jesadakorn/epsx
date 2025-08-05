@@ -402,7 +402,7 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
 
   const handleSave = () => {
     // Save logic would go here
-    console.log('Saving rule:', formData);
+    // Rule data will be saved
     onSave();
   };
 

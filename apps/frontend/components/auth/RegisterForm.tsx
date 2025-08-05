@@ -23,15 +23,12 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
-  // Debug: Test if the component is working
-  React.useEffect(() => {
-    console.log('🔧 RegisterForm component mounted');
-  }, []);
+  // Component mounted
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('🚀 Direct registration handler called');
+    // Direct registration handler called
     setError('');
     setLoading(true);
 
@@ -50,7 +47,6 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
 
     try {
       // Use centralized auth API for registration
-      console.log('🔄 Using centralized auth API for registration');
       
       // Create registration request to backend
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
@@ -74,7 +70,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
       // Then login automatically
       await mainAuthAPI.login(email, password);
 
-      console.log('✅ Registration and login successful');
+      // Registration and login successful
 
       // Redirect to dashboard
       router.push(redirectTo || '/dashboard');

@@ -46,19 +46,19 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
   const { signInWithEmailAndPassword, signUp, error } = useAuth();
 
   const onSubmit = async (data: FormValues) => {
-    console.log('Form submission triggered', data);
+    // Form submission triggered
     try {
       if (isSignUp) {
-        console.log('Attempting sign up with email:', data.email);
+        // Attempting sign up
         await signUp({ email: data.email, password: data.password });
-        console.log('Sign up successful for email:', data.email);
+        // Sign up successful
       } else {
-        console.log('Attempting sign in with email:', data.email);
+        // Attempting sign in
         await signInWithEmailAndPassword({ email: data.email, password: data.password });
-        console.log('Sign in successful for email:', data.email);
+        // Sign in successful
         // Add a small delay to ensure auth state is updated
         setTimeout(() => {
-          console.log('Post sign-in delay completed');
+          // Post sign-in delay completed
         }, 500);
       }
     } catch (error) {
@@ -69,10 +69,10 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
 
   const handleForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submit event triggered');
-    console.log('Form state before submission:', { errors, isSubmitting });
+    // Form submit event triggered
+    // Form state logged
     const isValid = await handleSubmit(onSubmit)();
-    console.log('Form validation result:', isValid);
+    // Form validation completed
   };
 
   return (

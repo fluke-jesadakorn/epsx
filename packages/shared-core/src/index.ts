@@ -2,9 +2,8 @@
 // CONSOLIDATED SHARED CORE - Single Entry Point for Core Utilities
 // ============================================================================
 
-// Error handling & logging (most commonly used)
+// Error handling (most commonly used)
 export * from './error-handling';
-export * from './logging';
 export type { Result } from './error-handling/types';
 
 // Environment detection
@@ -22,7 +21,7 @@ export type {
 // ============================================================================
 // IMPORT GUIDANCE - Use specific imports to minimize dependencies:
 // 
-// Error handling:  import { ErrorHandler, logger } from '@epsx/shared-core';
+// Error handling:  import { ErrorHandler } from '@epsx/shared-core';
 // Environment:     import { Environment, getApiBaseUrl } from '@epsx/shared-core';
 // Validation:      import { Validator, CommonSchemas } from '@epsx/shared-core';
 // Types only:      import type { Result, ValidationResult } from '@epsx/shared-core';

@@ -1,14 +1,23 @@
 'use server';
 
 import type { ActionResult, AssignmentResult, StockRankingAssignmentRequest, StockRankingAssignmentExtendRequest, StockRankingAssignmentUpdateRequest, UserSoftDeleteRequest } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@epsx/api-client';
 import { 
   assignPermissionProfile,
   assignStockRankingPackage,
   getAdminUsers,
   updateUserPackageTier
 } from '@epsx/server-actions';
-import { adminLogger } from '../logger';
 import { revalidatePath } from 'next/cache';
+import { config } from '../config';
+
+// Get backend URL server-side only
+const getApiClient = () => {
+  if (!config.isServer()) {
+    throw new Error('API client can only be created on server-side');
+  }
+  return createApiClient(); // Will use backend URL from environment
+};
 
 // Permission Profile Actions
 export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
@@ -17,7 +26,6 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
   const expiresAt = formData.get('expiresAt') as string;
 
   try {
-    adminLogger.info('Assigning permission profile', { profileId, userId, expiresAt }, 'AdminActionLayer');
 
     const response = await getApiClient().assignAdminPermissionProfile({
       profile_id: profileId,
@@ -26,14 +34,13 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     });
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to assign permission profile', { error: response.error, details: response.details, profileId, userId }, 'AdminActionLayer');
+      console.error('Failed to assign permission profile', { error: response.error, details: response.details, profileId, userId }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to assign permission profile'
       };
     }
 
-    adminLogger.info('Permission profile assigned successfully', { profileId, userId }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/permission-profiles');
@@ -41,7 +48,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('Permission profile assignment error', { 
+    console.error('Permission profile assignment error', { 
       error: error instanceof Error ? error.message : String(error),
       profileId,
       userId
@@ -60,7 +67,6 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
   const expiresAt = formData.get('expiresAt') as string;
 
   try {
-    adminLogger.info('Assigning bulk stock ranking', { userIds, packageTier, expiresAt }, 'AdminActionLayer');
 
     const response = await getApiClient().assignBulkStockRanking({
       user_ids: userIds,
@@ -69,14 +75,13 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
     });
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to assign bulk stock ranking', { error: response.error, details: response.details, userIds, packageTier }, 'AdminActionLayer');
+      console.error('Failed to assign bulk stock ranking', { error: response.error, details: response.details, userIds, packageTier }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to assign stock ranking'
       };
     }
 
-    adminLogger.info('Bulk stock ranking assigned successfully', { userIds, packageTier }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/stock-ranking');
@@ -84,7 +89,7 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('Bulk stock ranking assignment error', { 
+    console.error('Bulk stock ranking assignment error', { 
       error: error instanceof Error ? error.message : String(error),
       userIds,
       packageTier
@@ -98,26 +103,24 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
 
 export async function revokeStockRankingAssignmentAction(assignmentId: string): Promise<ActionResult<AssignmentResult>> {
   try {
-    adminLogger.info('Revoking stock ranking assignment', { assignmentId }, 'AdminActionLayer');
 
     const response = await getApiClient().revokeStockRankingAssignment(assignmentId);
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to revoke stock ranking assignment', { error: response.error, details: response.details, assignmentId }, 'AdminActionLayer');
+      console.error('Failed to revoke stock ranking assignment', { error: response.error, details: response.details, assignmentId }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to revoke assignment'
       };
     }
 
-    adminLogger.info('Stock ranking assignment revoked successfully', { assignmentId }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/stock-ranking');
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('Stock ranking assignment revocation error', { 
+    console.error('Stock ranking assignment revocation error', { 
       error: error instanceof Error ? error.message : String(error),
       assignmentId
     }, 'AdminActionLayer');
@@ -132,28 +135,26 @@ export async function extendStockRankingAssignmentAction(assignmentId: string, f
   const newExpiresAt = formData.get('newExpiresAt') as string;
 
   try {
-    adminLogger.info('Extending stock ranking assignment', { assignmentId, newExpiresAt }, 'AdminActionLayer');
 
     const response = await getApiClient().extendStockRankingAssignment(assignmentId, {
       new_expires_at: newExpiresAt,
     });
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to extend stock ranking assignment', { error: response.error, details: response.details, assignmentId, newExpiresAt }, 'AdminActionLayer');
+      console.error('Failed to extend stock ranking assignment', { error: response.error, details: response.details, assignmentId, newExpiresAt }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to extend assignment'
       };
     }
 
-    adminLogger.info('Stock ranking assignment extended successfully', { assignmentId, newExpiresAt }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/stock-ranking');
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('Stock ranking assignment extension error', { 
+    console.error('Stock ranking assignment extension error', { 
       error: error instanceof Error ? error.message : String(error),
       assignmentId,
       newExpiresAt
@@ -173,26 +174,24 @@ export async function updateStockRankingAssignmentAction(assignmentId: string, f
   };
 
   try {
-    adminLogger.info('Updating stock ranking assignment', { assignmentId, updateData }, 'AdminActionLayer');
 
     const response = await getApiClient().updateStockRankingAssignment(assignmentId, updateData);
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to update stock ranking assignment', { error: response.error, details: response.details, assignmentId, updateData }, 'AdminActionLayer');
+      console.error('Failed to update stock ranking assignment', { error: response.error, details: response.details, assignmentId, updateData }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to update assignment'
       };
     }
 
-    adminLogger.info('Stock ranking assignment updated successfully', { assignmentId }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/stock-ranking');
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('Stock ranking assignment update error', { 
+    console.error('Stock ranking assignment update error', { 
       error: error instanceof Error ? error.message : String(error),
       assignmentId,
       updateData
@@ -210,28 +209,26 @@ export async function softDeleteUserAction(formData: FormData): Promise<ActionRe
   const reason = formData.get('reason') as string;
 
   try {
-    adminLogger.info('Soft deleting user', { userId, reason }, 'AdminActionLayer');
 
     const response = await getApiClient().softDeleteUser(userId, {
       reason: reason || 'Deleted via admin interface',
     });
 
     if (isApiError(response)) {
-      adminLogger.error('Failed to soft delete user', { error: response.error, details: response.details, userId, reason }, 'AdminActionLayer');
+      console.error('Failed to soft delete user', { error: response.error, details: response.details, userId, reason }, 'AdminActionLayer');
       return { 
         success: false, 
         error: response.error || 'Failed to delete user'
       };
     }
 
-    adminLogger.info('User soft deleted successfully', { userId }, 'AdminActionLayer');
     
     // Revalidate related pages
     revalidatePath('/admin/users');
     
     return { success: true, data: response.data };
   } catch (error) {
-    adminLogger.error('User soft delete error', { 
+    console.error('User soft delete error', { 
       userId,
       reason,
       error: error instanceof Error ? error.message : String(error) 

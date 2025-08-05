@@ -1,5 +1,5 @@
-use std::{sync::Arc, net::SocketAddr};
-use tracing::info;
+use std::{sync::Arc, net::SocketAddr, time::Duration};
+use tracing::{info, warn, error};
 use epsx::{
     infra::{AppContainer, PostgresAuditRepo}, 
     web::create_router,
@@ -119,12 +119,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let graceful = axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(async move {
             shutdown_rx.await.ok();
+            info!("Starting graceful shutdown sequence...");
+            
+            // Set a timeout for the entire shutdown process
+            let shutdown_timeout = Duration::from_secs(10);
+            let shutdown_start = std::time::Instant::now();
+            
+            // Shutdown schedulers with timeout
             info!("Shutting down schedulers...");
+            
+            // Shutdown expiration scheduler
             expiration_scheduler.shutdown();
-            if let Err(e) = job_scheduler.stop().await {
-                tracing::error!("Error stopping job scheduler: {}", e);
+            info!("Expiration scheduler shutdown initiated");
+            
+            // Shutdown job scheduler with timeout
+            let job_shutdown = tokio::time::timeout(Duration::from_secs(5), job_scheduler.stop()).await;
+            match job_shutdown {
+                Ok(Ok(())) => info!("Job scheduler stopped successfully"),
+                Ok(Err(e)) => error!("Error stopping job scheduler: {}", e),
+                Err(_) => warn!("Job scheduler shutdown timed out after 5 seconds"),
             }
-            info!("All schedulers stopped");
+            
+            let elapsed = shutdown_start.elapsed();
+            if elapsed > shutdown_timeout {
+                warn!("Shutdown process took {}ms (timeout: {}ms)", elapsed.as_millis(), shutdown_timeout.as_millis());
+            } else {
+                info!("Graceful shutdown completed in {}ms", elapsed.as_millis());
+            }
         });
     
     graceful.await?;

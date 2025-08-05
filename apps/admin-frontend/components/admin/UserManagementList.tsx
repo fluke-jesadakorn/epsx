@@ -2,7 +2,6 @@
 
 import { useToast } from '@/components/ui/toast';
 import React, { useState, useMemo } from 'react';
-import { adminLogger } from '../../lib/logger';
 // Note: updateUserTier is not yet implemented in server-actions
 // import { updateUserTier } from '@epsx/server-actions';
 
@@ -118,7 +117,7 @@ export const UserManagementList: React.FC<UserManagementListProps> = ({ initialU
         throw new Error(result.error?.message || 'Upgrade failed');
       }
     } catch (error) {
-      adminLogger.error('Failed to upgrade package', {
+      console.error('Failed to upgrade package', {
         userId,
         newTier,
         error: error instanceof Error ? error.message : String(error),

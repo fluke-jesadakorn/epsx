@@ -54,8 +54,6 @@ export function BulkUserLevelAssignment() {
 
       const response = await AdminService.bulkUpdateLevels(updates);
       
-      // Debug logging
-      console.log('Bulk assignment response:', response);
       
       // Check if response has results property
       if (response && response.results && Array.isArray(response.results)) {

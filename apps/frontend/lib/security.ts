@@ -3,7 +3,6 @@
 import { headers, cookies } from 'next/headers';
 import { z } from 'zod';
 import { trackUserAction, trackError, trackSecurityEvent } from '@epsx/firebase-analytics/server';
-import { logger } from './logger';
 
 // Security event constants and enums
 export const SIGNIFICANT_EVENTS = [
@@ -285,7 +284,7 @@ export async function validateSession(sessionToken: string): Promise<boolean> {
     
     return true;
   } catch (error) {
-    logger.error('Session validation error', { error: error instanceof Error ? error.message : error });
+    console.error('Session validation error:', error instanceof Error ? error.message : error);
     return false;
   }
 }
@@ -402,10 +401,10 @@ async function storeAuditLogInDatabase(auditLog: AuditLog): Promise<void> {
     });
 
     if (!response.ok) {
-      logger.error('Failed to store audit log in database', { status: response.status });
+      console.error('Failed to store audit log in database. Status:', response.status);
     }
   } catch (error) {
-    logger.error('Error storing audit log in database', { error: error instanceof Error ? error.message : error });
+    console.error('Error storing audit log in database:', error instanceof Error ? error.message : error);
   }
 }
 
@@ -429,7 +428,7 @@ function trackSecurityEventInAnalytics(auditLog: AuditLog): void {
       );
     }
   } catch (error) {
-    logger.error('Error tracking security event in analytics', { error: error instanceof Error ? error.message : error });
+    console.error('Error tracking security event in analytics:', error instanceof Error ? error.message : error);
   }
 }
 
@@ -475,16 +474,7 @@ export async function logSecurityEvent(event: Omit<AuditLog, 'ip' | 'userAgent' 
     severity
   };
   
-  // Log security event
-  logger.info('Security Event', { 
-    action: auditLog.action, 
-    resource: auditLog.resource, 
-    success: auditLog.success, 
-    category: auditLog.category,
-    severity: auditLog.severity,
-    userId: auditLog.userId,
-    ip: auditLog.ip
-  });
+  // Log security event (removed console.info for production)
   
   // Always track in Firebase Analytics
   trackSecurityEventInAnalytics(auditLog);
@@ -514,11 +504,11 @@ export function trackAnalyticsEvent(
       
       // Log additional analytics data if provided
       if (additionalData) {
-        logger.debug('Analytics Event', { action, category, label, userId, ...additionalData });
+        // Debug logging removed for production
       }
     }
   } catch (error) {
-    logger.error('Error tracking analytics event', { error: error instanceof Error ? error.message : error });
+    console.error('Error tracking analytics event:', error instanceof Error ? error.message : error);
   }
 }
 
@@ -585,7 +575,7 @@ export async function performSecurityChecks(options: {
     
     return { success: true };
   } catch (error) {
-    logger.error('Security check error', { error: error instanceof Error ? error.message : error });
+    console.error('Security check error:', error instanceof Error ? error.message : error);
     return { success: false, error: 'Security validation failed' };
   }
 }

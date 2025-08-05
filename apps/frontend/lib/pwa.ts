@@ -76,7 +76,6 @@ export class PWAManager {
           }
         });
 
-        console.log('Service Worker registered successfully');
       } catch (error) {
         console.error('Service Worker registration failed:', error);
       }
@@ -282,7 +281,6 @@ export class PWAManager {
     // Copy URL to clipboard as fallback
     if (data.url && navigator.clipboard) {
       navigator.clipboard.writeText(data.url).then(() => {
-        console.log('URL copied to clipboard');
       });
       return true;
     }

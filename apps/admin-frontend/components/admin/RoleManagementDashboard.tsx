@@ -55,7 +55,6 @@ export function RoleManagementDashboard() {
 
     try {
       // TODO: Implement delete API call
-      console.log('Deleting role:', roleId);
       // Remove from local state for now
       setRoles(roles.filter(role => role.id !== roleId));
     } catch (err) {
@@ -215,7 +214,7 @@ export function RoleManagementDashboard() {
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => console.log('Edit role:', role.id)}
+                        onClick={() => {/* TODO: Implement edit role functionality */}}
                         className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
                         title="Edit Role"
                       >

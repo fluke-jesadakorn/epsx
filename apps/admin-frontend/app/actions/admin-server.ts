@@ -69,17 +69,14 @@ export async function getUserStats() {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     const allCookies = cookieStore.getAll();
-    console.log('[getUserStats] Available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
     
     // Build cookie header manually
     const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-    console.log('[getUserStats] Cookie header length:', cookieHeader.length);
     
     // Direct fetch to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
     const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
     
-    console.log('[getUserStats] Making direct request to:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -89,8 +86,6 @@ export async function getUserStats() {
       },
     });
     
-    console.log('[getUserStats] Response status:', response.status);
-    console.log('[getUserStats] Response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -99,7 +94,6 @@ export async function getUserStats() {
     }
     
     const data = await response.json();
-    console.log('[getUserStats] Success response received');
     return data;
     
   } catch (error) {

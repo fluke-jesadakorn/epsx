@@ -72,7 +72,7 @@ export function ExportReport({ data, symbol, onExport, onAddComparison }: Export
     onExport(selectedFormat);
     
     // In real implementation, this would trigger the export process
-    console.log('Exporting with config:', exportData);
+    // Export process would be handled here
   };
 
   const handleAddComparison = () => {

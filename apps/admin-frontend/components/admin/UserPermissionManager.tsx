@@ -1,7 +1,6 @@
 'use client';
 
 import { useToast } from '@/components/ui/toast';
-import { adminLogger } from '@/lib/logger';
 import React, { useEffect, useState } from 'react';
 import type { UserWithPermissions } from '../../types/admin/iam';
 import { PackageTier } from '../../types/admin/iam';
@@ -87,7 +86,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
       const userData = await getIAMUser(userId);
       setUser(userData);
     } catch (error) {
-      adminLogger.error('Failed to load user details', {
+      console.error('Failed to load user details', {
         userId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -129,7 +128,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         });
       }
     } catch (error) {
-      adminLogger.error('Failed to upgrade package', {
+      console.error('Failed to upgrade package', {
         userId,
         newTier,
         error: error instanceof Error ? error.message : String(error),
@@ -177,7 +176,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         title: 'Custom permission granted successfully!',
       });
     } catch (error) {
-      adminLogger.error('Failed to grant custom permission', {
+      console.error('Failed to grant custom permission', {
         userId,
         featureId: customPermissionForm.featureId,
         error: error instanceof Error ? error.message : String(error),
@@ -209,7 +208,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         title: 'Permission revoked successfully!',
       });
     } catch (error) {
-      adminLogger.error('Failed to revoke permission', {
+      console.error('Failed to revoke permission', {
         permissionId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -238,7 +237,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
         title: 'Permission profile applied successfully!',
       });
     } catch (error) {
-      adminLogger.error('Failed to apply permission profile', {
+      console.error('Failed to apply permission profile', {
         userId,
         profileId: selectedProfile,
         error: error instanceof Error ? error.message : String(error),

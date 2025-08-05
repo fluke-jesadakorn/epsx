@@ -84,7 +84,7 @@ export default function PaymentDetails({
       try {
         const payment = JSON.parse(storedPayment);
         setActivePayment(payment);
-        console.log('Loaded active payment:', payment);
+        // Loaded active payment
       } catch (error) {
         console.error('Failed to parse stored payment:', error);
       }
@@ -95,12 +95,12 @@ export default function PaymentDetails({
   useEffect(() => {
     if (!activePayment?.paymentRequest?.customerRefId) return;
 
-    console.log('Setting up payment monitoring for:', activePayment.paymentRequest.customerRefId);
+    // Setting up payment monitoring
     
     const unsubscribe = realtimeClient.connectToPaymentUpdates(
       activePayment.paymentRequest.customerRefId,
       (update: PaymentStatusUpdate) => {
-        console.log('Payment status update:', update.status);
+        // Payment status updated
         
         if (update.status === 'completed') {
           setPaymentStatus('confirmed');

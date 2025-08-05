@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "license": "UNLICENSED",
   "author": "EPSX Team",
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
@@ -15,7 +15,6 @@
     "postinstall": "turbo run build:packages",
     "// Development Scripts": "===================================",
     "dev": "turbo run dev --parallel",
-    "dev:all": "turbo run dev --parallel",
     "dev:frontend": "turbo run dev:frontend",
     "dev:admin": "turbo run dev:admin",
     "dev:backend": "turbo run dev:backend",
@@ -100,13 +99,10 @@
     "prettier": "^3.6.2",
     "query-string": "^9.2.2",
     "tslib": "^2.8.1",
-    "turbo": "2.5.4",
+    "turbo": "2.5.5",
     "typescript": "^5.8.3"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*", "packages/*"],
   "dependencies": {
     "react-icons": "^5.5.0"
   }

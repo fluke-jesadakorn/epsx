@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cargo watch -x run",
+    "dev": "cargo watch --why --exec 'run'",
+    "dev:debug": "RUST_LOG=debug cargo watch --why --exec 'run'",
+    "kill-port": "./cleanup-port.sh 8080",
+    "cleanup": "./cleanup-port.sh 8080 && echo 'Port cleaned, ready for restart'",
     "build": "cargo build --release",
     "start": "cargo run --release",
     "clean": "cargo clean"

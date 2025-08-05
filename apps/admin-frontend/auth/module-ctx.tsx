@@ -16,17 +16,17 @@ const ModuleAuthContext = createContext<ModuleAuthContextType | null>(null);
 export function ModuleAuthProvider({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAdminAuth();
 
-  // Simple permission-based module access using NextAuth user data
+  // Simple permission-based module access using NextAuth user data 
   const hasModuleAccess = (module: string): boolean => {
     if (!user) return false;
     
     // Super admin has access to everything
-    if (user.roles?.includes('super_admin') || user.claims?.role === 'super_admin') {
+    if (user.role === 'super_admin') {
       return true;
     }
     
     // Admin has access to most modules
-    if (user.roles?.includes('admin') || user.claims?.role === 'admin') {
+    if (user.role === 'admin') {
       return ['admin', 'users', 'analytics', 'billing', 'settings'].includes(module);
     }
     
@@ -37,7 +37,7 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
     if (!user) return false;
     
     // Super admin can perform any action
-    if (user.roles?.includes('super_admin') || user.claims?.role === 'super_admin') {
+    if (user.role === 'super_admin') {
       return true;
     }
     
@@ -45,7 +45,7 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
     if (!hasModuleAccess(module)) return false;
     
     // Admin can perform most actions
-    if (user.roles?.includes('admin') || user.claims?.role === 'admin') {
+    if (user.role === 'admin') {
       // Restrict some dangerous actions
       const restrictedActions = ['delete_user', 'system_reset', 'backup_restore'];
       return !restrictedActions.includes(action);
@@ -57,11 +57,11 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
   const getAccessLevel = (module: string): string => {
     if (!user) return 'none';
     
-    if (user.roles?.includes('super_admin') || user.claims?.role === 'super_admin') {
+    if (user.role === 'super_admin') {
       return 'full';
     }
     
-    if (user.roles?.includes('admin') || user.claims?.role === 'admin') {
+    if (user.role === 'admin') {
       return hasModuleAccess(module) ? 'admin' : 'none';
     }
     
@@ -94,7 +94,15 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
 export function useModuleAuth(): ModuleAuthContextType {
   const context = useContext(ModuleAuthContext);
   if (!context) {
-    throw new Error('useModuleAuth must be used within ModuleAuthProvider');
+    // Return fallback instead of throwing error to prevent app crashes
+    console.warn('useModuleAuth: Context not found, returning fallback');
+    return {
+      hasModuleAccess: () => false,
+      canPerformAction: () => false,
+      getAccessLevel: () => 'none',
+      moduleAccess: {},
+      loading: false,
+    };
   }
   return context;
 }

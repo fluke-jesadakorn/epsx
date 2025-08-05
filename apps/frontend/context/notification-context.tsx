@@ -4,7 +4,6 @@ import React, { createContext, useContext, useCallback, useEffect, useMemo, useR
 import { useAppState } from './app-state';
 import { NotificationState, type Notification, NotificationPreferences } from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
-import { logger } from '@/lib/logger';
 import { createApiClient, isApiError, type PushSubscriptionRequest } from '@epsx/api-client';
 import { getVapidKey } from '@/lib/actions/admin.server';
 
@@ -80,7 +79,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {
-        logger.info('Notifications WebSocket connected');
+        // Notifications WebSocket connected
         actions.notifications.setRealtimeStatus({ 
           connected: true, 
           lastSync: Date.now() 
@@ -111,12 +110,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               break;
           }
         } catch (error) {
-          logger.error('Error parsing notification WebSocket message', { error: error instanceof Error ? error.message : String(error) });
+          console.error('Error parsing notification WebSocket message', { error: error instanceof Error ? error.message : String(error) });
         }
       };
 
       wsRef.current.onclose = () => {
-        logger.info('Notifications WebSocket disconnected');
+        // Notifications WebSocket disconnected
         actions.notifications.setRealtimeStatus({ connected: false });
         
         // Reconnect after 5 seconds
@@ -124,11 +123,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       };
 
       wsRef.current.onerror = (error) => {
-        logger.error('Notifications WebSocket error', { error: error instanceof Error ? error.message : String(error) });
+        console.error('Notifications WebSocket error', { error: error instanceof Error ? error.message : String(error) });
         actions.notifications.setRealtimeStatus({ connected: false });
       };
     } catch (error) {
-      logger.error('Failed to connect notification WebSocket', { error: error instanceof Error ? error.message : String(error) });
+      console.error('Failed to connect notification WebSocket', { error: error instanceof Error ? error.message : String(error) });
     }
   }, [actions.notifications]);
 
@@ -344,7 +343,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
       // Handle notifications response
       if (isApiError(notificationsRes)) {
-        logger.error('Failed to fetch notifications', { error: notificationsRes.error });
+        console.error('Failed to fetch notifications', { error: notificationsRes.error });
         actions.notifications.setNotifications([]);
       } else {
         const notificationsData = notificationsRes.data || { notifications: [], unreadCount: 0 };
@@ -353,12 +352,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
       // Handle preferences response
       if (isApiError(preferencesRes)) {
-        logger.error('Failed to fetch notification preferences', { error: preferencesRes.error });
+        console.error('Failed to fetch notification preferences', { error: preferencesRes.error });
       } else if (preferencesRes.data) {
         actions.notifications.updatePreferences(preferencesRes.data);
       }
     } catch (error) {
-      logger.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
+      console.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }, [actions.notifications, notificationApiClient]);
@@ -409,7 +408,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         throw new Error(response.error || 'Failed to register push subscription');
       }
     } catch (error) {
-      logger.error('Failed to subscribe to push notifications', { error: error instanceof Error ? error.message : String(error) });
+      console.error('Failed to subscribe to push notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }, [notificationApiClient]);
@@ -423,7 +422,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const response = await notificationApiClient.unsubscribeFromPushNotifications();
       
       if (isApiError(response)) {
-        logger.error('Failed to unsubscribe from push notifications', { error: response.error });
+        console.error('Failed to unsubscribe from push notifications', { error: response.error });
       }
     }
   }, [notificationApiClient]);

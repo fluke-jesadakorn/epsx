@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
-import { logger } from '@/lib/logger';
 
 interface PaymentEvent {
   type: 'payment_started' | 'payment_completed' | 'payment_failed';
@@ -83,7 +82,7 @@ export default function PaymentTracker() {
     const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-      logger.info('WebSocket connected', { wsUrl });
+      // WebSocket connected
       setConnectionStatus('connected');
     };
     
@@ -92,18 +91,18 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        logger.error('Failed to parse WebSocket message', { error: error instanceof Error ? error.message : error, rawData: event.data });
+        console.error('Failed to parse WebSocket message', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     };
     
     ws.onclose = () => {
-      logger.info('WebSocket disconnected');
+      // WebSocket disconnected
       setConnectionStatus('disconnected');
       setWsRef(null);
     };
     
     ws.onerror = (error) => {
-      logger.error('WebSocket error', { error: error instanceof Error ? error.message : error });
+      console.error('WebSocket error', { error: error instanceof Error ? error.message : error });
       setConnectionStatus('disconnected');
     };
     
@@ -127,7 +126,7 @@ export default function PaymentTracker() {
     const eventSource = new EventSource(sseUrl);
     
     eventSource.onopen = () => {
-      logger.info('SSE connected', { sseUrl });
+      // SSE connected
       setConnectionStatus('connected');
     };
     
@@ -136,12 +135,12 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        logger.error('Failed to parse SSE message', { error: error instanceof Error ? error.message : error, rawData: event.data });
+        console.error('Failed to parse SSE message', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     };
     
     eventSource.onerror = () => {
-      logger.error('SSE error');
+      console.error('SSE error');
       setConnectionStatus('disconnected');
       setEventSourceRef(null);
     };
@@ -152,7 +151,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        logger.error('Failed to parse payment_started event', { error: error instanceof Error ? error.message : error, rawData: event.data });
+        console.error('Failed to parse payment_started event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -161,7 +160,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        logger.error('Failed to parse payment_completed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
+        console.error('Failed to parse payment_completed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -170,7 +169,7 @@ export default function PaymentTracker() {
         const data = JSON.parse(event.data) as PaymentEvent;
         handlePaymentEvent(data);
       } catch (error) {
-        logger.error('Failed to parse payment_failed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
+        console.error('Failed to parse payment_failed event', { error: error instanceof Error ? error.message : error, rawData: event.data });
       }
     });
     
@@ -179,7 +178,7 @@ export default function PaymentTracker() {
 
   // Handle payment events
   const handlePaymentEvent = useCallback((data: PaymentEvent) => {
-    logger.info('Received payment event', { eventType: data.type, paymentId: data.data.event.PaymentStarted?.payment_id || data.data.event.PaymentCompleted?.payment_id || data.data.event.PaymentFailed?.payment_id });
+    // Payment event received
     
     let paymentStatus: PaymentStatus;
     

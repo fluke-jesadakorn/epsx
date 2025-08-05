@@ -3,7 +3,6 @@
 pub mod auth;
 pub mod admin;
 pub mod iam;
-pub mod audit;
 pub mod permission_profile;
 pub mod user;
 pub mod realtime;
@@ -29,7 +28,6 @@ use crate::app::use_cases::iam::IamUC;
 use auth::AppState;
 use admin::{create_admin_routes, create_admin_public_routes};
 use iam::create_iam_router;
-use audit::create_audit_router;
 use permission_profile::create_permission_profile_router;
 use user::user_routes_v1;
 use realtime::realtime_routes;
@@ -187,9 +185,6 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
             auth_middleware,
         ));
 
-    // Audit routes for v1 API (public access for frontend logging)
-    let audit_routes_v1 = Router::new()
-        .nest("/audit", create_audit_router());
 
     // Admin routes for v1 API (auth required)
     let admin_routes_v1 = Router::new()
@@ -234,7 +229,6 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .merge(payment_routes)
         .merge(system_routes)
         .merge(premium_routes)
-        .merge(audit_routes_v1)
         .merge(admin_routes_v1)
         .merge(iam_routes_v1)
         .merge(permission_profile_routes_v1)

@@ -83,7 +83,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {
-        console.log('Trading WebSocket connected');
+        // WebSocket connected
         actions.trading.setRealtimeStatus({ connected: true });
         
         // Resubscribe to all symbols
@@ -116,7 +116,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
       };
 
       wsRef.current.onclose = () => {
-        console.log('Trading WebSocket disconnected');
+        // WebSocket disconnected
         actions.trading.setRealtimeStatus({ connected: false });
         
         // Reconnect after 5 seconds

@@ -29,7 +29,7 @@ export default function PaymentReturnPage() {
           const unsubscribe = realtimeClient.connectToPaymentUpdates(
             payment.paymentRequest.customerRefId,
             (update: PaymentStatusUpdate) => {
-              console.log('Payment status update:', update.status);
+              // Payment status updated
 
               if (update.status === 'completed') {
                 setPaymentStatus('success');

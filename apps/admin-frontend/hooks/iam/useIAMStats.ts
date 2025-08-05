@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { adminLogger } from '../../lib/logger';
 import { getIAMUsers } from '@epsx/server-actions';
 
 interface IAMStats {
@@ -48,7 +47,7 @@ export const useIAMStats = () => {
 
         setStats(statsData);
       } catch (error) {
-        adminLogger.error('Failed to fetch IAM stats', {
+        console.error('Failed to fetch IAM stats', {
           error: error instanceof Error ? error.message : String(error),
         });
         // Set fallback values

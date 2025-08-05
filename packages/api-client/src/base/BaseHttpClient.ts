@@ -1,5 +1,4 @@
-import { logger, Environment, getApiBaseUrl } from '@epsx/shared-core';
-import type { Logger } from '@epsx/shared-core';
+import { Environment, getApiBaseUrl } from '@epsx/shared-core';
 import type { ApiResponse, RequestConfig } from '@epsx/types';
 import { CookieManager } from '../cookie-manager';
 
@@ -19,10 +18,7 @@ export abstract class BaseHttpClient {
     const url = `${this.baseUrl}${endpoint}`;
     
     try {
-      (logger as Logger).debug('Making HTTP request', { url, method: config.method || 'GET' }, {
-        component: 'BaseHttpClient',
-        action: 'request'
-      });
+      console.debug('Making HTTP request', { url, method: config.method || 'GET', component: 'BaseHttpClient' });
 
       const authHeaders = this.isServer
         ? await CookieManager.buildAuthHeaders()
@@ -52,14 +48,12 @@ export abstract class BaseHttpClient {
       }
 
       if (!response.ok) {
-        (logger as Logger).warn('HTTP request failed', {
+        console.warn('HTTP request failed', {
           url,
           status: response.status,
           statusText: response.statusText,
-          responseData: data
-        }, {
-          component: 'BaseHttpClient',
-          action: 'request'
+          responseData: data,
+          component: 'BaseHttpClient'
         });
 
         return {
@@ -68,19 +62,14 @@ export abstract class BaseHttpClient {
         };
       }
 
-      (logger as Logger).debug('HTTP request successful', { url, status: response.status }, {
-        component: 'BaseHttpClient',
-        action: 'request'
-      });
+      console.debug('HTTP request successful', { url, status: response.status, component: 'BaseHttpClient' });
 
       return { data };
     } catch (error) {
-      (logger as Logger).error('HTTP request exception', { 
+      console.error('HTTP request exception', { 
         url, 
-        error: error instanceof Error ? error.message : String(error) 
-      }, {
-        component: 'BaseHttpClient',
-        action: 'request'
+        error: error instanceof Error ? error.message : String(error),
+        component: 'BaseHttpClient'
       });
 
       return {

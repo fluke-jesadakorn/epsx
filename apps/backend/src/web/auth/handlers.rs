@@ -10,7 +10,8 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use crate::app::dtos::auth::{LoginReq, RefreshReq, LogoutReq, AutoRegistrationRequest, RegistrationResponse};
 use crate::web::middleware::AuthCtx;
-use crate::dom::values::Role;
+use crate::dom::values::{Role, UserId};
+use crate::dom::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
 use super::AppState;
 
 /// Generate a bearer token for the session
@@ -19,6 +20,34 @@ fn generate_bearer_token(session_id: &str) -> String {
     // For now, we'll use the session ID as the bearer token
     // The frontend will include this in the Authorization header
     session_id.to_string()
+}
+
+/// Log authentication events to audit trail
+async fn log_auth_event(
+    app_state: &AppState,
+    action: AuditAction,
+    user_id: Option<&UserId>,
+    result: AuditResult,
+    email: &str,
+    session_id: Option<&str>,
+) {
+    let actor_id = user_id.cloned().unwrap_or_else(|| UserId::new("anonymous".to_string()));
+    
+    let mut entry = AuditLogEntry::new(
+        actor_id,
+        action,
+        ResourceType::Session,
+        email.to_string(),
+        result,
+    );
+    
+    if let Some(session_id) = session_id {
+        entry = entry.with_session_id(session_id.to_string());
+    }
+    
+    if let Err(e) = app_state.audit_repo.store(&entry).await {
+        tracing::error!("Failed to log audit event: {:?}", e);
+    }
 }
 
 /// Multi-method login request supporting various authentication flows
@@ -95,6 +124,12 @@ async fn handle_credentials_login(
     let login_res = app_state.auth_uc.login(login_req).await
         .map_err(|e| {
             tracing::error!("Login failed: {:?}", e);
+            // Log failed login attempt
+            let app_state_for_audit = app_state.clone();
+            let email_for_audit = email.clone();
+            tokio::spawn(async move {
+                log_auth_event(&app_state_for_audit, AuditAction::LoginFailed, None, AuditResult::Failure, &email_for_audit, None).await;
+            });
             StatusCode::UNAUTHORIZED
         })?;
     
@@ -110,6 +145,9 @@ async fn handle_credentials_login(
     
     let permissions = get_user_permissions(&user);
     let session_type = if matches!(user.role(), Role::SuperAdmin | Role::Admin) { "admin" } else { "user" };
+    
+    // Log successful login
+    log_auth_event(&app_state, AuditAction::Login, Some(user.id()), AuditResult::Success, &email, Some(&login_res.sess_id.to_string())).await;
     
     Ok(Json(LoginResponse {
         user_id: user.id().to_string(),
@@ -240,6 +278,11 @@ pub async fn logout_handler(
             tracing::error!("Logout failed: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
+    
+    // Log successful logout
+    if let Ok(user) = app_state.user_repo.find_by_id(&auth_ctx.user_id).await {
+        log_auth_event(&app_state, AuditAction::Logout, Some(&auth_ctx.user_id), AuditResult::Success, user.email().value(), Some(&auth_ctx.sess.value().to_string())).await;
+    }
     
     tracing::info!("Session {} logged out successfully", auth_ctx.sess.value());
     

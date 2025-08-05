@@ -70,7 +70,7 @@ export class ValidationUtils {
         success: true,
         data: result,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string[]> = {};
         const errorMessages: string[] = [];
@@ -161,11 +161,11 @@ export class ValidationUtils {
     const [localPart, domain] = parts;
     
     // Local part checks
-    if (localPart.length === 0 || localPart.length > 64) return false;
+    if (!localPart || localPart.length === 0 || localPart.length > 64) return false;
     if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
     
     // Domain checks
-    if (domain.length === 0 || domain.length > 253) return false;
+    if (!domain || domain.length === 0 || domain.length > 253) return false;
     if (domain.startsWith('.') || domain.endsWith('.')) return false;
     if (domain.includes('..')) return false;
     
@@ -193,7 +193,7 @@ export class ValidationUtils {
     
     try {
       const parsed = new URL(url);
-      return ValidationConfig.url.protocols.includes(parsed.protocol.slice(0, -1));
+      return ValidationConfig.url.protocols.includes(parsed.protocol.slice(0, -1) as 'http' | 'https');
     } catch {
       return false;
     }
@@ -287,7 +287,7 @@ export class ValidationUtils {
       score,
       feedback,
       requirements,
-      estimatedCrackTime: crackTimes[score],
+      estimatedCrackTime: crackTimes[score] || 'Unknown',
       isWeak,
     };
   }

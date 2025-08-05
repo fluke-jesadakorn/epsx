@@ -1,4 +1,4 @@
-import { ErrorHandler, logger } from '@epsx/shared-core';
+import { ErrorHandler } from '@epsx/shared-core';
 import type { Result } from '@epsx/shared-core';
 import { z } from 'zod';
 
@@ -40,16 +40,17 @@ export function withServerAction<TInput = any, TOutput = any>(
 
     try {
       // Log action start
-      logger.info(`Starting server action: ${actionName}`, { input }, context);
+      console.info(`Starting server action: ${actionName}`, { input, context });
 
       // Validate input if schema provided
       if (options.validateInput) {
         const validation = options.validateInput.safeParse(input);
         if (!validation.success) {
-          logger.warn(`Input validation failed for ${actionName}`, {
+          console.warn(`Input validation failed for ${actionName}`, {
             errors: validation.error.errors,
-            input
-          }, context);
+            input,
+            context
+          });
           
           return ErrorHandler.createErrorResult({
             message: 'Invalid input data',
@@ -70,10 +71,11 @@ export function withServerAction<TInput = any, TOutput = any>(
       if (options.validateOutput) {
         const validation = options.validateOutput.safeParse(result);
         if (!validation.success) {
-          logger.error(`Output validation failed for ${actionName}`, {
+          console.error(`Output validation failed for ${actionName}`, {
             errors: validation.error.errors,
-            result
-          }, context);
+            result,
+            context
+          });
           
           return ErrorHandler.createErrorResult({
             message: 'Action produced invalid output',
@@ -88,19 +90,21 @@ export function withServerAction<TInput = any, TOutput = any>(
 
       // Log successful completion
       const duration = Date.now() - startTime;
-      logger.info(`Server action completed: ${actionName}`, {
+      console.info(`Server action completed: ${actionName}`, {
         duration: `${duration}ms`,
-        success: true
-      }, context);
+        success: true,
+        context
+      });
 
       return ErrorHandler.createResult(result);
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error(`Server action failed: ${actionName}`, {
+      console.error(`Server action failed: ${actionName}`, {
         duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : error
-      }, context);
+        error: error instanceof Error ? error.message : error,
+        context
+      });
 
       // Check if this is a handled cookie context error
       const errorMessage = error instanceof Error ? error.message : String(error);

@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "tsBuildInfoFile": null,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "paths": {
+      "@epsx/types": ["../types/dist/index.d.ts"],
+      "@epsx/types/*": ["../types/dist/*"],
+      "@epsx/shared-core": ["../shared-core/dist/index.d.ts"],
+      "@epsx/shared-core/*": ["../shared-core/dist/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.*", "**/*.spec.*"]
+}

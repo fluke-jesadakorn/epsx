@@ -2,7 +2,6 @@
 // This file provides backward compatibility and convenience exports
 
 import { apiClient, ApiClientFactory } from '@epsx/api-client';
-import { logger } from './logger';
 
 // Re-export the main API client instance
 export { apiClient } from '@epsx/api-client';
@@ -94,7 +93,7 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data as PaymentStatusUpdate);
         }
       } catch (error) {
-        logger.error('WebSocket message parse error', {
+        console.error('WebSocket message parse error', {
           error: error instanceof Error ? error.message : error,
           customerRefId,
         });
@@ -102,7 +101,7 @@ class RealtimeClientImpl implements RealtimeClient {
     };
 
     ws.onerror = error => {
-      logger.error('WebSocket error', {
+      console.error('WebSocket error', {
         error: error instanceof Error ? error.message : error,
         customerRefId,
       });
@@ -140,7 +139,7 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data);
         }
       } catch (error) {
-        logger.error('WebSocket notification parse error', {
+        console.error('WebSocket notification parse error', {
           error: error instanceof Error ? error.message : error,
         });
       }
@@ -177,7 +176,7 @@ class RealtimeClientImpl implements RealtimeClient {
           callback(data as PaymentStatusUpdate);
         }
       } catch (error) {
-        logger.error('SSE message parse error', {
+        console.error('SSE message parse error', {
           error: error instanceof Error ? error.message : error,
           customerRefId,
         });
@@ -185,7 +184,7 @@ class RealtimeClientImpl implements RealtimeClient {
     };
 
     eventSource.onerror = error => {
-      logger.error('SSE error', {
+      console.error('SSE error', {
         error: error instanceof Error ? error.message : error,
         customerRefId,
       });

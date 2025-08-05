@@ -14,14 +14,14 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <ThemeTransition />
       <SessionProvider>
         <AdminAuthProvider>
-          <ModuleAuthProvider>
+          {/* <ModuleAuthProvider> */}
             <ToastProvider>
               <Navigation />
               <div className="relative flex min-h-screen flex-col card">
                 {children}
               </div>
             </ToastProvider>
-          </ModuleAuthProvider>
+          {/* </ModuleAuthProvider> */}
         </AdminAuthProvider>
       </SessionProvider>
     </GlobalThemeProvider>

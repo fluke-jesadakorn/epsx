@@ -2,7 +2,6 @@
 
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useAdminAuth } from '@/auth/ctx';
-import { useModuleAuth } from '@/auth/module-ctx';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Lock } from 'lucide-react';
@@ -13,8 +12,15 @@ export default function AdminRootLayout({
   children: React.ReactNode;
 }) {
   const { user, loading: authLoading, initialized, navigating } = useAdminAuth();
-  const { hasModuleAccess, canPerformAction, loading: moduleLoading } = useModuleAuth();
   const router = useRouter();
+  
+  // Simple module access check based on user role (temporary fix)
+  const hasModuleAccess = (module: string): boolean => {
+    if (!user) return false;
+    if (user.role === 'super_admin') return true;
+    if (user.role === 'admin') return ['admin', 'users', 'analytics', 'billing', 'settings'].includes(module);
+    return false;
+  };
 
   useEffect(() => {
     // Only redirect if auth context is fully initialized, not navigating, and no user is found
@@ -23,7 +29,7 @@ export default function AdminRootLayout({
     }
   }, [user, authLoading, initialized, navigating, router]);
 
-  if (authLoading || moduleLoading || !initialized || navigating) {
+  if (authLoading || !initialized || navigating) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -35,11 +41,10 @@ export default function AdminRootLayout({
     return null;
   }
 
-  // Check if user has admin access - allow super_admin to bypass
-  const canAccessAdmin = user?.roles?.includes('super_admin') || 
-                         user?.claims?.role === 'super_admin' ||
-                         hasModuleAccess('admin') || 
-                         canPerformAction('admin', 'view');
+  // Check if user has admin access - allow super_admin to bypass module restrictions
+  const canAccessAdmin = user?.role === 'super_admin' || 
+                         user?.role === 'admin' || 
+                         hasModuleAccess('admin');
 
   if (!canAccessAdmin) {
     return (

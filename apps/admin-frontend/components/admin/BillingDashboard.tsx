@@ -379,7 +379,7 @@ export const BillingDashboard: React.FC = () => {
             <BillingAlerts 
               userId={user?.uid || 'demo_user'}
               onAlertAction={(alertId, action) => {
-                console.log('Alert action:', alertId, action);
+                // TODO: Implement alert action handling
               }}
             />
           )}

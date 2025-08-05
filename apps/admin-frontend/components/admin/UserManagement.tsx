@@ -3,7 +3,6 @@
 import { AdminService } from '@/services/adminService';
 import type { AdminUser } from '@/services/adminService';
 import { USER_LEVEL_CONFIGS, UserLevel } from '@/types/admin/userLevels';
-import { adminLogger } from '@/lib/logger';
 import { assignPermissionProfileAction, softDeleteUserAction } from '@/lib/actions/admin';
 import {
   AlertTriangle,
@@ -111,7 +110,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       const result = await AdminService.listUsers({ maxResults: 1000 });
       setUsers(result.users);
     } catch (err: any) {
-      adminLogger.error('Failed to load users', { error: err instanceof Error ? err.message : err }, 'UserManagement.loadUsers');
+      console.error('Failed to load users', { error: err instanceof Error ? err.message : err }, 'UserManagement.loadUsers');
       setError(err.message || 'Failed to load users');
     } finally {
       setLoading(false);
@@ -124,7 +123,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       await AdminService.setUserRole(uid, newRole);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
-      adminLogger.error('Failed to change role', { error: err instanceof Error ? err.message : err, uid, newRole }, 'UserManagement.handleRoleChange');
+      console.error('Failed to change role', { error: err instanceof Error ? err.message : err, uid, newRole }, 'UserManagement.handleRoleChange');
       addToast({
         type: 'error',
         title: 'Failed to change user role',
@@ -141,7 +140,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       await AdminService.updateUserStatus(uid, !disabled);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
-      adminLogger.error('Failed to toggle status', { error: err instanceof Error ? err.message : err, uid, disabled }, 'UserManagement.handleStatusToggle');
+      console.error('Failed to toggle status', { error: err instanceof Error ? err.message : err, uid, disabled }, 'UserManagement.handleStatusToggle');
       addToast({
         type: 'error',
         title: 'Failed to update user status',
@@ -197,7 +196,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
         description: 'Check console for link',
       });
     } catch (err: any) {
-      adminLogger.error('Failed to send password reset', { error: err instanceof Error ? err.message : err, email }, 'UserManagement.handleSendPasswordReset');
+      console.error('Failed to send password reset', { error: err instanceof Error ? err.message : err, email }, 'UserManagement.handleSendPasswordReset');
       addToast({
         type: 'error',
         title: 'Failed to send password reset',
@@ -217,7 +216,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       setShowLevelModal(false);
       setLevelReason('');
     } catch (err: any) {
-      adminLogger.error('Failed to change user level', { error: err instanceof Error ? err.message : err, uid, newLevel, reason }, 'UserManagement.handleLevelChange');
+      console.error('Failed to change user level', { error: err instanceof Error ? err.message : err, uid, newLevel, reason }, 'UserManagement.handleLevelChange');
       addToast({
         type: 'error',
         title: 'Failed to change user level',
@@ -240,7 +239,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       setLevelHistory(history);
       setShowLevelHistory(true);
     } catch (err: any) {
-      adminLogger.error('Failed to fetch level history', { error: err instanceof Error ? err.message : err, uid }, 'UserManagement.handleShowLevelHistory');
+      console.error('Failed to fetch level history', { error: err instanceof Error ? err.message : err, uid }, 'UserManagement.handleShowLevelHistory');
       addToast({
         type: 'error',
         title: 'Failed to fetch level history',

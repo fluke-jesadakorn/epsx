@@ -102,7 +102,7 @@ export const StateManagementGuide = {
     
     const customMiddleware: StateMiddleware = (action, prev, next, store) => {
       // Your custom logic here
-      logger.debug('State action dispatched', { action: action.type, store });
+      // State action dispatched (debug logging removed)
     };
     
     // Apply middleware in StateProvider

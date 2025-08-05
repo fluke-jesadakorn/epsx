@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { logger } from '@epsx/shared-core';
 import type { 
   PaymentPlan,
   ApiResponse 
@@ -142,13 +141,11 @@ class ServerProviderErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error('ServerProvider Error Boundary caught error', {
+    console.error('ServerProvider Error Boundary caught error', {
       error: error.message,
       stack: error.stack,
-      errorInfo
-    }, {
-      component: 'ServerProviderErrorBoundary',
-      action: 'componentDidCatch'
+      errorInfo,
+      component: 'ServerProviderErrorBoundary'
     });
 
     if (this.props.onError) {
@@ -213,10 +210,7 @@ export function EnhancedPermissionProvider({
     if (!enableRefresh || refreshInterval <= 0) return;
 
     const interval = setInterval(() => {
-      logger.debug('Auto-refreshing server state', {}, {
-        component: 'EnhancedPermissionProvider',
-        action: 'autoRefresh'
-      });
+      console.debug('Auto-refreshing server state', { component: 'EnhancedPermissionProvider' });
       actions.refresh();
     }, refreshInterval);
 

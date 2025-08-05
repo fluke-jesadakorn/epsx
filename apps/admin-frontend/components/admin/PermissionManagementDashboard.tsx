@@ -1,6 +1,5 @@
 'use client';
 
-import { adminLogger } from '@/lib/logger';
 import type { CustomPermission } from '@/types/admin/iam';
 import { AdminService } from '@/services/adminService';
 import { Edit, Eye, Filter, Key, Plus, Shield, Trash2 } from 'lucide-react';
@@ -70,7 +69,7 @@ export function PermissionManagementDashboard() {
         customPermissions: permissionsWithDetails.length,
       });
     } catch (err: any) {
-      adminLogger.error('Failed to load permissions', { error: err.message });
+      console.error('Failed to load permissions', { error: err.message });
       setError(err.message || 'Failed to load permissions');
     } finally {
       setLoading(false);
@@ -118,7 +117,7 @@ export function PermissionManagementDashboard() {
       // Remove from local state for now
       setPermissions(permissions.filter(perm => perm.id !== permissionId));
     } catch (err) {
-      adminLogger.error('Failed to delete permission', {
+      console.error('Failed to delete permission', {
         error:
           typeof err === 'object' && err !== null && 'message' in err
             ? (err as { message?: string }).message
