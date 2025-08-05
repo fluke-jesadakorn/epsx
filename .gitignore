@@ -15,6 +15,10 @@ reports/
 **/junit/
 **/__test__/
 **/**/__tests__/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
 
 # Production
 build/
@@ -161,6 +165,9 @@ docker-compose.override.yml
 npm-cache/
 yarn-cache/
 .pnpm-store/
+
+# Todo tracking
+.todo/
 
 # CI/CD and deployment artifacts
 .github/*.log
