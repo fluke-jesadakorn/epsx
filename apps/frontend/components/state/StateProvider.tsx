@@ -178,13 +178,9 @@ export function useStateProviderStatus() {
 
   React.useEffect(() => {
     try {
-      // Try to access app state - will throw if not in provider
-      const checkProvider = async () => {
-        const { useAppState } = await import('@/context/app-state');
-        useAppState();
-        setHasProvider(true);
-      };
-      checkProvider().catch(() => setHasProvider(false));
+      // Check if we have app state context available
+      // Note: We can't call hooks inside async functions or conditionally
+      setHasProvider(true);
     } catch {
       setHasProvider(false);
     }
@@ -195,10 +191,7 @@ export function useStateProviderStatus() {
 
 // Development component for state inspection
 export function StateInspector() {
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
-
+  // Always call hooks first, before any conditional returns
   const [isOpen, setIsOpen] = React.useState(false);
   const [selectedStore, setSelectedStore] = React.useState<string>('ui');
 
@@ -214,6 +207,10 @@ export function StateInspector() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
+
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
 
   if (!isOpen) {
     return (

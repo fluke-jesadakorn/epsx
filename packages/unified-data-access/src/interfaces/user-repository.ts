@@ -1,4 +1,4 @@
-import { BaseRepository, ListResult } from "./base-repository";
+import type { BaseRepository, ListResult } from "./base-repository";
 
 // User domain types (these would typically come from @epsx/types)
 export interface User {

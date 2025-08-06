@@ -16,14 +16,14 @@ CREATE TABLE IF NOT EXISTS casbin_rule (
 );
 
 -- Create indexes for efficient policy queries
-CREATE INDEX idx_casbin_rule_ptype ON casbin_rule(ptype);
-CREATE INDEX idx_casbin_rule_v0 ON casbin_rule(v0);
-CREATE INDEX idx_casbin_rule_v1 ON casbin_rule(v1);
-CREATE INDEX idx_casbin_rule_v0_v1 ON casbin_rule(v0, v1);
-CREATE INDEX idx_casbin_rule_ptype_v0 ON casbin_rule(ptype, v0);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_ptype ON casbin_rule(ptype);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v0 ON casbin_rule(v0);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v1 ON casbin_rule(v1);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v0_v1 ON casbin_rule(v0, v1);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_ptype_v0 ON casbin_rule(ptype, v0);
 
 -- Create a unique constraint for policy rules to prevent duplicates
-CREATE UNIQUE INDEX idx_casbin_rule_unique ON casbin_rule(ptype, COALESCE(v0, ''), COALESCE(v1, ''), COALESCE(v2, ''), COALESCE(v3, ''), COALESCE(v4, ''), COALESCE(v5, ''));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_casbin_rule_unique ON casbin_rule(ptype, COALESCE(v0, ''), COALESCE(v1, ''), COALESCE(v2, ''), COALESCE(v3, ''), COALESCE(v4, ''), COALESCE(v5, ''));
 
 -- Insert default RBAC policies for EPSX system
 -- Role hierarchy: admin > moderator > premium_user > basic_user
@@ -33,7 +33,8 @@ INSERT INTO casbin_rule (ptype, v0, v1) VALUES
 -- Role inheritance
 ('g', 'admin', 'moderator'),
 ('g', 'moderator', 'premium_user'),  
-('g', 'premium_user', 'basic_user');
+('g', 'premium_user', 'basic_user')
+ON CONFLICT DO NOTHING;
 
 -- Define permission policies (p policies)
 INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES
@@ -67,29 +68,26 @@ INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES
 ('p', 'basic_user', '/api/v1/trading/orders', 'GET'),
 ('p', 'basic_user', '/api/v1/trading/positions', 'GET'),
 ('p', 'basic_user', '/api/v1/portfolio/summary', 'GET'),
-('p', 'basic_user', '/api/v1/market-data/quotes', 'GET');
+('p', 'basic_user', '/api/v1/market-data/quotes', 'GET')
+ON CONFLICT DO NOTHING;
 
 -- Create a view for easier policy querying
-CREATE VIEW casbin_policies AS
+CREATE OR REPLACE VIEW casbin_policies AS
 SELECT 
     id,
     ptype,
     v0 as subject,
     v1 as object,
     v2 as action,
-    v3, v4, v5,
-    created_at,
-    updated_at
+    v3, v4, v5
 FROM casbin_rule
 WHERE ptype = 'p';
 
 -- Create a view for role inheritances
-CREATE VIEW casbin_roles AS
+CREATE OR REPLACE VIEW casbin_roles AS
 SELECT 
     id,
     v0 as user_or_role,
-    v1 as role,
-    created_at,
-    updated_at
+    v1 as role
 FROM casbin_rule
 WHERE ptype = 'g';

@@ -1,8 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { themeConfig, type ThemeVariant } from "../tokens/theme-config";
+
 import { designTokens } from "../tokens/design-tokens";
+import { themeConfig  } from "../tokens/theme-config";
+
+import type {ThemeVariant} from "../tokens/theme-config";
 
 // Theme context type
 type ThemeContextType = {
@@ -34,7 +37,7 @@ export function ThemeProvider({
   enableSystem = true,
   disableTransitions = false,
   ...props
-}: ThemeProviderProps) {
+}: ThemeProviderProps): React.JSX.Element {
   const [theme, setThemeState] = React.useState<ThemeVariant>(defaultTheme);
   const [isDarkMode, setIsDarkMode] = React.useState(false);
 
@@ -55,6 +58,7 @@ export function ThemeProvider({
     
     // Apply theme to document
     applyTheme(initialTheme, darkMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultTheme, enableSystem, storageKey]);
 
   // Apply theme to document
@@ -113,7 +117,7 @@ export function ThemeProvider({
     if (!enableSystem) return;
     
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
+    const handleChange = (): void => {
       const systemDarkMode = mediaQuery.matches;
       // Only update if user hasn't manually set a preference
       if (localStorage.getItem(`${storageKey}-dark`) === null) {
@@ -146,7 +150,7 @@ export function ThemeProvider({
 }
 
 // Theme hook
-export const useTheme = () => {
+export const useTheme = (): ThemeContextType => {
   const context = React.useContext(ThemeContext);
 
   if (context === undefined) {
@@ -157,8 +161,8 @@ export const useTheme = () => {
 };
 
 // Higher-order component for theme-aware components
-export function withTheme(Component: React.ComponentType<any>) {
-  return React.forwardRef<any, any>((props, ref) => {
+export function withTheme<T = Record<string, unknown>>(Component: React.ComponentType<T>): React.ForwardRefExoticComponent<React.PropsWithoutRef<T> & React.RefAttributes<unknown>> {
+  return React.forwardRef<unknown, T>((props, ref) => {
     const theme = useTheme();
     return <Component {...props} ref={ref} theme={theme} />;
   });
@@ -173,7 +177,7 @@ type ThemeVariantSelectorProps = {
 export function ThemeVariantSelector({ 
   className, 
   variants = ["default", "pancake", "trading"] 
-}: ThemeVariantSelectorProps) {
+}: ThemeVariantSelectorProps): React.JSX.Element {
   const { theme, setTheme } = useTheme();
 
   return (
@@ -201,7 +205,7 @@ type DarkModeToggleProps = {
   showLabel?: boolean;
 };
 
-export function DarkModeToggle({ className, showLabel = false }: DarkModeToggleProps) {
+export function DarkModeToggle({ className, showLabel = false }: DarkModeToggleProps): React.JSX.Element {
   const { isDarkMode, toggleDarkMode } = useTheme();
 
   return (

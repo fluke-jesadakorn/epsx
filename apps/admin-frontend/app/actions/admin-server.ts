@@ -7,8 +7,7 @@ import type { TokenFeature } from '@/types/auth/features';
 import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
 import type { AdminUser } from '@epsx/api-client';
-import { isApiError } from '@epsx/api-client';
-import { serverGetAdminUsers, serverSetUserRole, serverGetUserStats } from '@epsx/api-client';
+import { isApiError, serverGetAdminUsers, serverSetUserRole, serverGetUserStats as _serverGetUserStats } from '@epsx/api-client';
 
 interface User {
   userId: string;

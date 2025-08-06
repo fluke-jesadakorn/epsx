@@ -9,7 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use crate::web::auth::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,7 +102,7 @@ pub struct PerformanceMetrics {
 pub async fn health_check_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<HealthCheckResponse>, StatusCode> {
-    let start_time = Instant::now();
+    let _start_time = Instant::now();
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()

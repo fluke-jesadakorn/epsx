@@ -2,7 +2,7 @@
 // TODO: Fix handler signatures and re-enable after Casbin integration is complete
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
 };

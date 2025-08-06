@@ -3,54 +3,54 @@ import { apiClient } from '@epsx/api-client';
 
 // Server actions for server-side operations
 import {
-  // Auth actions
-  getCurrentUser,
-  updateProfile,
-  login,
-  logout,
+  // Auth actions - used in legacy client
+  _getCurrentUser,
+  _updateProfile,
+  _login,
+  _logout,
   
-  // Stock actions
-  getBatchStocks,
-  getStockData,
-  getStockRankings,
+  // Stock actions - used in legacy client
+  _getBatchStocks,
+  _getStockData,
+  _getStockRankings,
   getUserStockAccess,
-  getWatchlist,
-  addToWatchlist,
-  removeFromWatchlist,
+  _getWatchlist,
+  _addToWatchlist,
+  _removeFromWatchlist,
   
-  // Payment actions
-  createPayment,
+  // Payment actions - used in legacy client
+  _createPayment,
   validatePayment,
-  getPaymentStatus,
-  getTransactionHistory,
-  getPlanDetails,
+  _getPaymentStatus,
+  _getTransactionHistory,
+  _getPlanDetails,
   initQRPayment,
   
-  // Permission actions
-  getUserPermissions,
-  checkPermission,
+  // Permission actions - used in legacy client
+  _getUserPermissions,
+  _checkPermission,
   checkFeatureAccess,
   checkRankingAccess
 } from '@epsx/server-actions';
 
 // Legacy wrapper class for backward compatibility
 class ApiService {
-  async get<T>(endpoint: string): Promise<T> {
+  async get<T>(_endpoint: string): Promise<T> {
     // This method is deprecated - use apiClient domain-specific methods instead
     throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(_endpoint: string, _data?: any): Promise<T> {
     // This method is deprecated - use apiClient domain-specific methods instead
     throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async put<T>(_endpoint: string, _data?: any): Promise<T> {
     // This method is deprecated - use apiClient domain-specific methods instead
     throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
+  async delete<T>(_endpoint: string): Promise<T> {
     // This method is deprecated - use apiClient domain-specific methods instead
     throw new Error('Direct API calls are deprecated. Use apiClient.domain.method() or server actions instead.');
   }
@@ -101,12 +101,12 @@ export const rankingApi = {
     return await apiClient.analytics.getStockRankings(category, limit, page);
   },
   
-  getUserRanking: async (userId: string) => {
+  getUserRanking: async (_userId: string) => {
     // This would need to be implemented as a new server action
     throw new Error('getUserRanking needs to be implemented as a server action');
   },
   
-  updateRanking: async (data: any) => {
+  updateRanking: async (_data: any) => {
     // This would need to be implemented as a new server action
     throw new Error('updateRanking needs to be implemented as a server action');
   },
@@ -155,7 +155,7 @@ export const paymentApi = {
     throw new Error('getCryptoDepositAddress needs to be implemented as a server action');
   },
   
-  getQrCode: async (paymentId: string) => {
+  getQrCode: async (_paymentId: string) => {
     // This would need to be implemented as a new server action
     throw new Error('getQrCode needs to be implemented as a server action');
   },
@@ -208,7 +208,7 @@ export const userApi = {
     return await apiClient.auth.resetPassword({ email });
   },
   
-  getUserById: async (id: string) => {
+  getUserById: async (_id: string) => {
     // This would need to be implemented as a new server action for admin users
     throw new Error('getUserById needs to be implemented as a server action');
   },
@@ -218,7 +218,7 @@ export const userApi = {
     throw new Error('listUsers needs to be implemented as a server action');
   },
   
-  deleteUser: async (id: string) => {
+  deleteUser: async (_id: string) => {
     // This would need to be implemented as a new server action for admin users
     throw new Error('deleteUser needs to be implemented as a server action');
   },
@@ -286,11 +286,11 @@ export const legacyApiClient = {
   delete: () => { throw new Error('Use apiClient.domain.method() instead of generic delete()'); },
   
   getStocks: stockApi.getStocks,
-  preloadStocks: async (symbols: string[]) => {
+  preloadStocks: async (_symbols: string[]) => {
     // This should be called from server context only
     throw new Error('preloadStocks must be called from server components or server actions');
   },
-  checkStockCacheStatus: async (symbols: string[]) => {
+  checkStockCacheStatus: async (_symbols: string[]) => {
     // This should be called from server context only
     throw new Error('checkStockCacheStatus must be called from server components or server actions');
   },

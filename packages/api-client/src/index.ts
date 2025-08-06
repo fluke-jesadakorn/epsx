@@ -25,7 +25,7 @@ export { ApiClient } from './api-client'; // Legacy compatibility
 
 // Legacy createApiClient function for backward compatibility
 import { ApiClient } from './api-client';
-export const createApiClient = (baseUrl?: string) => new ApiClient(baseUrl);
+export const createApiClient = (baseUrl?: string): ApiClient => new ApiClient(baseUrl);
 
 // Essential API-specific types (from local types.ts)
 export type {

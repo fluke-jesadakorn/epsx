@@ -271,7 +271,7 @@ impl Default for AuthMonitoringService {
 
 /// Authorization monitoring middleware
 pub async fn auth_monitoring_middleware(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -279,7 +279,7 @@ pub async fn auth_monitoring_middleware(
     
     // Extract client information
     let client_ip = extract_client_ip(&request);
-    let user_agent = extract_user_agent(&request);
+    let _user_agent = extract_user_agent(&request);
     
     // Store start time in request extensions for duration calculation
     request.extensions_mut().insert(start_time);

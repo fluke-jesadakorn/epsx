@@ -53,7 +53,7 @@ export default function AdminRootLayout({
           <Lock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Access Denied</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            You don't have permission to access the admin panel. This requires admin-level access.
+            You don&apos;t have permission to access the admin panel. This requires admin-level access.
           </p>
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Contact Administrator</h3>

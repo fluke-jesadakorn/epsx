@@ -1,5 +1,5 @@
-import { PaymentClient } from '../clients/PaymentClient';
 import { AnalyticsClient } from '../clients/AnalyticsClient';
+import { PaymentClient } from '../clients/PaymentClient';
 import { PermissionsClient } from '../clients/PermissionsClient';
 
 export class ClientApiClient {

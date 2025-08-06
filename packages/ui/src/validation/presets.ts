@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { ValidationSchemas } from './schemas.js';
-import { ValidationUtils, createValidator } from './validators.js';
+
 import { FormHelpers } from './form-helpers.js';
 import { InputSanitizer } from './sanitizers.js';
+import { ValidationSchemas } from './schemas.js';
+import { ValidationUtils, createValidator } from './validators.js';
 
 /**
  * Validation presets for common use cases
@@ -163,7 +164,7 @@ export const ValidationWorkflows = {
       };
     },
     
-    validateAllSteps: <T>(schemas: z.ZodSchema<any>[], data: unknown[]) => {
+    validateAllSteps: <_T>(schemas: z.ZodSchema<unknown>[], data: unknown[]) => {
       const results = schemas.map((schema, index) => 
         ValidationWorkflows.multiStep.validateStep(schema, data[index], index)
       );
@@ -188,7 +189,7 @@ export const ValidationWorkflows = {
     validateWhen: <T>(
       schema: z.ZodSchema<T>,
       data: unknown,
-      condition: (data: any) => boolean
+      condition: (data: unknown) => boolean
     ) => {
       if (!condition(data)) {
         return { success: true, skipped: true };
@@ -198,7 +199,7 @@ export const ValidationWorkflows = {
     },
     
     validateOneOf: <T>(
-      schemas: { condition: (data: any) => boolean; schema: z.ZodSchema<T> }[],
+      schemas: { condition: (data: unknown) => boolean; schema: z.ZodSchema<T> }[],
       data: unknown
     ) => {
       for (const { condition, schema } of schemas) {
@@ -234,8 +235,8 @@ export const ValidationWorkflows = {
         extractionOptions: {
           maxFileSize,
         },
-        transform: sanitize ? (data: any) => {
-          const sanitized: any = {};
+        transform: sanitize ? (data: unknown) => {
+          const sanitized: unknown = {};
           for (const [key, value] of Object.entries(data)) {
             if (typeof value === 'string') {
               sanitized[key] = SanitizationPresets.userInput(value);

@@ -463,6 +463,7 @@ pub enum FallbackStrategy {
 
 pub struct GracefulDegradation {
     strategy: FallbackStrategy,
+    #[allow(dead_code)]
     static_rules: HashMap<String, Vec<String>>,
 }
 

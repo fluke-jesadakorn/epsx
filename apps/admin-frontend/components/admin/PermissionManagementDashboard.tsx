@@ -3,7 +3,7 @@
 import type { CustomPermission } from '@/types/admin/iam';
 import { AdminService } from '@/services/adminService';
 import { Edit, Eye, Filter, Key, Plus, Shield, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface PermissionStats {
   totalPermissions: number;
@@ -38,11 +38,28 @@ export function PermissionManagementDashboard() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadPermissions();
+  const getCategoryFromPermission = useCallback((resource: string): string => {
+    if (resource.includes('features:beta')) return 'Features';
+    if (resource.includes('admin')) return 'Admin';
+    if (resource.includes('data')) return 'Data';
+    if (resource.includes('api')) return 'API';
+    if (resource.includes('dashboard')) return 'Dashboard';
+    return 'Custom';
   }, []);
 
-  const loadPermissions = async () => {
+  const getScopeFromPermission = useCallback((action: string): string => {
+    if (action.includes('view') || action.includes('read')) return 'READ';
+    if (action.includes('write') || action.includes('create')) return 'WRITE';
+    if (action.includes('delete')) return 'DELETE';
+    if (action.includes('manage')) return 'MANAGE';
+    return 'CUSTOM';
+  }, []);
+
+  useEffect(() => {
+    loadPermissions();
+  }, [loadPermissions]);
+
+  const loadPermissions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -74,24 +91,8 @@ export function PermissionManagementDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getCategoryFromPermission, getScopeFromPermission]);
 
-  const getCategoryFromPermission = (resource: string): string => {
-    if (resource.includes('features:beta')) return 'Features';
-    if (resource.includes('admin')) return 'Admin';
-    if (resource.includes('data')) return 'Data';
-    if (resource.includes('api')) return 'API';
-    if (resource.includes('dashboard')) return 'Dashboard';
-    return 'Custom';
-  };
-
-  const getScopeFromPermission = (action: string): string => {
-    if (action.includes('view') || action.includes('read')) return 'READ';
-    if (action.includes('write') || action.includes('create')) return 'WRITE';
-    if (action.includes('delete')) return 'DELETE';
-    if (action.includes('manage')) return 'MANAGE';
-    return 'CUSTOM';
-  };
 
   const filteredPermissions = permissions.filter(permission => {
     const matchesCategory =

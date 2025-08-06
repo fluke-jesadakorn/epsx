@@ -36,8 +36,8 @@ export function SignupSuccess({ email, onBackToLogin }: SignupSuccessProps) {
           <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <AlertDescription className="text-amber-800 dark:text-amber-300">
             <strong>Important:</strong> Please verify your email address to
-            access all features. We've sent a verification email to{' '}
-            <strong>{email}</strong>. We've sent a verification email to{' '}
+            access all features. We&apos;ve sent a verification email to{' '}
+            <strong>{email}</strong>. We&apos;ve sent a verification email to{' '}
             <strong>{email}</strong>.
           </AlertDescription>
         </Alert>
@@ -66,7 +66,7 @@ export function SignupSuccess({ email, onBackToLogin }: SignupSuccessProps) {
 
         <div className="text-xs text-muted-foreground">
           <p>
-            <strong>Didn't receive the email?</strong>
+            <strong>Didn&apos;t receive the email?</strong>
           </p>
           <p>• Check your spam/junk folder</p>
           <p>• Make sure you entered the correct email address</p>

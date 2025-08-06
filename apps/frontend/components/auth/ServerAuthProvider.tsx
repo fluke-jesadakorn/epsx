@@ -1,6 +1,6 @@
 import { getInitialAuthState } from '@/lib/server-auth';
 import { AuthProvider } from '@/context/auth-context';
-import { PackageTier } from '@epsx/types';
+import { PackageTier as _PackageTier } from '@epsx/types';
 
 interface ServerAuthProviderProps {
   children: React.ReactNode;
@@ -27,7 +27,7 @@ export async function ServerAuthProvider({ children }: ServerAuthProviderProps) 
         {children}
       </AuthProvider>
     );
-  } catch (error) {
+  } catch (_error) {
     // Fallback to client-only auth on server error (unauthenticated state)
     return (
       <AuthProvider>

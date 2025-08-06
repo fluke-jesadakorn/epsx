@@ -1,4 +1,5 @@
 import { CookieManager } from './cookie-manager';
+
 import type {
   ApiResponse,
   CountResponse,
@@ -115,10 +116,10 @@ export class ApiClient {
 
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
-      let data;
+      let data: unknown;
 
       if (contentType?.includes('application/json')) {
-        data = await response.json();
+        data = await response.json() as unknown;
         console.log(`📄 [ApiClient] JSON response data:`, data);
       } else {
         data = await response.text();
@@ -126,9 +127,54 @@ export class ApiClient {
       }
 
       if (!response.ok) {
+        // Enhanced error handling for new backend responses
+        let errorMessage: string;
+        let errorDetails: string;
+        
+        // Handle different error response formats from backend
+        if (typeof data === 'object' && data !== null) {
+          const errorData = data as Record<string, unknown>;
+          errorMessage = (errorData.error as string) || (errorData.message as string) || 'Request failed';
+          errorDetails = (errorData.details as string) || (errorData.reason as string) || `HTTP ${response.status}`;
+        } else if (typeof data === 'string') {
+          errorMessage = data;
+          errorDetails = `HTTP ${response.status}`;
+        } else {
+          // Fallback error messages based on status codes
+          switch (response.status) {
+            case 401:
+              errorMessage = 'Authentication required or session expired';
+              errorDetails = 'Please log in again';
+              break;
+            case 403:
+              errorMessage = 'Access denied';
+              errorDetails = 'You do not have permission to perform this action';
+              break;
+            case 404:
+              errorMessage = 'Resource not found';
+              errorDetails = 'The requested resource could not be found';
+              break;
+            case 409:
+              errorMessage = 'Conflict';
+              errorDetails = 'The request conflicts with existing data';
+              break;
+            case 429:
+              errorMessage = 'Rate limit exceeded';
+              errorDetails = 'Please wait before trying again';
+              break;
+            case 500:
+              errorMessage = 'Server error';
+              errorDetails = 'An internal server error occurred';
+              break;
+            default:
+              errorMessage = 'Request failed';
+              errorDetails = `HTTP ${response.status}`;
+          }
+        }
+
         const errorResponse = {
-          error: data?.error || data || 'Request failed',
-          details: data?.details || `HTTP ${response.status}`,
+          error: errorMessage,
+          details: errorDetails,
         };
         
         console.error(`❌ [ApiClient] Request failed:`, {
@@ -136,7 +182,7 @@ export class ApiClient {
           status: response.status,
           statusText: response.statusText,
           errorResponse,
-          responseData: data,
+          responseData: data as unknown,
         });
         
         return errorResponse;
@@ -149,7 +195,7 @@ export class ApiClient {
         dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
       });
 
-      return { data };
+      return { data: data as T };
     } catch (error) {
       const errorDetails = error instanceof Error ? error.message : 'Unknown error';
       
@@ -178,7 +224,7 @@ export class ApiClient {
 
   async post<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -190,7 +236,7 @@ export class ApiClient {
 
   async put<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -202,7 +248,7 @@ export class ApiClient {
 
   async patch<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -214,7 +260,7 @@ export class ApiClient {
 
   async delete<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -224,9 +270,36 @@ export class ApiClient {
     });
   }
 
-  // Authentication methods
+  // Authentication methods - updated for new backend session system
   async login(credentials: LoginRequest): Promise<ApiResponse<UserProfile>> {
-    return this.post<UserProfile>('/api/v1/auth/login', credentials);
+    // Backend expects LoginRequest format with credentials
+    const loginPayload = {
+      credentials: {
+        email: credentials.email,
+        password: credentials.password
+      }
+    };
+    
+    const response = await this.post<{
+      user: UserProfile;
+      session: {
+        session_id: string;
+        expires_at: string;
+      };
+    }>('/api/v1/auth/login', loginPayload);
+
+    if (response.error) {
+      return response;
+    }
+
+    // Store session_id for future requests (client-side only)
+    if (typeof window !== 'undefined' && response.data?.session?.session_id) {
+      localStorage.setItem('session_id', response.data.session.session_id);
+      localStorage.setItem('session_expires', response.data.session.expires_at);
+    }
+
+    // Return just the user profile for backward compatibility
+    return { data: response.data?.user };
   }
 
   async register(userData: RegisterRequest): Promise<
@@ -237,21 +310,84 @@ export class ApiClient {
       message: string;
     }>
   > {
-    return this.post('/api/v1/auth/register', userData);
+    // Transform to backend's expected format
+    const registerPayload = {
+      email: userData.email,
+      password: userData.password,
+      display_name: userData.name || undefined,
+      package_tier: 'basic'
+    };
+
+    return this.post('/api/v1/auth/register', registerPayload);
   }
 
   async enhancedRegister(
     userData: EnhancedRegisterRequest
   ): Promise<ApiResponse<RegistrationResponse>> {
-    return this.post<RegistrationResponse>('/api/v1/auth/register', userData);
+    const registerPayload = {
+      email: userData.email,
+      password: userData.password,
+      display_name: undefined, // EnhancedRegisterRequest doesn't have name field
+      package_tier: userData.package_tier || 'basic'
+    };
+
+    return this.post<RegistrationResponse>('/api/v1/auth/register', registerPayload);
   }
 
   async logout(): Promise<ApiResponse<void>> {
-    return this.post<void>('/api/v1/auth/logout');
+    const response = await this.post<void>('/api/v1/auth/logout');
+    
+    // Clear stored session data (client-side only)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('session_expires');
+    }
+    
+    return response;
   }
 
   async getCurrentUser(): Promise<ApiResponse<UserProfile>> {
-    return this.get<UserProfile>('/api/v1/auth/profile');
+    const response = await this.get<{
+      user_id: string;
+      email: string;
+      roles: string[];
+      permissions: string[];
+      subscription_tier: string;
+      package_tier: string;
+      created_at: string;
+      updated_at: string;
+      display_name?: string;
+      photo_url?: string;
+      email_verified: boolean;
+      is_active: boolean;
+    }>('/api/v1/auth/profile');
+
+    if (response.error) {
+      return response;
+    }
+
+    // Transform backend response to frontend UserProfile format
+    const backendData = response.data;
+    if (!backendData) {
+      return { error: 'Invalid response data' };
+    }
+    
+    const userProfile: UserProfile = {
+      id: backendData.user_id,
+      email: backendData.email,
+      name: backendData.display_name || backendData.email,
+      role: backendData.roles?.[0] || 'user',
+      subscriptionTier: backendData.subscription_tier || 'free',
+      packageTier: backendData.package_tier || backendData.subscription_tier || 'free',
+      isActive: backendData.is_active ?? true,
+      emailVerified: backendData.email_verified ?? false,
+      permissions: backendData.permissions || [],
+      createdAt: backendData.created_at,
+      updatedAt: backendData.updated_at,
+      photoUrl: backendData.photo_url
+    };
+
+    return { data: userProfile };
   }
 
   async refreshSession(): Promise<ApiResponse<{ expires_at: string }>> {
@@ -343,7 +479,7 @@ export class ApiClient {
     );
   }
 
-  async preloadStocks(symbols: string[]): Promise<ApiResponse<any>> {
+  async preloadStocks(symbols: string[]): Promise<ApiResponse<unknown>> {
     return this.post('/api/v1/market-data/stocks/batch', {
       symbols,
       action: 'preload',
@@ -447,21 +583,21 @@ export class ApiClient {
   }
 
   async getUserPermissionStatus(): Promise<ApiResponse<UserPermissionStatus>> {
-    const response = await this.get<any>('/api/v1/auth/profile');
+    const response = await this.get<unknown>('/api/v1/auth/profile');
     if (response.error) {
-      return response;
+      return response as ApiResponse<UserPermissionStatus>;
     }
 
     // Transform API response to UserPermissionStatus format
-    const userData = response.data;
+    const userData = response.data as Record<string, unknown>;
     const transformedData: UserPermissionStatus = {
-      userId: userData.user_id,
-      permissions: userData.permissions || [],
-      profiles: userData.permission_profiles || [],
-      role: userData.role || 'user',
+      userId: userData.user_id as string,
+      permissions: (userData.permissions as string[]) || [],
+      profiles: (userData.permission_profiles as string[]) || [],
+      role: (userData.role as string) || 'user',
       effectivePermissions:
-        userData.effective_permissions || userData.permissions || [],
-      hasWildcardAccess: userData.permissions?.includes('*') || false,
+        (userData.effective_permissions as string[]) || (userData.permissions as string[]) || [],
+      hasWildcardAccess: ((userData.permissions as string[])?.includes('*')) || false,
     };
 
     return { data: transformedData };
@@ -602,20 +738,20 @@ export class ApiClient {
     packageTier?: string;
     subscriptionStatus?: string;
     hasCustomPermissions?: boolean;
-  }): Promise<ApiResponse<any[]>> {
+  }): Promise<ApiResponse<unknown[]>> {
     // Note: This endpoint doesn't exist in backend yet, returning empty array
     console.warn('getIamUsers: Backend endpoint not implemented yet');
     return { data: [] };
   }
 
-  async getIamUser(_uid: string): Promise<ApiResponse<any>> {
+  async getIamUser(_uid: string): Promise<ApiResponse<unknown>> {
     // Note: This endpoint doesn't exist in backend yet
     console.warn('getIamUser: Backend endpoint not implemented yet');
     return { data: null };
   }
 
-  async getIamRoles(): Promise<ApiResponse<any[]>> {
-    const response = await this.get<{ success: boolean; data: any[] }>('/api/v1/iam/roles');
+  async getIamRoles(): Promise<ApiResponse<unknown[]>> {
+    const response = await this.get<{ success: boolean; data: unknown[] }>('/api/v1/iam/roles');
     if (response.error) {
       // Handle database/backend errors gracefully for now
       console.warn('getIamRoles: Backend error, returning empty data:', response.error);
@@ -624,8 +760,8 @@ export class ApiClient {
     return { data: response.data?.data || [] };
   }
 
-  async getIamPolicies(): Promise<ApiResponse<any[]>> {
-    const response = await this.get<{ success: boolean; data: any[] }>('/api/v1/iam/policies');
+  async getIamPolicies(): Promise<ApiResponse<unknown[]>> {
+    const response = await this.get<{ success: boolean; data: unknown[] }>('/api/v1/iam/policies');
     if (response.error) {
       // Handle database/backend errors gracefully for now
       console.warn('getIamPolicies: Backend error, returning empty data:', response.error);
@@ -657,7 +793,7 @@ export class ApiClient {
     grantedBy: string;
     expiresAt?: Date;
     reason?: string;
-  }): Promise<ApiResponse<any>> {
+  }): Promise<ApiResponse<unknown>> {
     console.warn('grantCustomPermission: Backend endpoint not implemented yet');
     return { data: null };
   }
@@ -689,7 +825,7 @@ export class ApiClient {
     return { data: { allowed: response.data?.data?.allowed || false } };
   }
 
-  async getUserEffectivePermissions(_uid: string): Promise<ApiResponse<any[]>> {
+  async getUserEffectivePermissions(_uid: string): Promise<ApiResponse<unknown[]>> {
     console.warn('getUserEffectivePermissions: Backend endpoint not implemented yet');
     return { data: [] };
   }
@@ -706,22 +842,22 @@ export class ApiClient {
   async previewPackageUpgrade(_data: {
     userId: string;
     targetTier: string;
-  }): Promise<ApiResponse<any>> {
+  }): Promise<ApiResponse<unknown>> {
     console.warn('previewPackageUpgrade: Backend endpoint not implemented yet');
     return { data: { currentPermissions: [], newPermissions: [], addedPermissions: [], removedPermissions: [] } };
   }
 
-  async getUserAuditLogs(_uid: string, _limit: number): Promise<ApiResponse<any[]>> {
+  async getUserAuditLogs(_uid: string, _limit: number): Promise<ApiResponse<unknown[]>> {
     console.warn('getUserAuditLogs: Backend endpoint not implemented yet');
     return { data: [] };
   }
 
-  async getAllAuditLogs(_limit: number): Promise<ApiResponse<any[]>> {
+  async getAllAuditLogs(_limit: number): Promise<ApiResponse<unknown[]>> {
     console.warn('getAllAuditLogs: Backend endpoint not implemented yet');
     return { data: [] };
   }
 
-  async getPermissionProfiles(): Promise<ApiResponse<any>> {
+  async getPermissionProfiles(): Promise<ApiResponse<unknown>> {
     console.warn('getPermissionProfiles: Backend endpoint not implemented yet');
     return { data: {} };
   }
@@ -731,10 +867,10 @@ export class ApiClient {
     description?: string;
     packageTier: string;
     policies: string[];
-    inlinePermissions: any[];
+    inlinePermissions: unknown[];
     assignable: boolean;
-  }): Promise<ApiResponse<any>> {
-    const response = await this.post<{ success: boolean; data: any }>('/api/v1/iam/roles', {
+  }): Promise<ApiResponse<unknown>> {
+    const response = await this.post<{ success: boolean; data: unknown }>('/api/v1/iam/roles', {
       name: data.name,
       description: data.description,
       package_tier: data.packageTier,

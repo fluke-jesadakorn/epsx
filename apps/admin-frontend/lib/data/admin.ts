@@ -1,4 +1,3 @@
-import type { AdminUser, PermissionProfile, StockRankingAssignment, AnalyticsStatistics, StockRankingAnalytics, AdminProfile } from '@epsx/api-client';
 import { createApiClient, isApiError } from '@epsx/api-client';
 import { config } from '../config';
 
@@ -13,9 +12,6 @@ const getApiClient = () => {
 // User Management
 export async function getUsers(searchParams?: URLSearchParams) {
   try {
-    const url = `/api/v1/admin/users${searchParams ? `?${searchParams.toString()}` : ''}`;
-    
-    
     const response = await getApiClient().getAdminUsers(searchParams);
 
     if (isApiError(response)) {

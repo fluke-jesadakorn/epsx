@@ -106,7 +106,7 @@ export default function AccessDeniedPage() {
             Access Denied
           </CardTitle>
           <p className="text-gray-600 mt-2">
-            You don't have permission to access this page
+            You don&apos;t have permission to access this page
           </p>
         </CardHeader>
 

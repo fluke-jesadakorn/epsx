@@ -22,7 +22,7 @@ interface ClientNavControlsProps {
 /**
  * Client-side navigation controls (theme, user menu, mobile)
  */
-export function ClientNavControls({ user: serverUser, navItems }: ClientNavControlsProps) {
+export function ClientNavControls({ user: serverUser, navItems: _navItems }: ClientNavControlsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { user, logout, loading } = useAuth();

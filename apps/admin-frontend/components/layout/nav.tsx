@@ -4,7 +4,7 @@
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAdminAuth } from '@/auth/ctx';
 import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code } from 'lucide-react';
-import Image from 'next/image';
+import _Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -21,9 +21,9 @@ const navItems = [
 export function Navigation() {
   const { user, signOut, loading } = useAdminAuth();
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [_mobileOpen, _setMobileOpen] = useState(false);
 
-  const filteredItems = navItems.filter((item) => true); // Remove auth filter since nav items don't have auth property
+  const filteredItems = navItems.filter((_item) => true); // Remove auth filter since nav items don't have auth property
 
   if (loading) {
     return (

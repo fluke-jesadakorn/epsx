@@ -1,7 +1,7 @@
 'use client';
 
 import { useToast } from '@/components/ui/toast';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import type { UserWithPermissions } from '../../types/admin/iam';
 import { PackageTier } from '../../types/admin/iam';
 // Note: These functions are not yet implemented in server-actions
@@ -15,27 +15,27 @@ import { PackageTier } from '../../types/admin/iam';
 // } from '@epsx/server-actions';
 
 // Temporary placeholder functions until server-actions are implemented
-const getIAMUser = async (userId: string) => {
+const getIAMUser = async (_userId: string) => {
   throw new Error('getIAMUser not implemented');
 };
 
-const updateUserTier = async (params: any) => {
+const updateUserTier = async (_params: any) => {
   throw new Error('updateUserTier not implemented');
 };
 
-const previewPackageUpgrade = async (params: any) => {
+const previewPackageUpgrade = async (_params: any) => {
   throw new Error('previewPackageUpgrade not implemented');
 };
 
-const grantCustomPermission = async (params: any) => {
+const grantCustomPermission = async (_params: any) => {
   throw new Error('grantCustomPermission not implemented');
 };
 
-const revokeCustomPermission = async (params: any) => {
+const revokeCustomPermission = async (_params: any) => {
   throw new Error('revokeCustomPermission not implemented');
 };
 
-const bulkApplyPermissionProfile = async (params: any) => {
+const bulkApplyPermissionProfile = async (_params: any) => {
   throw new Error('bulkApplyPermissionProfile not implemented');
 };
 
@@ -67,7 +67,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
 
   useEffect(() => {
     loadUserDetails();
-  }, [userId]);
+  }, [userId, loadUserDetails]);
 
   // Handle escape key
   useEffect(() => {
@@ -80,7 +80,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const loadUserDetails = async () => {
+  const loadUserDetails = useCallback(async () => {
     try {
       setLoading(true);
       const userData = await getIAMUser(userId);
@@ -98,7 +98,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, addToast]);
 
   const handlePackageUpgrade = async (newTier: PackageTier) => {
     if (!user) return;

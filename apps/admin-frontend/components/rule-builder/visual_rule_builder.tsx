@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, X, Move, Play, Save, Download, Upload, Copy } from 'lucide-react';
+import { Plus, X, Move, Play, Save, Download, Copy } from 'lucide-react';
 
 interface Condition {
   id: string;
@@ -415,7 +414,7 @@ if (${conditions}) {
             <CardContent>
               {currentRule.conditions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No conditions defined. Click "Add Condition" to get started.</p>
+                  <p>No conditions defined. Click &quot;Add Condition&quot; to get started.</p>
                 </div>
               ) : (
                 <DragDropContext onDragEnd={onDragEnd}>
@@ -537,7 +536,7 @@ if (${conditions}) {
                       {index > 0 && <span className="text-blue-600">{condition.logicalOperator} </span>}
                       <span className="text-green-600">{condition.field}</span>
                       <span className="text-purple-600"> {condition.operator} </span>
-                      <span className="text-orange-600">"{condition.value}"</span>
+                      <span className="text-orange-600">&quot;{condition.value}&quot;</span>
                     </div>
                   ))
                 ) : (

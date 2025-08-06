@@ -21,7 +21,7 @@ import {
 import { realtimeClient  } from '@/lib/api-client.client';
 import type {PaymentStatusUpdate} from '@/lib/api-client.client';
 // PaymentRequest type moved to local types since musepay.service was removed
-interface PaymentRequest {
+interface _PaymentRequest {
   amount: number;
   currency: string;
   orderNo: string;
@@ -117,7 +117,7 @@ export default function PaymentDetails({
   }, [activePayment?.paymentRequest?.customerRefId, onSuccess]);
 
   const paymentAddress = activePayment?.paymentRequest?.receiveAddress || PAYMENT_ADDRESSES[selectedMethod]?.address || '';
-  const checkoutUrl = activePayment?.paymentRequest?.checkoutUrl || '';
+  const _checkoutUrl = activePayment?.paymentRequest?.checkoutUrl || '';
   const networkInfo = PAYMENT_ADDRESSES[selectedMethod] || { network: 'BSC', minConfirmations: 3 };
 
   const copyToClipboard = async (text: string) => {

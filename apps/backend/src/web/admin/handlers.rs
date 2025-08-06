@@ -6,11 +6,6 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use crate::app::dtos::{
-    CreateUserReq, CreateUserRes, GetUserReq, GetUserRes, UpdateRoleReq, UpdateRoleRes,
-    ListUsersReq, ListUsersRes, BulkUpdateLevelsReq, BulkUpdateLevelsRes, UserStatsReq,
-    UserStatsRes, GetLevelHistoryReq, GetLevelHistoryRes, SoftDeleteUserReq, SoftDeleteUserRes,
-};
 use crate::web::auth::AppState;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
@@ -108,13 +103,44 @@ pub async fn list_users_handler(
     
     tracing::info!("Admin list users handler called with authorization");
     
-    // TODO: Implement actual user listing from database
+    let offset = query.offset.unwrap_or(0) as i64;
+    let limit = query.limit.unwrap_or(50) as i64;
+    
+    // Get users from database with pagination
+    let users = match app_state.user_repo.list(offset as u32, limit as u32).await {
+        Ok(users) => users,
+        Err(e) => {
+            tracing::error!("Failed to fetch users: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Get total count for pagination
+    let total_count = match app_state.user_repo.count().await {
+        Ok(count) => count,
+        Err(e) => {
+            tracing::error!("Failed to count users: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let user_list: Vec<Value> = users.into_iter().map(|user| {
+        json!({
+            "id": user.id().to_string(),
+            "email": user.email().value(),
+            "role": user.role().to_string(),
+            "subscription_tier": user.sub().tier().to_string(),
+            "is_active": user.is_active(),
+            "created_at": user.created_at(),
+            "updated_at": user.updated_at()
+        })
+    }).collect();
+    
     Ok(Json(json!({
-        "users": [],
-        "total": 0,
-        "offset": query.offset.unwrap_or(0),
-        "limit": query.limit.unwrap_or(50),
-        "message": "User listing authorized - database integration pending"
+        "users": user_list,
+        "total": total_count,
+        "offset": offset,
+        "limit": limit
     })))
 }
 
@@ -128,11 +154,51 @@ pub async fn create_user_handler(
     
     tracing::info!("Admin create user handler called with authorization for role: {}", req.role);
     
-    // TODO: Implement actual user creation with role assignment
+    // Parse and validate email
+    let email = match crate::dom::values::Email::new(req.email.clone()) {
+        Ok(email) => email,
+        Err(_) => {
+            tracing::warn!("Invalid email provided: {}", req.email);
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+    
+    // Check if user already exists
+    match app_state.user_repo.find_by_email(&email).await {
+        Ok(Some(_)) => {
+            tracing::warn!("User with email {} already exists", req.email);
+            return Err(StatusCode::CONFLICT);
+        },
+        Ok(None) => {}, // Good, user doesn't exist
+        Err(e) => {
+            tracing::error!("Failed to check if user exists: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    }
+    
+    // Parse role
+    let role = crate::dom::values::Role::from_string(&req.role).unwrap_or(crate::dom::values::Role::User);
+    
+    // Generate Firebase UID (in a real system, this would come from Firebase)
+    let firebase_uid = req.fb_token.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    
+    // Create new user
+    let user = crate::dom::entities::User::new(firebase_uid, email, role);
+    
+    // Save user to database
+    if let Err(e) = app_state.user_repo.save(&user).await {
+        tracing::error!("Failed to create user: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    
+    tracing::info!("Successfully created user with ID: {}", user.id());
+    
     Ok(Json(json!({
-        "message": "User creation authorized - database integration pending",
-        "requested_role": req.role,
-        "email": req.email
+        "message": "User created successfully",
+        "user_id": user.id().to_string(),
+        "email": user.email().value(),
+        "role": user.role().to_string(),
+        "created_at": user.created_at()
     })))
 }
 
@@ -264,6 +330,7 @@ async fn verify_admin_permissions(
 /// TODO: Integrate with proper authentication middleware
 fn extract_user_id_from_context() -> Result<String, StatusCode> {
     // For migration purposes, return a test admin user
-    // In production, this would extract from JWT/session
+    // In production, this would extract from JWT/session similar to user handlers
+    // This function is maintained for backward compatibility with existing admin handlers
     Ok("admin".to_string())
 }

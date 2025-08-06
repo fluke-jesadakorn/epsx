@@ -22,6 +22,7 @@ pub async fn module_casbin_middleware(
     Ok(next.run(request).await)
 }
 
+#[allow(dead_code)]
 fn extract_user_from_request(request: &Request) -> Result<String, StatusCode> {
     // Same as permission middleware
     if let Some(auth_header) = request.headers().get("authorization") {
@@ -34,6 +35,7 @@ fn extract_user_from_request(request: &Request) -> Result<String, StatusCode> {
     Err(StatusCode::UNAUTHORIZED)
 }
 
+#[allow(dead_code)]
 fn extract_module_from_path(request: &Request) -> Result<String, StatusCode> {
     let path = request.uri().path();
     

@@ -1,4 +1,5 @@
 import { BaseHttpClient } from '../base/BaseHttpClient';
+
 import type {
   CreatePaymentRequest,
   CreatePaymentResponse,
@@ -38,8 +39,8 @@ export class PaymentClient extends BaseHttpClient {
     return this.put<UserSubscription>(`/api/payments/subscription/${subscriptionId}`, { planId });
   }
 
-  async getPaymentHistory(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<any>>> {
-    return this.get<PaginatedResponse<any>>(`/api/payments/history?page=${page}&limit=${limit}`);
+  async getPaymentHistory(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<unknown>>> {
+    return this.get<PaginatedResponse<unknown>>(`/api/payments/history?page=${page}&limit=${limit}`);
   }
 
   async downloadInvoice(invoiceId: string): Promise<ApiResponse<Blob>> {

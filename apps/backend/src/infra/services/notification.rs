@@ -160,50 +160,212 @@ impl NotificationService for InMemoryNotificationService {
 
 /// Database-backed notification service
 pub struct DatabaseNotificationService {
-    // This would contain database connection pool
-    // For now, we'll use the in-memory service as a placeholder
-    inner: InMemoryNotificationService,
+    pool: Arc<sqlx::PgPool>,
 }
 
 impl DatabaseNotificationService {
-    pub fn new() -> Self {
-        Self {
-            inner: InMemoryNotificationService::new(),
-        }
+    pub fn new(pool: Arc<sqlx::PgPool>) -> Self {
+        Self { pool }
     }
 }
 
 #[async_trait]
 impl NotificationService for DatabaseNotificationService {
     async fn send_notification(&self, notification: Notification) -> Result<(), NotificationServiceError> {
-        // TODO: Implement database storage
-        // This would insert the notification into PostgreSQL
-        self.inner.send_notification(notification).await
+        // Insert notification into PostgreSQL
+        let notification_id = Uuid::parse_str(&notification.id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid UUID: {}", e)))?;
+        
+        let user_id = Uuid::parse_str(&notification.user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        let notification_type_str = match notification.notification_type {
+            NotificationType::System => "system",
+            NotificationType::Payment => "payment",
+            NotificationType::Trading => "trading",
+            NotificationType::Security => "security",
+            NotificationType::Marketing => "marketing",
+            NotificationType::UserUpdate => "user_update",
+        };
+        
+        let priority_str = match notification.priority {
+            NotificationPriority::Low => "low",
+            NotificationPriority::Medium => "medium",
+            NotificationPriority::High => "high",
+            NotificationPriority::Critical => "critical",
+        };
+        
+        let metadata_json = serde_json::to_value(&notification.metadata)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Failed to serialize metadata: {}", e)))?;
+        
+        sqlx::query!(
+            r#"
+            INSERT INTO notifications (id, user_id, title, message, notification_type, priority, is_read, created_at, expires_at, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "#,
+            notification_id,
+            user_id,
+            notification.title,
+            notification.message,
+            notification_type_str,
+            priority_str,
+            notification.read,
+            notification.created_at,
+            notification.expires_at,
+            metadata_json
+        )
+        .execute(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to insert notification: {}", e)))?;
+        
+        Ok(())
     }
 
     async fn get_user_notifications(&self, user_id: &str, limit: Option<usize>) -> Result<Vec<Notification>, NotificationServiceError> {
-        // TODO: Implement database query
-        self.inner.get_user_notifications(user_id, limit).await
+        let user_uuid = Uuid::parse_str(user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        let limit_value = limit.unwrap_or(50) as i64;
+        
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, user_id, title, message, notification_type, priority, is_read, created_at, expires_at, metadata
+            FROM notifications 
+            WHERE user_id = $1 
+            ORDER BY created_at DESC 
+            LIMIT $2
+            "#,
+            user_uuid,
+            limit_value
+        )
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to query notifications: {}", e)))?;
+        
+        let mut notifications = Vec::new();
+        for row in rows {
+            let notification_type = match row.notification_type.as_str() {
+                "system" => NotificationType::System,
+                "payment" => NotificationType::Payment,
+                "trading" => NotificationType::Trading,
+                "security" => NotificationType::Security,
+                "marketing" => NotificationType::Marketing,
+                "user_update" => NotificationType::UserUpdate,
+                _ => NotificationType::System,
+            };
+            
+            let priority = match row.priority.as_str() {
+                "low" => NotificationPriority::Low,
+                "medium" => NotificationPriority::Medium,
+                "high" => NotificationPriority::High,
+                "critical" => NotificationPriority::Critical,
+                _ => NotificationPriority::Medium,
+            };
+            
+            let metadata: HashMap<String, String> = if let Some(metadata_value) = row.metadata {
+                serde_json::from_value(metadata_value)
+                    .unwrap_or_else(|_| HashMap::new())
+            } else {
+                HashMap::new()
+            };
+            
+            notifications.push(Notification {
+                id: row.id.to_string(),
+                user_id: row.user_id.to_string(),
+                title: row.title,
+                message: row.message,
+                notification_type,
+                priority,
+                read: row.is_read,
+                created_at: row.created_at,
+                expires_at: row.expires_at,
+                metadata,
+            });
+        }
+        
+        Ok(notifications)
     }
 
     async fn mark_as_read(&self, notification_id: &str, user_id: &str) -> Result<(), NotificationServiceError> {
-        // TODO: Implement database update
-        self.inner.mark_as_read(notification_id, user_id).await
+        let notification_uuid = Uuid::parse_str(notification_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid notification UUID: {}", e)))?;
+        
+        let user_uuid = Uuid::parse_str(user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        let result = sqlx::query!(
+            "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2",
+            notification_uuid,
+            user_uuid
+        )
+        .execute(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to mark notification as read: {}", e)))?;
+        
+        if result.rows_affected() == 0 {
+            return Err(NotificationServiceError::NotificationNotFound);
+        }
+        
+        Ok(())
     }
 
     async fn mark_all_as_read(&self, user_id: &str) -> Result<(), NotificationServiceError> {
-        // TODO: Implement database update
-        self.inner.mark_all_as_read(user_id).await
+        let user_uuid = Uuid::parse_str(user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        sqlx::query!(
+            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false",
+            user_uuid
+        )
+        .execute(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to mark all notifications as read: {}", e)))?;
+        
+        Ok(())
     }
 
     async fn delete_notification(&self, notification_id: &str, user_id: &str) -> Result<(), NotificationServiceError> {
-        // TODO: Implement database delete
-        self.inner.delete_notification(notification_id, user_id).await
+        let notification_uuid = Uuid::parse_str(notification_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid notification UUID: {}", e)))?;
+        
+        let user_uuid = Uuid::parse_str(user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        let result = sqlx::query!(
+            "DELETE FROM notifications WHERE id = $1 AND user_id = $2",
+            notification_uuid,
+            user_uuid
+        )
+        .execute(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to delete notification: {}", e)))?;
+        
+        if result.rows_affected() == 0 {
+            return Err(NotificationServiceError::NotificationNotFound);
+        }
+        
+        Ok(())
     }
 
     async fn get_unread_count(&self, user_id: &str) -> Result<usize, NotificationServiceError> {
-        // TODO: Implement database count query
-        self.inner.get_unread_count(user_id).await
+        let user_uuid = Uuid::parse_str(user_id)
+            .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
+        
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count
+            FROM notifications 
+            WHERE user_id = $1 
+            AND is_read = false 
+            AND (expires_at IS NULL OR expires_at > NOW())
+            "#,
+            user_uuid
+        )
+        .fetch_one(&*self.pool)
+        .await
+        .map_err(|e| NotificationServiceError::StorageError(format!("Failed to count unread notifications: {}", e)))?;
+        
+        Ok(result.count.unwrap_or(0) as usize)
     }
 }
 

@@ -1,5 +1,5 @@
 // Core API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   details?: string;
@@ -354,7 +354,7 @@ export interface AdminProfile {
 }
 
 // Action Result Types
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -430,7 +430,7 @@ export interface Notification {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   read: boolean;
   actionUrl?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt?: string;
 }

@@ -35,7 +35,7 @@ export function PublicRankingPreviewClient() {
                 🚀 Access Top 100 Rankings
               </h3>
               <p className="text-lg text-muted-foreground mb-2">
-                You're seeing rankings #100-110. Unlock the top performers!
+                You&apos;re seeing rankings #100-110. Unlock the top performers!
               </p>
               <div className="flex flex-wrap justify-center gap-2 text-sm">
                 <Badge variant="secondary">✨ Top 100 Entities</Badge>

@@ -132,15 +132,15 @@ export class InputSanitizer {
     const allowedTagsSet = new Set(allowedTags.map(tag => tag.toLowerCase()));
     
     // Basic HTML sanitization - in production, use a proper library like DOMPurify
-    return input.replace(/<(\/?)([\w-]+)([^>]*)>/gi, (match, slash, tagName, attributes) => {
-      const tag = tagName.toLowerCase();
+    return input.replace(/<(\/?)([\w-]+)([^>]*)>/gi, (_match, slash, tagName, attributes) => {
+      const tag = (tagName as string).toLowerCase();
       
       if (!allowedTagsSet.has(tag)) {
         return ''; // Remove disallowed tags
       }
 
       // For allowed tags, sanitize attributes
-      const cleanAttributes = attributes
+      const cleanAttributes = (attributes as string)
         .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove event handlers
         .replace(/javascript:/gi, '') // Remove javascript: URLs
         .replace(/data:/gi, '') // Remove data: URLs
@@ -343,14 +343,14 @@ export class InputSanitizer {
   /**
    * JSON sanitization (safe parsing with error handling)
    */
-  static sanitizeJson<T = any>(
+  static sanitizeJson<T = unknown>(
     jsonString: string | null | undefined,
     defaultValue: T | null = null
   ): T | null {
     if (!jsonString || typeof jsonString !== 'string') return defaultValue;
 
     try {
-      return JSON.parse(jsonString);
+      return JSON.parse(jsonString) as T;
     } catch {
       return defaultValue;
     }
@@ -401,10 +401,10 @@ export class InputSanitizer {
    * Deep object sanitization
    */
   static sanitizeObject(
-    obj: Record<string, any>,
-    sanitizers: Record<string, (value: any) => any>
-  ): Record<string, any> {
-    const result: Record<string, any> = {};
+    obj: Record<string, unknown>,
+    sanitizers: Record<string, (value: unknown) => unknown>
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(obj)) {
       if (sanitizers[key]) {

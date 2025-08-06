@@ -15,7 +15,7 @@ interface PaymentStatusServerProps {
 }
 
 export default async function PaymentStatusServer({
-  userId,
+  userId: _userId,
   className = ''
 }: PaymentStatusServerProps) {
   // Server-side data fetching

@@ -14,7 +14,7 @@ import {
   Copy, 
   Trash2, 
   AlertTriangle, 
-  ExternalLink,
+  ExternalLink as _ExternalLink,
   Code,
   BookOpen,
   Activity,
@@ -247,7 +247,7 @@ export const DeveloperPortal: React.FC = () => {
           <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
           <p className="text-gray-600 mb-4">
-            You don't have permission to access the developer portal. This feature requires admin-level access.
+            You don&apos;t have permission to access the developer portal. This feature requires admin-level access.
           </p>
         </div>
       </div>
@@ -609,7 +609,7 @@ export const DeveloperPortal: React.FC = () => {
                     Include your API key in the Authorization header:
                   </p>
                   <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm font-mono">
-                    curl -H "Authorization: Bearer YOUR_API_KEY" \
+                    curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \
                     <br />     https://api.epsx.com/v1/modules/stock-ranking/rankings
                   </code>
                 </div>
@@ -934,7 +934,7 @@ export const DeveloperPortal: React.FC = () => {
                   <div>
                     <h3 className="font-medium text-yellow-800">Important</h3>
                     <p className="text-sm text-yellow-700 mt-1">
-                      This is the only time you'll see your API key. Please copy it and store it securely.
+                      This is the only time you&apos;ll see your API key. Please copy it and store it securely.
                     </p>
                   </div>
                 </div>
@@ -958,7 +958,7 @@ export const DeveloperPortal: React.FC = () => {
             
             <div className="p-6 border-t bg-gray-50 flex justify-end">
               <Button onClick={() => setNewApiKey(null)}>
-                I've Saved the Key
+                I&apos;ve Saved the Key
               </Button>
             </div>
           </div>

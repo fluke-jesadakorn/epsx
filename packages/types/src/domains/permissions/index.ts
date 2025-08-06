@@ -57,14 +57,14 @@ export interface PermissionCheckRequest {
   userId: string;
   permission: string;
   resource?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // Permission checking response (consolidated from multiple sources)
 export interface PermissionCheckResponse {
   allowed: boolean;
   reason?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // Enhanced permission checking result with detailed info

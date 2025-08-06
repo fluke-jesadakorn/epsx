@@ -218,7 +218,7 @@ function ProfileTab({
       clearError();
       setIsUpdating(true);
       await updateProfile({ displayName: data.displayName });
-    } catch (error) {
+    } catch (_error) {
       // Error handled by auth context
     } finally {
       setIsUpdating(false);
@@ -231,7 +231,7 @@ function ProfileTab({
       setIsUpdating(true);
       await sendEmailVerification();
       setEmailSent(true);
-    } catch (error) {
+    } catch (_error) {
       // Error handled by auth context
     } finally {
       setIsUpdating(false);
@@ -386,7 +386,7 @@ function SecurityTab({
       await changePassword(data.currentPassword, data.newPassword);
       setPasswordChanged(true);
       form.reset();
-    } catch (error) {
+    } catch (_error) {
       // Error handled by auth context
     } finally {
       setIsUpdating(false);
@@ -408,7 +408,7 @@ function SecurityTab({
               No Password Set
             </h4>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              You're currently signed in with Google. You can set a password to
+              You&apos;re currently signed in with Google. You can set a password to
               enable email/password login.
             </p>
           </div>
@@ -541,7 +541,7 @@ function ProvidersTab({
       clearError();
       setIsUpdating(true);
       await linkGoogleAccount();
-    } catch (error) {
+    } catch (_error) {
       // Error handled by auth context
     } finally {
       setIsUpdating(false);
@@ -553,7 +553,7 @@ function ProvidersTab({
       clearError();
       setIsUpdating(true);
       await unlinkProvider(providerId);
-    } catch (error) {
+    } catch (_error) {
       // Error handled by auth context
     } finally {
       setIsUpdating(false);

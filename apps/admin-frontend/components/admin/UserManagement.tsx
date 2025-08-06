@@ -15,13 +15,13 @@ import {
   Users,
   UserX,
   Loader2,
-  Trash2,
+  _Trash2,
 } from 'lucide-react';
 import { useEffect, useState, useTransition } from 'react';
 
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { _ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { _Card, _CardContent, _CardDescription, _CardHeader, _CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +48,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
   const { addToast } = useToast();
 
   // Confirm dialog state
-  const [confirmDialog, setConfirmDialog] = useState<{
+  const [_confirmDialog, _setConfirmDialog] = useState<{
     open: boolean;
     uid?: string;
     email?: string;
@@ -151,7 +151,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
     }
   };
 
-  const handleDeleteUser = (uid: string, email: string) => {
+  const handleDeleteUser = (uid: string, _email: string) => {
     setUserToDelete(uid);
     setDeleteDialogOpen(true);
   };

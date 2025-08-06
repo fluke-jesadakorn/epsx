@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
+
 import { useTheme } from '../providers/theme-provider.js';
+
 import type { ThemeVariant } from '../tokens/theme-config.js';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -34,7 +36,7 @@ export interface UseUnifiedThemeOptions {
  * - Optimistic updates
  * - System preference detection
  */
-export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}) {
+export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}): ReturnType<typeof useUnifiedTheme> {
   const {
     enableServerPersistence = true,
     enableOptimistic = true,
@@ -61,7 +63,7 @@ export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}) {
     if (!autoSyncSystem || mode !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
+    const handleChange = (): void => {
       if (mode === 'system') {
         // Only update the actual theme, not the mode
         const systemDarkMode = mediaQuery.matches;
@@ -255,8 +257,9 @@ export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}) {
 export function useSSRTheme(
   initialState?: Partial<UnifiedThemeState>,
   options: UseUnifiedThemeOptions = {}
-) {
+): ReturnType<typeof useUnifiedTheme> {
   const [isHydrated, setIsHydrated] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const clientTheme = useUnifiedTheme(options);
 
   useEffect(() => {
@@ -293,7 +296,7 @@ export function useSSRTheme(
 }
 
 // Optimistic theme hook for better UX
-export function useOptimisticTheme(options: UseUnifiedThemeOptions = {}) {
+export function useOptimisticTheme(options: UseUnifiedThemeOptions = {}): ReturnType<typeof useUnifiedTheme> {
   return useUnifiedTheme({
     ...options,
     enableOptimistic: true,

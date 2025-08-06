@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog as _ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AdminService } from '@/services/adminService';
-import { useModuleAuth, useUserAccess, ModuleAccessStatus } from '@/auth/module-ctx';
+import { useModuleAuth, ModuleAccessStatus } from '@/auth/module-ctx';
 import { useAdminAuth } from '@/auth/ctx';
 import { toast } from 'react-hot-toast';
 import { Eye, Settings, UserPlus, Shield, AlertTriangle, Plus, Search, Filter, Lock } from 'lucide-react';
@@ -91,7 +91,7 @@ const MODULE_CATEGORIES = [
 ];
 
 export const ModuleManagementClient: React.FC = () => {
-  const { hasModuleAccess, canPerformAction, getAccessLevel, moduleAccess } = useModuleAuth();
+  const { hasModuleAccess, canPerformAction, getAccessLevel: _getAccessLevel, moduleAccess: _moduleAccess } = useModuleAuth();
   const { user } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<'modules' | 'assignments' | 'users'>('modules');
   const [modules, setModules] = useState<Module[]>([]);
@@ -113,9 +113,9 @@ export const ModuleManagementClient: React.FC = () => {
   // Load initial data
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [modulesRes, usersRes] = await Promise.all([
@@ -136,7 +136,7 @@ export const ModuleManagementClient: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryFilter, statusFilter, searchTerm]);
 
   // Load user assignments when user is selected
   const loadUserAssignments = async (userId: string) => {
@@ -294,7 +294,7 @@ export const ModuleManagementClient: React.FC = () => {
           <Lock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
           <p className="text-gray-600 mb-4">
-            You don't have permission to manage modules. This feature requires admin-level access.
+            You don&apos;t have permission to manage modules. This feature requires admin-level access.
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-medium text-blue-900 mb-2">Your Current Access:</h3>

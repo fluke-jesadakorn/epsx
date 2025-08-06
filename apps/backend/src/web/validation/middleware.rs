@@ -63,39 +63,129 @@ pub async fn request_size_limit_middleware(
     Ok(next.run(req).await)
 }
 
-/// Rate limiting middleware
+/// Rate limiting middleware with actual rate limiting implementation
 pub async fn rate_limit_middleware(
+    axum::extract::State(_app_state): axum::extract::State<crate::web::auth::AppState>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Extract user ID from request (would need to be implemented based on auth system)
     let path = req.uri().path();
     let method = req.method().as_str();
     
-    // TODO: Implement actual rate limiting with Redis
-    // For now, just log the request
-    tracing::debug!("Rate limit check for {} {}", method, path);
+    // Extract client IP from request headers
+    let client_ip = extract_client_ip(&req);
     
-    // Example rate limiting logic (would be more sophisticated in production)
-    let _rate_limit_key = format!("{}:{}", method, path);
+    // Initialize rate limiter with configuration
+    use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
+    let rate_limiter = UnifiedRateLimiter::with_config(std::sync::Arc::new(crate::config::Config::from_env()));
     
-    // For demonstration, let's add some basic rate limiting rules
-    match path {
-        "/auth/login" => {
-            // Login attempts: 5 per minute
-            // TODO: Implement with Redis INCR and EXPIRE
+    // Determine rate limits based on endpoint
+    let config = match path {
+        "/auth/login" | "/auth/register" => {
+            RateLimitConfig {
+                requests_per_minute: Some(5), // Strict limit for auth endpoints
+                requests_per_hour: Some(20),
+                requests_per_day: Some(100),
+            }
         },
-        path if path.starts_with("/api/") => {
-            // API calls: 100 per minute
-            // TODO: Implement with Redis INCR and EXPIRE
+        path if path.starts_with("/admin/") => {
+            RateLimitConfig {
+                requests_per_minute: Some(20), // Admin endpoints
+                requests_per_hour: Some(500),
+                requests_per_day: Some(2000),
+            }
+        },
+        path if path.starts_with("/api/v1/") => {
+            RateLimitConfig {
+                requests_per_minute: Some(100), // API endpoints
+                requests_per_hour: Some(1000),
+                requests_per_day: Some(10000),
+            }
         },
         _ => {
-            // General requests: 1000 per minute
-            // TODO: Implement with Redis INCR and EXPIRE
+            RateLimitConfig {
+                requests_per_minute: Some(200), // General requests
+                requests_per_hour: Some(2000),
+                requests_per_day: Some(20000),
+            }
+        }
+    };
+    
+    // Check rate limit using IP address as client identifier
+    let client_id = ClientId::IpAddress(client_ip.clone());
+    let rate_result = rate_limiter.check_client_rate_limit(&client_id, path, method, &config).await
+        .map_err(|e| {
+            tracing::error!("Rate limiter error: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    if !rate_result.allowed {
+        tracing::warn!(
+            "Rate limit exceeded for {} {} from IP {}: {}/{}",
+            method, path, client_ip, rate_result.current_count, rate_result.limit
+        );
+        
+        // Return rate limit error with appropriate headers
+        let retry_after = rate_result.retry_after_seconds.unwrap_or(60);
+        let mut response = Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header("Retry-After", retry_after.to_string())
+            .header("X-RateLimit-Limit", rate_result.limit.to_string())
+            .header("X-RateLimit-Remaining", "0")
+            .header("X-RateLimit-Reset", retry_after.to_string())
+            .body(axum::body::Body::from(format!(
+                "{{\"error\":\"rate_limit_exceeded\",\"message\":\"{}\",\"retry_after\":{}}}",
+                rate_result.reason, retry_after
+            )))
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        
+        response.headers_mut().insert("Content-Type", "application/json".parse().unwrap());
+        return Ok(response);
+    }
+    
+    tracing::debug!(
+        "Rate limit check passed for {} {} from IP {}: {}/{}",
+        method, path, client_ip, rate_result.current_count, rate_result.limit
+    );
+
+    // Add rate limit headers to successful response
+    let mut response = next.run(req).await;
+    let headers = response.headers_mut();
+    headers.insert("X-RateLimit-Limit", rate_result.limit.to_string().parse().unwrap());
+    headers.insert("X-RateLimit-Remaining", (rate_result.limit - rate_result.current_count).to_string().parse().unwrap());
+    
+    Ok(response)
+}
+
+/// Extract client IP address from request headers
+fn extract_client_ip(req: &Request) -> String {
+    // Check for forwarded headers first (for reverse proxy scenarios)
+    if let Some(forwarded_for) = req.headers().get("x-forwarded-for") {
+        if let Ok(forwarded_str) = forwarded_for.to_str() {
+            // X-Forwarded-For can contain multiple IPs, get the first one
+            if let Some(first_ip) = forwarded_str.split(',').next() {
+                return first_ip.trim().to_string();
+            }
         }
     }
-
-    Ok(next.run(req).await)
+    
+    // Check for real IP header
+    if let Some(real_ip) = req.headers().get("x-real-ip") {
+        if let Ok(ip_str) = real_ip.to_str() {
+            return ip_str.to_string();
+        }
+    }
+    
+    // Check for Cloudflare connecting IP
+    if let Some(cf_ip) = req.headers().get("cf-connecting-ip") {
+        if let Ok(ip_str) = cf_ip.to_str() {
+            return ip_str.to_string();
+        }
+    }
+    
+    // Fallback to connection info (this might not be available in all setups)
+    // For now, return unknown as we can't access the socket addr from middleware
+    "unknown".to_string()
 }
 
 /// Content-Type validation middleware
@@ -326,7 +416,7 @@ mod tests {
     #[test]
     fn test_sanitize_json_string() {
         let malicious_json = r#"{"name": "<script>alert('xss')</script>", "url": "javascript:alert('xss')"}"#;
-        let sanitized = sanitize_json_string(malicious_json);
+        let sanitized = _sanitize_json_string(malicious_json);
         
         assert!(!sanitized.contains("<script"));
         assert!(!sanitized.contains("javascript:"));

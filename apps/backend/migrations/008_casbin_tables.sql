@@ -1,5 +1,5 @@
 -- Create Casbin policy table
-CREATE TABLE casbin_rule (
+CREATE TABLE IF NOT EXISTS casbin_rule (
     id SERIAL PRIMARY KEY,
     ptype VARCHAR(255) NOT NULL,
     v0 VARCHAR(255),
@@ -13,10 +13,10 @@ CREATE TABLE casbin_rule (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_casbin_rule_ptype ON casbin_rule (ptype);
-CREATE INDEX idx_casbin_rule_v0 ON casbin_rule (v0);
-CREATE INDEX idx_casbin_rule_v1 ON casbin_rule (v1);
-CREATE INDEX idx_casbin_rule_v2 ON casbin_rule (v2);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_ptype ON casbin_rule (ptype);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v0 ON casbin_rule (v0);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v1 ON casbin_rule (v1);
+CREATE INDEX IF NOT EXISTS idx_casbin_rule_v2 ON casbin_rule (v2);
 
 -- Insert initial policies based on current IAM profiles
 INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES
@@ -29,4 +29,5 @@ INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES
 ('p', 'user-premium-002', 'analytics', 'read'),
 ('p', 'user-premium-002', 'trading', 'advanced'),
 ('p', 'user-basic-001', 'trading', 'basic'),
-('p', 'user-basic-001', 'market-data', 'read');
+('p', 'user-basic-001', 'market-data', 'read')
+ON CONFLICT DO NOTHING;

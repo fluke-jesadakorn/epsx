@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   PackageTier, 
-  StockRankingConfig, 
+  StockRankingConfig as _StockRankingConfig, 
   StockRankingPackageConfigs,
   StockRankingType,
-  BulkStockRankingAssignment,
+  BulkStockRankingAssignment as _BulkStockRankingAssignment,
   BulkStockRankingAssignmentResult,
   StockRankingPackageAssignment
 } from '@epsx/types';
@@ -37,6 +37,8 @@ export default function StockRankingPackageAssignment({
     assignment: false
   });
   const [assignments, setAssignments] = useState<StockRankingPackageAssignment[]>([]);
+  const _assignments = assignments;
+  const _setAssignments = setAssignments;
   const [expirationDate, setExpirationDate] = useState<string>('');
   const [notifyUsers, setNotifyUsers] = useState(true);
   const [showPreview, setShowPreview] = useState(false);

@@ -35,7 +35,7 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
               Check Your Email
             </h2>
             <p className="text-muted-foreground mb-6">
-              We've sent a password reset link to your email address. Please check your inbox and follow the instructions.
+              We&apos;ve sent a password reset link to your email address. Please check your inbox and follow the instructions.
             </p>
             <a 
               href="/login"
@@ -69,7 +69,7 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
               Forgot Password?
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Enter your email address and we'll send you a reset link
+              Enter your email address and we&apos;ll send you a reset link
             </p>
           </div>
           

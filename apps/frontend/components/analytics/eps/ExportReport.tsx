@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Select components removed - not used in current implementation
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Download, 
@@ -15,7 +15,7 @@ import {
   Share2, 
   Plus, 
   Settings,
-  Calendar,
+  // Calendar - removed unused import
   BarChart3
 } from 'lucide-react';
 
@@ -43,7 +43,7 @@ const REPORT_SECTIONS = [
   { id: 'methodology', label: 'Methodology & Disclaimers', default: true }
 ];
 
-export function ExportReport({ data, symbol, onExport, onAddComparison }: ExportReportProps) {
+export function ExportReport({ data: _data, symbol, onExport, onAddComparison }: ExportReportProps) {
   const [selectedFormat, setSelectedFormat] = useState('pdf');
   const [comparisonSymbol, setComparisonSymbol] = useState('');
   const [selectedSections, setSelectedSections] = useState(
@@ -61,7 +61,7 @@ export function ExportReport({ data, symbol, onExport, onAddComparison }: Export
   };
 
   const handleExport = () => {
-    const exportData = {
+    const _exportData = {
       format: selectedFormat,
       sections: selectedSections,
       title: customTitle,

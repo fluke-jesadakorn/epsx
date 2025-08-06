@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { ValidationConfig, ValidationMessages } from './schemas.js';
+
+import { ValidationConfig } from './schemas.js';
 
 // Validation result types (consolidates different result patterns)
-export interface ValidationResult<T = any> {
+export interface ValidationResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -10,7 +11,7 @@ export interface ValidationResult<T = any> {
   warnings?: string[];
 }
 
-export interface AsyncValidationResult<T = any> extends ValidationResult<T> {
+export interface AsyncValidationResult<T = unknown> extends ValidationResult<T> {
   loading?: boolean;
 }
 
@@ -55,7 +56,7 @@ export class ValidationUtils {
       abortEarly?: boolean;
     } = {}
   ): ValidationResult<T> {
-    const { transform = true, stripUnknown = true, abortEarly = false } = options;
+    const { transform: _transform = true, stripUnknown = true, abortEarly = false } = options;
 
     try {
       let processedSchema = schema;
@@ -486,7 +487,7 @@ export class ValidationUtils {
    */
   static validateNested<T>(
     data: unknown,
-    validators: Record<string, (value: any) => ValidationResult>
+    validators: Record<string, (value: unknown) => ValidationResult>
   ): ValidationResult<T> {
     if (!data || typeof data !== 'object') {
       return {
@@ -496,14 +497,14 @@ export class ValidationUtils {
     }
 
     const fieldErrors: Record<string, string[]> = {};
-    const validatedData: any = {};
+    const validatedData: unknown = {};
     
     for (const [key, validator] of Object.entries(validators)) {
-      const value = (data as any)[key];
+      const value = (data as Record<string, unknown>)[key];
       const result = validator(value);
       
       if (result.success) {
-        validatedData[key] = result.data;
+        (validatedData as Record<string, unknown>)[key] = result.data;
       } else {
         fieldErrors[key] = [result.error || 'Invalid value'];
       }

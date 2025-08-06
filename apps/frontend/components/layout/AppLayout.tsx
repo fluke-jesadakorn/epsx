@@ -25,7 +25,7 @@ function InnerLayout({
   children: React.ReactNode;
   className?: string;
 }) {
-  const { theme, globalLoading } = useUI();
+  const { theme: _theme, globalLoading } = useUI();
   const { isAnyLoading } = useLoadingState();
   const { isMobile, isTablet } = useResponsive();
 

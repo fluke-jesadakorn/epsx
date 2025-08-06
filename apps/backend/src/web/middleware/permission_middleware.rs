@@ -15,7 +15,7 @@ pub async fn permission_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Step 1: Extract user from request
-    let user_id = match extract_user_from_request(&request) {
+    let user_id = match extract_user_from_request(&app_state, &request).await {
         Ok(user_id) => user_id,
         Err(status) => {
             tracing::warn!("Permission middleware: user extraction failed");
@@ -49,14 +49,14 @@ pub async fn permission_middleware(
     }
 }
 
-fn extract_user_from_request(request: &Request) -> Result<String, StatusCode> {
+async fn extract_user_from_request(app_state: &AppState, request: &Request) -> Result<String, StatusCode> {
     // Extract from Authorization header or session
     if let Some(auth_header) = request.headers().get("authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if let Some(token) = auth_str.strip_prefix("Bearer ") {
                 // Validate session token - the token is actually the session_id
                 // In EPSX, the backend uses session-based auth, not JWT
-                return validate_session_token(token);
+                return validate_session_token(app_state, token).await;
             }
         }
     }
@@ -67,7 +67,7 @@ fn extract_user_from_request(request: &Request) -> Result<String, StatusCode> {
             for cookie_pair in cookie_str.split(';') {
                 let cookie_pair = cookie_pair.trim();
                 if let Some(session_id) = cookie_pair.strip_prefix("session_id=") {
-                    return validate_session_token(session_id);
+                    return validate_session_token(app_state, session_id).await;
                 }
             }
         }
@@ -77,28 +77,40 @@ fn extract_user_from_request(request: &Request) -> Result<String, StatusCode> {
 }
 
 /// Validate session token and return user ID
-/// TODO: Integrate with SessionRepo for proper validation
-fn validate_session_token(session_id: &str) -> Result<String, StatusCode> {
-    // For now, simplified validation 
-    // In production, this should:
-    // 1. Query SessionRepo to validate session exists and is active
-    // 2. Extract user_id from session
-    // 3. Check session expiration
-    
-    if session_id.is_empty() || session_id.len() < 10 {
+async fn validate_session_token(app_state: &AppState, session_id: &str) -> Result<String, StatusCode> {
+    if session_id.is_empty() {
         return Err(StatusCode::UNAUTHORIZED);
     }
     
-    // Mock validation - extract user from session format
-    // Assuming session format includes user info
-    if session_id.starts_with("sess_") {
-        // Extract potential user_id from session (simplified)
-        let user_id = session_id.replace("sess_", "user_");
-        return Ok(user_id);
-    }
+    // Parse session_id as SessId
+    let sess_id = crate::dom::values::SessId::from_string(session_id.to_string());
     
-    // Default user for migration testing
-    Ok("test_user".to_string())
+    // Query SessionRepo to validate session exists and is active
+    match app_state.session_repo.find_by_id(&sess_id).await {
+        Ok(session) => {
+            // Check if session is active and not expired
+            if !session.is_active() {
+                tracing::warn!("Session {} is not active", session_id);
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            
+            if session.is_expired() {
+                tracing::warn!("Session {} is expired", session_id);
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            
+            // Return user_id from session
+            Ok(session.user_id().to_string())
+        },
+        Err(crate::app::ports::repositories::RepoError::NotFound) => {
+            tracing::warn!("Session {} not found", session_id);
+            Err(StatusCode::UNAUTHORIZED)
+        },
+        Err(e) => {
+            tracing::error!("Failed to validate session {}: {:?}", session_id, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 fn extract_resource_action(request: &Request) -> Result<(String, String), StatusCode> {

@@ -1,5 +1,7 @@
 'use server';
 
+import { CookieManager } from './cookie-manager';
+
 import type {
   AdminProfile,
   AdminUser,
@@ -19,7 +21,6 @@ import type {
   UserProfile,
   UserSoftDeleteRequest,
 } from './types';
-import { CookieManager } from './cookie-manager';
 
 // Helper function to get backend URL from environment
 function getBackendUrl(): string {
@@ -61,27 +62,27 @@ export async function serverGetVapidKey(): Promise<ApiResponse<{ vapidPublicKey:
   return { data: { vapidPublicKey } };
 }
 
-export async function serverGetStockSymbols(): Promise<ApiResponse<any>> {
+export async function serverGetStockSymbols(): Promise<ApiResponse<unknown>> {
   return serverRequest('/api/market-data/symbols');
 }
 
-export async function serverGetIndividualStock(symbol: string): Promise<ApiResponse<any>> {
+export async function serverGetIndividualStock(symbol: string): Promise<ApiResponse<unknown>> {
   return serverRequest(
     `/api/market-data/stocks/individual?symbol=${symbol}`
   );
 }
 
-export async function serverBatchStocks(symbols: string[]): Promise<ApiResponse<any>> {
+export async function serverBatchStocks(symbols: string[]): Promise<ApiResponse<unknown>> {
   return serverRequest('/api/market-data/stocks/batch', 'POST', {
     symbols,
   });
 }
 
-export async function serverGetPremiumRankings(): Promise<ApiResponse<any>> {
+export async function serverGetPremiumRankings(): Promise<ApiResponse<unknown>> {
   return serverRequest('/api/premium/rankings');
 }
 
-export async function serverGetSystemCache(): Promise<ApiResponse<any>> {
+export async function serverGetSystemCache(): Promise<ApiResponse<unknown>> {
   return serverRequest('/api/system/cache');
 }
 
@@ -89,15 +90,15 @@ export async function serverGetCurrentUser(): Promise<ApiResponse<UserProfile>> 
   return serverRequest('/auth/me');
 }
 
-export async function serverGetAuditLogs(endpoint: string): Promise<ApiResponse<any>> {
+export async function serverGetAuditLogs(endpoint: string): Promise<ApiResponse<unknown>> {
   return serverRequest(endpoint);
 }
 
-export async function serverCreateMusePayPayment(data: any): Promise<ApiResponse<any>> {
+export async function serverCreateMusePayPayment(data: unknown): Promise<ApiResponse<unknown>> {
   return serverRequest('/payments/musepay/create', 'POST', data);
 }
 
-export async function serverCreateCryptoPayment(data: any): Promise<ApiResponse<any>> {
+export async function serverCreateCryptoPayment(data: unknown): Promise<ApiResponse<unknown>> {
   return serverRequest(
     '/api/payments/crypto/deposit-address',
     'POST',
@@ -105,7 +106,7 @@ export async function serverCreateCryptoPayment(data: any): Promise<ApiResponse<
   );
 }
 
-export async function serverCreateCryptoDepositAddress(data: any): Promise<ApiResponse<any>> {
+export async function serverCreateCryptoDepositAddress(data: unknown): Promise<ApiResponse<unknown>> {
   return serverRequest(
     '/api/v1/payments/crypto/deposit-address',
     'POST',
@@ -125,10 +126,10 @@ export async function serverListUsers(
 ): Promise<ApiResponse<UserListResult>> {
   const params = new URLSearchParams();
   if (options.maxResults || options.limit) {
-    params.set('limit', (options.maxResults || options.limit)!.toString());
+    params.set('limit', (options.maxResults || options.limit || 50).toString());
   }
   if (options.pageToken || options.offset) {
-    params.set('offset', options.pageToken || options.offset!);
+    params.set('offset', options.pageToken || options.offset || '0');
   }
 
   return serverRequest(`/api/admin/users?${params.toString()}`);
@@ -149,7 +150,7 @@ export async function serverSetUserRole(
   });
 }
 
-export async function serverGetUserStats(): Promise<ApiResponse<any>> {
+export async function serverGetUserStats(): Promise<ApiResponse<unknown>> {
   return serverRequest(
     '/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true'
   );
@@ -161,7 +162,7 @@ export async function serverBulkUpdateUserRoles(
     role: string;
     reason?: string;
   }>
-): Promise<ApiResponse<any>> {
+): Promise<ApiResponse<unknown>> {
   return serverRequest('/api/admin/users/batch-update-roles', 'POST', {
     updates: updates.map(update => ({
       user_id: update.uid,
@@ -296,7 +297,7 @@ export async function serverAssignPermissionProfile(
 async function serverRequest<T>(
   endpoint: string,
   method: string = 'GET',
-  data?: any
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   const url = `${getBackendUrl()}${endpoint}`;
   
@@ -309,7 +310,7 @@ async function serverRequest<T>(
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     const allCookies = cookieStore.getAll();
-    const cookieHeader = allCookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+    const cookieHeader = allCookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ');
     
     console.log('🍪 [serverRequest] Cookie header built:', {
       totalCookies: allCookies.length,
@@ -371,11 +372,11 @@ async function serverRequest<T>(
       url: response.url,
     });
 
-    let responseData;
+    let responseData: unknown;
     const contentType = response.headers.get('content-type');
 
     if (contentType?.includes('application/json')) {
-      responseData = await response.json();
+      responseData = await response.json() as unknown;
       console.log('📄 [serverRequest] JSON response data:', responseData);
     } else {
       responseData = await response.text();
@@ -384,8 +385,8 @@ async function serverRequest<T>(
 
     if (!response.ok) {
       const errorResponse = {
-        error: responseData?.error || responseData || 'Request failed',
-        details: responseData?.details || `HTTP ${response.status}`,
+        error: (responseData as Record<string, unknown>)?.error || responseData || 'Request failed',
+        details: (responseData as Record<string, unknown>)?.details || `HTTP ${response.status}`,
       };
       
       console.error('❌ [serverRequest] Request failed:', {
@@ -393,7 +394,7 @@ async function serverRequest<T>(
         status: response.status,
         statusText: response.statusText,
         errorResponse,
-        responseData,
+        responseData: responseData as unknown,
       });
       
       return errorResponse;
@@ -406,7 +407,7 @@ async function serverRequest<T>(
       dataKeys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A',
     });
 
-    return { data: responseData };
+    return { data: responseData as unknown };
   } catch (error) {
     const errorDetails = error instanceof Error ? error.message : 'Unknown error';
     

@@ -363,7 +363,7 @@ export const ApiDocumentation: React.FC = () => {
               </button>
             </div>
             <code className="text-green-400 text-sm font-mono">
-              curl -H "Authorization: Bearer YOUR_API_KEY" \
+              curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \
               <br />     https://api.epsx.com/v1/stock-ranking/rankings
             </code>
           </div>

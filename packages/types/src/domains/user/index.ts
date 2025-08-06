@@ -1,4 +1,4 @@
-import type { UserSubscription, PaymentTier } from '../payment';
+import type { UserSubscription, PaymentTier as _PaymentTier } from '../payment';
 
 // Base user interface that works for all contexts
 export interface BaseUser {
@@ -37,7 +37,7 @@ export interface FrontendUser extends AuthenticatedUser {
   package_tier?: string;
   token_balance?: number;
   features?: string[];
-  usdtDetails?: any; // External type compatibility
+  usdtDetails?: unknown; // External type compatibility
 }
 
 // Admin-specific user with enhanced permissions
@@ -47,7 +47,7 @@ export interface AdminUser extends AuthenticatedUser {
   customClaims?: {
     role?: string;
     permissions?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
   metadata?: {
     creationTime?: string;

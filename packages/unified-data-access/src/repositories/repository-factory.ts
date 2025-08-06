@@ -1,17 +1,17 @@
-import { RepositoryFactory, RepositoryContext } from "../interfaces/base-repository";
-import { UserRepository } from "../interfaces/user-repository";
-import { PaymentRepository } from "../interfaces/payment-repository";
-import { PermissionRepository } from "../interfaces/permission-repository";
 
 // Server-side implementations (would make direct API calls or database queries)
-import { ServerUserRepository } from "./server/user-repository";
-import { ServerPaymentRepository } from "./server/payment-repository";
-import { ServerPermissionRepository } from "./server/permission-repository";
-
-// Client-side implementations (would make HTTP requests through API client)
-import { ClientUserRepository } from "./client/user-repository";
 import { ClientPaymentRepository } from "./client/payment-repository";
 import { ClientPermissionRepository } from "./client/permission-repository";
+import { ClientUserRepository } from "./client/user-repository";
+import { ServerPaymentRepository } from "./server/payment-repository";
+import { ServerPermissionRepository } from "./server/permission-repository";
+// Client-side implementations (would make HTTP requests through API client)
+import { ServerUserRepository } from "./server/user-repository";
+
+import type { RepositoryFactory, RepositoryContext } from "../interfaces/base-repository";
+import type { PaymentRepository } from "../interfaces/payment-repository";
+import type { PermissionRepository } from "../interfaces/permission-repository";
+import type { UserRepository } from "../interfaces/user-repository";
 
 export class UnifiedRepositoryFactory implements RepositoryFactory {
   private context: RepositoryContext;
@@ -54,7 +54,7 @@ export class UnifiedRepositoryFactory implements RepositoryFactory {
     return this.permissionRepository;
   }
 
-  getAnalyticsRepository(): any {
+  getAnalyticsRepository(): unknown {
     // TODO: Implement analytics repository
     throw new Error("Analytics repository not yet implemented");
   }

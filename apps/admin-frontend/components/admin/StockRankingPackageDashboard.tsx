@@ -9,7 +9,7 @@ export default function StockRankingPackageDashboard() {
   const [activeTab, setActiveTab] = useState<'assign' | 'manage'>('assign');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleAssignmentComplete = (result: BulkStockRankingAssignmentResult) => {
+  const handleAssignmentComplete = (_result: BulkStockRankingAssignmentResult) => {
     // Trigger refresh of assignment list
     setRefreshTrigger(prev => prev + 1);
     

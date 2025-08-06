@@ -18,37 +18,45 @@ export const authOptions: AuthOptions = {
         }
 
         try {
+          // Updated for new backend session authentication format
           const response = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-              app_type: 'frontend',
-              type: 'credentials'
+              credentials: {
+                email: credentials.email,
+                password: credentials.password
+              }
             }),
           });
 
           if (!response.ok) {
+            console.error('Frontend login failed:', response.status, response.statusText);
             return null;
           }
 
           const data = await response.json();
           
-          if (data.user_id && data.access_token) {
+          // Backend returns { user: {...}, session: { session_id, expires_at } }
+          if (data.user?.user_id && data.session?.session_id) {
+            const user = data.user;
+            const session = data.session;
+            
             return {
-              id: data.user_id,
-              email: data.email,
-              role: data.role,
-              permissions: data.permissions,
-              subscription_tier: data.subscription_tier,
-              token: data.access_token,
-              expires_at: data.expires_at,
+              id: user.user_id,
+              email: user.email,
+              role: user.roles?.[0] || user.role || 'user',
+              permissions: user.permissions || [],
+              subscription_tier: user.subscription_tier || 'free',
+              package_tier: user.package_tier || user.subscription_tier || 'free',
+              session_id: session.session_id,  // Store session ID for API calls
+              expires_at: session.expires_at,
             };
           }
           
+          console.error('Invalid login response format:', data);
           return null;
         } catch (error) {
           console.error('Auth error:', error);
@@ -65,7 +73,8 @@ export const authOptions: AuthOptions = {
         token.role = user.role;
         token.permissions = user.permissions;
         token.subscription_tier = user.subscription_tier;
-        token.accessToken = user.token;
+        token.package_tier = user.package_tier;
+        token.session_id = user.session_id; // Store session ID for backend calls
         token.expires_at = user.expires_at;
       }
       return token;
@@ -77,7 +86,8 @@ export const authOptions: AuthOptions = {
         session.user.role = token.role as string;
         session.user.permissions = token.permissions as string[];
         session.user.subscription_tier = token.subscription_tier as string;
-        session.accessToken = token.accessToken as string;
+        session.user.package_tier = token.package_tier as string;
+        session.session_id = token.session_id as string; // Pass session ID to session
         session.expires_at = token.expires_at as string;
       }
       return session;

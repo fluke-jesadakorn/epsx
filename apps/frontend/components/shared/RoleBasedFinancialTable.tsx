@@ -30,6 +30,16 @@ export default function RoleBasedFinancialTable({
 }: RoleBasedFinancialTableProps): React.JSX.Element {
   const { user } = useAuth();
 
+  // Apply rank shift if needed - moved before conditional returns
+  const processedData = React.useMemo(() => {
+    if (rankShift === 0) return data;
+    
+    return data.map((item, index) => ({
+      ...item,
+      displayRank: index + 1 + rankShift,
+    }));
+  }, [data, rankShift]);
+
   // Basic role checking - in a real implementation, this would use proper permission system
   const hasAccess = user !== null;
 
@@ -46,16 +56,6 @@ export default function RoleBasedFinancialTable({
       </Card>
     );
   }
-
-  // Apply rank shift if needed
-  const processedData = React.useMemo(() => {
-    if (rankShift === 0) return data;
-    
-    return data.map((item, index) => ({
-      ...item,
-      displayRank: index + 1 + rankShift,
-    }));
-  }, [data, rankShift]);
 
   return (
     <div className={`w-full ${className}`}>

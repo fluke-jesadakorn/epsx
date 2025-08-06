@@ -371,22 +371,20 @@ pub async fn clear_cache_handler(
     }))
 }
 
-/// Helper function to verify admin access
-async fn verify_admin_access(
+/// Helper function to verify admin access with explicit user_id
+async fn verify_admin_access_with_user(
     app_state: &AppState,
+    user_id: &str,
     resource: &str,
     action: &str,
 ) -> Result<(), StatusCode> {
-    // Extract admin user from context (simplified for migration)
-    let admin_user = "admin_user"; // TODO: Extract from request context
-    
-    match app_state.casbin_service.enforce(admin_user, resource, action).await {
+    match app_state.casbin_service.enforce(user_id, resource, action).await {
         Ok(true) => {
-            tracing::debug!("Admin access granted for {} on {}/{}", admin_user, resource, action);
+            tracing::debug!("Admin access granted for {} on {}/{}", user_id, resource, action);
             Ok(())
         }
         Ok(false) => {
-            tracing::warn!("Admin access denied for {} on {}/{}", admin_user, resource, action);
+            tracing::warn!("Admin access denied for {} on {}/{}", user_id, resource, action);
             Err(StatusCode::FORBIDDEN)
         }
         Err(e) => {
@@ -394,6 +392,33 @@ async fn verify_admin_access(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+/// Legacy wrapper function for backward compatibility
+/// Extracts user ID from context and calls the user-specific verification
+async fn verify_admin_access(
+    app_state: &AppState,
+    resource: &str,
+    action: &str,
+) -> Result<(), StatusCode> {
+    // Extract user ID from context - this should be properly implemented
+    // to get the actual user ID from the authenticated request
+    let user_id = extract_admin_user_from_context().await?;
+    verify_admin_access_with_user(app_state, &user_id, resource, action).await
+}
+
+/// Extract admin user ID from request context
+/// TODO: Implement proper extraction from authenticated session
+async fn extract_admin_user_from_context() -> Result<String, StatusCode> {
+    // This is a placeholder implementation
+    // In a real system, this would:
+    // 1. Extract the session token from the request
+    // 2. Validate the session using SessionRepo
+    // 3. Verify the user has admin privileges
+    // 4. Return the actual user ID
+    
+    // For now, return a test admin user
+    Ok("admin_user".to_string())
 }
 
 #[cfg(test)]

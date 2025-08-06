@@ -7,7 +7,7 @@ interface NavItem {
 }
 
 class NavigationService {
-  getNavItems(isLoggedIn: boolean): NavItem[] {
+  getNavItems(_isLoggedIn: boolean): NavItem[] {
     const items: NavItem[] = [
       // {
       //   label: 'Docs',

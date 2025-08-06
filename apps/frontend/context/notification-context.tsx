@@ -2,9 +2,11 @@
 
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppState } from './app-state';
-import { NotificationState, type Notification, NotificationPreferences } from '@/lib/state/types';
+import { NotificationState as _NotificationState,  NotificationPreferences } from '@/lib/state/types';
+import type {Notification} from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
-import { createApiClient, isApiError, type PushSubscriptionRequest } from '@epsx/api-client';
+import { createApiClient, isApiError  } from '@epsx/api-client';
+import type {PushSubscriptionRequest} from '@epsx/api-client';
 import { getVapidKey } from '@/lib/actions/admin.server';
 
 interface NotificationContextType {

@@ -36,12 +36,13 @@ impl SessRepo for PostgresSessRepo {
 
         match row {
             Some(row) => {
-                let session = Session::from_existing(
+                let session = Session::from_existing_with_active(
                     SessId::from_string(row.get::<Uuid, _>("id").to_string()),
                     UserId::from_string(row.get::<Uuid, _>("user_id").to_string()),
                     row.get("access_token"),
                     row.get("refresh_token"),
                     row.get("expires_at"),
+                    row.get("is_active"),
                 );
 
                 Ok(Some(session))
@@ -59,7 +60,7 @@ impl SessRepo for PostgresSessRepo {
 
         sqlx::query(
             "INSERT INTO sessions (id, user_id, access_token, refresh_token, expires_at, created_at, is_active)
-             VALUES ($1, $2, $3, $4, $5, NOW(), true)
+             VALUES ($1, $2, $3, $4, $5, NOW(), $6)
              ON CONFLICT (id) DO UPDATE SET
                 access_token = EXCLUDED.access_token,
                 refresh_token = EXCLUDED.refresh_token,
@@ -71,6 +72,7 @@ impl SessRepo for PostgresSessRepo {
         .bind(&session.access_token)
         .bind(&session.refresh_token)
         .bind(session.expires_at)
+        .bind(session.is_active)
         .execute(&*self.pool)
         .await
         .map_err(|e| RepoError::QueryError(e.to_string()))?;

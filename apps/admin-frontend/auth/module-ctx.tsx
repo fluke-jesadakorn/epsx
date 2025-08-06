@@ -7,6 +7,8 @@ interface ModuleAuthContextType {
   hasModuleAccess: (module: string) => boolean;
   canPerformAction: (module: string, action: string) => boolean;
   getAccessLevel: (module: string) => string;
+  hasFeatureAccess: (module: string, feature: string) => boolean;
+  getQuotaStatus: (module: string) => { rate_limit_per_minute: number; daily_limit?: number } | null;
   moduleAccess: Record<string, any>;
   loading: boolean;
 }
@@ -68,6 +70,32 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
     return 'none';
   };
 
+  const hasFeatureAccess = (module: string, feature: string): boolean => {
+    if (!hasModuleAccess(module)) return false;
+    
+    // Super admin has access to all features
+    if (user?.role === 'super_admin') {
+      return true;
+    }
+    
+    // Basic feature access logic - can be expanded
+    if (user?.role === 'admin') {
+      return true;
+    }
+    
+    return false;
+  };
+
+  const getQuotaStatus = (module: string) => {
+    if (!hasModuleAccess(module)) return null;
+    
+    // Mock quota status - replace with real data from backend
+    return {
+      rate_limit_per_minute: 60,
+      daily_limit: 1000
+    };
+  };
+
   const moduleAccess = {
     admin: hasModuleAccess('admin'),
     users: hasModuleAccess('users'),
@@ -80,6 +108,8 @@ export function ModuleAuthProvider({ children }: { children: React.ReactNode }) 
     hasModuleAccess,
     canPerformAction,
     getAccessLevel,
+    hasFeatureAccess,
+    getQuotaStatus,
     moduleAccess,
     loading,
   };
@@ -100,9 +130,69 @@ export function useModuleAuth(): ModuleAuthContextType {
       hasModuleAccess: () => false,
       canPerformAction: () => false,
       getAccessLevel: () => 'none',
+      hasFeatureAccess: () => false,
+      getQuotaStatus: () => null,
       moduleAccess: {},
       loading: false,
     };
   }
   return context;
+}
+
+// Component to display current module access status
+export function ModuleAccessStatus() {
+  const { moduleAccess: _moduleAccess, getAccessLevel } = useModuleAuth();
+  const { user } = useAdminAuth();
+  
+  if (!user) {
+    return (
+      <div className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">
+        No Access
+      </div>
+    );
+  }
+
+  const userLevel = getAccessLevel('admin');
+  const levelColors = {
+    'full': 'bg-green-100 text-green-800',
+    'admin': 'bg-blue-100 text-blue-800',
+    'none': 'bg-red-100 text-red-800'
+  };
+
+  return (
+    <div className={`px-2 py-1 rounded text-xs font-medium ${levelColors[userLevel as keyof typeof levelColors] || levelColors.none}`}>
+      {userLevel.charAt(0).toUpperCase() + userLevel.slice(1)} Access
+    </div>
+  );
+}
+
+// HOC for module access protection
+export function withModuleAccess<T extends object>(
+  Component: React.ComponentType<T>,
+  requiredModule: string,
+  requiredAction?: string
+) {
+  return function ModuleProtectedComponent(props: T) {
+    const { hasModuleAccess, canPerformAction } = useModuleAuth();
+    
+    if (!hasModuleAccess(requiredModule)) {
+      return (
+        <div className="p-4 text-center text-gray-500">
+          <div className="mb-2">Access Denied</div>
+          <div className="text-sm">You don't have access to the {requiredModule} module.</div>
+        </div>
+      );
+    }
+    
+    if (requiredAction && !canPerformAction(requiredModule, requiredAction)) {
+      return (
+        <div className="p-4 text-center text-gray-500">
+          <div className="mb-2">Insufficient Permissions</div>
+          <div className="text-sm">You can't perform the {requiredAction} action in {requiredModule}.</div>
+        </div>
+      );
+    }
+    
+    return <Component {...props} />;
+  };
 }

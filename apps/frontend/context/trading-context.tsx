@@ -2,9 +2,10 @@
 
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppState } from './app-state';
-import { TradingState, StockItem, PortfolioItem, StockRanking, PriceAlert } from '@/lib/state/types';
-import { useOptimisticUpdates, withAsyncState } from '@/lib/state/core';
-import { createApiClient, isApiError, type WatchlistAddRequest, type PriceAlertCreateRequest } from '@epsx/api-client';
+import { TradingState as _TradingState, StockItem, PortfolioItem, StockRanking, PriceAlert } from '@/lib/state/types';
+import { useOptimisticUpdates, withAsyncState as _withAsyncState } from '@/lib/state/core';
+import { createApiClient, isApiError   } from '@epsx/api-client';
+import type {WatchlistAddRequest as _WatchlistAddRequest, PriceAlertCreateRequest} from '@epsx/api-client';
 
 interface TradingContextType {
   // Data
@@ -311,7 +312,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
       const watchlist = isApiError(watchlistRes) ? [] : watchlistRes.data || [];
       const portfolio = isApiError(portfolioRes) ? [] : portfolioRes.data || [];
       const rankings = isApiError(rankingsRes) ? [] : rankingsRes.data || [];
-      const alerts = isApiError(alertsRes) ? [] : alertsRes.data || [];
+      const _alerts = isApiError(alertsRes) ? [] : alertsRes.data || [];
 
       actions.trading.setWatchlist(watchlist);
       actions.trading.setPortfolio(portfolio);

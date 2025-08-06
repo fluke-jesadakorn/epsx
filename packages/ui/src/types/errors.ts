@@ -68,7 +68,7 @@ export interface BaseError {
   category: ErrorCategory;
   severity: ErrorSeverity;
   timestamp: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   stack?: string;
   requestId?: string;
 }
@@ -79,7 +79,7 @@ export class AuthError extends Error implements BaseError {
   public readonly category: ErrorCategory = 'auth';
   public readonly severity: ErrorSeverity;
   public readonly timestamp: string;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
   public readonly requestId?: string;
 
   constructor(
@@ -87,7 +87,7 @@ export class AuthError extends Error implements BaseError {
     message: string,
     options: {
       severity?: ErrorSeverity;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       requestId?: string;
       cause?: Error;
     } = {}
@@ -107,7 +107,7 @@ export class AuthError extends Error implements BaseError {
   }
 
   // Helper methods for specific auth error types
-  static invalidCredentials(context?: Record<string, any>): AuthError {
+  static invalidCredentials(context?: Record<string, unknown>): AuthError {
     return new AuthError(
       ErrorCode.AUTH_INVALID_CREDENTIALS,
       'Invalid email or password',
@@ -115,7 +115,7 @@ export class AuthError extends Error implements BaseError {
     );
   }
 
-  static tokenExpired(context?: Record<string, any>): AuthError {
+  static tokenExpired(context?: Record<string, unknown>): AuthError {
     return new AuthError(
       ErrorCode.AUTH_TOKEN_EXPIRED,
       'Your session has expired. Please sign in again.',
@@ -123,7 +123,7 @@ export class AuthError extends Error implements BaseError {
     );
   }
 
-  static permissionDenied(permission: string, context?: Record<string, any>): AuthError {
+  static permissionDenied(permission: string, context?: Record<string, unknown>): AuthError {
     return new AuthError(
       ErrorCode.AUTH_PERMISSION_DENIED,
       `You don't have permission to ${permission}`,
@@ -131,7 +131,7 @@ export class AuthError extends Error implements BaseError {
     );
   }
 
-  static roleInsufficient(requiredRole: string, userRole: string, context?: Record<string, any>): AuthError {
+  static roleInsufficient(requiredRole: string, userRole: string, context?: Record<string, unknown>): AuthError {
     return new AuthError(
       ErrorCode.AUTH_ROLE_INSUFFICIENT,
       `This action requires ${requiredRole} role. Your role: ${userRole}`,
@@ -145,7 +145,7 @@ export class ApiError extends Error implements BaseError {
   public readonly category: ErrorCategory = 'api';
   public readonly severity: ErrorSeverity;
   public readonly timestamp: string;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
   public readonly requestId?: string;
   public readonly status?: number;
   public readonly url?: string;
@@ -155,7 +155,7 @@ export class ApiError extends Error implements BaseError {
     message: string,
     options: {
       severity?: ErrorSeverity;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       requestId?: string;
       status?: number;
       url?: string;
@@ -179,7 +179,7 @@ export class ApiError extends Error implements BaseError {
   }
 
   // Helper methods for common API errors
-  static networkError(url: string, context?: Record<string, any>): ApiError {
+  static networkError(url: string, context?: Record<string, unknown>): ApiError {
     return new ApiError(
       ErrorCode.API_NETWORK_ERROR,
       'Network connection failed. Please check your internet connection.',
@@ -187,7 +187,7 @@ export class ApiError extends Error implements BaseError {
     );
   }
 
-  static timeout(url: string, context?: Record<string, any>): ApiError {
+  static timeout(url: string, context?: Record<string, unknown>): ApiError {
     return new ApiError(
       ErrorCode.API_TIMEOUT,
       'Request timed out. Please try again.',
@@ -195,7 +195,7 @@ export class ApiError extends Error implements BaseError {
     );
   }
 
-  static serverError(status: number, url: string, context?: Record<string, any>): ApiError {
+  static serverError(status: number, url: string, context?: Record<string, unknown>): ApiError {
     return new ApiError(
       ErrorCode.API_SERVER_ERROR,
       `Server error (${status}). Please try again later.`,
@@ -203,7 +203,7 @@ export class ApiError extends Error implements BaseError {
     );
   }
 
-  static rateLimited(retryAfter?: number, context?: Record<string, any>): ApiError {
+  static rateLimited(retryAfter?: number, context?: Record<string, unknown>): ApiError {
     const message = retryAfter 
       ? `Too many requests. Please try again in ${retryAfter} seconds.`
       : 'Too many requests. Please try again later.';
@@ -221,7 +221,7 @@ export class FeatureError extends Error implements BaseError {
   public readonly category: ErrorCategory = 'feature';
   public readonly severity: ErrorSeverity;
   public readonly timestamp: string;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
   public readonly requestId?: string;
   public readonly featureName?: string;
   public readonly requirement?: string;
@@ -231,7 +231,7 @@ export class FeatureError extends Error implements BaseError {
     message: string,
     options: {
       severity?: ErrorSeverity;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       requestId?: string;
       featureName?: string;
       requirement?: string;
@@ -259,7 +259,7 @@ export class FeatureError extends Error implements BaseError {
     featureName: string, 
     required: number, 
     available: number, 
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): FeatureError {
     return new FeatureError(
       ErrorCode.FEATURE_INSUFFICIENT_TOKENS,
@@ -277,7 +277,7 @@ export class FeatureError extends Error implements BaseError {
     featureName: string, 
     requiredTier: string, 
     userTier: string, 
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): FeatureError {
     return new FeatureError(
       ErrorCode.FEATURE_TIER_REQUIRED,
@@ -295,7 +295,7 @@ export class FeatureError extends Error implements BaseError {
     featureName: string, 
     limit: number, 
     usage: number, 
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): FeatureError {
     return new FeatureError(
       ErrorCode.FEATURE_LIMIT_EXCEEDED,
@@ -315,19 +315,19 @@ export class ValidationError extends Error implements BaseError {
   public readonly category: ErrorCategory = 'validation';
   public readonly severity: ErrorSeverity = 'low';
   public readonly timestamp: string;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
   public readonly requestId?: string;
   public readonly field?: string;
-  public readonly value?: any;
+  public readonly value?: unknown;
 
   constructor(
     code: ErrorCode,
     message: string,
     options: {
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       requestId?: string;
       field?: string;
-      value?: any;
+      value?: unknown;
       cause?: Error;
     } = {}
   ) {
@@ -347,7 +347,7 @@ export class ValidationError extends Error implements BaseError {
   }
 
   // Helper methods for validation errors
-  static required(field: string, context?: Record<string, any>): ValidationError {
+  static required(field: string, context?: Record<string, unknown>): ValidationError {
     return new ValidationError(
       ErrorCode.VALIDATION_REQUIRED_FIELD,
       `${field} is required`,
@@ -355,7 +355,7 @@ export class ValidationError extends Error implements BaseError {
     );
   }
 
-  static invalidFormat(field: string, expectedFormat: string, context?: Record<string, any>): ValidationError {
+  static invalidFormat(field: string, expectedFormat: string, context?: Record<string, unknown>): ValidationError {
     return new ValidationError(
       ErrorCode.VALIDATION_INVALID_FORMAT,
       `${field} must be in ${expectedFormat} format`,
@@ -363,7 +363,7 @@ export class ValidationError extends Error implements BaseError {
     );
   }
 
-  static minLength(field: string, minLength: number, actualLength: number, context?: Record<string, any>): ValidationError {
+  static minLength(field: string, minLength: number, actualLength: number, context?: Record<string, unknown>): ValidationError {
     return new ValidationError(
       ErrorCode.VALIDATION_MIN_LENGTH,
       `${field} must be at least ${minLength} characters. Got ${actualLength}`,

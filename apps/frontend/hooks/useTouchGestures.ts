@@ -154,7 +154,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
     }
   }, [enabled, isPinching, isPanning, onPinch, onPanMove, pinchThreshold, getDistance, clearTimers]);
 
-  const handleTouchEnd = useCallback((e: TouchEvent) => {
+  const handleTouchEnd = useCallback((_e: TouchEvent) => {
     if (!enabled) return;
 
     const state = touchState.current;

@@ -16,8 +16,8 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
     key,
     defaultValue,
     storage: storageType = 'localStorage',
-    serialize = JSON.stringify,
-    deserialize = JSON.parse,
+    serialize: _serialize = JSON.stringify,
+    deserialize: _deserialize = JSON.parse,
     version = 1,
     migrate
   } = options;

@@ -75,7 +75,7 @@ export const Input: React.FC<InputProps> = ({
   error,
   helperText,
   'aria-describedby': ariaDescribedby,
-  'aria-invalid': ariaInvalid,
+  'aria-invalid': _ariaInvalid,
   ...props
 }) => {
   const errorId = React.useId();

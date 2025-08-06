@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Select components removed - not used in current implementation
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -20,7 +20,7 @@ import {
   Eye,
   Search,
   Filter,
-  MoreVertical
+  // MoreVertical - removed unused import
 } from 'lucide-react';
 
 interface Permission {
@@ -115,7 +115,7 @@ export function RoleManager() {
     setEditingRole({});
   };
 
-  const handleUpdateRole = (roleId: string, updates: Partial<Role>) => {
+  const _handleUpdateRole = (roleId: string, updates: Partial<Role>) => {
     setRoles(roles.map(role =>
       role.id === roleId
         ? { ...role, ...updates, updatedAt: new Date().toISOString() }

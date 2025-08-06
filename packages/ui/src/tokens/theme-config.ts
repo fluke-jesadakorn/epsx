@@ -235,19 +235,19 @@ export const darkModeVariants = {
 // Utility functions for theme generation
 export const themeUtils = {
   // Generate CSS custom properties for a theme
-  generateCSSVars: (theme: any) => {
+  generateCSSVars: (theme: Record<string, unknown>) => {
     const cssVars: Record<string, string> = {};
     
     // Colors
-    if (theme.colors) {
-      Object.entries(theme.colors).forEach(([key, value]) => {
+    if (theme.colors && typeof theme.colors === 'object') {
+      Object.entries(theme.colors as Record<string, string>).forEach(([key, value]) => {
         cssVars[`--color-${key}`] = value as string;
       });
     }
     
     // Gradients
-    if (theme.gradients) {
-      Object.entries(theme.gradients).forEach(([key, value]) => {
+    if (theme.gradients && typeof theme.gradients === 'object') {
+      Object.entries(theme.gradients as Record<string, string>).forEach(([key, value]) => {
         cssVars[`--gradient-${key}`] = value as string;
       });
     }
@@ -261,8 +261,8 @@ export const themeUtils = {
   },
   
   // Merge theme variants
-  mergeThemes: (...themes: any[]) => {
-    return themes.reduce((acc, theme) => ({ ...acc, ...theme }), {});
+  mergeThemes: (...themes: Record<string, unknown>[]) => {
+    return themes.reduce((acc, theme) => ({ ...acc, ...theme }), {} as Record<string, unknown>);
   },
 } as const;
 

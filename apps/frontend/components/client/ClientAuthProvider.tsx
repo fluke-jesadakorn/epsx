@@ -13,7 +13,7 @@ interface ClientAuthProviderProps {
  * Client-side auth provider optimized for SSR hydration
  */
 export function ClientAuthProvider({ children, initialAuthState }: ClientAuthProviderProps) {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [_isHydrated, setIsHydrated] = useState(false);
   const { actions } = useAppState();
 
   useEffect(() => {

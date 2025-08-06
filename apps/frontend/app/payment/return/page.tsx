@@ -164,7 +164,7 @@ export default function PaymentReturnPage() {
                 Return to My Data
               </Button>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                We'll notify you once the payment is confirmed
+                We&apos;ll notify you once the payment is confirmed
               </p>
             </div>
           </CardContent>

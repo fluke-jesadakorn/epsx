@@ -4,10 +4,10 @@
  */
 
 import { designTokens } from './design-tokens';
-import { themeConfig } from './theme-config';
+import { themeConfig as _themeConfig } from './theme-config';
 
 // Helper function to convert design tokens to Tailwind format
-const convertTokensForTailwind = () => {
+const convertTokensForTailwind = (): Record<string, unknown> => {
   // Convert color tokens
   const colors = {
     // Semantic colors with CSS variables
@@ -250,7 +250,7 @@ export const baseTailwindConfig = {
   },
   plugins: [
     // Custom utility plugin
-    function ({ addUtilities }: any) {
+    function ({ addUtilities }: { addUtilities: (utilities: Record<string, Record<string, string>>) => void }) {
       // PancakeSwap utility classes
       addUtilities({
         '.pancake-gradient': {

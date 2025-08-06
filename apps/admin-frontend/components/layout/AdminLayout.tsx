@@ -8,8 +8,8 @@ import {
   ChevronRight,
   Database,
   ExternalLink,
-  Eye,
-  FileText,
+  _Eye,
+  _FileText,
   Globe,
   HardDrive,
   Home,
@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -54,6 +54,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const toggleSidebar = useCallback(() => {
+    const newCollapsedState = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsedState);
+    // Persist sidebar state
+    localStorage.setItem('adminSidebarCollapsed', newCollapsedState.toString());
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     // Only redirect if auth context is fully initialized and no user is found
@@ -127,7 +134,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         window.scrollTo(0, parseInt(scrollY || '0') * -1);
       }
     };
-  }, [sidebarOpen]);
+  }, [sidebarOpen, sidebarCollapsed, toggleSidebar]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -355,13 +362,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         ? prev.filter((id) => id !== menuId)
         : [...prev, menuId],
     );
-  };
-
-  const toggleSidebar = () => {
-    const newCollapsedState = !sidebarCollapsed;
-    setSidebarCollapsed(newCollapsedState);
-    // Persist sidebar state
-    localStorage.setItem('adminSidebarCollapsed', newCollapsedState.toString());
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {

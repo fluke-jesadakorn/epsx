@@ -15,7 +15,7 @@ export interface SortOptions {
 export interface FilterOptions {
   field: string;
   operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like';
-  value: any;
+  value: unknown;
 }
 
 export interface SearchOptions {

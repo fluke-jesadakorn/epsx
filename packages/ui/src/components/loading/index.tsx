@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import { cn } from "../../lib/utils";
 
 interface LoadingProps {
@@ -9,7 +10,7 @@ interface LoadingProps {
   text?: string;
 }
 
-export function Loading({ size = 'md', className, text }: LoadingProps) {
+export function Loading({ size = 'md', className, text }: LoadingProps): React.JSX.Element {
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-8 w-8',
@@ -31,11 +32,11 @@ export function Loading({ size = 'md', className, text }: LoadingProps) {
   );
 }
 
-export function LoadingSpinner({ size = 'md', className }: Omit<LoadingProps, 'text'>) {
+export function LoadingSpinner({ size = 'md', className }: Omit<LoadingProps, 'text'>): React.JSX.Element {
   return <Loading size={size} className={className} />;
 }
 
-export function LoadingCard({ className }: { className?: string }) {
+export function LoadingCard({ className }: { className?: string }): React.JSX.Element {
   return (
     <div className={cn('rounded-lg border bg-card p-6', className)}>
       <div className="space-y-3">
@@ -47,7 +48,7 @@ export function LoadingCard({ className }: { className?: string }) {
   );
 }
 
-export function LoadingTable({ rows = 5, className }: { rows?: number; className?: string }) {
+export function LoadingTable({ rows = 5, className }: { rows?: number; className?: string }): React.JSX.Element {
   return (
     <div className={cn("space-y-2", className)}>
       {Array.from({ length: rows }).map((_, i) => (
@@ -61,7 +62,7 @@ export function LoadingTable({ rows = 5, className }: { rows?: number; className
   );
 }
 
-export function LoadingForm({ className }: { className?: string }) {
+export function LoadingForm({ className }: { className?: string }): React.JSX.Element {
   return (
     <div className={cn("space-y-4", className)}>
       <div className="space-y-2">

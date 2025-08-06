@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 // Base repository operations that all repositories should support
 export interface BaseRepository<T, ID = string, CreateInput = Partial<T>, UpdateInput = Partial<T>> {
   // Single entity operations
@@ -7,7 +5,7 @@ export interface BaseRepository<T, ID = string, CreateInput = Partial<T>, Update
   getRequired(id: ID): Promise<T>;
   
   // Multiple entity operations  
-  list(filters?: Record<string, any>, options?: ListOptions): Promise<ListResult<T>>;
+  list(filters?: Record<string, unknown>, options?: ListOptions): Promise<ListResult<T>>;
   search(query: string, options?: SearchOptions): Promise<ListResult<T>>;
   
   // Mutation operations
@@ -53,7 +51,7 @@ export class RepositoryError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'RepositoryError';
@@ -68,7 +66,7 @@ export class NotFoundError extends RepositoryError {
 }
 
 export class ValidationError extends RepositoryError {
-  constructor(message: string, validationDetails: any) {
+  constructor(message: string, validationDetails: unknown) {
     super(message, 'VALIDATION_ERROR', validationDetails);
     this.name = 'ValidationError';
   }
@@ -79,8 +77,8 @@ export type RepositoryContext = 'server' | 'client';
 
 // Repository factory interface
 export interface RepositoryFactory {
-  getUserRepository(): BaseRepository<any>;
-  getPaymentRepository(): BaseRepository<any>;
-  getPermissionRepository(): BaseRepository<any>;
-  getAnalyticsRepository(): BaseRepository<any>;
+  getUserRepository(): BaseRepository<unknown>;
+  getPaymentRepository(): BaseRepository<unknown>;
+  getPermissionRepository(): BaseRepository<unknown>;
+  getAnalyticsRepository(): BaseRepository<unknown>;
 }

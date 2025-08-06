@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { fmtFileSize } from '@epsx/shared-utils/formatting';
+import { z } from 'zod';
 
 // Validation configuration (consolidated from scattered implementations)
 export const ValidationConfig = {
@@ -109,7 +109,7 @@ export const BaseSchemas = {
     ),
 
   // Confirm password (used in multiple forms)
-  confirmPassword: (passwordField: string = 'password') =>
+  confirmPassword: (_passwordField: string = 'password') =>
     z.string().min(1, ValidationMessages.required('Confirm Password')),
 
   // Phone validation
@@ -200,11 +200,11 @@ export const BaseSchemas = {
       .refine((val: number | undefined) => val !== undefined, 'Must be a valid number');
     
     if (min !== undefined) {
-      schema = schema.refine((val: number | undefined) => val! >= min, `Must be at least ${min}`);
+      schema = schema.refine((val: number | undefined) => val !== undefined && val >= min, `Must be at least ${min}`);
     }
     
     if (max !== undefined) {
-      schema = schema.refine((val: number | undefined) => val! <= max, `Must be at most ${max}`);
+      schema = schema.refine((val: number | undefined) => val !== undefined && val <= max, `Must be at most ${max}`);
     }
     
     if (integer) {

@@ -429,7 +429,8 @@ INSERT INTO sub_modules (
     }',
     '["market-data"]',
     'active'
-);
+)
+ON CONFLICT (name) DO NOTHING;
 
 -- ========================================
 -- MIGRATION VALIDATION VIEWS

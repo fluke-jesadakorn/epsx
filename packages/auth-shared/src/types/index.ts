@@ -20,14 +20,20 @@ export type {
   AuthError,
   
   // Legacy types (deprecated)
-  BaseUser,
-  AuthenticatedUser,
-  FrontendUser,
-  AdminUser,
+  LegacyBaseUser,
+  LegacyAuthenticatedUser,
+  LegacyFrontendUser,
+  LegacyAdminUser,
   BackendUser,
   SignInCredentials,
   SignUpData,
-  UserCredentials
+  UserCredentials,
+  
+  // Legacy aliases for backward compatibility
+  LegacyBaseUser as BaseUser,
+  LegacyAuthenticatedUser as AuthenticatedUser,
+  LegacyFrontendUser as FrontendUser,
+  LegacyAdminUser as AdminUser
 } from './consolidated-auth';
 
 export type {

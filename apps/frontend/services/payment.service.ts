@@ -4,10 +4,9 @@ import {
   getPaymentStatus as getPaymentStatusAction,
   getTransactionHistory,
   initQRPayment,
-  getPlanDetails,
-  type PaymentStatus,
-  type PaymentTransaction as PaymentTx
+  getPlanDetails
 } from '@epsx/server-actions';
+import type { PaymentStatus, PaymentTransaction as PaymentTx } from '@epsx/server-actions';
 import { nanoid } from 'nanoid';
 
 // Re-export types for compatibility
@@ -40,8 +39,8 @@ export const createPaymentService = () => {
 
   const confirmPayment = async (
     txId: string,
-    payMethod: string,
-    userLevel: string,
+    _payMethod: string,
+    _userLevel: string,
   ): Promise<{
     success: boolean;
     message: string;

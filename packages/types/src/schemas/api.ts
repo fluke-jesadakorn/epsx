@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const ApiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+export const ApiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T): z.ZodObject<{
+  data: z.ZodOptional<T>;
+  error: z.ZodOptional<z.ZodString>;
+  details: z.ZodOptional<z.ZodString>;
+  message: z.ZodOptional<z.ZodString>;
+}> =>
   z.object({
     data: dataSchema.optional(),
     error: z.string().optional(),
@@ -23,7 +28,10 @@ export const PaginationSchema = z.object({
   hasPrev: z.boolean(),
 });
 
-export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T): z.ZodObject<{
+  data: z.ZodArray<T>;
+  pagination: typeof PaginationSchema;
+}> =>
   z.object({
     data: z.array(itemSchema),
     pagination: PaginationSchema,
@@ -41,7 +49,7 @@ export const SortOptionsSchema = z.object({
 export const FilterOptionsSchema = z.object({
   field: z.string(),
   operator: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'like']),
-  value: z.any(),
+  value: z.unknown(),
 });
 
 export const SearchOptionsSchema = z.object({

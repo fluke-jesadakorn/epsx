@@ -9,7 +9,7 @@ export function useApi<T>(
   endpoint: string,
   options?: { refresh?: number; enabled?: boolean }
 ) {
-  const [data, setData] = useState<T | null>(null);
+  const [data, _setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +19,7 @@ export function useApi<T>(
     console.warn('useApi hook is deprecated. Please migrate to specific server actions.');
     setError('useApi hook is deprecated. Please use specific server actions instead.');
     setLoading(false);
-  }, [endpoint, options?.enabled]);
+  }, [options?.enabled]);
 
   useEffect(() => {
     fetchData();
@@ -108,7 +108,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     try {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
+    } catch (_error) {
       return initialValue;
     }
   });

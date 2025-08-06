@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { 
   getBatchStocks,
-  getStockData,
+  getStockData as _getStockData,
   preloadStocks,
   checkStockCacheStatus
 } from '@epsx/server-actions';
@@ -110,7 +110,7 @@ export function useStockPreloader() {
 
     setPreloading(true);
     try {
-      const response = await preloadStocks(symbols);
+      const _response = await preloadStocks(symbols);
       // Preload completed
     } catch (error) {
       console.error('Preload error:', error);

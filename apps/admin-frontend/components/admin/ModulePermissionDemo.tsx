@@ -7,7 +7,7 @@ import { Shield, Lock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 // Example component that demonstrates module-based permission checks
 export const ModulePermissionDemo: React.FC = () => {
   const { 
-    moduleAccess, 
+    moduleAccess: _moduleAccess, 
     hasModuleAccess, 
     getAccessLevel, 
     canPerformAction, 

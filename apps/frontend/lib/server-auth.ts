@@ -3,9 +3,9 @@ import {
   requireAuth as sharedRequireAuth,
   hasServerPermission,
   requirePermission,
-  requireRole,
-  type ServerAuthResult 
+  requireRole
 } from '@epsx/auth-shared/server';
+import type { ServerAuthResult } from '@epsx/auth-shared/server';
 
 /**
  * Re-export requireAuth from shared package

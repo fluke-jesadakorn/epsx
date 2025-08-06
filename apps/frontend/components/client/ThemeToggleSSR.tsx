@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import { setThemeMode, setThemeVariant, toggleThemeMode } from '@/app/actions/theme';
+import { setThemeMode as _setThemeMode, setThemeVariant, toggleThemeMode } from '@/app/actions/theme';
 import type { ThemeVariant, ThemeMode } from '@/app/actions/theme';
 
 interface ThemeState {

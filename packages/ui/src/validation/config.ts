@@ -231,30 +231,30 @@ export class ValidationConfigManager {
   /**
    * Get configuration for specific validation type
    */
-  getPasswordConfig() {
+  getPasswordConfig(): ValidationGlobalConfig['password'] {
     return { ...this.config.password };
   }
 
-  getEmailConfig() {
+  getEmailConfig(): ValidationGlobalConfig['email'] {
     return { ...this.config.email };
   }
 
-  getFileConfig() {
+  getFileConfig(): ValidationGlobalConfig['file'] {
     return { ...this.config.file };
   }
 
-  getRateLimitConfig() {
+  getRateLimitConfig(): ValidationGlobalConfig['rateLimit'] {
     return { ...this.config.rateLimit };
   }
 
-  getSecurityConfig() {
+  getSecurityConfig(): ValidationGlobalConfig['security'] {
     return { ...this.config.security };
   }
 
   /**
    * Get localized message
    */
-  getMessage(key: string, params: Record<string, any> = {}): string {
+  getMessage(key: string, params: Record<string, unknown> = {}): string {
     const locale = this.context.locale || this.config.localization.defaultLocale;
     const messages = this.config.localization.messageTemplates[locale] || 
                      this.config.localization.messageTemplates[this.config.localization.defaultLocale];
@@ -279,7 +279,7 @@ export class ValidationConfigManager {
   /**
    * Get environment-specific configuration
    */
-  getEnvironmentConfig() {
+  getEnvironmentConfig(): ValidationGlobalConfig {
     const baseConfig = { ...this.config };
 
     // Adjust configuration based on environment
@@ -309,14 +309,14 @@ export class ValidationConfigManager {
   /**
    * Deep merge objects
    */
-  private deepMerge(target: any, source: any): any {
-    const result = { ...target };
+  private deepMerge<T extends Record<string, unknown>, S extends Record<string, unknown>>(target: T, source: S): T & S {
+    const result = { ...target } as T & S;
 
     for (const key in source) {
       if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(target[key] || {}, source[key]);
+        (result as Record<string, unknown>)[key] = this.deepMerge((target as Record<string, unknown>)[key] || {}, (source as Record<string, unknown>)[key] as Record<string, unknown>);
       } else {
-        result[key] = source[key];
+        (result as Record<string, unknown>)[key] = (source as Record<string, unknown>)[key];
       }
     }
 
@@ -349,14 +349,14 @@ export class ValidationConfigManager {
    */
   importConfig(configJson: string): void {
     try {
-      const imported = JSON.parse(configJson);
+      const imported = JSON.parse(configJson) as { config?: unknown; context?: unknown };
       if (imported.config) {
-        this.updateConfig(imported.config);
+        this.updateConfig(imported.config as Partial<ValidationGlobalConfig>);
       }
       if (imported.context) {
-        this.setContext(imported.context);
+        this.setContext(imported.context as Partial<ValidationContext>);
       }
-    } catch (error) {
+    } catch (_error) {
       throw new Error('Invalid configuration JSON');
     }
   }
@@ -375,7 +375,7 @@ export function setValidationContext(context: Partial<ValidationContext>): void 
   ValidationConfigManager.getInstance().setContext(context);
 }
 
-export function getValidationMessage(key: string, params?: Record<string, any>): string {
+export function getValidationMessage(key: string, params?: Record<string, unknown>): string {
   return ValidationConfigManager.getInstance().getMessage(key, params);
 }
 

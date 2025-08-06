@@ -2,7 +2,7 @@
 
 use axum::{
     extract::{State, Path},
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::Json,
 };
 use serde::{Deserialize, Serialize};
@@ -10,13 +10,35 @@ use chrono::{DateTime, Utc};
 use crate::web::auth::AppState;
 use serde_json::{json, Value};
 
-/// Extract user ID from request context - simplified for migration
-/// TODO: Integrate with proper authentication middleware
-fn extract_user_id_from_context() -> Result<String, StatusCode> {
-    // For migration purposes, return a test user
-    // In production, this would extract from JWT/session
-    Ok("test_user".to_string())
+/// Extract session ID from headers
+fn extract_session_from_headers(headers: &HeaderMap) -> Result<String, StatusCode> {
+    // Try Authorization header first (Bearer token)
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                let token = auth_str.strip_prefix("Bearer ").unwrap();
+                return Ok(token.to_string());
+            }
+        }
+    }
+    
+    // Try session cookie as fallback
+    if let Some(cookie_header) = headers.get("cookie") {
+        if let Ok(cookie_str) = cookie_header.to_str() {
+            for cookie in cookie_str.split(';') {
+                let cookie = cookie.trim();
+                if cookie.starts_with("session_id=") {
+                    if let Some(session_id) = cookie.strip_prefix("session_id=") {
+                        return Ok(session_id.to_string());
+                    }
+                }
+            }
+        }
+    }
+    
+    Err(StatusCode::UNAUTHORIZED)
 }
+
 
 /// Helper function to verify user permissions using Casbin
 async fn verify_user_permissions(
@@ -87,40 +109,114 @@ pub struct UserListResponse {
 /// GET /users/profile - Get current user profile
 pub async fn get_profile_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    // Extract session ID from headers
+    let session_id_str = extract_session_from_headers(&headers)?;
+    let session_id = crate::dom::values::SessId::from_string(session_id_str.clone());
+    
+    // Validate session and get user ID
+    let session = match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(session) => {
+            if !session.is_active() {
+                tracing::warn!("Session {} is not active", session_id_str);
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            if session.is_expired() {
+                tracing::warn!("Session {} has expired", session_id_str);
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            session
+        },
+        Err(crate::app::ports::repositories::RepoError::NotFound) => {
+            tracing::warn!("Session {} not found", session_id_str);
+            return Err(StatusCode::UNAUTHORIZED);
+        },
+        Err(e) => {
+            tracing::error!("Failed to validate session {}: {:?}", session_id_str, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let user_id = session.user_id().to_string();
     verify_user_permissions(&app_state, &user_id, "/api/v1/users/profile", "GET").await?;
     
     tracing::info!("User get profile handler called with authorization for user: {}", user_id);
     
-    // TODO: Get user roles from Casbin
+    // Get actual user from database
+    let user_id_obj = crate::dom::values::UserId::new(user_id.clone());
+    let user = match app_state.user_repo.get(&user_id_obj).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            tracing::warn!("User {} not found in database", user_id);
+            return Err(StatusCode::NOT_FOUND);
+        },
+        Err(e) => {
+            tracing::error!("Failed to fetch user {}: {:?}", user_id, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Get user roles from Casbin
     let user_roles = match app_state.casbin_service.get_roles_for_user(&user_id).await {
         Ok(roles) => roles,
-        Err(_) => vec!["basic_user".to_string()],
+        Err(e) => {
+            tracing::warn!("Failed to get roles for user {}: {:?}", user_id, e);
+            vec!["basic_user".to_string()]
+        }
+    };
+    
+    // Get user permissions from Casbin
+    let user_permissions = match app_state.casbin_service.get_permissions_for_subject(&user_id).await {
+        Ok(perms) => perms.into_iter().map(|(resource, action)| format!("{}:{}", resource, action)).collect::<Vec<String>>(),
+        Err(e) => {
+            tracing::warn!("Failed to get permissions for user {}: {:?}", user_id, e);
+            vec!["profile:read".to_string()]
+        }
     };
     
     Ok(Json(json!({
-        "user_id": user_id,
-        "email": format!("{}@example.com", user_id),
+        "user_id": user.id().to_string(),
+        "email": user.email().value(),
         "roles": user_roles,
-        "permissions": ["profile:read"],
-        "subscription_tier": "basic",
-        "package_tier": "basic",
-        "created_at": chrono::Utc::now(),
-        "updated_at": chrono::Utc::now(),
-        "display_name": format!("User {}", user_id),
+        "permissions": user_permissions,
+        "subscription_tier": user.sub().tier().to_string(),
+        "package_tier": user.sub().tier().to_string(), // Same as subscription tier
+        "created_at": user.created_at(),
+        "updated_at": user.updated_at(),
+        "display_name": format!("User {}", user.email().value()),
         "photo_url": null,
         "email_verified": true,
-        "message": "User profile authorized - database integration pending"
+        "is_active": user.is_active()
     })))
 }
 
 /// PUT /users/profile - Update current user profile
 pub async fn update_profile_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<UpdateUserProfileRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    // Extract session ID from headers and validate
+    let session_id_str = extract_session_from_headers(&headers)?;
+    let session_id = crate::dom::values::SessId::from_string(session_id_str.clone());
+    
+    // Validate session and get user ID
+    let session = match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(session) => {
+            if !session.is_active() || session.is_expired() {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            session
+        },
+        Err(crate::app::ports::repositories::RepoError::NotFound) => return Err(StatusCode::UNAUTHORIZED),
+        Err(e) => {
+            tracing::error!("Session validation failed: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let user_id = session.user_id().to_string();
     verify_user_permissions(&app_state, &user_id, "/api/v1/users/profile", "PUT").await?;
     
     tracing::info!("User update profile handler called with authorization for user: {}", user_id);
@@ -164,17 +260,67 @@ pub async fn logout_handler(
 /// GET /users - List users (admin only)
 pub async fn list_users_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    // Extract session ID from headers and validate
+    let session_id_str = extract_session_from_headers(&headers)?;
+    let session_id = crate::dom::values::SessId::from_string(session_id_str.clone());
+    
+    // Validate session and get user ID
+    let session = match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(session) => {
+            if !session.is_active() || session.is_expired() {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            session
+        },
+        Err(crate::app::ports::repositories::RepoError::NotFound) => return Err(StatusCode::UNAUTHORIZED),
+        Err(e) => {
+            tracing::error!("Session validation failed: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let user_id = session.user_id().to_string();
     verify_user_permissions(&app_state, &user_id, "/api/v1/users", "GET").await?;
     
     tracing::info!("User list handler called with authorization for admin user: {}", user_id);
     
+    // Get users from database with pagination
+    let users = match app_state.user_repo.list(0, 50).await {
+        Ok(users) => users,
+        Err(e) => {
+            tracing::error!("Failed to fetch users: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Get total count for pagination
+    let total_count = match app_state.user_repo.count().await {
+        Ok(count) => count,
+        Err(e) => {
+            tracing::error!("Failed to count users: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    let user_list: Vec<Value> = users.into_iter().map(|user| {
+        json!({
+            "id": user.id().to_string(),
+            "email": user.email().value(),
+            "role": user.role().to_string(),
+            "subscription_tier": user.sub().tier().to_string(),
+            "is_active": user.is_active(),
+            "created_at": user.created_at(),
+            "updated_at": user.updated_at(),
+            "is_deleted": user.is_deleted()
+        })
+    }).collect();
+    
     Ok(Json(json!({
-        "users": [],
-        "total": 0,
+        "users": user_list,
+        "total": total_count,
         "offset": 0,
-        "limit": 50,
-        "message": "User listing authorized - database integration pending"
+        "limit": 50
     })))
 }

@@ -92,7 +92,7 @@ const mockPatterns: Pattern[] = [
   }
 ];
 
-export function PatternRecognition({ patterns, confidence, symbol }: PatternRecognitionProps) {
+export function PatternRecognition({ patterns, confidence, symbol: _symbol }: PatternRecognitionProps) {
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
   const [activeTab, setActiveTab] = useState('detected');
 

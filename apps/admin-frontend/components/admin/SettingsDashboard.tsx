@@ -28,8 +28,8 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = ({
   initialGeneralSettings,
   initialNotificationSettings,
   initialSecuritySettings,
-  initialFeatureFlags,
-  initialEnvironmentConfig
+  initialFeatureFlags: _initialFeatureFlags,
+  initialEnvironmentConfig: _initialEnvironmentConfig
 }) => {
   const [activeView, setActiveView] = React.useState('general');
   const [settings, setSettings] = React.useState({

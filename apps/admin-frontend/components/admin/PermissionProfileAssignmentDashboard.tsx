@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AdminService } from '@/services/adminService';
+import { useState, useEffect, useCallback } from 'react';
+import { AdminService as _AdminService } from '@/services/adminService';
 import { useAdminAuth } from '@/auth/ctx';
 import { 
   Shield, 
   Users, 
   User, 
-  Plus,
+  Plus as _Plus,
   Search,
-  Filter,
+  Filter as _Filter,
   CheckCircle,
   AlertTriangle,
   Zap,
   UserPlus,
   Tag,
-  Clock,
+  Clock as _Clock,
   Settings
 } from 'lucide-react';
 
@@ -86,9 +86,9 @@ export function PermissionProfileAssignmentDashboard() {
 
   useEffect(() => {
     loadPermissionProfiles();
-  }, [permissionProfileFilter]);
+  }, [permissionProfileFilter, loadPermissionProfiles]);
 
-  const loadPermissionProfiles = async () => {
+  const loadPermissionProfiles = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -117,7 +117,7 @@ export function PermissionProfileAssignmentDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [permissionProfileFilter]);
 
   const handlePermissionProfileSelect = async (permissionProfile: PermissionProfile) => {
     setSelectedPermissionProfile(permissionProfile);

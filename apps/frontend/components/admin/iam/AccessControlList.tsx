@@ -18,7 +18,7 @@ import {
   Lock,
   Unlock,
   Search,
-  Filter,
+  // Filter - removed unused import
   AlertTriangle,
   CheckCircle,
   XCircle,

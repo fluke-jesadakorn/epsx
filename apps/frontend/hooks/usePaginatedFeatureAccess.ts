@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect as _useEffect } from 'react';
 import { useAuth } from './useAuth';
 
 interface PaginatedFeatureAccessOptions {

@@ -5,7 +5,7 @@ import { ThemeTransition } from '@/components/ui/theme-transition';
 import { Navigation } from '@/components/layout/nav';
 import { SessionProvider } from 'next-auth/react';
 import { AdminAuthProvider } from '@/auth/ctx';
-import { ModuleAuthProvider } from '@/auth/module-ctx';
+import { _ModuleAuthProvider } from '@/auth/module-ctx';
 import { GlobalThemeProvider } from '@epsx/theme';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {

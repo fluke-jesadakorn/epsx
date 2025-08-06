@@ -1,6 +1,8 @@
 "use client";
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
+
+import type { ErrorInfo, ReactNode } from 'react';
 // Define error types locally to avoid external dependency
 export interface AuthError extends Error {
   type: 'auth';
@@ -118,7 +120,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
     
     // Log error
@@ -137,14 +139,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentDidUpdate(prevProps: ErrorBoundaryProps) {
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
     const { resetOnPropsChange, resetKeys } = this.props;
     
     if (this.state.hasError && resetOnPropsChange) {
       if (resetKeys) {
         // Check if any reset keys have changed
         const hasChanges = resetKeys.some(key => 
-          (prevProps as any)[key] !== (this.props as any)[key]
+          (prevProps as Record<string, unknown>)[key] !== (this.props as Record<string, unknown>)[key]
         );
         
         if (hasChanges) {
@@ -157,7 +159,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  private logError = (error: Error, errorInfo: ErrorInfo) => {
+  private logError = (error: Error, errorInfo: ErrorInfo): void => {
     const { context } = this.props;
     
     console.group(`🚨 Error Boundary (${context})`);
@@ -167,7 +169,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.groupEnd();
   };
 
-  private reportError = (error: Error, errorInfo: ErrorInfo) => {
+  private reportError = (error: Error, _errorInfo: ErrorInfo): void => {
     // Integration with monitoring services (Sentry, etc.)
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', 'exception', {
@@ -181,7 +183,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // Additional monitoring integrations can be added here
   };
 
-  private resetErrorBoundary = () => {
+  private resetErrorBoundary = (): void => {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId);
     }
@@ -195,7 +197,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     });
   };
 
-  private handleRetry = () => {
+  private handleRetry = (): void => {
     const { maxRetries = 3 } = this.props;
     const { retryCount } = this.state;
     
@@ -278,7 +280,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { context, featureRequirements } = this.props;
     
     // Handle specific error types
-    if (error.name === 'AuthError' || (error as any).type === 'auth') {
+    if (error.name === 'AuthError' || (error as Record<string, unknown>).type === 'auth') {
       return {
         title: 'Authentication Error',
         message: 'Please sign in to continue',
@@ -286,7 +288,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       };
     }
     
-    if (error.name === 'ApiError' || (error as any).type === 'api') {
+    if (error.name === 'ApiError' || (error as Record<string, unknown>).type === 'api') {
       return {
         title: 'Service Error',
         message: 'Unable to connect to our services. Please try again.',
@@ -332,8 +334,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     };
   };
 
-  private renderErrorUI = () => {
-    const { error, errorInfo } = this.state;
+  private renderErrorUI = (): React.ReactNode => {
+    const { error, errorInfo: _errorInfo } = this.state;
     const { context, title, recoveryActions } = this.props;
     
     if (!error) return null;
@@ -343,7 +345,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const actions = recoveryActions || this.getDefaultRecoveryActions();
     
     // Theme classes based on context
-    const getThemeClasses = () => {
+    const getThemeClasses = (): string => {
       const base = "rounded-lg border p-6 shadow-sm";
       
       switch (context) {
@@ -358,7 +360,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
     };
     
-    const getSeverityIcon = () => {
+    const getSeverityIcon = (): string => {
       switch (severity) {
         case 'critical':
           return '🔴';
@@ -422,7 +424,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     );
   };
 
-  render() {
+  render(): React.ReactNode {
     const { hasError, error, errorInfo } = this.state;
     const { children, fallback, fallbackComponent } = this.props;
     
@@ -435,7 +437,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             error={error}
             errorInfo={errorInfo}
             retry={this.handleRetry}
-            context={this.props.context!}
+            context={this.props.context ?? 'generic'}
           />
         );
       }
@@ -457,8 +459,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryProps?: Omit<ErrorBoundaryProps, 'children'>
-) {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => {
+): React.ForwardRefExoticComponent<React.PropsWithoutRef<P> & React.RefAttributes<unknown>> {
+  const WrappedComponent = React.forwardRef<unknown, P>((props, ref) => {
     return (
       <ErrorBoundary {...errorBoundaryProps}>
         <Component {...(props as P)} ref={ref} />
@@ -475,7 +477,7 @@ export function withErrorBoundary<P extends object>(
 export const ErrorBoundaryPresets = {
   // Generic app-level boundary
   App: (props: Partial<ErrorBoundaryProps> = {}) => (
-    <ErrorBoundary context="generic" enableRetry={true} maxRetries={3} {...props} />
+    <ErrorBoundary context="generic" enableRetry maxRetries={3} {...props} />
   ),
   
   // Admin panel boundary
@@ -483,7 +485,7 @@ export const ErrorBoundaryPresets = {
     <ErrorBoundary 
       context="admin" 
       title="Admin Panel Error"
-      enableRetry={true}
+      enableRetry
       maxRetries={2}
       {...props} 
     />
@@ -503,9 +505,9 @@ export const ErrorBoundaryPresets = {
   Provider: (props: Partial<ErrorBoundaryProps> = {}) => (
     <ErrorBoundary 
       context="provider"
-      enableRetry={true}
+      enableRetry
       maxRetries={1}
-      isolateError={true}
+      isolateError
       {...props} 
     />
   ),

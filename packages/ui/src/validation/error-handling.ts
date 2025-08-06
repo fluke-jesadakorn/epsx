@@ -1,12 +1,13 @@
-import { z } from 'zod';
-import { ValidationResult } from './validators.js';
+import type { ValidationResult } from './validators.js';
+import type { z } from 'zod';
+
 
 // Error types for validation
 export interface ValidationError {
   field: string;
   message: string;
   code: string;
-  value?: any;
+  value?: unknown;
 }
 
 export interface ValidationErrorSummary {
@@ -379,7 +380,7 @@ export class ValidationErrorHandler {
   /**
    * Convert validation result to form state for React Hook Form
    */
-  static toFormState(validation: ValidationResult) {
+  static toFormState(validation: ValidationResult): { isValid: boolean; errors: Record<string, unknown> } {
     if (validation.success) {
       return {
         isValid: true,
@@ -405,7 +406,7 @@ export class ValidationErrorHandler {
   /**
    * Helper to get nested value from object path
    */
-  private static getNestedValue(path: (string | number)[]): any {
+  private static getNestedValue(_path: (string | number)[]): unknown {
     // This would need access to the original data object
     // For now, return undefined
     return undefined;

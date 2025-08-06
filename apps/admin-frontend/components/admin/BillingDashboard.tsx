@@ -6,10 +6,10 @@ import {
   CreditCard,
   TrendingUp,
   Download,
-  Calendar,
+  Calendar as _Calendar,
   AlertTriangle,
   Settings,
-  Users,
+  Users as _Users,
   Activity,
   FileText
 } from 'lucide-react';
@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { ModuleAnalyticsDashboard } from './ModuleAnalyticsDashboard';
 import { BillingAlerts } from './BillingAlerts';
-import { BillingService, type UsageBill } from '@/services/billingService';
+import { BillingService } from '@/services/billingService';
+import type { UsageBill } from '@/services/billingService';
 import { useModuleAuth } from '@/auth/module-ctx';
 import { toast } from 'react-hot-toast';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
@@ -92,7 +93,7 @@ export const BillingDashboard: React.FC = () => {
     };
 
     fetchBillingData();
-  }, [user, billingPeriod]);
+  }, [user, billingPeriod, billingService]);
 
   const handleDownloadInvoice = async (invoice: InvoiceData) => {
     try {
@@ -136,7 +137,7 @@ export const BillingDashboard: React.FC = () => {
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</h3>
-          <p className="text-gray-600">You don't have permission to view billing information.</p>
+          <p className="text-gray-600">You don&apos;t have permission to view billing information.</p>
         </div>
       </div>
     );
@@ -378,7 +379,7 @@ export const BillingDashboard: React.FC = () => {
           {activeTab === 'alerts' && (
             <BillingAlerts 
               userId={user?.uid || 'demo_user'}
-              onAlertAction={(alertId, action) => {
+              onAlertAction={(_alertId, _action) => {
                 // TODO: Implement alert action handling
               }}
             />

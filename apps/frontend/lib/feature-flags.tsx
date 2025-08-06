@@ -1,3 +1,5 @@
+import React from 'react';
+
 export interface FeatureFlag {
   key: string;
   enabled: boolean;

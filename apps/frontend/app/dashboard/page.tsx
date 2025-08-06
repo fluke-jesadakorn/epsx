@@ -1,22 +1,4 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  BarChart3,
-  Lock,
-  Settings,
-  Shield,
-  Sparkles,
-  TrendingUp,
-  User,
-} from 'lucide-react';
-import Link from 'next/link';
+// All unused imports removed - components are rendered by DashboardClient
 import { getCurrentUser, getDashboardData, getUserFeatures } from '@epsx/server-actions';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 

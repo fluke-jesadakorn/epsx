@@ -18,20 +18,20 @@ import {
   AreaChart
 } from 'recharts';
 import { 
-  Calendar,
+  Calendar as _Calendar,
   TrendingUp,
   Users,
   DollarSign,
   Activity,
   Download,
-  Filter,
+  Filter as _Filter,
   RefreshCcw,
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
-import { getModuleUsageAnalytics } from '@epsx/server-actions';
+import { getModuleUsageAnalytics as _getModuleUsageAnalytics } from '@epsx/server-actions';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
 import { useModuleAuth } from '@/auth/module-ctx';
 import { toast } from 'react-hot-toast';
@@ -191,7 +191,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</h3>
-          <p className="text-gray-600">You don't have permission to view analytics data.</p>
+          <p className="text-gray-600">You don&apos;t have permission to view analytics data.</p>
         </div>
       </div>
     );

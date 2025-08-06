@@ -177,7 +177,7 @@ export function AdminDashboard({ initialStats, initialUsers }: AdminDashboardPro
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recentUsers.map((user, index) => (
+              {recentUsers.map((user, _index) => (
                 <tr key={user.uid} className="hover:bg-muted/20 transition-colors group">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">

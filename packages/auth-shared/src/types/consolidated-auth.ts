@@ -10,7 +10,9 @@ export type {
   RegistrationResponse,
   AuthCookies,
   UserPreferences,
-  NotificationPreferences
+  NotificationPreferences,
+  AuthenticatedUser,
+  FrontendUser
 } from '@epsx/types';
 
 // Import types for local usage  
@@ -50,9 +52,9 @@ export interface AuthError {
   details?: any;
 }
 
-// Legacy user types for backward compatibility - deprecated, use UserProfile instead
-/** @deprecated Use UserProfile from @epsx/types instead */
-export interface BaseUser {
+// Legacy user types for backward compatibility - deprecated, use types from @epsx/types instead
+/** @deprecated Use BaseUser from @epsx/types instead */
+export interface LegacyBaseUser {
   id: string;
   user_id?: string;
   uid?: string;
@@ -64,8 +66,8 @@ export interface BaseUser {
   updatedAt?: string;
 }
 
-/** @deprecated Use UserProfile from @epsx/types instead */
-export interface AuthenticatedUser extends BaseUser {
+/** @deprecated Use AuthenticatedUser from @epsx/types instead */
+export interface LegacyAuthenticatedUser extends LegacyBaseUser {
   role: string;
   permissions: string[];
   isAdmin: boolean;
@@ -73,8 +75,8 @@ export interface AuthenticatedUser extends BaseUser {
   session_type?: string;
 }
 
-/** @deprecated Use UserProfile from @epsx/types instead */
-export interface FrontendUser extends AuthenticatedUser {
+/** @deprecated Use FrontendUser from @epsx/types instead */
+export interface LegacyFrontendUser extends LegacyAuthenticatedUser {
   subscription?: any;
   token_balance?: number;
   features?: string[];
@@ -83,8 +85,8 @@ export interface FrontendUser extends AuthenticatedUser {
   package_tier?: string;
 }
 
-/** @deprecated Use UserProfile from @epsx/types instead */
-export interface AdminUser extends AuthenticatedUser {
+/** @deprecated Use AdminUser from @epsx/types instead */
+export interface LegacyAdminUser extends LegacyAuthenticatedUser {
   roles: string[];
   permission_profiles?: string[];
   customClaims?: {

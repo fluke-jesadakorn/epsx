@@ -34,6 +34,7 @@ export default function StockRankingAssignmentList({
     'assignedAt' | 'expiresAt' | 'usageStats'
   >('assignedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const _setSortOrder = setSortOrder;
 
   useEffect(() => {
     loadAssignments();

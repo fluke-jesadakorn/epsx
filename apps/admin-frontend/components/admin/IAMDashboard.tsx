@@ -1,4 +1,4 @@
-import { Shield, Users, Key, FileText, Settings, Plus } from 'lucide-react';
+import { Shield, Users, Key, FileText, Settings as _Settings, Plus } from 'lucide-react';
 import { IAMContent } from './IAMContent';
 import { StatsGrid } from '@/components/ui/StatsCard';
 

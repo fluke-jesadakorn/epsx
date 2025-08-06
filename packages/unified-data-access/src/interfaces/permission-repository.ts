@@ -1,4 +1,4 @@
-import { BaseRepository, ListResult } from "./base-repository";
+import type { BaseRepository, ListResult } from "./base-repository";
 
 // Permission domain types
 export interface Permission {

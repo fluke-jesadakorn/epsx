@@ -1,5 +1,8 @@
-import { z } from 'zod';
-import { ValidationResult, ValidationUtils } from './validators.js';
+import { ValidationUtils } from './validators.js';
+
+import type { ValidationResult} from './validators.js';
+import type { z } from 'zod';
+
 
 // Form data extraction utilities (consolidates FormData processing patterns)
 export interface FormDataExtractionOptions {
@@ -23,9 +26,9 @@ export interface FormValidationOptions<T> {
   /** Abort validation on first error */
   abortEarly?: boolean;
   /** Transform data before validation */
-  transform?: (data: any) => any;
+  transform?: (data: unknown) => unknown;
   /** Custom field validators */
-  customValidators?: Record<string, (value: any) => ValidationResult>;
+  customValidators?: Record<string, (value: unknown) => ValidationResult>;
 }
 
 /**
@@ -40,7 +43,7 @@ export class FormHelpers {
   static extractFormData(
     formData: FormData,
     options: FormDataExtractionOptions = {}
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const {
       trimEmpty = true,
       parseNumbers = true,
@@ -50,7 +53,7 @@ export class FormHelpers {
       allowedFileTypes,
     } = options;
 
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
 
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
@@ -80,7 +83,7 @@ export class FormHelpers {
         }
       } else {
         // Handle regular form values
-        let processedValue: any = value;
+        let processedValue: unknown = value;
 
         // Trim and handle empty strings
         if (typeof processedValue === 'string') {
@@ -114,9 +117,9 @@ export class FormHelpers {
               .split(',')
               .map(v => v.trim())
               .filter(v => v);
-            result[key].push(...arrayValues);
+            (result[key] as unknown[]).push(...arrayValues);
           } else {
-            result[key].push(processedValue);
+            (result[key] as unknown[]).push(processedValue);
           }
         } else {
           result[key] = processedValue;
@@ -132,7 +135,7 @@ export class FormHelpers {
    * Consolidates form validation patterns from multiple components
    */
   static validateForm<T>(
-    data: any,
+    data: unknown,
     options: FormValidationOptions<T>
   ): ValidationResult<T> {
     const { schema, abortEarly = false, transform, customValidators = {} } = options;
@@ -177,7 +180,7 @@ export class FormHelpers {
       maxRequests?: number;
       windowMs?: number;
       extractionOptions?: FormDataExtractionOptions;
-      transform?: (data: any) => any;
+      transform?: (data: unknown) => unknown;
     } = {}
   ): Promise<ValidationResult<T>> {
     const {
@@ -200,7 +203,7 @@ export class FormHelpers {
         if (!rateLimitResult.allowed) {
           return {
             success: false,
-            error: `Too many requests. Try again in ${rateLimitResult.retryAfter} seconds.`,
+            error: `Too munknown requests. Try again in ${rateLimitResult.retryAfter} seconds.`,
           };
         }
       }
@@ -222,9 +225,9 @@ export class FormHelpers {
    * Create form field validator for React Hook Form
    * Provides integration with React Hook Form for consistent validation
    */
-  static createFieldValidator<T>(schema: z.ZodSchema<T>) {
+  static createFieldValidator<T>(schema: z.ZodSchema<T>): { validate: (value: unknown) => true | string } {
     return {
-      validate: (value: any) => {
+      validate: (value: unknown) => {
         const result = ValidationUtils.validate(schema, value);
         return result.success ? true : result.error || 'Invalid value';
       },
@@ -238,9 +241,9 @@ export class FormHelpers {
   static createAsyncFieldValidator<T>(
     schema: z.ZodSchema<T>,
     debounceMs: number = 300
-  ) {
+  ): { validate: (value: unknown) => Promise<true | string> } {
     return {
-      validate: async (value: any) => {
+      validate: async (value: unknown) => {
         const result = await ValidationUtils.validateAsync(schema, value, {
           debounceMs,
         });
@@ -260,7 +263,16 @@ export class FormHelpers {
       disabled?: boolean;
       placeholder?: string;
     } = {}
-  ) {
+  ): {
+    name: string;
+    required: boolean;
+    disabled: boolean;
+    placeholder?: string;
+    'aria-invalid': boolean;
+    'aria-describedby'?: string;
+    className: string;
+    error?: string;
+  } {
     const { required = false, disabled = false, placeholder } = options;
     const hasError = !validation.success;
     const errorMessage = validation.fieldErrors?.[name]?.[0] || validation.error;
@@ -332,9 +344,9 @@ export class FormHelpers {
       maxFiles = 10,
       maxSize,
       allowedTypes,
-      resizeImages = false,
-      maxWidth = 1920,
-      maxHeight = 1080,
+      resizeImages: _resizeImages = false,
+      maxWidth: _maxWidth = 1920,
+      maxHeight: _maxHeight = 1080,
     } = options;
 
     const fileArray = Array.from(files);
@@ -343,7 +355,7 @@ export class FormHelpers {
     if (fileArray.length > maxFiles) {
       return {
         success: false,
-        error: `Too many files. Maximum allowed: ${maxFiles}`,
+        error: `Too munknown files. Maximum allowed: ${maxFiles}`,
       };
     }
 

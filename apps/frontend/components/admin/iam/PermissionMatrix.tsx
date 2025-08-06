@@ -11,12 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
-  Filter, 
+  // Filter - removed unused import 
   Download, 
   Grid3X3, 
   List,
   Shield,
-  Key,
+  // Key - removed unused import
   Users,
   AlertTriangle,
   CheckCircle,

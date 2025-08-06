@@ -1,4 +1,5 @@
 import { BaseHttpClient } from '../base/BaseHttpClient';
+
 import type {
   StockItem,
   StockRanking,
@@ -93,12 +94,12 @@ export class AnalyticsClient extends BaseHttpClient {
   }
 
   // Market data
-  async getMarketOverview(): Promise<ApiResponse<any>> {
-    return this.get<any>('/api/analytics/market/overview');
+  async getMarketOverview(): Promise<ApiResponse<unknown>> {
+    return this.get<unknown>('/api/analytics/market/overview');
   }
 
-  async getMarketSectors(): Promise<ApiResponse<any[]>> {
-    return this.get<any[]>('/api/analytics/market/sectors');
+  async getMarketSectors(): Promise<ApiResponse<unknown[]>> {
+    return this.get<unknown[]>('/api/analytics/market/sectors');
   }
 
   async getTrendingStocks(limit?: number): Promise<ApiResponse<StockItem[]>> {

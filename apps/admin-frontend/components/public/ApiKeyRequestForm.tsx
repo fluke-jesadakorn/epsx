@@ -120,8 +120,8 @@ export const ApiKeyRequestForm: React.FC = () => {
             <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
             <ul className="text-sm text-blue-800 text-left space-y-1">
               <li>• Our team will review your application</li>
-              <li>• We'll contact you to discuss your requirements</li>
-              <li>• Upon approval, you'll receive developer portal access</li>
+              <li>• We&apos;ll contact you to discuss your requirements</li>
+              <li>• Upon approval, you&apos;ll receive developer portal access</li>
               <li>• You can then create and manage your API keys</li>
             </ul>
           </div>
@@ -290,7 +290,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             <Globe className="w-5 h-5 mr-2 text-blue-600" />
             Modules of Interest
           </h2>
-          <p className="text-gray-600 mb-4">Select the modules you're interested in accessing (select at least one):</p>
+          <p className="text-gray-600 mb-4">Select the modules you&apos;re interested in accessing (select at least one):</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {AVAILABLE_MODULES.map(module => (

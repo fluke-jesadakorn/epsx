@@ -22,7 +22,7 @@ export interface ErrorContext {
   userId?: string;
   sessionId?: string;
   buildVersion?: string;
-  customData?: Record<string, any>;
+  customData?: Record<string, unknown>;
 }
 
 export interface ErrorReportData {
@@ -106,7 +106,7 @@ export class ErrorMonitor {
   /**
    * Set user context
    */
-  setUser(userId: string, additionalData?: Record<string, any>): void {
+  setUser(userId: string, additionalData?: Record<string, unknown>): void {
     this.config.userId = userId;
     
     // Update Sentry user context if enabled
@@ -118,7 +118,7 @@ export class ErrorMonitor {
   /**
    * Set custom context data
    */
-  setContext(key: string, data: any): void {
+  setContext(key: string, data: unknown): void {
     // Update Sentry context if enabled
     if (this.config.enableSentry && typeof window !== 'undefined' && window.Sentry) {
       window.Sentry.setContext(key, data);
@@ -229,7 +229,7 @@ export class ErrorMonitor {
    * Create error monitoring hook for React components
    */
   createErrorHook() {
-    return (error: Error, errorInfo?: any) => {
+    return (error: Error, errorInfo?: unknown) => {
       this.reportError(error, {
         component: 'react_component',
         action: 'component_error',
@@ -392,7 +392,22 @@ export class ErrorMonitor {
   private reportToSentry(reportData: ErrorReportData): void {
     if (typeof window === 'undefined' || !window.Sentry) return;
 
-    window.Sentry.withScope((scope) => {
+    // Type-safe Sentry integration with proper interface
+    interface SentryScope {
+      setTag: (key: string, value: string) => void;
+      setLevel: (level: string) => void;
+      setFingerprint: (fingerprint: string[]) => void;
+      setContext: (key: string, context: Record<string, unknown>) => void;
+    }
+
+    interface SentryInstance {
+      withScope: (callback: (scope: SentryScope) => void) => void;
+      captureException: (error: Error) => void;
+    }
+
+    const sentry = window.Sentry as unknown as SentryInstance;
+    
+    sentry.withScope((scope: SentryScope) => {
       scope.setTag('error_id', reportData.errorId);
       scope.setTag('category', reportData.category);
       scope.setLevel(this.mapSeverityToSentryLevel(reportData.severity));
@@ -402,7 +417,7 @@ export class ErrorMonitor {
       scope.setContext('error_context', reportData.context);
       
       // Capture the error
-      window.Sentry?.captureException(reportData.error as Error);
+      sentry.captureException(reportData.error as Error);
     });
   }
 
@@ -482,7 +497,7 @@ export function reportError(
 /**
  * React hook for error monitoring
  */
-export function useErrorMonitoring(config?: ErrorMonitoringConfig) {
+export function useErrorMonitoring(config?: ErrorMonitoringConfig): { reportError: (error: Error, context?: Partial<ErrorContext>) => void; reportMessage: (message: string, level?: string, context?: Partial<ErrorContext>) => void; reportPerformanceIssue: (metric: string, value: number, context?: Partial<ErrorContext>) => void } {
   const monitor = getErrorMonitor(config);
   
   return {
@@ -490,9 +505,9 @@ export function useErrorMonitoring(config?: ErrorMonitoringConfig) {
       monitor.reportError(error, context),
     reportPerformanceIssue: (metric: string, value: number, threshold: number) =>
       monitor.reportPerformanceIssue(metric, value, threshold),
-    setUser: (userId: string, data?: Record<string, any>) => 
+    setUser: (userId: string, data?: Record<string, unknown>) => 
       monitor.setUser(userId, data),
-    setContext: (key: string, data: any) => 
+    setContext: (key: string, data: unknown) => 
       monitor.setContext(key, data),
   };
 }
@@ -500,15 +515,15 @@ export function useErrorMonitoring(config?: ErrorMonitoringConfig) {
 // TypeScript declaration for global objects
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void;
+    gtag?: (...args: unknown[]) => void;
     analytics?: {
-      track: (event: string, properties?: Record<string, any>) => void;
+      track: (event: string, properties?: Record<string, unknown>) => void;
     };
     Sentry?: {
       captureException: (error: Error) => void;
-      withScope: (callback: (scope: any) => void) => void;
-      setUser: (user: Record<string, any>) => void;
-      setContext: (key: string, data: any) => void;
+      withScope: (callback: (scope: unknown) => void) => void;
+      setUser: (user: Record<string, unknown>) => void;
+      setContext: (key: string, data: unknown) => void;
     };
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { apiClient, isApiError   } from '@/lib/api-client.client';
-import type {ProfileUpdateRequest, PasswordChangeRequest} from '@/lib/api-client.client';
+import type {ProfileUpdateRequest as _ProfileUpdateRequest, PasswordChangeRequest as _PasswordChangeRequest} from '@/lib/api-client.client';
 import { useEffect, useState } from 'react';
 
 import type { UserLevelType } from '@/app/constants/packages';
@@ -20,7 +20,7 @@ export function ProfileSettings() {
   const { user } = useAuth();
   
   // All users are now backend-authenticated
-  const isBackendUser = true;
+  const _isBackendUser = true;
   
   const [displayName, setDisplayName] = useState<string>('');
   const [photoURL, setPhotoURL] = useState<string>('');

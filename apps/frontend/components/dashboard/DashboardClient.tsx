@@ -30,7 +30,7 @@ interface DashboardClientProps {
   dashboardData: any;
 }
 
-export function DashboardClient({ user, permissions, dashboardData }: DashboardClientProps) {
+export function DashboardClient({ user, permissions, dashboardData: _dashboardData }: DashboardClientProps) {
   const { logout } = useAuth();
 
   return (

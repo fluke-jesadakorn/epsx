@@ -33,7 +33,7 @@ export default function PatternRecognitionPage() {
             <div className="bg-muted/50 p-4 rounded-lg text-sm">
               <strong>Coming Soon:</strong>
               <ul className="mt-2 text-left list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Technical pattern detection (Head & Shoulders, Triangles, etc.)</li>
+                <li>Technical pattern detection (Head &amp; Shoulders, Triangles, etc.)</li>
                 <li>Machine learning-based pattern recognition</li>
                 <li>Real-time pattern alerts and notifications</li>
                 <li>Pattern success rate analytics</li>

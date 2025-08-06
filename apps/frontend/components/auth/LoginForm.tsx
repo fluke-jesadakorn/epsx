@@ -98,7 +98,7 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
             </Link>
             {onRegisterClick && (
               <p>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={onRegisterClick}

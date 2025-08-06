@@ -1,7 +1,7 @@
 'use server';
 
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { SSRCache } from '@/lib/cache';
+// SSRCache import removed - not used in current implementation
 import { unstable_cache } from 'next/cache';
 import type { StockFinancialData } from '@/types/financialChartData';
 

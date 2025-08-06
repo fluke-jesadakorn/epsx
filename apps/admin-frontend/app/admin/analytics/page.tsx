@@ -2,7 +2,7 @@ import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { 
   getAnalyticsData, 
-  getUserAnalytics, 
+  getUserAnalytics as _getUserAnalytics, 
   getSystemMetrics, 
   getRevenueAnalytics,
   getRealtimeMetrics 

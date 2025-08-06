@@ -6,7 +6,7 @@ import React, { useState, useMemo } from 'react';
 // import { updateUserTier } from '@epsx/server-actions';
 
 // Temporary placeholder function until server-actions are implemented
-const updateUserTier = async (params: any) => {
+const updateUserTier = async (_params: any) => {
   throw new Error('updateUserTier not implemented');
 };
 import type { UserWithPermissions } from '../../types/admin/iam';
@@ -589,7 +589,7 @@ export const UserManagementList: React.FC<UserManagementListProps> = ({ initialU
               <p>Debug panel temporarily disabled for testing.</p>
               <div className="mt-4">
                 <p className="text-sm">
-                  The users you're seeing are:{' '}
+                  The users you&apos;re seeing are:{' '}
                   <strong>
                     {users.length > 0 ? 'Firebase/Mock Data' : 'No users found'}
                   </strong>

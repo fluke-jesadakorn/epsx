@@ -5,11 +5,11 @@ import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { useTheme, ThemeVariantSelector, DarkModeToggle } from "@epsx/ui";
+import { useTheme as _useTheme, ThemeVariantSelector, DarkModeToggle } from "@epsx/ui";
 
 export function AuthProviders() {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [_isLoading, _setIsLoading] = useState<boolean>(false);
 
   return (
     <div className="space-y-6">

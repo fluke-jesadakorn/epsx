@@ -80,7 +80,7 @@ export class CookieManager {
       // Debug: Log all available cookies
       const allCookies = cookieStore.getAll();
       console.log('🍪 [CookieManager] All cookies available:', 
-        allCookies.map((c: any) => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
+        allCookies.map((c: { name: string; value: string }) => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
       );
       
       const authCookies = {
@@ -108,34 +108,53 @@ export class CookieManager {
   }
 
   /**
-   * Build authorization headers from cookies
-   * Note: Session authentication uses cookies automatically sent by browser,
-   * so we only need CSRF token in headers
+   * Build authorization headers for the new backend session system
+   * Backend expects: Authorization: Bearer <session_id>
    */
   static async buildAuthHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {};
     
     try {
-      // Debug: Get all auth cookies for detailed logging
-      const allCookies = await this.getAuthCookies();
+      // First try to get session from NextAuth (for admin app)
+      let sessionToken: string | null = null;
+      
+      try {
+        const { auth } = await import('next-auth') as { auth: () => Promise<{ session_id?: string } | null> };
+        const session = await auth();
+        if (session?.session_id) {
+          sessionToken = session.session_id;
+          console.log('🔐 [CookieManager] Found NextAuth session token');
+        }
+      } catch (_authError) {
+        console.debug('🔍 [CookieManager] NextAuth not available, trying cookies');
+      }
+      
+      // Fallback to cookies if NextAuth session not available
+      if (!sessionToken) {
+        const allCookies = await this.getAuthCookies();
+        sessionToken = allCookies.adminSession || allCookies.session;
+      }
+      
       const csrfToken = await this.getCSRFToken();
       
-      console.log('🍪 [CookieManager] Building auth headers:', {
-        cookiesAvailable: {
-          session: !!allCookies.session,
-          adminSession: !!allCookies.adminSession,
-          csrf: !!allCookies.csrf,
-          refresh: !!allCookies.refresh,
-        },
+      console.log('🍪 [CookieManager] Building auth headers for backend:', {
+        nextAuthSessionFound: !!sessionToken,
+        cookieSessionFound: !sessionToken && !!(await this.getAuthCookies()).session,
         csrfTokenFound: !!csrfToken,
-        csrfTokenPreview: csrfToken ? `${csrfToken.substring(0, 10)}...` : null,
       });
       
+      // Add Bearer token authorization if session is available
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+        console.log('🔑 [CookieManager] Added Bearer token authorization header');
+      } else {
+        console.warn('⚠️ [CookieManager] No session token found for authorization');
+      }
+      
+      // Still add CSRF token if available for additional security
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
         console.log('🔑 [CookieManager] Added CSRF token to headers');
-      } else {
-        console.warn('⚠️ [CookieManager] No CSRF token found');
       }
     } catch (error) {
       console.error('❌ [CookieManager] Failed to build auth headers:', error);
@@ -200,22 +219,35 @@ export class CookieManager {
           refresh: allCookies[COOKIE_NAMES.REFRESH],
         };
         
-        console.log('🔍 [CookieManager.client] Client cookies found:', {
+        // Also check localStorage for session token (new backend format)
+        let sessionToken = relevantCookies.adminSession || relevantCookies.session;
+        
+        // Fallback to localStorage if no cookie session found
+        if (!sessionToken && typeof localStorage !== 'undefined') {
+          sessionToken = localStorage.getItem('session_id');
+        }
+        
+        console.log('🔍 [CookieManager.client] Client auth tokens found:', {
           cookieNames: COOKIE_NAMES,
-          available: Object.keys(allCookies),
-          relevant: Object.entries(relevantCookies).reduce((acc, [key, value]) => {
-            acc[key] = !!value;
-            return acc;
-          }, {} as Record<string, boolean>),
+          cookiesAvailable: Object.keys(allCookies),
+          cookieSessionFound: !!(relevantCookies.adminSession || relevantCookies.session),
+          localStorageSessionFound: !!(typeof localStorage !== 'undefined' && localStorage.getItem('session_id')),
+          csrfFound: !!relevantCookies.csrf,
+          finalSessionToken: !!sessionToken,
         });
         
-        // Session authentication uses cookies automatically sent by browser
-        // No need to manually add session token to headers, but add CSRF if available
+        // Add Bearer authorization header for new backend
+        if (sessionToken) {
+          headers['Authorization'] = `Bearer ${sessionToken}`;
+          console.log('🔑 [CookieManager.client] Added Bearer authorization header');
+        } else {
+          console.log('⚠️ [CookieManager.client] No session token found for authorization');
+        }
+        
+        // Add CSRF token for additional security
         if (relevantCookies.csrf) {
           headers['X-CSRF-Token'] = relevantCookies.csrf;
           console.log('🔑 [CookieManager.client] Added CSRF token to headers');
-        } else {
-          console.log('⚠️ [CookieManager.client] No CSRF token found in client cookies');
         }
       }
       

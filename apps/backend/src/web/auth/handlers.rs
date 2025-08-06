@@ -8,11 +8,33 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use crate::app::dtos::auth::{LoginReq, RefreshReq, LogoutReq, AutoRegistrationRequest, RegistrationResponse};
+use crate::app::dtos::auth::{LoginReq, RefreshReq, AutoRegistrationRequest, RegistrationResponse};
 use crate::web::middleware::AuthCtx;
 use crate::dom::values::{Role, UserId};
 use crate::dom::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
 use super::AppState;
+
+/// Extract session ID from Authorization header
+fn extract_session_from_request(request: &axum::extract::Request) -> Result<crate::dom::values::SessId, StatusCode> {
+    // Try to extract session from Authorization header
+    if let Some(auth_header) = request.headers().get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if let Some(token) = auth_str.strip_prefix("Bearer ") {
+                // The token should be the session ID for this system
+                return Ok(crate::dom::values::SessId::from_string(token.to_string()));
+            }
+        }
+    }
+    
+    // Try alternative session header
+    if let Some(session_header) = request.headers().get("x-session-id") {
+        if let Ok(session_str) = session_header.to_str() {
+            return Ok(crate::dom::values::SessId::from_string(session_str.to_string()));
+        }
+    }
+    
+    Err(StatusCode::UNAUTHORIZED)
+}
 
 /// Generate a bearer token for the session
 fn generate_bearer_token(session_id: &str) -> String {
@@ -265,21 +287,75 @@ pub async fn register_handler(
 /// Logout handler that removes session (no cookies to clear)
 pub async fn logout_handler(
     State(app_state): State<AppState>,
+    request: axum::extract::Request,
 ) -> Result<StatusCode, StatusCode> {
-    tracing::info!("Logout handler called during migration");
+    // Extract session ID from Authorization header
+    let session_id = extract_session_from_request(&request)
+        .map_err(|_| {
+            tracing::warn!("Logout attempt without valid session");
+            StatusCode::UNAUTHORIZED
+        })?;
     
-    // TODO: Implement with proper session management during migration
-    // For now, return success
-    Ok(StatusCode::OK)
+    // Find and invalidate the session
+    match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(mut session) => {
+            // Mark session as inactive
+            session.deactivate();
+            
+            // Save the deactivated session
+            if let Err(e) = app_state.session_repo.save(&session).await {
+                tracing::error!("Failed to deactivate session during logout: {:?}", e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+            
+            tracing::info!("Session {} successfully logged out", session_id);
+            Ok(StatusCode::OK)
+        },
+        Err(crate::app::ports::repositories::RepoError::NotFound) => {
+            tracing::warn!("Logout attempt with non-existent session: {}", session_id);
+            Err(StatusCode::UNAUTHORIZED)
+        },
+        Err(e) => {
+            tracing::error!("Failed to find session during logout: {:?}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 /// Refresh session handler that extends session expiry and returns new bearer token
 pub async fn refresh_handler(
     State(app_state): State<AppState>,
+    request: axum::extract::Request,
 ) -> Result<Json<RefreshResponse>, StatusCode> {
-    // Create refresh request
+    // Extract session ID from Authorization header
+    let session_id = extract_session_from_request(&request)
+        .map_err(|_| {
+            tracing::warn!("Refresh attempt without valid session");
+            StatusCode::UNAUTHORIZED
+        })?;
+    
+    // Find the current session
+    let current_session = match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(session) => session,
+        Err(crate::app::ports::repositories::RepoError::NotFound) => {
+            tracing::warn!("Refresh attempt with non-existent session: {}", session_id);
+            return Err(StatusCode::UNAUTHORIZED);
+        },
+        Err(e) => {
+            tracing::error!("Failed to find session during refresh: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Check if session is still active and not expired
+    if !current_session.is_active() || current_session.is_expired() {
+        tracing::warn!("Refresh attempt with inactive/expired session: {}", session_id);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    // Create refresh request with the session's refresh token
     let refresh_req = RefreshReq {
-        refresh_token: "placeholder-refresh-token".to_string(),
+        refresh_token: current_session.refresh_token().unwrap_or_default(),
     };
     
     // Refresh session through use case
@@ -293,7 +369,7 @@ pub async fn refresh_handler(
     
     // Return response with new expiry
     let response = RefreshResponse {
-        expires_at: chrono::Utc::now() + chrono::Duration::hours(24),
+        expires_at: chrono::Utc::now() + chrono::Duration::seconds(refresh_res.expires_in),
     };
     
     Ok(Json(response))
@@ -302,17 +378,74 @@ pub async fn refresh_handler(
 /// Get current user profile handler
 pub async fn me_handler(
     State(app_state): State<AppState>,
+    request: axum::extract::Request,
 ) -> Result<Json<UserProfileResponse>, StatusCode> {
-    tracing::info!("Getting user profile during migration");
+    // Extract session ID from Authorization header
+    let session_id = extract_session_from_request(&request)
+        .map_err(|_| {
+            tracing::warn!("Profile request without valid session");
+            StatusCode::UNAUTHORIZED
+        })?;
     
-    // TODO: Implement with Casbin during migration
-    // For now, return a stub user profile
+    // Find and validate the session
+    let session = match app_state.session_repo.find_by_id(&session_id).await {
+        Ok(session) => session,
+        Err(crate::app::ports::repositories::RepoError::NotFound) => {
+            tracing::warn!("Profile request with non-existent session: {}", session_id);
+            return Err(StatusCode::UNAUTHORIZED);
+        },
+        Err(e) => {
+            tracing::error!("Failed to find session for profile request: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Check if session is still active and not expired
+    if !session.is_active() || session.is_expired() {
+        tracing::warn!("Profile request with inactive/expired session: {}", session_id);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    
+    // Get user details from repository
+    let user = app_state.user_repo.find_by_id(session.user_id()).await
+        .map_err(|e| {
+            tracing::error!("Failed to find user for profile: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Get user roles from IAM repository and derive permissions
+    let roles = app_state.iam_repo.get_user_roles(session.user_id()).await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to get user roles for profile: {:?}", e);
+            vec![]
+        });
+    
+    // Use unified permission system - derive from roles
+    let permission_strings: Vec<String> = roles.iter()
+        .flat_map(|role| {
+            // Map IAM role names to user roles for permission derivation
+            let user_role = match role.name() {
+                "admin" | "system_administrator" => crate::dom::values::Role::Admin,
+                "user" => crate::dom::values::Role::User,
+                "premium_user" => crate::dom::values::Role::Premium,
+                "moderator" => crate::dom::values::Role::Moderator,
+                "super_admin" => crate::dom::values::Role::SuperAdmin,
+                _ => crate::dom::values::Role::Free,
+            };
+            
+            crate::dom::services::permissions::get_role_permissions(&user_role)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect();
+    
     let response = UserProfileResponse {
-        user_id: "migration_user".to_string(),
-        email: "migration@example.com".to_string(),
-        role: "migration_user".to_string(),
-        permissions: vec!["migration:all".to_string()],
-        subscription_tier: "migration".to_string(),
+        user_id: session.user_id().to_string(),
+        email: user.email().value().to_string(),
+        role: user.role().to_string(),
+        permissions: permission_strings,
+        subscription_tier: user.sub().tier().to_string(),
     };
     
     Ok(Json(response))
@@ -569,7 +702,7 @@ pub async fn validate_route_access_handler(
 
 /// Bulk route validation handler - validates multiple routes at once for efficient frontend middleware
 pub async fn validate_bulk_routes_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Json(request): Json<BulkRouteValidationRequest>,
 ) -> Result<Json<BulkRouteValidationResponse>, StatusCode> {
     tracing::info!("Validating {} routes for app: {}", request.routes.len(), request.app_type);
@@ -598,7 +731,7 @@ pub async fn validate_bulk_routes_handler(
 
 /// Permission check handler - validates if user has a specific permission
 pub async fn check_permission_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Json(request): Json<PermissionCheckRequest>,
 ) -> Result<Json<PermissionCheckResponse>, StatusCode> {
     tracing::info!("Checking permission '{}' during migration", request.permission);
@@ -650,7 +783,7 @@ pub struct SinglePermissionResponse {
 
 /// Navigation permissions handler - returns allowed navigation items
 pub async fn navigation_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<NavigationResponse>, StatusCode> {
     tracing::info!("Getting navigation items during migration");
     
@@ -763,7 +896,7 @@ pub async fn single_permission_handler(
 
 /// User features handler - returns available features based on user role and permissions
 pub async fn user_features_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<UserFeaturesResponse>, StatusCode> {
     tracing::info!("Getting user features during migration");
     
@@ -795,7 +928,7 @@ pub async fn user_features_handler(
 
 /// Session rotation handler - creates a new session ID for security-sensitive operations
 pub async fn rotate_session_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Json(request): Json<SessionRotationRequest>,
 ) -> Result<Json<SessionRotationResponse>, StatusCode> {
     tracing::info!("Rotating session during migration with reason: {}", request.reason);

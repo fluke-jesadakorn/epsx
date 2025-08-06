@@ -12,13 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { 
   Search, 
   Calendar as CalendarIcon, 
-  Filter,
+  Filter as _Filter,
   Eye,
   TrendingUp,
   TrendingDown,
   BarChart3,
   Download,
-  ArrowUpDown
+  ArrowUpDown as _ArrowUpDown
 } from 'lucide-react';
 
 interface HistoricalPattern {
@@ -126,7 +126,7 @@ const OUTCOME_FILTERS = [
 ];
 
 export function PatternHistory() {
-  const [patterns, setPatterns] = useState<HistoricalPattern[]>(mockHistoricalPatterns);
+  const [patterns, _setPatterns] = useState<HistoricalPattern[]>(mockHistoricalPatterns);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date_desc');
   const [outcomeFilter, setOutcomeFilter] = useState('all');

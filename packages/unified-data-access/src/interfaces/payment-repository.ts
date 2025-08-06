@@ -1,4 +1,4 @@
-import { BaseRepository, ListResult } from "./base-repository";
+import type { BaseRepository, ListResult } from "./base-repository";
 
 // Payment domain types
 export interface Payment {
@@ -9,7 +9,7 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
   paymentMethod: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
@@ -46,12 +46,12 @@ export interface CreatePaymentInput {
   currency: string;
   paymentMethod: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePaymentInput {
   status?: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentFilters {

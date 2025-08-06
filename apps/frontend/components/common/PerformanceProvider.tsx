@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, ReactNode } from 'react';
-import { performanceMonitor, usePerformanceMonitoring } from '@/lib/monitoring';
+import { performanceMonitor as _performanceMonitor, usePerformanceMonitoring } from '@/lib/monitoring';
 
 interface PerformanceContextType {
   recordMetric: (name: string, value: number, metadata?: Record<string, any>) => void;

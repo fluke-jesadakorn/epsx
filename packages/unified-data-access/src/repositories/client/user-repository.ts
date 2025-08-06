@@ -1,5 +1,7 @@
-import { UserRepository, User, CreateUserInput, UpdateUserInput, UserFilters } from "../../interfaces/user-repository";
-import { ListResult, ListOptions, NotFoundError } from "../../interfaces/base-repository";
+import { NotFoundError } from "../../interfaces/base-repository";
+
+import type { ListResult, ListOptions} from "../../interfaces/base-repository";
+import type { UserRepository, User, CreateUserInput, UpdateUserInput, UserFilters } from "../../interfaces/user-repository";
 
 export class ClientUserRepository implements UserRepository {
   private baseUrl: string;
@@ -25,7 +27,7 @@ export class ClientUserRepository implements UserRepository {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   async get(id: string): Promise<User | null> {

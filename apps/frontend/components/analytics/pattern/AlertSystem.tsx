@@ -72,9 +72,9 @@ const mockAlerts: Alert[] = [
   }
 ];
 
-export function AlertSystem({ patterns }: AlertSystemProps) {
+export function AlertSystem({ patterns: _patterns }: AlertSystemProps) {
   const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
-  const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
+  const [_editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [newAlert, setNewAlert] = useState({
     name: '',
     symbol: '',

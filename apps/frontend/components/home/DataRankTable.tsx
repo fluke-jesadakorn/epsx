@@ -272,7 +272,7 @@ function DataRankTable({
   rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
   const router = useRouter();
-  const { canAccessRankings, loading } = useRankingAccess();
+  const { canAccessRankings: _canAccessRankings, loading: _loading } = useRankingAccess();
 
   // Create mock ranking access data for now - in real implementation this would come from useRankingAccess
   const maxRankings = 10;

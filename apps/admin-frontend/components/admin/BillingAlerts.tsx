@@ -15,7 +15,8 @@ import {
   Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BillingService, type BillingAlert } from '@/services/billingService';
+import { BillingService } from '@/services/billingService';
+import type { BillingAlert } from '@/services/billingService';
 import { toast } from 'react-hot-toast';
 
 interface BillingAlertsProps {
@@ -47,7 +48,7 @@ export const BillingAlerts: React.FC<BillingAlertsProps> = ({
     };
 
     fetchAlerts();
-  }, [userId]);
+  }, [userId, billingService]);
 
   const handleDismissAlert = async (alertId: string) => {
     setDismissingAlerts(prev => new Set([...prev, alertId]));

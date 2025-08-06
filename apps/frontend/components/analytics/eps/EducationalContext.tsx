@@ -27,8 +27,8 @@ export function EducationalContext() {
           <div className="space-y-2">
             <h4 className="font-medium text-blue-900">What is EPS?</h4>
             <p className="text-sm text-blue-700">
-              Earnings Per Share (EPS) measures a company's profitability by dividing net income by outstanding shares. 
-              It's a key metric for evaluating financial performance and comparing companies.
+              Earnings Per Share (EPS) measures a company&apos;s profitability by dividing net income by outstanding shares. 
+              It&apos;s a key metric for evaluating financial performance and comparing companies.
             </p>
           </div>
           <div className="space-y-2">

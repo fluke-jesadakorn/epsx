@@ -1,5 +1,6 @@
-import type { UserRole } from './auth/roles';
 import { StockRankingType } from './domains/analytics';
+
+import type { UserRole } from './auth/roles';
 
 /**
  * Dynamic Permission Profile System Types
@@ -25,7 +26,7 @@ export interface PermissionCondition {
   /** Condition type */
   type: 'usage_limit' | 'time_range' | 'ip_restriction' | 'company_scope' | 'custom';
   /** Condition parameters */
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   /** Human-readable description */
   description: string;
 }
@@ -116,7 +117,7 @@ export interface PermissionProfileValidationRule {
   /** Rule type */
   type: 'permission_conflict' | 'scope_escalation' | 'package_compatibility' | 'custom';
   /** Rule configuration */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   /** Error message for violations */
   errorMessage: string;
   /** Whether to block or warn */
@@ -309,7 +310,7 @@ export interface PermissionProfileAuditEvent {
   userId: string; // Who performed the action
   targetUserId?: string; // Who was affected (for assignments)
   timestamp: Date;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   changes?: PermissionProfileChange[];
 }
 
@@ -326,8 +327,8 @@ export enum PermissionProfileAuditEventType {
 
 export interface PermissionProfileChange {
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   changeType: 'added' | 'removed' | 'modified';
 }
 

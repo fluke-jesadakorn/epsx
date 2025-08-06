@@ -26,7 +26,7 @@ import {
 } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
 import { useAuth } from '@/context/auth-context';
-import PaymentDetails from './PaymentDetails';
+import { default as _PaymentDetails } from './PaymentDetails';
 import { QRCodeCanvas } from 'qrcode.react';
 interface OneClickPaymentProps {
   preselectedPackage?: string;

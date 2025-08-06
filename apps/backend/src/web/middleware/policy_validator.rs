@@ -297,7 +297,7 @@ impl PolicyValidator {
     /// Detect circular role inheritance
     fn detect_role_cycle(
         &self, 
-        user: &str, 
+        _user: &str, 
         user_roles: &[String], 
         role_graph: &HashMap<String, Vec<String>>
     ) -> Option<Vec<String>> {

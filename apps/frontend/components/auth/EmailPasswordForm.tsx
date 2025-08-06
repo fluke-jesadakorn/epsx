@@ -71,7 +71,7 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
     e.preventDefault();
     // Form submit event triggered
     // Form state logged
-    const isValid = await handleSubmit(onSubmit)();
+    const _isValid = await handleSubmit(onSubmit)();
     // Form validation completed
   };
 

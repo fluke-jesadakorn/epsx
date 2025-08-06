@@ -36,7 +36,7 @@ const METRICS = [
   { value: 'both', label: 'EPS + Growth' }
 ];
 
-export function HistoricalComparison({ data, symbol, onChartView }: HistoricalComparisonProps) {
+export function HistoricalComparison({ data: _data, symbol, onChartView }: HistoricalComparisonProps) {
   const [comparisonPeriod, setComparisonPeriod] = useState('quarterly');
   const [selectedMetric, setSelectedMetric] = useState('both');
 

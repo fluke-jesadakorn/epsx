@@ -202,7 +202,7 @@ export function PatternVisualization({ patterns }: PatternVisualizationProps) {
               <Scatter 
                 dataKey="risk" 
                 fill={COLORS.breakout}
-                onClick={(data) => {/* Pattern clicked */}}
+                onClick={(_data) => {/* Pattern clicked */}}
               />
             </ScatterChart>
           </ResponsiveContainer>

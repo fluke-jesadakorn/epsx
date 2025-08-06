@@ -195,7 +195,7 @@ export function ComparisonTable({ primarySymbol, comparisonSymbols, onRemoveComp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {companyData.map((company, index) => {
+                {companyData.map((company, _index) => {
                   const isPrimary = company.symbol === primarySymbol;
                   
                   return (

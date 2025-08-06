@@ -145,7 +145,7 @@ export function BulkUserLevelAssignment() {
             placeholder="user1@example.com&#10;user2@example.com&#10;Or use UIDs:&#10;abc123def456&#10;xyz789ghi012"
           />
           <p className="text-xs text-gray-500 mt-1">
-            You can enter either email addresses or Firebase UIDs. The system will automatically detect which format you're using.
+            You can enter either email addresses or Firebase UIDs. The system will automatically detect which format you&apos;re using.
           </p>
         </div>
 

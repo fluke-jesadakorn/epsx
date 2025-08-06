@@ -318,7 +318,7 @@ export function PaginatedStockGrid({
                       🚀 Unlock Full Pagination Access
                     </h3>
                     <p className="text-sm text-muted-foreground mb-2">
-                      You're seeing limited results. Upgrade to access all{' '}
+                      You&apos;re seeing limited results. Upgrade to access all{' '}
                       {stockData.pagination.total} stocks!
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">

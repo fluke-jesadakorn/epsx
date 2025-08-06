@@ -9,7 +9,7 @@ import {
   Bell, 
   Search, 
   User,
-  Settings
+  Settings as _Settings
 } from 'lucide-react';
 
 interface MobileHeaderProps {

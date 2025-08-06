@@ -1,6 +1,8 @@
 import { Environment, getApiBaseUrl } from '@epsx/shared-core';
-import type { ApiResponse, RequestConfig } from '@epsx/types';
+
 import { CookieManager } from '../cookie-manager';
+
+import type { ApiResponse, RequestConfig } from '@epsx/types';
 
 export abstract class BaseHttpClient {
   protected readonly baseUrl: string;
@@ -40,31 +42,69 @@ export abstract class BaseHttpClient {
       const response = await fetch(url, requestConfig);
       const contentType = response.headers.get('content-type');
       
-      let data;
+      let data: unknown;
       if (contentType?.includes('application/json')) {
-        data = await response.json();
+        data = await response.json() as unknown;
       } else {
         data = await response.text();
       }
 
       if (!response.ok) {
+        // Enhanced error handling for new backend responses
+        let errorMessage: string;
+        let errorDetails: string;
+        
+        if (typeof data === 'object' && data !== null) {
+          const errorData = data as Record<string, unknown>;
+          errorMessage = (errorData.error as string) || (errorData.message as string) || 'Request failed';
+          errorDetails = (errorData.details as string) || (errorData.reason as string) || `HTTP ${response.status}`;
+        } else if (typeof data === 'string') {
+          errorMessage = data;
+          errorDetails = `HTTP ${response.status}`;
+        } else {
+          // Fallback error messages based on status codes
+          switch (response.status) {
+            case 401:
+              errorMessage = 'Authentication required or session expired';
+              errorDetails = 'Please log in again';
+              break;
+            case 403:
+              errorMessage = 'Access denied';
+              errorDetails = 'You do not have permission to perform this action';
+              break;
+            case 429:
+              errorMessage = 'Rate limit exceeded';
+              errorDetails = 'Please wait before trying again';
+              break;
+            case 500:
+              errorMessage = 'Server error';
+              errorDetails = 'An internal server error occurred';
+              break;
+            default:
+              errorMessage = 'Request failed';
+              errorDetails = `HTTP ${response.status}`;
+          }
+        }
+
         console.warn('HTTP request failed', {
           url,
           status: response.status,
           statusText: response.statusText,
-          responseData: data,
+          errorMessage,
+          errorDetails,
+          responseData: data as unknown,
           component: 'BaseHttpClient'
         });
 
         return {
-          error: data?.error || data || 'Request failed',
-          details: data?.details || `HTTP ${response.status}`,
+          error: errorMessage,
+          details: errorDetails,
         };
       }
 
       console.debug('HTTP request successful', { url, status: response.status, component: 'BaseHttpClient' });
 
-      return { data };
+      return { data: data as T };
     } catch (error) {
       console.error('HTTP request exception', { 
         url, 
@@ -88,7 +128,7 @@ export abstract class BaseHttpClient {
 
   protected async post<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -100,7 +140,7 @@ export abstract class BaseHttpClient {
 
   protected async put<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -112,7 +152,7 @@ export abstract class BaseHttpClient {
 
   protected async patch<T>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
