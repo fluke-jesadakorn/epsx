@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/auth/ctx';
+import { useAdminAuth } from '@/lib/auth/ctx';
 import {
   Activity,
   BarChart3,
@@ -8,13 +8,10 @@ import {
   ChevronRight,
   Database,
   ExternalLink,
-  _Eye,
-  _FileText,
   Globe,
   HardDrive,
   Home,
   Key,
-  Lock,
   LogOut,
   Menu,
   Package,
@@ -24,21 +21,20 @@ import {
   Server,
   Settings,
   Shield,
-  UserCheck,
   Users,
-  User,
   X,
 } from 'lucide-react';
+import { Breadcrumb } from './Breadcrumb';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, init, signOut } = useAdminAuth();
+  const { user, loading, initialized, signOut } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -64,10 +60,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   useEffect(() => {
     // Only redirect if auth context is fully initialized and no user is found
-    if (init && !loading && !user) {
+    if (initialized && !loading && !user) {
       router.replace('/login');
     }
-  }, [user, loading, init, router]);
+  }, [user, loading, initialized, router]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -147,7 +143,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading || !init) {
+  if (loading || !initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -158,13 +154,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   if (!user) {
     return null;
   }
+  
+  // Provide a mock user for testing
+  const mockUser = user || { email: 'test@example.com', displayName: 'Test User' };
 
   const menuGroups = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: Home,
-      href: '/admin',
+      href: '/',
       type: 'single' as const,
     },
     {
@@ -176,23 +175,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'user-list',
           label: 'User Accounts',
-          href: '/admin/users',
+          href: '/users',
           icon: Users,
-          description: 'Manage user accounts and profiles',
-        },
-        {
-          id: 'user-roles',
-          label: 'User Roles',
-          href: '/admin/users/roles',
-          icon: UserCheck,
-          description: 'Define and assign user roles',
-        },
-        {
-          id: 'user-permissions',
-          label: 'User Permissions',
-          href: '/admin/users/permissions',
-          icon: Lock,
-          description: 'Configure user permissions',
+          description: 'Unified user management hub with profiles and permissions',
         },
       ],
     },
@@ -203,53 +188,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       type: 'group' as const,
       items: [
         {
-          id: 'iam-overview',
-          label: 'IAM Overview',
-          href: '/admin/iam?section=overview',
-          icon: BarChart3,
-          description: 'Identity and access management dashboard',
-        },
-        {
-          id: 'iam-permission-profiles',
-          label: 'Permission Profiles',
-          href: '/admin/iam?section=permission-profiles',
-          icon: Shield,
-          description: 'Create and manage permission profiles',
-        },
-        {
-          id: 'permission-profile-assignment',
-          label: 'Profile Assignment',
-          href: '/admin/permission-profiles/assign',
-          icon: User,
-          description: 'Assign feature permission profiles directly to users',
-        },
-        {
           id: 'module-management',
           label: 'Module Management',
-          href: '/admin/modules',
+          href: '/modules',
           icon: Settings,
           description: 'Manage system modules and their configurations',
         },
         {
           id: 'developer-portal',
           label: 'Developer Portal',
-          href: '/admin/developer-portal',
+          href: '/developer-portal',
           icon: ExternalLink,
           description: 'Access developer tools and API documentation',
         },
         {
           id: 'stock-ranking-packages',
           label: 'Stock Ranking Packages',
-          href: '/admin/stock-ranking-packages',
+          href: '/stock-ranking-packages',
           icon: Package,
           description: 'Assign stock ranking access packages to users',
-        },
-        {
-          id: 'iam-logs',
-          label: 'Activity Logs',
-          href: '/admin/iam?section=logs',
-          icon: Activity,
-          description: 'View system activity and audit logs',
         },
         {
           id: 'auth',
@@ -269,7 +226,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'analytics-overview',
           label: 'Analytics Dashboard',
-          href: '/admin/analytics',
+          href: '/analytics',
           icon: BarChart3,
           description: 'Performance metrics and insights',
         },
@@ -298,7 +255,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'database',
           label: 'Database',
-          href: '/admin/database',
+          href: '/database',
           icon: Database,
           description: 'Database management and monitoring',
         },
@@ -327,7 +284,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {
           id: 'general-settings',
           label: 'General Settings',
-          href: '/admin/settings',
+          href: '/settings',
           icon: Settings,
           description: 'Basic system configuration',
         },
@@ -357,10 +314,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   ];
 
   const toggleMenu = (menuId: string) => {
-    setExpandedMenus((prev) =>
+    setExpandedMenus(prev =>
       prev.includes(menuId)
-        ? prev.filter((id) => id !== menuId)
-        : [...prev, menuId],
+        ? prev.filter(id => id !== menuId)
+        : [...prev, menuId]
     );
   };
 
@@ -381,7 +338,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (e.key === 'Tab' && e.shiftKey) {
       e.preventDefault();
       const lastMenuItem = document.querySelector(
-        '[data-menu-item]:last-child',
+        '[data-menu-item]:last-child'
       );
       if (lastMenuItem) {
         (lastMenuItem as HTMLElement).focus();
@@ -441,12 +398,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const isMenuExpanded = (menuId: string) => expandedMenus.includes(menuId);
 
   const isActive = (href: string) => {
-    if (href === '/admin') return pathname === '/admin' || pathname === '/';
     return pathname.startsWith(href);
   };
 
   const isGroupActive = (items: any[]) => {
-    return items.some((item) => isActive(item.href));
+    return items.some(item => isActive(item.href));
   };
 
   const handleLogout = async () => {
@@ -464,7 +420,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         return group.label;
       }
       if (group.type === 'group') {
-        const activeItem = group.items?.find((item) => isActive(item.href));
+        const activeItem = group.items?.find(item => isActive(item.href));
         if (activeItem) {
           return activeItem.label;
         }
@@ -474,20 +430,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const filteredMenuGroups = menuGroups
-    .map((group) => {
+    .map(group => {
       if (group.type === 'single') {
         return group;
       }
       return {
         ...group,
         items: group.items?.filter(
-          (item) =>
+          item =>
             item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.description.toLowerCase().includes(searchQuery.toLowerCase()),
+            item.description.toLowerCase().includes(searchQuery.toLowerCase())
         ),
       };
     })
-    .filter((group) => {
+    .filter(group => {
       if (group.type === 'single') {
         return group.label.toLowerCase().includes(searchQuery.toLowerCase());
       }
@@ -496,7 +452,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile Menu Button */}
+      {/* Mobile Sidebar Toggle Button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -518,29 +474,30 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </button>
       </div>
 
-      {/* Desktop Sidebar Toggle */}
-      <div className="hidden lg:block fixed top-4 left-4 z-40">
+      {/* Desktop Sidebar Toggle Button */}
+      <div className="hidden lg:block fixed top-4 left-4 z-50">
         <button
           onClick={toggleSidebar}
-          className={`
+          className="
             p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700
             hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-150
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
             min-h-[44px] min-w-[44px] touch-manipulation
-            ${sidebarCollapsed ? 'translate-x-0' : 'translate-x-0'}
-          `}
-          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          "
+          aria-label={sidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
           aria-expanded={!sidebarCollapsed}
-          title={sidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <PanelLeft className={`h-5 w-5 text-gray-600 dark:text-gray-400 transition-transform duration-150 ${sidebarCollapsed ? 'rotate-180' : ''}`} />
+          <PanelLeft
+            className={`h-5 w-5 text-gray-600 dark:text-gray-400 transition-transform duration-150 ${sidebarCollapsed ? 'rotate-180' : ''}`}
+          />
         </button>
       </div>
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -551,7 +508,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         ref={sidebarRef}
         className={`
           bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col
-          fixed inset-y-0 left-0 z-40 transform transition-all duration-200 ease-out
+          fixed inset-y-0 left-0 z-50 transform transition-all duration-200 ease-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${sidebarCollapsed ? 'w-16' : 'w-80'}
           ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-80'}
@@ -604,7 +561,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 type="text"
                 placeholder="Search features..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 onFocus={handleSearchFocus}
                 onBlur={() => setSearchFocused(false)}
@@ -624,7 +581,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation Menu */}
-        <nav 
+        <nav
           className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
           role="navigation"
           aria-label="Admin navigation menu"
@@ -640,7 +597,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   key={group.id}
                   href={group.href!}
                   onClick={() => setSidebarOpen(false)}
-                  onKeyDown={(e) => handleMenuKeyDown(e)}
+                  onKeyDown={e => handleMenuKeyDown(e)}
                   className={`
                     submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150
                     ${sidebarCollapsed ? 'justify-center px-2' : ''}
@@ -695,7 +652,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 {/* Group Header */}
                 <button
                   onClick={() => toggleMenu(group.id)}
-                  onKeyDown={(e) => handleMenuKeyDown(e, group.id)}
+                  onKeyDown={e => handleMenuKeyDown(e, group.id)}
                   className={`
                     submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150
                     ${sidebarCollapsed ? 'justify-center px-2' : ''}
@@ -774,7 +731,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             key={item.id}
                             href={item.href}
                             onClick={() => setSidebarOpen(false)}
-                            onKeyDown={(e) => handleMenuKeyDown(e)}
+                            onKeyDown={e => handleMenuKeyDown(e)}
                             className={`
                               submenu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150
                               ${
@@ -841,20 +798,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <div
             className={`flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg transition-all duration-150 ${sidebarCollapsed ? 'justify-center px-2' : ''}`}
             role="img"
-            aria-label={`User profile: ${user.displayName || 'Admin User'}, ${user.email}`}
+            aria-label={`User profile: ${mockUser.displayName || 'Admin User'}, ${mockUser.email}`}
           >
             <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-bold text-white">
-                {user.email?.charAt(0).toUpperCase()}
+                {mockUser.email?.charAt(0).toUpperCase()}
               </span>
             </div>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user.displayName || 'Admin User'}
+                  {mockUser.displayName || 'Admin User'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user.email}
+                  {mockUser.email}
                 </p>
               </div>
             )}
@@ -894,11 +851,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </div>
               <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
                 <div className="flex items-center justify-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+B</kbd>
+                  <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">
+                    Ctrl+B
+                  </kbd>
                   <span>Toggle sidebar</span>
                 </div>
                 <div className="flex items-center justify-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+/</kbd>
+                  <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">
+                    Ctrl+/
+                  </kbd>
                   <span>Search</span>
                 </div>
               </div>
@@ -918,17 +879,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <Home className="h-4 w-4" />
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-gray-900 dark:text-white font-medium">
-                Admin
-              </span>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-blue-600 dark:text-blue-400 font-medium">
-                {getCurrentPageTitle()}
-              </span>
-            </div>
+            <Breadcrumb />
 
             {/* Header Actions */}
             <div className="flex items-center gap-4">
@@ -941,7 +892,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 })}
               </div>
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-              <button 
+              <button
                 className="
                   p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 
                   relative rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 
@@ -952,7 +903,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 title="View notifications"
               >
                 <Bell className="h-5 w-5" />
-                <span 
+                <span
                   className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"
                   aria-hidden="true"
                 ></span>

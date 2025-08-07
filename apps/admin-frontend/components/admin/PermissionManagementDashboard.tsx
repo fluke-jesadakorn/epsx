@@ -55,10 +55,6 @@ export function PermissionManagementDashboard() {
     return 'CUSTOM';
   }, []);
 
-  useEffect(() => {
-    loadPermissions();
-  }, [loadPermissions]);
-
   const loadPermissions = useCallback(async () => {
     try {
       setLoading(true);
@@ -92,6 +88,10 @@ export function PermissionManagementDashboard() {
       setLoading(false);
     }
   }, [getCategoryFromPermission, getScopeFromPermission]);
+
+  useEffect(() => {
+    loadPermissions();
+  }, [loadPermissions]);
 
 
   const filteredPermissions = permissions.filter(permission => {

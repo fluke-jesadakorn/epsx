@@ -211,7 +211,16 @@ export class AdminService {
    */
   static async getCustomPermissions(): Promise<any[]> {
     try {
-      return await getUserPermissions();
+      const { serverGetCasbinPolicies } = await import('@epsx/api-client');
+      const response = await serverGetCasbinPolicies();
+      
+      if (response.error) {
+        console.error('Failed to fetch Casbin policies:', response.error);
+        return [];
+      }
+      
+      // response.data has structure: { policies: [], role_inheritances: [] }
+      return response.data?.policies || [];
     } catch (error) {
       console.error('Failed to fetch custom permissions', error);
       throw error;

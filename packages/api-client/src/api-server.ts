@@ -63,31 +63,33 @@ export async function serverGetVapidKey(): Promise<ApiResponse<{ vapidPublicKey:
 }
 
 export async function serverGetStockSymbols(): Promise<ApiResponse<unknown>> {
-  return serverRequest('/api/market-data/symbols');
+  // NOTE: Market data endpoints are temporarily disabled in backend during migration
+  console.warn('Market data symbols endpoint not available');
+  return { data: [] };
 }
 
 export async function serverGetIndividualStock(symbol: string): Promise<ApiResponse<unknown>> {
-  return serverRequest(
-    `/api/market-data/stocks/individual?symbol=${symbol}`
-  );
+  // NOTE: Market data endpoints are temporarily disabled in backend during migration  
+  console.warn('Individual stock endpoint not available');
+  return { data: null };
 }
 
 export async function serverBatchStocks(symbols: string[]): Promise<ApiResponse<unknown>> {
-  return serverRequest('/api/market-data/stocks/batch', 'POST', {
-    symbols,
-  });
+  // NOTE: Market data endpoints are temporarily disabled in backend during migration
+  console.warn('Batch stocks endpoint not available');
+  return { data: { data: {}, cached: [], fetched: [], errors: symbols, success: false } };
 }
 
 export async function serverGetPremiumRankings(): Promise<ApiResponse<unknown>> {
-  return serverRequest('/api/premium/rankings');
+  return serverRequest('/api/v1/premium/rankings');
 }
 
 export async function serverGetSystemCache(): Promise<ApiResponse<unknown>> {
-  return serverRequest('/api/system/cache');
+  return serverRequest('/api/v1/system/cache');
 }
 
 export async function serverGetCurrentUser(): Promise<ApiResponse<UserProfile>> {
-  return serverRequest('/auth/me');
+  return serverRequest('/api/v1/auth/profile');
 }
 
 export async function serverGetAuditLogs(endpoint: string): Promise<ApiResponse<unknown>> {
@@ -95,12 +97,12 @@ export async function serverGetAuditLogs(endpoint: string): Promise<ApiResponse<
 }
 
 export async function serverCreateMusePayPayment(data: unknown): Promise<ApiResponse<unknown>> {
-  return serverRequest('/payments/musepay/create', 'POST', data);
+  return serverRequest('/api/v1/payments/musepay/create', 'POST', data);
 }
 
 export async function serverCreateCryptoPayment(data: unknown): Promise<ApiResponse<unknown>> {
   return serverRequest(
-    '/api/payments/crypto/deposit-address',
+    '/api/v1/payments/crypto/deposit-address',
     'POST',
     data
   );
@@ -132,11 +134,11 @@ export async function serverListUsers(
     params.set('offset', options.pageToken || options.offset || '0');
   }
 
-  return serverRequest(`/api/admin/users?${params.toString()}`);
+  return serverRequest(`/api/v1/admin/users?${params.toString()}`);
 }
 
 export async function serverGetUser(uid: string): Promise<ApiResponse<AdminUser>> {
-  return serverRequest(`/api/admin/users/${uid}`);
+  return serverRequest(`/api/v1/admin/users/${uid}`);
 }
 
 export async function serverSetUserRole(
@@ -144,7 +146,7 @@ export async function serverSetUserRole(
   role: string,
   reason?: string
 ): Promise<ApiResponse<void>> {
-  return serverRequest(`/api/admin/users/${uid}`, 'PUT', {
+  return serverRequest(`/api/v1/admin/users/${uid}`, 'PUT', {
     role,
     reason: reason || 'Role updated via admin panel',
   });
@@ -152,7 +154,7 @@ export async function serverSetUserRole(
 
 export async function serverGetUserStats(): Promise<ApiResponse<unknown>> {
   return serverRequest(
-    '/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true'
+    '/api/v1/admin/analytics/user-statistics?include_roles=true&include_tiers=true'
   );
 }
 
@@ -163,7 +165,8 @@ export async function serverBulkUpdateUserRoles(
     reason?: string;
   }>
 ): Promise<ApiResponse<unknown>> {
-  return serverRequest('/api/admin/users/batch-update-roles', 'POST', {
+  // NOTE: Batch update roles endpoint may not exist - using individual user updates instead
+  return serverRequest('/api/v1/admin/users/bulk-update', 'POST', {
     updates: updates.map(update => ({
       user_id: update.uid,
       role: update.role,
@@ -177,12 +180,12 @@ export async function serverGetAdminUsers(
 ): Promise<ApiResponse<{ users: AdminUser[]; total?: number }>> {
   const queryString = searchParams?.toString() || '';
   return serverRequest(
-    `/api/admin/users${queryString ? `?${queryString}` : ''}`
+    `/api/v1/admin/users${queryString ? `?${queryString}` : ''}`
   );
 }
 
 export async function serverGetAdminUser(userId: string): Promise<ApiResponse<AdminUser>> {
-  return serverRequest(`/api/admin/users/${userId}`);
+  return serverRequest(`/api/v1/admin/users/${userId}`);
 }
 
 export async function serverGetAdminPermissionProfiles(searchParams?: URLSearchParams): Promise<
@@ -194,13 +197,13 @@ export async function serverGetAdminPermissionProfiles(searchParams?: URLSearchP
   }>
 > {
   const params = new URLSearchParams(searchParams);
-  return serverRequest(`/api/admin/permission-profiles?${params.toString()}`);
+  return serverRequest(`/api/v1/permission-profiles?${params.toString()}`);
 }
 
 export async function serverGetAdminPermissionProfile(
   profileId: string
 ): Promise<ApiResponse<PermissionProfile>> {
-  return serverRequest(`/api/admin/permission-profiles/${profileId}`);
+  return serverRequest(`/api/v1/permission-profiles/${profileId}`);
 }
 
 export async function serverAssignAdminPermissionProfile(request: {
@@ -208,7 +211,7 @@ export async function serverAssignAdminPermissionProfile(request: {
   user_id: string;
   expires_at?: string;
 }): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest('/api/admin/permission-profiles/assign', 'POST', request);
+  return serverRequest('/api/v1/admin/permission-profiles/assign', 'POST', request);
 }
 
 export async function serverGetStockRankingAssignments(
@@ -216,81 +219,84 @@ export async function serverGetStockRankingAssignments(
 ): Promise<
   ApiResponse<{ assignments: StockRankingAssignment[]; total?: number }>
 > {
-  const params = new URLSearchParams(searchParams);
-  return serverRequest(`/api/admin/stock-ranking/assignments?${params.toString()}`);
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking assignments endpoint not available - returning empty data');
+  return { data: { assignments: [], total: 0 } };
 }
 
 export async function serverGetStockRankingAssignment(
   assignmentId: string
 ): Promise<ApiResponse<StockRankingAssignment>> {
-  return serverRequest(`/api/admin/stock-ranking/assignments/${assignmentId}`);
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking assignment endpoint not available - returning null');
+  return { data: null as any };
 }
 
 export async function serverAssignBulkStockRanking(
   request: StockRankingAssignmentRequest
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest('/api/admin/stock-ranking/assign-bulk', 'POST', request);
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking bulk assignment endpoint not available');
+  return { error: 'Stock ranking functionality temporarily unavailable', details: 'Backend endpoint disabled during migration' };
 }
 
 export async function serverRevokeStockRankingAssignment(
   assignmentId: string
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest(
-    `/api/admin/stock-ranking/assignments/${assignmentId}/revoke`,
-    'POST'
-  );
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking revoke endpoint not available');
+  return { error: 'Stock ranking functionality temporarily unavailable', details: 'Backend endpoint disabled during migration' };
 }
 
 export async function serverExtendStockRankingAssignment(
   assignmentId: string,
   request: StockRankingAssignmentExtendRequest
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest(
-    `/api/admin/stock-ranking/assignments/${assignmentId}/extend`,
-    'POST',
-    request
-  );
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking extend endpoint not available');
+  return { error: 'Stock ranking functionality temporarily unavailable', details: 'Backend endpoint disabled during migration' };
 }
 
 export async function serverUpdateStockRankingAssignment(
   assignmentId: string,
   request: StockRankingAssignmentUpdateRequest
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest(
-    `/api/admin/stock-ranking/assignments/${assignmentId}`,
-    'PUT',
-    request
-  );
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking update endpoint not available');
+  return { error: 'Stock ranking functionality temporarily unavailable', details: 'Backend endpoint disabled during migration' };
 }
 
 export async function serverGetAnalyticsStatistics(): Promise<ApiResponse<AnalyticsStatistics>> {
-  return serverRequest('/api/admin/analytics/statistics');
+  return serverRequest('/api/v1/admin/analytics/statistics');
 }
 
 export async function serverGetStockRankingAnalytics(
   searchParams?: URLSearchParams
 ): Promise<ApiResponse<StockRankingAnalytics>> {
-  const params = new URLSearchParams(searchParams);
-  return serverRequest(
-    `/api/admin/stock-ranking/analytics?${params.toString()}`
-  );
+  // NOTE: Stock ranking endpoints are temporarily disabled in backend during Casbin migration
+  console.warn('Stock ranking analytics endpoint not available');
+  return { data: { total_assignments: 0, active_assignments: 0, expired_assignments: 0, assignments_over_time: [], tier_distribution: {}, assignment_status: {}, revenue_impact: { total_value: 0, currency: 'USD' } } as StockRankingAnalytics };
 }
 
 export async function serverGetAdminProfile(): Promise<ApiResponse<AdminProfile>> {
-  return serverRequest('/api/admin/auth/profile');
+  return serverRequest('/api/v1/admin/auth/profile');
 }
 
 export async function serverSoftDeleteUser(
   userId: string,
   request: UserSoftDeleteRequest
 ): Promise<ApiResponse<{ message: string }>> {
-  return serverRequest(`/api/admin/users/${userId}`, 'DELETE', request);
+  return serverRequest(`/api/v1/admin/users/${userId}`, 'DELETE', request);
 }
 
 export async function serverAssignPermissionProfile(
   request: PermissionProfileAssignmentRequest
 ): Promise<ApiResponse<AssignmentResult>> {
-  return serverRequest('/api/admin/permission-profiles/assign', 'POST', request);
+  return serverRequest('/api/v1/admin/permission-profiles/assign', 'POST', request);
+}
+
+export async function serverGetCasbinPolicies(): Promise<ApiResponse<any[]>> {
+  return serverRequest('/api/v1/admin/casbin/policies');
 }
 
 // Generic server request helper function
@@ -384,9 +390,9 @@ async function serverRequest<T>(
     }
 
     if (!response.ok) {
-      const errorResponse = {
-        error: (responseData as Record<string, unknown>)?.error || responseData || 'Request failed',
-        details: (responseData as Record<string, unknown>)?.details || `HTTP ${response.status}`,
+      const errorResponse: ApiResponse<T> = {
+        error: String((responseData as Record<string, unknown>)?.error || responseData || 'Request failed'),
+        details: String((responseData as Record<string, unknown>)?.details || `HTTP ${response.status}`),
       };
       
       console.error('❌ [serverRequest] Request failed:', {
@@ -407,7 +413,7 @@ async function serverRequest<T>(
       dataKeys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A',
     });
 
-    return { data: responseData as unknown };
+    return { data: responseData as T };
   } catch (error) {
     const errorDetails = error instanceof Error ? error.message : 'Unknown error';
     

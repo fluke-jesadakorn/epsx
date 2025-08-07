@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "concurrency": "100",
   "globalDependencies": [
     "**/.env*",
     "tsconfig.base.json",
@@ -16,10 +17,6 @@
     "FIREBASE_*"
   ],
   "tasks": {
-    "//#build": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "target/**", "build/**"],
@@ -38,7 +35,7 @@
       ]
     },
     "build:packages": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^build:types"],
       "outputs": ["dist/**"],
       "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.*"]
     },
@@ -99,7 +96,13 @@
     "dev:packages": {
       "cache": false,
       "persistent": true,
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "dependsOn": ["^build:types"]
+    },
+    "build:types": {
+      "dependsOn": [],
+      "outputs": ["dist/**"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.*"]
     },
     "dev:frontend": {
       "cache": false,

@@ -94,7 +94,8 @@ export const advancedAnalyticsMiddleware: StateMiddleware = (action, prevState, 
     }
 
     // Send to backend for user behavior analysis
-    fetch('/api/analytics/state-change', {
+    // NOTE: Analytics endpoints not yet implemented in backend
+    // fetch('/api/v1/analytics/state-change', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

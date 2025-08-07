@@ -1,5 +1,3 @@
-'use client';
-
 import { LucideIcon } from 'lucide-react';
 
 export interface StatsCardProps {
@@ -12,7 +10,7 @@ export interface StatsCardProps {
   textColor?: string;
   color?: string;
   className?: string;
-  onClick?: () => void;
+  change?: string; // Added for dashboard usage
 }
 
 export function StatsCard({
@@ -25,17 +23,15 @@ export function StatsCard({
   textColor,
   color,
   className = '',
-  onClick
+  change
 }: StatsCardProps) {
   const baseClasses = 'relative overflow-hidden transition-all duration-200';
-  const clickableClasses = onClick ? 'cursor-pointer hover:shadow-lg' : '';
 
   if (variant === 'enhanced') {
     // AdminDashboard style - elaborate with gradients and animations
     return (
       <div
-        className={`pancake-card pancake-card-hover p-6 ${baseClasses} group ${clickableClasses} ${className}`}
-        onClick={onClick}
+        className={`pancake-card pancake-card-hover p-6 ${baseClasses} group ${className}`}
       >
         <div className="absolute top-0 right-0 w-20 h-20 -mr-8 -mt-8 rounded-full bg-gradient-to-br from-white/5 to-white/10 group-hover:scale-110 transition-transform duration-500"></div>
         <div className="relative">
@@ -58,6 +54,11 @@ export function StatsCard({
                 {description}
               </p>
             )}
+            {change && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {change}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -68,8 +69,7 @@ export function StatsCard({
     // IAMDashboard style - simple with icon on the right
     return (
       <div
-        className={`pancake-card p-6 ${baseClasses} ${clickableClasses} ${className}`}
-        onClick={onClick}
+        className={`pancake-card p-6 ${baseClasses} ${className}`}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -91,8 +91,7 @@ export function StatsCard({
     // ModuleAnalyticsDashboard style - compact with inline icon
     return (
       <div
-        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${baseClasses} ${clickableClasses} ${className}`}
-        onClick={onClick}
+        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${baseClasses} ${className}`}
       >
         <div className="flex items-center">
           <Icon className={`w-5 h-5 text-${color || 'blue'}-600`} />
@@ -111,8 +110,7 @@ export function StatsCard({
   // Default variant - balanced design
   return (
     <div
-      className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm ${baseClasses} hover:shadow-md ${clickableClasses} ${className}`}
-      onClick={onClick}
+      className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm ${baseClasses} hover:shadow-md ${className}`}
     >
       <div className="flex items-center justify-between mb-3">
         <div className={`p-2 rounded-lg ${gradient ? `bg-gradient-to-r ${gradient}` : `bg-${color || 'blue'}-100`}`}>

@@ -124,7 +124,7 @@ export default function StockRankingPackageAssignment({
         reason: assignmentReason
       };
 
-      const response = await fetch('/api/admin/users/bulk/assign-modules', {
+      const response = await fetch('/api/v1/admin/users/bulk/assign-modules', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

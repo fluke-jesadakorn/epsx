@@ -229,7 +229,7 @@ export async function assignModulesToUser(request: {
 
     // Revalidate relevant pages
     revalidatePath('/admin/modules');
-    revalidatePath(`/admin/users/${request.user_id}`);
+    revalidatePath(`/users/${request.user_id}`);
 
     return {
       user_id: request.user_id,
@@ -255,7 +255,7 @@ export async function revokeModuleAccess(
     
     // Revalidate relevant pages
     revalidatePath('/admin/modules');
-    revalidatePath(`/admin/users/${userId}`);
+    revalidatePath(`/users/${userId}`);
 
     return {
       user_id: userId,

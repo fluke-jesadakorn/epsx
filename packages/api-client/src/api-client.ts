@@ -289,17 +289,25 @@ export class ApiClient {
     }>('/api/v1/auth/login', loginPayload);
 
     if (response.error) {
-      return response;
+      return { error: response.error, message: response.message } as ApiResponse<UserProfile>;
+    }
+
+    if (!response.data) {
+      return { error: 'Invalid response data' } as ApiResponse<UserProfile>;
     }
 
     // Store session_id for future requests (client-side only)
-    if (typeof window !== 'undefined' && response.data?.session?.session_id) {
+    if (typeof window !== 'undefined' && response.data.session?.session_id) {
       localStorage.setItem('session_id', response.data.session.session_id);
       localStorage.setItem('session_expires', response.data.session.expires_at);
     }
 
     // Return just the user profile for backward compatibility
-    return { data: response.data?.user };
+    return { 
+      data: response.data.user,
+      error: response.error,
+      message: response.message
+    };
   }
 
   async register(userData: RegisterRequest): Promise<
@@ -363,28 +371,24 @@ export class ApiClient {
     }>('/api/v1/auth/profile');
 
     if (response.error) {
-      return response;
+      return { error: response.error, message: response.message } as ApiResponse<UserProfile>;
     }
 
     // Transform backend response to frontend UserProfile format
     const backendData = response.data;
     if (!backendData) {
-      return { error: 'Invalid response data' };
+      return { error: 'Invalid response data' } as ApiResponse<UserProfile>;
     }
     
     const userProfile: UserProfile = {
-      id: backendData.user_id,
+      user_id: backendData.user_id,
       email: backendData.email,
-      name: backendData.display_name || backendData.email,
       role: backendData.roles?.[0] || 'user',
-      subscriptionTier: backendData.subscription_tier || 'free',
-      packageTier: backendData.package_tier || backendData.subscription_tier || 'free',
-      isActive: backendData.is_active ?? true,
-      emailVerified: backendData.email_verified ?? false,
       permissions: backendData.permissions || [],
-      createdAt: backendData.created_at,
-      updatedAt: backendData.updated_at,
-      photoUrl: backendData.photo_url
+      subscription_tier: backendData.subscription_tier || 'free',
+      package_tier: backendData.package_tier || backendData.subscription_tier || 'free',
+      expires_at: '', // Default empty - will be set from session
+      session_type: 'web' // Default session type
     };
 
     return { data: userProfile };
@@ -557,14 +561,14 @@ export class ApiClient {
       }
     });
 
-    return this.get(`/api/admin/permission-profiles?${params.toString()}`);
+    return this.get(`/api/v1/permission-profiles?${params.toString()}`);
   }
 
   async getPermissionProfile(
     permissionProfileId: string
   ): Promise<ApiResponse<PermissionProfile>> {
     return this.get<PermissionProfile>(
-      `/api/admin/permission-profiles/${permissionProfileId}`
+      `/api/v1/permission-profiles/${permissionProfileId}`
     );
   }
 
@@ -608,7 +612,7 @@ export class ApiClient {
     profileId: string,
     expiresAt?: string
   ): Promise<ApiResponse<void>> {
-    return this.post<void>(`/admin/users/${userId}/permission-profiles`, {
+    return this.post<void>(`/api/v1/admin/users/${userId}/permission-profiles`, {
       permission_profile_id: profileId,
       expires_at: expiresAt,
       assigned_by: 'admin',
@@ -621,19 +625,19 @@ export class ApiClient {
     profileId: string
   ): Promise<ApiResponse<void>> {
     return this.delete<void>(
-      `/admin/users/${userId}/permission-profiles/${profileId}`
+      `/api/v1/admin/users/${userId}/permission-profiles/${profileId}`
     );
   }
 
   async getRoles(): Promise<ApiResponse<Role[]>> {
-    return this.get<Role[]>('/roles');
+    return this.get<Role[]>('/api/v1/iam/roles');
   }
 
   async updateRolePermissions(
     roleId: string,
     permissionIds: string[]
   ): Promise<ApiResponse<void>> {
-    return this.put<void>(`/roles/${roleId}/permissions`, {
+    return this.put<void>(`/api/v1/iam/roles/${roleId}/permissions`, {
       permissions: permissionIds,
     });
   }
@@ -643,7 +647,7 @@ export class ApiClient {
     roleIds: string[],
     directPermissions: string[]
   ): Promise<ApiResponse<void>> {
-    return this.put<void>(`/users/${userId}/permissions`, {
+    return this.put<void>(`/api/v1/admin/users/${userId}/permissions`, {
       roles: roleIds,
       directPermissions,
     });

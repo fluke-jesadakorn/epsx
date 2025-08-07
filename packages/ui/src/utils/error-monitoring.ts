@@ -229,7 +229,7 @@ export class ErrorMonitor {
    * Create error monitoring hook for React components
    */
   createErrorHook() {
-    return (error: Error, errorInfo?: unknown) => {
+    return (error: Error, errorInfo?: { componentStack?: string }) => {
       this.reportError(error, {
         component: 'react_component',
         action: 'component_error',
@@ -414,7 +414,7 @@ export class ErrorMonitor {
       scope.setFingerprint([reportData.fingerprint || 'default']);
       
       // Set context data
-      scope.setContext('error_context', reportData.context);
+      scope.setContext('error_context', reportData.context as Record<string, unknown>);
       
       // Capture the error
       sentry.captureException(reportData.error as Error);
@@ -497,14 +497,20 @@ export function reportError(
 /**
  * React hook for error monitoring
  */
-export function useErrorMonitoring(config?: ErrorMonitoringConfig): { reportError: (error: Error, context?: Partial<ErrorContext>) => void; reportMessage: (message: string, level?: string, context?: Partial<ErrorContext>) => void; reportPerformanceIssue: (metric: string, value: number, context?: Partial<ErrorContext>) => void } {
+export function useErrorMonitoring(config?: ErrorMonitoringConfig): { 
+  reportError: (error: Error, context?: Partial<ErrorContext>) => void; 
+  reportPerformanceIssue: (metric: string, value: number, threshold: number, context?: Partial<ErrorContext>) => void;
+  setUser: (userId: string, data?: Record<string, unknown>) => void;
+  setContext: (key: string, data: unknown) => void;
+} {
   const monitor = getErrorMonitor(config);
   
   return {
-    reportError: (error: Error, context?: Partial<ErrorContext>) => 
-      monitor.reportError(error, context),
-    reportPerformanceIssue: (metric: string, value: number, threshold: number) =>
-      monitor.reportPerformanceIssue(metric, value, threshold),
+    reportError: (error: Error, context?: Partial<ErrorContext>) => {
+      monitor.reportError(error, context);
+    },
+    reportPerformanceIssue: (metric: string, value: number, threshold: number, context?: Partial<ErrorContext>) =>
+      monitor.reportPerformanceIssue(metric, value, threshold, context),
     setUser: (userId: string, data?: Record<string, unknown>) => 
       monitor.setUser(userId, data),
     setContext: (key: string, data: unknown) => 

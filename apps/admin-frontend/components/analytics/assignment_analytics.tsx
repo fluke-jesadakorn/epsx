@@ -1,13 +1,35 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, ScatterChart, Scatter } from 'recharts';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fmtDateTime } from '@epsx/shared-utils/formatting';
+import React, { useEffect, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 interface AssignmentRuleData {
   ruleId: string;
@@ -48,15 +70,26 @@ interface RulePerformanceData {
   userCount: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
+const COLORS = [
+  '#0088FE',
+  '#00C49F',
+  '#FFBB28',
+  '#FF8042',
+  '#8884D8',
+  '#82ca9d',
+];
 
 const AssignmentAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
-  const [assignmentRules, setAssignmentRules] = useState<AssignmentRuleData[]>([]);
+  const [assignmentRules, setAssignmentRules] = useState<AssignmentRuleData[]>(
+    []
+  );
   const [onboardingData, setOnboardingData] = useState<OnboardingData[]>([]);
   const [conflictData, setConflictData] = useState<ConflictData[]>([]);
-  const [rulePerformance, setRulePerformance] = useState<RulePerformanceData[]>([]);
+  const [rulePerformance, setRulePerformance] = useState<RulePerformanceData[]>(
+    []
+  );
 
   useEffect(() => {
     fetchAssignmentAnalytics();
@@ -66,7 +99,7 @@ const AssignmentAnalytics: React.FC = () => {
     setLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setAssignmentRules([
         {
           ruleId: 'rule_001',
@@ -79,12 +112,15 @@ const AssignmentAnalytics: React.FC = () => {
           avgEvaluationTime: 45,
           lastTriggered: '2025-07-25T10:15:00Z',
           isActive: true,
-          priority: 1
+          priority: 1,
         },
         {
           ruleId: 'rule_002',
           ruleName: 'Premium User Auto-Upgrade',
-          conditions: ['user.payment_verified == true', 'user.subscription_type == premium'],
+          conditions: [
+            'user.payment_verified == true',
+            'user.subscription_type == premium',
+          ],
           targetProfile: 'Gold Package',
           totalEvaluations: 450,
           successfulAssignments: 445,
@@ -92,7 +128,7 @@ const AssignmentAnalytics: React.FC = () => {
           avgEvaluationTime: 120,
           lastTriggered: '2025-07-25T09:30:00Z',
           isActive: true,
-          priority: 2
+          priority: 2,
         },
         {
           ruleId: 'rule_003',
@@ -105,12 +141,15 @@ const AssignmentAnalytics: React.FC = () => {
           avgEvaluationTime: 200,
           lastTriggered: '2025-07-25T08:45:00Z',
           isActive: true,
-          priority: 3
+          priority: 3,
         },
         {
           ruleId: 'rule_004',
           ruleName: 'Trial User Limited Access',
-          conditions: ['user.account_type == trial', 'user.trial_days_remaining > 0'],
+          conditions: [
+            'user.account_type == trial',
+            'user.trial_days_remaining > 0',
+          ],
           targetProfile: 'Trial Package',
           totalEvaluations: 1200,
           successfulAssignments: 980,
@@ -118,18 +157,67 @@ const AssignmentAnalytics: React.FC = () => {
           avgEvaluationTime: 35,
           lastTriggered: '2025-07-25T10:00:00Z',
           isActive: false,
-          priority: 4
-        }
+          priority: 4,
+        },
       ]);
 
       setOnboardingData([
-        { date: '2025-07-19', newUsers: 145, autoAssignments: 132, manualAssignments: 13, assignmentRate: 91.0, avgOnboardingTime: 4.2 },
-        { date: '2025-07-20', newUsers: 189, autoAssignments: 175, manualAssignments: 14, assignmentRate: 92.6, avgOnboardingTime: 3.8 },
-        { date: '2025-07-21', newUsers: 156, autoAssignments: 138, manualAssignments: 18, assignmentRate: 88.5, avgOnboardingTime: 5.1 },
-        { date: '2025-07-22', newUsers: 203, autoAssignments: 195, manualAssignments: 8, assignmentRate: 96.1, avgOnboardingTime: 3.5 },
-        { date: '2025-07-23', newUsers: 167, autoAssignments: 152, manualAssignments: 15, assignmentRate: 91.0, avgOnboardingTime: 4.0 },
-        { date: '2025-07-24', newUsers: 234, autoAssignments: 218, manualAssignments: 16, assignmentRate: 93.2, avgOnboardingTime: 3.7 },
-        { date: '2025-07-25', newUsers: 198, autoAssignments: 184, manualAssignments: 14, assignmentRate: 92.9, avgOnboardingTime: 3.9 }
+        {
+          date: '2025-07-19',
+          newUsers: 145,
+          autoAssignments: 132,
+          manualAssignments: 13,
+          assignmentRate: 91.0,
+          avgOnboardingTime: 4.2,
+        },
+        {
+          date: '2025-07-20',
+          newUsers: 189,
+          autoAssignments: 175,
+          manualAssignments: 14,
+          assignmentRate: 92.6,
+          avgOnboardingTime: 3.8,
+        },
+        {
+          date: '2025-07-21',
+          newUsers: 156,
+          autoAssignments: 138,
+          manualAssignments: 18,
+          assignmentRate: 88.5,
+          avgOnboardingTime: 5.1,
+        },
+        {
+          date: '2025-07-22',
+          newUsers: 203,
+          autoAssignments: 195,
+          manualAssignments: 8,
+          assignmentRate: 96.1,
+          avgOnboardingTime: 3.5,
+        },
+        {
+          date: '2025-07-23',
+          newUsers: 167,
+          autoAssignments: 152,
+          manualAssignments: 15,
+          assignmentRate: 91.0,
+          avgOnboardingTime: 4.0,
+        },
+        {
+          date: '2025-07-24',
+          newUsers: 234,
+          autoAssignments: 218,
+          manualAssignments: 16,
+          assignmentRate: 93.2,
+          avgOnboardingTime: 3.7,
+        },
+        {
+          date: '2025-07-25',
+          newUsers: 198,
+          autoAssignments: 184,
+          manualAssignments: 14,
+          assignmentRate: 92.9,
+          avgOnboardingTime: 3.9,
+        },
       ]);
 
       setConflictData([
@@ -138,38 +226,61 @@ const AssignmentAnalytics: React.FC = () => {
           occurrences: 23,
           resolutionStrategy: 'Most Permissive',
           avgResolutionTime: 150,
-          severity: 'medium'
+          severity: 'medium',
         },
         {
           conflictType: 'Condition Overlap',
           occurrences: 15,
           resolutionStrategy: 'Priority Based',
           avgResolutionTime: 95,
-          severity: 'low'
+          severity: 'low',
         },
         {
           conflictType: 'Permission Escalation',
           occurrences: 8,
           resolutionStrategy: 'Manual Review',
           avgResolutionTime: 1200,
-          severity: 'high'
+          severity: 'high',
         },
         {
           conflictType: 'Circular Dependency',
           occurrences: 3,
           resolutionStrategy: 'Dependency Break',
           avgResolutionTime: 450,
-          severity: 'high'
-        }
+          severity: 'high',
+        },
       ]);
 
       setRulePerformance([
-        { ruleId: 'rule_001', ruleName: 'New User Bronze', evaluationTime: 45, successRate: 92.1, userCount: 2156 },
-        { ruleId: 'rule_002', ruleName: 'Premium Upgrade', evaluationTime: 120, successRate: 98.9, userCount: 445 },
-        { ruleId: 'rule_003', ruleName: 'Admin Assignment', evaluationTime: 200, successRate: 97.8, userCount: 87 },
-        { ruleId: 'rule_004', ruleName: 'Trial Limited', evaluationTime: 35, successRate: 81.7, userCount: 980 }
+        {
+          ruleId: 'rule_001',
+          ruleName: 'New User Bronze',
+          evaluationTime: 45,
+          successRate: 92.1,
+          userCount: 2156,
+        },
+        {
+          ruleId: 'rule_002',
+          ruleName: 'Premium Upgrade',
+          evaluationTime: 120,
+          successRate: 98.9,
+          userCount: 445,
+        },
+        {
+          ruleId: 'rule_003',
+          ruleName: 'Admin Assignment',
+          evaluationTime: 200,
+          successRate: 97.8,
+          userCount: 87,
+        },
+        {
+          ruleId: 'rule_004',
+          ruleName: 'Trial Limited',
+          evaluationTime: 35,
+          successRate: 81.7,
+          userCount: 980,
+        },
       ]);
-
     } catch (error) {
       console.error('Failed to fetch assignment analytics:', error);
     } finally {
@@ -179,26 +290,35 @@ const AssignmentAnalytics: React.FC = () => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-
   const calculateOverallSuccessRate = () => {
-    const totalEvaluations = assignmentRules.reduce((sum, rule) => sum + rule.totalEvaluations, 0);
-    const totalSuccessful = assignmentRules.reduce((sum, rule) => sum + rule.successfulAssignments, 0);
-    return totalEvaluations > 0 ? (totalSuccessful / totalEvaluations * 100).toFixed(1) : '0';
+    const totalEvaluations = assignmentRules.reduce(
+      (sum, rule) => sum + rule.totalEvaluations,
+      0
+    );
+    const totalSuccessful = assignmentRules.reduce(
+      (sum, rule) => sum + rule.successfulAssignments,
+      0
+    );
+    return totalEvaluations > 0
+      ? ((totalSuccessful / totalEvaluations) * 100).toFixed(1)
+      : '0';
   };
 
   const toggleRuleStatus = async (ruleId: string) => {
-    setAssignmentRules(prev => 
-      prev.map(rule => 
-        rule.ruleId === ruleId 
-          ? { ...rule, isActive: !rule.isActive }
-          : rule
+    setAssignmentRules(prev =>
+      prev.map(rule =>
+        rule.ruleId === ruleId ? { ...rule, isActive: !rule.isActive } : rule
       )
     );
   };
@@ -217,10 +337,12 @@ const AssignmentAnalytics: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Assignment Analytics</h1>
-          <p className="text-gray-600">Auto-assignment rule performance and user onboarding insights</p>
+          <p className="text-gray-600">
+            Auto-assignment rule performance and user onboarding insights
+          </p>
         </div>
         <div className="flex gap-2">
-          {['24h', '7d', '30d', '90d'].map((range) => (
+          {['24h', '7d', '30d', '90d'].map(range => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
@@ -257,18 +379,24 @@ const AssignmentAnalytics: React.FC = () => {
             <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{calculateOverallSuccessRate()}%</div>
+            <div className="text-2xl font-bold">
+              {calculateOverallSuccessRate()}%
+            </div>
             <p className="text-xs text-gray-600">Overall assignment success</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Auto-Assignments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Auto-Assignments
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {onboardingData.reduce((sum, item) => sum + item.autoAssignments, 0).toLocaleString()}
+              {onboardingData
+                .reduce((sum, item) => sum + item.autoAssignments, 0)
+                .toLocaleString()}
             </div>
             <p className="text-xs text-gray-600">Last 7 days</p>
           </CardContent>
@@ -283,7 +411,10 @@ const AssignmentAnalytics: React.FC = () => {
               {conflictData.reduce((sum, item) => sum + item.occurrences, 0)}
             </div>
             <p className="text-xs text-gray-600">
-              {conflictData.filter(c => c.severity === 'high').reduce((sum, item) => sum + item.occurrences, 0)} high priority
+              {conflictData
+                .filter(c => c.severity === 'high')
+                .reduce((sum, item) => sum + item.occurrences, 0)}{' '}
+              high priority
             </p>
           </CardContent>
         </Card>
@@ -301,7 +432,9 @@ const AssignmentAnalytics: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Assignment Rules Management</CardTitle>
-              <CardDescription>Auto-assignment rule performance and management</CardDescription>
+              <CardDescription>
+                Auto-assignment rule performance and management
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -326,7 +459,10 @@ const AssignmentAnalytics: React.FC = () => {
                             <div className="font-medium">{rule.ruleName}</div>
                             <div className="text-sm text-gray-600 space-y-1">
                               {rule.conditions.map((condition, i) => (
-                                <div key={i} className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                                <div
+                                  key={i}
+                                  className="font-mono text-xs bg-gray-100 px-2 py-1 rounded"
+                                >
                                   {condition}
                                 </div>
                               ))}
@@ -338,13 +474,21 @@ const AssignmentAnalytics: React.FC = () => {
                         </td>
                         <td className="p-3">
                           <div>
-                            <div className="font-medium">{rule.totalEvaluations.toLocaleString()}</div>
-                            <div className="text-sm text-green-600">{rule.successfulAssignments.toLocaleString()} successful</div>
+                            <div className="font-medium">
+                              {rule.totalEvaluations.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-green-600">
+                              {rule.successfulAssignments.toLocaleString()}{' '}
+                              successful
+                            </div>
                           </div>
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <Progress value={rule.successRate} className="w-16" />
+                            <Progress
+                              value={rule.successRate}
+                              className="w-16"
+                            />
                             <span className="text-sm">{rule.successRate}%</span>
                           </div>
                         </td>
@@ -353,7 +497,13 @@ const AssignmentAnalytics: React.FC = () => {
                           {fmtDateTime(rule.lastTriggered)}
                         </td>
                         <td className="p-3">
-                          <Badge className={rule.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                          <Badge
+                            className={
+                              rule.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }
+                          >
                             {rule.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                         </td>
@@ -384,7 +534,12 @@ const AssignmentAnalytics: React.FC = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={assignmentRules}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="ruleName" angle={-45} textAnchor="end" height={80} />
+                    <XAxis
+                      dataKey="ruleName"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="successRate" fill="#8884d8" />
@@ -409,10 +564,15 @@ const AssignmentAnalytics: React.FC = () => {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="totalEvaluations"
-                      label={({ ruleName, percent }) => `${ruleName.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+                      label={({ ruleName, percent }) =>
+                        `${ruleName.split(' ')[0]} ${(percent * 100).toFixed(0)}%`
+                      }
                     >
                       {assignmentRules.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -428,7 +588,9 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>User Onboarding Trends</CardTitle>
-                <CardDescription>New user registration and assignment patterns</CardDescription>
+                <CardDescription>
+                  New user registration and assignment patterns
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -438,9 +600,24 @@ const AssignmentAnalytics: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="newUsers" stroke="#8884d8" name="New Users" />
-                    <Line type="monotone" dataKey="autoAssignments" stroke="#82ca9d" name="Auto Assignments" />
-                    <Line type="monotone" dataKey="manualAssignments" stroke="#ffc658" name="Manual Assignments" />
+                    <Line
+                      type="monotone"
+                      dataKey="newUsers"
+                      stroke="#8884d8"
+                      name="New Users"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="autoAssignments"
+                      stroke="#82ca9d"
+                      name="Auto Assignments"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="manualAssignments"
+                      stroke="#ffc658"
+                      name="Manual Assignments"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -449,7 +626,9 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Assignment Rate Trends</CardTitle>
-                <CardDescription>Percentage of successful auto-assignments</CardDescription>
+                <CardDescription>
+                  Percentage of successful auto-assignments
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -458,7 +637,12 @@ const AssignmentAnalytics: React.FC = () => {
                     <XAxis dataKey="date" />
                     <YAxis domain={[75, 100]} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="assignmentRate" stroke="#ff7300" name="Assignment Rate %" />
+                    <Line
+                      type="monotone"
+                      dataKey="assignmentRate"
+                      stroke="#ff7300"
+                      name="Assignment Rate %"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -468,7 +652,9 @@ const AssignmentAnalytics: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Onboarding Performance Details</CardTitle>
-              <CardDescription>Daily breakdown of user onboarding metrics</CardDescription>
+              <CardDescription>
+                Daily breakdown of user onboarding metrics
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -488,12 +674,21 @@ const AssignmentAnalytics: React.FC = () => {
                       <tr key={index} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-medium">{day.date}</td>
                         <td className="p-3">{day.newUsers}</td>
-                        <td className="p-3 text-green-600">{day.autoAssignments}</td>
-                        <td className="p-3 text-yellow-600">{day.manualAssignments}</td>
+                        <td className="p-3 text-green-600">
+                          {day.autoAssignments}
+                        </td>
+                        <td className="p-3 text-yellow-600">
+                          {day.manualAssignments}
+                        </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <Progress value={day.assignmentRate} className="w-16" />
-                            <span className="text-sm">{day.assignmentRate}%</span>
+                            <Progress
+                              value={day.assignmentRate}
+                              className="w-16"
+                            />
+                            <span className="text-sm">
+                              {day.assignmentRate}%
+                            </span>
                           </div>
                         </td>
                         <td className="p-3">{day.avgOnboardingTime} min</td>
@@ -511,7 +706,9 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Conflict Types</CardTitle>
-                <CardDescription>Distribution of assignment conflicts</CardDescription>
+                <CardDescription>
+                  Distribution of assignment conflicts
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -524,10 +721,15 @@ const AssignmentAnalytics: React.FC = () => {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="occurrences"
-                      label={({ conflictType, percent }) => `${conflictType} ${(percent * 100).toFixed(0)}%`}
+                      label={({ conflictType, percent }) =>
+                        `${conflictType} ${(percent * 100).toFixed(0)}%`
+                      }
                     >
                       {conflictData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -539,13 +741,20 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Resolution Times</CardTitle>
-                <CardDescription>Average time to resolve conflicts</CardDescription>
+                <CardDescription>
+                  Average time to resolve conflicts
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={conflictData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="conflictType" angle={-45} textAnchor="end" height={80} />
+                    <XAxis
+                      dataKey="conflictType"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="avgResolutionTime" fill="#ff7300" />
@@ -558,7 +767,9 @@ const AssignmentAnalytics: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Conflict Analysis Details</CardTitle>
-              <CardDescription>Detailed breakdown of assignment conflicts and resolutions</CardDescription>
+              <CardDescription>
+                Detailed breakdown of assignment conflicts and resolutions
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -575,12 +786,16 @@ const AssignmentAnalytics: React.FC = () => {
                   <tbody>
                     {conflictData.map((conflict, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{conflict.conflictType}</td>
+                        <td className="p-3 font-medium">
+                          {conflict.conflictType}
+                        </td>
                         <td className="p-3">{conflict.occurrences}</td>
                         <td className="p-3">{conflict.resolutionStrategy}</td>
                         <td className="p-3">{conflict.avgResolutionTime}ms</td>
                         <td className="p-3">
-                          <Badge className={getSeverityColor(conflict.severity)}>
+                          <Badge
+                            className={getSeverityColor(conflict.severity)}
+                          >
                             {conflict.severity}
                           </Badge>
                         </td>
@@ -598,13 +813,18 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Rule Performance Matrix</CardTitle>
-                <CardDescription>Success rate vs evaluation time</CardDescription>
+                <CardDescription>
+                  Success rate vs evaluation time
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <ScatterChart data={rulePerformance}>
                     <CartesianGrid />
-                    <XAxis dataKey="evaluationTime" name="Evaluation Time (ms)" />
+                    <XAxis
+                      dataKey="evaluationTime"
+                      name="Evaluation Time (ms)"
+                    />
                     <YAxis dataKey="successRate" name="Success Rate %" />
                     <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                     <Scatter dataKey="successRate" fill="#8884d8" />
@@ -616,13 +836,20 @@ const AssignmentAnalytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>User Impact</CardTitle>
-                <CardDescription>Number of users affected by each rule</CardDescription>
+                <CardDescription>
+                  Number of users affected by each rule
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={rulePerformance}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="ruleName" angle={-45} textAnchor="end" height={80} />
+                    <XAxis
+                      dataKey="ruleName"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="userCount" fill="#82ca9d" />
@@ -635,25 +862,34 @@ const AssignmentAnalytics: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Performance Optimization Recommendations</CardTitle>
-              <CardDescription>Suggestions for improving assignment rule performance</CardDescription>
+              <CardDescription>
+                Suggestions for improving assignment rule performance
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <h4 className="font-medium text-green-800">High Performance</h4>
                 <p className="text-sm text-green-700">
-                  Premium User Auto-Upgrade rule shows excellent 98.9% success rate. Consider using this as a template for other rules.
+                  Premium User Auto-Upgrade rule shows excellent 98.9% success
+                  rate. Consider using this as a template for other rules.
                 </p>
               </div>
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="font-medium text-yellow-800">Optimization Needed</h4>
+                <h4 className="font-medium text-yellow-800">
+                  Optimization Needed
+                </h4>
                 <p className="text-sm text-yellow-700">
-                  Trial User Limited Access rule has 81.7% success rate. Review conditions for potential improvements.
+                  Trial User Limited Access rule has 81.7% success rate. Review
+                  conditions for potential improvements.
                 </p>
               </div>
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-800">Performance Insight</h4>
+                <h4 className="font-medium text-blue-800">
+                  Performance Insight
+                </h4>
                 <p className="text-sm text-blue-700">
-                  Average evaluation time: 100ms. Consider optimizing rules with {'>'}150ms evaluation time.
+                  Average evaluation time: 100ms. Consider optimizing rules with{' '}
+                  {'>'}150ms evaluation time.
                 </p>
               </div>
             </CardContent>

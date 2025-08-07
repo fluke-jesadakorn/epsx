@@ -4,7 +4,7 @@ export class UserManagement {
   constructor(private page: Page) {}
 
   async goto() {
-    await this.page.goto('/admin/users');
+    await this.page.goto('/users');
     await this.verifyPageLoaded();
   }
 

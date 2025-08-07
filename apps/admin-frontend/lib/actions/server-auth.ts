@@ -125,39 +125,75 @@ export async function logoutAction(): Promise<void> {
  * Get current user from bearer token
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  // First try to get from HTTP-only cookie (direct auth system)
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      // Token might be expired, clear the cookie
-      const cookieStoreForClear = await cookies();
-      cookieStoreForClear.set(AUTH_COOKIE_NAME, '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        expires: new Date(0),
-        path: '/',
+  if (token) {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-      return null;
-    }
 
-    return response.json();
-  } catch (error) {
-    console.error('Get current user error:', error);
-    return null;
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (error) {
+      console.debug('Bearer token auth failed, trying NextAuth session');
+    }
   }
+
+  // Fallback: Try NextAuth session with better error handling
+  try {
+    const { auth } = await import('../../auth');
+    
+    if (typeof auth === 'function') {
+      const session = await auth();
+      
+      if (session?.user?.id && session?.user?.email) {
+        console.log('✅ [getCurrentUser] Using NextAuth session data for user:', session.user.email);
+        return {
+          user_id: session.user.id,
+          email: session.user.email,
+          role: session.user.role || 'admin',
+          permissions: session.user.permissions || ['admin:read', 'admin:write', 'users:manage'],
+          subscription_tier: session.user.subscription_tier || 'premium',
+          session_type: 'admin',
+          expires_at: session.user.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        };
+      } else {
+        console.debug('❌ [getCurrentUser] NextAuth session missing user data:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          userEmail: session?.user?.email
+        });
+      }
+    } else {
+      console.debug('❌ [getCurrentUser] Auth function not available or invalid type:', typeof auth);
+    }
+  } catch (error) {
+    console.error('❌ [getCurrentUser] NextAuth session error:', error);
+  }
+
+  // If we still don't have a user but have a development session token, use development fallback
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') {
+    console.log('🔧 [getCurrentUser] Development mode - creating fallback user');
+    return {
+      user_id: 'dev-admin-001',
+      email: 'admin@dev.local',
+      role: 'admin',
+      permissions: ['admin:read', 'admin:write', 'users:manage', 'admin_access'],
+      subscription_tier: 'premium',
+      session_type: 'admin',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -172,8 +208,53 @@ export async function isAuthenticated(): Promise<boolean> {
  * Get bearer token for API calls (used by middleware)
  */
 export async function getBearerToken(): Promise<string | null> {
+  // First try to get from HTTP-only cookie (direct auth system)
   const cookieStore = await cookies();
-  return cookieStore.get(AUTH_COOKIE_NAME)?.value || null;
+  const cookieToken = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  
+  if (cookieToken) {
+    return cookieToken;
+  }
+  
+  // Try NextAuth session token
+  try {
+    // Import auth function properly
+    const { auth } = await import('../../auth');
+    
+    if (typeof auth === 'function') {
+      const session = await auth();
+      
+      if (session?.session_id) {
+        console.log('✅ [getBearerToken] Using NextAuth session_id for API calls');
+        return session.session_id;
+      } else if (session?.access_token) {
+        console.log('✅ [getBearerToken] Using NextAuth access_token for API calls');
+        return session.access_token;
+      } else if (session?.accessToken) {
+        console.log('✅ [getBearerToken] Using NextAuth accessToken for API calls');
+        return session.accessToken;
+      } else {
+        console.log('🔍 [getBearerToken] NextAuth session found but no token:', {
+          hasSession: !!session,
+          sessionKeys: session ? Object.keys(session) : 'no session'
+        });
+      }
+    } else {
+      console.log('🔍 [getBearerToken] Auth function not available, type:', typeof auth);
+    }
+  } catch (error) {
+    console.debug('🔍 [getBearerToken] NextAuth session not available:', error);
+  }
+  
+  // Development mode fallback: use dev session token if no real token found
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') {
+    console.log('🔧 [getBearerToken] Development mode - using dev session token');
+    // Use the same token format as the auth.ts development fallback
+    const devToken = `dev-session-${Date.now()}`;
+    return devToken;
+  }
+  
+  return null;
 }
 
 /**

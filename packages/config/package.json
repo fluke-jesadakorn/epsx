@@ -16,7 +16,9 @@
     "./tailwind": "./dist/tailwind/index.js"
   },
   "scripts": {
-    "build": "tsc && node scripts/build-eslint.cjs"
+    "build": "tsc && node scripts/build-eslint.cjs",
+    "dev": "tsc --watch",
+    "dev:packages": "tsc --watch"
   },
   "dependencies": {
     "@typescript-eslint/eslint-plugin": "8.35.0",

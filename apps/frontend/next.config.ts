@@ -127,46 +127,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Bundle analysis for performance monitoring
-  webpack: (config, { isServer, dev }) => {
-    if (!isServer) {
-      config.resolve.fallback = { fs: false };
-    }
-    
-    // Enhanced code splitting for production
-    if (!dev && !isServer) {
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          cacheGroups: {
-            framework: {
-              chunks: 'all',
-              name: 'framework',
-              test: /(?<!node_modules.*)[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
-              priority: 40,
-              enforce: true,
-            },
-            ui: {
-              chunks: 'all',
-              name: 'ui',
-              test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
-              priority: 30,
-              enforce: true,
-            },
-            vendor: {
-              chunks: 'all',
-              name: 'vendor',
-              test: /[\\/]node_modules[\\/]/,
-              priority: 20,
-              enforce: true,
-            },
-          },
-        },
-      };
-    }
-    
-    return config;
+  
+  // Turbopack configuration for development
+  turbopack: {
+    // Turbopack handles code splitting automatically
+    // No manual configuration needed for basic use cases
   },
 };
 

@@ -88,22 +88,45 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         redirect: false,
       });
 
+      if (!result) {
+        throw new Error('Authentication failed - no response from server');
+      }
+
       if (result?.error) {
-        throw new Error(result.error);
+        // Enhanced error handling with specific error messages
+        let errorMessage = 'Login failed';
+        switch (result.error) {
+          case 'CredentialsSignin':
+            errorMessage = 'Invalid email or password';
+            break;
+          case 'AccessDenied':
+            errorMessage = 'Access denied. Admin privileges required.';
+            break;
+          case 'Configuration':
+            errorMessage = 'Authentication system error. Please try again.';
+            break;
+          default:
+            errorMessage = result.error || 'Unknown authentication error';
+        }
+        throw new Error(errorMessage);
       }
 
       if (result?.ok) {
         // NextAuth will handle the session update
         router.push('/');
+      } else if (!result?.error) {
+        // Handle case where signIn callback returns false (non-admin user)
+        throw new Error('Access denied. Admin privileges required.');
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during login';
       setState(prev => ({ 
         ...prev, 
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: errorMessage,
         loading: false,
         navigating: false
       }));
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 

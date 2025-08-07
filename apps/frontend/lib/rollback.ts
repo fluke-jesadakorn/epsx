@@ -164,7 +164,7 @@ class RollbackService {
   private async clearCaches(): Promise<void> {
     try {
       // Clear server-side caches
-      await fetch('/api/cache/clear', { 
+      await fetch('/api/v1/system/cache', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -186,7 +186,9 @@ class RollbackService {
 
     // Send to monitoring endpoint
     try {
-      await fetch('/api/monitoring/alerts', {
+      // NOTE: Monitoring endpoints not yet implemented in backend
+      console.warn('Monitoring alerts endpoint not available');
+      // await fetch('/api/v1/monitoring/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
@@ -210,7 +212,9 @@ class RollbackService {
     };
 
     try {
-      await fetch('/api/monitoring/events', {
+      // NOTE: Monitoring endpoints not yet implemented in backend
+      console.warn('Monitoring events endpoint not available');
+      // await fetch('/api/v1/monitoring/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(event),
@@ -230,7 +234,9 @@ class RollbackService {
     };
 
     try {
-      await fetch('/api/monitoring/alerts', {
+      // NOTE: Monitoring endpoints not yet implemented in backend
+      console.warn('Monitoring alerts endpoint not available');
+      // await fetch('/api/v1/monitoring/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(alert),

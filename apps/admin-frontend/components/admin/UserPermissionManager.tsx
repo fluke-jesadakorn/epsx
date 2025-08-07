@@ -254,7 +254,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
   if (loading)
     return (
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
         onClick={e => e.target === e.currentTarget && onClose()}
         role="dialog"
         aria-modal="true"
@@ -275,7 +275,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
   if (!user)
     return (
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
         onClick={e => e.target === e.currentTarget && onClose()}
         role="dialog"
         aria-modal="true"
@@ -301,7 +301,7 @@ export const UserPermissionManager: React.FC<UserPermissionManagerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"

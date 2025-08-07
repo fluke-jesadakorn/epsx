@@ -43,6 +43,7 @@ const authOptions: AuthOptions = {
               role: data.role,
               permissions: data.permissions,
               subscription_tier: data.subscription_tier,
+              session_id: data.session_id || data.user_id, // Use session_id or fallback to user_id
               token: data.access_token,
               expires_at: data.expires_at,
             };
@@ -64,6 +65,7 @@ const authOptions: AuthOptions = {
         token.role = user.role;
         token.permissions = user.permissions;
         token.subscription_tier = user.subscription_tier;
+        token.session_id = user.session_id;
         token.accessToken = user.token;
         token.expires_at = user.expires_at;
       }
@@ -76,6 +78,7 @@ const authOptions: AuthOptions = {
         session.user.role = token.role as string;
         session.user.permissions = token.permissions as string[];
         session.user.subscription_tier = token.subscription_tier as string;
+        session.session_id = token.session_id as string;
         session.accessToken = token.accessToken as string;
         session.expires_at = token.expires_at as string;
       }

@@ -40,7 +40,13 @@ export async function makeServerRequest<T = any>(
             
             if (token?.accessToken) {
               authToken = token.accessToken as string;
-              console.log('🔑 Using NextAuth access token from JWT for backend request');
+              console.log('🔑 Using NextAuth accessToken from JWT for backend request');
+            } else if (token?.access_token) {
+              authToken = token.access_token as string;
+              console.log('🔑 Using NextAuth access_token from JWT for backend request');
+            } else if (token?.session_id) {
+              authToken = token.session_id as string;
+              console.log('🔑 Using NextAuth session_id as token for backend request');
             } else if (token?.sub) {
               // Fallback to user ID if no access token
               authToken = token.sub;

@@ -7,7 +7,7 @@ export default defineConfig({
     dom: 'src/dom/index.ts',
     validation: 'src/validation/index.ts',
   },
-  format: ['cjs', 'esm'],
+  format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,
   clean: true,
@@ -15,4 +15,6 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   external: ['react'],
+  target: 'es2022',
+  platform: 'neutral',
 });

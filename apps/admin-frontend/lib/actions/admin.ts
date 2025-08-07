@@ -4,14 +4,67 @@ import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateReques
 import { createApiClient, isApiError } from '@epsx/api-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
+import { auth } from '../../auth';
 
 // Get backend URL server-side only
-const getApiClient = () => {
+const getApiClient = async () => {
   if (!config.isServer()) {
     throw new Error('API client can only be created on server-side');
   }
-  return createApiClient(); // Will use backend URL from environment
+  
+  // Get NextAuth session for authenticated API calls
+  const session = await auth();
+  const headers: Record<string, string> = {};
+  
+  if (session?.session_id) {
+    headers['Authorization'] = `Bearer ${session.session_id}`;
+    console.log('✅ [AdminActions] Adding NextAuth session token to API client');
+  } else {
+    console.warn('⚠️ [AdminActions] No NextAuth session found for API client');
+  }
+  
+  return createApiClient({ 
+    baseURL: process.env.BACKEND_URL || 'http://localhost:8080',
+    headers 
+  });
 };
+
+// Server action to get users with proper authentication
+export async function getUsersAction(): Promise<ActionResult<any[]>> {
+  try {
+    const session = await auth();
+    if (!session) {
+      return { success: false, error: 'No authentication session found' };
+    }
+
+    console.log('🔐 [AdminActions] Getting users with session:', {
+      hasSession: !!session,
+      hasSessionId: !!session.session_id,
+      userEmail: session.user?.email
+    });
+
+    const apiClient = await getApiClient();
+    const response = await apiClient.get('/api/v1/admin/users');
+
+    if (isApiError(response)) {
+      console.error('Failed to fetch users', { error: response.error, details: response.details });
+      return { 
+        success: false, 
+        error: response.error || 'Failed to fetch users'
+      };
+    }
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Users fetch error', { 
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { 
+      success: false, 
+      error: 'Failed to fetch users' 
+    };
+  }
+}
 
 // Permission Profile Actions
 export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
@@ -21,7 +74,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
 
   try {
 
-    const response = await getApiClient().assignAdminPermissionProfile({
+    const response = await (await getApiClient()).assignAdminPermissionProfile({
       profile_id: profileId,
       user_id: userId,
       expires_at: expiresAt || undefined,
@@ -38,7 +91,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     
     // Revalidate related pages
     revalidatePath('/admin/permission-profiles');
-    revalidatePath('/admin/users');
+    revalidatePath('/users');
     
     return { success: true, data: response.data };
   } catch (error) {
@@ -79,7 +132,7 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
     
     // Revalidate related pages
     revalidatePath('/admin/stock-ranking');
-    revalidatePath('/admin/users');
+    revalidatePath('/users');
     
     return { success: true, data: response.data };
   } catch (error) {
@@ -218,7 +271,7 @@ export async function softDeleteUserAction(formData: FormData): Promise<ActionRe
 
     
     // Revalidate related pages
-    revalidatePath('/admin/users');
+    revalidatePath('/users');
     
     return { success: true, data: response.data };
   } catch (error) {

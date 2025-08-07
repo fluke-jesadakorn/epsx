@@ -1,7 +1,17 @@
 'use server';
 
-// Re-export all server actions from the shared package
-export * from '@epsx/server-actions';
+// Import and re-export server actions from the shared package
+import { 
+  createUser as _createUser,
+  updateUser as _updateUser,
+  deleteUser as _deleteUser
+} from '@epsx/server-actions';
+
+export { 
+  _createUser as createUser,
+  _updateUser as updateUser,
+  _deleteUser as deleteUser
+};
 
 import type { TokenFeature } from '@/types/auth/features';
 import { Permission } from '@/types/auth/features';

@@ -10,7 +10,8 @@ declare module 'next-auth' {
       permissions: string[];
       subscription_tier: string;
     } & DefaultSession['user'];
-    accessToken: string;
+    session_id: string;
+    accessToken?: string;
     expires_at: string;
   }
 
@@ -18,7 +19,8 @@ declare module 'next-auth' {
     role: string;
     permissions: string[];
     subscription_tier: string;
-    token: string;
+    session_id: string;
+    token?: string;
     expires_at: string;
   }
 }
@@ -29,7 +31,8 @@ declare module 'next-auth/jwt' {
     role: string;
     permissions: string[];
     subscription_tier: string;
-    accessToken: string;
+    session_id: string;
+    accessToken?: string;
     expires_at: string;
   }
 }

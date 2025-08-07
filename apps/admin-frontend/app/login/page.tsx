@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       setIsSubmitting(true);
       await signIn(email, password);
-      router.replace('/admin');
+      router.replace('/');
     } catch (error) {
       console.error('Login failed:', error);
       // Error is handled by the context

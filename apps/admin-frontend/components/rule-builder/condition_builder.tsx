@@ -592,7 +592,11 @@ const ConditionBuilder: React.FC = () => {
 
             {node.children && node.children.length > 0 ? (
               <div className="space-y-3">
-                {node.children.map((child, index) => renderConditionNode(child, depth + 1, index))}
+                {node.children.map((child, index) => (
+                  <div key={child.id || index}>
+                    {renderConditionNode(child, depth + 1, index)}
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-4 text-gray-500 bg-gray-50 rounded border-2 border-dashed">

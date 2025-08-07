@@ -28,6 +28,10 @@ export async function makeServerRequest<T = any>(
       requestId: context?.requestId
     });
 
+    // Import CookieManager for proper auth headers
+    const { CookieManager } = await import('@epsx/api-client');
+    const authHeaders = await CookieManager.buildAuthHeaders();
+    
     let cookieHeader = '';
     
     try {
@@ -79,6 +83,7 @@ export async function makeServerRequest<T = any>(
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...authHeaders, // Include proper Bearer authorization header
     };
 
     // Safely merge headers

@@ -146,7 +146,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (resetKeys) {
         // Check if any reset keys have changed
         const hasChanges = resetKeys.some(key => 
-          (prevProps as Record<string, unknown>)[key] !== (this.props as Record<string, unknown>)[key]
+          (prevProps as unknown as Record<string, unknown>)[key] !== (this.props as unknown as Record<string, unknown>)[key]
         );
         
         if (hasChanges) {
@@ -280,7 +280,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { context, featureRequirements } = this.props;
     
     // Handle specific error types
-    if (error.name === 'AuthError' || (error as Record<string, unknown>).type === 'auth') {
+    if (error.name === 'AuthError' || (error as unknown as Record<string, unknown>).type === 'auth') {
       return {
         title: 'Authentication Error',
         message: 'Please sign in to continue',
@@ -288,7 +288,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       };
     }
     
-    if (error.name === 'ApiError' || (error as Record<string, unknown>).type === 'api') {
+    if (error.name === 'ApiError' || (error as unknown as Record<string, unknown>).type === 'api') {
       return {
         title: 'Service Error',
         message: 'Unable to connect to our services. Please try again.',

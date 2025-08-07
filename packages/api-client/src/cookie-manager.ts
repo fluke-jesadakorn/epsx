@@ -115,24 +115,49 @@ export class CookieManager {
     const headers: Record<string, string> = {};
     
     try {
-      // First try to get session from NextAuth (for admin app)
+      // Try multiple sources for session token
       let sessionToken: string | null = null;
       
-      try {
-        const { auth } = await import('next-auth') as { auth: () => Promise<{ session_id?: string } | null> };
-        const session = await auth();
-        if (session?.session_id) {
-          sessionToken = session.session_id;
-          console.log('🔐 [CookieManager] Found NextAuth session token');
-        }
-      } catch (_authError) {
-        console.debug('🔍 [CookieManager] NextAuth not available, trying cookies');
+      // 1. Check if NextAuth session token was passed via environment/context
+      if (typeof globalThis !== 'undefined' && (globalThis as any).__NEXTAUTH_SESSION_TOKEN) {
+        sessionToken = (globalThis as any).__NEXTAUTH_SESSION_TOKEN;
+        console.log('🔐 [CookieManager] Found NextAuth session token from global context');
       }
       
-      // Fallback to cookies if NextAuth session not available
+      // 2. Try to get from NextAuth cookies (standard NextAuth cookie names)
+      if (!sessionToken) {
+        try {
+          const { cookies } = await import('next/headers');
+          const cookieStore = await cookies();
+          
+          // NextAuth.js standard cookie names
+          const nextAuthCookieNames = [
+            'next-auth.session-token',
+            '__Secure-next-auth.session-token',
+            'authjs.session-token',
+            '__Secure-authjs.session-token'
+          ];
+          
+          for (const cookieName of nextAuthCookieNames) {
+            const cookie = cookieStore.get(cookieName);
+            if (cookie?.value) {
+              sessionToken = cookie.value;
+              console.log(`🔐 [CookieManager] Found NextAuth session token from cookie: ${cookieName}`);
+              break;
+            }
+          }
+        } catch (_cookieError) {
+          console.debug('🔍 [CookieManager] NextAuth cookies not available');
+        }
+      }
+      
+      // 3. Fallback to our custom session cookies
       if (!sessionToken) {
         const allCookies = await this.getAuthCookies();
-        sessionToken = allCookies.adminSession || allCookies.session;
+        sessionToken = allCookies.adminSession || allCookies.session || null;
+        if (sessionToken) {
+          console.log('🔐 [CookieManager] Found session token from custom cookies');
+        }
       }
       
       const csrfToken = await this.getCSRFToken();
@@ -181,7 +206,7 @@ export class CookieManager {
       
       for (const cookie of cookies) {
         const [key, value] = cookie.trim().split('=');
-        if (key === COOKIE_NAMES.SESSION) {
+        if (key === COOKIE_NAMES.SESSION && value) {
           console.log('🔍 [CookieManager.client] Found session cookie');
           return decodeURIComponent(value);
         }
@@ -220,11 +245,12 @@ export class CookieManager {
         };
         
         // Also check localStorage for session token (new backend format)
-        let sessionToken = relevantCookies.adminSession || relevantCookies.session;
+        let sessionToken: string | null = relevantCookies.adminSession || relevantCookies.session || null;
         
         // Fallback to localStorage if no cookie session found
         if (!sessionToken && typeof localStorage !== 'undefined') {
-          sessionToken = localStorage.getItem('session_id');
+          const storedToken = localStorage.getItem('session_id');
+          sessionToken = storedToken || null;
         }
         
         console.log('🔍 [CookieManager.client] Client auth tokens found:', {
@@ -237,7 +263,7 @@ export class CookieManager {
         });
         
         // Add Bearer authorization header for new backend
-        if (sessionToken) {
+        if (sessionToken && sessionToken !== null) {
           headers['Authorization'] = `Bearer ${sessionToken}`;
           console.log('🔑 [CookieManager.client] Added Bearer authorization header');
         } else {

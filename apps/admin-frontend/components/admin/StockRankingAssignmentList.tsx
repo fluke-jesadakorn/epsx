@@ -43,7 +43,7 @@ export default function StockRankingAssignmentList({
   const loadAssignments = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/stock-ranking/assignments');
+      const response = await fetch('/api/v1/admin/stock-ranking/assignments');
       const data = await response.json();
       setAssignments(data.assignments || []);
     } catch (error) {

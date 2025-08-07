@@ -85,7 +85,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should redirect to login when accessing protected route without auth', async ({ page }) => {
-    await page.goto('/admin/users');
+    await page.goto('/users');
     
     // Should redirect to login
     await expect(page).toHaveURL(/\/login/);
@@ -127,7 +127,7 @@ test.describe('Authentication Flow', () => {
     }
     
     // Navigate to protected page
-    await page.goto('/admin/users');
+    await page.goto('/users');
     
     // Should redirect to login
     await expect(page).toHaveURL(/\/login/);

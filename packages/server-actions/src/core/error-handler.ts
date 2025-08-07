@@ -43,7 +43,7 @@ export function handleServerError(error: any, context?: string): ServerActionErr
   if (error instanceof Error) {
     // Parse HTTP errors from fetch
     const httpMatch = error.message.match(/HTTP (\d+): (.*)/);
-    if (httpMatch) {
+    if (httpMatch && httpMatch[1] && httpMatch[2]) {
       const status = parseInt(httpMatch[1]);
       const message = httpMatch[2];
       

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 
 import { useTheme } from '../providers/theme-provider.js';
+import { designTokens } from '../tokens/design-tokens.js';
+import { themeConfig } from '../tokens/theme-config.js';
 
 import type { ThemeVariant } from '../tokens/theme-config.js';
 
@@ -36,7 +38,7 @@ export interface UseUnifiedThemeOptions {
  * - Optimistic updates
  * - System preference detection
  */
-export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}): ReturnType<typeof useUnifiedTheme> {
+export function useUnifiedTheme(options: UseUnifiedThemeOptions = {}) {
   const {
     enableServerPersistence = true,
     enableOptimistic = true,
@@ -270,6 +272,10 @@ export function useSSRTheme(
     // Return server-side state before hydration
     return {
       ...initialState,
+      variant: initialState.variant || 'default',
+      mode: initialState.mode || 'system',
+      isDarkMode: initialState.isDarkMode ?? false,
+      isSystemMode: initialState.isSystemMode ?? false,
       isLoading: false,
       // Provide no-op functions for server-side
       setThemeVariant: async () => {},
@@ -287,8 +293,8 @@ export function useSSRTheme(
           'data-theme-mode': initialState.mode || 'system',
         },
       }),
-      tokens: undefined,
-      config: undefined,
+      tokens: designTokens,
+      config: themeConfig,
     };
   }
 
@@ -296,7 +302,7 @@ export function useSSRTheme(
 }
 
 // Optimistic theme hook for better UX
-export function useOptimisticTheme(options: UseUnifiedThemeOptions = {}): ReturnType<typeof useUnifiedTheme> {
+export function useOptimisticTheme(options: UseUnifiedThemeOptions = {}) {
   return useUnifiedTheme({
     ...options,
     enableOptimistic: true,

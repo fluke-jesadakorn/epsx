@@ -12,10 +12,10 @@ import { useState } from 'react';
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/analytics', label: 'Analytics', icon: BarChart },
-  { href: '/admin/billing', label: 'Billing', icon: DollarSign },
-  { href: '/admin/modules', label: 'Modules', icon: Settings },
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/developer', label: 'Developer Portal', icon: Code },
+  { href: '/billing', label: 'Billing', icon: DollarSign },
+  { href: '/modules', label: 'Modules', icon: Settings },
+  { href: '/users', label: 'Users', icon: Users },
+  { href: '/developer-portal', label: 'Developer Portal', icon: Code },
 ];
 
 export function Navigation() {
@@ -73,17 +73,17 @@ export function Navigation() {
 
           <div className="flex items-center gap-4">
             <ThemeSwitch />
-            {filteredItems.map((item, idx) =>
-              idx === 0 ? (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 ${
-                    pathname === item.href
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg'
-                      : 'hover:bg-orange-500/10 hover:text-orange-500'
-                  }`}
-                >
+            {filteredItems.map((item, idx) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 ${
+                  pathname === item.href
+                    ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg'
+                    : 'hover:bg-orange-500/10 hover:text-orange-500'
+                }`}
+              >
+                {idx === 0 && (
                   <span
                     className={`w-2 h-2 rounded-full transition-all ${
                       pathname === item.href
@@ -91,24 +91,11 @@ export function Navigation() {
                         : 'bg-orange-500 group-hover:scale-125'
                     }`}
                   ></span>
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </Link>
-              ) : (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 ${
-                    pathname === item.href
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow-lg'
-                      : 'hover:bg-orange-500/10 hover:text-orange-500'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
-                  <span>{item.label}</span>
-                </Link>
-              ),
-            )}
+                )}
+                <item.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
             {user ? (
               <>
                 {/* Client-side logout with JS */}

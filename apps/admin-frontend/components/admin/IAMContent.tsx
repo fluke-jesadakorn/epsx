@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import { Shield, Users, FileText, Settings, Search, Filter } from 'lucide-react';
+import type { UserWithPermissions as ImportedUserWithPermissions, PackageTier } from '@/types/admin/iam';
 
-interface UserWithPermissions {
+interface UserWithPermissions extends ImportedUserWithPermissions {
   uid: string;
   email: string;
   name?: string;
+  packageTier: PackageTier;
+  status: 'active' | 'inactive' | 'disabled';
   customPermissions: any[];
 }
 
@@ -118,14 +121,14 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
                     </td>
                     <td className="p-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.packageTier === 'ENTERPRISE' ? 'bg-purple-100 text-purple-800' :
-                        user.packageTier === 'PLATINUM' ? 'bg-yellow-100 text-yellow-800' :
-                        user.packageTier === 'GOLD' ? 'bg-orange-100 text-orange-800' :
-                        user.packageTier === 'SILVER' ? 'bg-gray-100 text-gray-800' :
-                        user.packageTier === 'BRONZE' ? 'bg-amber-100 text-amber-800' :
+                        user.packageTier === PackageTier.ENTERPRISE ? 'bg-purple-100 text-purple-800' :
+                        user.packageTier === PackageTier.PLATINUM ? 'bg-yellow-100 text-yellow-800' :
+                        user.packageTier === PackageTier.GOLD ? 'bg-orange-100 text-orange-800' :
+                        user.packageTier === PackageTier.SILVER ? 'bg-gray-100 text-gray-800' :
+                        user.packageTier === PackageTier.BRONZE ? 'bg-amber-100 text-amber-800' :
                         'bg-green-100 text-green-800'
                       }`}>
-                        {user.packageTier || 'FREE'}
+                        {user.packageTier || PackageTier.FREE}
                       </span>
                     </td>
                     <td className="p-4">

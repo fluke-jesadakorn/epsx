@@ -309,7 +309,7 @@ export const baseTailwindConfig = {
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
             borderColor: 'hsl(var(--primary) / 0.2)',
             transform: 'translateY(-0.25rem)',
-          },
+          } as any,
         },
       });
       
@@ -330,10 +330,10 @@ export const baseTailwindConfig = {
           transition: 'transform 0.2s ease-in-out',
           '&:hover': {
             transform: 'scale(1.05)',
-          },
+          } as any,
           '&:active': {
             transform: 'scale(0.95)',
-          },
+          } as any,
         },
       });
       
@@ -345,18 +345,18 @@ export const baseTailwindConfig = {
           '&::-webkit-scrollbar': {
             width: '0.5rem',
             height: '0.5rem',
-          },
+          } as any,
           '&::-webkit-scrollbar-track': {
             backgroundColor: 'rgb(243 244 246)',
             borderRadius: '0.25rem',
-          },
+          } as any,
           '&::-webkit-scrollbar-thumb': {
             backgroundColor: 'rgb(156 163 175)',
             borderRadius: '0.25rem',
             '&:hover': {
               backgroundColor: 'rgb(107 114 128)',
             },
-          },
+          } as any,
         },
       });
     },

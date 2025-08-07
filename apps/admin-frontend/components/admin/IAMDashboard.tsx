@@ -1,3 +1,5 @@
+'use client';
+
 import { Shield, Users, Key, FileText, Settings as _Settings, Plus } from 'lucide-react';
 import { IAMContent } from './IAMContent';
 import { StatsGrid } from '@/components/ui/StatsCard';
@@ -29,32 +31,47 @@ interface IAMDashboardProps {
 }
 
 export function IAMDashboard({ initialUsers, initialRoles, initialPolicies }: IAMDashboardProps) {
-  const stats = [
+  // Create stats with icon string identifiers instead of components
+  const statsData = [
     {
       title: 'Total Users',
       value: initialUsers.length,
-      icon: Users,
+      iconType: 'Users',
       gradient: 'from-blue-500 to-blue-600'
     },
     {
       title: 'Active Roles',
       value: initialRoles.length,
-      icon: Shield,
+      iconType: 'Shield',
       gradient: 'from-green-500 to-green-600'
     },
     {
       title: 'Policies',
       value: initialPolicies.length,
-      icon: FileText,
+      iconType: 'FileText',
       gradient: 'from-purple-500 to-purple-600'
     },
     {
       title: 'Custom Permissions',
       value: initialUsers.reduce((acc, user) => acc + user.customPermissions.length, 0),
-      icon: Key,
+      iconType: 'Key',
       gradient: 'from-orange-500 to-orange-600'
     }
   ];
+
+  // Map icon strings to actual components
+  const iconMap = {
+    Users,
+    Shield,
+    FileText,
+    Key
+  };
+
+  // Convert to stats with icon components
+  const stats = statsData.map(stat => ({
+    ...stat,
+    icon: iconMap[stat.iconType as keyof typeof iconMap]
+  }));
 
   return (
     <div className="p-6 space-y-6">

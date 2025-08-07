@@ -31,7 +31,10 @@ export {
   updateUserRole,
   updateUserPackageTier,
   getStockRankingPackages,
-  assignStockRankingPackage
+  assignStockRankingPackage,
+  createUser,
+  updateUser,
+  deleteUser
 } from './actions/admin';
 
 // Payment operations
@@ -95,7 +98,9 @@ export {
   updateSettings,
   getUserSettings,
   updateUserSettings,
-  getFeatureFlags
+  getFeatureFlags,
+  getSettingsByCategory,
+  getEnvironmentConfig
 } from './actions/settings';
 
 // Core utilities (for custom actions)

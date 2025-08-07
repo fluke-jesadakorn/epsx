@@ -604,7 +604,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       {/* User Level Assignment Modal */}
       {showLevelModal && selectedUser && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
           onClick={(e) => e.target === e.currentTarget && setShowLevelModal(false)}
           role="dialog"
           aria-modal="true"
@@ -706,7 +706,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       {/* Permission Profile Assignment Modal */}
       {showProfileModal && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
           onClick={(e) => e.target === e.currentTarget && setShowProfileModal(false)}
           role="dialog"
           aria-modal="true"
@@ -795,7 +795,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
       {/* Level History Modal */}
       {showLevelHistory && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4"
           onClick={(e) => e.target === e.currentTarget && setShowLevelHistory(false)}
           role="dialog"
           aria-modal="true"

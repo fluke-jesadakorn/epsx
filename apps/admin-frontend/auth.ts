@@ -18,50 +18,46 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          // Updated for new backend session authentication format
+          // Production authentication via backend API
           const response = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              credentials: {
-                email: credentials.email,
-                password: credentials.password
-              }
+              type: "credentials",
+              email: credentials.email,
+              password: credentials.password
             }),
           });
 
-          if (!response.ok) {
-            console.error('Admin login failed:', response.status, response.statusText);
-            return null;
-          }
-
-          const data = await response.json();
-          
-          // Backend returns { user: {...}, session: { session_id, expires_at } }
-          if (data.user?.user_id && data.session?.session_id) {
-            const user = data.user;
-            const session = data.session;
+          if (response.ok) {
+            const data = await response.json();
             
-            return {
-              id: user.user_id,
-              email: user.email,
-              role: user.roles?.[0] || user.role || 'user',
-              permissions: user.permissions || [],
-              subscription_tier: user.subscription_tier || 'free',
-              package_tier: user.package_tier || user.subscription_tier || 'free',
-              session_id: session.session_id,  // Store session ID for API calls
-              expires_at: session.expires_at,
-            };
+            // Backend returns direct user data with access_token
+            if (data.user_id && data.access_token) {
+              return {
+                id: data.user_id,
+                email: data.email,
+                role: data.role || 'user',
+                permissions: data.permissions || [],
+                subscription_tier: data.subscription_tier || 'free',
+                package_tier: data.subscription_tier || 'free',
+                session_id: data.access_token,  // Use access_token as session_id
+                expires_at: data.expires_at,
+              };
+            }
           }
           
-          console.error('Invalid login response format:', data);
-          return null;
+          // Log authentication failure details for debugging
+          const errorText = await response.text();
+          console.error('Backend authentication failed:', response.status, errorText);
         } catch (error) {
-          console.error('Auth error:', error);
-          return null;
+          console.error('Backend authentication error:', error);
         }
+        
+        console.error('Authentication failed for:', credentials.email);
+        return null;
       }
     })
   ],
@@ -75,6 +71,8 @@ export const authOptions: AuthOptions = {
         token.subscription_tier = user.subscription_tier;
         token.package_tier = user.package_tier;
         token.session_id = user.session_id; // Store session ID for backend calls
+        token.access_token = user.session_id; // Store access token (same as session_id)
+        token.accessToken = user.session_id; // Also store as accessToken for compatibility
         token.expires_at = user.expires_at;
       }
       return token;
@@ -88,6 +86,8 @@ export const authOptions: AuthOptions = {
         session.user.subscription_tier = token.subscription_tier as string;
         session.user.package_tier = token.package_tier as string;
         session.session_id = token.session_id as string; // Pass session ID to session
+        session.access_token = token.access_token as string; // Pass access token to session
+        session.accessToken = token.accessToken as string; // Pass accessToken for compatibility
         session.expires_at = token.expires_at as string;
       }
       return session;

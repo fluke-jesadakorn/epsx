@@ -2,29 +2,30 @@
   "name": "@epsx/shared-utils",
   "version": "0.1.0",
   "description": "Shared utility functions for EPSX applications",
+  "type": "module",
   "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./formatting": {
       "types": "./dist/formatting.d.ts",
-      "import": "./dist/formatting.mjs",
-      "require": "./dist/formatting.js"
+      "import": "./dist/formatting.js",
+      "require": "./dist/formatting.cjs"
     },
     "./dom": {
       "types": "./dist/dom.d.ts",
-      "import": "./dist/dom.mjs",
-      "require": "./dist/dom.js"
+      "import": "./dist/dom.js",
+      "require": "./dist/dom.cjs"
     },
     "./validation": {
       "types": "./dist/validation.d.ts",
-      "import": "./dist/validation.mjs",
-      "require": "./dist/validation.js"
+      "import": "./dist/validation.js",
+      "require": "./dist/validation.cjs"
     }
   },
   "files": [
@@ -32,6 +33,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:packages": "tsup",
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit"

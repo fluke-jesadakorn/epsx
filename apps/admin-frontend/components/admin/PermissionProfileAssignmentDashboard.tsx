@@ -84,10 +84,6 @@ export function PermissionProfileAssignmentDashboard() {
   const [assignmentResult, setAssignmentResult] = useState<AssignmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadPermissionProfiles();
-  }, [permissionProfileFilter, loadPermissionProfiles]);
-
   const loadPermissionProfiles = useCallback(async () => {
     try {
       setLoading(true);
@@ -118,6 +114,10 @@ export function PermissionProfileAssignmentDashboard() {
       setLoading(false);
     }
   }, [permissionProfileFilter]);
+
+  useEffect(() => {
+    loadPermissionProfiles();
+  }, [permissionProfileFilter, loadPermissionProfiles]);
 
   const handlePermissionProfileSelect = async (permissionProfile: PermissionProfile) => {
     setSelectedPermissionProfile(permissionProfile);

@@ -161,10 +161,12 @@ export const useTheme = (): ThemeContextType => {
 };
 
 // Higher-order component for theme-aware components
-export function withTheme<T = Record<string, unknown>>(Component: React.ComponentType<T>): React.ForwardRefExoticComponent<React.PropsWithoutRef<T> & React.RefAttributes<unknown>> {
+export function withTheme<T extends Record<string, unknown>>(
+  Component: React.ComponentType<T & { theme?: ThemeContextType }>
+): React.ForwardRefExoticComponent<React.PropsWithoutRef<T> & React.RefAttributes<unknown>> {
   return React.forwardRef<unknown, T>((props, ref) => {
     const theme = useTheme();
-    return <Component {...props} ref={ref} theme={theme} />;
+    return React.createElement(Component, { ...props, ref, theme } as T & { theme: ThemeContextType; ref: React.Ref<unknown> });
   });
 }
 

@@ -251,7 +251,9 @@ export class PWAManager {
 
   private async sendSubscriptionToServer(subscription: PushSubscription) {
     try {
-      await fetch('/api/notifications/subscribe', {
+      // NOTE: Notification endpoints not yet implemented in backend
+      console.warn('Notification subscribe endpoint not available');
+      // await fetch('/api/v1/notifications/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -265,7 +267,9 @@ export class PWAManager {
 
   private async removeSubscriptionFromServer(subscription: PushSubscription) {
     try {
-      await fetch('/api/notifications/unsubscribe', {
+      // NOTE: Notification endpoints not yet implemented in backend
+      console.warn('Notification unsubscribe endpoint not available');
+      // await fetch('/api/v1/notifications/unsubscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

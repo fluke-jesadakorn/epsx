@@ -23,7 +23,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "build:packages": "tsup"
+    "build:packages": "tsup",
+    "dev": "tsup --watch"
   },
   "dependencies": {
     "react": "^18.0.0",

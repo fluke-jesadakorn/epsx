@@ -50,7 +50,7 @@ export class IAMManagement {
   async navigateToRoles() {
     // Navigate to users/roles route
     try {
-      await this.page.goto('/admin/users/roles');
+      await this.page.goto('/users/roles');
       await this.page.waitForTimeout(1000);
       // If we're redirected to login, that's expected without backend  
       if (this.page.url().includes('/login')) {
@@ -59,7 +59,7 @@ export class IAMManagement {
       }
       
       // Check if we successfully navigated to roles page
-      if (this.page.url().includes('/admin/users/roles')) {
+      if (this.page.url().includes('/users/roles')) {
         // Look for any heading or content that indicates roles page
         const possibleHeadings = [
           this.page.getByRole('heading', { name: /role management/i }),
@@ -90,7 +90,7 @@ export class IAMManagement {
   async navigateToPermissions() {
     // Navigate to users/permissions route
     try {
-      await this.page.goto('/admin/users/permissions');
+      await this.page.goto('/users/permissions');
       await this.page.waitForTimeout(1000);
       // If we're redirected to login, that's expected without backend
       if (this.page.url().includes('/login')) {
@@ -99,7 +99,7 @@ export class IAMManagement {
       }
       
       // Check if we successfully navigated to permissions page
-      if (this.page.url().includes('/admin/users/permissions')) {
+      if (this.page.url().includes('/users/permissions')) {
         // Look for any heading or content that indicates permissions page
         const possibleHeadings = [
           this.page.getByRole('heading', { name: /permission management/i }),

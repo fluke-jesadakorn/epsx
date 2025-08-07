@@ -16,6 +16,7 @@
   "scripts": {
     "lint": "eslint src",
     "build": "tsup",
+    "build:packages": "tsup",
     "dev": "tsup --watch",
     "clean": "rm -rf dist node_modules/.cache",
     "type-check": "tsc --noEmit"

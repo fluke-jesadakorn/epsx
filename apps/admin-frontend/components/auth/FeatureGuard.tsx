@@ -1,7 +1,8 @@
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
-import { authUtils } from '@/lib/auth-api';
+import { useAuthUtils } from '@/lib/auth-utils';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 
 interface FeatureGuardProps {
   featureId?: string; // Keep for backward compatibility
@@ -22,23 +23,37 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
   requireAll = true,
   features,
 }) => {
+  const { hasPermission, isLoading, isAuthenticated } = useAuthUtils();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   // Use featureId for backward compatibility, otherwise use feature
   const targetFeature = feature || featureId;
+
+  const retryCheck = () => {
+    setError(null);
+    setHasAccess(null);
+    setLoading(true);
+  };
 
   useEffect(() => {
     const checkAccess = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        if (!isAuthenticated) {
+          setHasAccess(false);
+          return;
+        }
         
         let result: boolean;
         
         if (features && features.length > 0) {
           // Check multiple features
           const results = await Promise.all(
-            features.map(f => authUtils.hasPermission(f))
+            features.map(f => hasPermission(f))
           );
           
           result = requireAll 
@@ -46,25 +61,65 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
             : results.some(r => r);  // At least one must be true
         } else if (targetFeature) {
           // Check single feature
-          result = await authUtils.hasPermission(targetFeature);
+          result = await hasPermission(targetFeature);
         } else {
           // No feature specified, allow access
           result = true;
         }
         
         setHasAccess(result);
-      } catch (error) {
-        console.error('Feature access check failed:', error);
+      } catch (err) {
+        console.error('Feature access check failed:', err);
+        const error = err instanceof Error ? err : new Error('Feature access check failed');
+        setError(error);
         setHasAccess(false);
       } finally {
         setLoading(false);
       }
     };
 
-    checkAccess();
-  }, [targetFeature, features, requireAll]);
+    if (!isLoading) {
+      checkAccess();
+    }
+  }, [targetFeature, features, requireAll, hasPermission, isAuthenticated, isLoading]);
 
-  if (loading) return <>{loadingComponent}</>;
+  if (isLoading || loading) return <>{loadingComponent}</>;
+  
+  // Show error with retry option
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        context="permission"
+        title="Permission Check Failed"
+        onRetry={retryCheck}
+        className="my-4"
+      />
+    );
+  }
+  
+  // Show permission denied with better UX
+  if (hasAccess === false) {
+    if (!isAuthenticated) {
+      return (
+        <ErrorDisplay
+          error="Authentication required"
+          context="auth"
+          title="Sign In Required"
+          className="my-4"
+        />
+      );
+    }
+    
+    return (
+      <ErrorDisplay
+        error={`Access denied for feature: ${targetFeature || features?.join(', ')}`}
+        context="permission"
+        title="Access Denied"
+        className="my-4"
+      />
+    );
+  }
   
   return hasAccess ? <>{children}</> : <>{fallback}</>;
 };
@@ -83,27 +138,82 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
   fallback = null,
   loadingComponent = <div>Checking route access...</div>
 }) => {
+  const { canAccessRoute, isLoading, isAuthenticated } = useAuthUtils();
   const [canAccess, setCanAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const retryRouteCheck = () => {
+    setError(null);
+    setCanAccess(null);
+    setLoading(true);
+  };
 
   useEffect(() => {
     const checkRouteAccess = async () => {
       try {
         setLoading(true);
-        const result = await authUtils.canAccessRoute(route);
+        setError(null);
+        
+        if (!isAuthenticated) {
+          setCanAccess(false);
+          return;
+        }
+        
+        const result = await canAccessRoute(route);
         setCanAccess(result);
-      } catch (error) {
-        console.error('Route access check failed:', error);
+      } catch (err) {
+        console.error('Route access check failed:', err);
+        const error = err instanceof Error ? err : new Error('Route access check failed');
+        setError(error);
         setCanAccess(false);
       } finally {
         setLoading(false);
       }
     };
 
-    checkRouteAccess();
-  }, [route]);
+    if (!isLoading) {
+      checkRouteAccess();
+    }
+  }, [route, canAccessRoute, isAuthenticated, isLoading]);
 
-  if (loading) return <>{loadingComponent}</>;
+  if (isLoading || loading) return <>{loadingComponent}</>;
+  
+  // Show error with retry option
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        context="permission"
+        title="Route Access Check Failed"
+        onRetry={retryRouteCheck}
+        className="my-4"
+      />
+    );
+  }
+  
+  // Show route access denied with better UX
+  if (canAccess === false) {
+    if (!isAuthenticated) {
+      return (
+        <ErrorDisplay
+          error="Authentication required"
+          context="auth"
+          title="Sign In Required"
+          className="my-4"
+        />
+      );
+    }
+    
+    return (
+      <ErrorDisplay
+        error={`Access denied for route: ${route}`}
+        context="permission"
+        title="Route Access Denied"
+        className="my-4"
+      />
+    );
+  }
   
   return canAccess ? <>{children}</> : <>{fallback}</>;
 };
@@ -157,10 +267,10 @@ export function withFeatureGuard<P extends object>(
 // Usage examples:
 /*
 <FeatureGuard feature="ADMIN_ACCESS">
-  <AdminDashboard />
+  <DashboardServer />
 </FeatureGuard>
 
-<RouteGuard route="/admin/users">
+<RouteGuard route="/users">
   <UserManagement />
 </RouteGuard>
 

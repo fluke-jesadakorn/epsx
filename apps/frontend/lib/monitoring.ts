@@ -64,33 +64,42 @@ class SSRPerformanceMonitor {
   }
 
   private setupErrorHandling(): void {
-    // Global error handler
-    window.addEventListener('error', (event) => {
-      this.captureError({
-        message: event.message,
-        stack: event.error?.stack,
-        route: window.location.pathname,
-        severity: 'high',
-        context: {
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-        },
+    // Only capture errors in production, not during development
+    if (process.env.NODE_ENV === 'production') {
+      // Global error handler
+      window.addEventListener('error', (event) => {
+        // Skip React-related errors that should be handled by error boundaries
+        if (this.isReactError(event.error)) return;
+        
+        this.captureError({
+          message: event.message,
+          stack: event.error?.stack,
+          route: window.location.pathname,
+          severity: 'high',
+          context: {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+          },
+        });
       });
-    });
 
-    // Unhandled promise rejection handler
-    window.addEventListener('unhandledrejection', (event) => {
-      this.captureError({
-        message: event.reason?.message || 'Unhandled Promise Rejection',
-        stack: event.reason?.stack,
-        route: window.location.pathname,
-        severity: 'critical',
-        context: {
-          reason: event.reason,
-        },
+      // Unhandled promise rejection handler
+      window.addEventListener('unhandledrejection', (event) => {
+        // Skip React-related promise rejections
+        if (this.isReactError(event.reason)) return;
+        
+        this.captureError({
+          message: event.reason?.message || 'Unhandled Promise Rejection',
+          stack: event.reason?.stack,
+          route: window.location.pathname,
+          severity: 'critical',
+          context: {
+            reason: event.reason,
+          },
+        });
       });
-    });
+    }
   }
 
   private initializeMonitoring(): void {
@@ -267,6 +276,25 @@ class SSRPerformanceMonitor {
     return this.metrics.filter(m => m.metadata?.category === category);
   }
 
+  private isReactError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorString = error.toString();
+    const stackString = error.stack || '';
+    
+    // Skip React internal errors, hydration errors, and Strict Mode related errors
+    return (
+      stackString.includes('react-dom') ||
+      stackString.includes('react_devtools') ||
+      stackString.includes('__reactInternalInstance') ||
+      errorString.includes('Hydration') ||
+      errorString.includes('componentDidCatch') ||
+      errorString.includes('Error captured: {}') ||
+      stackString.includes('commitLayoutEffects') ||
+      stackString.includes('runWithFiberInDEV')
+    );
+  }
+
   public captureError(errorData: Omit<ErrorMetric, 'id' | 'timestamp' | 'userAgent'>): void {
     const error: ErrorMetric = {
       id: crypto.randomUUID(),
@@ -277,9 +305,9 @@ class SSRPerformanceMonitor {
 
     this.errors.push(error);
 
-    // Use client-side logging only - no server action imports
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error captured:', error);
+    // Only log non-React errors in development
+    if (process.env.NODE_ENV === 'development' && !this.isReactError(errorData)) {
+      console.warn('Performance Monitor - Error captured:', error);
     }
 
     // Could integrate with client-side error reporting service here

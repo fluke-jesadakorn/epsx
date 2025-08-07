@@ -6,28 +6,46 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
-    // Check if user has admin role
-    const isAdmin = token?.role === 'admin' || 
-                    token?.role === 'system_administrator' ||
-                    token?.role === 'super_admin';
-    
-    if (!isAdmin) {
-      const unauthorizedUrl = new URL('/unauthorized', req.url);
-      return NextResponse.redirect(unauthorizedUrl);
+    // Skip middleware for error pages to prevent redirect loops
+    if (pathname === '/unauthorized' || pathname === '/access-denied' || pathname === '/login') {
+      return NextResponse.next();
     }
 
-    // For protected admin routes, check permissions if needed
-    const protectedRoutes = ['/admin', '/users', '/iam', '/analytics', '/settings', '/billing', '/modules'];
-    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    // Redirect /admin to dashboard
+    if (pathname === '/admin') {
+      const redirectUrl = new URL('/', req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Legacy route redirects to unified structure
+    if (pathname === '/iam') {
+      const redirectUrl = new URL('/users', req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
     
-    if (isProtectedRoute) {
-      // Here you could add additional permission checks if needed
-      // For now, we just allow all admin users
-      const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
-      
-      // You could validate specific route access with backend if needed
-      // This would require an async call, which middleware doesn't support well
-      // So we'll rely on the frontend components to handle specific permission checks
+    if (pathname === '/users/permissions' || pathname === '/users/roles') {
+      // Redirect to unified user list for now, could be enhanced with user context later
+      const redirectUrl = new URL('/users', req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+    
+    if (pathname === '/permission-profiles/assign') {
+      const redirectUrl = new URL('/users', req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Check if user has admin role - expanded to match auth.ts
+    const isAdmin = token?.role === 'admin' || 
+                    token?.role === 'system_administrator' ||
+                    token?.role === 'super_admin' ||
+                    token?.role === 'moderator';
+    
+    if (!isAdmin) {
+      // Prevent redirect loops by checking if we're already redirecting to unauthorized
+      if (pathname !== '/unauthorized') {
+        const unauthorizedUrl = new URL('/unauthorized', req.url);
+        return NextResponse.redirect(unauthorizedUrl);
+      }
     }
 
     return NextResponse.next();
@@ -37,8 +55,9 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
         
-        // Skip auth for public routes
-        if (pathname === '/login' || pathname === '/unauthorized' || pathname === '/access-denied') {
+        // Skip auth for public routes - prevent redirect loops
+        const publicRoutes = ['/login', '/unauthorized', '/access-denied'];
+        if (publicRoutes.includes(pathname)) {
           return true;
         }
 
@@ -58,8 +77,10 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public assets)
-     * - login (temporary debug - allow login without middleware)
+     * - login (login page should be accessible without auth)
+     * - unauthorized (error pages)
+     * - access-denied (error pages)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|public|login).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|public|login|unauthorized|access-denied).*)',
   ],
 };

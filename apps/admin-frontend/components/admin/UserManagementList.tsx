@@ -29,18 +29,34 @@ export const UserManagementList: React.FC<UserManagementListProps> = ({ initialU
 
   // Transform and filter users from server-side data
   const users = useMemo(() => {
+    console.log('🔄 UserManagementList: Processing initialUsers:', {
+      type: typeof initialUsers,
+      isArray: Array.isArray(initialUsers),
+      hasUsers: initialUsers?.users ? 'yes' : 'no',
+      userCount: Array.isArray(initialUsers?.users) ? initialUsers.users.length : 
+                 Array.isArray(initialUsers) ? initialUsers.length : 0,
+      firstUserEmail: Array.isArray(initialUsers?.users) ? initialUsers.users[0]?.email : 
+                     Array.isArray(initialUsers) ? initialUsers[0]?.email : 'none'
+    });
+
     // Handle the case where initialUsers might be null, undefined, or not have users array
     const userArray = initialUsers?.users || initialUsers || [];
     
     // Ensure we have an array to work with
     if (!Array.isArray(userArray)) {
-      console.warn('initialUsers is not an array:', initialUsers);
+      console.error('❌ UserManagementList: initialUsers is not an array:', {
+        received: initialUsers,
+        type: typeof initialUsers,
+        constructor: initialUsers?.constructor?.name
+      });
       return [];
     }
     
     // Transform API response to match UserWithPermissions interface
     const transformedUsers: UserWithPermissions[] = userArray.map(
-      (user: any) => ({
+      (user: any, index: number) => {
+        try {
+          return {
         id: user.uid || user.id,
         email: user.email || '',
         name: user.display_name || user.name || '',
@@ -52,8 +68,8 @@ export const UserManagementList: React.FC<UserManagementListProps> = ({ initialU
         attachedPolicies: user.attachedPolicies || [],
         status: user.disabled ? 'disabled' : 'active',
         lastActivity: user.metadata?.last_sign_in_time || user.lastActivity || '',
-        createdAt: user.metadata?.creation_time || user.createdAt || (user.created_at ? new Date(user.created_at * 1000).toISOString() : ''),
-        updatedAt: user.last_updated ? new Date(user.last_updated * 1000).toISOString() : (user.updatedAt || user.createdAt || ''),
+        createdAt: user.metadata?.creation_time || user.createdAt || (user.created_at && !isNaN(user.created_at) ? new Date(user.created_at * 1000).toISOString() : ''),
+        updatedAt: user.last_updated && !isNaN(user.last_updated) ? new Date(user.last_updated * 1000).toISOString() : (user.updatedAt || user.createdAt || ''),
         packageTier:
           user.sub_tier === 'Gold' || user.packageTier === 'GOLD'
             ? PackageTier.GOLD
@@ -71,7 +87,38 @@ export const UserManagementList: React.FC<UserManagementListProps> = ({ initialU
         customPermissions: user.perms || user.customPermissions || [],
         effectivePermissions: user.perms || user.effectivePermissions || [],
         packagePermissions: user.perms || user.packagePermissions || [],
-      })
+          };
+        } catch (error) {
+          console.error(`❌ UserManagementList: Error transforming user at index ${index}:`, {
+            error: error instanceof Error ? error.message : String(error),
+            userKeys: Object.keys(user || {}),
+            userId: user?.uid || user?.id || 'unknown',
+            userEmail: user?.email || 'unknown'
+          });
+          // Return a minimal user object to prevent crashes
+          return {
+            id: user?.uid || user?.id || `error-user-${index}`,
+            email: user?.email || 'unknown',
+            name: user?.display_name || user?.name || 'Unknown User',
+            displayName: user?.display_name || user?.displayName || 'Unknown User',
+            emailVerified: false,
+            disabled: true,
+            roles: [],
+            groups: [],
+            attachedPolicies: [],
+            status: 'error' as any,
+            lastActivity: '',
+            createdAt: '',
+            updatedAt: '',
+            packageTier: PackageTier.FREE,
+            subscriptionStatus: 'CANCELLED' as any,
+            lastPaymentDate: undefined,
+            customPermissions: [],
+            effectivePermissions: [],
+            packagePermissions: [],
+          };
+        }
+      }
     );
 
     // Apply filters on the client side

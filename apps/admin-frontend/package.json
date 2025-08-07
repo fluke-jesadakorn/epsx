@@ -31,7 +31,7 @@
     "@epsx/theme": "workspace:*",
     "@epsx/types": "workspace:*",
     "@epsx/ui": "workspace:*",
-    "@hookform/resolvers": "^3.9.0",
+    "@hookform/resolvers": "5.2.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
@@ -50,7 +50,7 @@
     "cookies-next": "6.0.0",
     "dotenv": "^17.2.0",
     "firebase": "^12.0.0",
-    "lucide-react": "0.523.0",
+    "lucide-react": "0.536.0",
     "next": "15.4.2",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
@@ -58,11 +58,12 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.60.0",
     "react-hot-toast": "^2.5.2",
+    "recharts": "^3.1.0",
     "sonner": "^2.0.6",
     "swr": "^2.3.4",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "3.25.67",
+    "zod": "4.0.15",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -76,6 +77,7 @@
     "eslint-config-next": "15.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "4.0.15",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
 }

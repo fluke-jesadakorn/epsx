@@ -20,7 +20,14 @@ export { CookieManager } from './cookie-manager';
 export { isApiError, isApiSuccess } from './types';
 
 // Server-specific functions
-export { serverGetAdminProfile } from './api-server';
+export { 
+  serverGetAdminProfile, 
+  serverGetCasbinPolicies, 
+  serverGetAdminPermissionProfiles,
+  serverGetAdminUsers,
+  serverSetUserRole,
+  serverGetUserStats
+} from './api-server';
 export { ApiClient } from './api-client'; // Legacy compatibility
 
 // Legacy createApiClient function for backward compatibility
