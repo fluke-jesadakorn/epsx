@@ -148,7 +148,7 @@ The EPSX backend implements a well-structured Clean Architecture pattern with fi
 - **Multi-tier Role System**: Basic, Premium, Moderator, Admin roles
 - **IAM Profiles**: Reusable permission templates
 - **Firebase Integration**: Secure token verification
-- **Session Management**: HTTP-only cookie handling
+- **Session Management**: Token-based session handling
 - **JWT Authentication**: Secure token-based authentication
 - **Permission Matrices**: Feature-based access control
 
@@ -450,7 +450,7 @@ curl http://localhost:8080/health/detailed
 
 ### Authentication Security
 - Firebase Admin SDK token verification
-- Secure session management with HTTP-only cookies
+- Secure token-based session management
 - JWT signature validation
 - Rate limiting on authentication endpoints
 

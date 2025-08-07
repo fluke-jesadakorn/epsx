@@ -3,5 +3,7 @@
 pub mod handlers;
 pub mod routes;
 pub mod casbin_handlers;
+pub mod unified_user_handlers;
+pub mod setup_handlers;
 
 pub use routes::{create_admin_routes, create_admin_public_routes};

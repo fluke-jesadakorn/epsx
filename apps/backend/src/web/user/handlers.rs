@@ -22,20 +22,6 @@ fn extract_session_from_headers(headers: &HeaderMap) -> Result<String, StatusCod
         }
     }
     
-    // Try session cookie as fallback
-    if let Some(cookie_header) = headers.get("cookie") {
-        if let Ok(cookie_str) = cookie_header.to_str() {
-            for cookie in cookie_str.split(';') {
-                let cookie = cookie.trim();
-                if cookie.starts_with("session_id=") {
-                    if let Some(session_id) = cookie.strip_prefix("session_id=") {
-                        return Ok(session_id.to_string());
-                    }
-                }
-            }
-        }
-    }
-    
     Err(StatusCode::UNAUTHORIZED)
 }
 

@@ -61,18 +61,6 @@ async fn extract_user_from_request(app_state: &AppState, request: &Request) -> R
         }
     }
     
-    // Check for session cookie as fallback
-    if let Some(cookie_header) = request.headers().get("cookie") {
-        if let Ok(cookie_str) = cookie_header.to_str() {
-            for cookie_pair in cookie_str.split(';') {
-                let cookie_pair = cookie_pair.trim();
-                if let Some(session_id) = cookie_pair.strip_prefix("session_id=") {
-                    return validate_session_token(app_state, session_id).await;
-                }
-            }
-        }
-    }
-    
     Err(StatusCode::UNAUTHORIZED)
 }
 

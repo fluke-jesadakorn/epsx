@@ -23,6 +23,30 @@ impl PostgresAuditRepo {
         Self { pool }
     }
 
+    fn convert_ip_for_db(ip_str: Option<&str>) -> Option<String> {
+        match ip_str {
+            None => None,
+            Some(ip) if ip.trim().is_empty() => None, // Handle empty strings
+            Some(ip) => {
+                let trimmed_ip = ip.trim();
+                // First try to parse as valid IP to validate format
+                if let Ok(parsed_ip) = trimmed_ip.parse::<std::net::IpAddr>() {
+                    // Convert to canonical string format for database storage
+                    Some(parsed_ip.to_string())
+                } else if trimmed_ip.starts_with("::ffff:") {
+                    // Try to extract IPv4 from IPv6-mapped format
+                    trimmed_ip.strip_prefix("::ffff:")
+                        .and_then(|v4| v4.parse::<std::net::Ipv4Addr>().ok())
+                        .map(|v4| v4.to_string())
+                } else {
+                    // Log invalid IP format but don't fail the audit
+                    tracing::warn!("Invalid IP format for audit log: '{}', storing as NULL", trimmed_ip);
+                    None
+                }
+            }
+        }
+    }
+
     fn map_row_to_entry(row: &sqlx::postgres::PgRow) -> Result<AuditLogEntry, AuditError> {
         let _id: Uuid = row.try_get("id").map_err(|e| AuditError::DatabaseError(e.to_string()))?;
         let user_id: Option<Uuid> = row.try_get("user_id").ok();
@@ -31,7 +55,7 @@ impl PostgresAuditRepo {
         let resource_id: String = row.try_get("resource_id").map_err(|e| AuditError::DatabaseError(e.to_string()))?;
         let result_str: String = row.try_get("result").map_err(|e| AuditError::DatabaseError(e.to_string()))?;
         let _timestamp: DateTime<Utc> = row.try_get("timestamp").map_err(|e| AuditError::DatabaseError(e.to_string()))?;
-        let client_ip: Option<String> = row.try_get("client_ip").ok();
+        let client_ip_str: Option<String> = row.try_get("client_ip").ok();
         let user_agent: Option<String> = row.try_get("user_agent").ok();
         let session_id: Option<String> = row.try_get("session_id").ok();
         let metadata: JsonValue = row.try_get("metadata").unwrap_or(serde_json::json!({}));
@@ -54,7 +78,7 @@ impl PostgresAuditRepo {
             result,
         )
         .with_metadata(audit_metadata)
-        .with_client_info(client_ip, user_agent);
+        .with_client_info(client_ip_str, user_agent);
 
         let entry = if let Some(session_id) = session_id {
             entry.with_session_id(session_id)
@@ -104,25 +128,55 @@ impl AuditRepo for PostgresAuditRepo {
         // Get actor_id UUID directly
         let actor_uuid = *entry.actor_id().value();
 
-        sqlx::query(
-            "INSERT INTO audit_logs (id, actor_id, user_id, action, resource_type, resource_id, result, event_category, severity, success, metadata, client_ip, user_agent, timestamp, session_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)"
-        )
-        .bind(entry_uuid)
-        .bind(actor_uuid)
-        .bind(actor_uuid) // user_id is same as actor_id in this context
-        .bind(entry.action().to_string())
-        .bind(entry.resource_type().to_string())
-        .bind(entry.resource_id())
-        .bind(entry.result().to_string())
-        .bind(event_category)
-        .bind(severity)
-        .bind(success)
-        .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
-        .bind(entry.client_ip())
-        .bind(entry.user_agent())
-        .bind(entry.timestamp())
-        .bind(entry.session_id())
+        let converted_ip = Self::convert_ip_for_db(entry.client_ip());
+        
+        // Convert session_id string to UUID if provided
+        let session_uuid = entry.session_id()
+            .and_then(|s| Uuid::parse_str(s).ok());
+        
+        match converted_ip {
+            Some(ip) => {
+                sqlx::query(
+                    "INSERT INTO audit_logs (id, actor_id, user_id, action, resource_type, resource_id, result, event_category, severity, success, metadata, client_ip, user_agent, timestamp, session_id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::inet, $13, $14, $15)"
+                )
+                .bind(entry_uuid)
+                .bind(actor_uuid)
+                .bind(actor_uuid) // user_id is same as actor_id in this context
+                .bind(entry.action().to_string())
+                .bind(entry.resource_type().to_string())
+                .bind(entry.resource_id())
+                .bind(entry.result().to_string())
+                .bind(event_category)
+                .bind(severity)
+                .bind(success)
+                .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
+                .bind(ip)
+                .bind(entry.user_agent())
+                .bind(entry.timestamp())
+                .bind(session_uuid)
+            }
+            None => {
+                sqlx::query(
+                    "INSERT INTO audit_logs (id, actor_id, user_id, action, resource_type, resource_id, result, event_category, severity, success, metadata, client_ip, user_agent, timestamp, session_id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14)"
+                )
+                .bind(entry_uuid)
+                .bind(actor_uuid)
+                .bind(actor_uuid) // user_id is same as actor_id in this context
+                .bind(entry.action().to_string())
+                .bind(entry.resource_type().to_string())
+                .bind(entry.resource_id())
+                .bind(entry.result().to_string())
+                .bind(event_category)
+                .bind(severity)
+                .bind(success)
+                .bind(serde_json::to_value(entry.metadata()).map_err(|e| AuditError::DatabaseError(e.to_string()))?)
+                .bind(entry.user_agent())
+                .bind(entry.timestamp())
+                .bind(session_uuid)
+            }
+        }
         .execute(&self.pool)
         .await
         .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -188,8 +242,10 @@ impl AuditRepo for PostgresAuditRepo {
         }
 
         if let Some(client_ip) = &query.client_ip {
-            sql_query.push(" AND client_ip = ");
-            sql_query.push_bind(client_ip);
+            if let Ok(_parsed_ip) = client_ip.parse::<std::net::IpAddr>() {
+                sql_query.push(" AND client_ip::text = ");
+                sql_query.push_bind(client_ip);
+            }
         }
 
         if let Some(session_id) = &query.session_id {
@@ -327,6 +383,10 @@ impl AuditRepo for PostgresAuditRepo {
             // Get actor_id UUID directly
             let actor_uuid = *entry.actor_id().value();
 
+            // Convert session_id string to UUID if provided
+            let session_uuid = entry.session_id()
+                .and_then(|s| Uuid::parse_str(s).ok());
+
             b.push_bind(entry_uuid)
              .push_bind(actor_uuid)
              .push_bind(actor_uuid) // user_id is same as actor_id in this context
@@ -338,10 +398,10 @@ impl AuditRepo for PostgresAuditRepo {
              .push_bind(severity)
              .push_bind(success)
              .push_bind(serde_json::to_value(entry.metadata()).unwrap_or(serde_json::Value::Null))
-             .push_bind(entry.client_ip())
+             .push_bind(Self::convert_ip_for_db(entry.client_ip()))
              .push_bind(entry.user_agent())
              .push_bind(entry.timestamp())
-             .push_bind(entry.session_id());
+             .push_bind(session_uuid);
         });
 
         query_builder

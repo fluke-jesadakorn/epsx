@@ -11,6 +11,8 @@ pub mod modules;
 pub mod validation;
 pub mod market_data;
 pub mod health;
+pub mod analytics;
+pub mod settings;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -33,10 +35,9 @@ use permission_profile::create_permission_profile_router;
 use user::user_routes_v1;
 // use realtime::realtime_routes; // Temporarily disabled during migration
 use modules::create_modules_router;
-use middleware::{
-    auth_middleware, 
-    error_handling::error_handling_middleware
-};
+use analytics::create_analytics_router;
+use settings::create_settings_router;
+use middleware::error_handling::error_handling_middleware;
 use validation::comprehensive_validation_middleware;
 use auth::handlers::{logout_handler, refresh_handler, me_handler, validate_session_handler, validate_route_access_handler, validate_bulk_routes_handler, check_permission_handler, user_features_handler, navigation_handler, single_permission_handler, rotate_session_handler};
 use auth::handlers::{login_handler as multi_login_handler, register_handler, register_handler as auto_register_handler, register_handler as password_reset_handler};
@@ -68,44 +69,71 @@ pub async fn premium_rankings_handler() -> Json<Value> {
 
 /// Create CORS layer with environment-based allowed origins
 fn create_cors_layer() -> CorsLayer {
-    let frontend_url = std::env::var("FRONTEND_URL")
-        .unwrap_or_else(|_| "http://localhost:3000".to_string());
-    let admin_frontend_url = std::env::var("ADMIN_FRONTEND_URL")
-        .unwrap_or_else(|_| "http://localhost:3001".to_string());
+    // Check if we're in development mode
+    let is_development = std::env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
     
-    // Production URLs (fallback to development if not set)
-    let production_frontend_url = std::env::var("PRODUCTION_FRONTEND_URL")
-        .unwrap_or_else(|_| "https://epsx.com".to_string());
-    let production_admin_url = std::env::var("PRODUCTION_ADMIN_URL")
-        .unwrap_or_else(|_| "https://admin.epsx.com".to_string());
-    
-    let allowed_origins = vec![
-        frontend_url.parse().expect("Invalid FRONTEND_URL"),
-        admin_frontend_url.parse().expect("Invalid ADMIN_FRONTEND_URL"),
-        production_frontend_url.parse().expect("Invalid PRODUCTION_FRONTEND_URL"),
-        production_admin_url.parse().expect("Invalid PRODUCTION_ADMIN_URL"),
-    ];
-    
-    tracing::info!("CORS allowed origins: {:?}", allowed_origins);
-    
-    CorsLayer::new()
-        .allow_origin(allowed_origins)
-        .allow_methods([
-            axum::http::Method::GET,
-            axum::http::Method::POST,
-            axum::http::Method::PUT,
-            axum::http::Method::DELETE,
-            axum::http::Method::OPTIONS,
-        ])
-        .allow_headers([
-            axum::http::header::AUTHORIZATION,
-            axum::http::header::CONTENT_TYPE,
-            axum::http::header::ACCEPT,
-            axum::http::header::ORIGIN,
-            axum::http::header::USER_AGENT,
-        ])
-        .allow_credentials(true)
-        .max_age(std::time::Duration::from_secs(3600))
+    if is_development {
+        tracing::info!("CORS: Development mode - allowing all origins (credentials disabled)");
+        
+        CorsLayer::new()
+            .allow_origin(tower_http::cors::Any)
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::DELETE,
+                axum::http::Method::OPTIONS,
+                axum::http::Method::PATCH,
+            ])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::ACCEPT,
+                axum::http::header::ORIGIN,
+                axum::http::header::USER_AGENT,
+            ])
+            .allow_credentials(false)
+            .max_age(std::time::Duration::from_secs(3600))
+    } else {
+        let frontend_url = std::env::var("FRONTEND_URL")
+            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+        let admin_frontend_url = std::env::var("ADMIN_FRONTEND_URL")
+            .unwrap_or_else(|_| "http://localhost:3001".to_string());
+        
+        // Production URLs (fallback to development if not set)
+        let production_frontend_url = std::env::var("PRODUCTION_FRONTEND_URL")
+            .unwrap_or_else(|_| "https://epsx.com".to_string());
+        let production_admin_url = std::env::var("PRODUCTION_ADMIN_URL")
+            .unwrap_or_else(|_| "https://admin.epsx.com".to_string());
+        
+        let allowed_origins = vec![
+            frontend_url.parse().expect("Invalid FRONTEND_URL"),
+            admin_frontend_url.parse().expect("Invalid ADMIN_FRONTEND_URL"),
+            production_frontend_url.parse().expect("Invalid PRODUCTION_FRONTEND_URL"),
+            production_admin_url.parse().expect("Invalid PRODUCTION_ADMIN_URL"),
+        ];
+        
+        tracing::info!("CORS allowed origins: {:?}", allowed_origins);
+        
+        CorsLayer::new()
+            .allow_origin(allowed_origins)
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::DELETE,
+                axum::http::Method::OPTIONS,
+            ])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::ACCEPT,
+                axum::http::header::ORIGIN,
+                axum::http::header::USER_AGENT,
+            ])
+            .allow_credentials(true)
+            .max_age(std::time::Duration::from_secs(3600))
+    }
 }
 
 /// Create v1 API routes
@@ -180,11 +208,6 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
 
 
-    // Admin routes for v1 API (auth required)
-    let admin_routes_v1 = Router::new()
-        .nest("/admin", create_admin_routes());
-        // TODO: Fix middleware trait bounds issue
-        // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
 
     // IAM routes for v1 API (auth required)
     let iam_routes_v1 = Router::new()
@@ -212,6 +235,26 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
     let module_routes_v1 = Router::new()
         .nest("/", create_modules_router(app_state.clone()));
 
+    // Analytics routes for v1 API (auth required)
+    let analytics_routes_v1 = Router::new()
+        .nest("/", create_analytics_router());
+        // TODO: Fix middleware trait bounds issue
+        // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
+
+    // Settings routes for v1 API (auth required)
+    let settings_routes_v1 = Router::new()
+        .nest("/settings", create_settings_router());
+        // TODO: Fix middleware trait bounds issue
+        // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
+
+    // Placeholder routes for frontend expectations
+    let placeholder_routes = Router::new()
+        .route("/notifications/subscribe", post(placeholder_notification_handler))
+        .route("/notifications/unsubscribe", post(placeholder_notification_handler))
+        .route("/monitoring/alerts", post(placeholder_monitoring_handler))
+        .route("/monitoring/events", post(placeholder_monitoring_handler))
+        .route("/stream", post(placeholder_stream_handler));
+
     Router::new()
         .merge(public_auth_routes)
         .merge(protected_auth_routes)
@@ -219,11 +262,13 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .merge(payment_routes)
         .merge(system_routes)
         .merge(premium_routes)
-        .merge(admin_routes_v1)
         .merge(iam_routes_v1)
         .merge(permission_profile_routes_v1)
         // .merge(realtime_routes_v1) // Temporarily disabled during migration
         .merge(module_routes_v1)
+        .merge(analytics_routes_v1)
+        .merge(settings_routes_v1)
+        .merge(placeholder_routes)
         .with_state(app_state)
 }
 
@@ -256,6 +301,33 @@ async fn placeholder_musepay_webhook() -> Json<Value> {
     Json(json!({
         "message": "MusePay webhook processed",
         "status": "received"
+    }))
+}
+
+/// Placeholder handler for notification endpoints
+async fn placeholder_notification_handler() -> Json<Value> {
+    Json(json!({
+        "message": "Notification endpoint not yet implemented",
+        "status": "placeholder",
+        "timestamp": chrono::Utc::now()
+    }))
+}
+
+/// Placeholder handler for monitoring endpoints
+async fn placeholder_monitoring_handler() -> Json<Value> {
+    Json(json!({
+        "message": "Monitoring endpoint not yet implemented",
+        "status": "placeholder",
+        "timestamp": chrono::Utc::now()
+    }))
+}
+
+/// Placeholder handler for stream endpoints
+async fn placeholder_stream_handler() -> Json<Value> {
+    Json(json!({
+        "message": "Stream endpoint not yet implemented",
+        "status": "placeholder",
+        "timestamp": chrono::Utc::now()
     }))
 }
 
@@ -371,16 +443,16 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
 
     // Create admin API routes with separated public/protected  
     let admin_api_public_routes = Router::new()
-        .nest("/api/admin", create_admin_public_routes());
+        .nest("/api/v1/admin", create_admin_public_routes());
 
     let admin_api_protected_routes = Router::new()
-        .nest("/api/admin", create_admin_routes());
+        .nest("/api/v1/admin", create_admin_routes());
         // TODO: Fix middleware trait bounds issue
         // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
 
     // Create admin module routes (for module management)
     let admin_module_routes = Router::new()
-        .nest("/api/admin", modules::create_admin_modules_router(app_state.clone()));
+        .nest("/api/v1/admin", modules::create_admin_modules_router(app_state.clone()));
 
     Router::new()
         .merge(public_routes)

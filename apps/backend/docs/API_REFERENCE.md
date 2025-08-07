@@ -21,7 +21,7 @@ The EPSX Casbin Authorization API provides comprehensive policy-based access con
 
 All protected endpoints require authentication via:
 - **Bearer Token:** `Authorization: Bearer <token>` 
-- **Session Cookie:** `session_id=<session_id>`
+- **Session Header:** `x-session-id: <session_id>`
 
 ### Role Hierarchy
 - `admin`: Full system access

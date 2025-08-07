@@ -284,7 +284,7 @@ pub async fn register_handler(
         })
 }
 
-/// Logout handler that removes session (no cookies to clear)
+/// Logout handler that deactivates user session
 pub async fn logout_handler(
     State(app_state): State<AppState>,
     request: axum::extract::Request,

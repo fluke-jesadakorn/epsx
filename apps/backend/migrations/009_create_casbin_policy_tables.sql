@@ -71,6 +71,11 @@ INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES
 ('p', 'basic_user', '/api/v1/market-data/quotes', 'GET')
 ON CONFLICT DO NOTHING;
 
+-- Assign default admin user to admin role
+INSERT INTO casbin_rule (ptype, v0, v1) VALUES
+('g', 'admin', 'admin')
+ON CONFLICT DO NOTHING;
+
 -- Create a view for easier policy querying
 CREATE OR REPLACE VIEW casbin_policies AS
 SELECT 
