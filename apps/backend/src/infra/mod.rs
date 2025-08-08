@@ -10,7 +10,7 @@ pub mod firebase_admin;
 pub mod jobs;
 
 // Re-export commonly used implementations
-pub use db::{PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool, create_pool, DatabaseConfig};
+pub use db::{PostgresUserRepo, PostgresSessRepo, PostgresPayRepo, PostgresStockRepo, PostgresIamRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, PostgresTemporaryPermissionRepo, PostgresEPSRepository, DatabasePool, create_pool, DatabaseConfig};
 // pub use repos::{IamRepoImpl, AuditRepoImpl, PermissionProfileRepoImpl};
 pub use services::{SendGridEmailService, MockEmailService, notification::*};
 pub use events::{SimpleEventDispatcher};
@@ -22,6 +22,7 @@ use crate::app::ports::{repositories::*, services::*, events::*};
 use crate::dom::ports::NotificationPort;
 // use crate::core::plugins::{PluginManager, PluginRegistry};
 use crate::dom::services::feature_expiration::FeatureExpirationService;
+use crate::dom::services::eps_ranking_service::EPSRankingService;
 use crate::infra::db::MigrationRunner;
 
 /// Database backend type
@@ -95,6 +96,19 @@ impl InfraFactory {
 
     pub fn create_permission_profile_repo(&self) -> Arc<dyn PermissionProfileRepo> {
         Arc::new(PostgresPermissionProfileRepo::new((*self.postgres_pool).clone()))
+    }
+
+    pub fn create_temporary_permission_repo(&self) -> Arc<dyn TemporaryPermissionRepo> {
+        Arc::new(PostgresTemporaryPermissionRepo::new((*self.postgres_pool).clone()))
+    }
+
+    pub fn create_eps_repo(&self) -> Arc<PostgresEPSRepository> {
+        Arc::new(PostgresEPSRepository::new(self.postgres_pool.clone()))
+    }
+
+    pub fn create_eps_ranking_service(&self) -> Arc<EPSRankingService> {
+        let eps_repo = self.create_eps_repo();
+        Arc::new(EPSRankingService::new(eps_repo))
     }
 
     // Service factories
@@ -185,6 +199,7 @@ pub struct AppContainer {
     pub iam_repo: Arc<dyn IamRepo>,
     pub audit_repo: Arc<dyn AuditRepo>,
     pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+    pub temporary_permission_repo: Arc<dyn TemporaryPermissionRepo>,
     
     // Services
     pub email_svc: Arc<dyn EmailSvc>,
@@ -214,6 +229,7 @@ impl AppContainer {
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let permission_profile_repo = infra.create_permission_profile_repo();
+        let temporary_permission_repo = infra.create_temporary_permission_repo();
         let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
         let firebase_admin = infra.create_firebase_admin()?;
@@ -235,6 +251,7 @@ impl AppContainer {
             iam_repo,
             audit_repo,
             permission_profile_repo,
+            temporary_permission_repo,
             email_svc,
             event_dispatcher,
             firebase_admin,
@@ -255,6 +272,7 @@ impl AppContainer {
         let iam_repo = infra.create_iam_repo();
         let audit_repo = infra.create_audit_repo();
         let permission_profile_repo = infra.create_permission_profile_repo();
+        let temporary_permission_repo = infra.create_temporary_permission_repo();
         let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
         let firebase_admin = infra.create_firebase_admin().unwrap_or_else(|e| {
@@ -279,6 +297,7 @@ impl AppContainer {
             iam_repo,
             audit_repo,
             permission_profile_repo,
+            temporary_permission_repo,
             email_svc,
             event_dispatcher,
             firebase_admin,

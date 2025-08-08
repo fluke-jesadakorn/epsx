@@ -73,10 +73,19 @@ fn create_cors_layer() -> CorsLayer {
     let is_development = std::env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
     
     if is_development {
-        tracing::info!("CORS: Development mode - allowing all origins (credentials disabled)");
+        tracing::info!("CORS: Development mode - allowing common development origins with credentials enabled");
+        
+        let dev_origins = vec![
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:3001".parse().unwrap(),
+            "http://127.0.0.1:3000".parse().unwrap(),
+            "http://127.0.0.1:3001".parse().unwrap(),
+            "http://0.0.0.0:3000".parse().unwrap(),
+            "http://0.0.0.0:3001".parse().unwrap(),
+        ];
         
         CorsLayer::new()
-            .allow_origin(tower_http::cors::Any)
+            .allow_origin(dev_origins)
             .allow_methods([
                 axum::http::Method::GET,
                 axum::http::Method::POST,
@@ -92,7 +101,7 @@ fn create_cors_layer() -> CorsLayer {
                 axum::http::header::ORIGIN,
                 axum::http::header::USER_AGENT,
             ])
-            .allow_credentials(false)
+            .allow_credentials(true)
             .max_age(std::time::Duration::from_secs(3600))
     } else {
         let frontend_url = std::env::var("FRONTEND_URL")
@@ -137,7 +146,7 @@ fn create_cors_layer() -> CorsLayer {
 }
 
 /// Create v1 API routes
-fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Router<AppState> {
+fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router<AppState> {
     // Create public authentication routes (no auth required)
     let public_auth_routes = Router::new()
         .route("/auth/login", post(multi_login_handler))
@@ -237,7 +246,7 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
 
     // Analytics routes for v1 API (auth required)
     let analytics_routes_v1 = Router::new()
-        .nest("/", create_analytics_router());
+        .nest("/", create_analytics_router(&container.infra));
         // TODO: Fix middleware trait bounds issue
         // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
 
@@ -424,6 +433,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
         container.iam_repo.clone(),
         container.audit_repo.clone(),
         container.permission_profile_repo.clone(),
+        container.temporary_permission_repo.clone(),
         stub_module_repo,
         stub_usage_repo,
         container.firebase_admin.clone(),
