@@ -1,5 +1,9 @@
-// Import base formatting utilities\nimport { fmtCurrency } from '@epsx/shared-utils/formatting';\n\n// Specialized financial formatting utilities
-// Use shared utility with legacy naming\nexport const cur = (amt: number, currency = 'USD'): string => 
+// Import base formatting utilities
+import { fmtCurrency } from '@epsx/shared-utils';
+
+// Specialized financial formatting utilities
+// Use shared utility with legacy naming
+export const cur = (amt: number, currency = 'USD'): string => 
   fmtCurrency(amt, currency)
 
 export const dt = (date: string | Date, fmt: 'short' | 'medium' | 'long' = 'medium'): string => {

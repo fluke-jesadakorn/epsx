@@ -6,7 +6,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Edit, MoreHorizontal, Power, Mail, Key, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Power, Mail, Key, Trash2 } from 'lucide-react'
+import { EditProfileButton } from './EditProfileButton'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
 
@@ -42,13 +43,10 @@ export function QuickActions({ user, currentUser }: QuickActionsProps) {
     <div className="flex items-center gap-2">
       {/* Edit Profile Button */}
       {canModifyUser && (
-        <button
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        <EditProfileButton 
+          userId={user.id}
           disabled={isLoading}
-        >
-          <Edit className="h-4 w-4" />
-          Edit Profile
-        </button>
+        />
       )}
 
       {/* Quick Actions Dropdown */}
@@ -108,6 +106,7 @@ export function QuickActions({ user, currentUser }: QuickActionsProps) {
           </>
         )}
       </div>
+
     </div>
   )
 }

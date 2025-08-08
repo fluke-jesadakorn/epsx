@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use uuid::Uuid;
+use axum::{response::{IntoResponse, Response}, http::StatusCode, Json};
+use serde_json::json;
 
 /// Contextual error with correlation tracking
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
@@ -48,6 +50,7 @@ pub enum ErrorKind {
     
     // System errors
     InternalError,
+    InternalServerError,
     ServiceUnavailable,
     TimeoutError,
     ResourceExhausted,
@@ -69,6 +72,7 @@ impl Display for ErrorKind {
             ErrorKind::RateLimitExceeded => "Rate Limit Exceeded",
             ErrorKind::QuotaExceeded => "Quota Exceeded",
             ErrorKind::InternalError => "Internal Error",
+            ErrorKind::InternalServerError => "Internal Server Error",
             ErrorKind::ServiceUnavailable => "Service Unavailable",
             ErrorKind::TimeoutError => "Timeout Error",
             ErrorKind::ResourceExhausted => "Resource Exhausted",
@@ -141,12 +145,31 @@ impl AppError {
             ErrorKind::RateLimitExceeded => 429,
             ErrorKind::QuotaExceeded => 429,
             ErrorKind::InternalError => 500,
+            ErrorKind::InternalServerError => 500,
             ErrorKind::DatabaseError => 500,
             ErrorKind::ExternalServiceError => 502,
             ErrorKind::ServiceUnavailable => 503,
             ErrorKind::TimeoutError => 504,
             _ => 500,
         }
+    }
+}
+
+/// Convert AppError to HTTP response
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let status_code = StatusCode::from_u16(self.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        
+        let sanitized_error = ErrorSanitizer::sanitize_for_user(&self);
+        
+        let error_response = json!({
+            "error": sanitized_error.kind.to_string(),
+            "message": sanitized_error.message,
+            "correlation_id": sanitized_error.correlation_id,
+            "timestamp": sanitized_error.timestamp
+        });
+        
+        (status_code, Json(error_response)).into_response()
     }
 }
 

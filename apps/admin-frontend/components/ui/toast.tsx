@@ -27,6 +27,33 @@ export const useToast = () => {
   return context;
 };
 
+export const toast = {
+  success: (title: string, description?: string) => {
+    const event = new CustomEvent('toast', {
+      detail: { type: 'success', title, description }
+    });
+    window.dispatchEvent(event);
+  },
+  error: (title: string, description?: string) => {
+    const event = new CustomEvent('toast', {
+      detail: { type: 'error', title, description }
+    });
+    window.dispatchEvent(event);
+  },
+  warning: (title: string, description?: string) => {
+    const event = new CustomEvent('toast', {
+      detail: { type: 'warning', title, description }
+    });
+    window.dispatchEvent(event);
+  },
+  info: (title: string, description?: string) => {
+    const event = new CustomEvent('toast', {
+      detail: { type: 'info', title, description }
+    });
+    window.dispatchEvent(event);
+  }
+};
+
 export const ToastProvider: React.FC<{ children: React.ReactNode }> =
   function ToastProvider({ children }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -50,6 +77,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> =
         removeToast(id);
       }, duration);
     }, [removeToast]);
+
+    React.useEffect(() => {
+      const handleToastEvent = (e: CustomEvent) => {
+        addToast(e.detail);
+      };
+
+      window.addEventListener('toast', handleToastEvent as EventListener);
+      
+      return () => {
+        window.removeEventListener('toast', handleToastEvent as EventListener);
+      };
+    }, [addToast]);
 
     return (
       <ToastContext.Provider value={{ toasts, addToast, removeToast }}>

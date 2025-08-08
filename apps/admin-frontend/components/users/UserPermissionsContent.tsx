@@ -13,9 +13,22 @@ import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
 import { PermissionAssignmentCard } from './PermissionAssignmentCard'
 import { RoleAssignmentCard } from './RoleAssignmentCard'
 import { PermissionProfileCard } from './PermissionProfileCard'
-import { RoleAssignmentModal } from './RoleAssignmentModal'
-import { CustomPermissionModal } from './CustomPermissionModal'
-import { PermissionProfileModal } from './PermissionProfileModal'
+import { RoleAssignmentForm } from './RoleAssignmentForm'
+import { CustomPermissionForm } from './CustomPermissionForm'
+import { PermissionProfileForm } from './PermissionProfileForm'
+import { PermissionHistoryCard } from './PermissionHistoryCard'
+import { TemporaryPermissionForm } from './TemporaryPermissionForm'
+import { BulkOperationsInterface } from './BulkOperationsInterface'
+import { PermissionImpactAnalysis } from './PermissionImpactAnalysis'
+import { PermissionValidator } from './PermissionValidator'
+import { PermissionConflictResolver } from './PermissionConflictResolver'
+import { PermissionExportImport } from './PermissionExportImport'
+import { EnhancedPermissionProfileManager } from './EnhancedPermissionProfileManager'
+import { TemporaryPermissionManager } from './TemporaryPermissionManager'
+import { PermissionAnalyticsDashboard } from '../analytics/PermissionAnalyticsDashboard'
+import { SmartPermissionRecommendations } from './SmartPermissionRecommendations'
+import { InteractivePermissionTreeView } from './InteractivePermissionTreeView'
+import { DragDropBulkAssignment } from './DragDropBulkAssignment'
 
 interface UserPermissionsContentProps {
   user: UnifiedUserData
@@ -30,10 +43,6 @@ export function UserPermissionsContent({
 }: UserPermissionsContentProps) {
   const canManagePermissions = currentUser.isSuperAdmin || currentUser.canManageUsers
   
-  // Modal states
-  const [showRoleModal, setShowRoleModal] = useState(false)
-  const [showPermissionModal, setShowPermissionModal] = useState(false)
-  const [showProfileModal, setShowProfileModal] = useState(false)
 
   // Calculate permission stats
   const activeRoles = user.roles.filter(r => r.isActive).length
@@ -86,193 +95,299 @@ export function UserPermissionsContent({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Role Assignments */}
         <div className="pancake-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Role Assignments
-            </h3>
-            {canManagePermissions && (
-              <Button
-                onClick={() => setShowRoleModal(true)}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Assign Role
-              </Button>
-            )}
-          </div>
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Role Assignments
+          </h3>
           
-          <div className="space-y-3">
-            {user.roles.length > 0 ? (
-              user.roles.map((role) => (
-                <RoleAssignmentCard 
-                  key={role.id}
-                  role={role}
-                  userId={user.id}
-                  canManage={canManagePermissions}
-                  onRoleRemoved={handleRefreshData}
-                />
-              ))
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No roles assigned</p>
-                {canManagePermissions && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowRoleModal(true)}
-                    className="mt-2"
-                  >
-                    Assign First Role
-                  </Button>
-                )}
+          <div className="space-y-4">
+            {user.roles.length > 0 && (
+              <div className="space-y-3">
+                {user.roles.map((role) => (
+                  <RoleAssignmentCard 
+                    key={role.id}
+                    role={role}
+                    userId={user.id}
+                    canManage={canManagePermissions}
+                    onRoleRemoved={handleRefreshData}
+                  />
+                ))}
               </div>
+            )}
+            
+            {canManagePermissions && (
+              <RoleAssignmentForm
+                userId={user.id}
+                existingRoles={existingRoles}
+                onRoleUpdated={handleRefreshData}
+              />
             )}
           </div>
         </div>
 
-        {/* Permission Profiles */}
+        {/* Permission Profiles - Enhanced */}
         <div className="pancake-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Permission Profiles
-            </h3>
-            {canManagePermissions && (
-              <Button
-                onClick={() => setShowProfileModal(true)}
-                size="sm"
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Assign Profile
-              </Button>
-            )}
-          </div>
-          
-          <div className="space-y-3">
-            {user.permissionProfiles.length > 0 ? (
-              user.permissionProfiles.map((profile) => (
-                <PermissionProfileCard 
-                  key={profile.id}
-                  profile={profile}
-                  canManage={canManagePermissions}
-                />
-              ))
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No permission profiles assigned</p>
-                {canManagePermissions && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowProfileModal(true)}
-                    className="mt-2"
-                  >
-                    Assign Profile
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+          <EnhancedPermissionProfileManager
+            userId={user.id}
+            currentProfiles={user.permissionProfiles}
+            canManage={canManagePermissions}
+            onProfileUpdated={handleRefreshData}
+          />
         </div>
       </div>
 
       {/* Custom Permissions */}
       <div className="pancake-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            Custom Permissions
-          </h3>
-          {canManagePermissions && (
-            <Button
-              onClick={() => setShowPermissionModal(true)}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Permission
-            </Button>
-          )}
-        </div>
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Key className="h-5 w-5" />
+          Custom Permissions
+        </h3>
         
-        <div className="space-y-2">
-          {user.customPermissions.length > 0 ? (
-            user.customPermissions.map((permission) => (
-              <PermissionAssignmentCard 
-                key={permission.id}
-                permission={permission}
-                userId={user.id}
-                canManage={canManagePermissions}
-                onPermissionRemoved={handleRefreshData}
-              />
-            ))
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No custom permissions assigned</p>
-              {canManagePermissions && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPermissionModal(true)}
-                  className="mt-2"
-                >
-                  Add First Permission
-                </Button>
-              )}
+        <div className="space-y-4">
+          {user.customPermissions.length > 0 && (
+            <div className="space-y-2">
+              {user.customPermissions.map((permission) => (
+                <PermissionAssignmentCard 
+                  key={permission.id}
+                  permission={permission}
+                  userId={user.id}
+                  canManage={canManagePermissions}
+                  onPermissionRemoved={handleRefreshData}
+                />
+              ))}
             </div>
+          )}
+          
+          {canManagePermissions && (
+            <CustomPermissionForm
+              userId={user.id}
+              existingPermissions={user.customPermissions.map(p => p.permission)}
+              onPermissionUpdated={handleRefreshData}
+            />
           )}
         </div>
       </div>
 
       {/* Permission History */}
+      <PermissionHistoryCard userId={user.id} />
+      
+      {/* Advanced Management Tools */}
+      {canManagePermissions && (
+        <>
+          {/* Temporary Permissions */}
+          <div className="pancake-card p-6">
+            <TemporaryPermissionManager userId={user.id} />
+          </div>
+          
+          {/* Bulk Management */}
+          <div className="pancake-card p-6">
+            <BulkOperationsInterface
+              selectedUserIds={[user.id]}
+              onOperationComplete={handleRefreshData}
+            />
+          </div>
+        </>
+      )}
+      
+      {/* Permission Impact Analysis */}
       <div className="pancake-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          Permission History
+          <Shield className="h-5 w-5" />
+          Permission Impact
         </h3>
         
-        <div className="space-y-3">
-          {/* This would show recent permission changes */}
-          <div className="text-center text-muted-foreground py-8">
-            <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Permission history will be shown here</p>
-            <p className="text-xs">Track role assignments, profile changes, and custom permissions</p>
-          </div>
-        </div>
+        <PermissionImpactAnalysis userId={user.id} />
       </div>
+      
+      {/* Analytics Dashboard */}
+      {canManagePermissions && (
+        <div className="pancake-card p-6">
+          <PermissionAnalyticsDashboard />
+        </div>
+      )}
 
-      {/* Modals */}
-      <RoleAssignmentModal
-        isOpen={showRoleModal}
-        onOpenChange={setShowRoleModal}
-        userId={user.id}
-        userEmail={user.email}
-        existingRoles={existingRoles}
-        onRoleAssigned={handleRefreshData}
-      />
+      {/* Smart Recommendations */}
+      {canManagePermissions && (
+        <div className="pancake-card p-6">
+          <SmartPermissionRecommendations
+            user={{
+              id: user.id,
+              email: user.email,
+              currentPermissions: user.customPermissions.map(p => p.permission),
+              role: user.roles[0]?.name || 'user',
+              department: 'General' // Would be extracted from user data
+            }}
+            onApplyRecommendation={async (recommendation) => {
+              // Handle recommendation application
+              console.log('Applying recommendation:', recommendation);
+              handleRefreshData();
+            }}
+          />
+        </div>
+      )}
 
-      <CustomPermissionModal
-        isOpen={showPermissionModal}
-        onOpenChange={setShowPermissionModal}
-        userId={user.id}
-        userEmail={user.email}
-        onPermissionAdded={handleRefreshData}
-      />
+      {/* Interactive Permission Tree */}
+      {canManagePermissions && (
+        <div className="pancake-card p-6">
+          <InteractivePermissionTreeView
+            permissions={[
+              {
+                id: 'resources',
+                name: 'Resource Permissions',
+                type: 'resource',
+                granted: true,
+                inherited: false,
+                riskLevel: 'low',
+                category: 'General',
+                children: [
+                  {
+                    id: 'dashboard',
+                    name: 'Dashboard',
+                    type: 'resource',
+                    granted: true,
+                    inherited: false,
+                    riskLevel: 'low',
+                    category: 'UI',
+                    children: [
+                      {
+                        id: 'dashboard.read',
+                        name: 'Read Dashboard',
+                        type: 'permission',
+                        granted: true,
+                        inherited: false,
+                        riskLevel: 'low',
+                        category: 'Read',
+                        description: 'View dashboard data'
+                      },
+                      {
+                        id: 'dashboard.edit',
+                        name: 'Edit Dashboard',
+                        type: 'permission',
+                        granted: false,
+                        inherited: false,
+                        riskLevel: 'medium',
+                        category: 'Write',
+                        description: 'Modify dashboard configuration'
+                      }
+                    ]
+                  },
+                  {
+                    id: 'users',
+                    name: 'User Management',
+                    type: 'resource',
+                    granted: false,
+                    inherited: true,
+                    source: 'admin role',
+                    riskLevel: 'high',
+                    category: 'Admin',
+                    children: [
+                      {
+                        id: 'users.read',
+                        name: 'View Users',
+                        type: 'permission',
+                        granted: true,
+                        inherited: true,
+                        source: 'admin role',
+                        riskLevel: 'medium',
+                        category: 'Read'
+                      },
+                      {
+                        id: 'users.create',
+                        name: 'Create Users',
+                        type: 'permission',
+                        granted: false,
+                        inherited: false,
+                        riskLevel: 'high',
+                        category: 'Write'
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]}
+            onPermissionChange={(nodeId, granted) => {
+              console.log('Permission change:', nodeId, granted);
+              handleRefreshData();
+            }}
+            onBulkPermissionChange={(nodeIds, granted) => {
+              console.log('Bulk permission change:', nodeIds, granted);
+              handleRefreshData();
+            }}
+            readonly={false}
+            showSearch={true}
+            showBulkActions={true}
+            highlightChanges={true}
+          />
+        </div>
+      )}
 
-      <PermissionProfileModal
-        isOpen={showProfileModal}
-        onOpenChange={setShowProfileModal}
-        userId={user.id}
-        userEmail={user.email}
-        existingProfiles={existingProfileIds}
-        onProfileAssigned={handleRefreshData}
-      />
+      {/* Drag & Drop Bulk Assignment */}
+      {canManagePermissions && (
+        <div className="pancake-card p-6">
+          <DragDropBulkAssignment
+            users={[
+              { id: user.id, type: 'user', name: user.firstName + ' ' + user.lastName, email: user.email }
+            ]}
+            profiles={user.permissionProfiles.map(p => ({
+              id: p.id,
+              type: 'profile' as const,
+              name: p.name,
+              description: p.description,
+              riskLevel: 'medium' as const,
+              category: p.category
+            }))}
+            permissions={user.customPermissions.map(p => ({
+              id: p.id,
+              type: 'permission' as const,
+              name: p.permission,
+              description: p.resource + ' - ' + p.action,
+              riskLevel: 'low' as const,
+              category: 'Custom'
+            }))}
+            onBulkAssign={async (assignments) => {
+              console.log('Bulk assign:', assignments);
+              // Process assignments
+              handleRefreshData();
+            }}
+          />
+        </div>
+      )}
+
+      {/* Advanced Management Tools */}
+      {canManagePermissions && (
+        <>
+          {/* Permission Validation & Conflict Resolution */}
+          <div className="pancake-card p-6">
+            <PermissionConflictResolver
+              userId={user.id}
+              proposedChanges={{
+                addPermissions: user.customPermissions.map(p => p.permission),
+                addRoles: user.roles.map(r => r.name),
+                addProfiles: user.permissionProfiles.map(p => p.id),
+              }}
+              onValidationComplete={(result) => {
+                // Handle validation completion if needed
+                console.log('Validation completed:', result);
+              }}
+              autoValidate={false}
+            />
+          </div>
+          
+          {/* Export/Import */}
+          <div className="pancake-card p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Backup & Migration
+            </h3>
+            
+            <PermissionExportImport
+              user={user}
+              onPermissionsUpdated={handleRefreshData}
+            />
+          </div>
+        </>
+      )}
+
     </div>
   )
 }

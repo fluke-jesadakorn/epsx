@@ -6,6 +6,8 @@ import {
   getEnvironmentConfig
 } from '@epsx/server-actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
   // Fetch settings data server-side
   const [

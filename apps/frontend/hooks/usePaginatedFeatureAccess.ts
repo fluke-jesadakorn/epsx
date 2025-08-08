@@ -7,9 +7,9 @@ interface PaginatedFeatureAccessOptions {
 }
 
 /**
- * Hook for managing paginated feature access
+ * Hook for managing paginated feature access with parameters
  */
-export function usePaginatedFeatureAccess({ 
+function usePaginatedFeatureAccessWithParams({ 
   feature, 
   pageSize = 10 
 }: PaginatedFeatureAccessOptions) {
@@ -40,5 +40,66 @@ export function usePaginatedFeatureAccess({
     prevPage,
     canGoNext: currentPage < totalPages,
     canGoPrev: currentPage > 1
+  };
+}
+
+export { usePaginatedFeatureAccessWithParams as usePaginatedFeatureAccess };
+
+/**
+ * Hook for managing paginated feature access without parameters (for analytics dashboard)
+ */
+export default function usePaginatedFeatureAccess() {
+  const { user, loading } = useAuth();
+  
+  // Determine user tier based on role and subscription
+  const getUserTier = () => {
+    if (user?.role === 'system_administrator' || user?.role === 'admin') {
+      return 'PLATINUM'; // Give SuperAdmin users full access
+    }
+    
+    const subscriptionTier = user?.subscription_tier?.toLowerCase() || 'free';
+    if (['premium', 'enterprise', 'platinum', 'gold'].includes(subscriptionTier)) {
+      return 'GOLD';
+    }
+    if (subscriptionTier === 'silver') {
+      return 'SILVER';
+    }
+    return 'BASIC';
+  };
+
+  const userTier = getUserTier();
+  
+  // Define limits based on user tier
+  const getTierLimits = () => {
+    switch (userTier) {
+      case 'PLATINUM':
+        return { maxLimit: 1000, pageSizes: [10, 25, 50, 100], maxPages: 100 };
+      case 'GOLD':
+        return { maxLimit: 500, pageSizes: [10, 25, 50], maxPages: 50 };
+      case 'SILVER':
+        return { maxLimit: 100, pageSizes: [10, 25], maxPages: 10 };
+      case 'BASIC':
+      default:
+        return { maxLimit: 25, pageSizes: [10, 25], maxPages: 3 };
+    }
+  };
+
+  const tierLimits = getTierLimits();
+
+  const getMaxAllowedLimit = () => tierLimits.maxLimit;
+  
+  const getAvailablePageSizes = () => tierLimits.pageSizes;
+  
+  const canAccessPage = (page: number, limit: number) => {
+    const totalItems = page * limit;
+    return totalItems <= tierLimits.maxLimit;
+  };
+  
+  return {
+    getMaxAllowedLimit,
+    canAccessPage,
+    getAvailablePageSizes,
+    userTier,
+    loading
   };
 }

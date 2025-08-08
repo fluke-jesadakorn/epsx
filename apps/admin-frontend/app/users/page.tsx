@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { getUsersList } from '@/lib/actions/unified-user-actions'
 import { reloadPage } from '@/lib/actions/page-actions'
 import UserListClient from './UserListClient'
-import { UserModalManager } from '@/components/users/UserModalManager'
 import { CreateUserButton } from '@/components/users/CreateUserButton'
+import { EditProfileButton } from '@/components/users/EditProfileButton'
 
 interface PageProps {
   searchParams?: Promise<{
@@ -12,6 +12,8 @@ interface PageProps {
     role?: string
     page?: string
     status?: string
+    modal?: string
+    userId?: string
   }>
 }
 
@@ -30,6 +32,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
   }
 
   const result = await getUsersList(filters)
+
 
   if (!result.success) {
     return (
@@ -168,12 +171,10 @@ export default async function UsersPage({ searchParams }: PageProps) {
                     >
                       View
                     </Link>
-                    <Link 
-                      href={`/users/${user.id}/overview`}
-                      className="text-green-600 hover:text-green-800 text-sm"
-                    >
-                      Edit
-                    </Link>
+                    <EditProfileButton 
+                      userId={user.id}
+                      className="!px-2 !py-1 !text-xs"
+                    />
                   </div>
                 </div>
               </div>
@@ -195,24 +196,30 @@ export default async function UsersPage({ searchParams }: PageProps) {
               </Link>
             )}
             
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const pageNum = Math.max(1, page - 2) + i
-              if (pageNum > totalPages) return null
+{(() => {
+              const maxVisiblePages = Math.min(5, totalPages)
+              const startPage = Math.max(1, page - 2)
+              const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+              const pages = []
               
-              return (
-                <Link
-                  key={pageNum}
-                  href={`/users?page=${pageNum}&role=${filters.role}&search=${filters.search}`}
-                  className={`px-3 py-1 rounded text-sm ${
-                    pageNum === page
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {pageNum}
-                </Link>
-              )
-            }).filter(Boolean)}
+              for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+                pages.push(
+                  <Link
+                    key={pageNum}
+                    href={`/users?page=${pageNum}&role=${filters.role}&search=${filters.search}`}
+                    className={`px-3 py-1 rounded text-sm ${
+                      pageNum === page
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </Link>
+                )
+              }
+              
+              return pages
+            })()}
             
             {page < totalPages && (
               <Link 
@@ -225,7 +232,6 @@ export default async function UsersPage({ searchParams }: PageProps) {
           </div>
         </div>
       </div>
-      <UserModalManager />
     </div>
   )
 }

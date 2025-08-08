@@ -7,8 +7,10 @@ pub mod stock;
 pub mod iam;
 pub mod audit;
 pub mod permission_profile;
+pub mod temporary_permission;
 pub mod module;
 pub mod market_data;
+pub mod eps_growth;
 
 pub use user::*;
 pub use auth::*;
@@ -17,8 +19,10 @@ pub use stock::*;
 pub use iam::*;
 pub use audit::*;
 pub use permission_profile::*;
+pub use temporary_permission::*;
 pub use module::*;
 pub use market_data::*;
+pub use eps_growth::*;
 
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};

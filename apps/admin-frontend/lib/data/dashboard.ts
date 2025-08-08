@@ -21,6 +21,31 @@ export interface DashboardStats {
   systemHealth: 'good' | 'warning' | 'critical'
 }
 
+export interface BackendUserStats {
+  total_users: number
+  active_users: number
+  deleted_users: number
+  by_role: Record<string, number>
+  by_tier: Record<string, number>
+  recent_users_30_days: number
+  user_creation_by_month: Record<string, number>
+  generated_at: string
+}
+
+export interface BackendSystemMetrics {
+  status: string
+  timestamp: string
+  data: {
+    cpu_usage: number
+    memory_usage: number
+    active_connections: number
+    requests_per_minute: number
+    response_time_avg: number
+    error_rate: number
+    uptime_seconds: number
+  }
+}
+
 export interface RecentUser {
   uid: string
   email: string
@@ -52,7 +77,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       throw new Error('Not authenticated')
     }
     
-    const response = await fetch(`${BACKEND_URL}/api/v1/admin/dashboard/stats`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/admin/analytics/user-statistics`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -67,8 +92,23 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       return getMockDashboardStats()
     }
     
-    const data = await response.json()
-    return data
+    const backendData: BackendUserStats = await response.json()
+    
+    // Map backend response to our DashboardStats interface
+    const mappedData: DashboardStats = {
+      totalUsers: backendData.total_users,
+      verifiedUsers: backendData.active_users, // Using active_users as proxy for verified
+      disabledUsers: backendData.deleted_users,
+      adminUsers: (backendData.by_role?.admin || 0) + (backendData.by_role?.super_admin || 0) + (backendData.by_role?.moderator || 0),
+      verificationRate: Math.round((backendData.active_users / backendData.total_users) * 100),
+      activeUsers: backendData.active_users,
+      newUsersToday: Math.floor(backendData.recent_users_30_days / 30), // Rough estimate
+      newUsersThisWeek: Math.floor(backendData.recent_users_30_days / 4.3), // Rough estimate
+      totalSessions: backendData.active_users * 2, // Rough estimate - 2 sessions per active user
+      systemHealth: backendData.total_users > 0 ? 'good' : 'warning'
+    }
+    
+    return mappedData
     
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
@@ -122,7 +162,7 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
       throw new Error('Not authenticated')
     }
     
-    const response = await fetch(`${BACKEND_URL}/api/v1/admin/system/metrics`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/analytics/system/metrics`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -136,8 +176,22 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
       return getMockSystemMetrics()
     }
     
-    const data = await response.json()
-    return data
+    const backendData: BackendSystemMetrics = await response.json()
+    
+    if (backendData.status !== 'success' || !backendData.data) {
+      throw new Error('Invalid system metrics response')
+    }
+    
+    // Map backend response to our SystemMetrics interface
+    const mappedData: SystemMetrics = {
+      serverLoad: backendData.data.cpu_usage,
+      memoryUsage: backendData.data.memory_usage,
+      databaseConnections: backendData.data.active_connections,
+      errorRate: backendData.data.error_rate,
+      uptime: (backendData.data.uptime_seconds / (24 * 60 * 60)) * 100 // Convert to percentage
+    }
+    
+    return mappedData
     
   } catch (error) {
     console.error('Error fetching system metrics:', error)

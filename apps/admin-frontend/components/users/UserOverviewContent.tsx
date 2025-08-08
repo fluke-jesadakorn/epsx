@@ -62,7 +62,7 @@ export function UserOverviewContent({ user, _currentUser }: UserOverviewContentP
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {userStats.map((stat, index) => (
           <StatsCard
-            key={index}
+            key={stat.title}
             title={stat.title}
             value={stat.value}
             description={stat.description}
@@ -195,7 +195,7 @@ export function UserOverviewContent({ user, _currentUser }: UserOverviewContentP
         <div className="space-y-3">
           {user.recentActivity.length > 0 ? (
             user.recentActivity.slice(0, 5).map((activity, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div key={`${activity.action}-${activity.timestamp}-${index}`} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div>
                   <div className="text-sm font-medium">{activity.action}</div>
                   <div className="text-xs text-muted-foreground">

@@ -7,6 +7,7 @@ pub mod market_data;
 pub mod encryption;
 pub mod tradingview;
 pub mod websocket;
+pub mod tradingview_websocket;
 
 pub use email::{SendGridEmailService, MockEmailService, SentEmail};
 pub use notification::{
@@ -23,6 +24,7 @@ pub use market_data::{
 pub use encryption::{EncryptionService, EncryptionError};
 pub use tradingview::{TradingViewService, TradingViewApiService, TradingViewConfig};
 pub use websocket::{WebSocketClient, WebSocketConnection, WebSocketError};
+pub use tradingview_websocket::TradingViewWebSocketService;
 
 // TODO: Implement remaining external services like:
 // - WebSocketService (real-time communication)

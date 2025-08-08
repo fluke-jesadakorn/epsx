@@ -396,6 +396,26 @@ impl PermissionProfile {
         }
         self.updated_at = Utc::now();
     }
+
+    // Additional setter methods needed by handlers
+    pub fn set_category(&mut self, category: PermissionProfileCategory) {
+        self.category = category;
+        self.updated_at = Utc::now();
+    }
+
+    pub fn set_target_tier(&mut self, tier: PackageTier) {
+        self.target_tier = tier;
+        self.updated_at = Utc::now();
+    }
+
+    pub fn set_default_permissions(&mut self, permissions: Vec<Permission>) {
+        self.default_permissions = permissions;
+        self.updated_at = Utc::now();
+    }
+
+    pub fn touch_updated_at(&mut self) {
+        self.updated_at = Utc::now();
+    }
 }
 
 impl PermissionProfileMetadata {

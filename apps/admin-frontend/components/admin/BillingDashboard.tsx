@@ -208,14 +208,14 @@ export const BillingDashboard: React.FC = () => {
             <div className="space-y-6">
               {/* Current Bill Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Current Bill</h3>
-                      <div className="text-3xl font-bold text-gray-900 mt-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Current Bill</h3>
+                      <div className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
                         {fmtCurrency(currentBill.pricing.totalCost)}
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         Due: {new Date(currentBill.paymentDue).toLocaleDateString()}
                       </p>
                     </div>
@@ -233,7 +233,7 @@ export const BillingDashboard: React.FC = () => {
                   )}
                 </div>
 
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Total Usage</h3>
@@ -246,7 +246,7 @@ export const BillingDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Active Modules</h3>
@@ -261,7 +261,7 @@ export const BillingDashboard: React.FC = () => {
               </div>
 
               {/* Usage Breakdown */}
-              <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Usage Breakdown</h3>
                 </div>
@@ -275,7 +275,7 @@ export const BillingDashboard: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Request</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {currentBill.usage.moduleBreakdown.map((module, index) => (
                         <tr key={index}>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -324,7 +324,7 @@ export const BillingDashboard: React.FC = () => {
           {/* Invoices Tab */}
           {activeTab === 'invoices' && (
             <div className="space-y-6">
-              <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Invoice History</h3>
                 </div>
@@ -339,7 +339,7 @@ export const BillingDashboard: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {invoices.map((invoice) => (
                         <tr key={invoice.id}>
                           <td className="px-6 py-4 whitespace-nowrap">

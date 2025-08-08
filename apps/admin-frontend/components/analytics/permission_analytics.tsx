@@ -353,8 +353,8 @@ const PermissionAnalytics: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {permissionUsage.map((permission, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
+                    {permissionUsage.map((permission) => (
+                      <tr key={`${permission.permission}-${permission.resource}`} className="border-b hover:bg-gray-50">
                         <td className="p-2 font-mono text-sm">{permission.permission}</td>
                         <td className="p-2">{permission.resource}</td>
                         <td className="p-2">{permission.usageCount.toLocaleString()}</td>
@@ -397,8 +397,8 @@ const PermissionAnalytics: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {userBehavior.map((user, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
+                    {userBehavior.map((user) => (
+                      <tr key={user.userId} className="border-b hover:bg-gray-50">
                         <td className="p-3">
                           <div>
                             <div className="font-medium">{user.username}</div>
@@ -419,8 +419,8 @@ const PermissionAnalytics: React.FC = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-1">
-                            {user.mostUsedPermissions.slice(0, 2).map((perm, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
+                            {user.mostUsedPermissions.slice(0, 2).map((perm) => (
+                              <Badge key={perm} variant="secondary" className="text-xs">
                                 {perm}
                               </Badge>
                             ))}

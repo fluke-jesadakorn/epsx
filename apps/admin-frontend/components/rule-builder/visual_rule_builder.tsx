@@ -427,7 +427,7 @@ if (${conditions}) {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                className="border rounded-lg p-4 bg-white space-y-3"
+                                className="border rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ if (${conditions}) {
               <CardDescription>Preview of the generated rule logic</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-gray-100 p-3 rounded font-mono text-sm">
+              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded font-mono text-sm">
                 {currentRule.conditions.length > 0 ? (
                   currentRule.conditions.map((condition, index) => (
                     <div key={condition.id}>
@@ -664,7 +664,7 @@ if (${conditions}) {
           <CardDescription>Auto-generated code representation of your rule</CardDescription>
         </CardHeader>
         <CardContent>
-          <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
+          <pre className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-sm overflow-x-auto">
             <code>{generateRuleCode()}</code>
           </pre>
         </CardContent>

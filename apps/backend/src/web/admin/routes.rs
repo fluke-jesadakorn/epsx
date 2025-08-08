@@ -40,6 +40,46 @@ use super::casbin_handlers::{
     get_cache_stats_handler,
     clear_cache_handler,
 };
+use super::permission_profile_handlers::{
+    list_permission_profiles_handler,
+    get_permission_profile_handler,
+    create_permission_profile_handler,
+    update_permission_profile_handler,
+    delete_permission_profile_handler,
+    unassign_permission_profile_handler,
+    get_permission_profile_categories_handler,
+    get_permission_profile_tiers_handler,
+    validate_permission_profile_assignment_handler,
+    bulk_validate_permission_profile_assignment_handler,
+};
+use super::temporary_permission_handlers::{
+    create_temporary_permission_handler,
+    get_temporary_permission_handler,
+    list_temporary_permissions_handler,
+    update_temporary_permission_handler,
+    revoke_temporary_permission_handler,
+    delete_temporary_permission_handler,
+    get_user_temporary_permissions_handler,
+    cleanup_expired_permissions_handler,
+    bulk_create_temporary_permissions_handler,
+    bulk_revoke_temporary_permissions_handler,
+    bulk_update_temporary_permissions_handler,
+};
+use super::permission_export_import_handlers::{
+    export_user_permissions_handler,
+    bulk_export_user_permissions_handler,
+    validate_permission_import_handler,
+    import_user_permissions_handler,
+    generate_audit_report_handler,
+    create_system_backup_handler,
+    restore_system_backup_handler,
+};
+use super::analytics_handlers::{
+    get_permission_analytics_handler,
+    get_permission_recommendations_handler,
+    get_performance_metrics_handler,
+    get_security_risk_analysis_handler,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -69,8 +109,42 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/billing", put(update_user_billing_handler))
         .route("/users/:user_id/activity", get(get_user_activity_handler))
         
-        // Permission profile management routes
+        // Permission profile management routes (Full CRUD)
+        .route("/permission-profiles", get(list_permission_profiles_handler))
+        .route("/permission-profiles", post(create_permission_profile_handler))
+        .route("/permission-profiles/:id", get(get_permission_profile_handler))
+        .route("/permission-profiles/:id", put(update_permission_profile_handler))
+        .route("/permission-profiles/:id", delete(delete_permission_profile_handler))
         .route("/permission-profiles/assign", post(assign_permission_profiles_handler))
+        .route("/permission-profiles/unassign", delete(unassign_permission_profile_handler))
+        .route("/permission-profiles/validate-assignment", post(validate_permission_profile_assignment_handler))
+        .route("/permission-profiles/bulk-validate", post(bulk_validate_permission_profile_assignment_handler))
+        .route("/permission-profiles/categories", get(get_permission_profile_categories_handler))
+        .route("/permission-profiles/tiers", get(get_permission_profile_tiers_handler))
+        
+        // Temporary permissions routes
+        .route("/temporary-permissions", post(create_temporary_permission_handler))
+        .route("/temporary-permissions", get(list_temporary_permissions_handler))
+        .route("/temporary-permissions/:id", get(get_temporary_permission_handler))
+        .route("/temporary-permissions/:id", put(update_temporary_permission_handler))
+        .route("/temporary-permissions/:id", delete(delete_temporary_permission_handler))
+        .route("/temporary-permissions/:id/revoke", post(revoke_temporary_permission_handler))
+        .route("/users/:user_id/temporary-permissions", get(get_user_temporary_permissions_handler))
+        .route("/temporary-permissions/cleanup-expired", post(cleanup_expired_permissions_handler))
+        
+        // Temporary permissions bulk operations
+        .route("/temporary-permissions/bulk-create", post(bulk_create_temporary_permissions_handler))
+        .route("/temporary-permissions/bulk-revoke", post(bulk_revoke_temporary_permissions_handler))
+        .route("/temporary-permissions/bulk-update", post(bulk_update_temporary_permissions_handler))
+        
+        // Permission export/import routes
+        .route("/users/:user_id/permissions/export", get(export_user_permissions_handler))
+        .route("/users/:user_id/permissions/validate-import", post(validate_permission_import_handler))
+        .route("/users/:user_id/permissions/import", post(import_user_permissions_handler))
+        .route("/permissions/bulk-export", post(bulk_export_user_permissions_handler))
+        .route("/permissions/audit-report", post(generate_audit_report_handler))
+        .route("/permissions/system-backup", post(create_system_backup_handler))
+        .route("/permissions/system-backup/:backup_id/restore", post(restore_system_backup_handler))
         
         // Casbin policy management routes
         .route("/casbin/policies", get(get_all_policies_handler))
@@ -92,6 +166,12 @@ pub fn create_admin_routes() -> Router<AppState> {
         
         // API Keys management routes
         .route("/api-keys", get(list_api_keys_handler))
+        
+        // Analytics routes
+        .route("/analytics/permissions", get(get_permission_analytics_handler))
+        .route("/analytics/recommendations", get(get_permission_recommendations_handler))
+        .route("/analytics/performance", get(get_performance_metrics_handler))
+        .route("/analytics/security-risks", get(get_security_risk_analysis_handler))
 }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

@@ -8,6 +8,7 @@ use crate::dom::entities::{User, Session, Payment, Stock};
 use crate::dom::entities::iam::{IamRole, IamPolicy, IamGroup, UserPermissionOverride, RoleId, PolicyId, GroupId, IamError};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
 use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, ApplyPermissionProfileResult, PermissionProfileError};
+use crate::dom::entities::temporary_permission::{TemporaryPermission, TemporaryPermissionStatus};
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, Role, PayStatus, Market};
 use crate::dom::error::DomainError;
@@ -277,6 +278,71 @@ pub trait UsageRepo: Send + Sync {
     async fn log_usage(&self, usage_log: ModuleUsageLog) -> Result<(), DomainError>;
     async fn get_usage_stats(&self, user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
     async fn get_current_usage(&self, user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
+}
+
+/// Query parameters for searching temporary permissions
+#[derive(Debug, Clone)]
+pub struct TemporaryPermissionQuery {
+    pub user_id: Option<UserId>,
+    pub permission: Option<String>,
+    pub resource: Option<String>,
+    pub action: Option<String>,
+    pub status: Option<TemporaryPermissionStatus>,
+    pub active_only: Option<bool>,
+    pub expires_before: Option<DateTime<Utc>>,
+    pub expires_after: Option<DateTime<Utc>>,
+    pub granted_by: Option<UserId>,
+    pub limit: Option<i32>,
+    pub offset: Option<i32>,
+}
+
+impl Default for TemporaryPermissionQuery {
+    fn default() -> Self {
+        Self {
+            user_id: None,
+            permission: None,
+            resource: None,
+            action: None,
+            status: None,
+            active_only: None,
+            expires_before: None,
+            expires_after: None,
+            granted_by: None,
+            limit: Some(100),
+            offset: Some(0),
+        }
+    }
+}
+
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait TemporaryPermissionRepo: Send + Sync {
+    /// Create a new temporary permission
+    async fn create(&self, permission: &TemporaryPermission) -> Result<TemporaryPermission, RepoError>;
+    
+    /// Get a temporary permission by ID
+    async fn find_by_id(&self, id: &Uuid) -> Result<Option<TemporaryPermission>, RepoError>;
+    
+    /// Search temporary permissions with filters and pagination
+    async fn find_by_query(&self, query: &TemporaryPermissionQuery) -> Result<Vec<TemporaryPermission>, RepoError>;
+    
+    /// Get active temporary permissions for a user
+    async fn find_active_for_user(&self, user_id: &UserId) -> Result<Vec<TemporaryPermission>, RepoError>;
+    
+    /// Update an existing temporary permission
+    async fn update(&self, permission: &TemporaryPermission) -> Result<TemporaryPermission, RepoError>;
+    
+    /// Delete a temporary permission
+    async fn delete(&self, id: &Uuid) -> Result<bool, RepoError>;
+    
+    /// Expire permissions that have passed their expiry time
+    async fn expire_permissions(&self, before: DateTime<Utc>) -> Result<u64, RepoError>;
+    
+    /// Clean up expired permissions (convenience method)
+    async fn cleanup_expired(&self) -> Result<u64, RepoError>;
+    
+    /// Count temporary permissions matching query
+    async fn count_by_query(&self, query: &TemporaryPermissionQuery) -> Result<i64, RepoError>;
 }
 
 // Supporting types

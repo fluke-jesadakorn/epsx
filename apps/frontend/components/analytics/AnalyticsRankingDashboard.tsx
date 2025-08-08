@@ -12,14 +12,13 @@ import {
 } from '@/components/ui/select';
 import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { usePagination } from '@/hooks/usePagination';
-import { usePaginatedFeatureAccess } from '@/hooks/usePaginatedFeatureAccess';
-import { fetchPaginatedStockData } from '@/app/actions/stockRankingPaginated';
+import usePaginatedFeatureAccess from '@/hooks/usePaginatedFeatureAccess';
+import { AnalyticsClient } from '@epsx/api-client';
 import { Pagination } from '@/components/ui/pagination';
 import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
 import { BarChart3, Crown, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 
 export function AnalyticsRankingDashboard() {
   const router = useRouter();
@@ -27,7 +26,29 @@ export function AnalyticsRankingDashboard() {
   const { getMaxAllowedLimit, canAccessPage, getAvailablePageSizes, userTier } =
     usePaginatedFeatureAccess();
 
-  const [stockData, setStockData] = useState<PaginatedStockData>({
+  const [epsData, setEpsData] = useState<{
+    data: Array<{
+      id: string;
+      symbol: string;
+      company_name: string;
+      current_eps: number;
+      qoq_growth: number;
+      market_cap: number;
+      price_current: number;
+      volume: number;
+      country: string;
+      sector: string;
+      ranking_score: number;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }>({
     data: [],
     pagination: {
       page: 1,
@@ -40,6 +61,11 @@ export function AnalyticsRankingDashboard() {
   });
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+
+  // Create AnalyticsClient instance
+  const analyticsClient = new AnalyticsClient();
 
   const {
     currentPage,
@@ -56,11 +82,21 @@ export function AnalyticsRankingDashboard() {
       setError(null);
 
       try {
-        const newData = await fetchPaginatedStockData(page, limit);
-        setStockData(newData);
+        const response = await analyticsClient.getEPSRankings({
+          page,
+          limit,
+          country: selectedCountry || undefined,
+          sort_by: 'qoq_growth'
+        });
+        
+        if (response.success) {
+          setEpsData(response.data);
+        } else {
+          throw new Error(response.error || 'Failed to fetch EPS data');
+        }
       } catch (error) {
-        console.error('Error fetching paginated data:', error);
-        setError('Failed to load stock data. Please try again.');
+        console.error('Error fetching EPS data:', error);
+        setError('Failed to load EPS data. Please try again.');
       } finally {
         setPaginationLoading(false);
       }
@@ -71,8 +107,25 @@ export function AnalyticsRankingDashboard() {
     const loadInitialData = async () => {
       try {
         setDataLoading(true);
-        const initialData = await fetchPaginatedStockData(1, 10);
-        setStockData(initialData);
+        
+        // Load countries list
+        const countriesResponse = await analyticsClient.getEPSCountries();
+        if (countriesResponse.success) {
+          setAvailableCountries(['All Countries', ...countriesResponse.data.countries]);
+        }
+        
+        // Load initial EPS data
+        const epsResponse = await analyticsClient.getEPSRankings({
+          page: 1,
+          limit: 10,
+          sort_by: 'qoq_growth'
+        });
+        
+        if (epsResponse.success) {
+          setEpsData(epsResponse.data);
+        } else {
+          throw new Error(epsResponse.error || 'Failed to fetch EPS data');
+        }
       } catch (error) {
         console.error('Failed to load initial analytics data:', error);
         setError('Failed to load initial data. Please try again.');
@@ -96,6 +149,37 @@ export function AnalyticsRankingDashboard() {
 
   const handleRetry = () => {
     handlePageChange(currentPage);
+  };
+
+  const handleCountryChange = async (country: string) => {
+    const countryFilter = country === 'All Countries' ? '' : country;
+    setSelectedCountry(countryFilter);
+    
+    // Reload data with new country filter
+    try {
+      setPaginationLoading(true);
+      setError(null);
+      
+      const response = await analyticsClient.getEPSRankings({
+        page: 1,
+        limit,
+        country: countryFilter || undefined,
+        sort_by: 'qoq_growth'
+      });
+      
+      if (response.success) {
+        setEpsData(response.data);
+        // Reset to page 1 when country changes
+        handlePageChange(1);
+      } else {
+        throw new Error(response.error || 'Failed to fetch EPS data');
+      }
+    } catch (error) {
+      console.error('Error changing country filter:', error);
+      setError('Failed to load data for selected country. Please try again.');
+    } finally {
+      setPaginationLoading(false);
+    }
   };
 
   if (loading || dataLoading) {
@@ -149,35 +233,62 @@ export function AnalyticsRankingDashboard() {
         </div>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card p-4 rounded-lg border">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Items per page:</span>
-          <Select
-            value={limit.toString()}
-            onValueChange={(value) => handleLimitChange(parseInt(value))}
-          >
-            <SelectTrigger className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availablePageSizes.map((size) => (
-                <SelectItem key={size} value={size.toString()}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Badge variant="outline" className="ml-2">
-            {userTier} Plan
-          </Badge>
+      {/* Controls */}
+      <div className="flex flex-col gap-4">
+        {/* Country Filter */}
+        <div className="bg-card p-4 rounded-lg border">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Country:</span>
+              <Select
+                value={selectedCountry === '' ? 'All Countries' : selectedCountry}
+                onValueChange={handleCountryChange}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCountries.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          Showing{' '}
-          {Math.min((currentPage - 1) * limit + 1, stockData.pagination.total)}{' '}
-          to {Math.min(currentPage * limit, stockData.pagination.total)} of{' '}
-          {stockData.pagination.total} results
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Items per page:</span>
+            <Select
+              value={limit.toString()}
+              onValueChange={(value) => handleLimitChange(parseInt(value))}
+            >
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePageSizes.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge variant="outline" className="ml-2">
+              {userTier} Plan
+            </Badge>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Showing{' '}
+            {Math.min((currentPage - 1) * limit + 1, epsData.pagination.total)}{' '}
+            to {Math.min(currentPage * limit, epsData.pagination.total)} of{' '}
+            {epsData.pagination.total} results
+          </div>
         </div>
       </div>
 
@@ -233,15 +344,15 @@ export function AnalyticsRankingDashboard() {
           </Badge>
         </div>
 
-        {stockData.data.length > 0 ? (
-          <RoleBasedFinancialTable data={stockData.data} />
+        {epsData.data.length > 0 ? (
+          <RoleBasedFinancialTable data={epsData.data} />
         ) : (
           <Card>
             <CardContent className="p-12 text-center">
               <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
               <p className="text-muted-foreground">
-                No stock data available for the current selection.
+                No EPS data available for the current selection.
               </p>
             </CardContent>
           </Card>
@@ -256,20 +367,20 @@ export function AnalyticsRankingDashboard() {
       )}
 
       {/* Pagination */}
-      {stockData.pagination.totalPages > 1 && (
+      {epsData.pagination.totalPages > 1 && (
         <div className="space-y-4">
           <Pagination
             currentPage={currentPage}
-            totalPages={stockData.pagination.totalPages}
+            totalPages={epsData.pagination.totalPages}
             onPageChange={handlePageChange}
-            hasNext={stockData.pagination.hasNext}
-            hasPrev={stockData.pagination.hasPrev}
+            hasNext={epsData.pagination.hasNext}
+            hasPrev={epsData.pagination.hasPrev}
             isLoading={paginationLoading}
             className="mt-8"
           />
 
           {/* Upgrade prompt for pagination */}
-          {stockData.pagination.totalPages > 1 && userTier === 'BASIC' && (
+          {epsData.pagination.totalPages > 1 && userTier === 'BASIC' && (
             <Card className="border-2 border-dashed border-yellow-300 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20">
               <CardContent className="p-6 text-center">
                 <div className="space-y-4">
@@ -278,16 +389,16 @@ export function AnalyticsRankingDashboard() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-2">
-                      🚀 Unlock Full Pagination Access
+                      🚀 Unlock Full EPS Analytics Access
                     </h3>
                     <p className="text-sm text-muted-foreground mb-2">
                       You&apos;re seeing limited results. Upgrade to access all{' '}
-                      {stockData.pagination.total} stocks!
+                      {epsData.pagination.total} EPS rankings!
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">
-                      <Badge variant="secondary">📊 Full Stock List</Badge>
-                      <Badge variant="secondary">🎯 Advanced Filtering</Badge>
-                      <Badge variant="secondary">💎 Premium Features</Badge>
+                      <Badge variant="secondary">📊 Full EPS Rankings</Badge>
+                      <Badge variant="secondary">🎯 Country Filtering</Badge>
+                      <Badge variant="secondary">💎 Premium Analytics</Badge>
                     </div>
                   </div>
                   <Button onClick={handleUpgrade} className="gap-2">

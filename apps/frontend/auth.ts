@@ -25,10 +25,9 @@ export const authOptions: AuthOptions = {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              credentials: {
-                email: credentials.email,
-                password: credentials.password
-              }
+              type: 'credentials',
+              email: credentials.email,
+              password: credentials.password
             }),
           });
 
@@ -39,20 +38,17 @@ export const authOptions: AuthOptions = {
 
           const data = await response.json();
           
-          // Backend returns { user: {...}, session: { session_id, expires_at } }
-          if (data.user?.user_id && data.session?.session_id) {
-            const user = data.user;
-            const session = data.session;
-            
+          // Backend returns { user_id, email, role, permissions, subscription_tier, expires_at, access_token }
+          if (data.user_id && data.access_token) {
             return {
-              id: user.user_id,
-              email: user.email,
-              role: user.roles?.[0] || user.role || 'user',
-              permissions: user.permissions || [],
-              subscription_tier: user.subscription_tier || 'free',
-              package_tier: user.package_tier || user.subscription_tier || 'free',
-              session_id: session.session_id,  // Store session ID for API calls
-              expires_at: session.expires_at,
+              id: data.user_id,
+              email: data.email,
+              role: data.role || 'user',
+              permissions: data.permissions || [],
+              subscription_tier: data.subscription_tier || 'free',
+              package_tier: data.subscription_tier || 'free',
+              session_id: data.access_token,  // Store access token as session ID for API calls
+              expires_at: data.expires_at,
             };
           }
           
@@ -76,6 +72,35 @@ export const authOptions: AuthOptions = {
         token.package_tier = user.package_tier;
         token.session_id = user.session_id; // Store session ID for backend calls
         token.expires_at = user.expires_at;
+        token.lastRefresh = Date.now();
+      } else if (token?.session_id) {
+        // Refresh user role from backend if token exists and it's been more than 5 seconds since last refresh
+        const now = Date.now();
+        const lastRefresh = token.lastRefresh || 0;
+        const shouldRefresh = now - lastRefresh > 5 * 1000; // Refresh every 5 seconds for testing
+        
+        if (shouldRefresh) {
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
+              headers: {
+                'Authorization': `Bearer ${token.session_id}`,
+              },
+            });
+            
+            if (response.ok) {
+              const userData = await response.json();
+              if (userData.user) {
+                token.role = userData.user.roles?.[0] || userData.user.role || token.role;
+                token.permissions = userData.user.permissions || token.permissions;
+                token.subscription_tier = userData.user.subscription_tier || token.subscription_tier;
+                token.package_tier = userData.user.package_tier || token.package_tier;
+                token.lastRefresh = now;
+              }
+            }
+          } catch (error) {
+            console.error('Failed to refresh user role:', error);
+          }
+        }
       }
       return token;
     },

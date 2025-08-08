@@ -1009,7 +1009,7 @@ pub async fn assign_permission_profiles_handler(
         };
         
         // Verify user exists
-        let user = match app_state.user_repo.get(&user_id).await {
+        let _user = match app_state.user_repo.get(&user_id).await {
             Ok(Some(user)) => user,
             Ok(None) => {
                 failed_assignments.push(PermissionProfileAssignmentFailure {

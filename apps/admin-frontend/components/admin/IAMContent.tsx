@@ -142,8 +142,8 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
                     </td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
-                        {user.roles?.slice(0, 2).map((role, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                        {user.roles?.slice(0, 2).map((role) => (
+                          <span key={role} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                             {role}
                           </span>
                         )) || <span className="text-sm text-gray-500">No roles</span>}

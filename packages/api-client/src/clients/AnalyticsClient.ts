@@ -106,4 +106,123 @@ export class AnalyticsClient extends BaseHttpClient {
     const params = limit ? `?limit=${limit}` : '';
     return this.get<StockItem[]>(`/api/analytics/market/trending${params}`);
   }
+
+  // Backend analytics endpoints
+  async getSystemMetrics(params?: {
+    startDate?: string;
+    endDate?: string;
+    granularity?: string;
+  }): Promise<ApiResponse<unknown>> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('start_date', params.startDate);
+    if (params?.endDate) queryParams.append('end_date', params.endDate);
+    if (params?.granularity) queryParams.append('granularity', params.granularity);
+    
+    return this.get<unknown>(`/api/v1/analytics/system/metrics?${queryParams}`);
+  }
+
+  async getAnalyticsData(params?: {
+    startDate?: string;
+    endDate?: string;
+    granularity?: string;
+  }): Promise<ApiResponse<unknown>> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('start_date', params.startDate);
+    if (params?.endDate) queryParams.append('end_date', params.endDate);
+    if (params?.granularity) queryParams.append('granularity', params.granularity);
+    
+    return this.get<unknown>(`/api/v1/analytics/data?${queryParams}`);
+  }
+
+  async getRealtimeMetrics(): Promise<ApiResponse<unknown>> {
+    return this.get<unknown>('/api/v1/analytics/realtime');
+  }
+
+  async getRevenueAnalytics(params?: {
+    startDate?: string;
+    endDate?: string;
+    granularity?: string;
+  }): Promise<ApiResponse<unknown>> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('start_date', params.startDate);
+    if (params?.endDate) queryParams.append('end_date', params.endDate);
+    if (params?.granularity) queryParams.append('granularity', params.granularity);
+    
+    return this.get<unknown>(`/api/v1/analytics/revenue?${queryParams}`);
+  }
+
+  // EPS Analytics endpoints
+  async getEPSRankings(params?: {
+    page?: number;
+    limit?: number;
+    country?: string;
+    sector?: string;
+    sort_by?: string;
+    min_eps?: number;
+    min_growth?: number;
+  }): Promise<ApiResponse<{
+    data: Array<{
+      id: string;
+      symbol: string;
+      company_name: string;
+      current_eps: number;
+      qoq_growth: number;
+      market_cap: number;
+      price_current: number;
+      volume: number;
+      country: string;
+      sector: string;
+      ranking_score: number;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.country) queryParams.append('country', params.country);
+    if (params?.sector) queryParams.append('sector', params.sector);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.min_eps) queryParams.append('min_eps', params.min_eps.toString());
+    if (params?.min_growth) queryParams.append('min_growth', params.min_growth.toString());
+    
+    return this.get(`/api/v1/analytics/eps-rankings?${queryParams}`);
+  }
+
+  async getEPSCountries(): Promise<ApiResponse<{
+    countries: string[];
+    count: number;
+  }>> {
+    return this.get('/api/v1/analytics/eps-rankings/countries');
+  }
+
+  async getAllEPSCountries(): Promise<ApiResponse<{
+    countries: string[];
+    count: number;
+  }>> {
+    return this.get('/api/v1/analytics/eps-rankings/countries/all');
+  }
+
+  async getEPSSectorsByCountry(country?: string): Promise<ApiResponse<{
+    sectors: string[];
+    count: number;
+    country?: string;
+  }>> {
+    const queryParams = country ? `?country=${encodeURIComponent(country)}` : '';
+    return this.get(`/api/v1/analytics/eps-rankings/sectors${queryParams}`);
+  }
+
+  async getEPSHealth(): Promise<ApiResponse<{
+    status: string;
+    message: string;
+    available_countries: number;
+  }>> {
+    return this.get('/api/v1/analytics/eps-rankings/health');
+  }
 }

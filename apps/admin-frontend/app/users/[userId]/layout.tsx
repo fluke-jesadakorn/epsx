@@ -14,14 +14,20 @@ import { UserDataProvider } from '@/components/users/UserDataProvider'
 interface UserProfileLayoutProps {
   children: ReactNode
   params: Promise<{ userId: string }>
+  searchParams?: Promise<{
+    modal?: string
+    userId?: string
+  }>
 }
 
 export default async function UserProfileLayout({
   children,
-  params
+  params,
+  searchParams
 }: UserProfileLayoutProps) {
   // Await params properly for Next.js 15
   const { userId } = await params
+  const searchParamsData = searchParams ? await searchParams : {}
   
   // Server-side auth check
   const currentUser = await requireAdminAuth()
@@ -62,6 +68,7 @@ export default async function UserProfileLayout({
       <UserDataProvider userData={userData}>
         {children}
       </UserDataProvider>
+      
     </div>
   )
 }

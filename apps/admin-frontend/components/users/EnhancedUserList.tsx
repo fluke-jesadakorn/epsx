@@ -8,7 +8,6 @@ import { getUsersWithFilters } from '@/lib/actions/user-list-actions'
 import { UserListFilters } from './UserListFilters'
 import { UserCard } from './UserCard'
 import { UserListPagination } from './UserListPagination'
-import { UserModalManager } from './UserModalManager'
 import { CreateUserButton } from './CreateUserButton'
 
 interface EnhancedUserListProps {
@@ -159,7 +158,6 @@ export async function EnhancedUserList({ searchParams }: EnhancedUserListProps) 
       )}
 
       {/* Modal Manager for Deep Linking */}
-      <UserModalManager />
     </div>
   )
 }

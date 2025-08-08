@@ -2,12 +2,12 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use crate::web::auth::AppState;
+use crate::core::errors::{AppError, ErrorKind};
 
 #[derive(Debug, Deserialize)]
 pub struct PolicyRequest {
@@ -47,7 +47,7 @@ pub struct CacheStatsResponse {
 /// Get all policies from Casbin
 pub async fn get_all_policies_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_policies", "read").await?;
     
@@ -65,7 +65,7 @@ pub async fn get_all_policies_handler(
         }
         Err(e) => {
             tracing::error!("Failed to get all policies: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to get all policies: {}", e)))
         }
     }
 }
@@ -74,7 +74,7 @@ pub async fn get_all_policies_handler(
 pub async fn add_policy_handler(
     State(app_state): State<AppState>,
     Json(request): Json<PolicyRequest>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_policies", "create").await?;
     
@@ -96,7 +96,7 @@ pub async fn add_policy_handler(
         }
         Err(e) => {
             tracing::error!("Failed to add policy: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to add policy: {}", e)))
         }
     }
 }
@@ -105,7 +105,7 @@ pub async fn add_policy_handler(
 pub async fn remove_policy_handler(
     State(app_state): State<AppState>,
     Json(request): Json<PolicyRequest>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_policies", "delete").await?;
     
@@ -127,7 +127,7 @@ pub async fn remove_policy_handler(
         }
         Err(e) => {
             tracing::error!("Failed to remove policy: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to remove policy: {}", e)))
         }
     }
 }
@@ -136,7 +136,7 @@ pub async fn remove_policy_handler(
 pub async fn add_batch_policies_handler(
     State(app_state): State<AppState>,
     Json(request): Json<BatchPolicyRequest>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_policies", "create").await?;
     
@@ -158,7 +158,7 @@ pub async fn add_batch_policies_handler(
         }
         Err(e) => {
             tracing::error!("Failed to batch add policies: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to batch add policies: {}", e)))
         }
     }
 }
@@ -167,7 +167,7 @@ pub async fn add_batch_policies_handler(
 pub async fn assign_role_handler(
     State(app_state): State<AppState>,
     Json(request): Json<RoleRequest>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "user_roles", "create").await?;
     
@@ -189,7 +189,7 @@ pub async fn assign_role_handler(
         }
         Err(e) => {
             tracing::error!("Failed to assign role: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to assign role: {}", e)))
         }
     }
 }
@@ -198,7 +198,7 @@ pub async fn assign_role_handler(
 pub async fn remove_role_handler(
     State(app_state): State<AppState>,
     Json(request): Json<RoleRequest>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "user_roles", "delete").await?;
     
@@ -220,7 +220,7 @@ pub async fn remove_role_handler(
         }
         Err(e) => {
             tracing::error!("Failed to remove role: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to remove role: {}", e)))
         }
     }
 }
@@ -229,7 +229,7 @@ pub async fn remove_role_handler(
 pub async fn get_user_roles_handler(
     State(app_state): State<AppState>,
     Path(user_id): Path<String>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "user_roles", "read").await?;
     
@@ -246,7 +246,7 @@ pub async fn get_user_roles_handler(
         }
         Err(e) => {
             tracing::error!("Failed to get user roles: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to get user roles: {}", e)))
         }
     }
 }
@@ -255,7 +255,7 @@ pub async fn get_user_roles_handler(
 pub async fn get_user_permissions_handler(
     State(app_state): State<AppState>,
     Path(user_id): Path<String>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "user_permissions", "read").await?;
     
@@ -272,7 +272,7 @@ pub async fn get_user_permissions_handler(
         }
         Err(e) => {
             tracing::error!("Failed to get user permissions: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to get user permissions: {}", e)))
         }
     }
 }
@@ -281,7 +281,7 @@ pub async fn get_user_permissions_handler(
 pub async fn test_policy_handler(
     State(app_state): State<AppState>,
     Json(request): Json<PolicyRequest>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_policies", "read").await?;
     
@@ -300,7 +300,7 @@ pub async fn test_policy_handler(
         }
         Err(e) => {
             tracing::error!("Failed to test policy: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to test policy: {}", e)))
         }
     }
 }
@@ -308,7 +308,7 @@ pub async fn test_policy_handler(
 /// Reload policies from database
 pub async fn reload_policies_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_system", "update").await?;
     
@@ -323,7 +323,7 @@ pub async fn reload_policies_handler(
         }
         Err(e) => {
             tracing::error!("Failed to reload policies: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to reload policies: {}", e)))
         }
     }
 }
@@ -331,7 +331,7 @@ pub async fn reload_policies_handler(
 /// Get cache statistics
 pub async fn get_cache_stats_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<CacheStatsResponse>, StatusCode> {
+) -> Result<Json<CacheStatsResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_cache", "read").await?;
     
@@ -357,7 +357,7 @@ pub async fn get_cache_stats_handler(
 /// Clear policy cache
 pub async fn clear_cache_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<PolicyResponse>, StatusCode> {
+) -> Result<Json<PolicyResponse>, AppError> {
     // Verify admin permissions
     verify_admin_access(&app_state, "casbin_cache", "delete").await?;
     
@@ -377,7 +377,7 @@ async fn verify_admin_access_with_user(
     user_id: &str,
     resource: &str,
     action: &str,
-) -> Result<(), StatusCode> {
+) -> Result<(), AppError> {
     // TODO: Implement proper admin permission checks
     // For development, allow access to admin_user
     if user_id == "admin_user" {
@@ -392,11 +392,11 @@ async fn verify_admin_access_with_user(
         }
         Ok(false) => {
             tracing::warn!("Admin access denied for {} on {}/{}", user_id, resource, action);
-            Err(StatusCode::FORBIDDEN)
+            Err(AppError::new(ErrorKind::BusinessRuleViolation, format!("Access denied for user {} on {}/{}", user_id, resource, action)))
         }
         Err(e) => {
             tracing::error!("Failed to check admin permissions: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::new(ErrorKind::InternalServerError, format!("Failed to check admin permissions: {}", e)))
         }
     }
 }
@@ -407,7 +407,7 @@ async fn verify_admin_access(
     app_state: &AppState,
     resource: &str,
     action: &str,
-) -> Result<(), StatusCode> {
+) -> Result<(), AppError> {
     // Extract user ID from context - this should be properly implemented
     // to get the actual user ID from the authenticated request
     let user_id = extract_admin_user_from_context().await?;
@@ -416,7 +416,7 @@ async fn verify_admin_access(
 
 /// Extract admin user ID from request context
 /// TODO: Implement proper extraction from authenticated session
-async fn extract_admin_user_from_context() -> Result<String, StatusCode> {
+async fn extract_admin_user_from_context() -> Result<String, AppError> {
     // This is a placeholder implementation
     // In a real system, this would:
     // 1. Extract the session token from the request
@@ -425,6 +425,7 @@ async fn extract_admin_user_from_context() -> Result<String, StatusCode> {
     // 4. Return the actual user ID
     
     // For now, return a test admin user
+    // In production, this would validate the session and return proper user ID
     Ok("admin_user".to_string())
 }
 

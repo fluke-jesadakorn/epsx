@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { usePagination } from '@/hooks/usePagination';
-import { usePaginatedFeatureAccess } from '@/hooks/usePaginatedFeatureAccess';
+import usePaginatedFeatureAccess from '@/hooks/usePaginatedFeatureAccess';
 import { fetchPaginatedStockDataFromAPI } from '@/app/actions/stockRankingPaginated';
 import type { PaginatedStockData } from '@/app/actions/stockRankingPaginated';
 import { Pagination } from '@/components/ui/pagination';

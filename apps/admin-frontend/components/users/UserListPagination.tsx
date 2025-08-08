@@ -90,7 +90,7 @@ export function UserListPagination({ currentPage, totalPages, total, limit }: Us
           {/* Page numbers */}
           <div className="flex items-center gap-1">
             {getPageNumbers().map((page, index) => (
-              <div key={index}>
+              <div key={`page-${page}-${index}`}>
                 {page === '...' ? (
                   <span className="px-3 py-2 text-muted-foreground">...</span>
                 ) : (

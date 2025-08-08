@@ -127,6 +127,8 @@ impl StockScreeningResult {
 /// TradingView API response structure
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TradingViewResponse {
+    #[serde(rename = "totalCount")]
+    pub total_count: i32,
     pub data: Vec<TradingViewStock>,
 }
 

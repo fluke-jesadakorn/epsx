@@ -256,7 +256,7 @@ pub fn require_access_level(router: Router<AppState>, _level: AccessLevel, _app_
 }
 
 /// Create module-specific middleware stack (placeholder during migration)
-pub fn create_module_middleware_stack(_module_name: &str, _min_level: AccessLevel, app_state: AppState) -> Router<AppState> {
+pub fn create_module_middleware_stack(_module_name: &str, _min_level: AccessLevel, _app_state: AppState) -> Router<AppState> {
     Router::new()
         // TODO: Fix middleware trait bounds
         // .route_layer(from_fn_with_state(

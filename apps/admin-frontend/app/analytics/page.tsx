@@ -7,6 +7,8 @@ import {
   getRealtimeMetrics 
 } from '@epsx/server-actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AnalyticsPage() {
   // Fetch analytics data server-side
   const [

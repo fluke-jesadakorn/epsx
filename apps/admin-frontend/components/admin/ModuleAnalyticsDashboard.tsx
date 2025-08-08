@@ -287,7 +287,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                 ].map((metric, index) => {
                   const Icon = metric.icon;
                   return (
-                    <div key={index} className="bg-white border rounded-lg p-4">
+                    <div key={index} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4">
                       <div className="flex items-center">
                         <Icon className={`w-5 h-5 text-${metric.color}-600`} />
                         <span className="ml-2 text-sm font-medium text-gray-600">{metric.label}</span>
@@ -301,7 +301,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
               </div>
 
               {/* Usage Trends Chart */}
-              <div className="bg-white border rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Usage Trends</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={timeSeriesData}>
@@ -321,7 +321,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
           {activeTab === 'usage' && (
             <div className="space-y-6">
               {/* Module Usage Table */}
-              <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">Module Usage Details</h3>
                 </div>
@@ -336,7 +336,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quota Usage</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {moduleUsageData.map((module, index) => (
                         <tr key={index}>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -374,7 +374,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
               </div>
 
               {/* Usage Distribution Chart */}
-              <div className="bg-white border rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Usage Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -402,7 +402,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
             <div className="space-y-6">
               {/* Billing Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Current Period</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -423,7 +423,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Upcoming Invoice</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -443,7 +443,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border rounded-lg p-6">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Cost Per Request</h3>
                   <div className="text-3xl font-bold text-blue-600">
                     ${((billingData.currentPeriod.totalCost / billingData.currentPeriod.totalRequests) * 1000).toFixed(3)}
@@ -453,7 +453,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
               </div>
 
               {/* Cost Breakdown */}
-              <div className="bg-white border rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown by Module</h3>
                 <div className="space-y-4">
                   {billingData.costBreakdown.map((item, index) => (
@@ -479,7 +479,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
           {activeTab === 'performance' && (
             <div className="space-y-6">
               {/* Response Time Chart */}
-              <div className="bg-white border rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Response Time Trends</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={timeSeriesData}>
@@ -493,7 +493,7 @@ export const ModuleAnalyticsDashboard: React.FC = () => {
               </div>
 
               {/* Error Rate Chart */}
-              <div className="bg-white border rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Error Trends</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={timeSeriesData}>

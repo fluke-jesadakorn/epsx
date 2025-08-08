@@ -391,7 +391,7 @@ const ConditionBuilder: React.FC = () => {
       <div
         key={node.id}
         className={`border rounded-lg p-4 space-y-3 ${
-          isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+          isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
         } ${depth > 0 ? 'ml-6' : ''}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -599,7 +599,7 @@ const ConditionBuilder: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4 text-gray-500 bg-gray-50 rounded border-2 border-dashed">
+              <div className="text-center py-4 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded border-2 border-dashed dark:border-gray-600">
                 <p>Empty group. Add conditions or subgroups.</p>
               </div>
             )}
@@ -712,8 +712,8 @@ const ConditionBuilder: React.FC = () => {
                   {renderConditionNode(rootCondition)}
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded border-2 border-dashed">
-                  <Parentheses className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded border-2 border-dashed dark:border-gray-600">
+                  <Parentheses className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
                   <p className="text-lg font-medium mb-2">No conditions defined</p>
                   <p className="mb-4">Start by adding your first condition or use a template</p>
                   <div className="flex gap-2 justify-center">
@@ -738,7 +738,7 @@ const ConditionBuilder: React.FC = () => {
               <CardDescription>Human-readable representation of your condition logic</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-gray-100 p-4 rounded-lg font-mono text-sm">
+              <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg font-mono text-sm">
                 {rootCondition.children && rootCondition.children.length > 0 
                   ? generateConditionText(rootCondition)
                   : 'No conditions defined'

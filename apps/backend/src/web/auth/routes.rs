@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::use_cases::iam::IamUseCase;
-use crate::app::ports::repositories::{SessRepo, UserRepo, IamRepo, AuditRepo, PermissionProfileRepo, ModuleRepo, UsageRepo};
+use crate::app::ports::repositories::{SessRepo, UserRepo, IamRepo, AuditRepo, PermissionProfileRepo, TemporaryPermissionRepo, ModuleRepo, UsageRepo};
 use crate::infra::firebase_admin::FirebaseAdmin;
 use crate::dom::services::casbin_service::CasbinService;
 
@@ -21,6 +21,7 @@ pub struct AppState {
     pub iam_repo: Arc<dyn IamRepo>,
     pub audit_repo: Arc<dyn AuditRepo>,
     pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+    pub temporary_permission_repo: Arc<dyn TemporaryPermissionRepo>,
     pub module_repo: Arc<dyn ModuleRepo>,
     pub usage_repo: Arc<dyn UsageRepo>,
     pub firebase_admin: Arc<FirebaseAdmin>,
@@ -44,6 +45,7 @@ impl AppState {
         iam_repo: Arc<dyn IamRepo>,
         audit_repo: Arc<dyn AuditRepo>,
         permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+        temporary_permission_repo: Arc<dyn TemporaryPermissionRepo>,
         module_repo: Arc<dyn ModuleRepo>,
         usage_repo: Arc<dyn UsageRepo>,
         firebase_admin: Arc<FirebaseAdmin>,
@@ -58,6 +60,7 @@ impl AppState {
             iam_repo,
             audit_repo,
             permission_profile_repo,
+            temporary_permission_repo,
             module_repo,
             usage_repo,
             firebase_admin,

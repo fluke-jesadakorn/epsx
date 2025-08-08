@@ -177,7 +177,7 @@ export function StatsGrid({
     <div className={gridClasses}>
       {stats.map((stat, index) => (
         <StatsCard
-          key={index}
+          key={stat.title || `stat-${index}`}
           {...stat}
           variant={stat.variant || variant}
         />

@@ -43,10 +43,9 @@ export const Z_INDEX_LAYERS = {
  * Files updated with standardized z-index values:
  * 
  * Modal Components (z-60):
- * - UserCreateModal.tsx (was z-50)
- * - UserPermissionManager.tsx (was z-[9999])
+ * - Modals converted to pages/inline forms (UserCreate, Permissions)
  * - ModuleManagementClient.tsx (was z-50)
- * - ConfirmDialog.tsx (was z-50)
+ * - ConfirmDialog.tsx (was z-50)  
  * - DeveloperPortal.tsx (was z-50)
  * - UserManagement.tsx (was z-[9999])
  * 

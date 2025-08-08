@@ -815,7 +815,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
 
             <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
               {levelHistory.map((entry, index) => (
-                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                <div key={`${entry.userLevel}-${entry.dateAssigned}-${index}`} className="border-l-4 border-blue-500 pl-4 py-2">
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${USER_LEVEL_CONFIGS[entry.userLevel as UserLevel].color}`}

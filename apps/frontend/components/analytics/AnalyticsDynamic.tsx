@@ -73,3 +73,4 @@ export const ComparisonTable = dynamic(
     ssr: false,
   }
 );
+
