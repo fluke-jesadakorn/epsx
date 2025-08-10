@@ -139,13 +139,16 @@ pub struct TradingViewStock {
     pub d: Vec<StockDataField>,
 }
 
-/// Stock data field (can be string or number)
+/// Stock data field (can be string, number, boolean, array, object, or null)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum StockDataField {
     String(String),
     Number(f64),
     Integer(i64),
+    Boolean(bool),
+    Array(Vec<serde_json::Value>),
+    Object(serde_json::Map<String, serde_json::Value>),
     Null,
 }
 
@@ -160,6 +163,9 @@ impl NumberFormatter {
             },
             StockDataField::Integer(i) => i.to_string(),
             StockDataField::String(s) => s.clone(),
+            StockDataField::Boolean(b) => b.to_string(),
+            StockDataField::Array(_) => "Array".to_string(),
+            StockDataField::Object(_) => "Object".to_string(),
             StockDataField::Null => "N/A".to_string(),
         }
     }
@@ -196,6 +202,15 @@ pub enum MarketDataError {
     
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+    
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+    
+    #[error("IO error: {0}")]
+    IOError(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 impl From<crate::infra::services::websocket::WebSocketError> for MarketDataError {

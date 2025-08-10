@@ -4,7 +4,7 @@ use axum::{
     extract::Query,
     http::StatusCode,
     response::Json,
-    routing::get,
+    routing::{get, post},
     Router,
     Extension,
 };
@@ -217,8 +217,26 @@ pub async fn get_revenue_analytics(
 }
 
 pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState> {
-    // Create EPSRankingService instance
+    // Create services for both database and cache approaches
     let eps_ranking_service = infra_factory.create_eps_ranking_service();
+    
+    // Create cache-based EPS service with TradingView integration
+    let config = std::sync::Arc::new(Config::from_env());
+    let tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config));
+    let eps_repository = infra_factory.create_eps_repo();
+    let eps_cache_service = std::sync::Arc::new(
+        crate::dom::services::eps_cache_service::EPSCacheService::new(
+            tradingview_service,
+            eps_repository,
+            None // Use default cache config
+        )
+    );
+
+    // Start background cache refresh (spawn async task)
+    let cache_service_clone = eps_cache_service.clone();
+    tokio::spawn(async move {
+        cache_service_clone.start_background_refresh().await;
+    });
     
     Router::new()
         .route("/analytics/system/metrics", get(get_system_metrics))
@@ -231,8 +249,19 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
         .route("/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
         .route("/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
         .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        // Add EPSRankingService as extension for the EPS endpoints
+        .route("/analytics/eps-rankings/sync", post(eps_handlers::trigger_eps_sync))
+        .route("/analytics/eps-rankings/websocket-debug", post(eps_handlers::debug_websocket_eps))
+        // Live cache-based card dashboard endpoint (PRIMARY)
+        .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        // Legacy database-based endpoint
+        .route("/analytics/rankings/legacy", get(eps_handlers::get_unified_analytics_rankings))
+        // Cache management endpoints
+        .route("/analytics/cache/stats", get(eps_handlers::get_cache_stats))
+        .route("/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
+        .route("/analytics/cache/health", get(eps_handlers::cache_health_check))
+        // Add services as extensions
         .layer(Extension(eps_ranking_service))
+        .layer(Extension(eps_cache_service))
 }
 
 /// Real EPS rankings endpoint using TradingView data

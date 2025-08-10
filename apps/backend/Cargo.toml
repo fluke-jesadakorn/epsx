@@ -20,6 +20,18 @@ path = "src/bin/promote_admin.rs"
 name = "assign_iam"
 path = "src/bin/assign_iam.rs"
 
+[[bin]]
+name = "test_websocket_extraction"
+path = "src/bin/test_websocket_extraction.rs"
+
+[[bin]]
+name = "test_50_symbols"
+path = "src/bin/test_50_symbols.rs"
+
+[[bin]]
+name = "test_key_symbols"
+path = "src/bin/test_key_symbols.rs"
+
 
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }

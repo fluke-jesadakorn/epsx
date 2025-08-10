@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
+use crate::infra::services::tradingview_websocket::QuarterlyEPSData;
 
 /// EPS Growth data entity for analytics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +35,8 @@ pub struct EPSRanking {
     pub market_cap: Option<i64>,
     pub volume: Option<i64>,
     pub ranking_position: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarterly_data: Option<Vec<QuarterlyEPSData>>,
 }
 
 /// API response structure for EPS rankings
@@ -206,6 +209,7 @@ impl EPSRanking {
             market_cap: data.market_cap,
             volume: data.volume,
             ranking_position: position,
+            quarterly_data: None, // Will be populated by WebSocket enhancement
         }
     }
 }

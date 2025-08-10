@@ -1,13 +1,17 @@
 // TradingView WebSocket service for real-time EPS data
-use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use futures_util::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use tracing::{debug, error, info, warn};
+use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
+use futures_util::{ SinkExt, StreamExt };
+use serde::{ Deserialize, Serialize };
+use serde_json::{ json, Value };
+use tracing::{ debug, info, warn };
 use uuid::Uuid;
+use chrono::{Datelike, TimeZone};
+use http;
+use base64::{self, prelude::*};
+use rand;
+use url;
 
 use crate::dom::entities::market_data::MarketDataError;
 use crate::infra::services::tradingview::FrontendEPSData;
@@ -15,446 +19,1086 @@ use crate::infra::services::tradingview::FrontendEPSData;
 /// TradingView WebSocket message structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TradingViewMessage {
-    pub m: String, // method
-    pub p: Vec<Value>, // parameters
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub t: Option<i64>, // timestamp
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub t_ms: Option<i64>, // timestamp milliseconds
+  pub m: String, // method
+  pub p: Vec<Value>, // parameters
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub t: Option<i64>, // timestamp
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub t_ms: Option<i64>, // timestamp milliseconds
 }
 
-/// EPS data extracted from WebSocket
-#[derive(Debug, Clone)]
+/// Quarterly EPS data point (matching Node.js structure exactly)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuarterlyEPSData {
+  pub quarter_number: usize,
+  pub period: String, // "2024-Q3", "2025-Q1", etc.
+  pub actual_eps: f64,
+  pub timestamp: i64, // earnings timestamp (seconds)
+  pub estimated_eps: Option<f64>,
+  pub is_reported: bool,
+  pub beat_estimate: Option<bool>,
+  #[serde(rename = "type")]
+  pub eps_type: String, // "st4_earnings_study"
+  pub source: String,
+  pub quarter_end_date: Option<String>,
+  pub estimated_earnings_date: Option<i64>, // earnings announcement timestamp
+  pub price_data: Option<PriceImpactData>,
+  // Legacy fields for backward compatibility
+  pub eps: f64,
+  pub quarter_name: String,
+}
+
+/// Price impact data around earnings announcement
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceImpactData {
+  pub pre_earnings_price: f64,
+  pub post_earnings_price: f64, 
+  pub price_change: f64,
+  pub percent_change: f64,
+  pub earnings_impact: String, // "positive" or "negative"
+  pub days_before: i32,
+  pub days_after: i32,
+  pub volume_before: i64,
+  pub volume_after: i64,
+  pub volume_change: String, // "increased" or "decreased"
+  pub data_quality: String, // "excellent", "good", "fair"
+}
+
+/// Price data point extracted from WebSocket
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceData {
+  pub timestamp: i64,
+  pub date: String,
+  pub open: f64,
+  pub high: f64,
+  pub low: f64,
+  pub close: f64,
+  pub volume: i64,
+}
+
+/// EPS data extracted from WebSocket with price correlation
+#[derive(Debug, Clone, Serialize)]
 pub struct EPSWebSocketData {
-    pub symbol: String,
-    pub current_eps: f64,
-    pub quarterly_eps: f64,
-    pub historical_eps: Vec<f64>,
-    pub earnings_per_share_basic_ttm: f64,
-    pub market_cap_basic: f64,
-    pub price_current: f64,
-    pub volume: f64,
-    pub sector: String,
-    pub country: String,
-    pub company_name: String,
+  pub symbol: String,
+  pub current_eps: f64,
+  pub quarterly_eps: f64,
+  pub historical_eps: Vec<f64>,
+  pub quarterly_data: Vec<QuarterlyEPSData>, // Real quarterly progression from study data
+  pub price_data: Vec<PriceData>, // OHLCV price data for correlation
+  pub earnings_per_share_basic_ttm: f64,
+  pub market_cap_basic: f64,
+  pub price_current: f64,
+  pub volume: f64,
+  pub sector: String,
+  pub country: String,
+  pub company_name: String,
 }
 
-/// TradingView WebSocket service
+/// TradingView WebSocket service with exact Node.js devtools logic
 pub struct TradingViewWebSocketService {
-    websocket_url: String,
-    session_id: String,
-    symbols: Vec<String>,
-    eps_data_cache: HashMap<String, EPSWebSocketData>,
+  websocket_url: String,
+  session_id: String,
+  symbols: Vec<String>,
+  price_data: std::collections::HashMap<i64, PriceData>,
+  message_log: Vec<String>,
+  debug: bool,
+  // State tracking like Node.js
+  chart_session: Option<String>,
+  quote_session: Option<String>,
+  series_ready: bool,
+  symbol_resolved: bool,
+  extracted_eps_data: Option<EPSWebSocketData>,
 }
 
 impl TradingViewWebSocketService {
-    /// Create new WebSocket service
-    pub fn new() -> Self {
-        let session_id = format!("cs_{}", 
-            Uuid::new_v4().to_string().replace("-", "").chars().take(12).collect::<String>()
-        );
+  /// Create new WebSocket service
+  pub fn new() -> Self {
+    let session_id = format!(
+      "cs_{}",
+      Uuid::new_v4()
+        .to_string()
+        .replace("-", "")
+        .chars()
+        .take(12)
+        .collect::<String>()
+    );
+
+    Self {
+      websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
+      session_id,
+      symbols: Vec::new(),
+      price_data: std::collections::HashMap::new(),
+      message_log: Vec::new(),
+      debug: true,
+      chart_session: None,
+      quote_session: None,
+      series_ready: false,
+      symbol_resolved: false,
+      extracted_eps_data: None,
+    }
+  }
+
+  /// Connect to TradingView WebSocket and start receiving EPS data
+  pub async fn connect_and_fetch_eps_data(
+    &mut self,
+    symbols: Vec<String>
+  ) -> Result<Vec<EPSWebSocketData>, MarketDataError> {
+    info!("🚀 Starting TradingView WebSocket connection for {} symbols", symbols.len());
+    self.symbols = symbols.clone();
+
+    // Parse URL for WebSocket connection (like Node.js implementation)
+    let url = match url::Url::parse(&self.websocket_url) {
+      Ok(url) => url,
+      Err(e) => {
+        warn!("❌ Failed to parse WebSocket URL: {}", e);
+        return Err(MarketDataError::NetworkError(format!("Invalid WebSocket URL: {}", e)));
+      }
+    };
+
+    // Create WebSocket connection with exact headers from Node.js
+    let request = http::Request::builder()
+      .method("GET")
+      .uri(url.as_str())
+      .header("Host", url.host_str().unwrap_or("data.tradingview.com"))
+      .header("Connection", "Upgrade")
+      .header("Upgrade", "websocket")
+      .header("Sec-WebSocket-Version", "13")
+      .header("Sec-WebSocket-Key", base64::prelude::BASE64_STANDARD.encode(&rand::random::<[u8; 16]>()))
+      .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+      .header("Origin", "https://www.tradingview.com")
+      .header("Cache-Control", "no-cache")
+      .body(())
+      .map_err(|e| MarketDataError::NetworkError(format!("Failed to build WebSocket request: {}", e)))?;
+    
+    let connection_result = connect_async(request).await;
+    let (ws_stream, _) = match connection_result {
+      Ok(connection) => {
+        info!("✅ Successfully connected to TradingView WebSocket");
+        connection
+      }
+      Err(e) => {
+        warn!("❌ TradingView WebSocket connection failed: {}", e);
+        return Err(MarketDataError::NetworkError(format!("WebSocket connection failed: {}", e)));
+      }
+    };
+
+    let (mut write, mut read) = ws_stream.split();
+    
+    // Process one symbol at a time for reliable extraction
+    let mut all_eps_data = Vec::new();
+    
+    for symbol in &symbols {
+      info!("📊 Processing symbol: {}", symbol);
+      
+      match self.extract_symbol_eps_data(&mut write, &mut read, symbol).await {
+        Ok(eps_data) => {
+          info!("✅ Successfully extracted EPS data for {}", symbol);
+          all_eps_data.push(eps_data);
+        }
+        Err(e) => {
+          warn!("⚠️ Failed to extract EPS data for {}: {}", symbol, e);
+          // Continue processing other symbols instead of adding fallback data
+          continue;
+        }
+      }
+      
+      // Small delay between symbols
+      sleep(Duration::from_millis(500)).await;
+    }
+    
+    info!("🎯 WebSocket extraction complete: {} symbols processed", all_eps_data.len());
+    Ok(all_eps_data)
+  }
+  
+  /// Extract EPS data using EXACT Node.js devtools flow
+  async fn extract_symbol_eps_data(
+    &mut self,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
+    read: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
+    symbol: &str
+  ) -> Result<EPSWebSocketData, MarketDataError> {
+    
+    info!("🔥 Starting TradingView WebSocket Extraction");
+    
+    // Reset state
+    self.series_ready = false;
+    self.symbol_resolved = false;
+    self.extracted_eps_data = None;
+    
+    // Create chart session
+    self.chart_session = Some(format!("cs_{}", self.generate_id(12)));
+    let chart_session = self.chart_session.as_ref().unwrap();
+    
+    self.send_message(write, &json!({
+      "m": "chart_create_session",
+      "p": [chart_session, ""]
+    })).await?;
+    
+    // Resolve symbol
+    let symbol_id = "sds_sym_1";
+    self.send_message(write, &json!({
+      "m": "resolve_symbol",
+      "p": [
+        chart_session,
+        symbol_id,
+        format!("={{\"adjustment\":\"splits\",\"symbol\":\"{}\"}}", symbol)
+      ]
+    })).await?;
+    
+    // Create series
+    let series_id = "sds_1";
+    self.send_message(write, &json!({
+      "m": "create_series",
+      "p": [chart_session, series_id, "s1", symbol_id, "1D", 300, ""]
+    })).await?;
+    
+    // Create quote session for additional data
+    self.quote_session = Some(format!("qs_{}", self.generate_id(12)));
+    let quote_session = self.quote_session.as_ref().unwrap();
+    
+    self.send_message(write, &json!({
+      "m": "quote_create_session",
+      "p": [quote_session]
+    })).await?;
+    
+    self.send_message(write, &json!({
+      "m": "quote_add_symbols",
+      "p": [quote_session, format!("{}:{}", "NASDAQ", symbol)] // Try NASDAQ first
+    })).await?;
+    
+    info!("⏳ Waiting for symbol resolution and series creation...");
+    
+    // Process messages and wait for series completion
+    self.process_messages_until_complete(read, symbol, write).await
+  }
+  
+  /// Process messages until EPS extraction is complete (exact Node.js logic)
+  async fn process_messages_until_complete(
+    &mut self,
+    read: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
+    symbol: &str,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+  ) -> Result<EPSWebSocketData, MarketDataError> {
+    use tokio::time::{timeout, Duration};
+    
+    let extraction_timeout = timeout(Duration::from_millis(25000), async {
+      while let Some(message) = read.next().await {
+        if let Ok(Message::Text(text)) = message {
+          let messages = self.parse_tradingview_message(&text);
+          
+          for parsed in messages {
+            if let Some(method) = parsed["m"].as_str() {
+              info!("📨 Received message type: {}", method);
+              
+              self.process_parsed_message(&parsed, symbol, write).await;
+              
+              // Check if we have extracted EPS data
+              if let Some(eps_data) = &self.extracted_eps_data {
+                info!("✅ EPS extraction completed!");
+                return Ok(eps_data.clone());
+              }
+            }
+          }
+        }
+      }
+      Err(MarketDataError::NetworkError("WebSocket closed before EPS extraction completed".to_string()))
+    }).await;
+    
+    match extraction_timeout {
+      Ok(Ok(eps_data)) => Ok(eps_data),
+      Ok(Err(e)) => Err(e),
+      Err(_) => {
+        warn!("⏰ Extraction timeout - using any partial data");
+        if let Some(eps_data) = &self.extracted_eps_data {
+          Ok(eps_data.clone())
+        } else {
+          Err(MarketDataError::NetworkError(format!("Timeout waiting for EPS data for {}", symbol)))
+        }
+      }
+    }
+  }
+  
+  /// Process parsed message (exact Node.js devtools logic)
+  async fn process_parsed_message(
+    &mut self,
+    parsed: &Value,
+    symbol: &str,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+  ) {
+    if let Some(method) = parsed["m"].as_str() {
+      match method {
+        "symbol_resolved" => {
+          self.process_symbol_resolved_exact(parsed);
+        }
+        "qsd" | "quote_series_data" => {
+          self.process_quote_data(parsed);
+        }
+        "timescale_update" | "tu" => {
+          if let Some(eps_data) = self.process_timescale_update(parsed, symbol) {
+            self.extracted_eps_data = Some(eps_data);
+          }
+        }
+        "du" | "data_update" => {
+          if let Some(eps_data) = self.process_data_update(parsed, symbol) {
+            self.extracted_eps_data = Some(eps_data);
+          }
+        }
+        "series_loading" => {
+          info!("📊 Series loading...");
+          self.series_ready = false;
+        }
+        "series_completed" | "series_loaded" => {
+          self.process_series_completed(parsed, write).await;
+        }
+        "study_loading" => {
+          if let Some(study_id) = parsed["p"].as_array().and_then(|p| p.get(0)).and_then(|s| s.as_str()) {
+            info!("📈 Study loading: {}", study_id);
+          }
+        }
+        "study_completed" | "study_loaded" => {
+          if let Some(study_id) = parsed["p"].as_array().and_then(|p| p.get(0)).and_then(|s| s.as_str()) {
+            info!("📈 Study completed: {}", study_id);
+            if study_id.contains("st4") {
+              info!("🎯 Earnings study (st4) completed - checking for EPS data");
+            }
+          }
+        }
+        "critical_error" | "protocol_error" => {
+          self.handle_protocol_error(parsed);
+        }
+        _ => {
+          if self.debug {
+            debug!("❓ Unknown message type: {}", method);
+          }
+        }
+      }
+    }
+  }
+  
+  
+  
+  /// Extract EPS data from st4 earnings study array (EXACT Node.js devtools logic)
+  fn extract_eps_from_st4_exact(&self, st4_array: &[Value], symbol: &str) -> Vec<QuarterlyEPSData> {
+    let mut quarterly_data: Vec<QuarterlyEPSData> = Vec::new();
+    
+    // Log the ST4 data structure like Node.js devtools
+    if self.debug && st4_array.len() >= 2 {
+      let sample = &st4_array[..2.min(st4_array.len())];
+      if let Ok(json_str) = serde_json::to_string_pretty(&sample) {
+        info!("📊 ST4 data structure: {}", json_str);
+      }
+    }
+    
+    for (index, entry) in st4_array.iter().enumerate() {
+      if let Some(v) = entry["v"].as_array() {
+        let i_value = entry["i"].as_i64().unwrap_or(0);
         
-        Self {
-            websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
-            session_id,
-            symbols: Vec::new(),
-            eps_data_cache: HashMap::new(),
+        // Log first few entries exactly like Node.js
+        if index < 3 {
+          let v_str: Vec<String> = v.iter().map(|val| {
+            match val {
+              Value::Number(n) => n.to_string(),
+              _ => "?".to_string()
+            }
+          }).collect();
+          info!("📊 Entry {}: i={}, v=[{}]", index, i_value, v_str.join(", "));
         }
+        
+        // Extract data from st4 format (EXACT Node.js logic):
+        // v[0] = earnings timestamp (seconds), v[1] = estimated_eps, v[3] = quarter_end, v[4] = earnings_announcement (ms), v[5] = actual_eps
+        let earnings_timestamp = v.get(0)
+          .and_then(|v| v.as_f64())
+          .map(|f| f as i64)
+          .unwrap_or(0);
+        let estimated_eps = v.get(1).and_then(|v| v.as_f64());
+        let quarter_end_timestamp = v.get(3)
+          .and_then(|v| v.as_f64())
+          .map(|f| f as i64);
+        let earnings_announcement_timestamp_ms = v.get(4)
+          .and_then(|v| v.as_f64())
+          .map(|f| f as i64);
+        let actual_eps = v.get(5).and_then(|v| v.as_f64());
+        
+        // Try v[5] first (observed to be actual EPS like 0.27) - EXACT Node.js logic
+        let mut actual_eps_value = None;
+        if let Some(eps) = actual_eps {
+          if v.len() > 5 && eps > 0.0 && eps < 10.0 && eps.is_finite() {
+            actual_eps_value = Some(eps);
+          }
+        }
+        
+        // Try v[1] as backup (might be estimated EPS) - EXACT Node.js logic  
+        if actual_eps_value.is_none() {
+          if let Some(eps) = estimated_eps {
+            if v.len() > 1 && eps > 0.0 && eps < 10.0 && eps.is_finite() {
+              actual_eps_value = Some(eps);
+            }
+          }
+        }
+        
+        if let Some(eps_value) = actual_eps_value {
+          let fiscal_period = self.timestamp_to_fiscal_period(earnings_timestamp);
+          
+          // Convert earnings announcement timestamp from milliseconds to seconds
+          let estimated_earnings_date = earnings_announcement_timestamp_ms
+            .map(|ms| ms / 1000)
+            .unwrap_or(earnings_timestamp);
+          
+          // Generate quarter end date from quarter end timestamp
+          let quarter_end_date = quarter_end_timestamp
+            .map(|ts| {
+              use chrono::{Utc, TimeZone};
+              Utc.timestamp_opt(ts, 0)
+                .single()
+                .unwrap_or_default()
+                .format("%Y-%m-%d")
+                .to_string()
+            });
+          
+          // Store estimated EPS if different from actual EPS
+          let stored_estimated_eps = if let Some(est) = estimated_eps {
+            if (est - eps_value).abs() > 0.01 { Some(est) } else { None }
+          } else { None };
+          
+          quarterly_data.push(QuarterlyEPSData {
+            quarter_number: index + 1,
+            period: fiscal_period.clone(),
+            actual_eps: eps_value,
+            timestamp: earnings_timestamp,
+            estimated_eps: stored_estimated_eps,
+            is_reported: true,
+            beat_estimate: None, // Can be calculated later if needed
+            eps_type: "st4_earnings_study".to_string(),
+            source: "st4_earnings_data".to_string(),
+            quarter_end_date: quarter_end_date.clone(),
+            estimated_earnings_date: earnings_announcement_timestamp_ms.map(|ms| ms / 1000),
+            price_data: None, // Will be filled in later with price correlation
+            // Legacy fields for backward compatibility
+            eps: eps_value,
+            quarter_name: fiscal_period.clone(),
+          });
+          
+          info!("✅ Extracted EPS: {} = {} (from st4 v[5]) [announcement: {}, quarter_end: {:?}]", 
+                fiscal_period, eps_value, estimated_earnings_date, quarter_end_date);
+        }
+      }
     }
-
-    /// Connect to TradingView WebSocket and start receiving EPS data
-    pub async fn connect_and_fetch_eps_data(&mut self, symbols: Vec<String>) -> Result<Vec<EPSWebSocketData>, MarketDataError> {
-        info!("Connecting to TradingView WebSocket for {} symbols", symbols.len());
-        self.symbols = symbols.clone();
-
-        match self.connect_websocket().await {
-            Ok(eps_data) => {
-                info!("Successfully collected EPS data for {} symbols", eps_data.len());
-                Ok(eps_data)
-            }
-            Err(e) => {
-                error!("WebSocket connection failed: {}", e);
-                Err(e)
-            }
-        }
+    
+    if !quarterly_data.is_empty() {
+      // Sort by timestamp (newest first) like Node.js
+      quarterly_data.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+      
+      // Add price correlation like Node.js (if we have price data)
+      quarterly_data = self.correlate_price_with_earnings(quarterly_data);
+    } else {
+      warn!("⚠️ No EPS data extracted from st4 for {}", symbol);
     }
-
-    /// Internal method to handle WebSocket connection
-    async fn connect_websocket(&mut self) -> Result<Vec<EPSWebSocketData>, MarketDataError> {
-        // Connect to WebSocket
-        let (ws_stream, _) = connect_async(&self.websocket_url).await
-            .map_err(|e| MarketDataError::NetworkError(format!("WebSocket connection failed: {}", e)))?;
-
-        let (mut write, mut read) = ws_stream.split();
-
-        // Step 1: Create chart session
-        let session_msg = self.create_chart_session_message();
-        let formatted_msg = self.format_tradingview_message(&session_msg);
-        write.send(Message::Text(formatted_msg)).await
-            .map_err(|e| MarketDataError::NetworkError(format!("Failed to send session message: {}", e)))?;
-
-        info!("Sent chart session creation message");
-
-        // Process symbols in batches
-        let batch_size = 5; // Process 5 symbols at a time to avoid overwhelming the service
-        for symbol_batch in self.symbols.chunks(batch_size) {
-            for symbol in symbol_batch {
-                // Step 2: Create series for this symbol
-                let series_id = format!("sds_{}", 
-                    Uuid::new_v4().to_string().replace("-", "").chars().take(8).collect::<String>()
-                );
-                
-                let series_msg = self.create_series_message(&series_id, symbol);
-                let formatted_series = self.format_tradingview_message(&series_msg);
-                write.send(Message::Text(formatted_series)).await
-                    .map_err(|e| MarketDataError::NetworkError(format!("Failed to send series message: {}", e)))?;
-
-                debug!("Sent create_series for symbol: {}", symbol);
-
-                // Step 3: Request quote data
-                let quote_session_id = format!("qs_{}", 
-                    Uuid::new_v4().to_string().replace("-", "").chars().take(10).collect::<String>()
-                );
-                
-                let quote_msg = self.create_quote_session_message(&quote_session_id, symbol);
-                let formatted_quote = self.format_tradingview_message(&quote_msg);
-                write.send(Message::Text(formatted_quote)).await
-                    .map_err(|e| MarketDataError::NetworkError(format!("Failed to send quote message: {}", e)))?;
-
-                debug!("Sent quote session for symbol: {}", symbol);
-            }
-
-            // Small delay between batches
-            sleep(Duration::from_millis(100)).await;
+    
+    quarterly_data
+  }
+  
+  /// Process timescale_update messages (exact Node.js devtools logic)
+  fn process_timescale_update(&mut self, parsed: &Value, symbol: &str) -> Option<EPSWebSocketData> {
+    if let Some(params) = parsed["p"].as_array() {
+      if params.len() >= 2 {
+        let session_id = params[0].as_str().unwrap_or("");
+        let data = &params[1];
+        
+        info!("📈 Timescale update for: {}", session_id);
+        if self.debug {
+          let data_str = serde_json::to_string(data).unwrap_or_default();
+          info!("Data structure: {}", &data_str[..data_str.len().min(200)]);
         }
-
-        // Step 4: Listen for responses
-        let mut collected_data = Vec::new();
-        let mut timeout_count = 0;
-        let max_timeouts = 50; // Allow up to 5 seconds of waiting
-
-        loop {
-            tokio::select! {
-                msg = read.next() => {
-                    match msg {
-                        Some(Ok(Message::Text(text))) => {
-                            if let Some(eps_data) = self.process_websocket_message(&text) {
-                                collected_data.push(eps_data);
-                                info!("Collected EPS data for symbol, total: {}", collected_data.len());
-                                
-                                // If we have data for all symbols, we can stop
-                                if collected_data.len() >= self.symbols.len() {
-                                    break;
-                                }
-                            }
-                            timeout_count = 0; // Reset timeout on successful message
-                        }
-                        Some(Ok(Message::Close(_))) => {
-                            warn!("WebSocket connection closed");
-                            break;
-                        }
-                        Some(Ok(Message::Binary(_))) => {
-                            debug!("Received binary message, ignoring");
-                        }
-                        Some(Ok(Message::Ping(_))) => {
-                            debug!("Received ping message");
-                        }
-                        Some(Ok(Message::Pong(_))) => {
-                            debug!("Received pong message");
-                        }
-                        Some(Ok(Message::Frame(_))) => {
-                            debug!("Received frame message, ignoring");
-                        }
-                        Some(Err(e)) => {
-                            error!("WebSocket error: {}", e);
-                            return Err(MarketDataError::NetworkError(format!("WebSocket error: {}", e)));
-                        }
-                        None => {
-                            warn!("WebSocket stream ended");
-                            break;
-                        }
-                    }
+        
+        // Extract st4 earnings data (exact match to Node.js)
+        if let Some(st4_obj) = data.get("st4") {
+          if let Some(st4_data) = st4_obj.get("st").and_then(|v| v.as_array()) {
+            info!("🎯 Found st4 earnings data with {} entries for {}!", st4_data.len(), symbol);
+            info!("🔥 EXTRACTING EPS FROM ST4 EARNINGS STUDY: st4_earnings_data");
+            
+            let quarterly_data = self.extract_eps_from_st4_exact(st4_data, symbol);
+            
+            if !quarterly_data.is_empty() {
+              info!("✅ Extracted {} EPS values from st4!", quarterly_data.len());
+              return Some(self.build_eps_websocket_data(symbol, quarterly_data));
+            }
+          }
+        }
+        
+        // Extract price data from series (sds_1)
+        if let Some(series_obj) = data.get("sds_1") {
+          if let Some(series_data) = series_obj.get("s").and_then(|v| v.as_array()) {
+            info!("📊 Found series data with {} candles", series_data.len());
+            self.extract_price_from_timescale_update(series_data);
+          }
+        }
+      }
+    }
+    None
+  }
+  
+  /// Process data update (du) messages (exact Node.js devtools logic)
+  fn process_data_update(&mut self, parsed: &Value, symbol: &str) -> Option<EPSWebSocketData> {
+    info!("📊 Processing data update");
+    
+    if self.debug {
+      if let Ok(json_str) = serde_json::to_string(&parsed) {
+        let preview = if json_str.len() > 500 { &json_str[..500] } else { &json_str };
+        info!("🔍 Full DU message structure: {}", preview);
+      }
+    }
+    
+    if let Some(params) = parsed["p"].as_array() {
+      if params.len() >= 2 {
+        let study_id = params[0].as_str().unwrap_or("");
+        let data_obj = &params[1];
+        
+        info!("📈 Data update for study: {}", study_id);
+        
+        // Check if this is an earnings study update (st4)
+        if study_id.contains("st4") {
+          info!("🎯 Found st4 (Earnings) data update!");
+          
+          // Try multiple paths to find EPS data like Node.js
+          if let Some(st_obj) = data_obj.as_object() {
+            // Check direct st property
+            if let Some(st_data) = st_obj.get("st").and_then(|v| v.as_array()) {
+              info!("📊 Found st array with {} items", st_data.len());
+              let quarterly_data = self.extract_eps_from_st4_exact(st_data, symbol);
+              if !quarterly_data.is_empty() {
+                return Some(self.build_eps_websocket_data(symbol, quarterly_data));
+              }
+            }
+            
+            // Check nested st4 property
+            if let Some(st4_obj) = st_obj.get("st4") {
+              info!("📊 Found st4 property");
+              if let Some(st_data) = st4_obj.get("st").and_then(|v| v.as_array()) {
+                let quarterly_data = self.extract_eps_from_st4_exact(st_data, symbol);
+                if !quarterly_data.is_empty() {
+                  return Some(self.build_eps_websocket_data(symbol, quarterly_data));
                 }
-                _ = sleep(Duration::from_millis(100)) => {
-                    timeout_count += 1;
-                    if timeout_count > max_timeouts {
-                        info!("WebSocket timeout reached, stopping collection");
-                        break;
-                    }
-                }
+              }
             }
+          }
         }
-
-        if collected_data.is_empty() {
-            warn!("No EPS data collected from WebSocket");
-        }
-
-        Ok(collected_data)
+      }
     }
-
-    /// Create chart session message
-    fn create_chart_session_message(&self) -> TradingViewMessage {
-        TradingViewMessage {
-            m: "chart_create_session".to_string(),
-            p: vec![json!(self.session_id), json!("")],
-            t: None,
-            t_ms: None,
+    None
+  }
+  
+  /// Process symbol resolution (exact Node.js logic)
+  fn process_symbol_resolved_exact(&mut self, parsed: &Value) {
+    info!("🔍 Processing symbol resolution");
+    self.symbol_resolved = true;
+    
+    if let Some(params) = parsed["p"].as_array() {
+      if params.len() >= 3 {
+        if let Some(symbol_data) = params[2].as_object() {
+          if let Some(exchange) = symbol_data.get("exchange").and_then(|v| v.as_str()) {
+            info!("✅ Detected exchange: {}", exchange);
+          }
+          if let Some(description) = symbol_data.get("description").and_then(|v| v.as_str()) {
+            info!("🏢 Company: {}", description);
+          }
+          if let Some(symbol_type) = symbol_data.get("type").and_then(|v| v.as_str()) {
+            info!("📊 Type: {}", symbol_type);
+          }
         }
+      }
     }
-
-    /// Create series message for a symbol
-    fn create_series_message(&self, series_id: &str, _symbol: &str) -> TradingViewMessage {
-        TradingViewMessage {
-            m: "create_series".to_string(),
-            p: vec![
-                json!(self.session_id),
-                json!(series_id),
-                json!("s1"),
-                json!(format!("sds_sym_{}", series_id.chars().take(4).collect::<String>())),
-                json!("1D"),
-                json!(300),
-                json!("")
-            ],
-            t: None,
-            t_ms: None,
-        }
+  }
+  
+  /// Process series completion and create studies (exact Node.js logic)
+  async fn process_series_completed(
+    &mut self,
+    parsed: &Value,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+  ) {
+    info!("📊 Series data completed");
+    self.series_ready = true;
+    
+    // Extract price data from series completion if available
+    if let Some(params) = parsed["p"].as_array() {
+      self.extract_price_data_from_series(params);
     }
-
-    /// Create quote session message
-    fn create_quote_session_message(&self, quote_id: &str, _symbol: &str) -> TradingViewMessage {
-        TradingViewMessage {
-            m: "quote_create_session".to_string(),
-            p: vec![json!(quote_id)],
-            t: None,
-            t_ms: None,
-        }
+    
+    // Now that series is ready, create studies
+    self.create_studies_after_series(write).await;
+  }
+  
+  /// Create studies after series is ready (exact Node.js logic)
+  async fn create_studies_after_series(
+    &mut self,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+  ) {
+    if !self.series_ready {
+      return;
     }
-
-    /// Format message in TradingView protocol format: ~m~{length}~m~{JSON}
-    fn format_tradingview_message(&self, msg: &TradingViewMessage) -> String {
-        let json_str = serde_json::to_string(msg).unwrap_or_default();
-        let length = json_str.len();
-        format!("~m~{}~m~{}", length, json_str)
+    
+    info!("📈 Series ready, creating studies...");
+    
+    let chart_session = self.chart_session.as_ref().unwrap();
+    let series_id = "sds_1";
+    
+    // Create studies exactly like Node.js
+    let studies = vec![
+      ("st4", "Earnings@tv-basicstudies-255"),
+      ("st2", "Dividends@tv-basicstudies-255"),
+      ("st3", "Splits@tv-basicstudies-255")
+    ];
+    
+    for (study_id, study_name) in studies {
+      let _ = self.send_message(write, &json!({
+        "m": "create_study",
+        "p": [chart_session, study_id, "st1", series_id, study_name, {}]
+      })).await;
+      
+      sleep(Duration::from_millis(50)).await;
     }
-
-    /// Process incoming WebSocket message and extract EPS data
-    fn process_websocket_message(&mut self, text: &str) -> Option<EPSWebSocketData> {
-        // Parse TradingView protocol: ~m~{length}~m~{JSON}
-        if !text.starts_with("~m~") {
-            return None;
+    
+    info!("✅ Studies created, waiting for data...");
+  }
+  
+  /// Extract price data from series response
+  fn extract_price_data_from_series(&mut self, series_data: &[Value]) {
+    if series_data.len() > 1 {
+      if let Some(price_info) = series_data[1].as_object() {
+        if let Some(current_price) = price_info.get("lp").and_then(|v| v.as_f64()) {
+          info!("💲 Current price from series: {}", current_price);
         }
-
-        let parts: Vec<&str> = text.splitn(4, "~m~").collect();
-        if parts.len() < 4 {
-            return None;
-        }
-
-        let json_part = parts[3];
-        let parsed: Result<TradingViewMessage, _> = serde_json::from_str(json_part);
-        
-        match parsed {
-            Ok(msg) => {
-                debug!("Received message type: {}", msg.m);
-                
-                match msg.m.as_str() {
-                    "symbol_resolved" => self.extract_eps_from_symbol_resolved(msg),
-                    "qsd" => self.extract_eps_from_qsd(msg),
-                    "timescale_update" => self.extract_historical_data(msg),
-                    _ => {
-                        debug!("Unhandled message type: {}", msg.m);
-                        None
-                    }
-                }
+      }
+    }
+  }
+  
+  /// Process quote data (extract financial context)
+  fn process_quote_data(&mut self, parsed: &Value) {
+    if let Some(params) = parsed["p"].as_array() {
+      if params.len() >= 2 {
+        if let Some(status) = params[1].get("s").and_then(|s| s.as_str()) {
+          if status == "ok" {
+            if let Some(data) = params[1].get("v").and_then(|v| v.as_object()) {
+              // Extract financial context like Node.js
+              if let Some(current_price) = data.get("lp").and_then(|v| v.as_f64()) {
+                info!("💰 Quote price: {}", current_price);
+              }
+              if let Some(market_cap) = data.get("market_cap_basic").and_then(|v| v.as_f64()) {
+                info!("📈 Market cap: {}", market_cap);
+              }
             }
-            Err(e) => {
-                debug!("Failed to parse WebSocket message: {}", e);
-                None
+          }
+        }
+      }
+    }
+  }
+  
+  /// Handle protocol errors like Node.js
+  fn handle_protocol_error(&self, parsed: &Value) {
+    if let Some(params) = parsed["p"].as_array() {
+      if params.len() >= 2 {
+        let session_id = params[0].as_str().unwrap_or("unknown");
+        let error_type = params[1].as_str().unwrap_or("unknown");
+        warn!("❌ Protocol error in {}: {}", session_id, error_type);
+        
+        if params.len() >= 3 {
+          if let Some(details) = params[2].as_str() {
+            warn!("   Details: {}", details);
+          }
+        }
+      }
+    }
+  }
+  
+  /// Extract price data from timescale updates (ported from Node.js devtools)
+  fn extract_price_from_timescale_update(&mut self, data: &[Value]) {
+    for candle in data {
+      if let Some(v) = candle["v"].as_array() {
+        if v.len() >= 6 {
+          if let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) = (
+            v[0].as_i64(),
+            v[1].as_f64(),
+            v[2].as_f64(), 
+            v[3].as_f64(),
+            v[4].as_f64(),
+            v[5].as_i64()
+          ) {
+            let date = chrono::Utc.timestamp_opt(timestamp, 0)
+              .single()
+              .unwrap_or_default()
+              .format("%Y-%m-%d")
+              .to_string();
+            
+            let price_data = PriceData {
+              timestamp,
+              date,
+              open,
+              high,
+              low,
+              close,
+              volume,
+            };
+            
+            self.price_data.insert(timestamp, price_data);
+          }
+        }
+      }
+    }
+    
+    if !self.price_data.is_empty() {
+      debug!("📊 Extracted {} price points from timescale", self.price_data.len());
+    }
+  }
+  
+  /// Build complete EPS WebSocket data structure
+  fn build_eps_websocket_data(&self, symbol: &str, quarterly_data: Vec<QuarterlyEPSData>) -> EPSWebSocketData {
+    let current_eps = quarterly_data.first().map(|q| q.eps).unwrap_or(0.0);
+    let price_data: Vec<PriceData> = self.price_data.values().cloned().collect();
+    let current_price = price_data.last().map(|p| p.close).unwrap_or(0.0);
+    let current_volume = price_data.last().map(|p| p.volume).unwrap_or(0) as f64;
+    
+    EPSWebSocketData {
+      symbol: symbol.to_string(),
+      current_eps,
+      quarterly_eps: current_eps,
+      historical_eps: quarterly_data.iter().map(|q| q.eps).collect(),
+      quarterly_data,
+      price_data,
+      earnings_per_share_basic_ttm: current_eps * 4.0,
+      market_cap_basic: 0.0,
+      price_current: current_price,
+      volume: current_volume,
+      sector: "Technology".to_string(),
+      country: "US".to_string(),
+      company_name: symbol.to_string(),
+    }
+  }
+  
+  /// Convert timestamp to fiscal period (exact Node.js devtools format)
+  fn timestamp_to_fiscal_period(&self, timestamp: i64) -> String {
+    use chrono::{Utc, TimeZone};
+    
+    if timestamp == 0 {
+      return "Unknown".to_string();
+    }
+    
+    let dt = Utc.timestamp_opt(timestamp, 0).single().unwrap_or_default();
+    let year = dt.year();
+    let month = dt.month();
+    
+    // Map to fiscal quarters like Node.js devtools
+    let (quarter, fiscal_year) = match month {
+      1..=3 => (1, year),     // Q1 
+      4..=6 => (2, year),     // Q2
+      7..=9 => (3, year),     // Q3 
+      10..=12 => (4, year),   // Q4
+      _ => (1, year),
+    };
+    
+    format!("{}-Q{}", fiscal_year, quarter)
+  }
+  
+  /// Parse TradingView message format (ported from Node.js devtools)
+  fn parse_tradingview_message(&self, text: &str) -> Vec<Value> {
+    let mut messages = Vec::new();
+    
+    // Handle heartbeat messages
+    if text.starts_with("~h~") {
+      return messages;
+    }
+    
+    if !text.starts_with("~m~") {
+      return messages;
+    }
+    
+    let mut remaining = text;
+    while remaining.starts_with("~m~") {
+      // Find the length
+      let length_start = 3;
+      if let Some(length_end) = remaining[length_start..].find("~m~") {
+        let length_str = &remaining[length_start..length_start + length_end];
+        if let Ok(message_length) = length_str.parse::<usize>() {
+          let message_start = length_start + length_end + 3;
+          if message_start + message_length <= remaining.len() {
+            let json_str = &remaining[message_start..message_start + message_length];
+            
+            if let Ok(parsed) = serde_json::from_str::<Value>(json_str) {
+              messages.push(parsed);
             }
+            
+            remaining = &remaining[message_start + message_length..];
+          } else {
+            break;
+          }
+        } else {
+          break;
         }
+      } else {
+        break;
+      }
     }
-
-    /// Extract EPS data from symbol_resolved message
-    fn extract_eps_from_symbol_resolved(&mut self, msg: TradingViewMessage) -> Option<EPSWebSocketData> {
-        if msg.p.len() >= 3 {
-            if let Some(symbol_data) = msg.p.get(2) {
-                return self.parse_symbol_data_for_eps(symbol_data);
-            }
+    
+    messages
+  }
+  
+  /// Format message for TradingView WebSocket (ported from Node.js devtools)
+  fn format_tradingview_message(&self, msg: &Value) -> String {
+    let json_str = serde_json::to_string(msg).unwrap_or_default();
+    format!("~m~{}~m~{}", json_str.len(), json_str)
+  }
+  
+  /// Send message to TradingView WebSocket (exact Node.js format)
+  async fn send_message(
+    &self,
+    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
+    msg: &Value
+  ) -> Result<(), MarketDataError> {
+    let formatted = self.format_tradingview_message(msg);
+    
+    write.send(Message::Text(formatted)).await.map_err(|e| {
+      MarketDataError::NetworkError(format!("Failed to send WebSocket message: {}", e))
+    })?;
+    
+    if let Some(method) = msg["m"].as_str() {
+      info!("➡️ Sent: {}", method);
+    }
+    
+    Ok(())
+  }
+  
+  /// Generate unique ID for TradingView messages (exact Node.js format)
+  fn generate_id(&self, length: usize) -> String {
+    Uuid::new_v4()
+      .to_string()
+      .replace("-", "")
+      .chars()
+      .take(length)
+      .collect()
+  }
+  
+  
+  /// Convert WebSocket data to frontend EPS format with price correlation
+  pub fn convert_to_frontend_format(&self, websocket_data: Vec<EPSWebSocketData>) -> Vec<FrontendEPSData> {
+    websocket_data.into_iter().map(|ws_data| {
+      // Calculate QoQ growth from quarterly data
+      let qoq_growth = if ws_data.quarterly_data.len() >= 2 {
+        let current = ws_data.quarterly_data[0].eps;
+        let previous = ws_data.quarterly_data[1].eps;
+        if previous != 0.0 {
+          ((current - previous) / previous) * 100.0
+        } else {
+          0.0
         }
-        None
-    }
+      } else {
+        0.0
+      };
 
-    /// Extract EPS data from qsd (quote session data) message  
-    fn extract_eps_from_qsd(&mut self, msg: TradingViewMessage) -> Option<EPSWebSocketData> {
-        if msg.p.len() >= 2 {
-            if let Some(quote_data) = msg.p.get(1).and_then(|p| p.get("v")) {
-                return self.parse_quote_data_for_eps(quote_data);
-            }
+      // Enhanced ranking score using price correlation and volatility
+      let price_factor = if !ws_data.price_data.is_empty() {
+        let price_volatility = self.calculate_price_volatility(&ws_data.price_data);
+        let eps_price_correlation = self.calculate_eps_price_correlation(&ws_data.quarterly_data, &ws_data.price_data);
+        price_volatility * 0.1 + eps_price_correlation * 0.2
+      } else {
+        0.0
+      };
+      
+      let ranking_score = ws_data.current_eps * 0.4 + qoq_growth * 0.3 + price_factor + (ws_data.market_cap_basic / 1_000_000_000.0) * 0.1;
+
+      FrontendEPSData {
+        id: format!("{}-{}", ws_data.symbol, uuid::Uuid::new_v4().to_string()[..8].to_string()),
+        symbol: ws_data.symbol,
+        company_name: ws_data.company_name,
+        current_eps: ws_data.current_eps,
+        qoq_growth,
+        market_cap: ws_data.market_cap_basic as i64,
+        price_current: ws_data.price_current,
+        volume: ws_data.volume as i64,
+        country: ws_data.country,
+        sector: ws_data.sector,
+        ranking_score,
+      }
+    }).collect()
+  }
+  
+  /// Calculate price volatility from price data
+  fn calculate_price_volatility(&self, price_data: &[PriceData]) -> f64 {
+    if price_data.len() < 2 {
+      return 0.0;
+    }
+    
+    let prices: Vec<f64> = price_data.iter().map(|p| p.close).collect();
+    let mean = prices.iter().sum::<f64>() / prices.len() as f64;
+    let variance = prices.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / prices.len() as f64;
+    variance.sqrt() / mean
+  }
+  
+  /// Calculate correlation between EPS and price movements
+  fn calculate_eps_price_correlation(&self, eps_data: &[QuarterlyEPSData], price_data: &[PriceData]) -> f64 {
+    if eps_data.len() < 2 || price_data.is_empty() {
+      return 0.0;
+    }
+    
+    // Find price movements around EPS announcement dates
+    let mut correlation_score = 0.0;
+    let mut valid_correlations = 0;
+    
+    for eps in eps_data {
+      if let Some(price_before) = self.find_price_near_date(price_data, eps.timestamp - 86400) {
+        if let Some(price_after) = self.find_price_near_date(price_data, eps.timestamp + 86400) {
+          let price_change_pct = ((price_after.close - price_before.close) / price_before.close) * 100.0;
+          
+          // Positive EPS should correlate with positive price movement
+          if (eps.eps > 0.0 && price_change_pct > 0.0) || (eps.eps < 0.0 && price_change_pct < 0.0) {
+            correlation_score += 1.0;
+          }
+          valid_correlations += 1;
         }
-        None
+      }
     }
-
-    /// Extract historical EPS data from timescale_update
-    fn extract_historical_data(&mut self, msg: TradingViewMessage) -> Option<EPSWebSocketData> {
-        // Parse timescale_update messages that contain historical EPS data
-        // Format: {"i": index, "v": [timestamp, eps_value, ...other_fields]}
-        
-        if msg.p.len() >= 2 {
-            // Get the update data array
-            if let Some(update_data) = msg.p.get(1).and_then(|p| p.get("st")).and_then(|st| st.as_array()) {
-                let mut historical_eps = Vec::new();
-                let mut symbol = String::new();
-                let mut latest_eps = 0.0;
-                
-                // Process each data point in the timescale update
-                for data_point in update_data {
-                    if let Some(v_array) = data_point.get("v").and_then(|v| v.as_array()) {
-                        // Extract EPS value from the array
-                        // Based on example: {"i":228,"v":[1744941600.0,6.6102,5.992452,1743379200.0,1744934400000.0,6.61,...]}
-                        // The EPS value appears to be at index 1 (6.6102) and 5 (6.61)
-                        if let Some(eps_value) = v_array.get(1).and_then(|v| v.as_f64()) {
-                            historical_eps.push(eps_value);
-                            latest_eps = eps_value; // Keep track of the most recent EPS
-                        }
-                    }
-                }
-                
-                // Extract symbol from session or use a default
-                if let Some(session_id) = msg.p.get(0).and_then(|p| p.as_str()) {
-                    symbol = session_id.to_string();
-                }
-                
-                if !historical_eps.is_empty() {
-                    debug!("Extracted {} historical EPS values: {:?}", historical_eps.len(), historical_eps);
-                    
-                    return Some(EPSWebSocketData {
-                        symbol,
-                        current_eps: latest_eps,
-                        quarterly_eps: latest_eps,
-                        historical_eps,
-                        earnings_per_share_basic_ttm: latest_eps,
-                        market_cap_basic: 0.0, // Will be filled from other messages
-                        price_current: 0.0, // Will be filled from other messages
-                        volume: 0.0, // Will be filled from other messages
-                        sector: String::new(), // Will be filled from other messages
-                        country: String::new(), // Will be filled from other messages
-                        company_name: String::new(), // Will be filled from other messages
-                    });
-                }
-            }
+    
+    if valid_correlations > 0 {
+      correlation_score / valid_correlations as f64
+    } else {
+      0.0
+    }
+  }
+  
+  /// Find price data near a specific timestamp
+  fn find_price_near_date<'a>(&self, price_data: &'a [PriceData], target_timestamp: i64) -> Option<&'a PriceData> {
+    price_data.iter()
+      .min_by_key(|p| (p.timestamp - target_timestamp).abs())
+  }
+  
+  /// Create comprehensive EPS-Price correlation (EXACT Node.js logic)
+  fn correlate_price_with_earnings(&self, quarterly_data: Vec<QuarterlyEPSData>) -> Vec<QuarterlyEPSData> {
+    info!("🔄 Creating comprehensive EPS-Price correlation");
+    
+    quarterly_data.into_iter().map(|mut quarter| {
+      // Use the earnings announcement timestamp to find nearest price data
+      let price_impact = if let Some(earnings_date) = quarter.estimated_earnings_date {
+        self.find_nearest_price_data(earnings_date, &quarter.period)
+      } else {
+        self.find_nearest_price_data(quarter.timestamp, &quarter.period)
+      };
+      
+      quarter.price_data = price_impact;
+      quarter
+    }).collect()
+  }
+  
+  /// Find nearest price data around earnings announcement (EXACT Node.js logic)
+  fn find_nearest_price_data(&self, earnings_timestamp: i64, quarter_period: &str) -> Option<PriceImpactData> {
+    if self.price_data.is_empty() {
+      warn!("⚠️ No price data available for {}", quarter_period);
+      return None;
+    }
+    
+    info!("🔍 Finding price data within 1-2 days of {} earnings (timestamp: {})", quarter_period, earnings_timestamp);
+    
+    let one_day = 86400; // seconds in one day
+    let mut closest_before: Option<(i64, PriceData)> = None;
+    let mut closest_after: Option<(i64, PriceData)> = None;
+    let mut days_before = 0;
+    let mut days_after = 0;
+    
+    // Step through days to find closest price data - prioritize 1-2 days, max 7 days
+    for step in 1..=7 {
+      // Check price data `step` days before earnings
+      if closest_before.is_none() {
+        let before_timestamp = earnings_timestamp - (step * one_day);
+        if let Some(price_data) = self.price_data.get(&before_timestamp) {
+          closest_before = Some((before_timestamp, price_data.clone()));
+          days_before = step;
+          info!("📊 Found price {} day(s) before earnings: ${}", step, price_data.close);
         }
-        
-        None
-    }
-
-    /// Parse symbol data to extract EPS information
-    fn parse_symbol_data_for_eps(&self, symbol_data: &Value) -> Option<EPSWebSocketData> {
-        let name = symbol_data.get("name")?.as_str().unwrap_or("").to_string();
-        let description = symbol_data.get("description")?.as_str().unwrap_or("").to_string();
-        let country = symbol_data.get("country")?.as_str().unwrap_or("").to_string();
-        let sector = symbol_data.get("sector")?.as_str().unwrap_or("").to_string();
-        
-        Some(EPSWebSocketData {
-            symbol: name,
-            current_eps: 0.0, // Will be updated from qsd message
-            quarterly_eps: 0.0,
-            historical_eps: Vec::new(),
-            earnings_per_share_basic_ttm: 0.0,
-            market_cap_basic: 0.0,
-            price_current: 0.0,
-            volume: 0.0,
-            sector,
-            country,
-            company_name: description,
-        })
-    }
-
-    /// Parse quote data to extract EPS values
-    fn parse_quote_data_for_eps(&self, quote_data: &Value) -> Option<EPSWebSocketData> {
-        let earnings_per_share_basic_ttm = quote_data.get("earnings_per_share_basic_ttm")
-            ?.as_f64().unwrap_or(0.0);
-        let earnings_per_share_fq = quote_data.get("earnings_per_share_fq")
-            ?.as_f64().unwrap_or(0.0);
-        let market_cap_basic = quote_data.get("market_cap_basic")
-            ?.as_f64().unwrap_or(0.0);
-        let volume = quote_data.get("volume")?.as_f64().unwrap_or(0.0);
-        let lp = quote_data.get("lp")?.as_f64().unwrap_or(0.0); // last price
-        let sector = quote_data.get("sector")?.as_str().unwrap_or("").to_string();
-        let country_code = quote_data.get("country_code")?.as_str().unwrap_or("").to_string();
-        let description = quote_data.get("description")?.as_str().unwrap_or("").to_string();
-        let symbol_primary = quote_data.get("symbol-primaryname")?.as_str().unwrap_or("");
-        let symbol = symbol_primary.split(':').nth(1).unwrap_or(symbol_primary).to_string();
-
-        Some(EPSWebSocketData {
-            symbol,
-            current_eps: earnings_per_share_basic_ttm,
-            quarterly_eps: earnings_per_share_fq,
-            historical_eps: vec![earnings_per_share_basic_ttm], // Start with current EPS
-            earnings_per_share_basic_ttm,
-            market_cap_basic,
-            price_current: lp,
-            volume,
-            sector,
-            country: country_code,
-            company_name: description,
-        })
-    }
-
-    /// Convert WebSocket EPS data to frontend format
-    pub fn convert_to_frontend_format(&self, websocket_data: Vec<EPSWebSocketData>) -> Vec<FrontendEPSData> {
-        websocket_data.into_iter().map(|ws_data| {
-            let qoq_growth = self.calculate_qoq_growth(&ws_data.historical_eps);
-            let ranking_score = self.calculate_ranking_score(
-                ws_data.current_eps, 
-                qoq_growth, 
-                ws_data.market_cap_basic, 
-                ws_data.price_current
-            );
-
-            FrontendEPSData {
-                id: Uuid::new_v4().to_string(),
-                symbol: ws_data.symbol,
-                company_name: ws_data.company_name,
-                current_eps: ws_data.current_eps,
-                qoq_growth,
-                market_cap: ws_data.market_cap_basic as i64,
-                price_current: ws_data.price_current,
-                volume: ws_data.volume as i64,
-                country: ws_data.country,
-                sector: ws_data.sector,
-                ranking_score,
-            }
-        }).collect()
-    }
-
-    /// Calculate quarter-over-quarter growth from historical EPS
-    fn calculate_qoq_growth(&self, historical_eps: &[f64]) -> f64 {
-        if historical_eps.len() < 2 {
-            return 0.0;
+      }
+      
+      // Check price data `step` days after earnings
+      if closest_after.is_none() {
+        let after_timestamp = earnings_timestamp + (step * one_day);
+        if let Some(price_data) = self.price_data.get(&after_timestamp) {
+          closest_after = Some((after_timestamp, price_data.clone()));
+          days_after = step;
+          info!("📊 Found price {} day(s) after earnings: ${}", step, price_data.close);
         }
-        
-        let current = historical_eps.last().unwrap_or(&0.0);
-        let previous = historical_eps.get(historical_eps.len() - 2).unwrap_or(&0.0);
-        
-        if *previous == 0.0 {
-            return 0.0;
-        }
-        
-        ((current - previous) / previous) * 100.0
+      }
+      
+      // Stop early if we found both within 1-2 days (optimal range)
+      if closest_before.is_some() && closest_after.is_some() && step <= 2 {
+        info!("✅ Found optimal price data within {} day(s) for {}", step, quarter_period);
+        break;
+      }
+      
+      // Stop if we have both data points
+      if closest_before.is_some() && closest_after.is_some() {
+        break;
+      }
     }
-
-    /// Calculate ranking score (same algorithm as TradingView service)
-    fn calculate_ranking_score(&self, current_eps: f64, qoq_growth: f64, market_cap: f64, price: f64) -> f64 {
-        let eps_weight = 0.3;
-        let growth_weight = 0.4;
-        let market_cap_weight = 0.2;
-        let price_weight = 0.1;
-
-        let eps_score = (current_eps * 10.0).min(100.0).max(0.0);
-        let growth_score = (qoq_growth.abs() / 100.0 * 100.0).min(100.0).max(0.0);
-        let market_cap_score = (market_cap / 1_000_000_000_000.0 * 100.0).min(100.0).max(0.0);
-        let price_score = (price / 1000.0 * 100.0).min(100.0).max(0.0);
-
-        (eps_score * eps_weight + growth_score * growth_weight + 
-         market_cap_score * market_cap_weight + price_score * price_weight).round()
+    
+    // Calculate price impact if we have both before and after prices
+    if let (Some((_, before_price)), Some((_, after_price))) = (&closest_before, &closest_after) {
+      if before_price.close != after_price.close {
+        let price_change = after_price.close - before_price.close;
+        let percent_change = (price_change / before_price.close) * 100.0;
+        
+        // Quality indicator based on how close the data is to earnings
+        let data_quality = if days_before <= 2 && days_after <= 2 {
+          "excellent"
+        } else if days_before <= 5 && days_after <= 5 {
+          "good"
+        } else {
+          "fair"
+        };
+        
+        let price_impact = PriceImpactData {
+          pre_earnings_price: before_price.close,
+          post_earnings_price: after_price.close,
+          price_change: (price_change * 100.0).round() / 100.0, // Round to 2 decimal places
+          percent_change: (percent_change * 100.0).round() / 100.0,
+          earnings_impact: if percent_change > 0.0 { "positive".to_string() } else { "negative".to_string() },
+          days_before: days_before as i32,
+          days_after: days_after as i32,
+          volume_before: before_price.volume,
+          volume_after: after_price.volume,
+          volume_change: if after_price.volume > before_price.volume { "increased".to_string() } else { "decreased".to_string() },
+          data_quality: data_quality.to_string(),
+        };
+        
+        info!("💹 Price impact for {}: {:.2}% ({}) [{}]", 
+              quarter_period, percent_change, price_impact.earnings_impact, data_quality);
+        
+        return Some(price_impact);
+      }
     }
+    
+    // If we only have one price point, use it as reference
+    if let Some((_, price_point)) = closest_before.as_ref().or(closest_after.as_ref()) {
+      let is_after = closest_after.is_some();
+      let days = if is_after { days_after } else { days_before };
+      
+      info!("📊 Only found {} price: ${:.2} ({} days {})", 
+            if is_after { "after" } else { "before" }, 
+            price_point.close, days,
+            if is_after { "after" } else { "before" });
+      
+      let data_quality = if days <= 2 { "good" } else { "fair" };
+      
+      return Some(PriceImpactData {
+        pre_earnings_price: if !is_after { price_point.close } else { 0.0 },
+        post_earnings_price: if is_after { price_point.close } else { 0.0 },
+        price_change: 0.0,
+        percent_change: 0.0,
+        earnings_impact: "insufficient_data".to_string(),
+        days_before: if !is_after { days as i32 } else { 0 },
+        days_after: if is_after { days as i32 } else { 0 },
+        volume_before: if !is_after { price_point.volume } else { 0 },
+        volume_after: if is_after { price_point.volume } else { 0 },
+        volume_change: "unknown".to_string(),
+        data_quality: data_quality.to_string(),
+      });
+    }
+    
+    warn!("⚠️ No price data found within reasonable range for {}", quarter_period);
+    None
+  }
+
 }

@@ -10,6 +10,10 @@ use sqlx::postgres::PgPoolOptions;
 use std::env;
 use std::sync::Arc;
 use tokio;
+
+mod integration {
+    pub mod analytics_integration_tests;
+}
 use serde_json::json;
 
 // === Migration Process Integration Tests ===

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -14,57 +15,34 @@ import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { usePagination } from '@/hooks/usePagination';
 import usePaginatedFeatureAccess from '@/hooks/usePaginatedFeatureAccess';
 import { AnalyticsClient } from '@epsx/api-client';
-import { UnifiedAnalyticsRankingsResponse, UnifiedRankingItem } from '@/types/financialChartData';
+import type { 
+  UnifiedAnalyticsRankingsResponse, 
+  UnifiedRankingItem, 
+  CacheStatsResponse,
+  CacheHealthResponse 
+} from '@epsx/api-client';
 import { Pagination } from '@/components/ui/pagination';
 import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
-import { BarChart3, Crown, Lock, AlertCircle, Database, Zap, ToggleLeft, ToggleRight, Grid3X3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { 
+  BarChart3, 
+  Crown, 
+  Lock, 
+  AlertCircle, 
+  RefreshCw, 
+  Database, 
+  Activity, 
+  Clock,
+  Zap,
+  Server,
+  TrendingUp,
+  Globe
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { LiveAnalyticsDashboard } from './LiveAnalyticsDashboard';
-import { CardBasedAnalyticsDashboard } from './CardBasedAnalyticsDashboard';
+import { useToast } from '@/components/ui/use-toast';
 
-export function AnalyticsRankingDashboard() {
-  const [viewMode, setViewMode] = useState<'live' | 'legacy'>('live'); // Default to live mode
-  
-  // Live Analytics Mode
-  if (viewMode === 'live') {
-    return (
-      <div className="space-y-4">
-        {/* Mode Toggle */}
-        <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 border-green-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-green-600" />
-                <span className="font-semibold text-green-800 dark:text-green-200">
-                  Live Analytics Mode (Cards)
-                </span>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Cache-based • Cards View
-                </Badge>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => setViewMode('legacy')}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Database className="h-4 w-4" />
-                  Legacy
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <CardBasedAnalyticsDashboard />
-      </div>
-    );
-  }
-  
-  // Legacy mode component below
+export function LiveAnalyticsDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
   const { loading } = useRankingAccess();
   const { getMaxAllowedLimit, canAccessPage, getAvailablePageSizes, userTier } =
     usePaginatedFeatureAccess();
@@ -74,8 +52,12 @@ export function AnalyticsRankingDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
-  const [syncing, setSyncing] = useState(false);
-  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+  
+  // Cache management state
+  const [cacheStats, setCacheStats] = useState<CacheStatsResponse | null>(null);
+  const [cacheHealth, setCacheHealth] = useState<CacheHealthResponse | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCacheDetails, setShowCacheDetails] = useState(false);
 
   // Create AnalyticsClient instance
   const analyticsClient = new AnalyticsClient();
@@ -95,7 +77,7 @@ export function AnalyticsRankingDashboard() {
       setError(null);
 
       try {
-        const response = await analyticsClient.getUnifiedAnalyticsRankingsLegacy({
+        const response = await analyticsClient.getUnifiedAnalyticsRankings({
           page,
           limit,
           country: selectedCountry || undefined,
@@ -116,24 +98,48 @@ export function AnalyticsRankingDashboard() {
     },
   });
 
+  // Load cache statistics
+  const loadCacheStats = useCallback(async () => {
+    try {
+      const [statsResponse, healthResponse] = await Promise.all([
+        analyticsClient.getCacheStats(),
+        analyticsClient.getCacheHealth()
+      ]);
+      
+      if (statsResponse.data) {
+        setCacheStats(statsResponse.data);
+      }
+      
+      if (healthResponse.data) {
+        setCacheHealth(healthResponse.data);
+      }
+    } catch (error) {
+      console.error('Failed to load cache stats:', error);
+    }
+  }, []);
+
+  // Load initial data
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setDataLoading(true);
         
-        // Load initial unified analytics data (includes countries list and all data)
-        const response = await analyticsClient.getUnifiedAnalyticsRankingsLegacy({
-          page: 1,
-          limit: 10,
-          sort_by: 'qoq_growth'
-        });
+        // Load initial unified analytics data and cache stats simultaneously
+        const [analyticsResponse] = await Promise.all([
+          analyticsClient.getUnifiedAnalyticsRankings({
+            page: 1,
+            limit: 10,
+            sort_by: 'qoq_growth'
+          }),
+          loadCacheStats()
+        ]);
         
-        if (response.data) {
-          setAnalyticsData(response.data);
+        if (analyticsResponse.data) {
+          setAnalyticsData(analyticsResponse.data);
           // Set available countries from metadata
-          setAvailableCountries(['All Countries', ...response.data.metadata.available_countries]);
+          setAvailableCountries(['All Countries', ...analyticsResponse.data.metadata.available_countries]);
         } else {
-          throw new Error(response.error || 'Failed to fetch analytics data');
+          throw new Error(analyticsResponse.error || 'Failed to fetch analytics data');
         }
       } catch (error) {
         console.error('Failed to load initial analytics data:', error);
@@ -146,7 +152,38 @@ export function AnalyticsRankingDashboard() {
     if (!loading) {
       loadInitialData();
     }
-  }, [loading]);
+  }, [loading, loadCacheStats]);
+
+  // Refresh cache manually
+  const handleCacheRefresh = async () => {
+    setRefreshing(true);
+    
+    try {
+      const response = await analyticsClient.refreshCache();
+      
+      if (response.data?.success) {
+        toast({
+          title: "Cache Refreshed Successfully",
+          description: `Refreshed ${response.data.refreshed_entries} entries in ${response.data.duration_ms}ms`,
+          variant: "default"
+        });
+        
+        // Reload data after cache refresh
+        handlePageChange(currentPage);
+        loadCacheStats();
+      } else {
+        throw new Error('Failed to refresh cache');
+      }
+    } catch (error) {
+      toast({
+        title: "Cache Refresh Failed",
+        description: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const maxAllowedLimit = getMaxAllowedLimit();
   const availablePageSizes = getAvailablePageSizes();
@@ -212,6 +249,29 @@ export function AnalyticsRankingDashboard() {
     }
   };
 
+  // Get data freshness indicator
+  const getDataFreshness = () => {
+    if (!analyticsData?.metadata.request_timestamp) return null;
+    
+    const dataTime = new Date(analyticsData.metadata.request_timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - dataTime.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    return `${diffHours}h ago`;
+  };
+
+  // Get data source badge color
+  const getDataSourceColor = (dataSource: string) => {
+    if (dataSource.includes('live_cache')) return 'bg-green-500';
+    if (dataSource.includes('websocket')) return 'bg-blue-500';
+    return 'bg-gray-500';
+  };
+
   if (loading || dataLoading) {
     return (
       <div className="space-y-6">
@@ -242,54 +302,175 @@ export function AnalyticsRankingDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Mode Toggle for Legacy */}
-      <Card className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-950/20 dark:to-slate-950/20 border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-gray-600" />
-              <span className="font-semibold text-gray-800 dark:text-gray-200">
-                Legacy Analytics Mode
-              </span>
-              <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                Database-based • Static
-              </Badge>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => setViewMode('live')}
-                variant="outline"
-                size="sm"
-                className="gap-2 border-green-500 text-green-700 hover:bg-green-50"
-              >
-                <Zap className="h-4 w-4" />
-                Live Mode
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Header */}
+      {/* Header with Live Data Indicators */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-3">
-          <BarChart3 className="h-10 w-10 text-blue-600" />
-          <h1 className="text-4xl font-bold">Analytics Dashboard (Legacy)</h1>
+          <Zap className="h-10 w-10 text-green-600" />
+          <h1 className="text-4xl font-bold">Live Analytics Dashboard</h1>
         </div>
         <p className="text-xl text-muted-foreground">
-          Traditional database-based stock ranking analytics
+          Real-time stock rankings with live cache-based data
         </p>
+
+        {/* Data Source & Freshness Info */}
+        {analyticsData && (
+          <div className="flex justify-center gap-4 flex-wrap">
+            <Badge className={`${getDataSourceColor(analyticsData.metadata.data_source)} text-white`}>
+              <Activity className="h-3 w-3 mr-1" />
+              {analyticsData.metadata.data_source.replace('_', ' ').toUpperCase()}
+            </Badge>
+            <Badge variant="outline">
+              <Clock className="h-3 w-3 mr-1" />
+              Updated {getDataFreshness()}
+            </Badge>
+            <Badge variant="outline">
+              <Server className="h-3 w-3 mr-1" />
+              {analyticsData.processing_time_ms}ms response
+            </Badge>
+            <Badge variant="outline">
+              <Globe className="h-3 w-3 mr-1" />
+              {analyticsData.metadata.available_countries.length} markets
+            </Badge>
+          </div>
+        )}
 
         {/* User Level Badge */}
         <div className="flex justify-center">
-          <Badge
-            className={`${levelInfo.color} text-white px-6 py-2 text-lg gap-2`}
-          >
+          <Badge className={`${levelInfo.color} text-white px-6 py-2 text-lg gap-2`}>
             <Crown className="h-5 w-5" />
             {levelInfo.name} Member
           </Badge>
         </div>
       </div>
+
+      {/* Cache Stats Cards */}
+      {(cacheStats || cacheHealth) && (
+        <div className="grid gap-4 md:grid-cols-4">
+          {cacheStats && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Entries</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{cacheStats.stats.active_entries}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {cacheStats.stats.total_entries} total
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Hit Ratio</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{(cacheStats.stats.hit_ratio * 100).toFixed(1)}%</div>
+                  <p className="text-xs text-muted-foreground">
+                    Cache efficiency
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+          
+          {cacheHealth && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Cache Health</CardTitle>
+                  <Activity className={`h-4 w-4 ${cacheHealth.healthy ? 'text-green-500' : 'text-red-500'}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${cacheHealth.healthy ? 'text-green-600' : 'text-red-600'}`}>
+                    {cacheHealth.status.toUpperCase()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cacheHealth.cache_stats.cache_size_mb.toFixed(1)}MB used
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Cache Control</CardTitle>
+                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={handleCacheRefresh}
+                    disabled={refreshing}
+                    className="w-full"
+                    variant="outline"
+                    size="sm"
+                  >
+                    {refreshing ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Refresh Now
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={() => setShowCacheDetails(!showCacheDetails)}
+                    variant="link"
+                    size="sm"
+                    className="w-full p-0 h-auto mt-1 text-xs"
+                  >
+                    {showCacheDetails ? 'Hide' : 'Show'} Details
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Cache Details (Expandable) */}
+      {showCacheDetails && cacheHealth && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Cache Details & Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <h4 className="font-semibold mb-2">Statistics</h4>
+                <div className="space-y-1 text-sm">
+                  <div>Miss Ratio: {(cacheHealth.cache_stats.miss_ratio * 100).toFixed(1)}%</div>
+                  <div>Expired Entries: {cacheHealth.cache_stats.expired_entries}</div>
+                  <div>Memory Usage: {cacheHealth.cache_stats.cache_size_mb.toFixed(2)}MB</div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Recommendations</h4>
+                <div className="space-y-1">
+                  {cacheHealth.recommendations.length > 0 ? 
+                    cacheHealth.recommendations.map((rec, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {rec}
+                      </Badge>
+                    )) : 
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      Cache is performing optimally
+                    </Badge>
+                  }
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Controls */}
       <div className="flex flex-col gap-4">
@@ -396,7 +577,7 @@ export function AnalyticsRankingDashboard() {
       {/* Main Table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold">Stock Rankings</h3>
+          <h3 className="text-2xl font-bold">Live Stock Rankings</h3>
           <Badge className={levelInfo.color}>
             {currentPageAccessible ? `Page ${currentPage}` : 'Limited Access'}
           </Badge>
@@ -447,16 +628,17 @@ export function AnalyticsRankingDashboard() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-2">
-                      🚀 Unlock Full Analytics Access
+                      🚀 Unlock Full Live Analytics Access
                     </h3>
                     <p className="text-sm text-muted-foreground mb-2">
                       You&apos;re seeing limited results. Upgrade to access all{' '}
-                      {analyticsData.pagination.total} analytics rankings!
+                      {analyticsData.pagination.total} live analytics rankings!
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs">
-                      <Badge variant="secondary">📊 Full Analytics Rankings</Badge>
-                      <Badge variant="secondary">🎯 Country Filtering</Badge>
-                      <Badge variant="secondary">💎 Premium Analytics</Badge>
+                      <Badge variant="secondary">📊 Live Analytics Rankings</Badge>
+                      <Badge variant="secondary">🎯 Global Market Data</Badge>
+                      <Badge variant="secondary">⚡ Real-time Cache</Badge>
+                      <Badge variant="secondary">🌍 Multi-country Access</Badge>
                     </div>
                   </div>
                   <Button onClick={handleUpgrade} className="gap-2">

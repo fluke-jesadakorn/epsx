@@ -140,6 +140,9 @@ impl IntoResponse for MarketDataError {
             MarketDataError::ParsingError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             MarketDataError::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             MarketDataError::InvalidInput(_) => StatusCode::BAD_REQUEST,
+            MarketDataError::ConfigurationError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            MarketDataError::IOError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            MarketDataError::SerializationError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         
         tracing::error!("Market data error: {}", self);

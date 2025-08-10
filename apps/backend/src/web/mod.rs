@@ -244,11 +244,15 @@ fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router
     let module_routes_v1 = Router::new()
         .nest("/", create_modules_router(app_state.clone()));
 
-    // Analytics routes for v1 API (auth required)
+    // Analytics routes for v1 API (temporarily public for EPS testing)
     let analytics_routes_v1 = Router::new()
         .nest("/", create_analytics_router(&container.infra));
-        // TODO: Fix middleware trait bounds issue
+        // TODO: Re-enable auth middleware after EPS testing
         // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
+
+    // Legacy analytics routes (for backward compatibility with frontend API calls)
+    let legacy_analytics_routes = Router::new()
+        .nest("/api", create_analytics_router(&container.infra));
 
     // Settings routes for v1 API (auth required)
     let settings_routes_v1 = Router::new()
@@ -278,6 +282,7 @@ fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router
         .merge(analytics_routes_v1)
         .merge(settings_routes_v1)
         .merge(placeholder_routes)
+        .merge(legacy_analytics_routes)  // Add legacy routes support
         .with_state(app_state)
 }
 

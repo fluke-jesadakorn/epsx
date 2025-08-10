@@ -87,10 +87,10 @@ export function FinancialCard({
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-200/70 via-yellow-100/60 to-amber-100/50 dark:from-orange-900/40 dark:via-yellow-900/30 dark:to-amber-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1 text-xs sm:text-sm">
-            #{index + 1}
-            {index === 0 && <span className="text-xs">🏆</span>}
-            {index === 1 && <span className="text-xs">🥈</span>}
-            {index === 2 && <span className="text-xs">🥉</span>}
+            #{!isNaN(index) ? index + 1 : (data as any)?.rank || '?'}
+            {(index === 0 || (data as any)?.rank === 1) && <span className="text-xs">🏆</span>}
+            {(index === 1 || (data as any)?.rank === 2) && <span className="text-xs">🥈</span>}
+            {(index === 2 || (data as any)?.rank === 3) && <span className="text-xs">🥉</span>}
           </span>
         </AnimatedBadge>
       </div>
@@ -115,7 +115,7 @@ export function FinancialCard({
               {data.symbol}
               <span className="text-xs sm:text-sm opacity-60">🚀</span>
             </div>
-            {hasGrowthData && (
+            {hasGrowthData && data.quarters && data.quarters.length >= 2 && (
               <TrendIcon
                 direction={
                   data.quarters[0].eps_growth! > data.quarters[1].eps_growth!
@@ -145,13 +145,13 @@ export function FinancialCard({
           {/* First Row: Price and EPS */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <MetricCard
-              title="Value"
+              title="Price"
               value={displayPrice !== null ? formatPrice(displayPrice) : 'N/A'}
               type="price"
               className="p-2 sm:p-3 min-w-0 w-full"
             />
             <MetricCard
-              title="Index"
+              title="EPS"
               value={
                 latestQuarter?.eps !== undefined
                   ? latestQuarter.eps.toFixed(4)
@@ -287,8 +287,8 @@ export function FinancialCard({
                 className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
               >
                 <span className="text-xs">⏰</span>
-                {/* Show actual quarters used for calculations, not display count */}
-                {data.quarters.length > 0 ? data.quarters.length - 1 : 0}Q
+                {/* Show displayed quarters only (2Q) */}
+                2Q
               </span>
             </div>
           </div>

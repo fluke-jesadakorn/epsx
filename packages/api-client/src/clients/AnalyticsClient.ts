@@ -225,4 +225,225 @@ export class AnalyticsClient extends BaseHttpClient {
   }>> {
     return this.get('/api/v1/analytics/eps-rankings/health');
   }
+
+  async syncEPSData(): Promise<ApiResponse<{
+    success: boolean;
+    message: string;
+    stats: {
+      total_fetched: number;
+      total_processed: number;
+      total_stored: number;
+      total_errors: number;
+      processing_duration_ms: number;
+      countries_processed: string[];
+    };
+  }>> {
+    return this.post('/api/v1/analytics/eps-rankings/sync', {});
+  }
+
+  // Live Analytics Rankings - Cache-based card dashboard endpoint
+  async getUnifiedAnalyticsRankings(params?: {
+    page?: number;
+    limit?: number;
+    country?: string;
+    sector?: string;
+    sort_by?: string;
+    min_eps?: number;
+    min_growth?: number;
+  }): Promise<ApiResponse<CardDashboardResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.country) queryParams.append('country', params.country);
+    if (params?.sector) queryParams.append('sector', params.sector);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.min_eps) queryParams.append('min_eps', params.min_eps.toString());
+    if (params?.min_growth) queryParams.append('min_growth', params.min_growth.toString());
+    
+    return this.get(`/api/v1/analytics/rankings?${queryParams}`);
+  }
+
+  // Cache Management endpoints
+  async getCacheStats(): Promise<ApiResponse<CacheStatsResponse>> {
+    return this.get('/api/v1/analytics/cache/stats');
+  }
+
+  async refreshCache(): Promise<ApiResponse<CacheRefreshResponse>> {
+    return this.post('/api/v1/analytics/cache/refresh', {});
+  }
+
+  async getCacheHealth(): Promise<ApiResponse<CacheHealthResponse>> {
+    return this.get('/api/v1/analytics/cache/health');
+  }
+
+
+  // Legacy database-based endpoint (for fallback)
+  async getUnifiedAnalyticsRankingsLegacy(params?: {
+    page?: number;
+    limit?: number;
+    country?: string;
+    sector?: string;
+    sort_by?: string;
+    min_eps?: number;
+    min_growth?: number;
+  }): Promise<ApiResponse<UnifiedAnalyticsRankingsResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.country) queryParams.append('country', params.country);
+    if (params?.sector) queryParams.append('sector', params.sector);
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.min_eps) queryParams.append('min_eps', params.min_eps.toString());
+    if (params?.min_growth) queryParams.append('min_growth', params.min_growth.toString());
+    
+    return this.get(`/api/v1/analytics/rankings/legacy?${queryParams}`);
+  }
+}
+
+// Types for the unified analytics response
+export interface UnifiedAnalyticsRankingsResponse {
+  success: boolean;
+  data: UnifiedRankingItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  metadata: UnifiedAnalyticsMetadata;
+  message?: string;
+  processing_time_ms: number;
+}
+
+export interface UnifiedRankingItem {
+  symbol: string;
+  company_name: string;
+  ranking_position: number;
+  current_price: number;
+  current_price_date: string;
+  quarterly_data: QuarterlyData[];
+  market_data: MarketData;
+  analytics: AnalyticsMetrics;
+}
+
+export interface QuarterlyData {
+  quarter: string; // e.g., "Q3 '25"
+  date: string;
+  price: number;
+  eps: number;
+  eps_growth: number; // QoQ growth percentage
+  price_growth: number; // QoQ price growth percentage
+  volume?: number;
+}
+
+export interface MarketData {
+  market_cap?: number;
+  volume_24h?: number;
+  country: string;
+  sector: string;
+  exchange: string;
+}
+
+export interface AnalyticsMetrics {
+  qoq_growth: number;
+  ranking_score: number;
+  trend: string; // bullish, bearish, neutral, etc.
+  volatility: number;
+}
+
+export interface UnifiedAnalyticsMetadata {
+  available_countries: string[];
+  available_sectors: string[];
+  current_filters: UnifiedFilters;
+  request_timestamp: string;
+  data_source: string;
+  enhanced_with_websocket: boolean;
+}
+
+export interface UnifiedFilters {
+  country?: string;
+  sector?: string;
+  sort_by: string;
+  min_eps?: number;
+  min_growth?: number;
+}
+
+// Cache Management Types
+export interface CacheStatsResponse {
+  success: boolean;
+  stats: CacheStats;
+  message: string;
+  timestamp: string;
+}
+
+export interface CacheStats {
+  total_entries: number;
+  active_entries: number;
+  expired_entries: number;
+  hit_ratio: number;
+  miss_ratio: number;
+  cache_size_mb: number;
+}
+
+export interface CacheRefreshResponse {
+  success: boolean;
+  refreshed_entries: number;
+  duration_ms: number;
+  message: string;
+  timestamp: string;
+}
+
+export interface CacheHealthResponse {
+  status: string;
+  healthy: boolean;
+  cache_stats: CacheStats;
+  recommendations: string[];
+  timestamp: string;
+}
+
+// Card Dashboard Types
+export interface CardDashboardResponse {
+  success: boolean;
+  data: SymbolCardData[];
+  pagination: CardDashboardPagination;
+  metadata: CardDashboardMetadata;
+  message?: string;
+  processing_time_ms: number;
+}
+
+export interface SymbolCardData {
+  symbol: string;
+  rank: number;
+  latest_date: string;
+  value: number; // Current EPS value
+  index: number; // Performance index score
+  avg_growth: number; // Average quarterly growth
+  quarterly_performance: QuarterlyPerformanceData[];
+}
+
+export interface QuarterlyPerformanceData {
+  quarter: string;
+  date: string;
+  eps: number;
+  eps_growth: number;
+  price_growth: number;
+  price: number;
+}
+
+export interface CardDashboardPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface CardDashboardMetadata {
+  request_timestamp: string;
+  data_source: string;
+  available_countries: string[];
+  enhanced_with_websocket: boolean;
 }

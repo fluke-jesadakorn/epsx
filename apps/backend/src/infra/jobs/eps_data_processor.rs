@@ -11,6 +11,7 @@ use crate::config::Config;
 pub struct EPSDataProcessor {
     eps_service: Arc<EPSRankingService>,
     tradingview_service: Arc<TradingViewApiService>,
+    #[allow(dead_code)]
     config: Arc<Config>,
 }
 
@@ -118,7 +119,7 @@ impl EPSDataProcessor {
             }
         }
         
-        Err(last_error.unwrap_or_else(|| AppError::ProcessingError("All retry attempts failed".to_string())))
+        Err(last_error.unwrap_or_else(|| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, "All retry attempts failed")))
     }
 
     /// Main EPS data processing logic
@@ -131,7 +132,7 @@ impl EPSDataProcessor {
         // Step 1: Extract EPS data from TradingView
         debug!("Extracting EPS growth data from TradingView API");
         let eps_data_list = self.tradingview_service.extract_eps_growth_data().await
-            .map_err(|e| AppError::ProcessingError(format!("Failed to extract EPS data: {}", e)))?;
+            .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, format!("Failed to extract EPS data: {}", e)))?;
 
         stats.total_fetched = eps_data_list.len();
         info!("Extracted {} EPS data entries from TradingView", stats.total_fetched);
@@ -175,7 +176,7 @@ impl EPSDataProcessor {
                 }
                 Err(e) => {
                     error!("Failed to store EPS data: {:?}", e);
-                    return Err(AppError::ProcessingError(format!("Failed to store EPS data: {}", e)));
+                    return Err(AppError::new(crate::core::errors::ErrorKind::DatabaseError, format!("Failed to store EPS data: {}", e)));
                 }
             }
         } else {

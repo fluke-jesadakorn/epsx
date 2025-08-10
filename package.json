@@ -18,7 +18,7 @@
     "dev:unsafe": "turbo run dev --parallel",
     "dev:all": "pnpm build:types-first && turbo run dev:frontend dev:admin dev:backend --parallel",
     "dev:frontend": "pnpm build:types-first && turbo run dev:frontend",
-    "dev:admin": "pnpm build:types-first && turbo run dev:admin", 
+    "dev:admin": "pnpm build:types-first && turbo run dev:admin",
     "dev:backend": "turbo run dev:backend",
     "dev:packages": "pnpm build:types-first && turbo run dev:packages --parallel",
     "dev:web": "pnpm build:types-first && turbo run dev:frontend dev:admin --parallel",
@@ -110,9 +110,13 @@
     "query-string": "^9.2.2",
     "tslib": "^2.8.1",
     "turbo": "2.5.5",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "uuid": "^11.1.0"
   },
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {
     "react-icons": "^5.5.0"
   }

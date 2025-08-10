@@ -10,6 +10,7 @@ pub mod permission_cache_service;
 pub mod permissions;
 pub mod casbin_service;
 pub mod eps_ranking_service;
+pub mod eps_cache_service;
 
 pub use role_hierarchy::*;
 // pub use permission_checker::*;
@@ -21,3 +22,4 @@ pub use permission_cache_service::*;
 pub use permissions::*;
 pub use casbin_service::*;
 pub use eps_ranking_service::*;
+pub use eps_cache_service::*;

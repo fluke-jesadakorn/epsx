@@ -48,7 +48,7 @@ export function MetricCard({ title, value, type, className = '' }: MetricCardPro
 
 interface QuarterRowProps {
   quarter: {
-    quarter: number;
+    quarter: number | string;
     date: string;
     price?: number | null;
     eps?: number;
@@ -91,7 +91,7 @@ export function QuarterRow({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`${TYPOGRAPHY.body} text-slate-800 dark:text-white font-semibold`}>
-              Q{quarter.quarter}
+              {typeof quarter.quarter === 'string' ? quarter.quarter : `Q${quarter.quarter}`}
             </span>
             <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-500" />
           </div>
@@ -120,7 +120,7 @@ export function QuarterRow({
               EPS
             </div>
             <div className={`${TYPOGRAPHY.price} ${COLORS.secondary.text} font-bold`}>
-              {quarter?.eps !== undefined ? quarter.eps.toFixed(2) : 'N/A'}
+              {quarter?.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
             </div>
           </div>
           
@@ -147,7 +147,7 @@ export function QuarterRow({
                     font-bold text-sm 
                     ${quarter.eps_growth >= 0 ? COLORS.positive.text : COLORS.negative.text}
                   `}>
-                    {quarter.eps_growth >= 0 ? '+' : ''}{quarter.eps_growth}%
+                    {quarter.eps_growth >= 0 ? '+' : ''}{Math.round(quarter.eps_growth)}%
                   </span>
                 </div>
               ) : (
@@ -179,7 +179,7 @@ export function QuarterRow({
                     font-bold text-sm 
                     ${quarter.price_growth >= 0 ? COLORS.positive.text : COLORS.negative.text}
                   `}>
-                    {quarter.price_growth >= 0 ? '+' : ''}{quarter.price_growth}%
+                    {quarter.price_growth >= 0 ? '+' : ''}{Math.round(quarter.price_growth)}%
                   </span>
                 </div>
               ) : (
@@ -196,7 +196,7 @@ export function QuarterRow({
         <div className="flex flex-col items-start">
           <div className="flex items-center gap-2">
             <span className={`${TYPOGRAPHY.body} text-slate-800 dark:text-white`}>
-              Q{quarter.quarter}
+              {typeof quarter.quarter === 'string' ? quarter.quarter : `Q${quarter.quarter}`}
             </span>
             <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 group-hover/row:scale-125 transition-transform duration-200" />
           </div>
@@ -217,7 +217,7 @@ export function QuarterRow({
         {/* EPS */}
         <div className="flex flex-col items-end">
           <span className={`${TYPOGRAPHY.price} ${COLORS.secondary.text}`}>
-            {quarter?.eps !== undefined ? quarter.eps.toFixed(2) : 'N/A'}
+            {quarter?.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
           </span>
         </div>
 
@@ -267,7 +267,7 @@ export function QuarterRow({
                 font-bold text-sm 
                 ${quarter.price_growth >= 0 ? COLORS.positive.text : COLORS.negative.text}
               `}>
-                {quarter.price_growth >= 0 ? '+' : ''}{quarter.price_growth}%
+                {quarter.price_growth >= 0 ? '+' : ''}{Math.round(quarter.price_growth)}%
               </span>
             </div>
           ) : (

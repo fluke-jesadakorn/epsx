@@ -3,12 +3,18 @@ use sqlx::{PgPool, Row, QueryBuilder, Postgres};
 use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::core::errors::{ErrorKind, ErrorContextBuilder};
 
 use crate::core::errors::AppError;
 use crate::dom::entities::eps_growth::{EPSGrowthData, EPSRanking};
 use crate::dom::services::eps_ranking_service::EPSRepository;
+
+/// Helper function to convert Decimal to f64
+fn decimal_to_f64(decimal: Option<Decimal>) -> Option<f64> {
+    decimal.map(|d| d.to_f64().unwrap_or(0.0))
+}
 
 /// PostgreSQL implementation of EPS Repository
 pub struct PostgresEPSRepository {
@@ -105,12 +111,12 @@ impl EPSRepository for PostgresEPSRepository {
             eps_data.country,
             eps_data.sector,
             eps_data.exchange,
-            eps_data.current_eps.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
-            eps_data.qoq_growth.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
-            eps_data.price_current.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
+            eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)),
+            eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)),
+            eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)),
             eps_data.market_cap,
             eps_data.volume,
-            eps_data.ranking_score.map(|v| Decimal::from_f64_retain(v).unwrap_or_default())
+            eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v))
         );
 
         match query.execute(&*self.pool).await {
@@ -176,12 +182,13 @@ impl EPSRepository for PostgresEPSRepository {
                         country: row.try_get("country").unwrap_or_default(),
                         sector: row.try_get("sector").unwrap_or_default(),
                         exchange: row.try_get("exchange").unwrap_or_default(),
-                        current_eps: row.try_get("current_eps").ok(),
-                        qoq_growth: row.try_get("qoq_growth_rate").ok(),
-                        price_current: row.try_get("price_current").ok(),
+                        current_eps: decimal_to_f64(row.try_get("current_eps").ok()),
+                        qoq_growth: decimal_to_f64(row.try_get("qoq_growth_rate").ok()),
+                        price_current: decimal_to_f64(row.try_get("price_current").ok()),
                         market_cap: row.try_get("market_cap").ok(),
                         volume: row.try_get("volume").ok(),
                         ranking_position: row.try_get("ranking_position").ok(),
+                        quarterly_data: None, // Will be populated by WebSocket enhancement
                     };
                     rankings.push(ranking);
                 }
@@ -277,12 +284,12 @@ impl EPSRepository for PostgresEPSRepository {
                     eps_data.country,
                     eps_data.sector,
                     eps_data.exchange,
-                    eps_data.current_eps.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
-                    eps_data.qoq_growth.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
-                    eps_data.price_current.map(|v| Decimal::from_f64_retain(v).unwrap_or_default()),
+                    eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)),
+                    eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)),
+                    eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)),
                     eps_data.market_cap,
                     eps_data.volume,
-                    eps_data.ranking_score.map(|v| Decimal::from_f64_retain(v).unwrap_or_default())
+                    eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v))
                 ).execute(&mut *tx).await;
 
                 match result {
@@ -298,10 +305,24 @@ impl EPSRepository for PostgresEPSRepository {
             }
 
             // Commit this batch
-            tx.commit().await
-                .map_err(|e| crate::database_error!("commit_batch", e))?;
+            match tx.commit().await {
+                Ok(_) => {
+                    info!("Successfully committed batch with {} entries", chunk.len());
+                }
+                Err(e) => {
+                    error!("Failed to commit batch: {:?}", e);
+                    return Err(crate::database_error!("commit_batch", e));
+                }
+            }
 
-            debug!("Committed batch, stored {} entries so far", stored_count);
+            // Verify batch was actually stored by checking count
+            let verification_count = sqlx::query_scalar!(
+                "SELECT COUNT(*) FROM eps_growth_analytics"
+            ).fetch_one(&*self.pool).await
+                .map_err(|e| crate::database_error!("verify_count", e))?;
+            
+            info!("Committed batch, stored {} entries so far, DB shows {} total entries", 
+                  stored_count, verification_count.unwrap_or(0));
         }
 
         info!("Batch storage completed - stored {} out of {} entries", stored_count, eps_data_list.len());
