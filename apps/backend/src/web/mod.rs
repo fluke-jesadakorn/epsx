@@ -9,7 +9,6 @@ pub mod user;
 pub mod middleware;
 pub mod modules;
 pub mod validation;
-pub mod market_data;
 pub mod health;
 pub mod analytics;
 pub mod settings;

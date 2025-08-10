@@ -92,13 +92,15 @@ pub trait TradingViewService: Send + Sync {
     /// Connect to TradingView WebSocket for real-time data
     async fn connect_realtime_feed(&self) -> Result<(), MarketDataError>;
     
-    /// Fetch EPS growth ranking data
+    /// Fetch EPS growth ranking data with server-side pagination and filtering
     async fn fetch_eps_growth_ranking(
         &self,
-        limit: Option<i32>,
         skip: Option<i32>,
+        limit: Option<i32>,
+        country: Option<String>,
+        sector: Option<String>,
         sort_by: Option<String>,
-    ) -> Result<Vec<StockScreeningResult>, MarketDataError>;
+    ) -> Result<(Vec<StockScreeningResult>, i32), MarketDataError>;
     
     /// Extract EPS growth data from TradingView response
     async fn extract_eps_growth_data(&self) -> Result<Vec<EPSGrowthData>, MarketDataError>;
@@ -232,6 +234,204 @@ impl TradingViewApiService {
                 "switzerland", "taiwan", "thailand", "tunisia", "turkey", "uae", "uk",
                 "venezuela", "vietnam"
             ],
+            "filter2": {
+                "operator": "and",
+                "operands": [
+                    {
+                        "operation": {
+                            "operator": "or",
+                            "operands": [
+                                {
+                                    "operation": {
+                                        "operator": "and",
+                                        "operands": [
+                                            {
+                                                "expression": {
+                                                    "left": "type",
+                                                    "operation": "equal",
+                                                    "right": "stock"
+                                                }
+                                            },
+                                            {
+                                                "expression": {
+                                                    "left": "typespecs",
+                                                    "operation": "has",
+                                                    "right": ["common"]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "operation": {
+                                        "operator": "and",
+                                        "operands": [
+                                            {
+                                                "expression": {
+                                                    "left": "type",
+                                                    "operation": "equal",
+                                                    "right": "stock"
+                                                }
+                                            },
+                                            {
+                                                "expression": {
+                                                    "left": "typespecs",
+                                                    "operation": "has",
+                                                    "right": ["preferred"]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "operation": {
+                                        "operator": "and",
+                                        "operands": [
+                                            {
+                                                "expression": {
+                                                    "left": "type",
+                                                    "operation": "equal",
+                                                    "right": "dr"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "operation": {
+                                        "operator": "and",
+                                        "operands": [
+                                            {
+                                                "expression": {
+                                                    "left": "type",
+                                                    "operation": "equal",
+                                                    "right": "fund"
+                                                }
+                                            },
+                                            {
+                                                "expression": {
+                                                    "left": "typespecs",
+                                                    "operation": "has_none_of",
+                                                    "right": ["etf"]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        })
+    }
+
+    /// Build screener request payload with dynamic parameters for efficient server-side pagination
+    fn build_screener_request_with_params(
+        &self,
+        skip: i32,
+        limit: i32,
+        country: Option<String>,
+        sector: Option<String>,
+        sort_by: Option<String>,
+    ) -> serde_json::Value {
+        // Convert skip/limit to TradingView range format
+        let range_start = skip;
+        let range_end = skip + limit;
+        
+        // Build dynamic markets array based on country filter
+        let markets = if let Some(country) = country.as_ref() {
+            vec![country.clone()]
+        } else {
+            // All available markets from TradingView
+            vec![
+                "america".to_string(), "argentina".to_string(), "australia".to_string(), 
+                "austria".to_string(), "bahrain".to_string(), "bangladesh".to_string(),
+                "belgium".to_string(), "brazil".to_string(), "canada".to_string(), 
+                "chile".to_string(), "china".to_string(), "colombia".to_string(), 
+                "cyprus".to_string(), "czech".to_string(), "denmark".to_string(), 
+                "egypt".to_string(), "estonia".to_string(), "finland".to_string(), 
+                "france".to_string(), "germany".to_string(), "greece".to_string(), 
+                "hongkong".to_string(), "hungary".to_string(), "iceland".to_string(), 
+                "india".to_string(), "indonesia".to_string(), "ireland".to_string(), 
+                "israel".to_string(), "italy".to_string(), "japan".to_string(), 
+                "kenya".to_string(), "kuwait".to_string(), "latvia".to_string(), 
+                "lithuania".to_string(), "luxembourg".to_string(), "malaysia".to_string(), 
+                "mexico".to_string(), "morocco".to_string(), "netherlands".to_string(), 
+                "newzealand".to_string(), "nigeria".to_string(), "norway".to_string(), 
+                "pakistan".to_string(), "peru".to_string(), "philippines".to_string(), 
+                "poland".to_string(), "portugal".to_string(), "qatar".to_string(), 
+                "romania".to_string(), "russia".to_string(), "ksa".to_string(), 
+                "serbia".to_string(), "singapore".to_string(), "slovakia".to_string(), 
+                "rsa".to_string(), "korea".to_string(), "spain".to_string(), 
+                "srilanka".to_string(), "sweden".to_string(), "switzerland".to_string(), 
+                "taiwan".to_string(), "thailand".to_string(), "tunisia".to_string(), 
+                "turkey".to_string(), "uae".to_string(), "uk".to_string(), 
+                "venezuela".to_string(), "vietnam".to_string()
+            ]
+        };
+        
+        // Build dynamic filters with sector filtering
+        let mut filters = vec![
+            json!({
+                "left": "earnings_per_share_diluted_qoq_growth_fq",
+                "operation": "greater",
+                "right": 0
+            }),
+            json!({
+                "left": "earnings_per_share_diluted_fq",
+                "operation": "greater",
+                "right": 0
+            }),
+            json!({
+                "left": "is_primary",
+                "operation": "equal",
+                "right": true
+            })
+        ];
+        
+        // Add sector filter if provided
+        if let Some(sector_filter) = sector.as_ref() {
+            filters.push(json!({
+                "left": "sector.tr",
+                "operation": "equal",
+                "right": sector_filter
+            }));
+        }
+        
+        // Map sort_by parameter to TradingView field names
+        let (sort_field, sort_order) = match sort_by.as_deref() {
+            Some("eps_growth") => ("earnings_per_share_diluted_yoy_growth_ttm", "desc"),
+            Some("current_eps") => ("earnings_per_share_diluted_ttm", "desc"), 
+            Some("market_cap") => ("market_cap_basic", "desc"),
+            Some("volume") => ("volume", "desc"),
+            Some("price") => ("close", "desc"),
+            Some("symbol") => ("name", "asc"),
+            Some("name") => ("description", "asc"),
+            _ => ("market_cap_basic", "desc"), // Default sort by market cap
+        };
+        
+        debug!("TradingView request params - Range: [{}, {}], Markets: {:?}, Sector: {:?}, Sort: {}:{}", 
+               range_start, range_end, markets, sector, sort_field, sort_order);
+        
+        json!({
+            "columns": [
+                "name", "description", "logoid", "update_mode", "type", "typespecs",
+                "close", "pricescale", "minmov", "fractional", "minmove2", "currency",
+                "change", "volume", "earnings_per_share_fq", "relative_volume_10d_calc", "market_cap_basic",
+                "fundamental_currency_code", "price_earnings_ttm", "earnings_per_share_diluted_ttm",
+                "earnings_per_share_diluted_yoy_growth_ttm", "dividends_yield_current", 
+                "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
+                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange"
+            ],
+            "filter": filters,
+            "ignore_unknown_fields": false,
+            "options": { "lang": "en" },
+            "price_conversion": { "to_currency": "usd" },
+            "range": [range_start, range_end],
+            "sort": { "sortBy": sort_field, "sortOrder": sort_order },
+            "symbols": {},
+            "markets": markets,
             "filter2": {
                 "operator": "and",
                 "operands": [
@@ -710,50 +910,91 @@ impl TradingViewService for TradingViewApiService {
 
     async fn fetch_eps_growth_ranking(
         &self,
-        limit: Option<i32>,
         skip: Option<i32>,
+        limit: Option<i32>,
+        country: Option<String>,
+        sector: Option<String>,
         sort_by: Option<String>,
-    ) -> Result<Vec<StockScreeningResult>, MarketDataError> {
-        // For now, use the same screener data and apply sorting/filtering
-        // In a real implementation, this would use a different API endpoint
-        let mut data = self.fetch_screener_data().await?;
+    ) -> Result<(Vec<StockScreeningResult>, i32), MarketDataError> {
+        let skip_val = skip.unwrap_or(0);
+        let limit_val = limit.unwrap_or(50);
+        
+        info!("Fetching EPS ranking with server-side pagination - Skip: {}, Limit: {}, Country: {:?}, Sector: {:?}, Sort: {:?}", 
+              skip_val, limit_val, country, sector, sort_by);
 
-        // Apply sorting based on field name
-        if let Some(sort_field) = sort_by {
-            data.sort_by(|a, b| {
-                match sort_field.as_str() {
-                    "symbol" => a.symbol.cmp(&b.symbol),
-                    "name" => a.name.cmp(&b.name),
-                    "sector" => a.sector.cmp(&b.sector),
-                    "country" => a.country.cmp(&b.country),
-                    "exchange" => a.exchange.cmp(&b.exchange),
-                    // For numeric fields, parse and compare
-                    "value_index" => {
-                        let a_val: f64 = a.value_index.parse().unwrap_or(0.0);
-                        let b_val: f64 = b.value_index.parse().unwrap_or(0.0);
-                        b_val.partial_cmp(&a_val).unwrap_or(std::cmp::Ordering::Equal)
-                    },
-                    "growth_rate" => {
-                        let a_val: f64 = a.growth_rate.parse().unwrap_or(0.0);
-                        let b_val: f64 = b.growth_rate.parse().unwrap_or(0.0);
-                        b_val.partial_cmp(&a_val).unwrap_or(std::cmp::Ordering::Equal)
-                    },
-                    _ => std::cmp::Ordering::Equal,
+        // Build request with proper pagination and filtering
+        let request_body = self.build_screener_request_with_params(
+            skip_val,
+            limit_val,
+            country.clone(),
+            sector.clone(),
+            sort_by.clone(),
+        );
+        
+        debug!("TradingView EPS ranking request: {}", serde_json::to_string_pretty(&request_body).unwrap_or_default());
+
+        // Configure retry strategy for API requests
+        let retry_strategy = ExponentialBackoff::from_millis(100)
+            .max_delay(Duration::from_secs(10))
+            .take(3)
+            .map(jitter);
+
+        let response: TradingViewResponse = Retry::spawn(retry_strategy, || {
+            let headers = self.get_request_headers();
+            let body = request_body.clone();
+            
+            async move {
+                let response = self.client
+                    .post(&self.config.scanner_api_url)
+                    .headers(headers)
+                    .body(serde_json::to_string(&body).map_err(|e| {
+                        error!("Failed to serialize request body: {:?}", e);
+                        MarketDataError::SerializationError(e.to_string())
+                    })?)
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        error!("TradingView API request failed: {:?}", e);
+                        MarketDataError::NetworkError(e.to_string())
+                    })?;
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                    error!("TradingView API error {}: {}", status, error_text);
+                    return Err(MarketDataError::ExternalApiError(format!("API error {}: {}", status, error_text)));
                 }
-            });
+
+                let response_text = response.text().await.map_err(|e| {
+                    error!("Failed to read response text: {:?}", e);
+                    MarketDataError::NetworkError(e.to_string())
+                })?;
+
+                serde_json::from_str::<TradingViewResponse>(&response_text).map_err(|e| {
+                    error!("Failed to parse TradingView response: {:?}", e);
+                    debug!("Response text (first 500 chars): {}", &response_text[..response_text.len().min(500)]);
+                    MarketDataError::ParsingError(e.to_string())
+                })
+            }
+        })
+        .await?;
+
+        info!("Successfully received TradingView response with {} entries, total count: {}", 
+              response.data.len(), response.total_count);
+
+        // Convert TradingView stocks to screening results
+        let mut screening_results = Vec::new();
+        for stock in response.data {
+            let screening_result = self.convert_to_stock_screening_result(stock);
+            screening_results.push(screening_result);
         }
 
-        // Apply pagination
-        let skip_count = skip.unwrap_or(0) as usize;
-        let limit_count = limit.map(|l| l as usize);
+        let total_count = response.total_count;
 
-        let filtered_data: Vec<_> = data
-            .into_iter()
-            .skip(skip_count)
-            .take(limit_count.unwrap_or(usize::MAX))
-            .collect();
+        debug!("Converted {} TradingView stocks to screening results, total available: {}", 
+               screening_results.len(), total_count);
 
-        Ok(filtered_data)
+        Ok((screening_results, total_count))
     }
 
     async fn extract_eps_growth_data(&self) -> Result<Vec<EPSGrowthData>, MarketDataError> {

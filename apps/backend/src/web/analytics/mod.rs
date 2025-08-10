@@ -251,11 +251,11 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
         .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
         .route("/analytics/eps-rankings/sync", post(eps_handlers::trigger_eps_sync))
         .route("/analytics/eps-rankings/websocket-debug", post(eps_handlers::debug_websocket_eps))
-        // Live cache-based card dashboard endpoint (PRIMARY)
+        // Direct TradingView API card dashboard endpoint (PRIMARY)
         .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         // Legacy database-based endpoint
         .route("/analytics/rankings/legacy", get(eps_handlers::get_unified_analytics_rankings))
-        // Cache management endpoints
+        // Cache management endpoints (kept for other functionality)
         .route("/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/analytics/cache/health", get(eps_handlers::cache_health_check))

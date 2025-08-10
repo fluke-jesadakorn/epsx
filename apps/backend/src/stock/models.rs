@@ -169,4 +169,7 @@ pub struct EpsGrowthRankingParams {
     pub limit: Option<i32>,
     pub skip: Option<i32>,
     pub sort_by: Option<String>,
+    // Enhanced filtering support
+    pub country: Option<String>,
+    pub sector: Option<String>,
 }

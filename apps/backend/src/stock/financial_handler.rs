@@ -94,7 +94,9 @@ async fn ws_handler(
     params(
         ("limit" = Option<i32>, Query, description = "Maximum number of results to return"),
         ("skip" = Option<i32>, Query, description = "Number of results to skip (for pagination)"),
-        ("sort_by" = Option<String>, Query, description = "Field to sort results by")
+        ("sort_by" = Option<String>, Query, description = "Field to sort results by"),
+        ("country" = Option<String>, Query, description = "Filter by country (e.g., 'america', 'thailand')"),
+        ("sector" = Option<String>, Query, description = "Filter by sector (e.g., 'Technology', 'Healthcare')")
     ),
     responses(
         (status = 200, description = "Successfully retrieved EPS growth ranking", body = Vec<TableDataMetrics>),
@@ -106,8 +108,14 @@ async fn eps_growth_ranking(
     State(tradingview_service): State<Arc<dyn TradingViewService>>,
     Query(params): Query<EpsGrowthRankingParams>,
 ) -> Result<Json<Vec<TableDataMetrics>>, StockServiceError> {
-    let data = tradingview_service
-        .fetch_eps_growth_ranking(params.limit, params.skip, params.sort_by)
+    let (data, _total_count) = tradingview_service
+        .fetch_eps_growth_ranking(
+            params.skip, 
+            params.limit, 
+            params.country, 
+            params.sector,  
+            params.sort_by
+        )
         .await?;
     Ok(Json(data))
 }

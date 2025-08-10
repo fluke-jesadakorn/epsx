@@ -11,7 +11,8 @@ use chrono::{Datelike};
 use crate::core::errors::AppError;
 use crate::dom::entities::eps_growth::{EPSRankingsResponse, EPSRanking};
 use crate::dom::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, CountryValidator};
-use crate::dom::services::eps_cache_service::{EPSCacheService, EPSCacheParams, CacheStats};
+use crate::dom::services::eps_cache_service::{EPSCacheService, CacheStats};
+use crate::infra::services::tradingview::TradingViewService;
 use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
 
 /// Query parameters for EPS rankings endpoint
@@ -329,74 +330,52 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
     }
 }
 
-/// GET /api/v1/analytics/rankings - Live cache-based card dashboard endpoint
-/// Returns EPS rankings in card format with cache-first performance approach
+/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint
+/// Returns EPS rankings in card format with direct TradingView API calls
 pub async fn get_unified_analytics_rankings_cached(
     Query(params): Query<EPSRankingQueryParams>,
-    Extension(cache_service): Extension<Arc<EPSCacheService>>,
+    Extension(_eps_ranking_service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
-    debug!("Cache-based unified analytics rankings API called with params: {:?}", params);
+    debug!("Direct TradingView analytics rankings API called with params: {:?}", params);
     
-    // Convert query params to cache params with defaults
-    // Support both skip/limit and page/limit pagination
+    // Convert query params to service params with defaults
     let limit = params.limit.unwrap_or(10);
-    let page = if let Some(skip) = params.skip {
-        // Convert skip to page: page = (skip / limit) + 1
-        (skip / limit) + 1
-    } else {
-        params.page.unwrap_or(1)
-    };
+    let skip = params.skip.unwrap_or(0);
     
-    let cache_params = EPSCacheParams {
-        country: params.country.clone(),
-        sector: params.sector.clone(),
-        sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
-        page,
-        limit,
-        min_eps: params.min_eps,
-        min_growth: params.min_growth,
-        force_refresh: false, // Use cache unless expired
-    };
-
-    debug!("Cache-based rankings service params: {:?}", cache_params);
-
-    // Get total count first to validate pagination
-    let total_count = cache_service.get_total_count_for_params(&cache_params).await?;
-    let total_pages = ((total_count as f64) / (cache_params.limit as f64)).ceil() as i32;
-    
-    // Validate page number
-    if cache_params.page > total_pages && total_count > 0 {
-        return Err(AppError::new(
-            crate::core::errors::ErrorKind::ValidationError,
-            format!("Page {} does not exist. Total pages available: {}. Please request a page between 1 and {}.", 
-                   cache_params.page, total_pages, total_pages)
-        ));
-    }
-
     // Log request details for debugging
-    info!("Processing cache-based unified analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
-          cache_params.country, cache_params.sort_by, cache_params.page, cache_params.limit);
+    info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Skip: {}, Limit: {}", 
+          params.country, params.sort_by, skip, limit);
 
-    // Fetch data using cache-first approach
+    // Fetch data using direct TradingView API calls
     let start_time = std::time::Instant::now();
     
-    // Get rankings data from cache (with live fallback)
-    let rankings_result = cache_service.get_eps_rankings(cache_params.clone()).await?;
+    // Create TradingView service for direct API calls
+    let config = Arc::new(crate::config::Config::from_env());
+    let tradingview_service = crate::infra::services::tradingview::TradingViewApiService::new(config);
     
-    // Get available countries and sectors from cache
-    let countries_result = cache_service.get_available_countries().await;
-    let sectors_result = if let Some(ref country) = cache_params.country {
-        cache_service.get_sectors_by_country(Some(country.clone())).await
-    } else {
-        cache_service.get_sectors_by_country(None).await
-    };
+    // Get rankings data directly from TradingView
+    let (screening_results, total_count) = tradingview_service
+        .fetch_eps_growth_ranking(
+            Some(skip),
+            Some(limit),
+            params.country.clone(),
+            params.sector.clone(),
+            params.sort_by.clone().or(Some("market_cap".to_string())),
+        )
+        .await
+        .map_err(|e| AppError::new(
+            crate::core::errors::ErrorKind::ExternalServiceError,
+            format!("TradingView API error: {}", e)
+        ))?;
     
-    let duration = start_time.elapsed();
+    // Convert TradingView screening results to EPS rankings format
+    let mut rankings_data: Vec<crate::dom::entities::eps_growth::EPSRanking> = screening_results.into_iter()
+        .map(|result| convert_screening_result_to_eps_ranking(result))
+        .collect();
     
-    // Get rankings data with WebSocket enhancement for small requests (≤10 items)
-    let mut rankings_data = rankings_result.rankings;
+    // Get rankings data with WebSocket enhancement for small requests (≤10 items)  
     if rankings_data.len() <= 10 && !rankings_data.is_empty() {
-        debug!("Cache endpoint: Enhancing {} rankings with WebSocket EPS data", rankings_data.len());
+        debug!("Direct endpoint: Enhancing {} rankings with WebSocket EPS data", rankings_data.len());
         
         let symbols: Vec<String> = rankings_data.iter()
             .map(|r| r.symbol.clone())
@@ -404,10 +383,10 @@ pub async fn get_unified_analytics_rankings_cached(
         
         match enhance_with_websocket_data(&symbols, &mut rankings_data).await {
             Ok(enhanced_count) => {
-                info!("Cache endpoint: Enhanced {} rankings with WebSocket data", enhanced_count);
+                info!("Direct endpoint: Enhanced {} rankings with WebSocket data", enhanced_count);
             }
             Err(e) => {
-                warn!("Cache endpoint: Failed to enhance with WebSocket data: {}, using cached data", e);
+                warn!("Direct endpoint: Failed to enhance with WebSocket data: {}, using TradingView data", e);
             }
         }
     }
@@ -416,7 +395,7 @@ pub async fn get_unified_analytics_rankings_cached(
     let unified_rankings: Vec<UnifiedRankingItem> = rankings_data.into_iter()
         .enumerate()
         .map(|(index, ranking)| {
-            transform_ranking_to_unified_format(ranking, index + ((cache_params.page - 1) * cache_params.limit) as usize + 1)
+            transform_ranking_to_unified_format(ranking, index + skip as usize + 1)
         })
         .collect();
 
@@ -425,16 +404,21 @@ pub async fn get_unified_analytics_rankings_cached(
         .map(transform_unified_to_card_format)
         .collect();
 
-    // Prepare metadata
-    let countries = countries_result.unwrap_or_default();
-    let sectors = sectors_result.unwrap_or_default();
-    
+    // Calculate pagination metadata
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i32;
+    let current_page = (skip / limit) + 1;
+    let has_next = (skip + limit) < total_count;
+    let has_prev = skip > 0;
+
+    // Prepare metadata - use static data for now since we removed cache
     let metadata = CardDashboardMetadata {
-        available_countries: countries,
-        available_sectors: sectors,
+        available_countries: get_available_countries_static(),
+        available_sectors: get_available_sectors_static(),
         request_timestamp: chrono::Utc::now(),
-        data_source: "live_cache_eps_analytics".to_string(),
+        data_source: "live_tradingview_api".to_string(),
     };
+    
+    let duration = start_time.elapsed();
 
     // Build card dashboard response
     let data_len = card_data.len();
@@ -442,19 +426,19 @@ pub async fn get_unified_analytics_rankings_cached(
         success: true,
         data: card_data,
         pagination: EPSPaginationResponse {
-            page: rankings_result.pagination.page,
-            limit: rankings_result.pagination.limit,
-            total: rankings_result.pagination.total,
-            total_pages: rankings_result.pagination.total_pages,
-            has_next: rankings_result.pagination.has_next,
-            has_prev: rankings_result.pagination.has_prev,
+            page: current_page,
+            limit,
+            total: total_count as i64,
+            total_pages,
+            has_next,
+            has_prev,
         },
         metadata,
-        message: Some(format!("Fetched {} card dashboard rankings successfully from live cache", data_len)),
+        message: Some(format!("Fetched {} card dashboard rankings successfully from TradingView API", data_len)),
         processing_time_ms: duration.as_millis() as u64,
     };
 
-    info!("Live cache-based card dashboard completed in {:?} - {} items returned", 
+    info!("Direct TradingView API card dashboard completed in {:?} - {} items returned", 
           duration, data_len);
 
     Ok(Json(card_response))
@@ -1322,6 +1306,79 @@ fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolC
         eps_to_price: None, // N/A initially as shown in UI
         quarterly_performance,
     }
+}
+
+/// Convert StockScreeningResult to EPSRanking format
+fn convert_screening_result_to_eps_ranking(result: crate::dom::entities::market_data::StockScreeningResult) -> crate::dom::entities::eps_growth::EPSRanking {
+    use crate::dom::entities::eps_growth::EPSRanking;
+    
+    // Parse numeric values from strings
+    let current_eps = result.value_index.parse::<f64>().ok();
+    let qoq_growth = result.growth_rate.parse::<f64>().ok();
+    let price_current = result.current_metric.parse::<f64>().ok();
+    let volume = result.activity_score.parse::<i64>().ok();
+    let market_cap = result.market_size.parse::<i64>().ok();
+    
+    EPSRanking {
+        symbol: result.symbol,
+        name: result.name,
+        country: result.country,
+        sector: result.sector,
+        exchange: result.exchange,
+        current_eps,
+        qoq_growth,
+        price_current,
+        market_cap,
+        volume,
+        ranking_position: None,
+        quarterly_data: None,
+    }
+}
+
+/// Get static list of available countries
+fn get_available_countries_static() -> Vec<String> {
+    vec![
+        "america".to_string(), "argentina".to_string(), "australia".to_string(),
+        "austria".to_string(), "bahrain".to_string(), "bangladesh".to_string(),
+        "belgium".to_string(), "brazil".to_string(), "canada".to_string(),
+        "chile".to_string(), "china".to_string(), "colombia".to_string(),
+        "cyprus".to_string(), "czech".to_string(), "denmark".to_string(),
+        "egypt".to_string(), "estonia".to_string(), "finland".to_string(),
+        "france".to_string(), "germany".to_string(), "greece".to_string(),
+        "hongkong".to_string(), "hungary".to_string(), "iceland".to_string(),
+        "india".to_string(), "indonesia".to_string(), "ireland".to_string(),
+        "israel".to_string(), "italy".to_string(), "japan".to_string(),
+        "kenya".to_string(), "kuwait".to_string(), "latvia".to_string(),
+        "lithuania".to_string(), "luxembourg".to_string(), "malaysia".to_string(),
+        "mexico".to_string(), "morocco".to_string(), "netherlands".to_string(),
+        "newzealand".to_string(), "nigeria".to_string(), "norway".to_string(),
+        "pakistan".to_string(), "peru".to_string(), "philippines".to_string(),
+        "poland".to_string(), "portugal".to_string(), "qatar".to_string(),
+        "romania".to_string(), "russia".to_string(), "ksa".to_string(),
+        "serbia".to_string(), "singapore".to_string(), "slovakia".to_string(),
+        "rsa".to_string(), "korea".to_string(), "spain".to_string(),
+        "srilanka".to_string(), "sweden".to_string(), "switzerland".to_string(),
+        "taiwan".to_string(), "thailand".to_string(), "tunisia".to_string(),
+        "turkey".to_string(), "uae".to_string(), "uk".to_string(),
+        "venezuela".to_string(), "vietnam".to_string()
+    ]
+}
+
+/// Get static list of available sectors
+fn get_available_sectors_static() -> Vec<String> {
+    vec![
+        "Technology".to_string(),
+        "Healthcare".to_string(), 
+        "Financial Services".to_string(),
+        "Consumer Goods".to_string(),
+        "Energy".to_string(),
+        "Industrial".to_string(),
+        "Materials".to_string(),
+        "Real Estate".to_string(),
+        "Utilities".to_string(),
+        "Communication Services".to_string(),
+        "Consumer Services".to_string(),
+    ]
 }
 
 /// Unified analytics rankings response structure
