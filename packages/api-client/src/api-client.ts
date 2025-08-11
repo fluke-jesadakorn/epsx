@@ -451,7 +451,6 @@ export class ApiClient {
       limit?: number;
       country?: string;
       quarters?: number;
-      skip?: number;
       paginated?: boolean;
     } = {}
   ): Promise<

@@ -19,7 +19,6 @@ use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
 #[derive(Debug, Deserialize)]
 pub struct EPSRankingQueryParams {
     pub page: Option<i32>,
-    pub skip: Option<i32>,  // Support skip parameter for offset-based pagination
     pub limit: Option<i32>,
     pub country: Option<String>,
     pub sector: Option<String>,
@@ -121,8 +120,8 @@ pub async fn get_eps_rankings(
     let mut result = service.get_eps_rankings(service_params).await?;
     let duration = start_time.elapsed();
     
-    // For small requests (≤10), enhance with WebSocket data for accuracy
-    if result.rankings.len() <= 10 && result.rankings.len() > 0 {
+    // For small requests (≤20), enhance with WebSocket data for accuracy
+    if result.rankings.len() <= 20 && result.rankings.len() > 0 {
         debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
         
         // Extract symbols for WebSocket enhancement
@@ -340,11 +339,12 @@ pub async fn get_unified_analytics_rankings_cached(
     
     // Convert query params to service params with defaults
     let limit = params.limit.unwrap_or(10);
-    let skip = params.skip.unwrap_or(0);
+    let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
+    let skip = (page - 1) * limit; // Convert page to skip internally
     
     // Log request details for debugging
-    info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Skip: {}, Limit: {}", 
-          params.country, params.sort_by, skip, limit);
+    info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
+          params.country, params.sort_by, page, limit);
 
     // Fetch data using direct TradingView API calls
     let start_time = std::time::Instant::now();
@@ -373,8 +373,8 @@ pub async fn get_unified_analytics_rankings_cached(
         .map(|result| convert_screening_result_to_eps_ranking(result))
         .collect();
     
-    // Get rankings data with WebSocket enhancement for small requests (≤10 items)  
-    if rankings_data.len() <= 10 && !rankings_data.is_empty() {
+    // Get rankings data with WebSocket enhancement for small requests (≤20 items)  
+    if rankings_data.len() <= 20 && !rankings_data.is_empty() {
         debug!("Direct endpoint: Enhancing {} rankings with WebSocket EPS data", rankings_data.len());
         
         let symbols: Vec<String> = rankings_data.iter()
@@ -406,9 +406,8 @@ pub async fn get_unified_analytics_rankings_cached(
 
     // Calculate pagination metadata
     let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i32;
-    let current_page = (skip / limit) + 1;
-    let has_next = (skip + limit) < total_count;
-    let has_prev = skip > 0;
+    let has_next = page < total_pages;
+    let has_prev = page > 1;
 
     // Prepare metadata - use static data for now since we removed cache
     let metadata = CardDashboardMetadata {
@@ -426,7 +425,7 @@ pub async fn get_unified_analytics_rankings_cached(
         success: true,
         data: card_data,
         pagination: EPSPaginationResponse {
-            page: current_page,
+            page,
             limit,
             total: total_count as i64,
             total_pages,
@@ -528,221 +527,8 @@ pub async fn cache_health_check(
     Ok(Json(response))
 }
 
-/// GET /api/v1/analytics/rankings - Legacy database-based unified analytics rankings endpoint
-/// Returns comprehensive rankings data with all metadata in single response
-pub async fn get_unified_analytics_rankings(
-    Query(params): Query<EPSRankingQueryParams>,
-    Extension(service): Extension<Arc<EPSRankingService>>,
-) -> Result<Json<UnifiedAnalyticsRankingsResponse>, AppError> {
-    debug!("Unified analytics rankings API called with params: {:?}", params);
-    
-    // Convert query params to service params with defaults
-    let service_params = EPSRankingParams {
-        country: params.country.clone(),
-        sector: params.sector.clone(),
-        sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
-        page: params.page.unwrap_or(1),
-        limit: params.limit.unwrap_or(10),
-        min_eps: params.min_eps,
-        min_growth: params.min_growth,
-    };
-
-    debug!("Unified rankings service params: {:?}", service_params);
-
-    // Validate parameters
-    service.validate_ranking_params(&service_params)?;
-
-    // Get total count first to validate pagination (using country filter only for now)
-    let total_count = service.get_total_count_for_params(&service_params).await?;
-    let total_pages = ((total_count as f64) / (service_params.limit as f64)).ceil() as i32;
-    
-    // Validate page number
-    if service_params.page > total_pages && total_count > 0 {
-        return Err(AppError::new(
-            crate::core::errors::ErrorKind::ValidationError,
-            format!("Page {} does not exist. Total pages available: {}. Please request a page between 1 and {}.", 
-                   service_params.page, total_pages, total_pages)
-        ));
-    }
-
-    // Log request details for debugging
-    info!("Processing unified analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
-          service_params.country, service_params.sort_by, service_params.page, service_params.limit);
-
-    // Fetch all required data concurrently
-    let start_time = std::time::Instant::now();
-    
-    // Get rankings data
-    let mut rankings_result = service.get_eps_rankings(service_params.clone()).await?;
-    
-    // Get available countries (if not already available in cache)
-    let countries_result = service.get_available_countries().await;
-    
-    // Get sectors for current country (if specified)
-    let sectors_result = if let Some(ref country) = service_params.country {
-        service.get_sectors_by_country(Some(country.clone())).await
-    } else {
-        // Get all sectors if no country filter
-        service.get_sectors_by_country(None).await
-    };
-    
-    let duration = start_time.elapsed();
-    
-    // Enhance with WebSocket data for small requests (≤10 items)
-    if rankings_result.rankings.len() <= 10 && !rankings_result.rankings.is_empty() {
-        debug!("Enhancing {} rankings with WebSocket EPS data", rankings_result.rankings.len());
-        
-        let symbols: Vec<String> = rankings_result.rankings.iter()
-            .map(|r| r.symbol.clone())
-            .collect();
-        
-        match enhance_with_websocket_data(&symbols, &mut rankings_result.rankings).await {
-            Ok(enhanced_count) => {
-                info!("Enhanced {} rankings with WebSocket data", enhanced_count);
-            }
-            Err(e) => {
-                warn!("Failed to enhance with WebSocket data: {}, using screener data", e);
-            }
-        }
-    }
-
-    // Transform EPS rankings to frontend-compatible format with quarterly data
-    let unified_rankings: Vec<UnifiedRankingItem> = rankings_result.rankings.into_iter()
-        .enumerate()
-        .map(|(index, ranking)| {
-            transform_ranking_to_unified_format(ranking, index + ((service_params.page - 1) * service_params.limit) as usize + 1)
-        })
-        .collect();
-
-    // Prepare metadata
-    let countries = countries_result.unwrap_or_default();
-    let sectors = sectors_result.unwrap_or_default();
-    
-    let metadata = UnifiedAnalyticsMetadata {
-        available_countries: countries,
-        available_sectors: sectors,
-        current_filters: UnifiedFilters {
-            country: service_params.country,
-            sector: service_params.sector,
-            sort_by: service_params.sort_by.unwrap_or("qoq_growth".to_string()),
-            min_eps: service_params.min_eps,
-            min_growth: service_params.min_growth,
-        },
-        request_timestamp: chrono::Utc::now(),
-        data_source: "eps_analytics".to_string(),
-        enhanced_with_websocket: unified_rankings.len() <= 10,
-    };
-
-    // Build unified response
-    let data_len = unified_rankings.len();
-    let unified_response = UnifiedAnalyticsRankingsResponse {
-        success: true,
-        data: unified_rankings,
-        pagination: EPSPaginationResponse {
-            page: rankings_result.pagination.page,
-            limit: rankings_result.pagination.limit,
-            total: rankings_result.pagination.total,
-            total_pages: rankings_result.pagination.total_pages,
-            has_next: rankings_result.pagination.has_next,
-            has_prev: rankings_result.pagination.has_prev,
-        },
-        metadata,
-        message: Some(format!("Fetched {} rankings successfully", data_len)),
-        processing_time_ms: duration.as_millis() as u64,
-    };
-
-    info!("Unified analytics rankings completed in {:?} - {} items returned", 
-          duration, data_len);
-
-    Ok(Json(unified_response))
-}
-
-/// Calculate EPS-weighted performance index for card dashboard
-fn calculate_performance_index(current_eps: Option<f64>, qoq_growth: Option<f64>, market_cap: Option<i64>) -> f64 {
-    let eps_val = current_eps.unwrap_or(0.0);
-    let growth_val = qoq_growth.unwrap_or(0.0);
-    
-    // Base EPS component (scaled to reasonable range)
-    let eps_component = if eps_val > 0.0 {
-        (eps_val * 10.0).clamp(0.0, 20.0)
-    } else {
-        0.0
-    };
-    
-    // Growth component (scaled and weighted)
-    let growth_component = (growth_val / 100.0 * 5.0).clamp(-2.0, 10.0);
-    
-    // Market cap scaling factor (for very large companies)
-    let scale_factor = if let Some(mc) = market_cap {
-        if mc > 1_000_000_000_000 { // > $1T market cap
-            1.2
-        } else if mc > 500_000_000_000 { // > $500B market cap
-            1.1
-        } else {
-            1.0
-        }
-    } else {
-        1.0
-    };
-    
-    // Calculate final index
-    let base_index = eps_component + growth_component;
-    (base_index * scale_factor).clamp(0.0, 50.0).round() / 10.0 * 10.0 // Round to 1 decimal
-}
-
-/// Calculate average growth percentage across quarters
-fn calculate_average_growth(quarterly_data: &[EPSRanking]) -> f64 {
-    if quarterly_data.is_empty() {
-        return 0.0;
-    }
-    
-    // For single data point, use QoQ growth if available
-    if quarterly_data.len() == 1 {
-        return quarterly_data[0].qoq_growth.unwrap_or(0.0);
-    }
-    
-    // For multiple data points, calculate average of growth rates
-    let total_growth: f64 = quarterly_data
-        .iter()
-        .map(|q| q.qoq_growth.unwrap_or(0.0))
-        .sum();
-        
-    total_growth / quarterly_data.len() as f64
-}
-
-/// Generate quarterly performance data for card dashboard
-fn generate_quarterly_performance_data(ranking: &EPSRanking) -> Vec<QuarterlyPerformanceData> {
-    let current_date = chrono::Utc::now();
-    let current_eps = ranking.current_eps.unwrap_or(0.0);
-    let current_price = ranking.price_current.unwrap_or(0.0);
-    let qoq_growth = ranking.qoq_growth.unwrap_or(0.0);
-    
-    // Generate current quarter (Q1) and previous quarter (Q0) data
-    vec![
-        QuarterlyPerformanceData {
-            quarter: "Q1".to_string(),
-            date: current_date.format("%b %-d, %Y").to_string(),
-            price: current_price,
-            eps: current_eps,
-            eps_growth: qoq_growth,
-            price_growth: 0.0, // Default to 0 as shown in UI
-        },
-        QuarterlyPerformanceData {
-            quarter: "Q0".to_string(),
-            date: (current_date - chrono::Duration::days(90)).format("%b %-d, %Y").to_string(),
-            price: current_price * 0.95, // Estimate previous price
-            eps: if qoq_growth != 0.0 {
-                current_eps / (1.0 + qoq_growth / 100.0)
-            } else {
-                current_eps * 0.9
-            },
-            eps_growth: 0.0, // Reference point
-            price_growth: 0.0, // Default to 0 as shown in UI
-        },
-    ]
-}
-
 /// Generate quarterly performance data from real WebSocket quarterly data
+#[allow(dead_code)]
 fn generate_quarterly_performance_from_real_data(ranking: &EPSRanking, quarterly_data: &[crate::infra::services::tradingview_websocket::QuarterlyEPSData]) -> Vec<QuarterlyPerformanceData> {
     debug!("Generating quarterly performance from real WebSocket data for {}: {} quarters", 
            ranking.symbol, quarterly_data.len());
@@ -819,23 +605,6 @@ fn generate_quarterly_performance_from_real_data(ranking: &EPSRanking, quarterly
     result
 }
 
-/// Generate quarterly performance data using real WebSocket data when available
-fn generate_quarterly_performance_from_websocket_or_synthetic(ranking: &EPSRanking) -> Vec<QuarterlyPerformanceData> {
-    // Check if we have real WebSocket quarterly data
-    if let Some(ref quarterly_data) = ranking.quarterly_data {
-        if quarterly_data.len() >= 3 {
-            debug!("Using real WebSocket quarterly data for {} ({} quarters)", 
-                   ranking.symbol, quarterly_data.len());
-            return generate_quarterly_performance_from_real_data(ranking, quarterly_data);
-        }
-    }
-    
-    debug!("No sufficient WebSocket quarterly data for {}, using synthetic fallback", ranking.symbol);
-    
-    // Fallback to synthetic data generation
-    generate_quarterly_performance_data(ranking)
-}
-
 
 /// Generate quarterly data from WebSocket data or proper consecutive quarters as fallback
 fn generate_quarterly_data_from_websocket_or_fallback(ranking: &EPSRanking, current_date: chrono::DateTime<chrono::Utc>) -> Vec<QuarterlyData> {
@@ -872,23 +641,49 @@ fn generate_quarterly_data_from_real_websocket_data(
     
     // Process each quarter from the WebSocket data (up to 8 quarters)
     for (i, quarter_data) in sorted_data.iter().enumerate().take(8) {
-        // Calculate price progression based on EPS changes and realistic market behavior
-        let price_adjustment = if i == 0 {
-            1.0 // Current price for most recent quarter
-        } else {
-            // Estimate historical price based on EPS progression and time decay
-            let eps_ratio = if i < sorted_data.len() - 1 && sorted_data[i - 1].eps > 0.0 {
-                quarter_data.eps / sorted_data[i - 1].eps
+        // Use VWAP price correlation data when available, otherwise fall back to synthetic calculation
+        let adjusted_price = if let Some(ref price_data) = quarter_data.price_data {
+            // Use VWAP price correlation data - prefer post-earnings price for accuracy
+            let vwap_price = if price_data.post_earnings_price > 0.0 {
+                price_data.post_earnings_price
+            } else if price_data.pre_earnings_price > 0.0 {
+                price_data.pre_earnings_price
             } else {
-                0.95 // Default slight decline for older quarters
+                // Fall back to synthetic calculation
+                let price_adjustment = if i == 0 { 1.0 } else {
+                    let eps_ratio = if i < sorted_data.len() - 1 && sorted_data[i - 1].eps > 0.0 {
+                        quarter_data.eps / sorted_data[i - 1].eps
+                    } else { 0.95 };
+                    let time_decay = 1.0 - (i as f64 * 0.05);
+                    eps_ratio * time_decay.max(0.7)
+                };
+                current_price * price_adjustment
             };
             
-            // Price follows EPS trends but with dampening over time
-            let time_decay = 1.0 - (i as f64 * 0.05); // 5% decay per quarter back
-            eps_ratio * time_decay.max(0.7) // Min 70% of current price
+            debug!("Using VWAP price data for {} {}: ${:.2} (quality: {})", 
+                   ranking.symbol, quarter_data.period, vwap_price, price_data.data_quality);
+            vwap_price
+        } else {
+            // Calculate price progression based on EPS changes and realistic market behavior
+            let price_adjustment = if i == 0 {
+                1.0 // Current price for most recent quarter
+            } else {
+                // Estimate historical price based on EPS progression and time decay
+                let eps_ratio = if i < sorted_data.len() - 1 && sorted_data[i - 1].eps > 0.0 {
+                    quarter_data.eps / sorted_data[i - 1].eps
+                } else {
+                    0.95 // Default slight decline for older quarters
+                };
+                
+                // Price follows EPS trends but with dampening over time
+                let time_decay = 1.0 - (i as f64 * 0.05); // 5% decay per quarter back
+                eps_ratio * time_decay.max(0.7) // Min 70% of current price
+            };
+            
+            debug!("Using synthetic price for {} {}: ${:.2}", 
+                   ranking.symbol, quarter_data.period, current_price * price_adjustment);
+            current_price * price_adjustment
         };
-        
-        let adjusted_price = current_price * price_adjustment;
         
         // Calculate EPS growth (quarter-over-quarter)
         let eps_growth = if i > 0 && i < sorted_data.len() && sorted_data[i - 1].eps > 0.0 {
@@ -1076,6 +871,7 @@ fn determine_trend(qoq_growth: f64) -> String {
 }
 
 /// Calculate simple volatility from price series
+#[allow(dead_code)]
 fn calculate_volatility(prices: &[f64]) -> f64 {
     if prices.len() < 2 {
         return 0.0;
@@ -1132,9 +928,28 @@ async fn enhance_with_websocket_data(
                         enhanced_count += 1;
                     }
                     
-                    // Store REAL quarterly data
+                    // Update with real current price from WebSocket
+                    if ws_data.price_current > 0.01 && ws_data.price_current.is_finite() {
+                        debug!("Updating {} current price: {:?} → {} (REAL WebSocket)", 
+                               ranking.symbol, ranking.price_current, ws_data.price_current);
+                        ranking.price_current = Some(ws_data.price_current);
+                    }
+                    
+                    // Store REAL quarterly data with price correlation
                     if !ws_data.quarterly_data.is_empty() {
                         ranking.quarterly_data = Some(ws_data.quarterly_data.clone());
+                        
+                        // Use correlated price data from most recent quarter if available
+                        if let Some(recent_quarter) = ws_data.quarterly_data.first() {
+                            if let Some(price_data) = &recent_quarter.price_data {
+                                // Use post-earnings price as most current price
+                                if price_data.post_earnings_price > 0.0 {
+                                    debug!("Updating {} price from correlation: {:?} → {} (from earnings correlation)", 
+                                           ranking.symbol, ranking.price_current, price_data.post_earnings_price);
+                                    ranking.price_current = Some(price_data.post_earnings_price);
+                                }
+                            }
+                        }
                         
                         // Calculate QoQ growth from REAL quarterly data
                         if ws_data.quarterly_data.len() >= 2 {
@@ -1274,15 +1089,8 @@ fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolC
     // Calculate performance index from analytics data
     let index = unified_item.analytics.ranking_score;
     
-    // Calculate average growth from quarterly data
-    let avg_growth = if !unified_item.quarterly_data.is_empty() {
-        let growth_sum: f64 = unified_item.quarterly_data.iter()
-            .map(|q| q.eps_growth)
-            .sum();
-        growth_sum / unified_item.quarterly_data.len() as f64
-    } else {
-        0.0
-    };
+    // Use the real QoQ growth from TradingView analytics instead of synthetic calculation
+    let avg_growth = unified_item.analytics.qoq_growth;
     
     // Transform quarterly data format
     let quarterly_performance: Vec<QuarterlyPerformanceData> = unified_item.quarterly_data.into_iter()
@@ -1303,7 +1111,7 @@ fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolC
         value: unified_item.current_price,
         index,
         avg_growth,
-        eps_to_price: None, // N/A initially as shown in UI
+        eps_to_price: None, // Additional correlation data not implemented yet
         quarterly_performance,
     }
 }
@@ -1313,9 +1121,9 @@ fn convert_screening_result_to_eps_ranking(result: crate::dom::entities::market_
     use crate::dom::entities::eps_growth::EPSRanking;
     
     // Parse numeric values from strings
-    let current_eps = result.value_index.parse::<f64>().ok();
+    let current_eps = result.current_metric.parse::<f64>().ok();
     let qoq_growth = result.growth_rate.parse::<f64>().ok();
-    let price_current = result.current_metric.parse::<f64>().ok();
+    let price_current = result.value_index.parse::<f64>().ok();
     let volume = result.activity_score.parse::<i64>().ok();
     let market_cap = result.market_size.parse::<i64>().ok();
     

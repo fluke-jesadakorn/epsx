@@ -1432,6 +1432,7 @@ impl TradingViewApiService {
     }
 
     /// Rate-limited concurrent fetching with backoff
+    #[allow(dead_code)]
     async fn fetch_with_rate_limit<F, Fut, T>(&self, tasks: Vec<F>) -> Vec<Result<T, MarketDataError>>
     where
         F: Fn() -> Fut + Send,

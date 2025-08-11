@@ -24,14 +24,14 @@ let countCache: {
 const CACHE_TTL = 300; // 5 minutes in seconds
 
 export async function getStockFinancialData(
-  skip = 0,
+  page = 1,
   limit = 10,
   country: typeof MarketCountry = MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   try {
     // Create a cache key that includes pagination parameters
-    const cacheKey = `${skip}-${limit}-${country}-${quarters}`;
+    const cacheKey = `${page}-${limit}-${country}-${quarters}`;
 
     // Check server-side cache first
     const now = Date.now();
@@ -44,7 +44,7 @@ export async function getStockFinancialData(
     return [];
   } catch (error) {
     // Return cached data if available, even if expired, as fallback
-    const cacheKey = `${skip}-${limit}-${country}-${quarters}`;
+    const cacheKey = `${page}-${limit}-${country}-${quarters}`;
     const cachedData = serverCache.get(cacheKey);
     if (cachedData) {
       return cachedData.data;

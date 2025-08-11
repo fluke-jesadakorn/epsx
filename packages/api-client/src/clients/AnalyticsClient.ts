@@ -241,7 +241,7 @@ export class AnalyticsClient extends BaseHttpClient {
     return this.post('/api/v1/analytics/eps-rankings/sync', {});
   }
 
-  // Live Analytics Rankings - Cache-based card dashboard endpoint
+  // Live Analytics Rankings - Fresh data from backend (no cache)
   async getUnifiedAnalyticsRankings(params?: {
     page?: number;
     limit?: number;
@@ -260,6 +260,9 @@ export class AnalyticsClient extends BaseHttpClient {
     if (params?.min_eps) queryParams.append('min_eps', params.min_eps.toString());
     if (params?.min_growth) queryParams.append('min_growth', params.min_growth.toString());
     
+    // Add cache-busting timestamp to ensure fresh data
+    queryParams.append('_t', Date.now().toString());
+    
     return this.get(`/api/v1/analytics/rankings?${queryParams}`);
   }
 
@@ -274,29 +277,6 @@ export class AnalyticsClient extends BaseHttpClient {
 
   async getCacheHealth(): Promise<ApiResponse<CacheHealthResponse>> {
     return this.get('/api/v1/analytics/cache/health');
-  }
-
-
-  // Legacy database-based endpoint (for fallback)
-  async getUnifiedAnalyticsRankingsLegacy(params?: {
-    page?: number;
-    limit?: number;
-    country?: string;
-    sector?: string;
-    sort_by?: string;
-    min_eps?: number;
-    min_growth?: number;
-  }): Promise<ApiResponse<UnifiedAnalyticsRankingsResponse>> {
-    const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.country) queryParams.append('country', params.country);
-    if (params?.sector) queryParams.append('sector', params.sector);
-    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
-    if (params?.min_eps) queryParams.append('min_eps', params.min_eps.toString());
-    if (params?.min_growth) queryParams.append('min_growth', params.min_growth.toString());
-    
-    return this.get(`/api/v1/analytics/rankings/legacy?${queryParams}`);
   }
 }
 
@@ -420,6 +400,7 @@ export interface SymbolCardData {
   value: number; // Current EPS value
   index: number; // Performance index score
   avg_growth: number; // Average quarterly growth
+  eps_to_price?: string | null; // EPS to price correlation data (optional)
   quarterly_performance: QuarterlyPerformanceData[];
 }
 

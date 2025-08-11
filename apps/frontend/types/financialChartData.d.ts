@@ -144,6 +144,7 @@ export interface SymbolCardData {
   value: number; // Current EPS value
   index: number; // Performance index score
   avg_growth: number; // Average quarterly growth
+  eps_to_price?: string | null; // EPS to price correlation data (optional)
   quarterly_performance: QuarterlyPerformanceData[];
 }
 
@@ -151,7 +152,8 @@ export interface QuarterlyPerformanceData {
   quarter: string;
   date: string;
   eps: number;
-  growth: number;
+  eps_growth: number; // Quarter-over-quarter EPS growth
+  price_growth: number; // Quarter-over-quarter price growth 
   price: number;
 }
 

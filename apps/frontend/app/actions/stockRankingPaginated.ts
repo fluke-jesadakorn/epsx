@@ -26,11 +26,9 @@ export async function fetchPaginatedStockData(
   country: typeof MarketCountry = MarketCountry,
   quarters: number = 2
 ): Promise<PaginatedStockData> {
-  const skip = (page - 1) * limit;
-  
   try {
     const [data, totalCount] = await Promise.all([
-      getStockFinancialData(skip, limit, country, quarters),
+      getStockFinancialData(page, limit, country, quarters),
       getStockFinancialDataCount(country, quarters)
     ]);
 

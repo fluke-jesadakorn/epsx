@@ -48,6 +48,7 @@ struct EPSCache {
 
 /// Individual cache entry
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CacheEntry {
     data: EPSGrowthData,
     created_at: std::time::Instant,

@@ -97,9 +97,11 @@ pub struct EPSWebSocketData {
 /// TradingView WebSocket service with exact Node.js devtools logic
 pub struct TradingViewWebSocketService {
   websocket_url: String,
+  #[allow(dead_code)]
   session_id: String,
   symbols: Vec<String>,
   price_data: std::collections::HashMap<i64, PriceData>,
+  #[allow(dead_code)]
   message_log: Vec<String>,
   debug: bool,
   // State tracking like Node.js
@@ -973,11 +975,11 @@ impl TradingViewWebSocketService {
     info!("🔄 Creating comprehensive EPS-Price correlation");
     
     quarterly_data.into_iter().map(|mut quarter| {
-      // Use the earnings announcement timestamp to find nearest price data
+      // Use VWAP-based volatility-aware price correlation
       let price_impact = if let Some(earnings_date) = quarter.estimated_earnings_date {
-        self.find_nearest_price_data(earnings_date, &quarter.period)
+        self.find_nearest_price_data_vwap(earnings_date, &quarter.period)
       } else {
-        self.find_nearest_price_data(quarter.timestamp, &quarter.period)
+        self.find_nearest_price_data_vwap(quarter.timestamp, &quarter.period)
       };
       
       quarter.price_data = price_impact;
@@ -986,6 +988,7 @@ impl TradingViewWebSocketService {
   }
   
   /// Find nearest price data around earnings announcement (EXACT Node.js logic)
+  #[allow(dead_code)]
   fn find_nearest_price_data(&self, earnings_timestamp: i64, quarter_period: &str) -> Option<PriceImpactData> {
     if self.price_data.is_empty() {
       warn!("⚠️ No price data available for {}", quarter_period);
@@ -997,17 +1000,17 @@ impl TradingViewWebSocketService {
     let one_day = 86400; // seconds in one day
     let mut closest_before: Option<(i64, PriceData)> = None;
     let mut closest_after: Option<(i64, PriceData)> = None;
-    let mut days_before = 0;
-    let mut days_after = 0;
+    let mut days_before: i32 = 0;
+    let mut days_after: i32 = 0;
     
-    // Step through days to find closest price data - prioritize 1-2 days, max 7 days
+    // PRIMARY SEARCH: Step through days to find closest price data - prioritize 1-2 days, max 7 days (Node.js approach)
     for step in 1..=7 {
       // Check price data `step` days before earnings
       if closest_before.is_none() {
         let before_timestamp = earnings_timestamp - (step * one_day);
         if let Some(price_data) = self.price_data.get(&before_timestamp) {
           closest_before = Some((before_timestamp, price_data.clone()));
-          days_before = step;
+          days_before = step as i32;
           info!("📊 Found price {} day(s) before earnings: ${}", step, price_data.close);
         }
       }
@@ -1017,12 +1020,12 @@ impl TradingViewWebSocketService {
         let after_timestamp = earnings_timestamp + (step * one_day);
         if let Some(price_data) = self.price_data.get(&after_timestamp) {
           closest_after = Some((after_timestamp, price_data.clone()));
-          days_after = step;
+          days_after = step as i32;
           info!("📊 Found price {} day(s) after earnings: ${}", step, price_data.close);
         }
       }
       
-      // Stop early if we found both within 1-2 days (optimal range)
+      // Stop early if we found both within 1-2 days (optimal range) - Node.js priority logic
       if closest_before.is_some() && closest_after.is_some() && step <= 2 {
         info!("✅ Found optimal price data within {} day(s) for {}", step, quarter_period);
         break;
@@ -1034,13 +1037,41 @@ impl TradingViewWebSocketService {
       }
     }
     
+    // FALLBACK SEARCH: If still no data found with day-stepping, fall back to closest available (Node.js approach)
+    if closest_before.is_none() || closest_after.is_none() {
+      warn!("⚠️ Day-stepping failed, searching for any available price data within 30 days");
+      
+      let mut min_diff_before = i64::MAX;
+      let mut min_diff_after = i64::MAX;
+      
+      for (timestamp, price_info) in &self.price_data {
+        let time_diff = timestamp - earnings_timestamp;
+        let days_diff = time_diff.abs() / one_day;
+        
+        // Only consider data within 30 days
+        if days_diff <= 30 {
+          if time_diff < 0 && time_diff.abs() < min_diff_before && closest_before.is_none() {
+            min_diff_before = time_diff.abs();
+            closest_before = Some((*timestamp, price_info.clone()));
+            days_before = days_diff as i32;
+          }
+          
+          if time_diff > 0 && time_diff < min_diff_after && closest_after.is_none() {
+            min_diff_after = time_diff;
+            closest_after = Some((*timestamp, price_info.clone()));
+            days_after = days_diff as i32;
+          }
+        }
+      }
+    }
+    
     // Calculate price impact if we have both before and after prices
     if let (Some((_, before_price)), Some((_, after_price))) = (&closest_before, &closest_after) {
       if before_price.close != after_price.close {
         let price_change = after_price.close - before_price.close;
         let percent_change = (price_change / before_price.close) * 100.0;
         
-        // Quality indicator based on how close the data is to earnings
+        // Quality indicator based on how close the data is to earnings - Node.js grading system
         let data_quality = if days_before <= 2 && days_after <= 2 {
           "excellent"
         } else if days_before <= 5 && days_after <= 5 {
@@ -1048,6 +1079,11 @@ impl TradingViewWebSocketService {
         } else {
           "fair"
         };
+        
+        info!("💹 Price impact for {}: {:.2}% ({}) [{} quality - {} days before, {} days after]", 
+              quarter_period, percent_change, 
+              if percent_change > 0.0 { "positive" } else { "negative" },
+              data_quality, days_before, days_after);
         
         let price_impact = PriceImpactData {
           pre_earnings_price: before_price.close,
@@ -1080,7 +1116,12 @@ impl TradingViewWebSocketService {
             price_point.close, days,
             if is_after { "after" } else { "before" });
       
+      // Apply Node.js quality grading for single price point (no rejection)
       let data_quality = if days <= 2 { "good" } else { "fair" };
+      
+      info!("📊 Single price point for {}: ${:.2} ({} days {}) [{}]", 
+            quarter_period, price_point.close, days, 
+            if is_after { "after" } else { "before" }, data_quality);
       
       return Some(PriceImpactData {
         pre_earnings_price: if !is_after { price_point.close } else { 0.0 },
@@ -1097,7 +1138,212 @@ impl TradingViewWebSocketService {
       });
     }
     
-    warn!("⚠️ No price data found within reasonable range for {}", quarter_period);
+    warn!("⚠️ No price data found within 30-day search range for {}", quarter_period);
+    None
+  }
+  
+  /// Calculate Volume-Weighted Average Price (VWAP) over multiple days to reduce variance
+  fn calculate_vwap(&self, start_timestamp: i64, end_timestamp: i64) -> Option<f64> {
+    let mut total_pv = 0.0; // price * volume
+    let mut total_volume = 0.0;
+    let mut data_count = 0;
+    
+    // Collect all price data within the time range
+    for (timestamp, price_data) in &self.price_data {
+      if *timestamp >= start_timestamp && *timestamp <= end_timestamp {
+        // Use typical price (H+L+C)/3 for VWAP calculation
+        let typical_price = (price_data.high + price_data.low + price_data.close) / 3.0;
+        let volume = price_data.volume as f64;
+        
+        if volume > 0.0 { // Only include days with volume
+          total_pv += typical_price * volume;
+          total_volume += volume;
+          data_count += 1;
+        }
+      }
+    }
+    
+    if total_volume > 0.0 && data_count > 0 {
+      let vwap = total_pv / total_volume;
+      info!("📊 VWAP calculated: ${:.2} over {} days (volume: {:.0})", 
+            vwap, data_count, total_volume);
+      Some(vwap)
+    } else {
+      None
+    }
+  }
+  
+  /// Calculate Average True Range (ATR) for volatility measurement
+  fn calculate_atr(&self, timestamp: i64, periods: i32) -> f64 {
+    let one_day = 86400;
+    let mut true_ranges: Vec<f64> = Vec::new();
+    
+    // Collect price data around the timestamp
+    let mut sorted_data: Vec<_> = self.price_data
+      .iter()
+      .filter(|(ts, _)| (**ts >= timestamp - (periods as i64 * one_day)) && (**ts <= timestamp + (periods as i64 * one_day)))
+      .collect();
+    
+    sorted_data.sort_by_key(|(ts, _)| *ts);
+    
+    for i in 1..sorted_data.len().min(periods as usize) {
+      let current = sorted_data[i].1;
+      let previous = sorted_data[i-1].1;
+      
+      // True Range = max(H-L, |H-Cp|, |L-Cp|)
+      let hl = current.high - current.low;
+      let hcp = (current.high - previous.close).abs();
+      let lcp = (current.low - previous.close).abs();
+      
+      let tr = hl.max(hcp).max(lcp);
+      if tr > 0.0 {
+        true_ranges.push(tr);
+      }
+    }
+    
+    if !true_ranges.is_empty() {
+      let atr = true_ranges.iter().sum::<f64>() / true_ranges.len() as f64;
+      info!("📈 ATR calculated: {:.2} over {} periods", atr, true_ranges.len());
+      atr
+    } else {
+      0.0
+    }
+  }
+  
+  /// Calculate price stability ratio using daily range
+  fn calculate_price_stability(&self, timestamp: i64) -> f64 {
+    if let Some(price_data) = self.price_data.get(&timestamp) {
+      if price_data.close > 0.0 {
+        let daily_range = (price_data.high - price_data.low) / price_data.close;
+        info!("📊 Price stability for timestamp {}: {:.3} ({:.1}% daily range)", 
+              timestamp, 1.0 - daily_range, daily_range * 100.0);
+        return 1.0 - daily_range; // Higher value = more stable
+      }
+    }
+    0.5 // Default middle stability
+  }
+  
+  /// Enhanced volatility-aware price correlation using VWAP
+  fn find_nearest_price_data_vwap(&self, earnings_timestamp: i64, quarter_period: &str) -> Option<PriceImpactData> {
+    if self.price_data.is_empty() {
+      warn!("⚠️ No price data available for correlation");
+      return None;
+    }
+    
+    info!("🔍 VWAP-based price correlation for {} earnings (timestamp: {})", quarter_period, earnings_timestamp);
+    
+    let one_day = 86400;
+    
+    // Calculate volatility using ATR
+    let atr = self.calculate_atr(earnings_timestamp, 14);
+    let avg_price = self.price_data.values()
+      .filter(|p| p.close > 0.0)
+      .map(|p| p.close)
+      .sum::<f64>() / self.price_data.len() as f64;
+    
+    let volatility_ratio = if avg_price > 0.0 { atr / avg_price } else { 0.0 };
+    
+    // Dynamic correlation window based on volatility
+    let (primary_window, fallback_window) = if volatility_ratio > 0.03 { // High volatility (>3%)
+      info!("📈 High volatility detected ({:.2}%), using wider correlation window", volatility_ratio * 100.0);
+      (7, 14) // Wider window for volatile stocks
+    } else {
+      info!("📊 Normal volatility ({:.2}%), using standard correlation window", volatility_ratio * 100.0);
+      (3, 7)  // Narrower window for stable stocks
+    };
+    
+    // Calculate VWAP for periods before/after earnings
+    let vwap_before = self.calculate_vwap(
+      earnings_timestamp - (primary_window as i64 * one_day),
+      earnings_timestamp - one_day
+    );
+    
+    let vwap_after = self.calculate_vwap(
+      earnings_timestamp + one_day,
+      earnings_timestamp + (primary_window as i64 * one_day)
+    );
+    
+    // Fallback to individual day prices if VWAP fails
+    let (before_price, days_before) = if let Some(vwap) = vwap_before {
+      (vwap, primary_window / 2) // Use middle of VWAP period for days calculation
+    } else {
+      // Fallback to closest single day price
+      let mut best_before: Option<(f64, i32)> = None;
+      for step in 1..=fallback_window {
+        let before_timestamp = earnings_timestamp - (step * one_day);
+        if let Some(price_data) = self.price_data.get(&before_timestamp) {
+          // Use stability-adjusted price
+          let stability = self.calculate_price_stability(before_timestamp);
+          let adjusted_price = if stability < 0.95 { // <95% stability, use typical price
+            (price_data.high + price_data.low + price_data.close) / 3.0
+          } else {
+            price_data.close
+          };
+          best_before = Some((adjusted_price, step as i32));
+          break;
+        }
+      }
+      best_before.unwrap_or((0.0, 0))
+    };
+    
+    let (after_price, days_after) = if let Some(vwap) = vwap_after {
+      (vwap, primary_window / 2)
+    } else {
+      // Fallback to closest single day price
+      let mut best_after: Option<(f64, i32)> = None;
+      for step in 1..=fallback_window {
+        let after_timestamp = earnings_timestamp + (step * one_day);
+        if let Some(price_data) = self.price_data.get(&after_timestamp) {
+          let stability = self.calculate_price_stability(after_timestamp);
+          let adjusted_price = if stability < 0.95 {
+            (price_data.high + price_data.low + price_data.close) / 3.0
+          } else {
+            price_data.close
+          };
+          best_after = Some((adjusted_price, step as i32));
+          break;
+        }
+      }
+      best_after.unwrap_or((0.0, 0))
+    };
+    
+    // Calculate price impact with enhanced quality grading
+    if before_price > 0.0 && after_price > 0.0 {
+      let price_change = after_price - before_price;
+      let percent_change = (price_change / before_price) * 100.0;
+      
+      // Enhanced quality grading including volatility factors
+      let data_quality = if vwap_before.is_some() && vwap_after.is_some() {
+        if volatility_ratio < 0.02 { "excellent_vwap" } else { "good_vwap" }
+      } else if days_before <= 2 && days_after <= 2 && volatility_ratio < 0.03 {
+        "excellent"
+      } else if days_before <= primary_window && days_after <= primary_window {
+        if volatility_ratio > 0.05 { "fair_volatile" } else { "good" }
+      } else {
+        "fair"
+      };
+      
+      info!("💹 VWAP Price impact for {}: {:.2}% ({}) [{}] - volatility: {:.2}%", 
+            quarter_period, percent_change, 
+            if percent_change > 0.0 { "positive" } else { "negative" },
+            data_quality, volatility_ratio * 100.0);
+      
+      return Some(PriceImpactData {
+        pre_earnings_price: before_price,
+        post_earnings_price: after_price,
+        price_change: (price_change * 100.0).round() / 100.0,
+        percent_change: (percent_change * 100.0).round() / 100.0,
+        earnings_impact: if percent_change > 0.0 { "positive".to_string() } else { "negative".to_string() },
+        days_before: days_before as i32,
+        days_after: days_after as i32,
+        volume_before: 0, // VWAP aggregates volume
+        volume_after: 0,
+        volume_change: "vwap_calculated".to_string(),
+        data_quality: data_quality.to_string(),
+      });
+    }
+    
+    warn!("⚠️ Insufficient price data for VWAP correlation for {}", quarter_period);
     None
   }
 

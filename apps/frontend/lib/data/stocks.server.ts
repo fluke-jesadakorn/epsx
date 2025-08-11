@@ -5,14 +5,14 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 const apiClient = createApiClient(BACKEND_URL);
 
 export async function getStockFinancialData(
-  skip: number = 0,
+  page: number = 1,
   limit: number = 10,
   country?: typeof MarketCountry,
   quarters: number = 2
 ) {
   try {
     const response = await apiClient.getStocks({
-      skip,
+      page,
       limit,
       country: country?.toString(),
       quarters,

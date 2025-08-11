@@ -1,0 +1,150 @@
+{
+  "symbol": "TSLA",
+  "timestamp": "2025-08-10T14:49:21.963Z",
+  "totalMessages": 13,
+  "messages": [
+    {
+      "timestamp": "2025-08-10T14:48:57.126Z",
+      "direction": "sent",
+      "message": {
+        "m": "chart_create_session",
+        "p": [
+          "cs_d56bfa07b443",
+          ""
+        ]
+      },
+      "raw": "~m~55~m~{\"m\":\"chart_create_session\",\"p\":[\"cs_d56bfa07b443\",\"\"]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.127Z",
+      "direction": "sent",
+      "message": {
+        "m": "resolve_symbol",
+        "p": [
+          "cs_d56bfa07b443",
+          "sds_sym_1",
+          "={\"adjustment\":\"splits\",\"symbol\":\"TSLA\"}"
+        ]
+      },
+      "raw": "~m~109~m~{\"m\":\"resolve_symbol\",\"p\":[\"cs_d56bfa07b443\",\"sds_sym_1\",\"={\\\"adjustment\\\":\\\"splits\\\",\\\"symbol\\\":\\\"TSLA\\\"}\"]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.127Z",
+      "direction": "sent",
+      "message": {
+        "m": "create_series",
+        "p": [
+          "cs_d56bfa07b443",
+          "sds_1",
+          "s1",
+          "sds_sym_1",
+          "1D",
+          300,
+          ""
+        ]
+      },
+      "raw": "~m~82~m~{\"m\":\"create_series\",\"p\":[\"cs_d56bfa07b443\",\"sds_1\",\"s1\",\"sds_sym_1\",\"1D\",300,\"\"]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.127Z",
+      "direction": "sent",
+      "message": {
+        "m": "quote_create_session",
+        "p": [
+          "qs_db17ca2ca045"
+        ]
+      },
+      "raw": "~m~52~m~{\"m\":\"quote_create_session\",\"p\":[\"qs_db17ca2ca045\"]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.127Z",
+      "direction": "sent",
+      "message": {
+        "m": "quote_add_symbols",
+        "p": [
+          "qs_db17ca2ca045",
+          "TSLA:TSLA"
+        ]
+      },
+      "raw": "~m~61~m~{\"m\":\"quote_add_symbols\",\"p\":[\"qs_db17ca2ca045\",\"TSLA:TSLA\"]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.128Z",
+      "direction": "received",
+      "raw": "~m~293~m~{\"session_id\":\"0.7250.4440_hkg1-charts-free-4-tvbs-g4rby-4\",\"timestamp\":1754837337,\"timestampMs\":1754837337162,\"release\":\"release_208-71\",\"studies_metadata_hash\":\"3ad1c78634b75df7e69ceda42da9d16c98827559\",\"auth_scheme_vsn\":2,\"protocol\":\"json\",\"via\":\"45.135.231.228:443\",\"javastudies\":[\"3.66\"]}",
+      "type": "unknown"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.331Z",
+      "direction": "received",
+      "raw": "~m~95~m~{\"m\":\"series_loading\",\"p\":[\"cs_d56bfa07b443\",\"sds_1\",\"s1\"],\"t\":1754837337,\"t_ms\":1754837337292}~m~98~m~{\"m\":\"qsd\",\"p\":[\"qs_db17ca2ca045\",{\"n\":\"TSLA:TSLA\",\"s\":\"error\",\"errmsg\":\"no_such_symbol\",\"v\":{}}]}~m~4671~m~{\"m\":\"symbol_resolved\",\"p\":[\"cs_d56bfa07b443\",\"sds_sym_1\",{\"source2\":{\"country\":\"US\",\"description\":\"Cboe One\",\"exchange-type\":\"exchange\",\"id\":\"BATS\",\"name\":\"Cboe One\",\"url\":\"https://markets.cboe.com/us/equities/overview/\"},\"currency_code\":\"USD\",\"source_id\":\"BATS\",\"session_holidays\":\"20000117,20000221,20000421,20000529,20000704,20000904,20001123,20001225,20010101,20010115,20010219,20010413,20010528,20010704,20010903,20011122,20011225,20020101,20020121,20020218,20020329,20020527,20020704,20020902,20021128,20021225,20030101,20030120,20030217,20030418,20030526,20030704,20030901,20031127,20031225,20040101,20040119,20040216,20040409,20040531,20040611,20040705,20040906,20041125,20041224,20050117,20050221,20050325,20050530,20050704,20050905,20051124,20051226,20060102,20060116,20",
+      "type": "parsed"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.336Z",
+      "direction": "sent",
+      "message": {
+        "m": "create_study",
+        "p": [
+          "cs_d56bfa07b443",
+          "st4",
+          "st1",
+          "sds_1",
+          "Earnings@tv-basicstudies-255",
+          {}
+        ]
+      },
+      "raw": "~m~98~m~{\"m\":\"create_study\",\"p\":[\"cs_d56bfa07b443\",\"st4\",\"st1\",\"sds_1\",\"Earnings@tv-basicstudies-255\",{}]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.336Z",
+      "direction": "sent",
+      "message": {
+        "m": "create_study",
+        "p": [
+          "cs_d56bfa07b443",
+          "st2",
+          "st1",
+          "sds_1",
+          "Dividends@tv-basicstudies-255",
+          {}
+        ]
+      },
+      "raw": "~m~99~m~{\"m\":\"create_study\",\"p\":[\"cs_d56bfa07b443\",\"st2\",\"st1\",\"sds_1\",\"Dividends@tv-basicstudies-255\",{}]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.336Z",
+      "direction": "sent",
+      "message": {
+        "m": "create_study",
+        "p": [
+          "cs_d56bfa07b443",
+          "st3",
+          "st1",
+          "sds_1",
+          "Splits@tv-basicstudies-255",
+          {}
+        ]
+      },
+      "raw": "~m~96~m~{\"m\":\"create_study\",\"p\":[\"cs_d56bfa07b443\",\"st3\",\"st1\",\"sds_1\",\"Splits@tv-basicstudies-255\",{}]}"
+    },
+    {
+      "timestamp": "2025-08-10T14:48:57.460Z",
+      "direction": "received",
+      "raw": "~m~96~m~{\"m\":\"study_loading\",\"p\":[\"cs_d56bfa07b443\",\"st4\",\"s1_st1\"],\"t\":1754837337,\"t_ms\":1754837337500}~m~96~m~{\"m\":\"study_loading\",\"p\":[\"cs_d56bfa07b443\",\"st2\",\"s1_st1\"],\"t\":1754837337,\"t_ms\":1754837337500}~m~96~m~{\"m\":\"study_loading\",\"p\":[\"cs_d56bfa07b443\",\"st3\",\"s1_st1\"],\"t\":1754837337,\"t_ms\":1754837337500}~m~2751~m~{\"m\":\"timescale_update\",\"p\":[\"cs_d56bfa07b443\",{\"st4\":{\"node\":\"hkg1-charts-free-4-study-g4rby-4\",\"st\":[{\"i\":-1000003,\"v\":[1697635800.0,0.5299,0.729093,1696032000.0,1697587200000.0,0.66,24187.528377,23350.0,22.0]},{\"i\":-1000002,\"v\":[1706106600.0,2.27,0.73047,1703980800.0,1706054400000.0,0.71,25595.010373,25167.0,22.0]},{\"i\":-1000001,\"v\":[1713879000.0,0.3361,0.492039,1711843200.0,1713830400000.0,0.45,22220.029354,21301.0,22.0]},{\"i\":37,\"v\":[1721741400.0,0.4246,0.613394,1719705600.0,1721692800000.0,0.52,24521.972714,25500.0,22.0]},{\"i\":102,\"v\":[1729690200.0,0.6197,0.593383,1727654400.0,1729641600000.0,0.72,25468.371161,25182.0,22.0]},{\"i\":167,\"v\":[1738161000.0,0.658,0.7743",
+      "type": "parsed"
+    },
+    {
+      "timestamp": "2025-08-10T14:49:07.175Z",
+      "direction": "received",
+      "raw": "~m~4~m~~h~1",
+      "type": "unknown"
+    },
+    {
+      "timestamp": "2025-08-10T14:49:17.176Z",
+      "direction": "received",
+      "raw": "~m~4~m~~h~2",
+      "type": "unknown"
+    }
+  ]
+}

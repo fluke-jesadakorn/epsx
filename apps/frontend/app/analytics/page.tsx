@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 
 import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsDynamic';
 
-// ISR configuration for analytics - revalidate every 2 minutes for analytics data
-export const revalidate = 120;
+// Disable ISR caching for analytics - always fetch fresh data from backend
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'Analytics Dashboard - EPSX',

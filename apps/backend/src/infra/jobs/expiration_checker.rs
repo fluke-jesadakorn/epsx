@@ -75,13 +75,14 @@ impl ExpirationChecker {
             }
         }
 
-        // Log result summary
-        if let Err(e) = self.audit_repo.log_system_event(
-            "expiration_check_completed", 
-            &serde_json::to_string(&result).unwrap_or_default()
-        ).await {
-            error!("Failed to log expiration check result: {}", e);
-        }
+        // Skip audit logging for system events to avoid foreign key constraint issues
+        // Log result summary (removed due to audit_logs foreign key constraint)
+        // if let Err(e) = self.audit_repo.log_system_event(
+        //     "expiration_check_completed", 
+        //     &serde_json::to_string(&result).unwrap_or_default()
+        // ).await {
+        //     error!("Failed to log expiration check result: {}", e);
+        // }
 
         info!("Expiration check completed: {} processed, {} expired, {} notified, {} in grace period", 
               result.processed_count, result.expired_count, result.notification_count, result.grace_period_count);

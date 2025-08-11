@@ -11,13 +11,13 @@ import type { UserLevelType } from '@/app/constants/packages';
  * Can be used across different zones/pages
  */
 export async function fetchStockRankingData(
-  skip = 0,
+  page = 1,
   limit = 10,
   country?: any,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   // Use the same service as analytics page to leverage caching
-  return getStockFinancialData(skip, limit, country, quarters);
+  return getStockFinancialData(page, limit, country, quarters);
 }
 
 /**
@@ -27,7 +27,7 @@ export async function fetchStockRankingData(
 export async function fetchStockRankingDataForUser(
   userLevel: UserLevelType = 'BRONZE',
   isExpired: boolean = true,
-  skip = 0,
+  page = 1,
   country?: any,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
@@ -37,7 +37,7 @@ export async function fetchStockRankingDataForUser(
   // Always fetch a bit more for premium users to show locked items
   const fetchLimit = userLevel === 'BRONZE' ? maxLimit : Math.min(maxLimit + 10, 100);
   
-  return getStockFinancialData(skip, fetchLimit, country, quarters);
+  return getStockFinancialData(page, fetchLimit, country, quarters);
 }
 
 /**
@@ -46,12 +46,12 @@ export async function fetchStockRankingDataForUser(
  */
 export async function fetchStockRankingDataWithOffset(
   rankOffset = 0,
-  skip = 0,
+  page = 1,
   limit = 10,
   country?: any,
   quarters = 2,
 ): Promise<{ data: StockFinancialData[]; rankOffset: number }> {
-  const data = await getStockFinancialData(skip, limit, country, quarters);
+  const data = await getStockFinancialData(page, limit, country, quarters);
   
   return {
     data,

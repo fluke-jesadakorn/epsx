@@ -106,14 +106,20 @@ export abstract class BaseHttpClient {
 
       return { data: data as T };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorName = error instanceof Error ? error.name : 'UnknownError';
+      
       console.error('HTTP request exception', { 
         url, 
-        error: error instanceof Error ? error.message : String(error),
+        method: config.method || 'GET',
+        errorMessage,
+        errorName,
+        error: error,
         component: 'BaseHttpClient'
       });
 
       return {
-        error: error instanceof Error ? error.message : 'Request failed',
+        error: errorMessage || 'Request failed',
         details: 'Network or processing error',
       };
     }

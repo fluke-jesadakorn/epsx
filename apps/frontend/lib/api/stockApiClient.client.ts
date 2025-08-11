@@ -55,7 +55,7 @@ export class StockApiClient {
   /**
    * Fetch stocks using the original API (backward compatibility)
    */
-  async getStocks(params: StockApiParams & { skip?: number; paginated?: boolean } = {}): Promise<StockFinancialData[] | PaginatedResponse<StockFinancialData>> {
+  async getStocks(params: StockApiParams & { paginated?: boolean } = {}): Promise<StockFinancialData[] | PaginatedResponse<StockFinancialData>> {
     const result = await apiClient.getStocks(params);
     
     if (result.error) {
@@ -72,4 +72,4 @@ export const stockApiClient = new StockApiClient();
 // Export individual functions for easier use
 export const getPaginatedStocks = (params?: StockApiParams) => stockApiClient.getPaginatedStocks(params);
 export const getStockCount = (params?: Pick<StockApiParams, 'country' | 'quarters'>) => stockApiClient.getStockCount(params);
-export const getStocks = (params?: StockApiParams & { skip?: number; paginated?: boolean }) => stockApiClient.getStocks(params);
+export const getStocks = (params?: StockApiParams & { paginated?: boolean }) => stockApiClient.getStocks(params);

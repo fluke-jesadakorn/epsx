@@ -80,11 +80,19 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/rankings/:path*',
+        source: '/analytics/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=120, stale-while-revalidate=600',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
         ],
       },
