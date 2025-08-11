@@ -35,6 +35,9 @@ export function LoginFormServer({ redirectTo = '/dashboard' }: LoginFormServerPr
       }
 
       if (result?.ok) {
+        // Refresh server components to update navigation with new auth state
+        router.refresh();
+        // Then navigate to the target page
         router.push(redirectTo);
       }
     } catch (err) {

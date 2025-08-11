@@ -2,15 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context';
+import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 export function SettingsClient() {
-  const { signOut } = useAuth();
   const router = useRouter();
 
   const handleSignOut = async () => {
-    await signOut();
+    await signOut({ redirect: false });
     router.push('/');
   };
 

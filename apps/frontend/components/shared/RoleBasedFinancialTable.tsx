@@ -2,7 +2,7 @@
 
 import React from 'react';
 import FinancialDataTable from '@/components/home/FinancialDataTable';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
 import type { StockFinancialData } from '@/types/financialChartData';
@@ -28,7 +28,8 @@ export default function RoleBasedFinancialTable({
   rankShift = 0,
   className = "",
 }: RoleBasedFinancialTableProps): React.JSX.Element {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   // Apply rank shift if needed - moved before conditional returns
   const processedData = React.useMemo(() => {

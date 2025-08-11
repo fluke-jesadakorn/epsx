@@ -1,22 +1,25 @@
-'use client';
-
-import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@epsx/server-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
-export default function VerifyEmailPage() {
-  const { user } = useAuth();
-  const router = useRouter();
+export default async function VerifyEmailPage() {
+  // Server-side authentication check
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('VerifyEmailPage: Failed to get user:', error);
+  }
 
   if (!user) {
-    router.push('/login');
-    return null;
+    redirect('/login');
   }
 
   if (user.emailVerified) {
-    router.push('/dashboard');
-    return null;
+    redirect('/dashboard');
   }
 
   return (
@@ -29,8 +32,10 @@ export default function VerifyEmailPage() {
           <p className="mb-4">
             Please check your email ({user.email}) for a verification link.
           </p>
-          <Button onClick={() => router.push('/dashboard')} className="w-full">
-            Continue to Dashboard
+          <Button asChild className="w-full">
+            <Link href="/dashboard">
+              Continue to Dashboard
+            </Link>
           </Button>
         </CardContent>
       </Card>

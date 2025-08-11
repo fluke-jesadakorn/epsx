@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerAction } from '../core/action-wrapper';
-import { serverGet, serverPost, serverDelete } from '../core/enhanced-request';
+import { serverGet, serverPost, serverDelete } from '../core/request';
 import { z } from 'zod';
 
 // Schema definitions

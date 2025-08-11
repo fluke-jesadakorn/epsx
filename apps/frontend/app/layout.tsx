@@ -1,4 +1,5 @@
 import { ClientProviders } from '@/components/providers/ClientProviders';
+import { NavigationWithAuth } from '@/components/nav/NavigationWithAuth';
 import { Kanit } from 'next/font/google';
 import './globals.css';
 
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${kanit.variable} font-sans antialiased`}>
         <ClientProviders>
+          <NavigationWithAuth />
           {children}
         </ClientProviders>
       </body>

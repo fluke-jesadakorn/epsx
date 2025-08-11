@@ -3,11 +3,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z
   .object({
@@ -43,27 +45,34 @@ export function EmailPasswordForm({ isSignUp }: EmailPasswordFormProps) {
     },
   });
 
-  const { signInWithEmailAndPassword, signUp, error } = useAuth();
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (data: FormValues) => {
-    // Form submission triggered
+    setError(null);
     try {
       if (isSignUp) {
-        // Attempting sign up
-        await signUp({ email: data.email, password: data.password });
-        // Sign up successful
+        // Sign up not implemented - redirect to login for now
+        setError('Sign up functionality not available. Please use existing account.');
+        return;
       } else {
-        // Attempting sign in
-        await signInWithEmailAndPassword({ email: data.email, password: data.password });
-        // Sign in successful
-        // Add a small delay to ensure auth state is updated
-        setTimeout(() => {
-          // Post sign-in delay completed
-        }, 500);
+        // Sign in with NextAuth
+        const result = await signIn('credentials', {
+          email: data.email,
+          password: data.password,
+          redirect: false,
+        });
+        
+        if (result?.error) {
+          setError('Invalid email or password. Please try again.');
+        } else {
+          // Success - redirect to dashboard
+          router.push('/dashboard');
+        }
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      // Don't throw to prevent form submission errors
+      setError('An error occurred during sign in. Please try again.');
     }
   };
 

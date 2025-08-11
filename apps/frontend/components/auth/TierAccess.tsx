@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { getCurrentUser } from '@/lib/auth/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
 
 interface TierAccessProps {
   requiredTier: string;
@@ -18,7 +18,13 @@ export async function TierAccess({
   fallback,
   showTierInfo = false,
 }: TierAccessProps) {
-  const user = await getCurrentUser();
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('TierAccess: Failed to get user:', error);
+  }
   
   if (!user) {
     return fallback || <div>Authentication required</div>;

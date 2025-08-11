@@ -1,18 +1,22 @@
 'use client';
 
 import { FcGoogle } from "react-icons/fc";
+import { signIn } from 'next-auth/react';
+import { useState } from 'react';
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
 
 export function GoogleSignIn() {
-  const { signInWithGoogle, loading } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   const handleSignIn = async () => {
     try {
-      await signInWithGoogle();
+      setLoading(true);
+      await signIn('google', { redirect: true, callbackUrl: '/dashboard' });
     } catch (error) {
       console.error("Google sign-in error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

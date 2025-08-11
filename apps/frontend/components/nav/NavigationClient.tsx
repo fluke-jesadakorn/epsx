@@ -15,6 +15,8 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { signOut } from 'next-auth/react';
+import { logoutWithRevalidation } from '@epsx/server-actions';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -34,9 +36,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/auth-context';
 import { navigationService } from '@/services/navigation.service';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
+
+interface AuthUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+}
+
+interface NavigationClientProps {
+  user: AuthUser | null;
+}
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -46,24 +59,23 @@ const iconMap = {
   'my-data': <Database className="h-4 w-4" />,
 };
 
-function NavigationComponent() {
+export function NavigationClient({ user }: NavigationClientProps) {
   const pathname = usePathname();
-  const { user, logout, loading } = useAuth();
-  const userLevel = user?.subscription_tier || 'free';
-  const levelLoading = loading;
-  // Get user email and admin status from user object
-  const userEmail = user?.email;
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
+  
+  const userLevel = user?.subscription_tier || 'free';
+  const userEmail = user?.email;
+
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Don't render until mounted and auth is not loading
-  if (!isMounted || loading) {
+  // Don't render until mounted
+  if (!isMounted) {
     return (
       <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
         <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
@@ -75,7 +87,6 @@ function NavigationComponent() {
             </Link>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-            {/* Render a placeholder button with same structure to prevent layout shift */}
             <Button
               variant="ghost"
               disabled
@@ -96,10 +107,26 @@ function NavigationComponent() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      // First call the server action to handle backend logout and revalidation
+      await logoutWithRevalidation();
+      
+      // Then clear the NextAuth client session
+      await signOut({ redirect: false });
+      
+      // Finally redirect to login page
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error instanceof Error ? error.message : String(error));
+      
+      // Fallback: still try to clear client session and redirect even if server action fails
+      try {
+        await signOut({ redirect: false });
+        router.push('/login');
+      } catch (fallbackError) {
+        console.error('Fallback logout error:', fallbackError);
+        // Force navigation even if everything fails
+        router.push('/login');
+      }
     }
   };
 
@@ -141,7 +168,7 @@ function NavigationComponent() {
           </div>
 
           {/* User Level Display */}
-          {user && !levelLoading && (
+          {user && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -207,7 +234,7 @@ function NavigationComponent() {
                 </div>
 
                 {/* User Level Display - Mobile */}
-                {user && !levelLoading && (
+                {user && (
                   <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 rounded-lg">
                     <Badge
                       variant="secondary"
@@ -292,6 +319,3 @@ function NavigationComponent() {
     </div>
   );
 }
-
-// Memoize the component to prevent unnecessary re-renders
-export const Navigation = NavigationComponent;

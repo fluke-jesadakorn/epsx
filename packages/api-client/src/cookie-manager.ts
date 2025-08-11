@@ -83,12 +83,28 @@ export class CookieManager {
         allCookies.map((c: { name: string; value: string }) => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
       );
       
-      const authCookies = {
+      // Get both custom and NextAuth cookies
+      const nextAuthCookieNames = [
+        'next-auth.session-token',
+        '__Secure-next-auth.session-token', 
+        'authjs.session-token',
+        '__Secure-authjs.session-token'
+      ];
+      
+      const authCookies: Record<string, string | undefined> = {
         session: cookieStore.get(COOKIE_NAMES.SESSION)?.value,
         adminSession: cookieStore.get(COOKIE_NAMES.ADMIN_SESSION)?.value,
         csrf: cookieStore.get(COOKIE_NAMES.CSRF)?.value,
         refresh: cookieStore.get(COOKIE_NAMES.REFRESH)?.value,
       };
+      
+      // Add NextAuth cookies
+      for (const cookieName of nextAuthCookieNames) {
+        const cookie = cookieStore.get(cookieName);
+        if (cookie?.value) {
+          authCookies[cookieName] = cookie.value;
+        }
+      }
       
       console.log('🔍 [CookieManager] Looking for specific auth cookies:', {
         expectedNames: COOKIE_NAMES,
@@ -138,11 +154,22 @@ export class CookieManager {
             '__Secure-authjs.session-token'
           ];
           
+          console.log('🔍 [CookieManager] Checking for NextAuth cookies:', {
+            expectedCookieNames: nextAuthCookieNames,
+            availableCookies: cookieStore.getAll().map(c => c.name)
+          });
+          
           for (const cookieName of nextAuthCookieNames) {
             const cookie = cookieStore.get(cookieName);
             if (cookie?.value) {
               sessionToken = cookie.value;
               console.log(`🔐 [CookieManager] Found NextAuth session token from cookie: ${cookieName}`);
+              console.log('🔍 [CookieManager] Session token details:', {
+                cookieName,
+                tokenLength: cookie.value.length,
+                tokenStart: cookie.value.substring(0, 50) + '...',
+                isJWT: cookie.value.includes('.') && cookie.value.split('.').length === 3
+              });
               break;
             }
           }
@@ -170,7 +197,70 @@ export class CookieManager {
       
       // Add Bearer token authorization if session is available
       if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`;
+        // Check if this is a NextAuth JWE token that needs to be decrypted
+        try {
+          // NextAuth uses JWE tokens which look different from JWTs
+          // JWE format: header.encrypted_key.initialization_vector.ciphertext.authentication_tag
+          if (sessionToken.includes('.') && sessionToken.split('.').length === 5) {
+            // This is likely a JWE token from NextAuth
+            // Decrypt NextAuth JWE token
+            
+            try {
+              // Import NextAuth's getToken function which can decrypt JWE tokens
+              const { getToken } = await import('next-auth/jwt');
+              
+              // We need a mock request object to use with getToken
+              // Since we're in a server context, we can create a minimal request
+              const authCookies = await this.getAuthCookies();
+              const cookieHeader = Object.entries(authCookies)
+                .filter(([_, value]) => value)
+                .map(([name, value]) => `${name}=${value}`)
+                .join('; ');
+                
+              const mockReq = {
+                headers: {
+                  cookie: cookieHeader
+                },
+                cookies: authCookies
+              } as any;
+              
+              // Attempt token decryption with NextAuth
+              
+              // Try to decrypt the JWE token using NextAuth
+              const decryptedToken = await getToken({ 
+                req: mockReq, 
+                secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+                secureCookie: process.env.NODE_ENV === 'production'
+              });
+              
+              if (decryptedToken) {
+                
+                // Look for the backend session ID in various fields
+                const possibleSessionId = (decryptedToken.accessToken || 
+                                         decryptedToken.sessionId || 
+                                         decryptedToken.sub) as string | undefined;
+                
+                if (possibleSessionId && typeof possibleSessionId === 'string') {
+                  headers['Authorization'] = `Bearer ${possibleSessionId}`;
+                } else {
+                  headers['Authorization'] = `Bearer ${sessionToken}`;
+                }
+              } else {
+                headers['Authorization'] = `Bearer ${sessionToken}`;
+              }
+            } catch (decryptError: any) {
+              console.warn('NextAuth token decryption failed:', decryptError?.message);
+              headers['Authorization'] = `Bearer ${sessionToken}`;
+            }
+          } else {
+            // Use token directly (JWT or session ID)
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+          }
+        } catch (importError) {
+          console.warn('⚠️ [CookieManager] Failed to import next-auth/jwt, using raw token');
+          headers['Authorization'] = `Bearer ${sessionToken}`;
+        }
+        
         console.log('🔑 [CookieManager] Added Bearer token authorization header');
       } else {
         console.warn('⚠️ [CookieManager] No session token found for authorization');

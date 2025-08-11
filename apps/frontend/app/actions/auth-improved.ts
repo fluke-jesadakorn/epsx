@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/actions/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
 
 /**
  * Ensure the user is NOT authenticated (guest only)

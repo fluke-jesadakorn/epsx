@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,9 @@ export function withPaymentAuth<P extends object>(
   WrappedComponent: React.ComponentType<P>
 ) {
   const AuthGuardedComponent = (props: P) => {
-    const { user, loading } = useAuth();
+    const { data: session, status } = useSession();
+    const user = session?.user;
+    const loading = status === 'loading';
 
     if (loading) {
       return (

@@ -3,13 +3,13 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Mail, X } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 
 export function EmailVerificationBanner() {
-  const { user, sendEmailVerification, loading } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const [isDismissed, setIsDismissed] = useState(false);
-  const [isResending, setIsResending] = useState(false);
 
   // Only show if user is logged in, email is not verified, and banner not dismissed
   if (!user || user.emailVerified || isDismissed) {
@@ -17,15 +17,8 @@ export function EmailVerificationBanner() {
   }
 
   const handleResendVerification = async () => {
-    try {
-      setIsResending(true);
-      await sendEmailVerification();
-      // Could show a toast here
-    } catch (error) {
-      console.error('Failed to resend verification email:', error);
-    } finally {
-      setIsResending(false);
-    }
+    // TODO: Implement server action for email verification
+    console.log('Email verification resend not implemented');
   };
 
   return (
@@ -40,10 +33,9 @@ export function EmailVerificationBanner() {
             variant="outline"
             size="sm"
             onClick={handleResendVerification}
-            disabled={loading || isResending}
             className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
           >
-            {isResending ? 'Sending...' : 'Resend Email'}
+            Resend Email
           </Button>
           <Button
             variant="ghost"

@@ -10,8 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useAuth } from '@/context/auth-context';
-import { usePermissionAwareAccess } from '@/hooks/usePermissionAwareAccess';
+import { signOut, useSession } from 'next-auth/react';
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
 
 interface ClientNavControlsProps {
@@ -25,8 +24,9 @@ interface ClientNavControlsProps {
 export function ClientNavControls({ user: serverUser, navItems: _navItems }: ClientNavControlsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { user, logout, loading } = useAuth();
-  const { userLevel, isLoading: levelLoading } = usePermissionAwareAccess();
+  const { data: session } = useSession();
+  const user = session?.user || serverUser;
+  const userLevel = session?.user?.subscription_tier || 'free';
   const router = useRouter();
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function ClientNavControls({ user: serverUser, navItems: _navItems }: Cli
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut({ redirect: false });
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);

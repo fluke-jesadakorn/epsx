@@ -1,14 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmailVerificationNotice } from './EmailVerificationNotice';
-import { useAuth } from '@/context/auth-context';
 import { ArrowLeft } from 'lucide-react';
 
 export function EmailVerificationPage() {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const router = useRouter();
 
   const handleBackToMyData = () => {

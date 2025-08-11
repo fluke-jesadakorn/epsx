@@ -1,4 +1,5 @@
-import { requireAuth } from '@/lib/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
+import { redirect } from 'next/navigation';
 import { PaymentPageClient } from './PaymentPageClient';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
 import { Suspense } from 'react';
@@ -9,7 +10,17 @@ interface PaymentPageProps {
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   // Server-side auth check - redirect to login if not authenticated
-  await requireAuth('/payment');
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('PaymentPage: Failed to get user:', error);
+  }
+
+  if (!user) {
+    redirect('/login?callbackUrl=/payment');
+  }
   
   // Extract package parameter from search params
   const selectedPackageId = searchParams.package || '';

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { checkFeatureAccess } from '@/lib/auth/server-auth';
+import { checkFeatureAccess } from '@epsx/server-actions';
 import { AccessDenied } from './AccessDenied';
 
 interface FeatureAccessProps {
@@ -21,7 +21,13 @@ export async function FeatureAccess({
   fallback,
   showLimits = false,
 }: FeatureAccessProps) {
-  const access = await checkFeatureAccess(feature, action);
+  let access = { allowed: false, reason: 'Access check failed' };
+  try {
+    const result = await checkFeatureAccess(feature);
+    access = result?.success ? result.data : access;
+  } catch (error) {
+    console.error('FeatureAccess: Failed to check feature access:', error);
+  }
   
   if (!access.allowed) {
     if (fallback) {
@@ -104,7 +110,13 @@ export async function PremiumAccess({
  * API access wrapper with rate limiting info
  */
 export async function ApiAccess({ children }: { children: ReactNode }) {
-  const access = await checkFeatureAccess('api', 'access');
+  let access = { allowed: false, reason: 'API access check failed' };
+  try {
+    const result = await checkFeatureAccess('api');
+    access = result?.success ? result.data : access;
+  } catch (error) {
+    console.error('ApiAccess: Failed to check API access:', error);
+  }
   
   if (!access.allowed) {
     return (

@@ -96,21 +96,21 @@ export const advancedAnalyticsMiddleware: StateMiddleware = (action, prevState, 
     // Send to backend for user behavior analysis
     // NOTE: Analytics endpoints not yet implemented in backend
     // fetch('/api/v1/analytics/state-change', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        store,
-        actionType: action.type,
-        timestamp: action.meta?.timestamp || Date.now(),
-        source: action.meta?.source,
-        optimistic: action.meta?.optimistic,
-        // Don't send sensitive payload data
-        hasPayload: !!action.payload
-      })
-    }).catch(() => {
-      // Silently fail - analytics shouldn't break the app
-    });
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   credentials: 'include',
+    //   body: JSON.stringify({
+    //     store,
+    //     actionType: action.type,
+    //     timestamp: action.meta?.timestamp || Date.now(),
+    //     source: action.meta?.source,
+    //     optimistic: action.meta?.optimistic,
+    //     // Don't send sensitive payload data
+    //     hasPayload: !!action.payload
+    //   })
+    // }).catch(() => {
+    //   // Silently fail - analytics shouldn't break the app
+    // });
   }
 };
 

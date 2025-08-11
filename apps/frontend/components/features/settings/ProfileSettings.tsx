@@ -12,12 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { status } from '@/services/pay';
 import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';
 
 export function ProfileSettings() {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   
   // All users are now backend-authenticated
   const _isBackendUser = true;

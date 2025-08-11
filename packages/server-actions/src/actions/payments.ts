@@ -7,7 +7,7 @@ import {
   CommonSchemas,
   type ActionResult 
 } from '../core/action-wrapper';
-import { serverGet, serverPost } from '../core/enhanced-request';
+import { serverGet, serverPost } from '../core/request';
 import { z } from 'zod';
 import { 
   CreatePaymentRequestSchema,

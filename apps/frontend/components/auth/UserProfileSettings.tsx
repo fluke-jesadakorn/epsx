@@ -26,7 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth, useAuthUtils } from '@/hooks/useAuth';
+import { useSession } from 'next-auth/react';
 import { Save, Mail, Lock } from 'lucide-react';
 
 // Validation schemas
@@ -53,26 +53,41 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function UserProfileSettings() {
-  const {
-    user,
-    error,
-    clearError,
-    updateProfile,
-    changePassword,
-    sendEmailVerification,
-    linkGoogleAccount,
-    unlinkProvider,
-    hasPassword,
-    hasGoogle,
-    providers,
-  } = useAuth();
-
-  const { getUserInitials, getUserDisplayName } = useAuthUtils();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const loading = status === 'loading';
+  
+  // Simplified auth utilities
+  const getUserInitials = (user: any) => {
+    if (!user) return 'U';
+    const name = user.name || user.displayName || user.email;
+    return name?.charAt(0).toUpperCase() || 'U';
+  };
+  
+  const getUserDisplayName = (user: any) => {
+    return user?.name || user?.displayName || user?.email || 'Unknown User';
+  };
 
   const [activeTab, setActiveTab] = useState<
     'profile' | 'security' | 'providers'
   >('profile');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Placeholder functions - these would need to be implemented with server actions
+  const updateProfile = async (data: any) => {
+    setError('Profile update not implemented');
+  };
+  
+  const changePassword = async (data: any) => {
+    setError('Password change not implemented');
+  };
+  
+  const linkGoogleAccount = async () => {
+    setError('Account linking not implemented');
+  };
+  
+  const clearError = () => setError(null);
 
   if (!user) {
     return (

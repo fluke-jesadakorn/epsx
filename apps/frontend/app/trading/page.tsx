@@ -1,9 +1,20 @@
-import { requireAuth } from '@/lib/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function TradingPage() {
   // Server-side auth check with automatic redirect if not authenticated
-  const user = await requireAuth('/trading');
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('TradingPage: Failed to get user:', error);
+  }
+
+  if (!user) {
+    redirect('/login?callbackUrl=/trading');
+  }
 
   return (
     <div className="container mx-auto p-6">

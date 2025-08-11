@@ -189,10 +189,10 @@ class RollbackService {
       // NOTE: Monitoring endpoints not yet implemented in backend
       console.warn('Monitoring alerts endpoint not available');
       // await fetch('/api/v1/monitoring/alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message),
-      });
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(message),
+      // });
     } catch (error) {
       console.error('Failed to send rollback notification:', error);
     }
@@ -215,10 +215,10 @@ class RollbackService {
       // NOTE: Monitoring endpoints not yet implemented in backend
       console.warn('Monitoring events endpoint not available');
       // await fetch('/api/v1/monitoring/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
-      });
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(event),
+      // });
     } catch (error) {
       console.error('Failed to log rollback event:', error);
     }
@@ -237,10 +237,10 @@ class RollbackService {
       // NOTE: Monitoring endpoints not yet implemented in backend
       console.warn('Monitoring alerts endpoint not available');
       // await fetch('/api/v1/monitoring/alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alert),
-      });
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(alert),
+      // });
     } catch (e) {
       console.error('Failed to send failed rollback alert:', e);
     }

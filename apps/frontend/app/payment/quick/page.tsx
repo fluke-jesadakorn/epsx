@@ -1,4 +1,5 @@
-import { requireAuth } from '@/lib/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
+import { redirect } from 'next/navigation';
 import { QuickPaymentClient } from './QuickPaymentClient';
 
 interface QuickPaymentPageProps {
@@ -7,7 +8,17 @@ interface QuickPaymentPageProps {
 
 export default async function QuickPaymentPage({ searchParams }: QuickPaymentPageProps) {
   // Server-side auth check - redirect to login if not authenticated
-  await requireAuth('/payment/quick');
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('QuickPaymentPage: Failed to get user:', error);
+  }
+
+  if (!user) {
+    redirect('/login?callbackUrl=/payment/quick');
+  }
   
   // Extract parameters from search params
   const pkg = searchParams.package || '';

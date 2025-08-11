@@ -6,6 +6,7 @@
 export {
   login,
   logout,
+  logoutWithRevalidation,
   getCurrentUser,
   register,
   checkFeatureAccess,

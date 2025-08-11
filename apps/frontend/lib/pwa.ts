@@ -254,12 +254,12 @@ export class PWAManager {
       // NOTE: Notification endpoints not yet implemented in backend
       console.warn('Notification subscribe endpoint not available');
       // await fetch('/api/v1/notifications/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(subscription)
-      });
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(subscription)
+      // });
     } catch (error) {
       console.error('Failed to send subscription to server:', error);
     }
@@ -270,12 +270,12 @@ export class PWAManager {
       // NOTE: Notification endpoints not yet implemented in backend
       console.warn('Notification unsubscribe endpoint not available');
       // await fetch('/api/v1/notifications/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(subscription)
-      });
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(subscription)
+      // });
     } catch (error) {
       console.error('Failed to remove subscription from server:', error);
     }

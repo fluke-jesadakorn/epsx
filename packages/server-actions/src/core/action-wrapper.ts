@@ -100,11 +100,6 @@ export function withServerAction<TInput = any, TOutput = any>(
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error(`Server action failed: ${actionName}`, {
-        duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : error,
-        context
-      });
 
       // Check if this is a handled cookie context error
       const errorMessage = error instanceof Error ? error.message : String(error);

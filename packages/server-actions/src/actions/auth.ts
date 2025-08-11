@@ -6,8 +6,9 @@ import {
   createAuthenticatedAction,
   type ActionResult 
 } from '../core/action-wrapper';
-import { serverGet, serverPost } from '../core/enhanced-request';
+import { serverGet, serverPost } from '../core/request';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import { 
   LoginRequestSchema, 
   RegisterRequestSchema, 
@@ -48,14 +49,67 @@ export const enhancedLogout = createServerAction(
   }
 );
 
+export const logoutWithRevalidation = createServerAction(
+  'auth.logoutWithRevalidation',
+  async (_, context) => {
+    try {
+      // Call the backend logout API to clear server-side session
+      await serverPost('/api/v1/auth/logout', undefined, {
+        action: context.action,
+        userId: context.userId,
+        requestId: context.requestId
+      });
+      
+      // Revalidate the entire app to refresh server components with new auth state
+      // This will cause NavigationWithAuth to re-fetch user data
+      revalidatePath('/', 'layout');
+      
+      return { success: true, message: 'Logged out successfully' };
+    } catch (error) {
+      console.error('Server logout error:', error);
+      // Still revalidate even if backend logout fails
+      revalidatePath('/', 'layout');
+      throw error;
+    }
+  }
+);
+
 export const enhancedGetCurrentUser = createServerAction(
   'auth.getCurrentUser',
   async (_, context) => {
-    return await serverGet('/api/v1/auth/profile', undefined, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    try {
+      console.log('🔍 [getCurrentUser] Attempting to fetch user profile');
+      
+      const result = await serverGet('/api/v1/auth/profile', undefined, {
+        action: context.action,
+        userId: context.userId,
+        requestId: context.requestId
+      });
+      
+      // Validate token expiry from response if present
+      if (result && result.expires_at) {
+        const expiresAt = new Date(result.expires_at);
+        const now = new Date();
+        
+        if (expiresAt <= now) {
+          console.warn('⚠️ [getCurrentUser] Token expired, clearing session');
+          throw new Error('Token expired');
+        }
+        
+        // Check if token will expire soon (within 5 minutes)
+        const fiveMinutes = 5 * 60 * 1000;
+        if (expiresAt.getTime() - now.getTime() < fiveMinutes) {
+          console.warn('⚠️ [getCurrentUser] Token expires soon, consider refreshing');
+        }
+      }
+      
+      console.log('✅ [getCurrentUser] Profile fetched successfully for:', result?.email || 'unknown');
+      return result;
+      
+    } catch (error) {
+      console.error('❌ [getCurrentUser] Failed to fetch user profile:', error);
+      throw error;
+    }
   }
 );
 
@@ -187,6 +241,8 @@ export const enhancedCheckAdminPermission = createAuthenticatedAction(
 export const login = enhancedLogin;
 export const logout = enhancedLogout;
 export const getCurrentUser = enhancedGetCurrentUser;
+
+// The logoutWithRevalidation function is already exported above
 export const register = enhancedRegister;
 export const updateProfile = enhancedUpdateProfile;
 export const changePassword = enhancedChangePassword;

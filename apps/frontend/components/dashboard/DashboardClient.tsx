@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth } from '@/context/auth-context';
+import { signOut } from 'next-auth/react';
 import {
   BarChart3,
   Lock,
@@ -31,7 +31,7 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ user, permissions, dashboardData: _dashboardData }: DashboardClientProps) {
-  const { logout } = useAuth();
+  const handleLogout = () => signOut({ redirect: true, callbackUrl: '/login' });
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -259,7 +259,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
         <div className="mt-12 text-center">
           {user ? (
             <Button
-              onClick={logout}
+              onClick={handleLogout}
               variant="pancake-outline"
               className="px-8 py-3 text-lg font-semibold"
             >

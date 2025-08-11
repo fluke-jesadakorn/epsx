@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { getCurrentUser, validatePermissions } from '@/lib/auth/server-auth';
+import { getCurrentUser } from '@epsx/server-actions';
 import { AccessDenied } from './AccessDenied';
 
 interface PageGuardProps {
@@ -29,12 +29,15 @@ export async function PageGuard({
   
   // Check permissions if specified
   if (permissions.length > 0 && user) {
-    const validation = await validatePermissions(permissions);
+    const userPermissions = user.permissions || [];
+    const hasRequiredPermissions = permissions.every(permission => 
+      userPermissions.includes(permission) || userPermissions.includes('*')
+    );
     
-    if (!validation.allowed) {
+    if (!hasRequiredPermissions) {
       return (
         <AccessDenied 
-          reason={validation.reason}
+          reason="Insufficient permissions"
           requiredPermissions={permissions}
         />
       );

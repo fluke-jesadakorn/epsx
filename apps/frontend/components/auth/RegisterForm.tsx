@@ -5,7 +5,7 @@ import {
   isPasswordWeak,
 } from '@/lib/password-strength';
 import { useRouter } from 'next/navigation';
-import { mainAuthAPI } from '@/lib/auth-api';
+import { signIn } from 'next-auth/react';
 import React, { useState } from 'react';
 
 interface RegisterFormProps {
@@ -67,11 +67,18 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
         throw new Error(errorData || 'Registration failed');
       }
 
-      // Then login automatically
-      await mainAuthAPI.login(email, password);
+      // Then login automatically using NextAuth
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
 
       // Registration and login successful
-
       // Redirect to dashboard
       router.push(redirectTo || '/dashboard');
       router.refresh();

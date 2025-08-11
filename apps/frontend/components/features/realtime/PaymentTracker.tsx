@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 
 interface PaymentEvent {
   type: 'payment_started' | 'payment_completed' | 'payment_failed';
@@ -56,7 +56,8 @@ interface PaymentStatus {
 }
 
 export default function PaymentTracker() {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const [payments, setPayments] = useState<PaymentStatus[]>([]);
   const [connectionType, setConnectionType] = useState<'none' | 'websocket' | 'sse'>('none');
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');

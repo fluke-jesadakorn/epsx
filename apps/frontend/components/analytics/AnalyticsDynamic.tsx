@@ -1,10 +1,23 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { ComponentType } from 'react';
 import { AnalyticsCardSkeleton } from './AnalyticsCardSkeleton';
 
+interface AuthUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+}
+
+interface AnalyticsProps {
+  user?: AuthUser | null;
+}
+
 // Dynamic import for heavy analytics components to reduce initial bundle size
-export const AnalyticsRankingDashboard = dynamic(
+export const AnalyticsRankingDashboard: ComponentType<AnalyticsProps> = dynamic(
   () => import('./AnalyticsRankingDashboard').then(mod => ({ default: mod.AnalyticsRankingDashboard })),
   {
     loading: () => <AnalyticsCardSkeleton />,

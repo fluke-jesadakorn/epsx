@@ -25,7 +25,7 @@ import {
   validatePayment,
 } from '@/app/constants/packages';
 import type { CurrencyType, PaymentError } from '@/app/constants/packages';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { default as _PaymentDetails } from './PaymentDetails';
 import { QRCodeCanvas } from 'qrcode.react';
 interface OneClickPaymentProps {
@@ -102,7 +102,8 @@ export default function OneClickPayment({
 }: OneClickPaymentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const paymentService = createPaymentService();
   
   // Create API client instance

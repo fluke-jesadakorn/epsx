@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { Metadata } from 'next';
 
 import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsDynamic';
+import { getCurrentUser } from '@epsx/server-actions';
 
 // Disable ISR caching for analytics - always fetch fresh data from backend
 export const revalidate = 0;
@@ -11,7 +12,17 @@ export const metadata: Metadata = {
   description: 'Comprehensive stock ranking analytics and insights - free access for all users',
 };
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  // Get user data for analytics (not required, analytics is free for all)
+  let user = null;
+  try {
+    const result = await getCurrentUser({});
+    user = result?.success ? result.data : null;
+  } catch (error) {
+    console.error('Analytics page: Failed to get user:', error);
+    // Continue without user - analytics is free for all
+  }
+  
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* PancakeSwap-style background decorations */}
@@ -37,7 +48,7 @@ export default function AnalyticsPage() {
         
         <div className="animate-slide-up-delayed">
           {/* Stock Rankings Dashboard */}
-          <AnalyticsRankingDashboard />
+          <AnalyticsRankingDashboard user={user} />
         </div>
       </div>
     </div>

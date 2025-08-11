@@ -1,5 +1,5 @@
 import { useState, useEffect as _useEffect } from 'react';
-import { useAuth } from './useAuth';
+import { useSession } from 'next-auth/react';
 
 interface PaginatedFeatureAccessOptions {
   feature: string;
@@ -13,7 +13,9 @@ function usePaginatedFeatureAccessWithParams({
   feature, 
   pageSize = 10 
 }: PaginatedFeatureAccessOptions) {
-  const { user, loading } = useAuth();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const loading = status === 'loading';
   const [currentPage, setCurrentPage] = useState(1);
   
   const hasFeatureAccess = user?.permissions?.includes(`${feature}:read`) || false;
@@ -49,7 +51,9 @@ export { usePaginatedFeatureAccessWithParams as usePaginatedFeatureAccess };
  * Hook for managing paginated feature access without parameters (for analytics dashboard)
  */
 export default function usePaginatedFeatureAccess() {
-  const { user, loading } = useAuth();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const loading = status === 'loading';
   
   // Determine user tier based on role and subscription
   const getUserTier = () => {

@@ -117,7 +117,8 @@ export async function makeServerRequest<T = any>(
  */
 export async function serverGet<T = any>(
   endpoint: string, 
-  params?: Record<string, string | number | boolean>
+  params?: Record<string, string | number | boolean>,
+  context?: any
 ): Promise<T> {
   let url = endpoint;
   
@@ -145,7 +146,8 @@ export async function serverGet<T = any>(
  */
 export async function serverPost<T = any>(
   endpoint: string, 
-  data?: any
+  data?: any,
+  context?: any
 ): Promise<T> {
   return makeServerRequest<T>({
     endpoint,
@@ -159,7 +161,8 @@ export async function serverPost<T = any>(
  */
 export async function serverPut<T = any>(
   endpoint: string, 
-  data?: any
+  data?: any,
+  context?: any
 ): Promise<T> {
   return makeServerRequest<T>({
     endpoint,
@@ -172,10 +175,26 @@ export async function serverPut<T = any>(
  * Helper for making DELETE requests
  */
 export async function serverDelete<T = any>(
-  endpoint: string
+  endpoint: string,
+  context?: any
 ): Promise<T> {
   return makeServerRequest<T>({
     endpoint,
     method: 'DELETE',
+  });
+}
+
+/**
+ * Helper for making PATCH requests
+ */
+export async function serverPatch<T = any>(
+  endpoint: string, 
+  data?: any,
+  context?: any
+): Promise<T> {
+  return makeServerRequest<T>({
+    endpoint,
+    method: 'PATCH',
+    body: data ? JSON.stringify(data) : undefined,
   });
 }

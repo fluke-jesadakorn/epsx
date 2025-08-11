@@ -6,7 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import { Grid3X3 } from 'lucide-react';
 import { EnhancedAnalyticsRankingDashboard } from './EnhancedAnalyticsRankingDashboard';
 
-export function AnalyticsRankingDashboard() {
+interface AuthUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+}
+
+interface AnalyticsRankingDashboardProps {
+  user?: AuthUser | null;
+}
+
+export function AnalyticsRankingDashboard({ user }: AnalyticsRankingDashboardProps) {
   return (
     <div className="space-y-4">
       {/* Analytics Header */}
@@ -24,7 +36,7 @@ export function AnalyticsRankingDashboard() {
         </CardContent>
       </Card>
       
-      <EnhancedAnalyticsRankingDashboard />
+      <EnhancedAnalyticsRankingDashboard user={user} />
     </div>
   );
 }

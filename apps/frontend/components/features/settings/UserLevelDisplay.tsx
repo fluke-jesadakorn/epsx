@@ -12,7 +12,7 @@ import {
   getPackageByLevel,
 } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { status } from '@/services/pay';
 import { Crown, Star, Trophy, Gem, Zap, Lock, ArrowRight } from 'lucide-react';
 
@@ -52,7 +52,8 @@ const levelGradients = {
 };
 
 export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const router = useRouter();
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);

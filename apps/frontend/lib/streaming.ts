@@ -72,10 +72,10 @@ export function createSSEStream(
       // NOTE: Stream endpoints not yet implemented in backend
       console.warn('Stream endpoint not available');
       // fetch('/api/v1/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      }).catch(console.error);
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(data),
+      // }).catch(console.error);
     },
   };
 }

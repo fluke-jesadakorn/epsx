@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth as useAuthContext } from '@/context/auth-context';
 
 // DEPRECATED: Generic data fetching hook using deprecated API client
 // Migrate to specific server actions instead of using this hook
@@ -165,5 +164,3 @@ export function useClickOutside<T extends HTMLElement>(
   return ref;
 }
 
-// Auth hook
-export const useAuth = useAuthContext;

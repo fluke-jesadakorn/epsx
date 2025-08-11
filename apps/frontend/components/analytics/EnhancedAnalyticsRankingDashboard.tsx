@@ -17,7 +17,6 @@ import {
   BarChart3,
   Download,
 } from 'lucide-react';
-import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
 import { EnhancedPagination } from './EnhancedPagination';
@@ -25,15 +24,28 @@ import { ActiveFilterIndicators } from './ActiveFilterIndicators';
 import { formatPrice, formatDate } from '@/utils/fmt';
 import { useToast } from '@/components/ui/use-toast';
 
+interface AuthUser {
+  user_id: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  subscription_tier: string;
+}
+
 interface EnhancedAnalyticsRankingDashboardProps {
   className?: string;
+  user?: AuthUser | null;
 }
 
 export function EnhancedAnalyticsRankingDashboard({ 
-  className 
+  className,
+  user 
 }: EnhancedAnalyticsRankingDashboardProps) {
   const { toast } = useToast();
-  const { loading: accessLoading } = useRankingAccess();
+  
+  // Replace useRankingAccess hook with inline logic
+  const hasRankingAccess = user?.permissions?.includes('ranking:read') || false;
+  const accessLoading = false; // No loading state needed since user is passed as prop
   
   const {
     filters,

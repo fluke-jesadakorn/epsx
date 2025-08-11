@@ -27,7 +27,6 @@ import {
   LockedRankingCard,
   UpgradePrompt,
 } from '@/components/ui/upgrade-prompt';
-import { useRankingAccess } from '@/hooks/useRankingAccess';
 import { Button } from '../ui/button';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
@@ -272,9 +271,8 @@ function DataRankTable({
   rankingLimit,
 }: DataRankTableProps): React.JSX.Element {
   const router = useRouter();
-  const { canAccessRankings: _canAccessRankings, loading: _loading } = useRankingAccess();
 
-  // Create mock ranking access data for now - in real implementation this would come from useRankingAccess
+  // Mock ranking access data - replace with server-side auth when needed
   const maxRankings = 10;
   const userLevel: UserLevelType = 'BRONZE';
   const upgradeRequired = false;
