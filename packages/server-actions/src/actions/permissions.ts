@@ -26,7 +26,7 @@ export interface PermissionProfile {
 export async function getUserPermissions(): Promise<UserPermission[]> {
   try {
     // Use existing auth/profile endpoint which includes permissions
-    const response = await serverGet('/api/v1/auth/profile');
+    const response = await serverGet('/api/v1/auth/me');
     if (response?.permissions) {
       // Convert string permissions to UserPermission objects
       return response.permissions.map((perm: string) => ({
@@ -168,7 +168,7 @@ export async function getPermissionMatrix(userId?: string): Promise<Record<strin
       return matrix;
     } else {
       // For current user, use profile endpoint
-      const response = await serverGet('/api/v1/auth/profile');
+      const response = await serverGet('/api/v1/auth/me');
       return response?.permissions ? { current_user: response.permissions } : {};
     }
   } catch (error) {

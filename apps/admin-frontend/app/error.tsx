@@ -43,10 +43,10 @@ export default function Error({
           Try again
         </button>
         
-        {process.env.NODE_ENV === 'development' && (
+        {typeof window !== 'undefined' && (
           <details className="mt-6 text-left">
             <summary className="cursor-pointer text-sm text-muted-foreground">
-              Error Details (Development)
+              Error Details
             </summary>
             <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto">
               {error.message}

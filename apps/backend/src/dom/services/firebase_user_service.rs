@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::infra::firebase_admin::{FirebaseAdmin, FirebaseUser};
-use crate::dom::services::{DatabaseRoleService, DatabaseRoleServiceTrait};
+use crate::dom::services::{DatabaseRoleService, DatabaseRoleServiceTrait, AdminModuleService};
 
 /// Firebase-first user service that queries Firebase directly for all user data
 /// No local user data storage - Firebase is the single source of truth
@@ -9,6 +9,7 @@ use crate::dom::services::{DatabaseRoleService, DatabaseRoleServiceTrait};
 pub struct FirebaseUserService {
     firebase_admin: FirebaseAdmin,
     role_service: Option<DatabaseRoleService>,
+    admin_module_service: Option<std::sync::Arc<AdminModuleService>>,
 }
 
 /// User creation request
@@ -92,6 +93,7 @@ impl FirebaseUserService {
         Ok(Self {
             firebase_admin,
             role_service: None,
+            admin_module_service: None,
         })
     }
     
@@ -106,6 +108,7 @@ impl FirebaseUserService {
         Ok(Self {
             firebase_admin,
             role_service: Some(role_service),
+            admin_module_service: None,
         })
     }
     
@@ -114,20 +117,59 @@ impl FirebaseUserService {
         Self {
             firebase_admin,
             role_service: None,
+            admin_module_service: None,
+        }
+    }
+    
+    /// Create service with AdminModuleService dependency
+    pub fn with_admin_module_service(firebase_admin: FirebaseAdmin, admin_module_service: std::sync::Arc<AdminModuleService>) -> Self {
+        Self {
+            firebase_admin,
+            role_service: None,
+            admin_module_service: Some(admin_module_service),
         }
     }
 
     /// Validate admin access for user
     pub async fn validate_admin_access(&self, firebase_uid: &str) -> Result<bool, UserServiceError> {
-        // Check if user has admin role in database
+        tracing::info!("Validating admin access for firebase_uid: {}", firebase_uid);
+        
+        // First check: Use granular admin module system if available
+        if let Some(admin_module_service) = &self.admin_module_service {
+            match admin_module_service.get_user_admin_modules(firebase_uid).await {
+                Ok(modules) => {
+                    let has_admin_modules = !modules.is_empty();
+                    tracing::info!("User {} has {} admin modules: {:?}", firebase_uid, modules.len(), modules);
+                    return Ok(has_admin_modules);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to check admin modules for {}: {:?}", firebase_uid, e);
+                }
+            }
+        }
+        
+        // Second check: Check if user has admin role in database
         if let Some(role_service) = &self.role_service {
             if let Ok(Some(role_data)) = role_service.get_user_role(firebase_uid).await {
+                tracing::info!("User {} has legacy admin role: {}", firebase_uid, role_data.is_admin);
                 return Ok(role_data.is_admin);
             }
         }
         
-        // Fallback: check if user is admin based on UID pattern (for development)
-        Ok(firebase_uid.contains("admin"))
+        // Development fallback: For specific test users (support both email and Firebase UID)
+        let test_admin_email = std::env::var("TEST_ADMIN_EMAIL").unwrap_or_default();
+        let test_admin_uid = std::env::var("TEST_ADMIN_UID").unwrap_or_default();
+        
+        if (!test_admin_email.is_empty() && firebase_uid == test_admin_email) ||
+           (!test_admin_uid.is_empty() && firebase_uid == test_admin_uid) {
+            tracing::info!("User {} granted admin access via TEST_ADMIN_EMAIL/TEST_ADMIN_UID environment variable", firebase_uid);
+            return Ok(true);
+        }
+        
+        // Development fallback: check if user is admin based on UID pattern (legacy)
+        let legacy_admin_check = firebase_uid.contains("admin");
+        tracing::info!("User {} legacy admin check (contains 'admin'): {}", firebase_uid, legacy_admin_check);
+        Ok(legacy_admin_check)
     }
 }
 

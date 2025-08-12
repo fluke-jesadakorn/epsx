@@ -368,7 +368,7 @@ export class ApiClient {
       photo_url?: string;
       email_verified: boolean;
       is_active: boolean;
-    }>('/api/v1/auth/profile');
+    }>('/api/v1/auth/me');
 
     if (response.error) {
       return { error: response.error, message: response.message } as ApiResponse<UserProfile>;
@@ -407,7 +407,7 @@ export class ApiClient {
   async updateProfile(
     request: ProfileUpdateRequest
   ): Promise<ApiResponse<UserProfile>> {
-    return this.patch<UserProfile>('/api/v1/auth/profile', request);
+    return this.patch<UserProfile>('/api/v1/auth/me', request);
   }
 
   async changePassword(
@@ -586,7 +586,7 @@ export class ApiClient {
   }
 
   async getUserPermissionStatus(): Promise<ApiResponse<UserPermissionStatus>> {
-    const response = await this.get<unknown>('/api/v1/auth/profile');
+    const response = await this.get<unknown>('/api/v1/auth/me');
     if (response.error) {
       return response as ApiResponse<UserPermissionStatus>;
     }

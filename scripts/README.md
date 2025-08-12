@@ -1,136 +1,157 @@
-# Admin Scripts
+# Admin Assignment Scripts
 
-This directory contains administrative scripts for managing users and permissions in the EPSX system.
+Scripts for managing admin privileges in the EPSX trading platform.
 
-## Scripts
+## Files
 
-### 1. promote-user-admin.js
+- `assign-admin.js` - Core Node.js script for assigning admin privileges
+- `run-assign-admin.sh` - Bash wrapper script with environment checks
+- `README.md` - This documentation
 
-Multi-purpose script for promoting users to SuperAdmin role with various access levels and assigning IAM/ACL permission profiles.
-
-#### Usage
-
-```bash
-# Promote user to SuperAdmin (standard permissions)
-node scripts/promote-user-admin.js promote user@example.com
-node scripts/promote-user-admin.js promote user@example.com "Emergency access needed"
-
-# Promote user to SuperAdmin with ALL ACCESS (recommended for full system access)
-node scripts/promote-user-admin.js super-admin user@example.com
-node scripts/promote-user-admin.js super-admin user@example.com "Full system access granted"
-
-# Assign permission profile
-node scripts/promote-user-admin.js assign user@example.com user-premium-002
-node scripts/promote-user-admin.js assign user@example.com mod-standard-003 --reason "Moderator promotion"
-
-# Legacy usage (backward compatible)
-node scripts/promote-user-admin.js user@example.com
-```
-
-
-## Package.json Scripts
-
-For convenience, you can use the following npm/pnpm scripts:
+## Quick Usage
 
 ```bash
-# Promote user to admin (standard)
-pnpm promote-admin user@example.com "Emergency access"
-
-# Promote user to super admin with all access
-pnpm super-admin user@example.com "Full system access granted"
-
-# Assign IAM profile using the main script
-pnpm promote-admin assign user@example.com user-premium-002 --reason "Upgrade"
+# From project root directory
+./scripts/run-assign-admin.sh
 ```
 
-## Backend Binaries
+## Manual Usage
 
-The scripts invoke Rust binaries in the backend:
-
-### promote_admin
-- Located: `apps/backend/src/bin/promote_admin.rs`
-- Purpose: Promote users to SuperAdmin role with configurable permission levels
-- Usage: 
-  - Standard: `cargo run --bin promote_admin -- --email="user@example.com" --reason="Emergency"`
-  - Full Access: `cargo run --bin promote_admin -- --email="user@example.com" --reason="Full access" --super-admin`
-
-### assign_iam
-- Located: `apps/backend/src/bin/assign_iam.rs`
-- Purpose: Assign IAM/ACL permission profiles to users
-- Usage: `cargo run --bin assign_iam -- --email="user@example.com" --profile_id="user-premium-002"`
-
-## Available Permission Profiles
-
-Current system supports these permission profiles:
-
-- **user-basic-001**: Basic user permissions (Bronze tier)
-- **user-premium-002**: Premium user permissions (Silver tier)
-- **moderator-standard-003**: Standard moderator permissions (Gold tier)
-- **admin-full-004**: Full administrative permissions (Platinum tier)
-
-## Options
-
-### Common Options
-- `--reason`: Reason for the assignment/promotion
-- `--admin-id`: Admin user ID performing the action
-
-### IAM Assignment Options
-- `--merge-permissions`: Whether to merge with existing permissions (default: true)
-- `--expires-at`: Expiration date in ISO 8601 format (e.g., 2024-12-31T23:59:59Z)
-
-## Examples
-
-### Promote User to SuperAdmin
 ```bash
-# Using script directly (standard permissions)
-node scripts/promote-user-admin.js promote admin@company.com "New admin setup"
+# Set required environment variable
+export FIREBASE_API_KEY="your-firebase-api-key"
 
-# Using script directly (ALL ACCESS - recommended for full system control)
-node scripts/promote-user-admin.js super-admin admin@company.com "Full system access granted"
-
-# Using package script (standard)
-pnpm promote-admin admin@company.com "New admin setup"
-
-# Using package script (super admin with all access)
-pnpm super-admin admin@company.com "Full system access granted"
+# Run the script directly  
+node scripts/assign-admin.js
 ```
 
-### Assign Premium User Profile
-```bash
-# Using main script
-node scripts/promote-user-admin.js assign user@example.com user-premium-002 --reason "Upgrade to premium plan"
+## What This Script Does
+
+1. **Finds the user** `jesadakorn.kirtnu@gmail.com` in Firebase
+2. **Assigns admin role** via backend API (if available)
+3. **Sets custom claims** directly via Firebase Identity Toolkit API
+4. **Verifies the assignment** by checking user claims
+5. **Provides access summary** for both applications
+
+## Admin Privileges Assigned
+
+### Admin Frontend (@apps/admin-frontend/)
+- ✅ User Management (create, edit, delete users)
+- ✅ IAM Management (roles, permissions, profiles) 
+- ✅ Analytics Dashboard (system metrics, user analytics)
+- ✅ Billing Management (subscriptions, payments)
+- ✅ Module Management (enable/disable features)
+- ✅ Database Administration
+- ✅ Developer Portal
+- ✅ System Settings
+
+### Frontend (@apps/frontend/)
+- ✅ Premium Trading Features
+- ✅ Advanced Analytics 
+- ✅ EPS Analysis Tools
+- ✅ Pattern Recognition
+- ✅ All Payment Plans
+- ✅ Unrestricted Dashboard Access
+- ✅ Admin-level Data Access
+
+## Custom Claims Set
+
+```json
+{
+  "admin": true,
+  "access_level": "full", 
+  "role": "admin",
+  "permissions": [
+    "user_management",
+    "iam_management",
+    "analytics_access", 
+    "billing_management",
+    "system_admin",
+    "module_management",
+    "database_access",
+    "developer_portal"
+  ]
+}
 ```
 
-### Assign Temporary Moderator Access
-```bash
-node scripts/promote-user-admin.js assign moderator@example.com mod-standard-003 \
-  --reason "Temporary moderator access" \
-  --expires-at "2024-12-31T23:59:59Z"
-```
+## Requirements
 
-## Prerequisites
+- Node.js runtime
+- `FIREBASE_API_KEY` environment variable
+- Network access to Firebase Identity Toolkit API
+- Optional: Backend server running for API-based role assignment
 
-1. Backend must be built and available at `apps/backend/`
-2. Database connection must be configured
-3. `cargo` must be installed for Rust compilation
-4. Node.js 18+ for running JavaScript scripts
+## Environment Variables
 
-## Error Handling
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FIREBASE_API_KEY` | Yes | Firebase Web API key from console |
+| `FIREBASE_PROJECT_ID` | No | Firebase project ID (defaults to 'epsx-trading-platform') |
+| `BACKEND_URL` | No | Backend server URL (defaults to 'http://localhost:8080') |
 
-The scripts include comprehensive error handling for:
-- Invalid email formats
-- Missing backend binaries
-- Database connection issues
-- Invalid permission profile IDs
-- Permission denied scenarios
+## Getting Firebase API Key
 
-## Cross-Platform Support
+### Method 1: Firebase Console
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select your EPSX project (or create a new Firebase project)
+3. Go to Project Settings (⚙️) > General tab
+4. Scroll down to "Your apps" section
+5. If no web app exists, click "Add app" and select Web (</>) 
+6. Copy the "Web API Key" value from the config
+7. Set as `FIREBASE_API_KEY` environment variable
 
-All scripts support Windows, macOS, and Linux with appropriate shell command generation.
+### Method 2: Check Existing Code
+The API key might already be in your project files:
+- Check `apps/admin-frontend/.env.local`
+- Check `apps/frontend/.env.local` 
+- Check `apps/backend/.env`
+- Look for `FIREBASE_API_KEY` or `NEXT_PUBLIC_FIREBASE_API_KEY`
+
+### Method 3: Enable Firebase Authentication
+If you have a valid API key but getting "API key not valid" errors:
+1. Go to Firebase Console > Authentication
+2. Click "Get started" if not already enabled
+3. Go to Settings tab > Authorized domains
+4. Add your domains (localhost for development)
+5. Make sure Identity Toolkit API is enabled in Google Cloud Console
+
+## Troubleshooting
+
+### "User not found" Error
+- Verify the email address exists in Firebase Authentication
+- Check that `FIREBASE_API_KEY` is correct
+- Ensure the user has been created in Firebase
+
+### "FIREBASE_API_KEY not set" Error  
+- Set the environment variable: `export FIREBASE_API_KEY="your-key"`
+- Or add it to your `.env` file: `FIREBASE_API_KEY=your-key`
+
+### "Assignment completed but verification failed"
+- The assignment likely worked, but Firebase may need time to propagate
+- User should log out and log back in
+- Custom claims take effect on next authentication
+
+### Network/API Errors
+- Check internet connectivity
+- Verify Firebase project is active
+- Ensure API key has proper permissions
 
 ## Security Notes
 
-- These scripts bypass normal permission checks and payment requirements
-- Use only for administrative purposes
-- Always provide a reason for audit trails
-- Assignments are logged in the level history system
+- This script assigns full admin privileges - use responsibly
+- Keep the Firebase API key secure and never commit to version control
+- Consider implementing audit logging for admin privilege changes
+- Review admin access periodically
+
+## Testing After Assignment
+
+1. User logs out of both applications
+2. User logs back in
+3. Test access to admin-frontend features:
+   - Navigate to `/users` (User Management)
+   - Navigate to `/iam` (IAM Management) 
+   - Navigate to `/analytics` (Analytics Dashboard)
+4. Test access to frontend premium features:
+   - Advanced analytics tools
+   - EPS analysis features
+   - Pattern recognition tools

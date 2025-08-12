@@ -171,8 +171,8 @@ async function extractServerSideToken(): Promise<string | null> {
     // Look for unified JWT tokens in cookies (priority order)
     const tokenCookieNames = [
       'unified_auth_token',
-      'next-auth.session-token',
-      '__Secure-next-auth.session-token',
+      'oidc-session-token',
+      '__Secure-oidc-session-token',
       'jwt_token',
       'access_token'
     ];

@@ -117,7 +117,7 @@ impl PolicyValidator {
             "/api/v1/analytics".to_string(),
             "/api/v1/premium".to_string(),
             "/api/v1/system".to_string(),
-            "/api/v1/auth/profile".to_string(),
+            "/api/v1/auth/me".to_string(),
             "/api/v1/auth/logout".to_string(),
             "/api/v1/auth/refresh".to_string(),
             "modules".to_string(),

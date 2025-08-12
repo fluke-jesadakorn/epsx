@@ -1,5 +1,5 @@
 -- Create EPS Growth Analytics table for stock rankings
-CREATE TABLE eps_growth_analytics (
+CREATE TABLE IF NOT EXISTS eps_growth_analytics (
     id SERIAL PRIMARY KEY,
     symbol VARCHAR(10) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -17,48 +17,56 @@ CREATE TABLE eps_growth_analytics (
 );
 
 -- Create indexes for efficient querying
-CREATE INDEX idx_eps_country ON eps_growth_analytics (country);
-CREATE INDEX idx_eps_qoq_growth ON eps_growth_analytics (qoq_growth_rate DESC);
-CREATE INDEX idx_eps_ranking_score ON eps_growth_analytics (ranking_score DESC);
-CREATE INDEX idx_eps_symbol ON eps_growth_analytics (symbol);
-CREATE INDEX idx_eps_sector ON eps_growth_analytics (sector);
-CREATE INDEX idx_eps_updated_at ON eps_growth_analytics (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_eps_country ON eps_growth_analytics (country);
+CREATE INDEX IF NOT EXISTS idx_eps_qoq_growth ON eps_growth_analytics (qoq_growth_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_eps_ranking_score ON eps_growth_analytics (ranking_score DESC);
+CREATE INDEX IF NOT EXISTS idx_eps_symbol ON eps_growth_analytics (symbol);
+CREATE INDEX IF NOT EXISTS idx_eps_sector ON eps_growth_analytics (sector);
+CREATE INDEX IF NOT EXISTS idx_eps_updated_at ON eps_growth_analytics (updated_at DESC);
 
 -- Create composite index for country + ranking queries
-CREATE INDEX idx_eps_country_ranking ON eps_growth_analytics (country, ranking_score DESC);
+CREATE INDEX IF NOT EXISTS idx_eps_country_ranking ON eps_growth_analytics (country, ranking_score DESC);
 
 -- Create composite index for sector analysis
-CREATE INDEX idx_eps_sector_growth ON eps_growth_analytics (sector, qoq_growth_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_eps_sector_growth ON eps_growth_analytics (sector, qoq_growth_rate DESC);
 
 -- Add unique constraint to prevent duplicate symbol entries (for latest data)
-CREATE UNIQUE INDEX idx_eps_symbol_unique ON eps_growth_analytics (symbol);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_eps_symbol_unique ON eps_growth_analytics (symbol);
 
--- Add check constraints for data quality
-ALTER TABLE eps_growth_analytics 
-ADD CONSTRAINT chk_eps_current_reasonable 
-CHECK (current_eps IS NULL OR (current_eps >= -1000.0 AND current_eps <= 1000.0));
-
-ALTER TABLE eps_growth_analytics 
-ADD CONSTRAINT chk_qoq_growth_reasonable 
-CHECK (qoq_growth_rate IS NULL OR (qoq_growth_rate >= -500.0 AND qoq_growth_rate <= 1000.0));
-
-ALTER TABLE eps_growth_analytics 
-ADD CONSTRAINT chk_price_positive 
-CHECK (price_current IS NULL OR price_current > 0.0);
-
-ALTER TABLE eps_growth_analytics 
-ADD CONSTRAINT chk_market_cap_positive 
-CHECK (market_cap IS NULL OR market_cap > 0);
-
-ALTER TABLE eps_growth_analytics 
-ADD CONSTRAINT chk_volume_positive 
-CHECK (volume IS NULL OR volume >= 0);
+-- Add check constraints for data quality (only if they don't exist)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_eps_current_reasonable') THEN
+        ALTER TABLE eps_growth_analytics ADD CONSTRAINT chk_eps_current_reasonable 
+        CHECK (current_eps IS NULL OR (current_eps >= -1000.0 AND current_eps <= 1000.0));
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_qoq_growth_reasonable') THEN
+        ALTER TABLE eps_growth_analytics ADD CONSTRAINT chk_qoq_growth_reasonable 
+        CHECK (qoq_growth_rate IS NULL OR (qoq_growth_rate >= -500.0 AND qoq_growth_rate <= 1000.0));
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_price_positive') THEN
+        ALTER TABLE eps_growth_analytics ADD CONSTRAINT chk_price_positive 
+        CHECK (price_current IS NULL OR price_current > 0.0);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_market_cap_positive') THEN
+        ALTER TABLE eps_growth_analytics ADD CONSTRAINT chk_market_cap_positive 
+        CHECK (market_cap IS NULL OR market_cap > 0);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_volume_positive') THEN
+        ALTER TABLE eps_growth_analytics ADD CONSTRAINT chk_volume_positive 
+        CHECK (volume IS NULL OR volume >= 0);
+    END IF;
+END $$;
 
 -- Note: Automatic updated_at timestamp update will be handled by application logic
 -- rather than using database triggers for better SQLx compatibility
 
 -- Create view for quick access to top EPS growth stocks
-CREATE VIEW v_top_eps_growth AS
+CREATE OR REPLACE VIEW v_top_eps_growth AS
 SELECT 
     symbol,
     name,
@@ -78,7 +86,7 @@ WHERE current_eps IS NOT NULL
   AND price_current IS NOT NULL;
 
 -- Create view for country-wise top performers
-CREATE VIEW v_country_top_eps AS
+CREATE OR REPLACE VIEW v_country_top_eps AS
 SELECT 
     symbol,
     name,

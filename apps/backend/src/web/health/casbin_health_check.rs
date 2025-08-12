@@ -342,7 +342,7 @@ async fn check_database_readiness(app_state: &AppState) -> bool {
     app_state.casbin_service.get_all_policies().await.is_ok()
 }
 
-async fn collect_system_metrics(app_state: &AppState) -> SystemMetrics {
+pub async fn collect_system_metrics(app_state: &AppState) -> SystemMetrics {
     // Collect cache metrics
     let cache_stats = app_state.casbin_service.cache_stats().await;
     let cache_metrics = CacheMetrics {

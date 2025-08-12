@@ -12,7 +12,9 @@ interface LoginRequest {
 interface LoginResponse {
   user_id: string;
   email: string;
-  role: string;
+  admin: boolean;
+  access_level: string;
+  admin_modules: string[];
   permissions: string[];
   subscription_tier: string;
   expires_at: string;
@@ -21,10 +23,12 @@ interface LoginResponse {
   token_type: string;
 }
 
-interface AuthUser {
+export interface AuthUser {
   user_id: string;
   email: string;
-  role: string;
+  admin: boolean;
+  access_level: string;
+  admin_modules: string[];
   permissions: string[];
   subscription_tier: string;
   session_type: string;
@@ -146,38 +150,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
   }
 
-  // Fallback: Try NextAuth session with better error handling
-  try {
-    const { auth } = await import('../../auth');
-    
-    if (typeof auth === 'function') {
-      const session = await auth();
-      
-      if (session?.user?.id && session?.user?.email) {
-        console.log('✅ [getCurrentUser] Using NextAuth session data for user:', session.user.email);
-        return {
-          user_id: session.user.id,
-          email: session.user.email,
-          role: session.user.role || 'admin',
-          permissions: session.user.permissions || ['admin:read', 'admin:write', 'users:manage'],
-          subscription_tier: session.user.subscription_tier || 'premium',
-          session_type: 'admin',
-          expires_at: session.user.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        };
-      } else {
-        console.debug('❌ [getCurrentUser] NextAuth session missing user data:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          userEmail: session?.user?.email
-        });
-      }
-    } else {
-      console.debug('❌ [getCurrentUser] Auth function not available or invalid type:', typeof auth);
-    }
-  } catch (error) {
-    console.error('❌ [getCurrentUser] NextAuth session error:', error);
-  }
+  // NextAuth fallback no longer available - auth migrated to backend system
+  console.debug('🔧 [getCurrentUser] NextAuth fallback not available - using development mode');
 
   // If we still don't have a user but have a development session token, use development fallback
   if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') {
@@ -216,35 +190,8 @@ export async function getBearerToken(): Promise<string | null> {
     return cookieToken;
   }
   
-  // Try NextAuth session token
-  try {
-    // Import auth function properly
-    const { auth } = await import('../../auth');
-    
-    if (typeof auth === 'function') {
-      const session = await auth();
-      
-      if (session?.session_id) {
-        console.log('✅ [getBearerToken] Using NextAuth session_id for API calls');
-        return session.session_id;
-      } else if (session?.access_token) {
-        console.log('✅ [getBearerToken] Using NextAuth access_token for API calls');
-        return session.access_token;
-      } else if (session?.accessToken) {
-        console.log('✅ [getBearerToken] Using NextAuth accessToken for API calls');
-        return session.accessToken;
-      } else {
-        console.log('🔍 [getBearerToken] NextAuth session found but no token:', {
-          hasSession: !!session,
-          sessionKeys: session ? Object.keys(session) : 'no session'
-        });
-      }
-    } else {
-      console.log('🔍 [getBearerToken] Auth function not available, type:', typeof auth);
-    }
-  } catch (error) {
-    console.debug('🔍 [getBearerToken] NextAuth session not available:', error);
-  }
+  // NextAuth session token no longer available - auth migrated to backend system
+  console.debug('🔍 [getBearerToken] NextAuth session not available - auth migrated to backend');
   
   // Development mode fallback: use dev session token if no real token found
   if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') {

@@ -1,94 +1,119 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+/**
+ * Modern Auth Login Endpoint - Admin Module System
+ * Handles both OIDC redirects and direct login
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { ModernAuthService } from '@/lib/auth/modern-auth-service'
+import { cookies } from 'next/headers'
 
 /**
- * Server-side OpenID Connect authorization endpoint
- * Redirects user to backend OIDC provider
+ * GET: OIDC Authorization Redirect
  */
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
-  const isAdmin = request.nextUrl.pathname.includes('admin');
+  const searchParams = request.nextUrl.searchParams
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   
-  // Store the callback URL in a secure cookie for later use
-  const cookieStore = await cookies();
-  cookieStore.set('oidc_callback_url', callbackUrl, {
+  // Store callback URL for after authentication
+  const cookieStore = await cookies()
+  cookieStore.set('auth_callback_url', callbackUrl, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 60 * 10, // 10 minutes
     path: '/'
-  });
+  })
   
-  // Build OIDC authorization URL
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-  const clientId = process.env.OIDC_CLIENT_ID || 'epsx-admin';
-  const redirectUri = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback`;
-  const state = generateState();
-  const nonce = generateNonce();
+  // Build modern OIDC authorization URL
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
+  const clientId = 'epsx-admin'
+  const redirectUri = `${process.env.NEXTAUTH_URL || 'http://localhost:3001'}/api/auth/callback`
+  const state = generateSecureState()
+  const nonce = generateSecureNonce()
   
-  // Store state and nonce for security validation
+  // Store security parameters
   cookieStore.set('oidc_state', state, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', 
     sameSite: 'lax',
-    maxAge: 60 * 10, // 10 minutes
+    maxAge: 60 * 10,
     path: '/'
-  });
+  })
   
   cookieStore.set('oidc_nonce', nonce, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 10, // 10 minutes
+    sameSite: 'lax', 
+    maxAge: 60 * 10,
     path: '/'
-  });
+  })
   
-  // Construct OIDC authorization URL (using Firebase-native OIDC endpoints)
-  const authUrl = new URL(`${backendUrl}/oauth/authorize`);
-  authUrl.searchParams.set('client_id', clientId);
-  authUrl.searchParams.set('redirect_uri', redirectUri);
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('scope', isAdmin ? 'openid profile email admin' : 'openid profile email');
-  authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('nonce', nonce);
+  // Modern OIDC authorization URL with admin scope
+  const authUrl = new URL(`${backendUrl}/oauth/authorize`)
+  authUrl.searchParams.set('client_id', clientId)
+  authUrl.searchParams.set('redirect_uri', redirectUri)
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('scope', 'openid profile email admin_modules')
+  authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('nonce', nonce)
   
-  if (isAdmin) {
-    authUrl.searchParams.set('admin', 'true');
-  }
-  
-  console.log('🔐 OIDC Authorization redirect:', {
-    authUrl: authUrl.toString(),
-    callbackUrl,
-    isAdmin,
+  console.log('🚀 Modern OIDC Authorization:', {
+    url: authUrl.toString(),
+    callback: callbackUrl,
     timestamp: new Date().toISOString()
-  });
+  })
   
-  return NextResponse.redirect(authUrl.toString());
+  return NextResponse.redirect(authUrl.toString())
 }
 
 /**
- * Generate cryptographically secure random state parameter
+ * POST: Direct Login (for form-based authentication)
  */
-function generateState(): string {
+export async function POST(request: NextRequest) {
+  try {
+    const { email, password } = await request.json()
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      )
+    }
+
+    const result = await ModernAuthService.login(email, password)
+    
+    if (result.success) {
+      return NextResponse.json({ success: true })
+    } else {
+      return NextResponse.json(
+        { error: result.error || 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+  } catch (error) {
+    console.error('Login endpoint error:', error)
+    return NextResponse.json(
+      { error: 'Authentication failed' },
+      { status: 500 }
+    )
+  }
+}
+
+function generateSecureState(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
     return btoa(String.fromCharCode(...array))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
-      .replace(/=/g, '');
+      .replace(/=/g, '')
   }
   
-  // Fallback for environments without crypto API
   return Math.random().toString(36).substring(2) + 
          Math.random().toString(36).substring(2) +
-         Date.now().toString(36);
+         Date.now().toString(36)
 }
 
-/**
- * Generate cryptographically secure random nonce parameter
- */
-function generateNonce(): string {
-  return generateState(); // Same implementation as state
+function generateSecureNonce(): string {
+  return generateSecureState()
 }

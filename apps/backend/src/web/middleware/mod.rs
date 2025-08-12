@@ -28,7 +28,8 @@ pub use error_handling::{
 pub use casbin_auth::{
     casbin_auth_middleware,
     casbin_auth_middleware_with_config,
-    require_role,
+    require_any_admin_module,
+    require_admin_module,
     require_permission,
     CasbinAuthConfig
 };

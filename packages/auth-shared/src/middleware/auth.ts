@@ -74,7 +74,7 @@ export async function checkPermissionAccess(
       isAdminUser = cached.isAdmin;
     } else {
       // Fetch from backend
-      const endpoint = isAdmin ? '/api/admin/auth/profile' : '/api/v1/auth/profile';
+      const endpoint = isAdmin ? '/api/admin/auth/profile' : '/api/v1/auth/me';
       const cookieName = isAdmin ? finalConfig.adminSessionCookieName : finalConfig.sessionCookieName;
       
       const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {

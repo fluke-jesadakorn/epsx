@@ -4,7 +4,7 @@ import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateReques
 import { createApiClient, isApiError } from '@epsx/api-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
-import { auth } from '../../auth';
+import { getBearerToken } from './server-auth';
 
 // Get backend URL server-side only
 const getApiClient = async () => {
@@ -12,15 +12,15 @@ const getApiClient = async () => {
     throw new Error('API client can only be created on server-side');
   }
   
-  // Get NextAuth session for authenticated API calls
-  const session = await auth();
+  // Get bearer token for authenticated API calls
+  const token = await getBearerToken();
   const headers: Record<string, string> = {};
   
-  if (session?.session_id) {
-    headers['Authorization'] = `Bearer ${session.session_id}`;
-    console.log('✅ [AdminActions] Adding NextAuth session token to API client');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    console.log('✅ [AdminActions] Adding bearer token to API client');
   } else {
-    console.warn('⚠️ [AdminActions] No NextAuth session found for API client');
+    console.warn('⚠️ [AdminActions] No bearer token found for API client');
   }
   
   return createApiClient({ 

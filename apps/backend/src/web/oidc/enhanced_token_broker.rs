@@ -14,6 +14,7 @@ use rand::{thread_rng, Rng};
 
 use crate::core::errors::AppError;
 use crate::dom::services::casbin_service::CasbinService;
+use crate::dom::services::admin_module_service::AdminModuleService;
 use super::provider_registry::{ProviderRegistryTrait, OIDCProviderConfig};
 use super::tenant_resolver::{TenantResolverTrait, EnhancedTenantResolution};
 use super::discovery_client::DiscoveryClientTrait;
@@ -239,6 +240,7 @@ pub struct EnhancedTokenBroker {
     tenant_resolver: Arc<dyn TenantResolverTrait>,
     discovery_client: Arc<dyn DiscoveryClientTrait>,
     casbin_service: Arc<CasbinService>,
+    admin_module_service: Arc<AdminModuleService>,
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
     
@@ -268,6 +270,7 @@ impl EnhancedTokenBroker {
         tenant_resolver: Arc<dyn TenantResolverTrait>,
         discovery_client: Arc<dyn DiscoveryClientTrait>,
         casbin_service: Arc<CasbinService>,
+        admin_module_service: Arc<AdminModuleService>,
     ) -> Result<Self, AppError> {
         let encoding_key = EncodingKey::from_secret(config.jwt_secret.as_bytes());
         let decoding_key = DecodingKey::from_secret(config.jwt_secret.as_bytes());
@@ -278,6 +281,7 @@ impl EnhancedTokenBroker {
             tenant_resolver,
             discovery_client,
             casbin_service,
+            admin_module_service,
             encoding_key,
             decoding_key,
             active_sessions: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
@@ -519,13 +523,13 @@ impl EnhancedTokenBroker {
             nbf: now.timestamp(),
             jti: jti.clone(),
             
-            // Enhanced user claims
+            // Enhanced user claims  
             email: email.clone(),
             email_verified: true, // TODO: Get from provider
             name: Some("Test User".to_string()), // TODO: Get from provider
             picture: None,
-            role: tenant_resolution.default_role.clone(),
-            permissions: vec!["read".to_string()], // TODO: Get from Casbin
+            role: self.load_user_role(&user_id).await?,
+            permissions: self.load_user_permissions(&user_id).await?,
             subscription_tier: None,
             
             // Multi-tenant claims
@@ -596,6 +600,118 @@ impl EnhancedTokenBroker {
         Ok(unified_jwt)
     }
     
+    /// Load user role and admin modules using AdminModuleService
+    async fn load_user_role(&self, user_id: &str) -> Result<String, AppError> {
+        match self.admin_module_service.get_user_admin_modules(user_id).await {
+            Ok(admin_modules) => {
+                if admin_modules.contains(&"admin-full-004".to_string()) {
+                    Ok("admin-full-004".to_string()) // Full admin access
+                } else if !admin_modules.is_empty() {
+                    Ok("moderator-standard-003".to_string()) // Has some admin modules
+                } else {
+                    Ok("user-basic-001".to_string()) // Basic user
+                }
+            }
+            Err(_) => {
+                // If we can't load admin modules, default to basic user
+                tracing::warn!("Failed to load admin modules for user {}, defaulting to basic user", user_id);
+                Ok("user-basic-001".to_string())
+            }
+        }
+    }
+    
+    /// Load user permissions based on admin modules and general permissions
+    async fn load_user_permissions(&self, user_id: &str) -> Result<Vec<String>, AppError> {
+        let mut permissions = vec!["read".to_string()]; // Basic permission
+        
+        // Load admin modules
+        match self.admin_module_service.get_user_admin_modules(user_id).await {
+            Ok(admin_modules) => {
+                for module in admin_modules {
+                    // Convert admin module names to permission strings
+                    match module.as_str() {
+                        "user-management" => {
+                            permissions.extend_from_slice(&[
+                                "user:read".to_string(),
+                                "user:write".to_string(),
+                                "user:manage".to_string(),
+                            ]);
+                        }
+                        "financial-management" => {
+                            permissions.extend_from_slice(&[
+                                "finance:read".to_string(),
+                                "finance:write".to_string(),
+                                "finance:manage".to_string(),
+                            ]);
+                        }
+                        "system-configuration" => {
+                            permissions.extend_from_slice(&[
+                                "system:read".to_string(),
+                                "system:write".to_string(),
+                                "system:configure".to_string(),
+                            ]);
+                        }
+                        "content-moderation" => {
+                            permissions.extend_from_slice(&[
+                                "content:read".to_string(),
+                                "content:moderate".to_string(),
+                            ]);
+                        }
+                        "analytics-access" => {
+                            permissions.extend_from_slice(&[
+                                "analytics:read".to_string(),
+                                "analytics:advanced".to_string(),
+                            ]);
+                        }
+                        "reporting-access" => {
+                            permissions.extend_from_slice(&[
+                                "reports:read".to_string(),
+                                "reports:generate".to_string(),
+                            ]);
+                        }
+                        "audit-logs" => {
+                            permissions.extend_from_slice(&[
+                                "audit:read".to_string(),
+                                "audit:manage".to_string(),
+                            ]);
+                        }
+                        "security-monitoring" => {
+                            permissions.extend_from_slice(&[
+                                "security:read".to_string(),
+                                "security:monitor".to_string(),
+                            ]);
+                        }
+                        "backup-recovery" => {
+                            permissions.extend_from_slice(&[
+                                "backup:read".to_string(),
+                                "backup:manage".to_string(),
+                            ]);
+                        }
+                        "integration-management" => {
+                            permissions.extend_from_slice(&[
+                                "integration:read".to_string(),
+                                "integration:manage".to_string(),
+                            ]);
+                        }
+                        _ => {
+                            // Generic admin permission for unknown modules
+                            permissions.push(format!("{}:access", module));
+                        }
+                    }
+                }
+            }
+            Err(_) => {
+                tracing::warn!("Failed to load admin modules for user {}", user_id);
+            }
+        }
+        
+        // Remove duplicates and sort
+        permissions.sort();
+        permissions.dedup();
+        
+        Ok(permissions)
+    }
+
     /// Determine token TTL based on user role and provider
     fn determine_token_ttl(&self, role: &str) -> i64 {
         match role.to_lowercase().as_str() {

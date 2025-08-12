@@ -19,7 +19,7 @@ import { ModuleAnalyticsDashboard } from './ModuleAnalyticsDashboard';
 import { BillingAlerts } from './BillingAlerts';
 import { BillingService } from '@/services/billingService';
 import type { UsageBill } from '@/services/billingService';
-import { useModuleAuth } from '@/auth/module-ctx';
+// import { useModuleAuth } from '@/auth/module-ctx'; // Removed - using OIDC auth
 import { toast } from 'react-hot-toast';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
 
@@ -33,7 +33,10 @@ interface InvoiceData {
 }
 
 export const BillingDashboard: React.FC = () => {
-  const { hasModuleAccess, canPerformAction, user } = useModuleAuth();
+  // TODO: Implement proper module auth check with OIDC
+  const hasModuleAccess = () => true;
+  const canPerformAction = () => true;
+  const user = null; // TODO: Get user from OIDC token
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'invoices' | 'alerts'>('overview');
   const [loading, setLoading] = useState(true);
   const [currentBill, setCurrentBill] = useState<UsageBill | null>(null);

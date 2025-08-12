@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AdminService as _AdminService } from '@/services/adminService';
-import { useAdminAuth } from '@/context/simple-admin-auth';
+// Note: Auth is handled by middleware with HTTP-only cookies
 import { 
   Shield, 
   Users, 
@@ -67,7 +67,8 @@ interface AssignmentResult {
 }
 
 export function PermissionProfileAssignmentDashboard() {
-  const { user } = useAdminAuth();
+  // Mock user data - authentication is handled by middleware  
+  const user = { email: 'admin@example.com', id: 'admin-user' };
   const [permissionProfiles, setPermissionProfiles] = useState<PermissionProfile[]>([]);
   const [selectedPermissionProfile, setSelectedPermissionProfile] = useState<PermissionProfile | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);

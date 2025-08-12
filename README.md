@@ -50,7 +50,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **UI Components:** Radix UI + Tailwind CSS 4.0.15
 - **State Management:** Zustand + SWR for data fetching
 - **Forms:** React Hook Form with Zod validation
-- **Authentication:** Firebase Auth integration
+- **Authentication:** Multi-provider authentication (Firebase, OIDC)
 - **Charts:** Recharts for data visualization
 - **Testing:** Jest (unit), Playwright (E2E), Lighthouse (performance)
 
@@ -58,8 +58,8 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 - **Language:** Rust (Edition 2021)
 - **Web Framework:** Axum 0.7 with WebSocket support
-- **Database:** PostgreSQL with SQLx ORM
-- **Authentication:** JWT with role-based access control
+- **Database:** PostgreSQL with SQLx ORM and comprehensive migrations
+- **Authentication:** Multi-provider JWT with RBAC, OIDC, and Firebase integration
 - **Real-time:** WebSocket and Server-Sent Events
 - **Job Scheduling:** tokio-cron-scheduler
 - **Testing:** Unit, integration, and API tests
@@ -215,22 +215,29 @@ epsx/
 ├── apps/
 │   ├── frontend/          # Main trading platform (Port: 3000)
 │   │   ├── app/           # Next.js App Router pages
-│   │   ├── components/    # React components
-│   │   ├── lib/           # Utilities and configurations
+│   │   ├── components/    # React components including OIDC auth
+│   │   ├── context/       # Multi-provider authentication contexts
+│   │   ├── lib/           # Auth utilities and OIDC clients
 │   │   └── public/        # Static assets
 │   ├── admin-frontend/    # Admin dashboard (Port: 3001)
 │   │   ├── app/           # Admin pages and API routes
-│   │   ├── components/    # Admin-specific components
-│   │   ├── auth/          # Authentication context
-│   │   └── services/      # Admin services
+│   │   ├── components/    # Admin-specific components with auth guards
+│   │   ├── auth/          # Enhanced authentication contexts
+│   │   ├── context/       # OIDC and multi-provider contexts
+│   │   └── lib/           # Threat protection and WebAuthn security
 │   └── backend/           # Rust API server
-│       ├── src/           # Rust source code
-│       ├── migrations/    # Database migrations
-│       └── bin/           # CLI tools (promote_admin, assign_iam)
+│       ├── src/           # Rust source code with auth providers
+│       ├── migrations/    # Multi-provider auth database migrations
+│       ├── templates/     # HTML templates for auth flows
+│       ├── tests/         # Comprehensive integration tests
+│       └── bin/           # CLI tools and user management utilities
 ├── packages/
-│   ├── api-client/        # Unified API client with auth
+│   ├── api-client/        # Unified API client with enhanced auth
 │   ├── ui/                # Shared UI components (Radix + Tailwind)
 │   ├── types/             # TypeScript type definitions
+│   ├── auth-shared/       # Cross-app authentication utilities and security
+│   ├── firebase-analytics/# Firebase integration with auth validation
+│   ├── server-actions/    # Enhanced Next.js Server Actions
 │   ├── config/            # ESLint, TypeScript configs
 │   └── theme/             # Design system and theme provider
 ├── scripts/               # Admin and deployment scripts
@@ -355,15 +362,24 @@ FIREBASE_SERVICE_ACCOUNT_KEY=path/to/service-account.json
 
 ### Authentication & Authorization
 
-- **Multi-tier Role System**: Basic, Premium, Moderator, Admin roles
+- **Multi-Provider Authentication**: Comprehensive OIDC and Firebase integration
+- **Multi-tier Role System**: Basic, Premium, Moderator, Admin roles with database role management
 - **IAM Profiles**: 
   - `user-basic-001` - Basic user permissions
   - `user-premium-002` - Premium user features
   - `moderator-standard-003` - Moderation capabilities
   - `admin-full-004` - Full system access
-- **JWT Authentication**: Secure token-based authentication
-- **Firebase Integration**: Social login and user management
-- **Permission Matrices**: Feature-based access control
+- **Advanced Security Features**:
+  - JWT token management with secure rotation
+  - Threat protection and rate limiting
+  - WebAuthn security integration
+  - Cross-app session synchronization
+  - CSRF protection and security headers
+- **Enterprise Features**:
+  - SCIM protocol support for user provisioning
+  - Audit events and compliance logging
+  - Tenant resolution and session federation
+  - Casbin-based authorization engine
 
 ### Real-time Features
 
@@ -382,9 +398,11 @@ FIREBASE_SERVICE_ACCOUNT_KEY=path/to/service-account.json
 
 ### Backend Testing
 - **Unit Tests**: Rust native testing framework
-- **Integration Tests**: Database and API endpoint testing
+- **Integration Tests**: Comprehensive authentication flow testing, database and API endpoint testing
+- **Firebase Integration Tests**: End-to-end authentication provider testing
+- **OIDC Comprehensive Tests**: Multi-provider authentication validation
 - **Load Testing**: Performance and stress testing
-- **Security Testing**: Authentication and authorization validation
+- **Security Testing**: Advanced authentication, authorization, and compliance validation
 
 ## 🤝 Contributing
 

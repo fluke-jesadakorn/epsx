@@ -410,7 +410,9 @@ impl FirebaseAdmin {
     /// Generate JWT token (mock implementation for compatibility)
     pub async fn generate_jwt_token(&self, firebase_uid: &str) -> Result<String, Box<dyn std::error::Error>> {
         // TODO: Implement proper JWT generation
-        Ok(format!("mock_jwt_token_{}", firebase_uid))
+        // Generate unique token with UUID to prevent duplicate key violations
+        let session_uuid = uuid::Uuid::new_v4();
+        Ok(format!("mock_jwt_token_{}_{}", firebase_uid, session_uuid))
     }
 
     /// Authenticate user with email/password using Firebase Identity Toolkit API
@@ -495,11 +497,52 @@ impl FirebaseAdmin {
     }
 
     /// Parse Firebase certificate to extract public key components
-    fn parse_firebase_cert(&self, _cert_pem: &str) -> Result<FirebasePublicKey, Box<dyn std::error::Error>> {
-        // This is a simplified implementation
-        // In production, you'd use proper X.509 certificate parsing
-        // For now, return a placeholder that would work with proper cert parsing
-        Err("Certificate parsing not implemented - use proper X.509 parser".into())
+    fn parse_firebase_cert(&self, cert_pem: &str) -> Result<FirebasePublicKey, Box<dyn std::error::Error>> {
+        use x509_parser::prelude::*;
+        use rsa::{RsaPublicKey, pkcs1::DecodeRsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
+
+        // Remove PEM headers and decode base64
+        let cert_data = cert_pem
+            .replace("-----BEGIN CERTIFICATE-----", "")
+            .replace("-----END CERTIFICATE-----", "")
+            .replace("\n", "")
+            .replace("\r", "");
+        
+        let cert_der = base64::engine::general_purpose::STANDARD.decode(&cert_data)
+            .map_err(|e| format!("Failed to decode certificate base64: {}", e))?;
+
+        // Parse X.509 certificate
+        let (_, cert) = X509Certificate::from_der(&cert_der)
+            .map_err(|e| format!("Failed to parse X.509 certificate: {}", e))?;
+
+        // Extract public key from certificate
+        let public_key_info = cert.public_key();
+        let public_key_der = public_key_info.subject_public_key.data.as_ref();
+
+        // Parse RSA public key - try PKCS#1 first, then PKCS#8
+        let rsa_key = RsaPublicKey::from_pkcs1_der(public_key_der)
+            .or_else(|_| RsaPublicKey::from_public_key_der(public_key_der))
+            .map_err(|e| format!("Failed to parse RSA public key: {}", e))?;
+
+        // Extract modulus and exponent
+        let n = rsa_key.n().to_bytes_be();
+        let e = rsa_key.e().to_bytes_be();
+
+        // Convert to base64url encoding (JWT standard)
+        let n_b64 = URL_SAFE_NO_PAD.encode(&n);
+        let e_b64 = URL_SAFE_NO_PAD.encode(&e);
+
+        // Generate a dummy kid for Firebase (Firebase provides this in their JWKS)
+        let kid = format!("firebase_key_{}", cert_pem.len() % 10000);
+
+        Ok(FirebasePublicKey {
+            kty: "RSA".to_string(),
+            alg: "RS256".to_string(),
+            r#use: "sig".to_string(),
+            kid,
+            n: n_b64,
+            e: e_b64,
+        })
     }
 
     /// Create a new Firebase user using Admin SDK

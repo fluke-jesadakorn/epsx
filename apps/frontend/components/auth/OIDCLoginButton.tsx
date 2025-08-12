@@ -14,31 +14,21 @@ export function OIDCLoginButton({ redirectTo = '/dashboard' }: OIDCLoginButtonPr
   const handleLogin = () => {
     setIsRedirecting(true);
     
-    // Generate secure state parameter
-    const state = generateSecureState();
-    
-    // Build authorization URL
+    // Build authorization URL with redirect destination as state parameter
     const authParams = new URLSearchParams({
       client_id: 'epsx-frontend',
       response_type: 'code',
       scope: 'openid profile email',
       redirect_uri: `${window.location.origin}/auth/callback`,
-      state: state
+      // Pass redirect destination as state for server-side handling
+      state: redirectTo || '/dashboard'
     });
     
-    // Store state for validation in callback
-    sessionStorage.setItem('oidc_state', state);
-    
-    // Store redirect destination
-    if (redirectTo) {
-      sessionStorage.setItem('oidc_redirect_to', redirectTo);
-    }
-    
-    // Redirect to backend login page
+    // Redirect to backend OIDC authorization endpoint
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     const loginUrl = `${backendUrl}/oauth/authorize?${authParams.toString()}`;
     
-    console.log('🔐 Redirecting to backend login:', loginUrl);
+    console.log('🔐 Redirecting to secure OIDC login:', loginUrl);
     window.location.href = loginUrl;
   };
 
@@ -74,16 +64,6 @@ export function OIDCLoginButton({ redirectTo = '/dashboard' }: OIDCLoginButtonPr
   );
 }
 
-/**
- * Generate a secure state parameter for CSRF protection
- */
-function generateSecureState(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode.apply(null, Array.from(array)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
+// Note: State parameter is now handled by the server-side callback for security
 
 export default OIDCLoginButton;

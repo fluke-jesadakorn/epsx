@@ -43,6 +43,50 @@ pub struct LogoutSuccessTemplate {
     pub state: String,
 }
 
+/// Template for Firebase authentication page
+#[derive(Template)]
+#[template(path = "firebase_auth.html")]
+pub struct FirebaseAuthTemplate {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub scope: String,
+    pub tenant_hint: Option<String>,
+    pub domain_hint: String,
+    pub firebase_config: FirebaseConfig,
+}
+
+/// Firebase configuration for the template
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FirebaseConfig {
+    pub api_key: String,
+    pub auth_domain: String,
+    pub project_id: String,
+    pub storage_bucket: String,
+    pub messaging_sender_id: String,
+    pub app_id: String,
+}
+
+impl FirebaseConfig {
+    /// Create Firebase config from environment variables
+    pub fn from_env() -> Self {
+        Self {
+            api_key: std::env::var("FIREBASE_API_KEY")
+                .unwrap_or_else(|_| "AIzaSyDtGcR8wF9f2M3VqQ7sN1xK9yP5tE8rU2wX".to_string()),
+            auth_domain: std::env::var("FIREBASE_AUTH_DOMAIN")
+                .unwrap_or_else(|_| "epsx-project.firebaseapp.com".to_string()),
+            project_id: std::env::var("FIREBASE_PROJECT_ID")
+                .unwrap_or_else(|_| "epsx-project".to_string()),
+            storage_bucket: std::env::var("FIREBASE_STORAGE_BUCKET")
+                .unwrap_or_else(|_| "epsx-project.appspot.com".to_string()),
+            messaging_sender_id: std::env::var("FIREBASE_MESSAGING_SENDER_ID")
+                .unwrap_or_else(|_| "123456789012".to_string()),
+            app_id: std::env::var("FIREBASE_APP_ID")
+                .unwrap_or_else(|_| "1:123456789012:web:abcdef123456789012345".to_string()),
+        }
+    }
+}
+
 /// Security features configuration for admin template
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityFeatures {
@@ -124,6 +168,29 @@ impl TemplateFactory {
             client_id,
             redirect_uri,
             state,
+        }
+    }
+
+    /// Create Firebase authentication template
+    pub fn create_firebase_auth_template(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        tenant_hint: Option<String>,
+    ) -> FirebaseAuthTemplate {
+        let firebase_config = FirebaseConfig::from_env();
+        let domain_hint = std::env::var("FIREBASE_DOMAIN_HINT")
+            .unwrap_or_else(|_| "epsx.com".to_string());
+            
+        FirebaseAuthTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            tenant_hint,
+            domain_hint,
+            firebase_config,
         }
     }
 

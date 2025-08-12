@@ -68,10 +68,25 @@ export default function StockRankingPackageAssignment({
     setIsLoading(prev => ({ ...prev, users: true }));
     try {
       const response = await fetch('/api/v1/admin/users');
+      
+      if (!response.ok) {
+        console.error('Users API error:', response.status, response.statusText);
+        setUsers([]);
+        return;
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        console.error('Invalid users response type:', contentType);
+        setUsers([]);
+        return;
+      }
+      
       const data = await response.json();
       setUsers(data.users || []);
     } catch (error) {
       console.error('Failed to load users:', error);
+      setUsers([]);
     } finally {
       setIsLoading(prev => ({ ...prev, users: false }));
     }
@@ -131,6 +146,16 @@ export default function StockRankingPackageAssignment({
         },
         body: JSON.stringify(assignmentData),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Assignment failed: ${response.status} ${errorText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Invalid response format from assignment API');
+      }
 
       const result = await response.json();
 

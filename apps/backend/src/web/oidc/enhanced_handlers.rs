@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error};
 
 use crate::core::errors::AppError;
+use crate::core::ClientCredentialService;
+use crate::web::auth::routes::AppState;
+use crate::dom::services::admin_module_service::AdminModuleService;
 use super::enhanced_token_broker::{
     EnhancedTokenBroker, EnhancedAuthorizationRequest, EnhancedTokenRequest,
 };
@@ -80,6 +83,7 @@ pub async fn enhanced_authorize(
 /// POST /oauth/v2/token
 pub async fn enhanced_token(
     State(broker): State<Arc<EnhancedTokenBroker>>,
+    State(app_state): State<AppState>,
     headers: HeaderMap,
     Form(request): Form<EnhancedTokenRequest>,
 ) -> Result<Json<EnhancedTokenResponse>, (StatusCode, Json<OIDCErrorResponse>)> {
@@ -95,7 +99,7 @@ pub async fn enhanced_token(
     let user_agent = extract_user_agent(&headers);
     
     // Validate client credentials if provided
-    if let Err(e) = validate_client_credentials(&request, &headers).await {
+    if let Err(e) = validate_client_credentials(&request, &headers, &app_state.admin_module_service).await {
         warn!(error = %e, "Client credential validation failed");
         return Err((
             StatusCode::UNAUTHORIZED,
@@ -502,38 +506,82 @@ fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
 async fn validate_client_credentials(
     request: &EnhancedTokenRequest,
     headers: &HeaderMap,
+    _admin_module_service: &AdminModuleService,
 ) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
+    
     // Check for client_secret in request body
-    if request.client_secret.is_some() {
-        return Ok(()); // TODO: Validate against stored client secret
+    if let Some(client_secret) = &request.client_secret {
+        tracing::debug!("Validating client credentials from request body");
+        client_service.validate_client_credentials(&request.client_id, client_secret)?;
+        return Ok(());
     }
     
     // Check for HTTP Basic authentication
     if let Some(auth_header) = headers.get("authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if auth_str.starts_with("Basic ") {
-                // TODO: Decode and validate Basic auth credentials
+                tracing::debug!("Validating client credentials from Basic auth header");
+                client_service.validate_basic_auth(auth_str)?;
                 return Ok(());
             }
         }
     }
     
-    // For public clients, no authentication required
+    // For public clients, no authentication required if using PKCE
     if request.grant_type == "authorization_code" && request.code_verifier.is_some() {
-        return Ok(()); // PKCE provides security for public clients
+        tracing::debug!("Public client using PKCE - no client authentication required");
+        
+        // Still validate that the client_id exists and is allowed to use PKCE
+        let client = client_service.get_client(&request.client_id)
+            .ok_or_else(|| AppError::SecurityError(
+                format!("Unknown client_id: {}", request.client_id)
+            ))?;
+        
+        // For now, allow both confidential and public clients to use PKCE
+        // In a more strict implementation, you might want to enforce client types
+        tracing::debug!("Client {} validated for PKCE flow", client.client_id);
+        return Ok(());
     }
     
+    tracing::warn!("Client authentication failed - no valid credentials provided");
     Err(AppError::SecurityError("Client authentication required".to_string()))
 }
 
 /// Validate client for token introspection
-async fn validate_introspection_client(_headers: &HeaderMap) -> Result<(), AppError> {
-    // TODO: Implement proper client validation for introspection
-    Ok(())
+async fn validate_introspection_client(headers: &HeaderMap) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
+    
+    // Check for HTTP Basic authentication
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Basic ") {
+                tracing::debug!("Validating client credentials for token introspection");
+                client_service.validate_basic_auth(auth_str)?;
+                return Ok(());
+            }
+        }
+    }
+    
+    tracing::warn!("Token introspection requires client authentication");
+    Err(AppError::SecurityError("Client authentication required for token introspection".to_string()))
 }
 
 /// Validate client for token revocation
-async fn validate_revocation_client(_headers: &HeaderMap) -> Result<(), AppError> {
-    // TODO: Implement proper client validation for revocation
-    Ok(())
+async fn validate_revocation_client(headers: &HeaderMap) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
+    
+    // Check for HTTP Basic authentication
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Basic ") {
+                tracing::debug!("Validating client credentials for token revocation");
+                client_service.validate_basic_auth(auth_str)?;
+                return Ok(());
+            }
+        }
+    }
+    
+    tracing::warn!("Token revocation requires client authentication");
+    Err(AppError::SecurityError("Client authentication required for token revocation".to_string()))
 }

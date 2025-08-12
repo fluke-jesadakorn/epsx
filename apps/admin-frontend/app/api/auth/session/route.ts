@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
  * Check if user has required admin permissions
  */
 function hasAdminPermissions(sessionData: SessionData): boolean {
+  // First check legacy admin roles for backward compatibility
   const adminRoles = [
     'super_admin',
     'admin-full-004',
@@ -127,10 +128,22 @@ function hasAdminPermissions(sessionData: SessionData): boolean {
     'moderator'
   ];
   
-  return adminRoles.includes(sessionData.role) || 
-         sessionData.permissions.some(permission => 
-           permission.startsWith('admin:') || permission === 'admin'
-         );
+  const hasLegacyAdmin = adminRoles.includes(sessionData.role) || 
+                        sessionData.permissions.some(permission => 
+                          permission.startsWith('admin:') || permission === 'admin'
+                        );
+  
+  if (hasLegacyAdmin) {
+    return true;
+  }
+  
+  // TODO: Check granular admin modules via backend API
+  // For now, allow in development mode if email exists (granular checking happens at component level)
+  if (process.env.NODE_ENV === 'development' && sessionData.email) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**

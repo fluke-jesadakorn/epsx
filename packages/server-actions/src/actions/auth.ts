@@ -80,7 +80,7 @@ export const enhancedGetCurrentUser = createServerAction(
     try {
       console.log('🔍 [getCurrentUser] Attempting to fetch user profile');
       
-      const result = await serverGet('/api/v1/auth/profile', undefined, {
+      const result = await serverGet('/api/v1/auth/me', undefined, {
         action: context.action,
         userId: context.userId,
         requestId: context.requestId
@@ -130,7 +130,7 @@ export const enhancedRegister = withServerAction(
 export const enhancedUpdateProfile = createAuthenticatedAction(
   'auth.updateProfile',
   async (data: z.infer<typeof ProfileUpdateRequestSchema>, context) => {
-    return await serverPost('/api/v1/auth/profile/update', data, {
+    return await serverPost('/api/v1/auth/me/update', data, {
       action: context.action,
       userId: context.userId,
       requestId: context.requestId

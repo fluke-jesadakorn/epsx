@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { signOut, useSession } from 'next-auth/react';
+// Note: This component will be replaced by server-only auth flow
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
 
 interface ClientNavControlsProps {
@@ -24,9 +24,8 @@ interface ClientNavControlsProps {
 export function ClientNavControls({ user: serverUser, navItems: _navItems }: ClientNavControlsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { data: session } = useSession();
-  const user = session?.user || serverUser;
-  const userLevel = session?.user?.subscription_tier || 'free';
+  const user = serverUser; // Use server user data only
+  const userLevel = 'free'; // Will be retrieved from server auth
   const router = useRouter();
 
   useEffect(() => {
@@ -35,8 +34,8 @@ export function ClientNavControls({ user: serverUser, navItems: _navItems }: Cli
 
   const handleLogout = async () => {
     try {
-      await signOut({ redirect: false });
-      router.push('/login');
+      // Redirect to OIDC logout endpoint
+      router.push('/auth/logout');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -76,7 +75,7 @@ export function ClientNavControls({ user: serverUser, navItems: _navItems }: Cli
       </div>
 
       {/* User Level Display */}
-      {currentUser && !levelLoading && !loading && (
+      {currentUser && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -142,7 +141,6 @@ export function ClientNavControls({ user: serverUser, navItems: _navItems }: Cli
           <Button
             variant="ghost"
             onClick={handleLogout}
-            disabled={loading}
             className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
           >
             <LogOut className="h-4 w-4" />

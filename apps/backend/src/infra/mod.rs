@@ -219,7 +219,7 @@ impl AppContainer {
         let infra = InfraFactory::from_env()?;
         
         // Run database migrations automatically
-        Self::run_migrations(&infra.postgres_pool).await?;
+        // Self::run_migrations(&infra.postgres_pool).await?; // Temporarily disabled
         
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();

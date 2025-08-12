@@ -15,7 +15,6 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { signOut } from 'next-auth/react';
 import { logoutAction } from '@/app/actions/auth';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
@@ -107,26 +106,16 @@ export function NavigationClient({ user }: NavigationClientProps) {
 
   const handleLogout = async () => {
     try {
-      // First call the server action to handle backend logout and revalidation
+      // Call server action to handle OIDC logout and clear HTTP-only cookies
       await logoutAction();
       
-      // Then clear the NextAuth client session
-      await signOut({ redirect: false });
-      
-      // Finally redirect to login page
+      // Redirect to login page
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error instanceof Error ? error.message : String(error));
       
-      // Fallback: still try to clear client session and redirect even if server action fails
-      try {
-        await signOut({ redirect: false });
-        router.push('/login');
-      } catch (fallbackError) {
-        console.error('Fallback logout error:', fallbackError);
-        // Force navigation even if everything fails
-        router.push('/login');
-      }
+      // Force navigation even if server action fails
+      router.push('/login');
     }
   };
 

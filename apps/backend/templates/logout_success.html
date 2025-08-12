@@ -69,13 +69,9 @@
             window.location.href = '/';
         }, 10000);
         
-        // Clear any remaining session data
-        if (typeof(Storage) !== "undefined") {
-            sessionStorage.clear();
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('id_token');
-            localStorage.removeItem('refresh_token');
-        }
+        // Note: In the new OIDC system, tokens are stored as HTTP-only cookies
+        // and are automatically cleared by the server during logout
+        console.log('Logout successful - tokens cleared by server');
     </script>
 </body>
 </html>

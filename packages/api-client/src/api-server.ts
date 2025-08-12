@@ -89,7 +89,7 @@ export async function serverGetSystemCache(): Promise<ApiResponse<unknown>> {
 }
 
 export async function serverGetCurrentUser(): Promise<ApiResponse<UserProfile>> {
-  return serverRequest('/api/v1/auth/profile');
+  return serverRequest('/api/v1/auth/me');
 }
 
 export async function serverGetAuditLogs(endpoint: string): Promise<ApiResponse<unknown>> {
@@ -334,13 +334,11 @@ async function serverRequest<T>(
       cookiesFound: {
         session: !!authCookies.session,
         adminSession: !!authCookies.adminSession,
-        csrf: !!authCookies.csrf,
         refresh: !!authCookies.refresh,
       },
       cookieValues: {
         session: authCookies.session ? `${authCookies.session.substring(0, 20)}...` : null,
         adminSession: authCookies.adminSession ? `${authCookies.adminSession.substring(0, 20)}...` : null,
-        csrf: authCookies.csrf ? `${authCookies.csrf.substring(0, 20)}...` : null,
         refresh: authCookies.refresh ? `${authCookies.refresh.substring(0, 20)}...` : null,
       },
       hasRequestBody: !!data && method !== 'GET',

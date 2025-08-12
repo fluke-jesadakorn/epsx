@@ -97,6 +97,17 @@ use super::database_role_management::{
     get_role_assignment_history as db_get_role_assignment_history,
     cleanup_expired_roles as db_cleanup_expired_roles,
 };
+use super::admin_role_management::{
+    get_all_admin_modules,
+    get_user_admin_modules,
+    assign_admin_modules,
+    revoke_admin_modules,
+    assign_all_admin_modules,
+    get_admin_role_audit,
+    check_admin_module_access,
+    get_user_admin_module_details,
+    get_current_user_admin_modules,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -124,6 +135,19 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/roles/users-by-role", get(db_list_users_by_role))
         .route("/roles/users/:firebase_uid/history", get(db_get_role_assignment_history))
         .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
+        
+        // Admin Role Management routes (granular admin modules system)
+        .route("/admin-modules", get(get_all_admin_modules))
+        .route("/admin-modules/users/:firebase_uid", get(get_user_admin_modules))
+        .route("/admin-modules/users/:firebase_uid/details", get(get_user_admin_module_details))
+        .route("/admin-modules/assign", post(assign_admin_modules))
+        .route("/admin-modules/revoke", post(revoke_admin_modules))
+        .route("/admin-modules/users/:firebase_uid/assign-all", post(assign_all_admin_modules))
+        .route("/admin-modules/users/:firebase_uid/audit", get(get_admin_role_audit))
+        .route("/admin-modules/users/:firebase_uid/access/:module_code", get(check_admin_module_access))
+        
+        // Current user admin modules routes
+        .route("/modules/user", get(get_current_user_admin_modules))
         
         // User management routes (legacy - for backward compatibility)
         .route("/users", get(list_users_handler))

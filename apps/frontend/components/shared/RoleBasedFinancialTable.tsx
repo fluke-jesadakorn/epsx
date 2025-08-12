@@ -2,13 +2,14 @@
 
 import React from 'react';
 import FinancialDataTable from '@/components/home/FinancialDataTable';
-import { useSession } from 'next-auth/react';
+// Note: User session data will be passed as props from server components
 import { Card, CardContent } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface RoleBasedFinancialTableProps {
   data: StockFinancialData[];
+  user?: any; // User data from server auth
   title?: string;
   subtitle?: string;
   showRank?: boolean;
@@ -22,14 +23,13 @@ interface RoleBasedFinancialTableProps {
  */
 export default function RoleBasedFinancialTable({
   data,
+  user,
   title = "🍯 Premium Financial Rankings 📊",
   subtitle = "Access exclusive financial insights with role-based data visibility",
   showRank = true,
   rankShift = 0,
   className = "",
 }: RoleBasedFinancialTableProps): React.JSX.Element {
-  const { data: session } = useSession();
-  const user = session?.user;
 
   // Apply rank shift if needed - moved before conditional returns
   const processedData = React.useMemo(() => {

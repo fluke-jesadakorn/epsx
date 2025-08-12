@@ -2,15 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 export function SettingsClient() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/');
+    // Redirect to OIDC logout endpoint
+    router.push('/auth/logout');
   };
 
   return (

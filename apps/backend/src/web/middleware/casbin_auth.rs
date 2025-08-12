@@ -13,9 +13,9 @@ use tracing::{debug, error, warn};
 
 use crate::{
     core::types::AppError,
-    dom::services::casbin_service::CasbinService,
+    dom::services::{casbin_service::CasbinService, admin_module_service::AdminModuleService},
     web::auth::{
-        casbin_claims_mapper::{CasbinClaimsMapper, CasbinMappingError, CasbinUserClaims},
+        casbin_claims_mapper::{CasbinClaimsMapper, CasbinMappingError},
         token_broker::TokenBroker,
         providers::AuthProviderError,
     },
@@ -57,12 +57,14 @@ impl Default for CasbinAuthConfig {
 pub async fn casbin_auth_middleware(
     State(casbin_service): State<Arc<CasbinService>>,
     State(token_broker): State<Arc<TokenBroker>>,
+    State(admin_module_service): State<Arc<AdminModuleService>>,
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
     casbin_auth_middleware_with_config(
         State(casbin_service),
         State(token_broker),
+        State(admin_module_service),
         request,
         next,
         CasbinAuthConfig::default(),
@@ -73,6 +75,7 @@ pub async fn casbin_auth_middleware(
 pub async fn casbin_auth_middleware_with_config(
     State(casbin_service): State<Arc<CasbinService>>,
     State(token_broker): State<Arc<TokenBroker>>,
+    State(admin_module_service): State<Arc<AdminModuleService>>,
     mut request: Request,
     next: Next,
     config: CasbinAuthConfig,
@@ -126,57 +129,123 @@ pub async fn casbin_auth_middleware_with_config(
     CasbinClaimsMapper::validate_claims(&casbin_claims)
         .map_err(|_| AppError::unauthorized("Invalid token claims"))?;
 
-    // Determine required permissions based on path and method
-    let required_permissions = determine_required_permissions(&path, &method, &config);
-
-    // Check permissions using Casbin
-    let casbin_subject = CasbinClaimsMapper::to_casbin_subject(&casbin_claims);
-    let subject_string = casbin_subject.to_subject_string();
-
-    let mut access_granted = false;
-    let mut matched_permission = None;
-
-    for (resource, action) in required_permissions {
-        match casbin_service.enforce(&subject_string, &resource, &action).await {
-            Ok(true) => {
-                access_granted = true;
-                matched_permission = Some(format!("{}:{}", action, resource));
-                break;
-            },
-            Ok(false) => {
-                if config.log_access_decisions {
-                    debug!(
-                        "Access denied: {} cannot {} {}",
-                        subject_string, action, resource
-                    );
-                }
-                continue;
-            },
-            Err(e) => {
-                error!("Casbin enforcement error: {:?}", e);
-                return Err(AppError::internal_error("Authorization check failed"));
-            }
+    // Check for admin paths using granular module system
+    let is_admin_path = config.admin_paths.iter().any(|admin_path| path.starts_with(admin_path));
+    
+    if is_admin_path {
+        debug!("Admin path detected: {}", path);
+        
+        // Get user's Firebase UID from claims
+        let firebase_uid = &casbin_claims.user_id; // Assuming user_id is Firebase UID
+        
+        // Debug logging to understand token claims
+        debug!("Extracted Firebase UID from token claims: {}", firebase_uid);
+        debug!("Casbin claims: {:?}", casbin_claims);
+        
+        // Check if user has any admin modules
+        let user_is_admin = admin_module_service.user_is_admin(firebase_uid).await
+            .map_err(|e| {
+                error!("Failed to check admin status: {:?}", e);
+                AppError::internal_error("Authorization check failed")
+            })?;
+            
+        if !user_is_admin {
+            warn!("Access denied: User {} has no admin modules for admin path {}", firebase_uid, path);
+            return Err(AppError::forbidden("Insufficient administrative privileges"));
         }
+        
+        // Check specific endpoint access based on user's admin modules
+        let can_access = admin_module_service.can_access_endpoint(firebase_uid, &path).await
+            .map_err(|e| {
+                error!("Failed to check endpoint access: {:?}", e);
+                AppError::internal_error("Authorization check failed")
+            })?;
+            
+        if !can_access {
+            // Get user's modules for detailed error message
+            let user_modules = admin_module_service.get_user_admin_modules(firebase_uid).await.unwrap_or_default();
+            warn!(
+                "Access denied: User {} with modules {:?} cannot access admin endpoint {}",
+                firebase_uid, user_modules, path
+            );
+            return Err(AppError::forbidden("Insufficient module permissions for this admin endpoint"));
+        }
+        
+        debug!("Admin access granted for user {} to {}", firebase_uid, path);
     }
 
-    if !access_granted {
-        warn!(
-            "Access denied for user {} to {} {}",
-            casbin_claims.user_id, method, path
-        );
-        return Err(AppError::forbidden("Insufficient permissions"));
+    // Common variables for both admin and non-admin paths
+    let casbin_subject = CasbinClaimsMapper::to_casbin_subject(&casbin_claims);
+    let mut matched_permission = String::new();
+
+    // For non-admin paths, use traditional Casbin permission checking
+    if !is_admin_path {
+        let required_permissions = determine_required_permissions(&path, &method, &config);
+        let subject_string = casbin_subject.to_subject_string();
+
+        let mut access_granted = false;
+
+        for (resource, action) in required_permissions {
+            match casbin_service.enforce(&subject_string, &resource, &action).await {
+                Ok(true) => {
+                    access_granted = true;
+                    matched_permission = format!("{}:{}", action, resource);
+                    break;
+                },
+                Ok(false) => {
+                    if config.log_access_decisions {
+                        debug!(
+                            "Access denied: {} cannot {} {}",
+                            subject_string, action, resource
+                        );
+                    }
+                    continue;
+                },
+                Err(e) => {
+                    error!("Casbin enforcement error: {:?}", e);
+                    return Err(AppError::internal_error("Authorization check failed"));
+                }
+            }
+        }
+
+        if !access_granted {
+            warn!(
+                "Access denied for user {} to {} {}",
+                casbin_claims.user_id, method, path
+            );
+            return Err(AppError::forbidden("Insufficient permissions"));
+        }
+    } else {
+        matched_permission = "admin:module_based".to_string();
     }
 
     // Log successful access if configured
     if config.log_access_decisions {
-        debug!(
-            "Access granted: {} ({}) accessed {} {} with permission {}",
-            casbin_claims.user_id,
-            casbin_claims.role,
-            method,
-            path,
-            matched_permission.unwrap_or_default()
-        );
+        // Get user's admin modules for better logging
+        let user_modules = if is_admin_path {
+            admin_module_service.get_user_admin_modules(&casbin_claims.user_id).await.unwrap_or_default()
+        } else {
+            vec![]
+        };
+        
+        if !user_modules.is_empty() {
+            debug!(
+                "Access granted: {} (admin modules: {:?}) accessed {} {} with permission {}",
+                casbin_claims.user_id,
+                user_modules,
+                method,
+                path,
+                matched_permission
+            );
+        } else {
+            debug!(
+                "Access granted: {} accessed {} {} with permission {}",
+                casbin_claims.user_id,
+                method,
+                path,
+                matched_permission
+            );
+        }
     }
 
     // Add user context to request extensions for downstream handlers
@@ -190,9 +259,18 @@ pub async fn casbin_auth_middleware_with_config(
     if let Ok(user_id_header) = HeaderValue::from_str(&casbin_claims.user_id) {
         response.headers_mut().insert("X-User-ID", user_id_header);
     }
-    if let Ok(role_header) = HeaderValue::from_str(&casbin_claims.role) {
-        response.headers_mut().insert("X-User-Role", role_header);
+    
+    // Add admin module info to headers  
+    if is_admin_path {
+        let user_modules = admin_module_service.get_user_admin_modules(&casbin_claims.user_id).await.unwrap_or_default();
+        if !user_modules.is_empty() {
+            let modules_str = user_modules.join(",");
+            if let Ok(modules_header) = HeaderValue::from_str(&modules_str) {
+                response.headers_mut().insert("X-User-Admin-Modules", modules_header);
+            }
+        }
     }
+    
     if let Ok(provider_header) = HeaderValue::from_str(&casbin_claims.provider) {
         response.headers_mut().insert("X-Auth-Provider", provider_header);
     }
@@ -284,35 +362,79 @@ fn extract_resource_from_path(path: &str) -> String {
     segments.first().unwrap_or(&"unknown").to_string()
 }
 
-/// Middleware for role-based access control (shorthand for common cases)
-pub async fn require_role(
-    role: &str,
-    State(casbin_service): State<Arc<CasbinService>>,
+/// Modern admin module-based access control - requires any admin module
+pub async fn require_any_admin_module(
+    State(_casbin_service): State<Arc<CasbinService>>,
     State(token_broker): State<Arc<TokenBroker>>,
+    State(admin_module_service): State<Arc<AdminModuleService>>,
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let mut config = CasbinAuthConfig::default();
-    config.require_explicit_permissions = false;
-    
-    let result = casbin_auth_middleware_with_config(
-        State(casbin_service),
-        State(token_broker),
-        request,
-        next,
-        config,
-    ).await;
+    // Extract and validate token
+    let token = extract_bearer_token(&request)
+        .ok_or_else(|| AppError::unauthorized("Missing authorization header"))?;
 
-    // Additional role check
-    if let Ok(response) = &result {
-        if let Some(claims) = response.extensions().get::<CasbinUserClaims>() {
-            if claims.role != role {
-                return Err(AppError::forbidden(&format!("Required role: {}", role)));
-            }
-        }
+    let user_claims = token_broker.validate_token(&token).await
+        .map_err(|_| AppError::unauthorized("Invalid token"))?;
+
+    let jwt_payload = serde_json::to_value(&user_claims)
+        .map_err(|e| AppError::internal_error(&format!("Claims serialization error: {}", e)))?;
+
+    let casbin_claims = CasbinClaimsMapper::extract_claims(&jwt_payload)
+        .map_err(|_| AppError::internal_error("Claims mapping error"))?;
+
+    // Check if user has any admin modules
+    let has_admin_access = admin_module_service
+        .user_is_admin(&casbin_claims.user_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to check admin status: {:?}", e);
+            AppError::internal_error("Authorization check failed")
+        })?;
+
+    if !has_admin_access {
+        return Err(AppError::forbidden("Admin access required"));
     }
 
-    result
+    Ok(next.run(request).await)
+}
+
+/// Modern admin module-based access control
+pub async fn require_admin_module(
+    required_module: &str,
+    State(_casbin_service): State<Arc<CasbinService>>,
+    State(token_broker): State<Arc<TokenBroker>>,
+    State(admin_module_service): State<Arc<AdminModuleService>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, AppError> {
+    // Extract and validate token
+    let token = extract_bearer_token(&request)
+        .ok_or_else(|| AppError::unauthorized("Missing authorization header"))?;
+
+    let user_claims = token_broker.validate_token(&token).await
+        .map_err(|_| AppError::unauthorized("Invalid token"))?;
+
+    let jwt_payload = serde_json::to_value(&user_claims)
+        .map_err(|e| AppError::internal_error(&format!("Claims serialization error: {}", e)))?;
+
+    let casbin_claims = CasbinClaimsMapper::extract_claims(&jwt_payload)
+        .map_err(|_| AppError::internal_error("Claims mapping error"))?;
+
+    // Check if user has required admin module
+    let has_module = admin_module_service
+        .user_has_admin_module(&casbin_claims.user_id, required_module)
+        .await
+        .map_err(|e| {
+            error!("Failed to check admin module: {:?}", e);
+            AppError::internal_error("Authorization check failed")
+        })?;
+
+    if !has_module {
+        return Err(AppError::forbidden(&format!("Required admin module: {}", required_module)));
+    }
+
+    Ok(next.run(request).await)
 }
 
 /// Middleware for permission-based access control
@@ -320,6 +442,7 @@ pub async fn require_permission(
     permission: &str,
     State(casbin_service): State<Arc<CasbinService>>,
     State(token_broker): State<Arc<TokenBroker>>,
+    State(_admin_module_service): State<Arc<AdminModuleService>>,
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {

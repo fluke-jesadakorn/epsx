@@ -213,10 +213,25 @@ async fn handle_admin_login(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
     
-    if !matches!(user.role(), Role::Admin | Role::SuperAdmin) {
-        tracing::warn!("User {} attempted admin login without privileges", email);
+    // Check if user has traditional admin role OR has admin module assignments
+    let has_traditional_admin_role = matches!(user.role(), Role::Admin | Role::SuperAdmin);
+    
+    // Check if user has admin module assignments
+    let admin_modules = app_state.admin_module_service
+        .get_user_admin_modules(user.firebase_uid())
+        .await
+        .unwrap_or_default();
+    
+    let has_admin_modules = !admin_modules.is_empty();
+    
+    if !has_traditional_admin_role && !has_admin_modules {
+        tracing::warn!("User {} attempted admin login without privileges (role: {:?}, modules: {})", 
+                      email, user.role(), admin_modules.len());
         return Err(StatusCode::FORBIDDEN);
     }
+    
+    tracing::info!("Admin access granted for user {} (role: {:?}, modules: {})", 
+                  email, user.role(), admin_modules.len());
     
     let bearer_token = generate_bearer_token(&login_res.sess_id.to_string());
     

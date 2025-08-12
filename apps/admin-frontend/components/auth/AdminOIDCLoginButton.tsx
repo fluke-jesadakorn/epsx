@@ -24,40 +24,24 @@ export function AdminOIDCLoginButton({
   const handleAdminLogin = () => {
     setIsRedirecting(true);
     
-    // Generate secure state parameter
-    const state = generateSecureState();
-    
     // Build authorization URL with admin-specific parameters
     const authParams = new URLSearchParams({
       client_id: 'epsx-admin',
       response_type: 'code',
       scope: 'openid profile email admin:read admin:write system:manage', // Admin-specific scopes
       redirect_uri: `${window.location.origin}/auth/callback`,
-      state: state
+      // Add redirect destination as state parameter for server-side handling
+      state: redirectTo || '/'
     });
     
-    // Store state for validation in callback
-    sessionStorage.setItem('oidc_state', state);
-    
-    // Store redirect destination
-    if (redirectTo) {
-      sessionStorage.setItem('oidc_redirect_to', redirectTo);
-    }
-    
-    // Store admin-specific security settings
-    sessionStorage.setItem('admin_require_mfa', requireMFA.toString());
-    sessionStorage.setItem('admin_threat_detection', enableThreatDetection.toString());
-    sessionStorage.setItem('admin_session_monitoring', enableSessionMonitoring.toString());
-    sessionStorage.setItem('admin_max_attempts', maxFailedAttempts.toString());
-    
-    // Redirect to backend admin login page
+    // Redirect to backend admin OIDC authorization endpoint
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     const loginUrl = `${backendUrl}/oauth/authorize?${authParams.toString()}`;
     
-    console.log('🔐 Redirecting to secure admin login:', loginUrl);
+    console.log('🔐 Redirecting to secure admin OIDC login:', loginUrl);
     
     // Add audit log entry for login attempt
-    console.log('🔍 Admin login initiated', {
+    console.log('🔍 Admin OIDC login initiated', {
       timestamp: new Date().toISOString(),
       client_id: 'epsx-admin',
       redirect_uri: `${window.location.origin}/auth/callback`,

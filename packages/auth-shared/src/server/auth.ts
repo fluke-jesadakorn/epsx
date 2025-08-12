@@ -49,7 +49,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
     const cookieHeader = `${finalConfig.sessionCookieName}=${sessionId}`;
 
     // Try multiple endpoints to handle both admin and regular users
-    const endpoints = ['/api/v1/auth/profile', '/api/admin/auth/profile'];
+    const endpoints = ['/api/v1/auth/me', '/api/admin/auth/profile'];
     
     let userData = null;
     let lastError: string | null = null;

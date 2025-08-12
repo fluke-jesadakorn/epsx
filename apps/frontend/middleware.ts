@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,7 +13,7 @@ export default async function middleware(request: NextRequest) {
     '/verify-email',
     '/access-denied',
     '/unauthorized',
-    '/api/auth',
+    '/auth/callback', // OIDC callback
     '/terms',
     '/privacy',
     '/analytics',
@@ -28,56 +27,18 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // Get JWT token (Edge Runtime compatible)
-  const token = await getToken({ 
-    req: request, 
-    secret: process.env.NEXTAUTH_SECRET 
-  });
+  // Check for HTTP-only authentication cookie
+  const authCookie = request.cookies.get('auth-token');
   
-  if (!token?.id) {
+  if (!authCookie?.value) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
   
-  // For now, let server components handle detailed permission checking
-  // This middleware only ensures basic authentication
-  
-  // Routes that require specific roles (basic check)
-  if (pathname.startsWith('/admin')) {
-    const isAdmin = token.role === 'admin' || 
-                   token.role === 'system_administrator' || 
-                   token.role === 'super_admin';
-    
-    if (!isAdmin) {
-      const accessDeniedUrl = new URL('/access-denied', request.url);
-      accessDeniedUrl.searchParams.set('reason', 'Admin access required');
-      return NextResponse.redirect(accessDeniedUrl);
-    }
-  }
-  
-  // For premium routes, check subscription (basic check)
-  const premiumRoutes = ['/trading'];
-  const isPremiumRoute = premiumRoutes.some(route => pathname.startsWith(route));
-  
-  if (isPremiumRoute) {
-    const isSuperAdmin = token.role === 'system_administrator' || 
-                        token.role === 'admin' || 
-                        token.role === 'super_admin';
-    
-    if (!isSuperAdmin) {
-      const isPremium = token.subscription_tier && 
-        ['premium', 'enterprise', 'platinum', 'gold'].includes(
-          token.subscription_tier.toLowerCase()
-        );
-      
-      if (!isPremium) {
-        const accessDeniedUrl = new URL('/access-denied', request.url);
-        accessDeniedUrl.searchParams.set('reason', 'Premium subscription required');
-        return NextResponse.redirect(accessDeniedUrl);
-      }
-    }
-  }
+  // Note: Detailed permission checking is handled by server components
+  // This middleware only ensures basic authentication via HTTP-only cookies
+  // The backend validates the JWT token and permissions on each request
   
   return NextResponse.next();
 }

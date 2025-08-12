@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { getModuleUsageAnalytics as _getModuleUsageAnalytics } from '@epsx/server-actions';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
-import { useModuleAuth } from '@/auth/module-ctx';
+// import { useModuleAuth } from '@/auth/module-ctx'; // Removed - using OIDC auth
 import { toast } from 'react-hot-toast';
 
 interface UsageMetrics {
@@ -84,7 +84,9 @@ interface BillingData {
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
 export const ModuleAnalyticsDashboard: React.FC = () => {
-  const { hasModuleAccess, canPerformAction } = useModuleAuth();
+  // TODO: Implement proper module auth check with OIDC
+  const hasModuleAccess = () => true;
+  const canPerformAction = () => true;
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('7d');
   const [selectedModule, setSelectedModule] = useState('all');

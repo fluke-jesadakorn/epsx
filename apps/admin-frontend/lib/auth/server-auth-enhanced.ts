@@ -73,20 +73,35 @@ export async function hasPermission(permission: string): Promise<boolean> {
 }
 
 /**
- * Check if user has specific role
+ * Check if user has specific admin module (modern approach)
  */
-export async function hasRole(role: string): Promise<boolean> {
+export async function hasAdminModule(adminModule: string): Promise<boolean> {
   const user = await getCurrentUser()
   
-  if (!user) {
+  if (!user || !user.admin_modules) {
     return false
   }
   
-  return user.role === role
+  return user.admin_modules.includes(adminModule)
 }
 
 /**
- * Check if user can manage other users
+ * Check if user has any admin modules (is an admin)
+ */
+export async function hasAnyAdminModule(): Promise<boolean> {
+  const user = await getCurrentUser()
+  
+  if (!user || !user.admin_modules) {
+    return false
+  }
+  
+  return user.admin_modules.length > 0
+}
+
+// Legacy role functions completely removed - use admin modules only
+
+/**
+ * Check if user can manage other users (using modern admin modules)
  */
 export async function canManageUsers(): Promise<boolean> {
   const user = await getCurrentUser()
@@ -95,15 +110,19 @@ export async function canManageUsers(): Promise<boolean> {
     return false
   }
   
-  const adminRoles = ['admin', 'system_administrator', 'super_admin']
-  const hasAdminRole = adminRoles.includes(user.role)
-  const hasUserPermission = user.permissions.includes('manage_users')
+  // Check if user has user management admin module
+  const hasUserOpsModule = user.admin_modules?.includes('user_operations') || false
+  const hasPermissionModule = user.admin_modules?.includes('permission_admin') || false
+  const hasSystemModule = user.admin_modules?.includes('system_admin') || false
   
-  return hasAdminRole || hasUserPermission
+  // Also check for explicit permission
+  const hasUserPermission = user.permissions.includes('user:write') || user.permissions.includes('manage_users')
+  
+  return hasUserOpsModule || hasPermissionModule || hasSystemModule || hasUserPermission
 }
 
 /**
- * Check if user can view analytics
+ * Check if user can view analytics (using modern admin modules)
  */
 export async function canViewAnalytics(): Promise<boolean> {
   const user = await getCurrentUser()
@@ -112,15 +131,18 @@ export async function canViewAnalytics(): Promise<boolean> {
     return false
   }
   
-  const analyticsRoles = ['admin', 'system_administrator', 'super_admin', 'moderator']
-  const hasAnalyticsRole = analyticsRoles.includes(user.role)
-  const hasAnalyticsPermission = user.permissions.includes('view_analytics')
+  // Check if user has analytics admin module
+  const hasAnalyticsModule = user.admin_modules?.includes('analytics_specialist') || false
+  const hasSystemModule = user.admin_modules?.includes('system_admin') || false
   
-  return hasAnalyticsRole || hasAnalyticsPermission
+  // Also check for explicit permission
+  const hasAnalyticsPermission = user.permissions.includes('analytics:read') || user.permissions.includes('view_analytics')
+  
+  return hasAnalyticsModule || hasSystemModule || hasAnalyticsPermission
 }
 
 /**
- * Check if user can manage billing
+ * Check if user can manage billing (using modern admin modules)
  */
 export async function canManageBilling(): Promise<boolean> {
   const user = await getCurrentUser()
@@ -129,11 +151,14 @@ export async function canManageBilling(): Promise<boolean> {
     return false
   }
   
-  const billingRoles = ['admin', 'system_administrator', 'super_admin']
-  const hasBillingRole = billingRoles.includes(user.role)
-  const hasBillingPermission = user.permissions.includes('manage_billing')
+  // Check if user has billing admin module
+  const hasBillingModule = user.admin_modules?.includes('billing_admin') || false
+  const hasSystemModule = user.admin_modules?.includes('system_admin') || false
   
-  return hasBillingRole || hasBillingPermission
+  // Also check for explicit permission
+  const hasBillingPermission = user.permissions.includes('billing:write') || user.permissions.includes('manage_billing')
+  
+  return hasBillingModule || hasSystemModule || hasBillingPermission
 }
 
 /**
@@ -150,34 +175,44 @@ export async function requirePermission(permission: string): Promise<EnhancedAut
 }
 
 /**
- * Require specific role or redirect to access denied  
+ * Require specific admin module or redirect to access denied
  */
-export async function requireRole(role: string): Promise<EnhancedAuthUser> {
+export async function requireAdminModule(adminModule: string): Promise<EnhancedAuthUser> {
   const user = await requireAuth()
   
-  if (user.role !== role) {
+  if (!user.admin_modules?.includes(adminModule)) {
     redirect('/access-denied')
   }
   
   return user
 }
 
+// Legacy requireRole function completely removed
+
 /**
- * Enhanced user data with computed permissions
+ * Enhanced user data with computed permissions using modern admin modules
  */
 function enhanceUserData(user: AuthUser): EnhancedAuthUser {
-  const adminRoles = ['admin', 'system_administrator', 'super_admin']
-  const isAdmin = adminRoles.includes(user.role) || user.permissions.includes('admin_access')
-  const isSuperAdmin = user.role === 'super_admin'
+  // Modern approach: check admin modules instead of hardcoded roles
+  const hasAnyAdminModules = user.admin_modules && user.admin_modules.length > 0
+  const hasSystemAdminModule = user.admin_modules?.includes('system_admin') || false
+  const isAdmin = hasAnyAdminModules || user.permissions.includes('admin_access')
+  const isSuperAdmin = hasSystemAdminModule // System admin is the highest level
+  
+  // Compute capabilities based on admin modules
+  const hasUserOpsModule = user.admin_modules?.includes('user_operations') || false
+  const hasPermissionModule = user.admin_modules?.includes('permission_admin') || false
+  const hasBillingModule = user.admin_modules?.includes('billing_admin') || false
+  const hasAnalyticsModule = user.admin_modules?.includes('analytics_specialist') || false
   
   return {
     ...user,
     displayName: user.email, // Can be enhanced later with actual display name
     isAdmin,
     isSuperAdmin,
-    canManageUsers: isAdmin || user.permissions.includes('manage_users'),
-    canManageBilling: isAdmin || user.permissions.includes('manage_billing'), 
-    canViewAnalytics: isAdmin || user.permissions.includes('view_analytics'),
+    canManageUsers: hasUserOpsModule || hasPermissionModule || hasSystemAdminModule || user.permissions.includes('user:write'),
+    canManageBilling: hasBillingModule || hasSystemAdminModule || user.permissions.includes('billing:write'), 
+    canViewAnalytics: hasAnalyticsModule || hasSystemAdminModule || user.permissions.includes('analytics:read'),
   }
 }
 

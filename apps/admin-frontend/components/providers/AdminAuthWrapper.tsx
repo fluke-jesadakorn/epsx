@@ -1,9 +1,7 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
-import { AdminAuthGuard } from '@/components/auth/AdminAuthGuard';
+import { usePathname } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-
 
 export function AdminAuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,13 +15,12 @@ export function AdminAuthWrapper({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // For protected routes, use the AdminAuthGuard with layout
+  // For protected routes, use AdminLayout directly
+  // Authentication is now handled by middleware with HTTP-only cookies
   return (
-    <AdminAuthGuard>
-      <AdminLayout>
-        {children}
-      </AdminLayout>
-    </AdminAuthGuard>
+    <AdminLayout>
+      {children}
+    </AdminLayout>
   );
 }
 

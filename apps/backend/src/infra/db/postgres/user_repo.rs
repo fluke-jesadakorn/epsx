@@ -1,4 +1,4 @@
-// PostgreSQL User Repository Implementation
+// PostgreSQL User Repository Implementation - Modern Admin Module System
 
 use async_trait::async_trait;
 use sqlx::Row;
@@ -28,7 +28,7 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users WHERE id = $1"
         )
         .bind(uuid)
@@ -45,14 +45,14 @@ impl UserRepo for PostgresUserRepo {
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
                 let uid: Uuid = row.get("id");
-                let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-                let role = Role::from_string(&role_str).unwrap_or(Role::User);
+                // Role is now managed through admin modules, default to User
+                let role = Role::User;
                 
                 let user = User::from_existing(
                     UserId::from_string(uid.to_string()),
                     fb_uid,
                     email,
-                    role, // Load role from database
+                    role,
                 );
 
                 Ok(Some(user))
@@ -66,18 +66,16 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         sqlx::query(
-            "INSERT INTO users (id, firebase_uid, email, role, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, NOW(), NOW())
+            "INSERT INTO users (id, firebase_uid, email, created_at, updated_at)
+             VALUES ($1, $2, $3, NOW(), NOW())
              ON CONFLICT (id) DO UPDATE SET
                 firebase_uid = EXCLUDED.firebase_uid,
                 email = EXCLUDED.email,
-                role = EXCLUDED.role,
                 updated_at = NOW()"
         )
         .bind(uuid)
         .bind(user.firebase_uid())
         .bind(user.email().value())
-        .bind(user.role().to_string())
         .execute(&*self.pool)
         .await
         .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -106,7 +104,7 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepoError> {
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users WHERE email = $1"
         )
         .bind(email.value())
@@ -123,14 +121,14 @@ impl UserRepo for PostgresUserRepo {
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
                 let user_id: Uuid = row.get("id");
-                let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-                let role = Role::from_string(&role_str).unwrap_or(Role::User);
+                // Role is now managed through admin modules, default to User
+                let role = Role::User;
                 
                 let user = User::from_existing(
                     UserId::from_string(user_id.to_string()),
                     firebase_uid,
                     email,
-                    role, // Load role from database
+                    role,
                 );
 
                 Ok(Some(user))
@@ -141,7 +139,7 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError> {
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users WHERE firebase_uid = $1"
         )
         .bind(firebase_uid)
@@ -158,14 +156,14 @@ impl UserRepo for PostgresUserRepo {
                     .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
                 let uid: Uuid = row.get("id");
-                let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-                let role = Role::from_string(&role_str).unwrap_or(Role::User);
+                // Role is now managed through admin modules, default to User
+                let role = Role::User;
                 
                 let user = User::from_existing(
                     UserId::from_string(uid.to_string()),
                     fb_uid,
                     email,
-                    role, // Load role from database
+                    role,
                 );
 
                 Ok(Some(user))
@@ -176,8 +174,9 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_by_role(&self, _role: &Role) -> Result<Vec<User>, RepoError> {
         // Since roles are no longer stored in the database, return all users
+        // This should be updated to query admin modules instead
         let rows = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users ORDER BY created_at DESC"
         )
         .fetch_all(&*self.pool)
@@ -193,14 +192,14 @@ impl UserRepo for PostgresUserRepo {
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
             let user_id: Uuid = row.get("id");
-            let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-            let role = Role::from_string(&role_str).unwrap_or(Role::User);
+            // Role is now managed through admin modules, default to User
+            let role = Role::User;
             
             let user = User::from_existing(
                 UserId::from_string(user_id.to_string()),
                 firebase_uid,
                 email,
-                role, // Load role from database
+                role,
             );
 
             users.push(user);
@@ -211,7 +210,7 @@ impl UserRepo for PostgresUserRepo {
 
     async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>, RepoError> {
         let rows = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users ORDER BY created_at DESC 
              LIMIT $1 OFFSET $2"
         )
@@ -230,14 +229,14 @@ impl UserRepo for PostgresUserRepo {
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
             let user_id: Uuid = row.get("id");
-            let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-            let role = Role::from_string(&role_str).unwrap_or(Role::User);
+            // Role is now managed through admin modules, default to User
+            let role = Role::User;
             
             let user = User::from_existing(
                 UserId::from_string(user_id.to_string()),
                 firebase_uid,
                 email,
-                role, // Load role from database
+                role,
             );
 
             users.push(user);
@@ -292,7 +291,7 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_all(&self) -> Result<Vec<User>, RepoError> {
         let rows = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users ORDER BY created_at DESC"
         )
         .fetch_all(&*self.pool)
@@ -308,14 +307,14 @@ impl UserRepo for PostgresUserRepo {
                 .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
 
             let user_id: Uuid = row.get("id");
-            let role_str: String = row.try_get("role").unwrap_or_else(|_| "user".to_string());
-            let role = Role::from_string(&role_str).unwrap_or(Role::User);
+            // Role is now managed through admin modules, default to User
+            let role = Role::User;
             
             let user = User::from_existing(
                 UserId::from_string(user_id.to_string()),
                 firebase_uid,
                 email,
-                role, // Load role from database
+                role,
             );
 
             users.push(user);
@@ -334,7 +333,7 @@ impl UserRepo for PostgresUserRepo {
     async fn find_users_for_auto_assignment(&self) -> Result<Vec<User>, RepoError> {
         // Find users who might be eligible for auto-assignment
         let rows = sqlx::query(
-            "SELECT id, firebase_uid, email, role, created_at, updated_at 
+            "SELECT id, firebase_uid, email, created_at, updated_at 
              FROM users 
              WHERE created_at > NOW() - INTERVAL '30 days'
              ORDER BY created_at DESC

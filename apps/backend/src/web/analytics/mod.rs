@@ -4,6 +4,9 @@ use axum::{
     routing::{get, post},
     Router,
     Extension,
+    extract::State,
+    http::StatusCode,
+    response::Json,
 };
 use serde::Deserialize;
 
@@ -55,8 +58,27 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
         .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
         .route("/analytics/eps-rankings/sync", post(eps_handlers::trigger_eps_sync))
         .route("/analytics/eps-rankings/websocket-debug", post(eps_handlers::debug_websocket_eps))
+        // System metrics endpoint for admin dashboard
+        .route("/analytics/system/metrics", get(system_metrics_handler))
         // Add services as extensions
         .layer(Extension(eps_ranking_service))
         .layer(Extension(eps_cache_service))
 }
 
+/// System metrics handler for admin dashboard
+/// GET /api/v1/analytics/system/metrics
+async fn system_metrics_handler(
+    State(app_state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Reuse the existing system metrics collection from health module
+    let metrics = crate::web::health::casbin_health_check::collect_system_metrics(&app_state).await;
+    
+    // Format response to match frontend expectations
+    let response = serde_json::json!({
+        "status": "success",
+        "data": metrics,
+        "timestamp": chrono::Utc::now()
+    });
+    
+    Ok(Json(response))
+}

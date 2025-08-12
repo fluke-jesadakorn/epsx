@@ -12,11 +12,12 @@ import {
   getPackageByLevel,
 } from '@/app/constants/packages';
 import type { UserLevelType } from '@/app/constants/packages';
-import { useSession } from 'next-auth/react';
+// Note: User level data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Star, Trophy, Gem, Zap, Lock, ArrowRight } from 'lucide-react';
 
 interface UserLevelDisplayProps {
+  user?: any; // User data from server auth  
   className?: string;
 }
 
@@ -51,9 +52,7 @@ const levelGradients = {
   API_PARTNER: 'from-purple-600 to-indigo-700',
 };
 
-export function UserLevelDisplay({ className }: UserLevelDisplayProps) {
-  const { data: session } = useSession();
-  const user = session?.user;
+export function UserLevelDisplay({ user, className }: UserLevelDisplayProps) {
   const router = useRouter();
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);

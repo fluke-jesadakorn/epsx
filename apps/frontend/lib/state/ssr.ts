@@ -89,7 +89,7 @@ async function getServerAuthState() {
     }
 
     // Verify session with backend
-    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/auth/profile`, {
+    const response = await fetch(`${process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/auth/me`, {
       headers: {
         'Cookie': `sess_id=${sessionCookie.value}`,
         'Content-Type': 'application/json'

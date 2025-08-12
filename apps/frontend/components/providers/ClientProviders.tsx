@@ -4,7 +4,6 @@ import { PerformanceProvider } from '@/components/common/PerformanceProvider';
 import { BackgroundDecorationsClient } from '@/components/layout/BackgroundDecorations.client';
 import { ToastProvider } from '@/components/ui/toaster';
 import { AppStateProvider } from '@/context/app-state';
-import { SessionProvider } from 'next-auth/react';
 import { UIProvider } from '@/context/ui-context';
 import { GlobalThemeProvider } from '@epsx/theme';
 import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
@@ -15,15 +14,13 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <PerformanceProvider>
         <AppStateProvider>
           <UIProvider>
-            <SessionProvider>
-              <ToastProvider>
-                <BackgroundDecorationsClient />
+            <ToastProvider>
+              <BackgroundDecorationsClient />
 
-                <OptimizedSuspenseBoundary identifier="main content">
-                  {children}
-                </OptimizedSuspenseBoundary>
-              </ToastProvider>
-            </SessionProvider>
+              <OptimizedSuspenseBoundary identifier="main content">
+                {children}
+              </OptimizedSuspenseBoundary>
+            </ToastProvider>
           </UIProvider>
         </AppStateProvider>
       </PerformanceProvider>

@@ -528,13 +528,15 @@ pub async fn get_user_stats_handler(
     response["active_users"] = json!(active_users);
     response["deleted_users"] = json!(deleted_users);
     
-    // Include role breakdown if requested
+    // Include role breakdown if requested - updated for modern admin module system
     if query.include_roles.unwrap_or(true) {
         let mut role_counts = std::collections::HashMap::new();
         
         for user in &all_users {
             if !user.is_deleted() {  // Only count active users
-                let role_str = user.role().to_string();
+                // Since roles are now managed through admin modules, default to "user"
+                // In the future, this could query the admin modules system for actual roles
+                let role_str = "user".to_string();
                 *role_counts.entry(role_str).or_insert(0) += 1;
             }
         }

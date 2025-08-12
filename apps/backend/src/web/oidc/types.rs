@@ -112,9 +112,10 @@ pub struct JwtHeader {
     pub kid: String,
 }
 
-/// ID Token Claims
+/// Modern ID Token Claims - Clean Admin Module System
 #[derive(Debug, Serialize)]
 pub struct IdTokenClaims {
+    // Standard OIDC claims
     pub iss: String, // Issuer
     pub sub: String, // Subject (Firebase UID)
     pub aud: String, // Audience (client_id)
@@ -123,7 +124,7 @@ pub struct IdTokenClaims {
     pub auth_time: Option<u64>, // Authentication time
     pub nonce: Option<String>,
     
-    // Standard OIDC claims
+    // Standard profile claims
     pub email: Option<String>,
     pub email_verified: Option<bool>,
     pub name: Option<String>,
@@ -133,7 +134,17 @@ pub struct IdTokenClaims {
     pub phone_number: Option<String>,
     pub phone_number_verified: Option<bool>,
     
-    // Firebase custom claims
+    // Modern IAM Claims - Admin Module System Only
+    pub admin: bool,                        // Is user an admin (has any admin modules)
+    pub access_level: String,               // Effective access level: admin/write/read/none
+    pub admin_modules: Vec<String>,         // Assigned admin modules
+    pub permissions: Vec<String>,           // Computed permissions from modules
+    
+    // Subscription data
+    pub subscription_tier: Option<String>,   // User's subscription level
+    pub subscription_status: Option<String>, // active/inactive/trial
+    
+    // Firebase custom claims (for any additional data)
     #[serde(flatten)]
     pub custom_claims: HashMap<String, serde_json::Value>,
 }

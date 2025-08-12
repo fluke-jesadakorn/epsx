@@ -44,10 +44,25 @@ export default function StockRankingAssignmentList({
     setIsLoading(true);
     try {
       const response = await fetch('/api/v1/admin/stock-ranking/assignments');
+      
+      if (!response.ok) {
+        console.error('Assignment API error:', response.status, response.statusText);
+        setAssignments([]);
+        return;
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        console.error('Invalid response type:', contentType);
+        setAssignments([]);
+        return;
+      }
+      
       const data = await response.json();
       setAssignments(data.assignments || []);
     } catch (error) {
       console.error('Failed to load assignments:', error);
+      setAssignments([]);
     } finally {
       setIsLoading(false);
     }

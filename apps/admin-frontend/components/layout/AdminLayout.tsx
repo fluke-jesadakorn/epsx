@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/context/simple-admin-auth';
+// Note: Auth is now handled by middleware with HTTP-only cookies
 import {
   Activity,
   BarChart3,
@@ -34,7 +34,6 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, initialized, logout } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -58,12 +57,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     localStorage.setItem('adminSidebarCollapsed', newCollapsedState.toString());
   }, [sidebarCollapsed]);
 
-  useEffect(() => {
-    // Only redirect if auth context is fully initialized and no user is found
-    if (initialized && !loading && !user) {
-      router.replace('/login');
-    }
-  }, [user, loading, initialized, router]);
+  // Note: Authentication is now handled by middleware, no client-side checks needed
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -143,20 +137,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading || !initialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-  
-  // Provide a mock user for testing
-  const mockUser = user || { email: 'test@example.com', displayName: 'Test User' };
+  // Authentication is handled by middleware - if we reach here, user is authenticated
+  const mockUser = { email: 'admin@example.com', displayName: 'Admin User' };
 
   const menuGroups = [
     {
@@ -407,10 +389,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      router.replace('/login');
+      // Redirect to server-side logout endpoint
+      router.push('/auth/logout');
     } catch (error) {
       console.error('Logout failed:', error);
+      // Fallback to login page
+      router.replace('/login');
     }
   };
 

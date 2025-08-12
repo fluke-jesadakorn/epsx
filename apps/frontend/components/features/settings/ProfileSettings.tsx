@@ -12,13 +12,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSession } from 'next-auth/react';
+// Note: User session data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';
 
-export function ProfileSettings() {
-  const { data: session } = useSession();
-  const user = session?.user;
+interface ProfileSettingsProps {
+  user: any; // User data from server auth
+}
+
+export function ProfileSettings({ user }: ProfileSettingsProps) {
   
   // All users are now backend-authenticated
   const _isBackendUser = true;

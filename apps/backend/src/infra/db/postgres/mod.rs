@@ -158,43 +158,14 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
     
     // Auto-migrate in development mode only
     if is_development_mode() {
-        use crate::infra::db::MigrationRunner;
-        use tracing::{info, warn, error};
+        use tracing::{info};
         
-        info!("Development mode detected - running auto-migration");
-        let runner = MigrationRunner::new(pool.clone(), config.migration_source);
+        info!("Development mode detected - auto-migration temporarily disabled");
         
-        match runner.migrate().await {
-            Ok(count) => {
-                if count > 0 {
-                    info!("✅ Auto-applied {} migrations successfully", count);
-                } else {
-                    info!("✅ Database is up to date");
-                }
-                
-                // Create permission query performance indexes
-                match create_permission_indexes(&pool).await {
-                    Ok(_) => info!("✅ Permission indexes created/verified"),
-                    Err(e) => warn!("⚠️  Permission index creation failed: {}", e),
-                }
-            },
-            Err(e) => {
-                let error_msg = e.to_string();
-                if error_msg.contains("already exists") {
-                    warn!("⚠️  Some database objects already exist - this is normal after manual migrations");
-                    info!("✅ Database schema appears to be current");
-                    
-                    // Still try to create indexes even if migration failed
-                    match create_permission_indexes(&pool).await {
-                        Ok(_) => info!("✅ Permission indexes created/verified"),
-                        Err(e) => warn!("⚠️  Permission index creation failed: {}", e),
-                    }
-                } else {
-                    error!("❌ Auto-migration failed: {}", e);
-                    warn!("💡 Consider running migrations manually: cargo run --bin migrate up");
-                }
-                // Don't fail pool creation on migration error in development
-            }
+        // Create permission query performance indexes
+        match create_permission_indexes(&pool).await {
+            Ok(_) => info!("✅ Permission indexes created/verified"),
+            Err(e) => info!("⚠️  Permission index creation failed: {}", e),
         }
     }
     

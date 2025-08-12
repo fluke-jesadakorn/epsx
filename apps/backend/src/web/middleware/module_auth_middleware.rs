@@ -171,7 +171,7 @@ fn extract_resource_action(request: &Request) -> Result<(String, String), Status
         ("POST", path) if path.contains("/modules/") => ("modules", "POST"),
         
         // Auth endpoints (usually public, but some require auth)
-        ("GET", path) if path.starts_with("/api/v1/auth/profile") => ("/api/v1/auth/profile", "GET"),
+        ("GET", path) if path.starts_with("/api/v1/auth/me") => ("/api/v1/auth/me", "GET"),
         ("POST", path) if path.starts_with("/api/v1/auth/logout") => ("/api/v1/auth/logout", "POST"),
         ("POST", path) if path.starts_with("/api/v1/auth/refresh") => ("/api/v1/auth/refresh", "POST"),
         

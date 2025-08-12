@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { signOut } from 'next-auth/react';
+// Note: OIDC logout handled by server-side auth flow
 import {
   BarChart3,
   Lock,
@@ -31,7 +31,7 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ user, permissions, dashboardData: _dashboardData }: DashboardClientProps) {
-  const handleLogout = () => signOut({ redirect: true, callbackUrl: '/login' });
+  const handleLogout = () => window.location.href = '/auth/logout';
 
   return (
     <div className="min-h-screen relative overflow-hidden">

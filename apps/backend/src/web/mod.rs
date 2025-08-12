@@ -14,6 +14,7 @@ pub mod health;
 pub mod analytics;
 pub mod settings;
 pub mod templates;
+pub mod admin_assignment;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -206,6 +207,11 @@ fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router
         // TODO: Fix middleware trait bounds issue
         // .layer(axum::middleware::from_fn_with_state(app_state.clone(), auth_middleware));
 
+    // Admin assignment routes (for Firebase admin privileges)
+    let admin_assignment_routes = Router::new()
+        .route("/admin/users/:user_id/role", post(admin_assignment::assign_admin_role_handler))
+        .route("/admin/users/:user_id/claims", get(admin_assignment::get_user_claims_handler));
+
     // Premium routes (auth + permission required)
     let premium_routes = Router::new()
         .route("/premium/rankings", get(premium_rankings_handler));
@@ -276,6 +282,7 @@ fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router
         .merge(user_admin_routes)
         .merge(payment_routes)
         .merge(system_routes)
+        .merge(admin_assignment_routes)
         .merge(premium_routes)
         .merge(iam_routes_v1)
         .merge(permission_profile_routes_v1)
@@ -381,6 +388,10 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
     let permission_resolver = Arc::new(PermissionResolver::new(casbin_service.clone()));
     let iam_uc = Arc::new(IamUseCase::new(permission_resolver, casbin_service.clone()));
     
+    // Create admin module service for granular admin role management
+    use crate::dom::services::admin_module_service::AdminModuleService;
+    let admin_module_service = Arc::new(AdminModuleService::new((*container.infra.postgres_pool).clone()));
+    
     // Create temporary stub implementations for module and usage repos  
     // TODO: Replace with proper implementations
     use crate::app::ports::repositories::{ModuleRepo, UsageRepo};
@@ -445,12 +456,12 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
         stub_usage_repo,
         container.firebase_admin.clone(),
         casbin_service.clone(),
+        admin_module_service.clone(),
     );
     
     // Create public routes
     let public_routes = Router::new()
         .route("/health", get(health_handler));
-        // .route("/auth/me-public", get(me_handler_public)); // Removed: no longer needed with bearer tokens
 
     // Real-time routes moved to v1 API structure - legacy routes removed
 
