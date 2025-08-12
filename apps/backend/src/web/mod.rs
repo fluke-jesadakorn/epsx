@@ -1,6 +1,7 @@
 // Web layer implementation
 
 pub mod auth;
+pub mod oidc;
 pub mod admin;
 pub mod iam;
 pub mod permission_profile;
@@ -12,6 +13,7 @@ pub mod validation;
 pub mod health;
 pub mod analytics;
 pub mod settings;
+pub mod templates;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -268,6 +270,7 @@ fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router
         .route("/stream", post(placeholder_stream_handler));
 
     Router::new()
+        .route("/health", get(health_handler))  // Add health endpoint for v1 API
         .merge(public_auth_routes)
         .merge(protected_auth_routes)
         .merge(user_admin_routes)
@@ -474,6 +477,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
         .merge(admin_api_public_routes)
         .merge(admin_api_protected_routes)
         .merge(admin_module_routes)
+        .merge(oidc::routes::oidc_routes())
         // Add error handling middleware (first layer to catch all errors)
         .layer(from_fn_with_state(
             app_state.clone(),

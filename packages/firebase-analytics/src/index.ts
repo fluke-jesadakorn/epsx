@@ -9,3 +9,6 @@ export * from './admin';
 
 // React hooks
 export * from './hooks';
+
+// Authentication functionality
+export * from './auth';

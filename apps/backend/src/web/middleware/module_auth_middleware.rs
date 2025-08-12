@@ -19,12 +19,7 @@ use crate::dom::values::{UserId, Role, SessId};
 // COMPATIBILITY TYPES - Keep during migration
 // ========================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthCtx {
-    pub user_id: UserId,
-    pub role: Role,
-    pub sess: SessId,
-}
+// Legacy AuthCtx struct removed - now using CasbinUserClaims from casbin_claims_mapper
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AccessLevel {
@@ -130,53 +125,8 @@ fn validate_user_token(request: &Request) -> Result<String, StatusCode> {
     Err(StatusCode::UNAUTHORIZED)
 }
 
-/// Validate user session using SessionRepo and return user_id
-async fn validate_user_session(app_state: &crate::web::auth::AppState, request: &Request) -> Result<String, StatusCode> {
-    // Extract session token from Authorization header
-    let session_token = if let Some(auth_header) = request.headers().get("authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                token
-            } else {
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-        } else {
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-    } else {
-        return Err(StatusCode::UNAUTHORIZED);
-    };
-
-    // Parse session_id
-    let sess_id = crate::dom::values::SessId::from_string(session_token.to_string());
-    
-    // Validate session using SessionRepo
-    match app_state.session_repo.find_by_id(&sess_id).await {
-        Ok(session) => {
-            // Check if session is active and not expired
-            if !session.is_active() {
-                tracing::warn!("Session {} is not active", session_token);
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-            
-            if session.is_expired() {
-                tracing::warn!("Session {} is expired", session_token);
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-            
-            // Return user_id from session
-            Ok(session.user_id().to_string())
-        },
-        Err(crate::app::ports::repositories::RepoError::NotFound) => {
-            tracing::warn!("Session {} not found", session_token);
-            Err(StatusCode::UNAUTHORIZED)
-        },
-        Err(e) => {
-            tracing::error!("Failed to validate session {}: {:?}", session_token, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
+// Legacy session validation function removed - now using JWT-based authentication
+// with multi-provider token broker in casbin_auth_middleware.rs
 
 #[allow(dead_code)]
 fn extract_resource_action(request: &Request) -> Result<(String, String), StatusCode> {
@@ -237,43 +187,8 @@ fn extract_resource_action(request: &Request) -> Result<(String, String), Status
 
 
 
-// Enhanced authentication middleware with Casbin integration
-pub async fn module_auth_middleware(
-    State(app_state): State<crate::web::auth::AppState>,
-    request: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    // Validate user session and get user_id
-    let user_id = match validate_user_session(&app_state, &request).await {
-        Ok(user_id) => user_id,
-        Err(status) => {
-            tracing::warn!("Authentication failed: {:?}", status);
-            return Err(status);
-        }
-    };
-
-    // Extract resource and action from request for Casbin authorization
-    let (resource, action) = extract_resource_action(&request)?;
-    
-    // Check Casbin authorization
-    let has_access = app_state.casbin_service.enforce(&user_id, &resource, &action)
-        .await
-        .map_err(|e| {
-            tracing::error!("Casbin enforcement error: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    if !has_access {
-        tracing::warn!(
-            "Access denied for user {} to {} {}",
-            user_id, action, resource
-        );
-        return Err(StatusCode::FORBIDDEN);
-    }
-
-    tracing::debug!("Authorization passed for user {} on {} {}", user_id, action, resource);
-    Ok(next.run(request).await)
-}
+// Legacy session-based middleware removed - now using casbin_auth_middleware
+// which provides JWT-based authentication with multi-provider support
 
 #[cfg(test)]
 mod tests {

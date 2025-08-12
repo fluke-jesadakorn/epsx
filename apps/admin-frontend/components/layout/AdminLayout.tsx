@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminAuth } from '@/lib/auth/ctx';
+import { useAdminAuth } from '@/context/simple-admin-auth';
 import {
   Activity,
   BarChart3,
@@ -34,7 +34,7 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, initialized, signOut } = useAdminAuth();
+  const { user, loading, initialized, logout } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -407,7 +407,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       router.replace('/login');
     } catch (error) {
       console.error('Logout failed:', error);

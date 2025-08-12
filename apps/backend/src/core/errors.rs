@@ -107,6 +107,55 @@ impl AppError {
             stack_trace: None,
         }
     }
+
+    // Convenience constructors for backwards compatibility
+    pub fn NotFound(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AggregateNotFound, message)
+    }
+
+    pub fn Unauthorized(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AuthorizationError, message)
+    }
+
+    pub fn BadRequest(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ValidationError, message)
+    }
+
+    pub fn InternalServerError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::InternalServerError, message)
+    }
+
+    pub fn ExternalServiceError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ExternalServiceError, message)
+    }
+
+    pub fn DatabaseError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::DatabaseError, message)
+    }
+
+    pub fn AuthenticationError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AuthenticationError, message)
+    }
+
+    pub fn ValidationError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ValidationError, message)
+    }
+
+    pub fn ConfigurationError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ConfigurationError, message)
+    }
+
+    pub fn SecurityError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AuthorizationError, message)
+    }
+
+    pub fn InternalError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::InternalError, message)
+    }
+
+    pub fn NetworkError(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::NetworkError, message)
+    }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
         self.context = context;

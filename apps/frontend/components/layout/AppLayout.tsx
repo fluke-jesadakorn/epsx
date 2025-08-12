@@ -1,6 +1,6 @@
 'use client';
 
-import { ServerAuthProvider } from '@/components/auth/ServerAuthProvider';
+// Legacy ServerAuthProvider import removed - using multi-provider authentication
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Navigation } from '@/components/nav';
 import { StateProvider } from '@/components/state/StateProvider';
@@ -134,11 +134,9 @@ export function AppLayout({
         serverAuthState={serverAuthState}
         serverUserPreferences={serverUserPreferences}
       >
-        <ServerAuthProvider>
           <ToastProvider>
             <InnerLayout className={className}>{children}</InnerLayout>
           </ToastProvider>
-        </ServerAuthProvider>
       </StateProvider>
     </ThemeProvider>
   );

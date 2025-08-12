@@ -1,5 +1,4 @@
-import { requireGuest } from '@/app/actions/auth-improved';
-import { RegisterForm } from '@/components/auth/RegisterForm';
+import { OIDCRegisterForm } from '@/components/auth/OIDCRegisterForm';
 
 interface RegisterPageProps {
   searchParams: {
@@ -11,10 +10,7 @@ interface RegisterPageProps {
 export default async function RegisterPage({
   searchParams,
 }: RegisterPageProps) {
-  // Security: Ensure only unauthenticated users can access registration
-  await requireGuest();
-
-  // Security: Extract redirect and error parameters from query string
+  // Extract redirect and error parameters from query string
   const awaitedParams = await searchParams;
   const redirectTo = awaitedParams.redirect;
   const error = awaitedParams.error;
@@ -55,7 +51,7 @@ export default async function RegisterPage({
             </div>
           )}
 
-          <RegisterForm redirectTo={redirectTo} />
+          <OIDCRegisterForm redirectTo={redirectTo} />
 
           {/* Additional links */}
           <div className="mt-6 text-center space-y-2">

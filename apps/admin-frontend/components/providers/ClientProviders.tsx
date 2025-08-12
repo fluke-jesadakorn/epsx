@@ -3,8 +3,7 @@
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeTransition } from '@/components/ui/theme-transition';
 import { SessionProvider } from 'next-auth/react';
-import { AdminAuthProvider } from '@/lib/auth/ctx';
-import { ModuleAuthProvider } from '@/auth/module-ctx';
+import { ServerSideAuthProvider } from '@/context/server-side-auth';
 import { GlobalThemeProvider } from '@epsx/theme';
 import { AdminAuthWrapper } from './AdminAuthWrapper';
 import { ErrorBoundary } from '@epsx/ui';
@@ -15,15 +14,13 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <ErrorBoundary context="admin" enableRetry maxRetries={2} title="Admin Panel Error">
         <ThemeTransition />
         <SessionProvider>
-          <AdminAuthProvider>
-            <ModuleAuthProvider>
-              <ToastProvider>
-                <AdminAuthWrapper>
-                  {children}
-                </AdminAuthWrapper>
-              </ToastProvider>
-            </ModuleAuthProvider>
-          </AdminAuthProvider>
+          <ServerSideAuthProvider>
+            <ToastProvider>
+              <AdminAuthWrapper>
+                {children}
+              </AdminAuthWrapper>
+            </ToastProvider>
+          </ServerSideAuthProvider>
         </SessionProvider>
       </ErrorBoundary>
     </GlobalThemeProvider>

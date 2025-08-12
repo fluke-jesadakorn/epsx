@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logged Out - EPSX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Success Icon -->
+        <div class="text-center">
+            <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-green-100">
+                <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+            </div>
+            <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                Successfully Logged Out
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+                Your session has been securely terminated
+            </p>
+        </div>
+
+        <!-- Success Message -->
+        <div class="bg-green-50 border border-green-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-shield-alt text-green-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-green-800">
+                        Your session has been securely terminated and all authentication tokens have been invalidated.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="space-y-3">
+            <a
+                href="/oauth/authorize?client_id={{ client_id }}&response_type=code&scope=openid profile email&redirect_uri={{ redirect_uri }}&state={{ state }}"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Sign In Again
+            </a>
+            
+            <a
+                href="/"
+                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                <i class="fas fa-home mr-2"></i>
+                Return Home
+            </a>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="text-center">
+            <p class="text-xs text-gray-500">
+                For your security, we recommend closing your browser if you're on a shared computer
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-redirect after 10 seconds
+        setTimeout(function() {
+            window.location.href = '/';
+        }, 10000);
+        
+        // Clear any remaining session data
+        if (typeof(Storage) !== "undefined") {
+            sessionStorage.clear();
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+        }
+    </script>
+</body>
+</html>

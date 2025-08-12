@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import { logoutWithRevalidation } from '@epsx/server-actions';
+import { logoutAction } from '@/app/actions/auth';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -108,7 +108,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
   const handleLogout = async () => {
     try {
       // First call the server action to handle backend logout and revalidation
-      await logoutWithRevalidation();
+      await logoutAction();
       
       // Then clear the NextAuth client session
       await signOut({ redirect: false });

@@ -1,2 +1,3 @@
-// Temporary export to fix import path issue
-export { useAdminAuth, AdminAuthProvider } from '../../auth/ctx';
+// Updated to use simple admin auth to avoid context issues
+export { useAdminAuth } from '../../context/simple-admin-auth';
+export { AdminOIDCAuthProvider as AdminAuthProvider } from '../../context/admin-oidc-auth';

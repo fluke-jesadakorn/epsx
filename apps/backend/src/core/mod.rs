@@ -5,10 +5,14 @@ pub mod error_recovery;
 pub mod telemetry;
 pub mod events;
 pub mod db;
+pub mod types;
 // pub mod plugins;
 // pub mod plugin_examples;
 
-pub use errors::*;
+// Using types::* for AppError (simplified version)
+pub use types::*;
+// Re-export specific items from errors to avoid conflicts
+pub use errors::{ErrorKind, ErrorContext, AppError as ComplexAppError};
 pub use error_recovery::{
     RecoveryConfig, RecoveryStrategy, RetryRecoveryStrategy, 
     CircuitBreakerRecovery, FallbackRecovery, RecoveryOrchestrator

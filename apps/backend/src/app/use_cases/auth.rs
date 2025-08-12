@@ -68,7 +68,7 @@ impl AuthUC {
         };
 
         // Generate JWT token using Firebase Admin
-        let access_token = self.firebase_admin.generate_jwt_token(&firebase_uid, email.value())?;
+        let access_token = self.firebase_admin.generate_jwt_token(&firebase_uid).await?;
 
         // Create session
         let session = self.create_session(user.id().clone(), access_token.clone()).await?;
@@ -88,9 +88,9 @@ impl AuthUC {
     async fn authenticate_with_firebase(&self, email: &Email, password: &str) -> Result<String, Box<dyn std::error::Error>> {
         // Production Firebase authentication using Admin SDK
         match self.firebase_admin.authenticate_user(email.value(), password).await {
-            Ok(firebase_uid) => {
+            Ok(firebase_user) => {
                 tracing::info!("Firebase authentication successful for: {}", email.value());
-                Ok(firebase_uid)
+                Ok(firebase_user.uid)
             }
             Err(e) => {
                 tracing::error!("Firebase authentication failed for {}: {}", email.value(), e);
@@ -150,7 +150,7 @@ impl AuthUC {
     /// Registration with automatic permission profile assignment
     pub async fn register_with_permission_profiles(&self, req: AutoRegistrationRequest) -> Result<RegistrationResponse, Box<dyn std::error::Error>> {
         // Create user in Firebase first
-        let firebase_uid = self.firebase_admin.create_user(&req.email, &req.password).await?;
+        let firebase_uid = self.firebase_admin.create_user(Some(req.email.clone()), Some(req.password.clone()), None).await?;
         let user_id = UserId::new(firebase_uid.clone());
         
         // Check if user already exists by Firebase UID (not email)
@@ -171,7 +171,7 @@ impl AuthUC {
         self.user_repo.save(&user).await?;
 
         // Generate JWT access token
-        let access_token = self.firebase_admin.generate_jwt_token(&firebase_uid, &req.email)?;
+        let access_token = self.firebase_admin.generate_jwt_token(&firebase_uid).await?;
         let session = self.create_session(user_id.clone(), access_token.clone()).await?;
         self.session_repo.save(&session).await?;
 

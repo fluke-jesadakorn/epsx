@@ -1,28 +1,16 @@
 'use server';
 
-import { requestPasswordReset, resetPassword } from '@epsx/server-actions';
+import { logoutOIDC } from './oidc-auth';
 
-// Re-export password reset functions for compatibility
-export async function requestPasswordResetAction(email: string) {
+/**
+ * Logout action that handles both OIDC and legacy auth cleanup
+ */
+export async function logoutAction(): Promise<void> {
   try {
-    const result = await requestPasswordReset(email);
-    return result;
+    // Use OIDC logout which handles session cleanup and redirection
+    await logoutOIDC();
   } catch (error) {
-    console.error('Error in requestPasswordResetAction:', error);
+    console.error('Logout action failed:', error);
     throw error;
   }
 }
-
-export async function resetPasswordAction(data: { token: string; newPassword: string }) {
-  try {
-    const result = await resetPassword(data);
-    return result;
-  } catch (error) {
-    console.error('Error in resetPasswordAction:', error);
-    throw error;
-  }
-}
-
-// Note: This file provides compatibility layer for components
-// that still reference @/app/actions/auth. New code should
-// import directly from @epsx/server-actions.

@@ -9,5 +9,7 @@ pub mod permission_profile_handlers;
 pub mod temporary_permission_handlers;
 pub mod permission_export_import_handlers;
 pub mod analytics_handlers;
+pub mod firebase_user_management;
+pub mod database_role_management;
 
 pub use routes::{create_admin_routes, create_admin_public_routes};

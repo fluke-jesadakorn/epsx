@@ -80,6 +80,23 @@ use super::analytics_handlers::{
     get_performance_metrics_handler,
     get_security_risk_analysis_handler,
 };
+use super::firebase_user_management::{
+    create_user as firebase_create_user,
+    get_user as firebase_get_user,
+    update_user as firebase_update_user,
+    delete_user as firebase_delete_user,
+    list_users as firebase_list_users,
+    set_user_role as firebase_set_user_role,
+};
+use super::database_role_management::{
+    get_user_role as db_get_user_role,
+    assign_user_role as db_assign_user_role,
+    update_user_permissions as db_update_user_permissions,
+    revoke_user_role as db_revoke_user_role,
+    list_users_by_role as db_list_users_by_role,
+    get_role_assignment_history as db_get_role_assignment_history,
+    cleanup_expired_roles as db_cleanup_expired_roles,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -91,7 +108,24 @@ pub fn create_admin_routes() -> Router<AppState> {
         // Analytics routes
         .route("/analytics/user-statistics", get(get_user_stats_handler))
         
-        // User management routes (legacy)
+        // Firebase User management routes (Firebase-native)
+        .route("/firebase/users", get(firebase_list_users))
+        .route("/firebase/users", post(firebase_create_user))
+        .route("/firebase/users/:uid", get(firebase_get_user))
+        .route("/firebase/users/:uid", put(firebase_update_user))
+        .route("/firebase/users/:uid", delete(firebase_delete_user))
+        .route("/firebase/users/:uid/role", post(firebase_set_user_role))
+        
+        // Database Role management routes (roles/permissions stored in database)
+        .route("/roles/users/:firebase_uid", get(db_get_user_role))
+        .route("/roles/users/:firebase_uid/assign", post(db_assign_user_role))
+        .route("/roles/users/:firebase_uid/permissions", put(db_update_user_permissions))
+        .route("/roles/users/:firebase_uid", delete(db_revoke_user_role))
+        .route("/roles/users-by-role", get(db_list_users_by_role))
+        .route("/roles/users/:firebase_uid/history", get(db_get_role_assignment_history))
+        .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
+        
+        // User management routes (legacy - for backward compatibility)
         .route("/users", get(list_users_handler))
         .route("/users", post(create_user_handler))
         .route("/users/:user_id", get(get_user_handler))

@@ -1,72 +1,44 @@
-import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const { pathname } = req.nextUrl;
-    const token = req.nextauth.token;
+export default function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-    // Skip middleware for error pages to prevent redirect loops
-    if (pathname === '/unauthorized' || pathname === '/access-denied' || pathname === '/login') {
-      return NextResponse.next();
-    }
-
-    // Redirect /admin to dashboard
-    if (pathname === '/admin') {
-      const redirectUrl = new URL('/', req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    // Legacy route redirects to unified structure
-    if (pathname === '/iam') {
-      const redirectUrl = new URL('/users', req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
-    
-    if (pathname === '/users/permissions' || pathname === '/users/roles') {
-      // Redirect to unified user list for now, could be enhanced with user context later
-      const redirectUrl = new URL('/users', req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
-    
-    if (pathname === '/permission-profiles/assign') {
-      const redirectUrl = new URL('/users', req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    // Check if user has admin role - expanded to match auth.ts
-    const isAdmin = token?.role === 'admin' || 
-                    token?.role === 'system_administrator' ||
-                    token?.role === 'super_admin' ||
-                    token?.role === 'moderator';
-    
-    if (!isAdmin) {
-      // Prevent redirect loops by checking if we're already redirecting to unauthorized
-      if (pathname !== '/unauthorized') {
-        const unauthorizedUrl = new URL('/unauthorized', req.url);
-        return NextResponse.redirect(unauthorizedUrl);
-      }
-    }
-
+  // Public routes that don't require authentication
+  const publicRoutes = ['/login', '/unauthorized', '/access-denied', '/auth/callback', '/auth/logout'];
+  
+  if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-        
-        // Skip auth for public routes - prevent redirect loops
-        const publicRoutes = ['/login', '/unauthorized', '/access-denied'];
-        if (publicRoutes.includes(pathname)) {
-          return true;
-        }
-
-        // Require authentication for all other routes
-        return !!token;
-      },
-    },
   }
-);
+
+  // Check for admin authentication token in sessionStorage (client-side will handle this)
+  // For now, we'll let the route components handle authentication checks
+  // since OIDC tokens are stored in sessionStorage and not accessible in middleware
+
+  // Redirect /admin to dashboard
+  if (pathname === '/admin') {
+    const redirectUrl = new URL('/', req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Legacy route redirects to unified structure
+  if (pathname === '/iam') {
+    const redirectUrl = new URL('/users', req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+  
+  if (pathname === '/users/permissions' || pathname === '/users/roles') {
+    // Redirect to unified user list for now, could be enhanced with user context later
+    const redirectUrl = new URL('/users', req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+  
+  if (pathname === '/permission-profiles/assign') {
+    const redirectUrl = new URL('/users', req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [

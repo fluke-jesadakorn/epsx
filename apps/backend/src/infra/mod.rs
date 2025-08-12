@@ -142,8 +142,8 @@ impl InfraFactory {
         unimplemented!("WebSocketSvc not yet implemented")
     }
 
-    pub fn create_firebase_admin(&self) -> Result<Arc<FirebaseAdmin>, Box<dyn std::error::Error>> {
-        Ok(Arc::new(FirebaseAdmin::new()?))
+    pub async fn create_firebase_admin(&self) -> Result<Arc<FirebaseAdmin>, Box<dyn std::error::Error>> {
+        Ok(Arc::new(FirebaseAdmin::new().await?))
     }
 
     pub fn create_notification_service(&self) -> Arc<dyn NotificationService> {
@@ -232,7 +232,7 @@ impl AppContainer {
         let temporary_permission_repo = infra.create_temporary_permission_repo();
         let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
-        let firebase_admin = infra.create_firebase_admin()?;
+        let firebase_admin = infra.create_firebase_admin().await?;
         let notification_service = infra.create_notification_service();
         let feature_expiration_service = infra.create_feature_expiration_service(
             user_repo.clone(),
@@ -262,7 +262,7 @@ impl AppContainer {
         })
     }
     
-    pub fn from_infra(infra: InfraFactory) -> Self {
+    pub async fn from_infra(infra: InfraFactory) -> Self {
         let config = Arc::new(crate::config::Config::from_env());
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
@@ -275,9 +275,17 @@ impl AppContainer {
         let temporary_permission_repo = infra.create_temporary_permission_repo();
         let email_svc = infra.create_email_svc(config.clone());
         let event_dispatcher = infra.create_event_dispatcher();
-        let firebase_admin = infra.create_firebase_admin().unwrap_or_else(|e| {
-            tracing::warn!("Failed to create Firebase Admin: {}, using mock", e);
-            Arc::new(FirebaseAdmin::new().unwrap())
+        let firebase_admin = infra.create_firebase_admin().await.unwrap_or_else(|e| {
+            tracing::warn!("Failed to create Firebase Admin: {}, creating default", e);
+            // Create a default/mock Firebase admin instance
+            use crate::infra::firebase_admin::FirebaseAdmin;
+            Arc::new(FirebaseAdmin {
+                client: reqwest::Client::new(),
+                project_id: "default-project".to_string(),
+                service_account_key: None,
+                jwks_cache: std::collections::HashMap::new(),
+                jwks_cache_expiry: chrono::Utc::now(),
+            })
         });
         let notification_service = infra.create_notification_service();
         let feature_expiration_service = infra.create_feature_expiration_service(

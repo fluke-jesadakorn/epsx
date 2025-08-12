@@ -1,4 +1,4 @@
-import { LoginFormServer } from '@/components/auth/LoginForm.server';
+import { OIDCLoginButton } from '@/components/auth/OIDCLoginButton';
 
 interface LoginPageProps {
   searchParams: {
@@ -10,7 +10,7 @@ interface LoginPageProps {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const awaitedSearchParams = await searchParams;
-  const redirectTo = awaitedSearchParams.redirect;
+  const redirectTo = awaitedSearchParams.redirect || awaitedSearchParams.callbackUrl;
   const error = awaitedSearchParams.error;
 
   return (
@@ -47,7 +47,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           )}
           
-          <LoginFormServer redirectTo={redirectTo} />
+          <OIDCLoginButton redirectTo={redirectTo} />
           
           {/* Additional links */}
           <div className="mt-6 text-center space-y-2">

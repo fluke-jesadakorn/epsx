@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 import { ConfirmDialog as _ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AdminService } from '@/services/adminService';
-import { useModuleAuth, ModuleAccessStatus } from '@/auth/module-ctx';
-import { useAdminAuth } from '@/auth/ctx';
+// import { useModuleAuth, ModuleAccessStatus } from '@/auth/module-ctx';
+import { useAdminAuth } from '@/context/simple-admin-auth';
 import { toast } from 'react-hot-toast';
 import { Eye, Settings, UserPlus, Shield, AlertTriangle, Plus, Search, Filter, Lock } from 'lucide-react';
 

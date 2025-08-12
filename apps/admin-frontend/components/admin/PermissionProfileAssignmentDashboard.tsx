@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AdminService as _AdminService } from '@/services/adminService';
-import { useAdminAuth } from '@/auth/ctx';
+import { useAdminAuth } from '@/context/simple-admin-auth';
 import { 
   Shield, 
   Users, 

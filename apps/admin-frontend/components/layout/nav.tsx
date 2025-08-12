@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
-import { useAdminAuth } from '@/auth/ctx';
+import { useAdminAuth } from '@/context/simple-admin-auth';
 import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code } from 'lucide-react';
 import _Image from 'next/image';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ const navItems = [
 ];
 
 export function Navigation() {
-  const { user, signOut, loading } = useAdminAuth();
+  const { user, logout, loading } = useAdminAuth();
   const pathname = usePathname();
   const [_mobileOpen, _setMobileOpen] = useState(false);
 
@@ -100,7 +100,7 @@ export function Navigation() {
               <>
                 {/* Client-side logout with JS */}
                 <button
-                  onClick={signOut}
+                  onClick={logout}
                   className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
                 >
                   <LogOut className="w-4 h-4" />

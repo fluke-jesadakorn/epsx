@@ -18,6 +18,38 @@ export {
   createAdminMiddleware
 } from './middleware/index';
 
+// Shared cookie and cross-app sync utilities
+export {
+  getSharedCookieConfig,
+  getCrossAppAuthConfig,
+  SharedCookieManager,
+  sharedCookieManager
+} from './config/shared-cookie';
+
+export {
+  CrossAppAuthSync,
+  createCrossAppSync,
+  getCrossAppSync
+} from './sync/cross-app-sync';
+
+export {
+  useSharedAuth,
+  type SharedAuthUser,
+  type SharedAuthState,
+  type SharedAuthActions,
+  type UseSharedAuthReturn
+} from './hooks/useSharedAuth';
+
+// CSRF protection utilities
+export {
+  CSRFProtection,
+  CSRFProtectedRequest,
+  getCSRFProtection,
+  getCSRFProtectedRequest,
+  type CSRFToken,
+  type CSRFConfig
+} from './security/csrf-protection';
+
 // NOTE: Client-side components (providers, hooks, guards) are exported 
 // from separate entry points to avoid server/client bundling conflicts:
 // 
