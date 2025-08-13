@@ -7,18 +7,17 @@ yarn.lock
 bun.lockb
 bun.lock
 
-# Testing
+# Testing - Only ignore test outputs, NOT test files
 coverage/
 **/.nyc_output/
 **/coverage/
 reports/
 **/junit/
-**/__test__/
-**/**/__tests__/
 test-results/
 **/test-results/
 playwright-report/
 **/playwright-report/
+# Note: __tests__/ directories should NOT be ignored - they contain source test files
 
 # Production
 build/
@@ -172,8 +171,6 @@ yarn-cache/
 # CI/CD and deployment artifacts
 .github/*.log
 .vercel/*.log
-
-.devtools/
 
 # Crush agent
 .crush/

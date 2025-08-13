@@ -102,26 +102,41 @@ x509-parser = "0.16"
 # Job scheduling
 tokio-cron-scheduler = "0.10"
 
-# Casbin authorization
-casbin = "2.8"
-sqlx-adapter = { version = "1.7.0", default-features = false, features = ["postgres", "runtime-tokio-native-tls"] }
+# Casbin authorization removed - using modern JWT auth
 
 [dev-dependencies]
 mockall = "0.12"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+axum-test = "15.0"
 
-# Test configuration
-[[test]]
-name = "unit_tests"
-path = "tests/unit_tests.rs"
+# Clean Architecture Test Configuration
+# Tests are organized by architectural layers for optimal caching
 
+# Domain Layer Tests (pure business logic, fastest)
 [[test]]
-name = "integration_tests"
-path = "tests/integration_tests.rs"
+name = "domain_tests"
+path = "tests/domain/mod.rs"
 
+# Application Layer Tests (use cases with mocked dependencies)
 [[test]]
-name = "api_tests"
-path = "tests/api_tests.rs"
+name = "application_tests"  
+path = "tests/application/mod.rs"
 
+# Infrastructure Layer Tests (external dependencies)
 [[test]]
-name = "integration_firebase_auth"
-path = "tests/integration_firebase_auth.rs"
+name = "infrastructure_tests"
+path = "tests/infrastructure/mod.rs"
+
+# Presentation Layer Tests (HTTP handlers and middleware)
+[[test]]
+name = "presentation_tests"
+path = "tests/presentation/mod.rs"
+
+# Legacy test configurations (to be removed)
+# [[test]]
+# name = "unit_tests"
+# path = "tests/unit_tests.rs"
+
+# [[test]]
+# name = "integration_tests"
+# path = "tests/integration_tests.rs"

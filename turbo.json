@@ -175,30 +175,125 @@
       ]
     },
     "test": {
-      "dependsOn": ["^build:packages"],
-      "outputs": ["coverage/**", "test-results/**"],
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
+      "outputs": ["coverage/**", "test-results/**", "target/debug/**"]
+    },
+    
+    // Clean Architecture Layer Tests - Optimized for parallel execution and caching
+    "test:domain": {
+      "dependsOn": [],
+      "outputs": ["coverage/domain/**", "target/debug/**"],
       "inputs": [
-        "src/**",
-        "app/**",
-        "components/**",
-        "lib/**",
+        "src/dom/**",
         "utils/**",
-        "types/**",
-        "**/*.test.*",
-        "**/*.spec.*",
+        "lib/utils/**",
+        "__tests__/domain/**",
+        "tests/domain/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
         "jest.config.*",
-        "playwright.config.*"
+        "Cargo.toml"
       ]
     },
-    "test:unit": {
-      "dependsOn": ["^build:packages"],
-      "outputs": ["coverage/**"],
-      "inputs": ["src/**", "**/*.test.*", "**/*.spec.*", "jest.config.*"]
+    "test:application": {
+      "dependsOn": ["test:domain"],
+      "outputs": ["coverage/application/**", "target/debug/**"],
+      "inputs": [
+        "src/app/**",
+        "hooks/**",
+        "lib/actions/**",
+        "lib/state/**",
+        "__tests__/application/**",
+        "tests/application/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "jest.config.*",
+        "Cargo.toml"
+      ]
     },
+    "test:infrastructure": {
+      "dependsOn": ["test:domain"],
+      "outputs": ["coverage/infrastructure/**", "target/debug/**"],
+      "inputs": [
+        "src/infra/**",
+        "lib/api/**",
+        "lib/services/**",
+        "__tests__/infrastructure/**",
+        "tests/infrastructure/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "jest.config.*",
+        "Cargo.toml"
+      ]
+    },
+    "test:presentation": {
+      "dependsOn": ["test:application"],
+      "outputs": ["coverage/presentation/**", "target/debug/**"],
+      "inputs": [
+        "src/web/**",
+        "app/**",
+        "components/**",
+        "__tests__/presentation/**",
+        "tests/presentation/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "jest.config.*",
+        "Cargo.toml"
+      ]
+    },
+    
+    // Legacy test configurations for backward compatibility
+    "test:unit": {
+      "dependsOn": ["test:domain", "test:application"],
+      "outputs": ["coverage/**", "target/debug/**"]
+    },
+    "test:integration": {
+      "dependsOn": ["test:infrastructure"],
+      "outputs": ["coverage/**", "target/debug/**"]
+    },
+    "test:backend": {
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
+      "outputs": ["target/debug/**"]
+    },
+    "test:frontend": {
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
+      "outputs": ["coverage/**"]
+    },
+    "test:admin": {
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
+      "outputs": ["coverage/**"]
+    },
+    
+    // E2E tests remain unchanged
     "test:e2e": {
       "dependsOn": ["build:apps"],
       "outputs": ["test-results/**", "playwright-report/**"],
       "inputs": ["e2e/**", "playwright.config.*"]
+    },
+    "test:e2e:frontend": {
+      "dependsOn": ["build:frontend"],
+      "outputs": ["test-results/**", "playwright-report/**"],
+      "inputs": ["e2e/**", "playwright.config.*"]
+    },
+    "test:e2e:admin": {
+      "dependsOn": ["build:admin"],
+      "outputs": ["test-results/**", "playwright-report/**"],
+      "inputs": ["e2e/**", "playwright.config.*"]
+    },
+    
+    // Development and CI workflows
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build:packages"]
+    },
+    "test:ci": {
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation", "test:e2e"],
+      "outputs": ["coverage/**", "test-results/**", "target/debug/**"]
+    },
+    "test:parallel": {
+      "dependsOn": ["test:domain", "test:application", "test:infrastructure"],
+      "outputs": ["coverage/**", "target/debug/**"]
     },
     "format": {
       "outputs": [],
