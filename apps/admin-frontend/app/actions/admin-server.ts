@@ -138,13 +138,21 @@ async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
   return response.json();
 }
 
-export async function getIAMUsers(filters?: any) {
+interface IAMUserFilters {
+  role?: string
+  status?: string
+  search?: string
+  limit?: number
+  offset?: number
+}
+
+export async function getIAMUsers(filters?: IAMUserFilters) {
   try {
     const queryParams = new URLSearchParams();
     if (filters) {
-      Object.keys(filters).forEach(key => {
-        if (filters[key] !== undefined) {
-          queryParams.append(key, filters[key]);
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, String(value));
         }
       });
     }

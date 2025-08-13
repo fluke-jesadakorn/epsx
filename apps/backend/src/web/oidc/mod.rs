@@ -14,8 +14,7 @@ pub mod token;
 pub mod provider_registry;
 pub mod tenant_resolver;
 pub mod discovery_client;
-pub mod enhanced_token_broker;
-pub mod enhanced_handlers;
+pub mod token_broker;
 pub mod session_federation;
 pub mod token_management;
 
@@ -38,12 +37,12 @@ pub use discovery_client::{
     DiscoveryClientTrait, HttpDiscoveryClient, DiscoveryClientConfig,
     EnhancedProviderConfigurator,
 };
-pub use enhanced_token_broker::{
+pub use token_broker::{
     EnhancedTokenBroker, EnhancedTokenBrokerConfig, EnhancedUnifiedJWT,
     EnhancedAuthorizationRequest, EnhancedTokenRequest, PKCEChallenge,
     AuthorizationFlowResult,
 };
-pub use enhanced_handlers::{
+pub use handlers::{
     enhanced_authorize, enhanced_token, enhanced_userinfo,
     token_introspection, token_revocation, EnhancedTokenResponse,
     EnhancedUserInfoResponse, OIDCErrorResponse,

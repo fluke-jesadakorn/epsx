@@ -1,5 +1,5 @@
 import { AlertCircle, Shield, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import Link from 'next/link';
 
 interface AccessDeniedProps {

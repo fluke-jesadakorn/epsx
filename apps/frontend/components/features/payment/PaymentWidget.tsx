@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
 import { 
   Zap, 
   ArrowRight, 

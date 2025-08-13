@@ -4,13 +4,8 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@epsx/theme";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Button } from "@epsx/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();

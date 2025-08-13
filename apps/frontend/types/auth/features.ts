@@ -37,10 +37,6 @@ export enum Permission {
   ACCESS_API = 'ACCESS_API',
 }
 
-export interface GoogleAuthParams {
-  redirectUrl?: string;
-}
-
 export interface UpgradeRequirement {
   type: 'ROLE_UPGRADE' | 'TOKEN_PURCHASE';
   currentValue: number | UserRole;
@@ -68,5 +64,4 @@ export interface AuthResponse {
     features: TokenFeature[];
     permissions: Permission[];
   };
-  oauth_url?: string;
 }

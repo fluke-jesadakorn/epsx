@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useRef, useState, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card } from '@epsx/ui';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 
 interface SwipeAction {

@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Card, CardContent } from '@epsx/ui';
 import {
   Globe,
   Building,

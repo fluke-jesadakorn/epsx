@@ -1,10 +1,10 @@
 /**
- * ModuleGuard - Server Component for conditional rendering based on admin modules
+ * NextAuth.js ModuleGuard - Server Component for conditional rendering based on admin modules
  * Modern replacement for legacy role-based authentication
  */
 
 import { ReactNode } from 'react'
-import { hasPermission, hasAdminModule, canManageUsers, canViewAnalytics, canManageBilling, hasAnyAdminModule } from '@/lib/auth/server-auth-enhanced'
+import { auth } from '@/lib/auth'
 
 interface ModuleGuardProps {
   children: ReactNode
@@ -31,7 +31,7 @@ interface ModuleGuardProps {
 }
 
 /**
- * Modern Server Component that conditionally renders content based on admin modules
+ * NextAuth.js Server Component that conditionally renders content based on admin modules
  * Only renders children if user meets the specified requirements
  */
 export default async function ModuleGuard({
@@ -51,33 +51,50 @@ export default async function ModuleGuard({
   let hasAccess = true
   
   try {
+    const session = await auth()
+    
+    // If no session, deny access
+    if (!session?.user) {
+      return <>{fallback}</>
+    }
+    
+    const userPermissions = (session.user as any).permissions as string[] || []
+    const userAdminModules = (session.user as any).admin_modules as string[] || []
+    
+    // Helper functions using NextAuth session
+    const hasPermission = (perm: string) => userPermissions.includes(perm)
+    const hasAdminModule = (module: string) => userAdminModules.includes(module)
+    const canManageUsers = () => hasAdminModule('user_operations')
+    const canViewAnalytics = () => hasAdminModule('analytics_specialist')
+    const canManageBilling = () => hasAdminModule('billing_admin')
+    
     // Single permission check
     if (permission) {
-      hasAccess = hasAccess && await hasPermission(permission)
+      hasAccess = hasAccess && hasPermission(permission)
     }
     
     // Single admin module check
     if (adminModule) {
-      hasAccess = hasAccess && await hasAdminModule(adminModule)
+      hasAccess = hasAccess && hasAdminModule(adminModule)
     }
     
     // Predefined capability checks
     if (requireUserManagement) {
-      hasAccess = hasAccess && await canManageUsers()
+      hasAccess = hasAccess && canManageUsers()
     }
     
     if (requireAnalyticsAccess) {
-      hasAccess = hasAccess && await canViewAnalytics()
+      hasAccess = hasAccess && canViewAnalytics()
     }
     
     if (requireBillingAccess) {
-      hasAccess = hasAccess && await canManageBilling()
+      hasAccess = hasAccess && canManageBilling()
     }
     
     // Multiple permissions check (AND logic)
     if (permissions.length > 0) {
       for (const perm of permissions) {
-        if (!await hasPermission(perm)) {
+        if (!hasPermission(perm)) {
           hasAccess = false
           break
         }
@@ -87,7 +104,7 @@ export default async function ModuleGuard({
     // Multiple admin modules check (AND logic)
     if (adminModules.length > 0) {
       for (const module of adminModules) {
-        if (!await hasAdminModule(module)) {
+        if (!hasAdminModule(module)) {
           hasAccess = false
           break
         }
@@ -98,7 +115,7 @@ export default async function ModuleGuard({
     if (anyPermission.length > 0) {
       let hasAnyPermission = false
       for (const perm of anyPermission) {
-        if (await hasPermission(perm)) {
+        if (hasPermission(perm)) {
           hasAnyPermission = true
           break
         }
@@ -110,7 +127,7 @@ export default async function ModuleGuard({
     if (anyAdminModule.length > 0) {
       let hasAnyModule = false
       for (const module of anyAdminModule) {
-        if (await hasAdminModule(module)) {
+        if (hasAdminModule(module)) {
           hasAnyModule = true
           break
         }
@@ -120,7 +137,7 @@ export default async function ModuleGuard({
     
   } catch (error) {
     // If auth check fails, deny access
-    console.error('RoleGuard auth check failed:', error)
+    console.error('ModuleGuard auth check failed:', error)
     hasAccess = false
   }
   

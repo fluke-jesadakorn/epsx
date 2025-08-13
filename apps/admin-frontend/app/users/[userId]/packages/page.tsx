@@ -3,7 +3,7 @@
  * Consolidates stock ranking packages management
  */
 
-import { requireAdminAuth } from '@/lib/auth/server-auth-enhanced'
+import { requireAdminAuth } from '@/lib/auth/server-auth'
 import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
 import { notFound } from 'next/navigation'
 import { UserPackagesContent } from '@/components/users/UserPackagesContent'

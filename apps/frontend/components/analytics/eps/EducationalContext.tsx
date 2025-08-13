@@ -1,8 +1,8 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { BookOpen, AlertTriangle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';

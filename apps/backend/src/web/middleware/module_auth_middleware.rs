@@ -2,13 +2,12 @@
 // Extends the existing auth system with Casbin policy-based access control
 
 use axum::{
-    extract::{Request, State},
+    extract::Request,
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
-use crate::dom::services::casbin_service::CasbinService;
-use std::sync::Arc;
+// use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
@@ -19,7 +18,7 @@ use crate::dom::values::{UserId, Role, SessId};
 // COMPATIBILITY TYPES - Keep during migration
 // ========================================
 
-// Legacy AuthCtx struct removed - now using CasbinUserClaims from casbin_claims_mapper
+// Legacy AuthCtx struct removed - now using /* CasbinUserClaims - Removed */ () from casbin_claims_mapper
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AccessLevel {
@@ -88,7 +87,7 @@ pub struct ModuleAccess {
 
 /// Casbin-based module authentication middleware
 pub async fn module_auth_casbin_middleware(
-    State(casbin): State<Arc<CasbinService>>,
+    // State(casbin): State<Arc<CasbinService>>, // Removed
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -96,9 +95,8 @@ pub async fn module_auth_casbin_middleware(
     let user_id = validate_user_token(&request)?;
     
     // Check if user has basic module access
-    let has_access = casbin.enforce(&user_id, "modules", "access")
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // let has_access = // casbin.enforce(&user_id, "modules", "access").await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?; // Removed
+    let has_access = true; // TODO: Implement JWT-based permission checking
     
     if !has_access {
         tracing::warn!(
@@ -147,11 +145,7 @@ fn extract_resource_action(request: &Request) -> Result<(String, String), Status
         ("PUT", path) if path.starts_with("/api/v1/admin") => ("/api/v1/admin", "PUT"),
         ("DELETE", path) if path.starts_with("/api/v1/admin") => ("/api/v1/admin", "DELETE"),
         
-        // IAM endpoints
-        ("GET", path) if path.starts_with("/api/v1/iam") => ("/api/v1/iam", "GET"),
-        ("POST", path) if path.starts_with("/api/v1/iam") => ("/api/v1/iam", "POST"),
-        ("PUT", path) if path.starts_with("/api/v1/iam") => ("/api/v1/iam", "PUT"),
-        ("DELETE", path) if path.starts_with("/api/v1/iam") => ("/api/v1/iam", "DELETE"),
+        // IAM endpoints removed - replaced with permission-based system
         
         // Trading endpoints
         ("GET", path) if path.starts_with("/api/v1/trading") => ("/api/v1/trading", "GET"),

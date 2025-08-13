@@ -1,11 +1,18 @@
 'use client';
 
-import { AdminAuthWrapper } from './AdminAuthWrapper';
+import { ReactNode } from 'react';
+import { SessionProvider } from 'next-auth/react';
+import { Session } from 'next-auth';
 
-export function ClientProviders({ children }: { children: React.ReactNode }) {
+interface ClientProvidersProps {
+  children: ReactNode;
+  session?: Session | null;
+}
+
+export function ClientProviders({ children, session }: ClientProvidersProps) {
   return (
-    <AdminAuthWrapper>
+    <SessionProvider session={session}>
       {children}
-    </AdminAuthWrapper>
+    </SessionProvider>
   );
 }

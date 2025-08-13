@@ -1,11 +1,49 @@
 // ============================================================================
-// CONSOLIDATED AUTH - Single Entry Point for All Auth Features
+// MODERN AUTH.JS - Single Entry Point for Auth.js v5 Features
 // ============================================================================
 
 // Types (always safe to import)
 export * from './types';
 
-// Core auth utilities (server-safe only)
+// Modern Auth.js v5 configuration
+export { default as authConfig } from './config/auth.config';
+
+// Modern JWT utilities with jose library
+export {
+  signJWT,
+  verifyJWT,
+  decodeJWT,
+  getPermissionsFromJWT,
+  hasPermissionInJWT,
+  getAdminModulesFromJWT,
+  hasAdminModuleInJWT,
+  getPackageTierFromJWT,
+  hasPackageTierInJWT,
+  isJWTExpired,
+  getJWTTimeToExpiry,
+  createJWTClaims,
+  type EPSXJWTPayload
+} from './jwt/jwt-utils';
+
+// Modern auth hooks (client-side only)
+export {
+  useModernAuth,
+  useAuth,
+  useAdminAuth,
+  useFeatureAccess,
+  type EPSXUser
+} from './hooks/useModernAuth';
+
+// Modern permission gate components (client-side only)
+export {
+  PermissionGate,
+  AdminGate,
+  SystemAdminGate,
+  PackageTierGate,
+  PremiumGate
+} from './components/PermissionGate';
+
+// Legacy middleware (will be removed in Phase 6)
 export { 
   getSessionToken,
   checkPermissionAccess,

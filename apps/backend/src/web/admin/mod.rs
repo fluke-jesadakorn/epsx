@@ -2,7 +2,7 @@
 
 pub mod handlers;
 pub mod routes;
-pub mod casbin_handlers;
+// casbin_handlers removed - using modern JWT auth
 pub mod unified_user_handlers;
 pub mod setup_handlers;
 pub mod permission_profile_handlers;

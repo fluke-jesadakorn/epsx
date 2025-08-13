@@ -1,15 +1,11 @@
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@epsx/ui';
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 // Select components removed - not used in current implementation
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Plus, 
   Edit2, 
@@ -22,7 +18,6 @@ import {
   Filter,
   // MoreVertical - removed unused import
 } from 'lucide-react';
-
 interface Permission {
   id: string;
   name: string;
@@ -30,7 +25,6 @@ interface Permission {
   resource: string;
   action: string;
 }
-
 interface Role {
   id: string;
   name: string;
@@ -41,7 +35,6 @@ interface Role {
   createdAt: string;
   updatedAt: string;
 }
-
 const MOCK_PERMISSIONS: Permission[] = [
   { id: '1', name: 'View Analytics', description: 'Access to analytics dashboard', resource: 'analytics', action: 'read' },
   { id: '2', name: 'Export Data', description: 'Export analytics and reports', resource: 'analytics', action: 'export' },
@@ -52,7 +45,6 @@ const MOCK_PERMISSIONS: Permission[] = [
   { id: '7', name: 'Audit Logs', description: 'View system audit logs', resource: 'audit', action: 'read' },
   { id: '8', name: 'Pattern Analysis', description: 'Access pattern recognition features', resource: 'patterns', action: 'analyze' }
 ];
-
 const MOCK_ROLES: Role[] = [
   {
     id: '1',
@@ -85,19 +77,16 @@ const MOCK_ROLES: Role[] = [
     updatedAt: '2024-01-25T00:00:00Z'
   }
 ];
-
 export function RoleManager() {
   const [roles, setRoles] = useState<Role[]>(MOCK_ROLES);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Partial<Role>>({});
-
   const filteredRoles = roles.filter(role =>
     role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     role.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   const handleCreateRole = () => {
     const newRole: Role = {
       id: Date.now().toString(),
@@ -109,12 +98,10 @@ export function RoleManager() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
     setRoles([...roles, newRole]);
     setIsCreateDialogOpen(false);
     setEditingRole({});
   };
-
   const _handleUpdateRole = (roleId: string, updates: Partial<Role>) => {
     setRoles(roles.map(role =>
       role.id === roleId
@@ -122,29 +109,24 @@ export function RoleManager() {
         : role
     ));
   };
-
   const handleDeleteRole = (roleId: string) => {
     const role = roles.find(r => r.id === roleId);
     if (role?.isSystem) {
       alert('Cannot delete system roles');
       return;
     }
-    
     if (role?.userCount > 0) {
       alert('Cannot delete roles that are assigned to users');
       return;
     }
-
     setRoles(roles.filter(role => role.id !== roleId));
   };
-
   const getRoleTypeLabel = (role: Role) => {
     if (role.isSystem) {
       return <Badge variant="secondary">System</Badge>;
     }
     return <Badge variant="outline">Custom</Badge>;
   };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -155,7 +137,6 @@ export function RoleManager() {
             Manage user roles and permissions across the system
           </p>
         </div>
-
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingRole({})}>
@@ -177,7 +158,6 @@ export function RoleManager() {
           </DialogContent>
         </Dialog>
       </div>
-
       {/* Search and Filters */}
       <Card>
         <CardContent className="p-4">
@@ -198,7 +178,6 @@ export function RoleManager() {
           </div>
         </CardContent>
       </Card>
-
       {/* Roles Table */}
       <Card>
         <CardHeader>
@@ -230,31 +209,26 @@ export function RoleManager() {
                       </div>
                     </div>
                   </TableCell>
-                  
                   <TableCell>
                     {getRoleTypeLabel(role)}
                   </TableCell>
-                  
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Key className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{role.permissions.length}</span>
                     </div>
                   </TableCell>
-                  
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{role.userCount}</span>
                     </div>
                   </TableCell>
-                  
                   <TableCell>
                     <span className="text-sm text-muted-foreground">
                       {new Date(role.updatedAt).toLocaleDateString()}
                     </span>
                   </TableCell>
-                  
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
@@ -264,7 +238,6 @@ export function RoleManager() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      
                       {!role.isSystem && (
                         <>
                           <Button
@@ -273,7 +246,6 @@ export function RoleManager() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          
                           <Button
                             variant="ghost"
                             size="sm"
@@ -292,7 +264,6 @@ export function RoleManager() {
           </Table>
         </CardContent>
       </Card>
-
       {/* Role Details Dialog */}
       {selectedRole && (
         <Dialog open={!!selectedRole} onOpenChange={() => setSelectedRole(null)}>
@@ -307,7 +278,6 @@ export function RoleManager() {
     </div>
   );
 }
-
 // Role Form Component
 interface RoleFormProps {
   role: Partial<Role>;
@@ -316,13 +286,10 @@ interface RoleFormProps {
   onSave: () => void;
   onCancel: () => void;
 }
-
 function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormProps) {
   const selectedPermissionIds = role.permissions?.map(p => p.id) || [];
-
   const handlePermissionToggle = (permission: Permission, checked: boolean) => {
     const currentPermissions = role.permissions || [];
-    
     if (checked) {
       onChange({
         ...role,
@@ -335,7 +302,6 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
       });
     }
   };
-
   const groupedPermissions = permissions.reduce((acc, permission) => {
     const resource = permission.resource;
     if (!acc[resource]) {
@@ -344,7 +310,6 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
     acc[resource].push(permission);
     return acc;
   }, {} as Record<string, Permission[]>);
-
   return (
     <div className="space-y-6">
       {/* Basic Information */}
@@ -357,7 +322,6 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
             placeholder="Enter role name"
           />
         </div>
-        
         <div>
           <label className="text-sm font-medium">Description</label>
           <Textarea
@@ -368,7 +332,6 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
           />
         </div>
       </div>
-
       {/* Permissions */}
       <div>
         <h4 className="text-sm font-medium mb-3">Permissions</h4>
@@ -404,7 +367,6 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
           ))}
         </div>
       </div>
-
       {/* Actions */}
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={onCancel}>
@@ -417,12 +379,10 @@ function RoleForm({ role, permissions, onChange, onSave, onCancel }: RoleFormPro
     </div>
   );
 }
-
 // Role Details Component
 interface RoleDetailsProps {
   role: Role;
 }
-
 function RoleDetails({ role }: RoleDetailsProps) {
   const groupedPermissions = role.permissions.reduce((acc, permission) => {
     const resource = permission.resource;
@@ -432,7 +392,6 @@ function RoleDetails({ role }: RoleDetailsProps) {
     acc[resource].push(permission);
     return acc;
   }, {} as Record<string, Permission[]>);
-
   return (
     <div className="space-y-6">
       {/* Basic Info */}
@@ -460,12 +419,10 @@ function RoleDetails({ role }: RoleDetailsProps) {
           <p className="text-sm mt-1">{new Date(role.updatedAt).toLocaleDateString()}</p>
         </div>
       </div>
-
       <div>
         <label className="text-sm font-medium text-muted-foreground">Description</label>
         <p className="text-sm mt-1">{role.description}</p>
       </div>
-
       {/* Permissions */}
       <div>
         <h4 className="text-sm font-medium mb-3">Permissions ({role.permissions.length})</h4>

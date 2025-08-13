@@ -29,11 +29,10 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import { FormField, Select } from '@/components/ui/form-components';
 import { getModuleUsageAnalytics as _getModuleUsageAnalytics } from '@epsx/server-actions';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
-// import { useModuleAuth } from '@/auth/module-ctx'; // Removed - using OIDC auth
 import { toast } from 'react-hot-toast';
 
 interface UsageMetrics {

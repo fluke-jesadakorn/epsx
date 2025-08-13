@@ -196,8 +196,6 @@ pub async fn get_user_claims_handler(
     State(_app_state): State<AppState>,
     Path(user_id): Path<String>,
 ) -> Result<Json<HashMap<String, Value>>, StatusCode> {
-    let project_id = std::env::var("FIREBASE_PROJECT_ID")
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let api_key = std::env::var("FIREBASE_API_KEY")
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     

@@ -7,7 +7,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { validateServerActionAuth } from '@/lib/auth/server-auth-enhanced'
+import { validateServerActionAuth } from '@/lib/auth/server-auth'
 import { getBearerToken } from '@/lib/actions/server-auth'
 import type { 
   UnifiedUserData, 
@@ -642,7 +642,12 @@ export async function assignUserRole(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       let errorMessage = `Failed to assign role: ${response.status}`
       
       if (response.status === 409) {
@@ -711,7 +716,12 @@ export async function removeUserRole(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       let errorMessage = `Failed to remove role: ${response.status}`
       
       if (response.status === 404) {
@@ -784,7 +794,12 @@ export async function assignPermissionProfile(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       let errorMessage = `Failed to assign permission profile: ${response.status}`
       
       if (response.status === 409) {
@@ -859,7 +874,12 @@ export async function addCustomPermission(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       let errorMessage = `Failed to add permission: ${response.status}`
       
       if (response.status === 409) {
@@ -930,7 +950,12 @@ export async function removeCustomPermission(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -997,7 +1022,12 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1081,7 +1111,12 @@ export async function bulkAssignPermissions(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1146,7 +1181,12 @@ export async function bulkRemovePermissions(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1216,7 +1256,12 @@ export async function assignTemporaryPermission(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1264,7 +1309,12 @@ export async function getExpiringPermissions(days = 7): Promise<UserOperationRes
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1322,7 +1372,12 @@ export async function validatePermissionAssignment(data: {
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 
@@ -1366,7 +1421,12 @@ export async function getPermissionImpact(userId: string): Promise<UserOperation
     })
     
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
       return { 
         success: false, 
         error: { 

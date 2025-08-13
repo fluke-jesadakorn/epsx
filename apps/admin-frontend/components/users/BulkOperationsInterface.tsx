@@ -23,16 +23,16 @@ import {
   Ban
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from '@epsx/ui';
+import { Input } from '@epsx/ui';
+import { Label } from '@epsx/ui';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { Checkbox } from '@/components/ui/form-components';
 import {
   Dialog,
@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from '@epsx/ui';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 
@@ -412,7 +412,15 @@ export function BulkOperationsInterface({
       }, 250);
 
       // Prepare update data with expiry extension
-      const updatePayload: any = { ...updateData };
+      const updatePayload: {
+        permission?: string;
+        resource?: string;
+        action?: string;
+        extendHours?: number;
+        reason?: string;
+        status?: 'active' | 'suspended' | 'revoked';
+        expires_at?: string;
+      } = { ...updateData };
       if (updateData.extendHours) {
         const newExpiresAt = new Date();
         newExpiresAt.setHours(newExpiresAt.getHours() + updateData.extendHours);

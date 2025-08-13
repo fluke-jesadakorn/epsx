@@ -1,22 +1,10 @@
 /**
- * Modern Next.js Middleware - Admin Module Based Authentication
- * Completely replaces legacy role-based middleware
+ * NextAuth.js Middleware for Admin Frontend with Admin Module Protection
+ * Replaces custom auth middleware with NextAuth.js auth wrapper
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { ModernAuthService } from '@/lib/auth/modern-auth-service'
-
-// Routes that require authentication
-const protectedRoutes = [
-  '/dashboard',
-  '/users',
-  '/analytics', 
-  '/billing',
-  '/settings',
-  '/admin',
-  '/modules',
-  '/permissions'
-]
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 // Routes that require specific admin modules
 const adminModuleRoutes: Record<string, string> = {
@@ -32,74 +20,57 @@ const adminModuleRoutes: Record<string, string> = {
 const publicRoutes = [
   '/login',
   '/auth/callback',
+  '/auth/error',
   '/unauthorized',
   '/access-denied',
+  '/api/auth',
   '/_next',
-  '/favicon.ico',
-  '/api/auth'
+  '/favicon.ico'
 ]
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Skip middleware for public routes
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.next()
-  }
-
-  // Check if route requires authentication
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
+export default auth((request) => {
+  const { pathname } = request.nextUrl;
+  const isLoggedIn = !!request.auth;
   
-  if (!isProtectedRoute) {
-    return NextResponse.next()
-  }
-
-  // Use modern auth service for authentication
-  const authResult = await ModernAuthService.authMiddleware(request)
+  // Add pathname to request headers for server components
+  const response = NextResponse.next();
+  response.headers.set('x-pathname', pathname);
   
-  // If auth service returned a response (redirect), use it
-  if (authResult && authResult !== NextResponse.next()) {
-    return authResult
+  // Allow access to public routes
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(route)
+  );
+  
+  if (isPublicRoute) {
+    return response;
   }
-
+  
+  // Redirect to login if not authenticated
+  if (!isLoggedIn) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
+  }
+  
   // Check for admin module requirements
   const requiredModule = Object.entries(adminModuleRoutes).find(([route]) => 
     pathname.startsWith(route)
-  )?.[1]
-
-  if (requiredModule) {
-    // Get token and validate admin module access
-    const token = request.cookies.get('modern_admin_token')?.value
-
-    if (token) {
-      try {
-        // Validate admin module access with backend
-        const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8080'}/api/v1/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (response.ok) {
-          const userData = await response.json()
-          
-          // Check if user has required admin module
-          if (!userData.admin_modules?.includes(requiredModule)) {
-            const accessDeniedUrl = new URL('/access-denied', request.url)
-            accessDeniedUrl.searchParams.set('required_module', requiredModule)
-            return NextResponse.redirect(accessDeniedUrl)
-          }
-        }
-      } catch (error) {
-        console.error('Admin module validation error:', error)
-        return NextResponse.redirect(new URL('/login', request.url))
-      }
+  )?.[1];
+  
+  if (requiredModule && request.auth?.user) {
+    const userAdminModules = (request.auth.user as any).admin_modules as string[] || [];
+    
+    // Check if user has required admin module
+    if (!userAdminModules.includes(requiredModule)) {
+      const accessDeniedUrl = new URL('/access-denied', request.url);
+      accessDeniedUrl.searchParams.set('required_module', requiredModule);
+      return NextResponse.redirect(accessDeniedUrl);
     }
   }
-
-  return NextResponse.next()
-}
+  
+  // Allow access to protected routes for authenticated admin users
+  return response;
+}) as any;
 
 export const config = {
   matcher: [

@@ -1,13 +1,12 @@
 // Multi-Provider Token Broker
 // Core orchestration component for handling authentication across multiple providers
 
-use std::sync::Arc;
 use std::collections::HashMap;
 use jsonwebtoken::{EncodingKey, Algorithm, Header, encode};
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc, Duration};
 
-use crate::dom::services::casbin_service::CasbinService;
+// use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 use super::providers::{
     ProviderRegistry, UserClaims, 
     AuthProviderError, ProviderType
@@ -84,7 +83,7 @@ pub struct TokenBroker {
     /// JWT encoding key for unified tokens
     encoding_key: EncodingKey,
     /// Casbin service for permission resolution
-    casbin_service: Arc<CasbinService>,
+    // casbin_service: Arc<CasbinService>, // Removed
     /// Broker configuration
     config: TokenBrokerConfig,
 }
@@ -93,14 +92,14 @@ impl TokenBroker {
     /// Create new token broker with configuration
     pub fn new(
         config: TokenBrokerConfig,
-        casbin_service: Arc<CasbinService>,
+        // casbin_service: Arc<CasbinService>, // Removed
     ) -> Self {
         let encoding_key = EncodingKey::from_secret(config.jwt_secret.as_bytes());
         
         Self {
             provider_registry: ProviderRegistry::new(),
             encoding_key,
-            casbin_service,
+            // casbin_service, // Removed
             config,
         }
     }
@@ -346,7 +345,7 @@ pub struct UnifiedJWT {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use crate::dom::services::casbin_service::CasbinService;
+    // use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 
     // Helper function to create a mock Casbin service for tests
     async fn create_mock_casbin_service() -> Arc<CasbinService> {

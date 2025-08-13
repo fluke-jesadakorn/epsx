@@ -8,10 +8,10 @@ import type { UserLevelType } from '@/app/constants/packages';
 import { canAccessLevel, getPackageByLevel } from '@/app/constants/packages';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Input } from '@epsx/ui';
+import { Label } from '@epsx/ui';
 // Note: User session data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';

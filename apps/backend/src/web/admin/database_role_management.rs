@@ -222,33 +222,3 @@ pub async fn cleanup_expired_roles(
 
 // Helper functions
 
-/// Convert database role data to API response
-fn convert_role_data_to_response(role_data: &crate::dom::services::UserRoleData) -> UserRoleResponse {
-    UserRoleResponse {
-        firebase_uid: role_data.firebase_uid.clone(),
-        role: role_data.role.clone(),
-        permissions: role_data.permissions.clone(),
-        access_level: role_data.access_level.clone(),
-        is_admin: role_data.is_admin,
-        is_premium: role_data.is_premium,
-        role_assigned_by: role_data.role_assigned_by.clone(),
-        role_assigned_at: role_data.role_assigned_at.to_rfc3339(),
-        expires_at: role_data.expires_at.map(|dt| dt.to_rfc3339()),
-        created_at: role_data.created_at.to_rfc3339(),
-        updated_at: role_data.updated_at.to_rfc3339(),
-    }
-}
-
-/// Convert audit entry to API response
-fn convert_audit_to_response(audit: &crate::dom::services::RoleAssignmentAudit) -> RoleAuditResponse {
-    RoleAuditResponse {
-        id: audit.id.to_string(),
-        firebase_uid: audit.firebase_uid.clone(),
-        old_role: audit.old_role.clone(),
-        new_role: audit.new_role.clone(),
-        assigned_by: audit.assigned_by.clone(),
-        reason: audit.reason.clone(),
-        metadata: audit.metadata.clone(),
-        timestamp: audit.timestamp.to_rfc3339(),
-    }
-}

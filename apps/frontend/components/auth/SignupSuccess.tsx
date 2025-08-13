@@ -6,8 +6,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+} from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Mail, ArrowLeft } from 'lucide-react';
 

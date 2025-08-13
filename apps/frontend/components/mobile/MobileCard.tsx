@@ -1,8 +1,8 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { ChevronRight, MoreVertical } from 'lucide-react';
 
 interface MobileCardProps {

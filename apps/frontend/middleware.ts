@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
-export default async function middleware(request: NextRequest) {
+export default auth((request) => {
   const { pathname } = request.nextUrl;
+  const isLoggedIn = !!request.auth;
   
   // Public routes that don't require authentication
   const publicRoutes = [
@@ -13,7 +15,9 @@ export default async function middleware(request: NextRequest) {
     '/verify-email',
     '/access-denied',
     '/unauthorized',
-    '/auth/callback', // OIDC callback
+    '/auth/callback',
+    '/auth/error',
+    '/auth/signout',
     '/terms',
     '/privacy',
     '/analytics',
@@ -23,25 +27,21 @@ export default async function middleware(request: NextRequest) {
     pathname === route || pathname.startsWith(route + '/')
   );
   
+  // Allow access to public routes
   if (isPublicRoute) {
     return NextResponse.next();
   }
   
-  // Check for HTTP-only authentication cookie
-  const authCookie = request.cookies.get('auth-token');
-  
-  if (!authCookie?.value) {
+  // Redirect to login if not authenticated
+  if (!isLoggedIn) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
   
-  // Note: Detailed permission checking is handled by server components
-  // This middleware only ensures basic authentication via HTTP-only cookies
-  // The backend validates the JWT token and permissions on each request
-  
+  // Allow access to protected routes for authenticated users
   return NextResponse.next();
-}
+}) as any;
 
 export const config = {
   matcher: [

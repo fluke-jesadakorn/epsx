@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 import { ConfirmDialog as _ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AdminService } from '@/services/adminService';
-// import { useModuleAuth, ModuleAccessStatus } from '@/auth/module-ctx';
 // Note: Auth is handled by middleware with HTTP-only cookies
 import { toast } from 'react-hot-toast';
 import { Eye, Settings, UserPlus, Shield, AlertTriangle, Plus, Search, Filter, Lock } from 'lucide-react';

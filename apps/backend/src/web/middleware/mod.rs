@@ -1,16 +1,26 @@
 // Web layer middleware implementations
 
+// Modern Auth.js v5 middleware (replaces Casbin)
+pub mod modern_auth;
+
+// Legacy middleware (will be removed in Phase 6)
 pub mod permission_middleware;
 pub mod module_auth_middleware;
 pub mod module_permission_middleware;
 pub mod rate_limiter;
 pub mod error_handling;
-pub mod casbin_cache;
+// Casbin middleware removed - using modern JWT auth
 pub mod auth_monitoring;
 pub mod policy_validator;
-pub mod casbin_error_handler;
-pub mod casbin_auth;
 
+// Modern middleware exports
+pub use modern_auth::{
+    modern_jwt_auth_middleware,
+    cors_middleware,
+    request_logging_middleware
+};
+
+// Legacy middleware exports (will be removed in Phase 6)
 pub use permission_middleware::{permission_middleware};
 pub use module_auth_middleware::{module_auth_casbin_middleware, ModuleAuthCtx, ModuleAccess, AccessLevel, UserModuleAccess, ApiKeyAccess};
 
@@ -25,11 +35,4 @@ pub use error_handling::{
     ErrorCircuitBreaker,
     ErrorResponseFormat
 };
-pub use casbin_auth::{
-    casbin_auth_middleware,
-    casbin_auth_middleware_with_config,
-    require_any_admin_module,
-    require_admin_module,
-    require_permission,
-    CasbinAuthConfig
-};
+// Casbin auth exports removed - using modern JWT auth

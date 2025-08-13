@@ -13,14 +13,14 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { logoutAction } from '@/app/actions/auth';
+import { LogoutForm } from '@/components/auth/LogoutForm';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { NavigationMenu } from '@/components/ui/navigation-menu';
 import {
   Sheet,
@@ -62,7 +62,6 @@ export function NavigationClient({ user }: NavigationClientProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const router = useRouter();
   
   const userLevel = user?.subscription_tier || 'free';
   const userEmail = user?.email;
@@ -104,20 +103,6 @@ export function NavigationClient({ user }: NavigationClientProps) {
 
   const navItems = navigationService.getNavItems(!!user);
 
-  const handleLogout = async () => {
-    try {
-      // Call server action to handle OIDC logout and clear HTTP-only cookies
-      await logoutAction();
-      
-      // Redirect to login page
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error instanceof Error ? error.message : String(error));
-      
-      // Force navigation even if server action fails
-      router.push('/login');
-    }
-  };
 
   return (
     <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
@@ -252,19 +237,15 @@ export function NavigationClient({ user }: NavigationClientProps) {
                 ))}
 
                 {user ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setIsOpen(false);
-                      handleLogout();
-                    }}
-                    className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary mt-4"
+                  <div 
+                    onClick={() => setIsOpen(false)}
+                    className="mt-4"
                   >
-                    <span className="block">
-                      <LogOut className="h-4 w-4" />
-                    </span>
-                    <span className="mt-1">Logout</span>
-                  </Button>
+                    <LogoutForm 
+                      className="flex flex-col items-center gap-1 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+                      variant="ghost"
+                    />
+                  </div>
                 ) : (
                   <Link
                     href="/login"
@@ -283,14 +264,10 @@ export function NavigationClient({ user }: NavigationClientProps) {
 
           <div className="hidden lg:block">
             {user ? (
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
+              <LogoutForm 
                 className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden xl:block">Logout</span>
-              </Button>
+                variant="ghost"
+              />
             ) : (
               <Link href="/login">
                 <Button

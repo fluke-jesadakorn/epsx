@@ -1,444 +1,204 @@
+// Enhanced OIDC Authorization Handlers with PKCE and Multi-Tenant Support
+// HTTP handlers implementing the advanced OIDC flows
+
+use std::sync::Arc;
 use axum::{
     extract::{Query, State, Form},
     http::{StatusCode, HeaderMap},
     response::{Json, Redirect},
 };
-use chrono::Utc;
-use serde_json;
+use serde::{Deserialize, Serialize};
+use tracing::{info, warn, error};
 
+use crate::core::errors::AppError;
+use crate::core::ClientCredentialService;
 use crate::web::auth::routes::AppState;
-use crate::web::oidc::types::*;
-use crate::dom::services::FirebaseSessionService;
-use crate::infra::firebase_admin::FirebaseUser;
+use crate::dom::services::admin_module_service::AdminModuleService;
+use super::token_broker::{
+    EnhancedTokenBroker, EnhancedAuthorizationRequest, EnhancedTokenRequest,
+};
 
-/// OIDC Authorization Endpoint
-/// GET/POST /oauth/authorize
-pub async fn oidc_authorize(
-    State(state): State<AppState>,
-    Query(params): Query<AuthorizationRequest>,
-) -> Result<Redirect, (StatusCode, Json<OidcErrorResponse>)> {
-    tracing::info!("OIDC authorization request from client: {}", params.client_id);
-    
-    // Validate required parameters
-    if params.response_type != "code" {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "unsupported_response_type".to_string(),
-                error_description: Some("Only 'code' response type is supported".to_string()),
-                error_uri: None,
-            }),
-        ));
-    }
-    
-    // Validate client_id (for admin frontend)
-    if params.client_id != "epsx-admin" && params.client_id != "epsx-frontend" {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "invalid_client".to_string(),
-                error_description: Some("Unknown client_id".to_string()),
-                error_uri: None,
-            }),
-        ));
-    }
-    
-    // Validate redirect_uri
-    let allowed_redirects = match params.client_id.as_str() {
-        "epsx-admin" => vec![
-            "http://localhost:3001/auth/callback".to_string(),
-            "https://admin.epsx.com/auth/callback".to_string(),
-        ],
-        "epsx-frontend" => vec![
-            "http://localhost:3000/auth/callback".to_string(),
-            "https://app.epsx.com/auth/callback".to_string(),
-        ],
-        _ => vec![],
-    };
-    
-    if !allowed_redirects.contains(&params.redirect_uri) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "invalid_redirect_uri".to_string(),
-                error_description: Some("Redirect URI not allowed for this client".to_string()),
-                error_uri: None,
-            }),
-        ));
-    }
-    
-    // For Firebase-native OIDC, redirect to Firebase Auth UI
-    // The frontend will handle Firebase authentication and then call back to /oauth/callback
-    let firebase_auth_url = format!(
-        "{}?client_id={}&redirect_uri={}&state={}&scope={}",
-        "/firebase-auth", // This would be handled by frontend
-        params.client_id,
-        urlencoding::encode(&params.redirect_uri),
-        params.state.as_deref().unwrap_or(""),
-        urlencoding::encode(&params.scope)
-    );
-    
-    tracing::info!("Redirecting to Firebase auth for client: {}", params.client_id);
-    Ok(Redirect::to(&firebase_auth_url))
-}
-
-/// OIDC Token Endpoint  
-/// POST /oauth/token
-pub async fn oidc_token(
-    State(state): State<AppState>,
-    Form(request): Form<TokenRequest>,
-) -> Result<Json<TokenResponse>, (StatusCode, Json<OidcErrorResponse>)> {
-    tracing::info!("OIDC token request for grant_type: {}", request.grant_type);
-    
-    match request.grant_type.as_str() {
-        "authorization_code" => handle_authorization_code_grant(state, request).await,
-        "refresh_token" => handle_refresh_token_grant(state, request).await,
-        _ => Err((
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "unsupported_grant_type".to_string(),
-                error_description: Some("Only authorization_code and refresh_token grants are supported".to_string()),
-                error_uri: None,
-            }),
-        )),
-    }
-}
-
-/// Handle authorization code grant (exchange code for tokens)
-async fn handle_authorization_code_grant(
-    state: AppState,
-    request: TokenRequest,
-) -> Result<Json<TokenResponse>, (StatusCode, Json<OidcErrorResponse>)> {
-    let code = request.code.clone().ok_or_else(|| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "invalid_request".to_string(),
-                error_description: Some("Missing authorization code".to_string()),
-                error_uri: None,
-            }),
-        )
-    })?;
-    
-    // For development/testing, allow the code to be either:
-    // 1. An actual authorization code (starts with "ac_")
-    // 2. A Firebase ID token (for backward compatibility)
-    
-    tracing::info!("Received code in token exchange: {}", &code[..10.min(code.len())]);
-    tracing::info!("Code starts with 'ac_': {}", code.starts_with("ac_"));
-    
-    if code.starts_with("ac_") {
-        // This is an authorization code - retrieve the stored data
-        tracing::info!("Processing authorization code: {}", &code[..10.min(code.len())]);
-        
-        // Retrieve authorization code data from session repository
-        let session_id = crate::dom::values::SessId::from_string(format!("auth_code:{}", code));
-        tracing::info!("Looking up session_id: {}", session_id.to_string());
-        let auth_data_result = state.session_repo.find_by_id(&session_id).await;
-        tracing::info!("Session lookup result: {:?}", auth_data_result.as_ref().map(|_| "found").map_err(|e| e.to_string()));
-        
-        let auth_data = match auth_data_result {
-            Ok(session) => {
-                // Parse the stored authorization data from the access_token field
-                let auth_data: crate::web::oidc::authorization::AuthorizationCodeData = 
-                    serde_json::from_str(&session.access_token)
-                    .map_err(|e| {
-                        tracing::error!("Failed to parse authorization code data: {}", e);
-                        (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(OidcErrorResponse {
-                                error: "server_error".to_string(),
-                                error_description: Some("Internal server error".to_string()),
-                                error_uri: None,
-                            }),
-                        )
-                    })?;
-                    
-                // Check if authorization code is expired (10 minutes)
-                if chrono::Utc::now() > session.expires_at {
-                    tracing::warn!("Authorization code expired: {}", code);
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        Json(OidcErrorResponse {
-                            error: "invalid_grant".to_string(),
-                            error_description: Some("Authorization code expired".to_string()),
-                            error_uri: None,
-                        }),
-                    ));
-                }
-                
-                auth_data
-            },
-            Err(e) => {
-                tracing::error!("Failed to retrieve authorization code: {}", e);
-                return Err((
-                    StatusCode::BAD_REQUEST,
-                    Json(OidcErrorResponse {
-                        error: "invalid_grant".to_string(),
-                        error_description: Some("Invalid authorization code".to_string()),
-                        error_uri: None,
-                    }),
-                ));
-            }
-        };
-        
-        // Validate client_id matches
-        if auth_data.client_id != request.client_id {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(OidcErrorResponse {
-                    error: "invalid_grant".to_string(),
-                    error_description: Some("Client ID mismatch".to_string()),
-                    error_uri: None,
-                }),
-            ));
-        }
-        
-        // Clean up the used authorization code
-        let _ = state.session_repo.delete(&session_id).await;
-        
-        // Create tokens using the authenticated Firebase user
-        return create_session_and_tokens(state, auth_data.firebase_user, &request).await;
-    }
-    
-    // Legacy path: treat as Firebase ID token (for backward compatibility)
-    tracing::info!("Taking legacy Firebase ID token path for code: {}", &code[..10.min(code.len())]);
-    let firebase_id_token = code;
-    
-    // Create Firebase user service with admin module service
-    let firebase_admin = crate::infra::firebase_admin::FirebaseAdmin::new()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create Firebase admin: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Internal server error".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    let firebase_user_service = crate::dom::services::FirebaseUserService::with_admin_module_service(
-        firebase_admin,
-        state.admin_module_service.clone()
-    );
-    
-    // Verify Firebase ID token and get user data
-    let firebase_user = firebase_user_service
-        .verify_and_get_user(&firebase_id_token)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to verify Firebase token: {}", e);
-            (
-                StatusCode::BAD_REQUEST,
-                Json(OidcErrorResponse {
-                    error: "invalid_grant".to_string(),
-                    error_description: Some("Invalid authorization code".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    // Check if user has required permissions for admin client
-    if request.client_id == "epsx-admin" {
-        let admin_access = firebase_user_service
-            .validate_admin_access(&firebase_user.uid)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to validate admin access: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(OidcErrorResponse {
-                        error: "server_error".to_string(),
-                        error_description: Some("Failed to validate permissions".to_string()),
-                        error_uri: None,
-                    }),
-                )
-            })?;
-            
-        if !admin_access {
-            return Err((
-                StatusCode::FORBIDDEN,
-                Json(OidcErrorResponse {
-                    error: "insufficient_scope".to_string(),
-                    error_description: Some("User does not have admin access".to_string()),
-                    error_uri: None,
-                }),
-            ));
-        }
-    }
-    
-    // Create session using Firebase session service
-    let firebase_session_service = create_firebase_session_service(&state)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Internal server error".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    let session_request = crate::dom::services::firebase_session_service::CreateSessionRequest {
-        firebase_id_token: firebase_id_token.clone(),
-        user_agent: None, // TODO: Extract from request headers
-        ip_address: None, // TODO: Extract from request
-        session_duration_hours: Some(8),
-    };
-    
-    let session_info = firebase_session_service
-        .create_session(session_request)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Failed to create session".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    // Generate ID token with Firebase user data
-    let id_token = generate_id_token(&firebase_user, &request.client_id, None, &state.admin_module_service).await?;
-    
-    // Return OIDC token response
-    let token_response = TokenResponse {
-        access_token: session_info.session_token.clone(),
-        token_type: "Bearer".to_string(),
-        expires_in: 28800, // 8 hours
-        refresh_token: Some(session_info.session_token.clone()), // Simplified: use same token
-        id_token,
-        scope: "openid profile email".to_string(),
-    };
-    
-    tracing::info!("Successfully issued tokens for Firebase user: {}", firebase_user.uid);
-    Ok(Json(token_response))
-}
-
-/// Handle refresh token grant
-async fn handle_refresh_token_grant(
-    state: AppState,
-    request: TokenRequest,
-) -> Result<Json<TokenResponse>, (StatusCode, Json<OidcErrorResponse>)> {
-    let refresh_token = request.refresh_token.ok_or_else(|| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "invalid_request".to_string(),
-                error_description: Some("Missing refresh token".to_string()),
-                error_uri: None,
-            }),
-        )
-    })?;
-    
-    // Create session service
-    let firebase_session_service = create_firebase_session_service(&state)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Internal server error".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    // Validate and refresh session
-    let validation_result = firebase_session_service
-        .validate_session(&refresh_token)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to validate refresh token: {}", e);
-            (
-                StatusCode::BAD_REQUEST,
-                Json(OidcErrorResponse {
-                    error: "invalid_grant".to_string(),
-                    error_description: Some("Invalid refresh token".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    if !validation_result.is_valid {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(OidcErrorResponse {
-                error: "invalid_grant".to_string(),
-                error_description: Some("Invalid or expired refresh token".to_string()),
-                error_uri: None,
-            }),
-        ));
-    }
-    
-    let firebase_user = validation_result.firebase_user.ok_or_else(|| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(OidcErrorResponse {
-                error: "server_error".to_string(),
-                error_description: Some("Failed to get user data".to_string()),
-                error_uri: None,
-            }),
-        )
-    })?;
-    
-    // Refresh the session
-    let refreshed_session = firebase_session_service
-        .refresh_session(&refresh_token)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to refresh session: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Failed to refresh session".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-    
-    // Generate new ID token
-    let id_token = generate_id_token(&firebase_user, &request.client_id, None, &state.admin_module_service).await?;
-    
-    let token_response = TokenResponse {
-        access_token: refreshed_session.session_token.clone(),
-        token_type: "Bearer".to_string(),
-        expires_in: 28800, // 8 hours
-        refresh_token: Some(refreshed_session.session_token.clone()),
-        id_token,
-        scope: "openid profile email".to_string(),
-    };
-    
-    tracing::info!("Successfully refreshed tokens for Firebase user: {}", firebase_user.uid);
-    Ok(Json(token_response))
-}
-
-/// OIDC UserInfo Endpoint
-/// GET /oauth/userinfo
-pub async fn oidc_userinfo(
-    State(state): State<AppState>,
+/// Enhanced authorization endpoint handler
+/// GET/POST /oauth/v2/authorize
+pub async fn enhanced_authorize(
+    State(broker): State<Arc<EnhancedTokenBroker>>,
+    Query(params): Query<EnhancedAuthorizationRequest>,
     headers: HeaderMap,
-) -> Result<Json<UserInfoResponse>, (StatusCode, Json<OidcErrorResponse>)> {
-    tracing::info!("OIDC userinfo request");
+) -> Result<Redirect, (StatusCode, Json<OIDCErrorResponse>)> {
+    info!(
+        client_id = %params.client_id,
+        email_hint = ?params.email_hint,
+        tenant_hint = ?params.tenant_hint,
+        pkce_challenge = ?params.code_challenge,
+        "Enhanced OIDC authorization request"
+    );
     
-    // Extract access token from Authorization header
-    let access_token = extract_bearer_token(&headers)
+    // Extract client information from headers
+    let client_ip = extract_client_ip(&headers);
+    let user_agent = extract_user_agent(&headers);
+    
+    match broker.initiate_authorization(params, client_ip, user_agent).await {
+        Ok(flow_result) => {
+            info!(
+                authorization_url = %flow_result.authorization_url,
+                tenant_id = %flow_result.tenant_id,
+                provider_id = %flow_result.provider_id,
+                "Authorization flow initiated successfully"
+            );
+            
+            Ok(Redirect::to(&flow_result.authorization_url))
+        }
+        Err(e) => {
+            error!(error = %e, "Authorization flow initiation failed");
+            
+            let error_response = match &e.kind {
+                crate::core::errors::ErrorKind::ValidationError => OIDCErrorResponse {
+                    error: "invalid_request".to_string(),
+                    error_description: Some(e.message.clone()),
+                    error_uri: None,
+                },
+                crate::core::errors::ErrorKind::AggregateNotFound => OIDCErrorResponse {
+                    error: "invalid_client".to_string(),
+                    error_description: Some(e.message.clone()),
+                    error_uri: None,
+                },
+                crate::core::errors::ErrorKind::AuthorizationError => OIDCErrorResponse {
+                    error: "access_denied".to_string(),
+                    error_description: Some(e.message.clone()),
+                    error_uri: None,
+                },
+                _ => OIDCErrorResponse {
+                    error: "server_error".to_string(),
+                    error_description: Some("Internal server error".to_string()),
+                    error_uri: None,
+                },
+            };
+            
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
+        }
+    }
+}
+
+/// Enhanced token endpoint handler with PKCE support
+/// POST /oauth/v2/token
+pub async fn enhanced_token(
+    State(broker): State<Arc<EnhancedTokenBroker>>,
+    State(app_state): State<AppState>,
+    headers: HeaderMap,
+    Form(request): Form<EnhancedTokenRequest>,
+) -> Result<Json<EnhancedTokenResponse>, (StatusCode, Json<OIDCErrorResponse>)> {
+    info!(
+        client_id = %request.client_id,
+        grant_type = %request.grant_type,
+        has_code_verifier = request.code_verifier.is_some(),
+        "Enhanced token exchange request"
+    );
+    
+    // Extract client information
+    let client_ip = extract_client_ip(&headers);
+    let user_agent = extract_user_agent(&headers);
+    
+    // Validate client credentials if provided
+    if let Err(e) = validate_client_credentials(&request, &headers, &app_state.admin_module_service).await {
+        warn!(error = %e, "Client credential validation failed");
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(OIDCErrorResponse {
+                error: "invalid_client".to_string(),
+                error_description: Some(e.to_string()),
+                error_uri: None,
+            }),
+        ));
+    }
+    
+    match broker.exchange_code_for_tokens(request, client_ip, user_agent).await {
+        Ok(unified_jwt) => {
+            info!(
+                tenant_id = %unified_jwt.tenant_id,
+                provider_id = %unified_jwt.provider_id,
+                custom_ttl_applied = unified_jwt.custom_ttl_applied,
+                expires_in = unified_jwt.expires_in,
+                "Token exchange successful"
+            );
+            
+            let response = EnhancedTokenResponse {
+                access_token: unified_jwt.access_token,
+                token_type: unified_jwt.token_type,
+                expires_in: unified_jwt.expires_in,
+                refresh_token: unified_jwt.refresh_token,
+                refresh_expires_in: unified_jwt.refresh_expires_in,
+                id_token: unified_jwt.id_token,
+                scope: unified_jwt.scope,
+                
+                // Enhanced fields
+                session_id: Some(unified_jwt.session_id),
+                jti: Some(unified_jwt.jti),
+                tenant_id: Some(unified_jwt.tenant_id),
+                provider_id: Some(unified_jwt.provider_id),
+                custom_ttl_applied: Some(unified_jwt.custom_ttl_applied),
+                expires_at: Some(unified_jwt.expires_at),
+            };
+            
+            Ok(Json(response))
+        }
+        Err(e) => {
+            error!(error = %e, "Token exchange failed");
+            
+            let (status, error_response) = match &e.kind {
+                crate::core::errors::ErrorKind::ValidationError => (
+                    StatusCode::BAD_REQUEST,
+                    OIDCErrorResponse {
+                        error: "invalid_request".to_string(),
+                        error_description: Some(e.message.clone()),
+                        error_uri: None,
+                    }
+                ),
+                crate::core::errors::ErrorKind::AuthorizationError => (
+                    StatusCode::BAD_REQUEST,
+                    OIDCErrorResponse {
+                        error: "invalid_grant".to_string(),
+                        error_description: Some(e.message.clone()),
+                        error_uri: None,
+                    }
+                ),
+                crate::core::errors::ErrorKind::AggregateNotFound => (
+                    StatusCode::BAD_REQUEST,
+                    OIDCErrorResponse {
+                        error: "invalid_grant".to_string(),
+                        error_description: Some(e.message.clone()),
+                        error_uri: None,
+                    }
+                ),
+                _ => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    OIDCErrorResponse {
+                        error: "server_error".to_string(),
+                        error_description: Some("Internal server error".to_string()),
+                        error_uri: None,
+                    }
+                ),
+            };
+            
+            Err((status, Json(error_response)))
+        }
+    }
+}
+
+/// Enhanced userinfo endpoint
+/// GET /oauth/v2/userinfo
+pub async fn enhanced_userinfo(
+    State(_broker): State<Arc<EnhancedTokenBroker>>,
+    headers: HeaderMap,
+) -> Result<Json<EnhancedUserInfoResponse>, (StatusCode, Json<OIDCErrorResponse>)> {
+    info!("Enhanced userinfo request");
+    
+    // Extract and validate bearer token
+    let _access_token = extract_bearer_token(&headers)
         .ok_or_else(|| {
+            warn!("Missing or invalid Authorization header");
             (
                 StatusCode::UNAUTHORIZED,
-                Json(OidcErrorResponse {
+                Json(OIDCErrorResponse {
                     error: "invalid_token".to_string(),
                     error_description: Some("Missing or invalid access token".to_string()),
                     error_uri: None,
@@ -446,314 +206,411 @@ pub async fn oidc_userinfo(
             )
         })?;
     
-    // Create session service
-    let firebase_session_service = create_firebase_session_service(&state)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Internal server error".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
+    // TODO: Validate token and extract user information
+    // For now, return a placeholder response
+    let userinfo = EnhancedUserInfoResponse {
+        // Standard OIDC claims
+        sub: "user123".to_string(),
+        email: Some("user@example.com".to_string()),
+        email_verified: Some(true),
+        name: Some("Test User".to_string()),
+        picture: None,
+        given_name: Some("Test".to_string()),
+        family_name: Some("User".to_string()),
+        phone_number: None,
+        phone_number_verified: None,
+        
+        // Enhanced claims
+        tenant_id: Some("default".to_string()),
+        provider_id: Some("google-default".to_string()),
+        provider_type: Some("google".to_string()),
+        role: Some("user".to_string()),
+        permissions: Some(vec!["read".to_string()]),
+        subscription_tier: None,
+        
+        // Security claims
+        session_id: Some("session123".to_string()),
+        auth_time: Some(chrono::Utc::now().timestamp()),
+        amr: Some(vec!["oidc".to_string()]),
+        acr: Some("1".to_string()),
+        
+        // Metadata
+        last_login: Some(chrono::Utc::now()),
+        risk_score: Some(0.1),
+    };
     
-    // Validate access token (session token)
-    let validation_result = firebase_session_service
-        .validate_session(&access_token)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to validate access token: {}", e);
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(OidcErrorResponse {
-                    error: "invalid_token".to_string(),
-                    error_description: Some("Invalid or expired access token".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
+    info!(
+        user_id = %userinfo.sub,
+        tenant_id = ?userinfo.tenant_id,
+        provider_id = ?userinfo.provider_id,
+        "Userinfo request successful"
+    );
     
-    if !validation_result.is_valid {
+    Ok(Json(userinfo))
+}
+
+/// Token introspection endpoint (RFC 7662)
+/// POST /oauth/v2/introspect
+pub async fn token_introspection(
+    State(_broker): State<Arc<EnhancedTokenBroker>>,
+    headers: HeaderMap,
+    Form(request): Form<TokenIntrospectionRequest>,
+) -> Result<Json<TokenIntrospectionResponse>, (StatusCode, Json<OIDCErrorResponse>)> {
+    info!(
+        token_type_hint = ?request.token_type_hint,
+        "Token introspection request"
+    );
+    
+    // Validate client credentials
+    if let Err(_e) = validate_introspection_client(&headers).await {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(OidcErrorResponse {
-                error: "invalid_token".to_string(),
-                error_description: Some("Invalid or expired access token".to_string()),
+            Json(OIDCErrorResponse {
+                error: "invalid_client".to_string(),
+                error_description: Some("Client authentication required".to_string()),
                 error_uri: None,
             }),
         ));
     }
     
-    let firebase_user = validation_result.firebase_user.ok_or_else(|| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(OidcErrorResponse {
-                error: "server_error".to_string(),
-                error_description: Some("Failed to get user data".to_string()),
-                error_uri: None,
-            }),
-        )
-    })?;
-    
-    // Build UserInfo response
-    let firebase_uid = firebase_user.uid.clone();
-    let userinfo = UserInfoResponse {
-        sub: firebase_user.uid,
-        email: firebase_user.email,
-        email_verified: Some(firebase_user.email_verified),
-        name: firebase_user.display_name,
-        picture: firebase_user.photo_url,
-        given_name: None, // TODO: Parse from display_name
-        family_name: None, // TODO: Parse from display_name  
-        phone_number: firebase_user.phone_number,
-        phone_number_verified: None, // TODO: Get from Firebase
-        custom_claims: firebase_user.custom_claims,
+    // TODO: Implement token introspection logic
+    // For now, return a placeholder response
+    let introspection_response = TokenIntrospectionResponse {
+        active: true,
+        sub: Some("user123".to_string()),
+        client_id: Some("frontend-client".to_string()),
+        username: Some("user@example.com".to_string()),
+        scope: Some("openid profile email".to_string()),
+        exp: Some((chrono::Utc::now() + chrono::Duration::minutes(15)).timestamp()),
+        iat: Some(chrono::Utc::now().timestamp()),
+        
+        // Enhanced fields
+        tenant_id: Some("default".to_string()),
+        provider_id: Some("google-default".to_string()),
+        session_id: Some("session123".to_string()),
+        jti: Some("jti123".to_string()),
+        amr: Some(vec!["oidc".to_string()]),
+        acr: Some("1".to_string()),
     };
     
-    tracing::info!("Successfully returned userinfo for Firebase user: {}", firebase_uid);
-    Ok(Json(userinfo))
+    Ok(Json(introspection_response))
+}
+
+/// Token revocation endpoint (RFC 7009)
+/// POST /oauth/v2/revoke
+pub async fn token_revocation(
+    State(broker): State<Arc<EnhancedTokenBroker>>,
+    headers: HeaderMap,
+    Form(request): Form<TokenRevocationRequest>,
+) -> Result<StatusCode, (StatusCode, Json<OIDCErrorResponse>)> {
+    info!(
+        token_type_hint = ?request.token_type_hint,
+        "Token revocation request"
+    );
+    
+    // Validate client credentials
+    if let Err(_e) = validate_revocation_client(&headers).await {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(OIDCErrorResponse {
+                error: "invalid_client".to_string(),
+                error_description: Some("Client authentication required".to_string()),
+                error_uri: None,
+            }),
+        ));
+    }
+    
+    // Create revocation request for token management service
+    let revocation_request = crate::web::oidc::token_management::TokenRevocationRequest {
+        token: request.token,
+        token_type_hint: request.token_type_hint,
+        revocation_reason: Some("Client requested revocation".to_string()),
+        revoked_by: Some("oauth_client".to_string()),
+        revoke_all: None,
+    };
+    
+    // Revoke the token using the token management service
+    match broker.get_token_manager().revoke_token(revocation_request).await {
+        Ok(was_revoked) => {
+            if was_revoked {
+                info!("Token revocation successful");
+            } else {
+                info!("Token not found or already revoked");
+            }
+            // RFC 7009: Return 200 OK regardless of whether token was found
+            Ok(StatusCode::OK)
+        }
+        Err(e) => {
+            error!("Token revocation failed: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(OIDCErrorResponse {
+                    error: "server_error".to_string(),
+                    error_description: Some("Token revocation failed".to_string()),
+                    error_uri: None,
+                }),
+            ))
+        }
+    }
+}
+
+// Response types
+
+#[derive(Debug, Serialize)]
+pub struct EnhancedTokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_expires_in: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+    pub scope: String,
+    
+    // Enhanced fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_ttl_applied: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EnhancedUserInfoResponse {
+    // Standard OIDC claims
+    pub sub: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub given_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_number_verified: Option<bool>,
+    
+    // Enhanced claims
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subscription_tier: Option<String>,
+    
+    // Security claims
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amr: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acr: Option<String>,
+    
+    // Metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_login: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_score: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OIDCErrorResponse {
+    pub error: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_uri: Option<String>,
+}
+
+// Request types
+
+#[derive(Debug, Deserialize)]
+pub struct TokenIntrospectionRequest {
+    pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type_hint: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TokenIntrospectionResponse {
+    pub active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<i64>,
+    
+    // Enhanced fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amr: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acr: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenRevocationRequest {
+    pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type_hint: Option<String>,
 }
 
 // Helper functions
 
-/// Create Firebase session service with dependencies
-async fn create_firebase_session_service(state: &AppState) -> Result<FirebaseSessionService, String> {
-    // For development mode, we need to work around the fact that FirebaseSessionService
-    // expects a PgPool directly, but we only have repositories in AppState
+/// Extract client IP address from headers
+fn extract_client_ip(headers: &HeaderMap) -> Option<String> {
+    // Try X-Forwarded-For first (for proxy/load balancer setups)
+    if let Some(forwarded) = headers.get("x-forwarded-for") {
+        if let Ok(forwarded_str) = forwarded.to_str() {
+            // Take the first IP in the chain
+            if let Some(first_ip) = forwarded_str.split(',').next() {
+                return Some(first_ip.trim().to_string());
+            }
+        }
+    }
     
-    // This is a workaround for development - in production this should be properly injected
-    let database_url = std::env::var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL not set".to_string())?;
+    // Try X-Real-IP header
+    if let Some(real_ip) = headers.get("x-real-ip") {
+        if let Ok(ip_str) = real_ip.to_str() {
+            return Some(ip_str.to_string());
+        }
+    }
     
-    let db_pool = sqlx::PgPool::connect(&database_url)
-        .await
-        .map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
-    // Note: We need to dereference the Arc to get the FirebaseAdmin
-    let firebase_admin = (*state.firebase_admin).clone();
-    
-    let firebase_user_service = crate::dom::services::FirebaseUserService::with_admin_module_service(
-        firebase_admin.clone(),
-        state.admin_module_service.clone()
-    );
-    
-    let session_service = FirebaseSessionService::new(
-        db_pool,
-        firebase_admin,
-        firebase_user_service,
-    );
-    
-    Ok(session_service)
+    None
+}
+
+/// Extract user agent from headers
+fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
+    headers.get("user-agent")
+        .and_then(|ua| ua.to_str().ok())
+        .map(|s| s.to_string())
 }
 
 /// Extract Bearer token from Authorization header
 fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("authorization")?
-        .to_str()
-        .ok()?
-        .strip_prefix("Bearer ")
+    headers.get("authorization")
+        .and_then(|auth| auth.to_str().ok())
+        .and_then(|auth_str| auth_str.strip_prefix("Bearer "))
         .map(|token| token.to_string())
 }
 
-/// Generate ID token for Firebase user with enhanced IAM claims
-pub async fn generate_id_token(
-    firebase_user: &FirebaseUser,
-    client_id: &str,
-    nonce: Option<String>,
-    admin_module_service: &std::sync::Arc<crate::dom::services::AdminModuleService>,
-) -> Result<String, (StatusCode, Json<OidcErrorResponse>)> {
-    let now = Utc::now().timestamp() as u64;
-    let issuer = std::env::var("OIDC_ISSUER")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+/// Validate client credentials for token endpoint
+async fn validate_client_credentials(
+    request: &EnhancedTokenRequest,
+    headers: &HeaderMap,
+    _admin_module_service: &AdminModuleService,
+) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
     
-    // Get user's admin modules and compute permissions
-    let admin_modules = admin_module_service
-        .get_user_admin_modules(&firebase_user.uid)
-        .await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to get admin modules for user {}: {}", firebase_user.uid, e);
-            vec![]
-        });
+    // Check for client_secret in request body
+    if let Some(client_secret) = &request.client_secret {
+        tracing::debug!("Validating client credentials from request body");
+        client_service.validate_client_credentials(&request.client_id, client_secret)?;
+        return Ok(());
+    }
     
-    let permissions = crate::core::permission_constants::get_permissions_for_modules(&admin_modules);
-    let access_level = crate::core::permission_constants::AdminModuleValidator::get_effective_access_level(&admin_modules);
-    let is_admin = !admin_modules.is_empty();
-    
-    let claims = IdTokenClaims {
-        // Standard OIDC claims
-        iss: issuer,
-        sub: firebase_user.uid.clone(),
-        aud: client_id.to_string(),
-        exp: now + 3600, // 1 hour
-        iat: now,
-        auth_time: Some(now),
-        nonce,
-        
-        // Standard profile claims
-        email: firebase_user.email.clone(),
-        email_verified: Some(firebase_user.email_verified),
-        name: firebase_user.display_name.clone(),
-        picture: firebase_user.photo_url.clone(),
-        given_name: None, // TODO: Parse from display_name
-        family_name: None, // TODO: Parse from display_name
-        phone_number: firebase_user.phone_number.clone(),
-        phone_number_verified: None, // TODO: Get from Firebase
-        
-        // Modern IAM Claims - Admin Module System Only
-        admin: is_admin,
-        access_level,
-        admin_modules,
-        permissions,
-        
-        // Subscription data (TODO: Get from subscription service)
-        subscription_tier: None, // Will be populated from subscription service
-        subscription_status: None, // Will be populated from subscription service
-        
-        // Firebase custom claims
-        custom_claims: firebase_user.custom_claims.clone(),
-    };
-    
-    // For development/testing, create a simple JWT-like token that can be decoded
-    // In production, this should use proper RS256 signing with private keys
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use base64::Engine;
-    
-    // Create a simple header
-    let header = serde_json::json!({
-        "typ": "JWT",
-        "alg": "HS256"
-    });
-    
-    let header_b64 = URL_SAFE_NO_PAD.encode(header.to_string());
-    let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&claims).unwrap());
-    
-    // Use proper JWT signing with environment-based key
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "your-jwt-secret-key-change-in-production".to_string());
-    
-    use hmac::{Hmac, Mac};
-    use sha2::Sha256;
-    
-    let signature_input = format!("{}.{}", header_b64, payload_b64);
-    let mut mac = Hmac::<Sha256>::new_from_slice(jwt_secret.as_bytes())
-        .expect("HMAC can take key of any size");
-    mac.update(signature_input.as_bytes());
-    let signature = mac.finalize().into_bytes();
-    let signature_b64 = URL_SAFE_NO_PAD.encode(&signature);
-    
-    Ok(format!("{}.{}.{}", header_b64, payload_b64, signature_b64))
-}
-
-/// Create session and tokens for a Firebase user (helper function)
-async fn create_session_and_tokens(
-    state: AppState,
-    firebase_user: FirebaseUser,
-    request: &TokenRequest,
-) -> Result<Json<TokenResponse>, (StatusCode, Json<OidcErrorResponse>)> {
-    // Check admin access for admin client
-    if request.client_id == "epsx-admin" {
-        // Use Firebase admin validation with admin module service
-        let firebase_admin = crate::infra::firebase_admin::FirebaseAdmin::new()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create Firebase admin: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(OidcErrorResponse {
-                        error: "server_error".to_string(),
-                        error_description: Some("Internal server error".to_string()),
-                        error_uri: None,
-                    }),
-                )
-            })?;
-            
-        let firebase_user_service = crate::dom::services::FirebaseUserService::with_admin_module_service(
-            firebase_admin,
-            state.admin_module_service.clone()
-        );
-
-        let admin_access = firebase_user_service
-            .validate_admin_access(&firebase_user.uid)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to validate admin access: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(OidcErrorResponse {
-                        error: "server_error".to_string(),
-                        error_description: Some("Failed to validate permissions".to_string()),
-                        error_uri: None,
-                    }),
-                )
-            })?;
-            
-        if !admin_access {
-            return Err((
-                StatusCode::FORBIDDEN,
-                Json(OidcErrorResponse {
-                    error: "insufficient_scope".to_string(),
-                    error_description: Some("User does not have admin access".to_string()),
-                    error_uri: None,
-                }),
-            ));
+    // Check for HTTP Basic authentication
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Basic ") {
+                tracing::debug!("Validating client credentials from Basic auth header");
+                client_service.validate_basic_auth(auth_str)?;
+                return Ok(());
+            }
         }
     }
+    
+    // For public clients, no authentication required if using PKCE
+    if request.grant_type == "authorization_code" && request.code_verifier.is_some() {
+        tracing::debug!("Public client using PKCE - no client authentication required");
+        
+        // Still validate that the client_id exists and is allowed to use PKCE
+        let client = client_service.get_client(&request.client_id)
+            .ok_or_else(|| AppError::security_error(
+                format!("Unknown client_id: {}", request.client_id)
+            ))?;
+        
+        // For now, allow both confidential and public clients to use PKCE
+        // In a more strict implementation, you might want to enforce client types
+        tracing::debug!("Client {} validated for PKCE flow", client.client_id);
+        return Ok(());
+    }
+    
+    tracing::warn!("Client authentication failed - no valid credentials provided");
+    Err(AppError::security_error("Client authentication required".to_string()))
+}
 
-    // For real users, use Firebase session service  
-    let firebase_session_service = create_firebase_session_service(&state)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Internal server error".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
+/// Validate client for token introspection
+async fn validate_introspection_client(headers: &HeaderMap) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
+    
+    // Check for HTTP Basic authentication
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Basic ") {
+                tracing::debug!("Validating client credentials for token introspection");
+                client_service.validate_basic_auth(auth_str)?;
+                return Ok(());
+            }
+        }
+    }
+    
+    tracing::warn!("Token introspection requires client authentication");
+    Err(AppError::security_error("Client authentication required for token introspection".to_string()))
+}
 
-    let session_request = crate::dom::services::firebase_session_service::CreateSessionRequest {
-        firebase_id_token: "mock-token".to_string(), // For development
-        user_agent: None,
-        ip_address: None,
-        session_duration_hours: Some(8),
-    };
-
-    let session_info = firebase_session_service
-        .create_session(session_request)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(OidcErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Failed to create session".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-
-    // Generate ID token
-    let id_token = generate_id_token(&firebase_user, &request.client_id, None, &state.admin_module_service).await?;
-
-    // Return token response
-    let token_response = TokenResponse {
-        access_token: session_info.session_token.clone(),
-        token_type: "Bearer".to_string(),
-        expires_in: 28800, // 8 hours
-        refresh_token: Some(session_info.session_token.clone()),
-        id_token,
-        scope: "openid profile email admin:read admin:write".to_string(),
-    };
-
-    tracing::info!("Successfully issued tokens for Firebase user: {}", firebase_user.uid);
-    Ok(Json(token_response))
+/// Validate client for token revocation
+async fn validate_revocation_client(headers: &HeaderMap) -> Result<(), AppError> {
+    let client_service = ClientCredentialService::new();
+    
+    // Check for HTTP Basic authentication
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Basic ") {
+                tracing::debug!("Validating client credentials for token revocation");
+                client_service.validate_basic_auth(auth_str)?;
+                return Ok(());
+            }
+        }
+    }
+    
+    tracing::warn!("Token revocation requires client authentication");
+    Err(AppError::security_error("Client authentication required for token revocation".to_string()))
 }

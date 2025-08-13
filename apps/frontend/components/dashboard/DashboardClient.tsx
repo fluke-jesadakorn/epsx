@@ -1,14 +1,14 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@epsx/ui';
 // Note: OIDC logout handled by server-side auth flow
 import {
   BarChart3,

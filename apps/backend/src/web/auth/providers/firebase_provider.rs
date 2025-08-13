@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
-use crate::dom::values::UserId;
 
 /// Firebase JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,21 +132,6 @@ impl FirebaseProvider {
         Ok(jwks)
     }
 
-    /// Map Firebase UID to backend user_id
-    /// TODO: Implement actual database lookup
-    async fn map_firebase_uid_to_user_id(&self, firebase_uid: &str) -> Result<UserId, AuthProviderError> {
-        // TODO: Query firebase_user_mappings table
-        // For now, create a placeholder implementation
-        tracing::warn!("Firebase UID mapping not implemented: {}", firebase_uid);
-        Err(AuthProviderError::UserNotFound)
-    }
-
-    /// Get user permissions for Casbin
-    /// TODO: Implement actual permission lookup
-    async fn get_user_permissions(&self, _user_id: &UserId) -> Result<Vec<String>, AuthProviderError> {
-        // TODO: Query user permissions from database
-        Ok(vec!["read".to_string(), "write".to_string()])
-    }
 }
 
 #[async_trait]

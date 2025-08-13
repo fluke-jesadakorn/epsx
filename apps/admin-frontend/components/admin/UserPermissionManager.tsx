@@ -40,7 +40,7 @@ const bulkApplyPermissionProfile = async (_params: any) => {
 };
 
 // Placeholder for removed dependencies
-const PERMISSION_PROFILES: any[] = [];
+const PERMISSION_PROFILES: Array<{ id: string; name: string }> = [];
 
 interface UserPermissionManagerProps {
   userId: string;

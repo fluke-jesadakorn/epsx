@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
-import { requireAdminAuth } from '@/lib/auth/server-auth-enhanced'
+import { requireAdminAuth } from '@/lib/auth/server-auth'
 import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
 import { UserProfileHeader } from '@/components/users/UserProfileHeader'
 import { UserTabNavigation } from '@/components/users/UserTabNavigation'

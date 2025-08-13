@@ -7,9 +7,9 @@
 
 import { useState } from 'react'
 import { Shield, Users, Key, Settings, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@epsx/ui'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { PermissionAssignmentCard } from './PermissionAssignmentCard'
 import { RoleAssignmentCard } from './RoleAssignmentCard'
 import { PermissionProfileCard } from './PermissionProfileCard'
@@ -23,10 +23,10 @@ import { PermissionImpactAnalysis } from './PermissionImpactAnalysis'
 import { PermissionValidator } from './PermissionValidator'
 import { PermissionConflictResolver } from './PermissionConflictResolver'
 import { PermissionExportImport } from './PermissionExportImport'
-import { EnhancedPermissionProfileManager } from './EnhancedPermissionProfileManager'
+import { PermissionProfileManager } from './PermissionProfileManager'
 import { TemporaryPermissionManager } from './TemporaryPermissionManager'
 import { PermissionAnalyticsDashboard } from '../analytics/PermissionAnalyticsDashboard'
-import { SmartPermissionRecommendations } from './SmartPermissionRecommendations'
+import { PermissionRecommendations } from './PermissionRecommendations'
 import { InteractivePermissionTreeView } from './InteractivePermissionTreeView'
 import { DragDropBulkAssignment } from './DragDropBulkAssignment'
 
@@ -127,7 +127,7 @@ export function UserPermissionsContent({
 
         {/* Permission Profiles - Enhanced */}
         <div className="pancake-card p-6">
-          <EnhancedPermissionProfileManager
+          <PermissionProfileManager
             userId={user.id}
             currentProfiles={user.permissionProfiles}
             canManage={canManagePermissions}
@@ -209,7 +209,7 @@ export function UserPermissionsContent({
       {/* Smart Recommendations */}
       {canManagePermissions && (
         <div className="pancake-card p-6">
-          <SmartPermissionRecommendations
+          <PermissionRecommendations
             user={{
               id: user.id,
               email: user.email,

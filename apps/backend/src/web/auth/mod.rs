@@ -1,17 +1,27 @@
 // Unified Authentication module
 
+// Modern Auth.js v5 handlers and routes
+pub mod modern_handlers;
+pub mod modern_routes;
+
+// Legacy handlers (will be removed in Phase 6)
 pub mod handlers;
 pub mod routes;
 pub mod password;
 pub mod api_key_service;
 pub mod providers;
 pub mod token_broker;
-pub mod casbin_claims_mapper;
+// casbin_claims_mapper removed - using modern JWT auth
 
+// Modern exports
+pub use modern_handlers::*;
+pub use modern_routes::*;
+
+// Legacy exports (will be removed in Phase 6)
 pub use handlers::*;
 pub use providers::*;
 pub use token_broker::*;
-pub use casbin_claims_mapper::*;
+// casbin_claims_mapper removed - using modern JWT auth
 
 // Re-export handlers as multi_handlers for backward compatibility
 pub mod multi_handlers {

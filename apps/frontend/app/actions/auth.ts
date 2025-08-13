@@ -1,30 +1,17 @@
 'use server';
 
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 
 /**
- * Logout action that handles OIDC auth cleanup
+ * Ensure user is not authenticated (guest only pages)
+ * Now uses NextAuth.js session
  */
-export async function logoutAction(): Promise<void> {
-  try {
-    const cookieStore = cookies();
-    
-    // Clear all authentication cookies
-    cookieStore.delete('auth-token');
-    cookieStore.delete('refresh-token');
-    cookieStore.delete('id-token');
-    
-    // Log successful logout
-    console.log('🔐 User logout action completed', {
-      timestamp: new Date().toISOString(),
-      action: 'logout'
-    });
-
-    // Redirect to logout endpoint for complete cleanup
-    redirect('/auth/logout');
-  } catch (error) {
-    console.error('Logout action failed:', error);
-    throw error;
+export async function requireGuest(): Promise<void> {
+  const session = await auth();
+  
+  // If authenticated, redirect to dashboard
+  if (session?.user) {
+    redirect('/dashboard');
   }
 }

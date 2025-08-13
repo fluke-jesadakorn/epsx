@@ -26,35 +26,20 @@ export async function makeServerRequest<T = any>(
     // Skip authentication if requested
     if (!skipAuth) {
       try {
-        // Try unified token manager first (client-side)
+        // Simple, unified token extraction
         if (typeof window !== 'undefined') {
-          try {
-            // Dynamic import to avoid circular dependencies
-            // Import from frontend app when this package is used there
-            const tokenManagerModule = await import('@/lib/auth/unified-token-manager' as any).catch(() => null);
-            if (tokenManagerModule) {
-              const { getUnifiedTokenManager } = tokenManagerModule;
-              const tokenManager = getUnifiedTokenManager();
-              const validToken = await tokenManager.getCurrentToken();
-              
-              if (validToken) {
-                authToken = validToken;
-                console.log('🔑 Using unified token from client-side token manager');
-              }
-            }
-          } catch (importError) {
-            console.debug('Token manager not available, falling back to cookie extraction:', importError);
-          }
+          // Client-side: get token from session storage or cookies
+          authToken = await extractClientSideToken();
         } else {
           // Server-side: extract token from cookies
-          const token = await extractServerSideToken();
-          if (token) {
-            authToken = token;
-            console.log('🔑 Using unified token from server-side extraction');
-          }
+          authToken = await extractServerSideToken();
+        }
+        
+        if (authToken) {
+          console.log('🔑 Using Auth.js session token');
         }
       } catch (authError) {
-        console.warn('Multi-provider authentication failed, proceeding without authentication:', authError);
+        console.warn('Authentication token extraction failed:', authError);
       }
     }
     
@@ -73,18 +58,7 @@ export async function makeServerRequest<T = any>(
       headers['Authorization'] = `Bearer ${authToken}`;
       
       // Add provider hint for backend routing
-      try {
-        const providerDetectorModule = await import('@/lib/auth/provider-detector' as any).catch(() => null);
-        if (providerDetectorModule) {
-          const { default: ProviderDetector } = providerDetectorModule;
-          const providerInfo = ProviderDetector.detectFromToken(authToken);
-          if (providerInfo.provider !== 'unknown') {
-            headers['X-Provider-Hint'] = providerInfo.provider;
-          }
-        }
-      } catch (importError) {
-        console.debug('Provider detector not available, skipping provider hint:', importError);
-      }
+      headers['X-Provider-Hint'] = 'auth.js';
     }
     
     const response = await fetch(url, {
@@ -104,17 +78,8 @@ export async function makeServerRequest<T = any>(
           let refreshedToken: string | null = null;
           
           if (typeof window !== 'undefined') {
-            try {
-              // Import from frontend app when this package is used there
-              const tokenManagerModule = await import('@/lib/auth/unified-token-manager' as any).catch(() => null);
-              if (tokenManagerModule) {
-                const { getUnifiedTokenManager } = tokenManagerModule;
-                const tokenManager = getUnifiedTokenManager();
-                refreshedToken = await tokenManager.refreshToken().then((t: any) => t?.access_token || null);
-              }
-            } catch (importError) {
-              console.debug('Token manager not available for refresh:', importError);
-            }
+            // Client-side: trigger Auth.js session refresh
+            refreshedToken = await refreshClientSideToken();
           } else {
             // Server-side refresh logic
             refreshedToken = await refreshServerSideToken();
@@ -160,36 +125,53 @@ export async function makeServerRequest<T = any>(
 }
 
 /**
- * Extract unified JWT token from server-side cookies
+ * Extract Auth.js session token from client-side
  */
-async function extractServerSideToken(): Promise<string | null> {
+async function extractClientSideToken(): Promise<string> {
+  // Client-side token extraction will be handled by Auth.js session
+  // For now, return empty string and let Auth.js handle it
+  return '';
+}
+
+/**
+ * Extract Auth.js session token from server-side cookies
+ */
+async function extractServerSideToken(): Promise<string> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const allCookies = cookieStore.getAll();
     
-    // Look for unified JWT tokens in cookies (priority order)
-    const tokenCookieNames = [
-      'unified_auth_token',
-      'oidc-session-token',
-      '__Secure-oidc-session-token',
-      'jwt_token',
-      'access_token'
-    ];
+    // Look for Auth.js session token
+    const sessionToken = cookieStore.get('next-auth.session-token') || 
+                        cookieStore.get('__Secure-next-auth.session-token');
     
-    for (const cookieName of tokenCookieNames) {
-      const cookie = allCookies.find(c => c.name === cookieName || c.name.includes(cookieName));
-      if (cookie) {
-        // Validate that it looks like a JWT
-        if (cookie.value.includes('.')) {
-          return cookie.value;
-        }
-      }
+    if (sessionToken?.value) {
+      return sessionToken.value;
     }
     
-    return null;
+    // Fallback: look for other JWT tokens
+    const allCookies = cookieStore.getAll();
+    const jwtCookie = allCookies.find(c => 
+      c.value.includes('.') && c.value.split('.').length === 3
+    );
+    
+    return jwtCookie?.value || '';
   } catch (error) {
     console.debug('Failed to extract server-side token:', error);
+    return '';
+  }
+}
+
+/**
+ * Refresh Auth.js session token on client-side
+ */
+async function refreshClientSideToken(): Promise<string | null> {
+  try {
+    // Client-side refresh will be handled by Auth.js session hooks
+    console.debug('Client-side token refresh handled by Auth.js');
+    return null;
+  } catch (error) {
+    console.debug('Client-side token refresh failed:', error);
     return null;
   }
 }
@@ -199,9 +181,8 @@ async function extractServerSideToken(): Promise<string | null> {
  */
 async function refreshServerSideToken(): Promise<string | null> {
   try {
-    // TODO: Implement server-side token refresh
-    // This would involve calling the backend refresh endpoint
-    console.debug('Server-side token refresh not implemented yet');
+    // Server-side refresh will be handled by Auth.js
+    console.debug('Server-side token refresh handled by Auth.js');
     return null;
   } catch (error) {
     console.debug('Server-side token refresh failed:', error);

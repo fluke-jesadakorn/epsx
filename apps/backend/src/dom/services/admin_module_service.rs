@@ -79,7 +79,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to fetch admin modules: {}", e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         let modules: Vec<AdminModule> = rows.into_iter().map(|row| AdminModule {
@@ -120,7 +120,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to fetch user admin modules for {}: {}", firebase_uid, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?
         .into_iter()
         .map(|row| row.module_code)
@@ -149,7 +149,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to fetch user admin module details for {}: {}", firebase_uid, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         let assignments: Vec<UserAdminModule> = rows.into_iter().map(|row| UserAdminModule {
@@ -189,7 +189,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to check admin module access for {} -> {}: {}", firebase_uid, module_code, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?
         .has_access.unwrap_or(false);
 
@@ -215,7 +215,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to check admin status for {}: {}", firebase_uid, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?
         .is_admin.unwrap_or(false);
 
@@ -226,7 +226,7 @@ impl AdminModuleService {
     pub async fn assign_admin_modules(&self, request: &ModuleAssignmentRequest) -> Result<Vec<String>, AppError> {
         let mut tx = self.pool.begin().await.map_err(|e| {
             error!("Failed to start transaction: {}", e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         let mut assigned_modules = Vec::new();
@@ -241,7 +241,7 @@ impl AdminModuleService {
             .await
             .map_err(|e| {
                 error!("Failed to check module existence for {}: {}", module_code, e);
-                AppError::DatabaseError(e.to_string())
+                AppError::database_error(e.to_string())
             })?
             .exists.unwrap_or(false);
 
@@ -274,7 +274,7 @@ impl AdminModuleService {
             .await
             .map_err(|e| {
                 error!("Failed to assign module {} to user {}: {}", module_code, request.firebase_uid, e);
-                AppError::DatabaseError(e.to_string())
+                AppError::database_error(e.to_string())
             })?;
 
             // Log assignment in audit trail
@@ -297,7 +297,7 @@ impl AdminModuleService {
             .await
             .map_err(|e| {
                 error!("Failed to log admin role audit for {}: {}", module_code, e);
-                AppError::DatabaseError(e.to_string())
+                AppError::database_error(e.to_string())
             })?;
 
             assigned_modules.push(module_code.clone());
@@ -306,7 +306,7 @@ impl AdminModuleService {
 
         tx.commit().await.map_err(|e| {
             error!("Failed to commit admin module assignment transaction: {}", e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         info!("Successfully assigned {} modules to user {}", assigned_modules.len(), request.firebase_uid);
@@ -317,7 +317,7 @@ impl AdminModuleService {
     pub async fn revoke_admin_modules(&self, firebase_uid: &str, module_codes: Vec<String>, revoked_by: &str, reason: &str) -> Result<Vec<String>, AppError> {
         let mut tx = self.pool.begin().await.map_err(|e| {
             error!("Failed to start transaction: {}", e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         let mut revoked_modules = Vec::new();
@@ -337,7 +337,7 @@ impl AdminModuleService {
             .await
             .map_err(|e| {
                 error!("Failed to revoke module {} from user {}: {}", module_code, firebase_uid, e);
-                AppError::DatabaseError(e.to_string())
+                AppError::database_error(e.to_string())
             })?;
 
             if affected_rows.rows_affected() > 0 {
@@ -360,7 +360,7 @@ impl AdminModuleService {
                 .await
                 .map_err(|e| {
                     error!("Failed to log admin role revocation audit for {}: {}", module_code, e);
-                    AppError::DatabaseError(e.to_string())
+                    AppError::database_error(e.to_string())
                 })?;
 
                 revoked_modules.push(module_code.clone());
@@ -370,7 +370,7 @@ impl AdminModuleService {
 
         tx.commit().await.map_err(|e| {
             error!("Failed to commit admin module revocation transaction: {}", e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         info!("Successfully revoked {} modules from user {}", revoked_modules.len(), firebase_uid);
@@ -408,7 +408,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to fetch permissions for module {}: {}", module_code, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         if let Some(row) = permissions {
@@ -457,7 +457,7 @@ impl AdminModuleService {
         .await
         .map_err(|e| {
             error!("Failed to fetch admin role audit for {}: {}", firebase_uid, e);
-            AppError::DatabaseError(e.to_string())
+            AppError::database_error(e.to_string())
         })?;
 
         let audit_json: Vec<serde_json::Value> = audit_records

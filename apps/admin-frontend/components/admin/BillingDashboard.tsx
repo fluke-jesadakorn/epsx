@@ -13,13 +13,12 @@ import {
   Activity,
   FileText
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import { FormField, Select } from '@/components/ui/form-components';
 import { ModuleAnalyticsDashboard } from './ModuleAnalyticsDashboard';
 import { BillingAlerts } from './BillingAlerts';
 import { BillingService } from '@/services/billingService';
 import type { UsageBill } from '@/services/billingService';
-// import { useModuleAuth } from '@/auth/module-ctx'; // Removed - using OIDC auth
 import { toast } from 'react-hot-toast';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';
 

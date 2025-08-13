@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@epsx/ui';
 import { FinancialCard } from './FinancialCard';
 import { SimpleCardSkeleton } from '../../common/SimpleCardSkeleton';
 import type { StockFinancialData } from '@/types/financialChartData';

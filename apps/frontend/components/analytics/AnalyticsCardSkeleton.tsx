@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@epsx/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AnalyticsCardSkeletonProps {

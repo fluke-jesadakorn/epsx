@@ -7,14 +7,14 @@
 
 import { useState } from 'react'
 import { MoreHorizontal, Key, AlertCircle, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@epsx/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@epsx/ui'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 import type { Permission } from '@/lib/types/unified-user'

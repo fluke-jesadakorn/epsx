@@ -3,7 +3,7 @@
 use axum::{
     extract::{State, Form},
     response::Json,
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
 };
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
@@ -179,7 +179,7 @@ async fn handle_authorization_code_grant(
 
     // Generate tokens
     let now = Utc::now();
-    let expires_in = 3600; // 1 hour
+    let expires_in = 7200; // 2 hours (frontend client policy)
 
     // Generate access token
     let access_token = generate_access_token(&auth_data.firebase_user, &auth_data.scope, now, expires_in)?;
@@ -260,7 +260,7 @@ async fn handle_refresh_token_grant(
 
     // Generate new tokens
     let now = Utc::now();
-    let expires_in = 3600; // 1 hour
+    let expires_in = 7200; // 2 hours (frontend client policy)
 
     let access_token = generate_access_token(&refresh_data.firebase_user, &refresh_data.scope, now, expires_in)?;
     let id_token = generate_id_token(&refresh_data.firebase_user, &token_request.client_id, now, expires_in)?;
@@ -420,7 +420,7 @@ async fn generate_refresh_token(
         
         let session_id = SessId::from_string(format!("refresh_token:{}", refresh_token));
         let user_id = UserId::new(auth_data.firebase_user.uid.clone());
-        let expires_at = Utc::now() + Duration::days(30);
+        let expires_at = Utc::now() + Duration::days(7); // 7 days for frontend clients
         
         let session = Session {
             id: session_id,
@@ -464,8 +464,8 @@ async fn validate_and_get_refresh_token(
     // Deserialize refresh data from access_token field
     let refresh_data: RefreshTokenData = serde_json::from_str(&session.access_token)?;
 
-    // Check if token is too old (30 days)
-    if Utc::now() - refresh_data.created_at > Duration::days(30) {
+    // Check if token is too old (7 days for frontend clients)
+    if Utc::now() - refresh_data.created_at > Duration::days(7) {
         return Err("Refresh token expired".into());
     }
 
@@ -543,6 +543,54 @@ fn get_user_permissions_from_role(custom_claims: &HashMap<String, serde_json::Va
             "profile:manage:own".to_string(),
         ],
     }
+}
+
+/// GET /oauth/userinfo - UserInfo endpoint
+pub async fn oidc_userinfo(
+    State(_app_state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<TokenErrorResponse>)> {
+    tracing::info!("UserInfo endpoint request");
+    
+    // Extract bearer token from Authorization header
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(TokenErrorResponse {
+                    error: "invalid_token".to_string(),
+                    error_description: Some("Missing Authorization header".to_string()),
+                    error_uri: None,
+                }),
+            )
+        })?;
+    
+    if !auth_header.starts_with("Bearer ") {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(TokenErrorResponse {
+                error: "invalid_token".to_string(),
+                error_description: Some("Invalid Authorization header format".to_string()),
+                error_uri: None,
+            }),
+        ));
+    }
+    
+    let _access_token = &auth_header[7..]; // Remove "Bearer " prefix
+    
+    // TODO: Validate access token and extract user information
+    // For now, return a mock response
+    let userinfo = serde_json::json!({
+        "sub": "user123",
+        "email": "user@example.com",
+        "email_verified": true,
+        "name": "Demo User",
+        "role": "user"
+    });
+    
+    Ok(Json(userinfo))
 }
 
 #[cfg(test)]

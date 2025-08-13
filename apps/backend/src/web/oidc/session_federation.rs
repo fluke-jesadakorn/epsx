@@ -385,7 +385,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
             
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Session {} not found", global_session_id)))
+            Err(AppError::not_found(format!("Session {} not found", global_session_id)))
         }
     }
     
@@ -398,15 +398,15 @@ impl SessionFederationTrait for InMemorySessionFederation {
         let sessions = self.sessions.read().await;
         let session = sessions
             .get(global_session_id)
-            .ok_or_else(|| AppError::NotFound(format!("Session {} not found", global_session_id)))?;
+            .ok_or_else(|| AppError::not_found(format!("Session {} not found", global_session_id)))?;
         
         if !session.is_active {
-            return Err(AppError::SecurityError("Session is not active".to_string()));
+            return Err(AppError::security_error("Session is not active".to_string()));
         }
         
         if let Some(risk_score) = session.risk_score {
             if risk_score > self.config.max_federation_risk_score {
-                return Err(AppError::SecurityError("Session risk score too high for federation".to_string()));
+                return Err(AppError::security_error("Session risk score too high for federation".to_string()));
             }
         }
         
@@ -444,7 +444,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
         
         let header = Header::new(Algorithm::HS256);
         let token = encode(&header, &federation_token, &self.encoding_key)
-            .map_err(|e| AppError::InternalError(format!("Failed to encode federation token: {}", e)))?;
+            .map_err(|e| AppError::internal_error(format!("Failed to encode federation token: {}", e)))?;
         
         tracing::info!(
             global_session_id = %global_session_id,
@@ -470,7 +470,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
             &self.decoding_key,
             &validation,
         )
-        .map_err(|e| AppError::SecurityError(format!("Invalid federation token: {}", e)))?;
+        .map_err(|e| AppError::security_error(format!("Invalid federation token: {}", e)))?;
         
         let federation_token = token_data.claims;
         
@@ -478,15 +478,15 @@ impl SessionFederationTrait for InMemorySessionFederation {
         let mut sessions = self.sessions.write().await;
         let session = sessions
             .get_mut(&federation_token.global_session_id)
-            .ok_or_else(|| AppError::NotFound("Session not found".to_string()))?;
+            .ok_or_else(|| AppError::not_found("Session not found".to_string()))?;
         
         if !session.is_active {
-            return Err(AppError::SecurityError("Session is not active".to_string()));
+            return Err(AppError::security_error("Session is not active".to_string()));
         }
         
         // Cross-tenant federation check
         if !self.config.enable_cross_tenant_federation && session.tenant_id != federation_token.tenant_id {
-            return Err(AppError::SecurityError("Cross-tenant federation not allowed".to_string()));
+            return Err(AppError::security_error("Cross-tenant federation not allowed".to_string()));
         }
         
         // Check if step-up authentication is required
@@ -495,7 +495,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
         });
         
         if step_up_required && !session.mfa_completed {
-            return Err(AppError::SecurityError("Step-up authentication required".to_string()));
+            return Err(AppError::security_error("Step-up authentication required".to_string()));
         }
         
         // Generate new access token for target application
@@ -564,7 +564,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
             
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Session {} not found", global_session_id)))
+            Err(AppError::not_found(format!("Session {} not found", global_session_id)))
         }
     }
     
@@ -592,7 +592,7 @@ impl SessionFederationTrait for InMemorySessionFederation {
             
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Session {} not found", global_session_id)))
+            Err(AppError::not_found(format!("Session {} not found", global_session_id)))
         }
     }
     

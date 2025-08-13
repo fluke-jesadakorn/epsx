@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
-import { useAuthUtils } from '@/lib/auth-utils';
+import { useAuth, usePermission } from '@/components/providers/AuthContext';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 
 interface FeatureGuardProps {
@@ -23,7 +23,7 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
   requireAll = true,
   features,
 }) => {
-  const { hasPermission, isLoading, isAuthenticated } = useAuthUtils();
+  const { isAuthenticated, isLoading, permissions } = useAuth();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -35,6 +35,11 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
     setError(null);
     setHasAccess(null);
     setLoading(true);
+  };
+
+  // Helper function to check permissions using NextAuth session
+  const hasPermission = (permission: string): boolean => {
+    return permissions.includes(permission);
   };
 
   useEffect(() => {
@@ -52,16 +57,14 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
         
         if (features && features.length > 0) {
           // Check multiple features
-          const results = await Promise.all(
-            features.map(f => hasPermission(f))
-          );
+          const results = features.map(f => hasPermission(f));
           
           result = requireAll 
             ? results.every(r => r) // All must be true
             : results.some(r => r);  // At least one must be true
         } else if (targetFeature) {
           // Check single feature
-          result = await hasPermission(targetFeature);
+          result = hasPermission(targetFeature);
         } else {
           // No feature specified, allow access
           result = true;
@@ -81,7 +84,7 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
     if (!isLoading) {
       checkAccess();
     }
-  }, [targetFeature, features, requireAll, hasPermission, isAuthenticated, isLoading]);
+  }, [targetFeature, features, requireAll, permissions, isAuthenticated, isLoading]);
 
   if (isLoading || loading) return <>{loadingComponent}</>;
   
@@ -138,7 +141,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
   fallback = null,
   loadingComponent = <div>Checking route access...</div>
 }) => {
-  const { canAccessRoute, isLoading, isAuthenticated } = useAuthUtils();
+  const { isAuthenticated, isLoading, adminModules } = useAuth();
   const [canAccess, setCanAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -147,6 +150,22 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
     setError(null);
     setCanAccess(null);
     setLoading(true);
+  };
+
+  // Admin module route mapping
+  const routeModuleMap: Record<string, string> = {
+    '/users': 'user_operations',
+    '/analytics': 'analytics_specialist',
+    '/billing': 'billing_admin',
+    '/settings': 'system_admin',
+    '/permissions': 'permission_admin',
+    '/modules': 'module_coordinator'
+  };
+
+  const canAccessRoute = (route: string): boolean => {
+    const requiredModule = routeModuleMap[route];
+    if (!requiredModule) return true; // No specific module required
+    return adminModules.includes(requiredModule);
   };
 
   useEffect(() => {
@@ -160,7 +179,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
           return;
         }
         
-        const result = await canAccessRoute(route);
+        const result = canAccessRoute(route);
         setCanAccess(result);
       } catch (err) {
         console.error('Route access check failed:', err);
@@ -175,7 +194,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
     if (!isLoading) {
       checkRouteAccess();
     }
-  }, [route, canAccessRoute, isAuthenticated, isLoading]);
+  }, [route, adminModules, isAuthenticated, isLoading]);
 
   if (isLoading || loading) return <>{loadingComponent}</>;
   

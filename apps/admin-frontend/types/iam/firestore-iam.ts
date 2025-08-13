@@ -112,13 +112,13 @@ export interface PermissionHistory {
   performedBy: string;
   timestamp: Date;
   reason?: string;
-  metadata?: any;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 export interface PermissionCondition {
   type: 'usage_limit' | 'time_range' | 'ip_restriction' | 'subscription_status';
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than';
-  value: any;
+  value: string | number | boolean | string[];
 }
 
 export enum PermissionCategory {

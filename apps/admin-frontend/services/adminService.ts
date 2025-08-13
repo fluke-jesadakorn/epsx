@@ -292,7 +292,7 @@ export class AdminService {
     search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; data: { modules: any[] } }> {
+  }): Promise<{ success: boolean; data: { modules: Array<{ id: string; name: string; status: string; category: string }> } }> {
     try {
       const response = await getModules(filters);
       return { success: true, data: response };
@@ -307,7 +307,7 @@ export class AdminService {
    */
   static async getUserModuleAssignments(userId: string): Promise<{ 
     success: boolean; 
-    data: { assignments: any[] } 
+    data: { assignments: Array<{ id: string; moduleId: string; userId: string; status: string }> } 
   }> {
     try {
       const response = await getUserModuleAssignments({ userId });
@@ -336,7 +336,7 @@ export class AdminService {
     data: { 
       successful_count: number; 
       failed_count: number; 
-      results: any[] 
+      results: Array<{ moduleId: string; status: 'success' | 'error'; message?: string }> 
     } 
   }> {
     try {
@@ -358,7 +358,7 @@ export class AdminService {
     userId: string, 
     moduleId: string, 
     reason: string
-  ): Promise<{ success: boolean; data?: any }> {
+  ): Promise<{ success: boolean; data?: { moduleId: string; userId: string; status: string } }> {
     try {
       const response = await revokeModuleAccess(userId, moduleId, reason);
       return { success: true, data: response };
@@ -382,7 +382,7 @@ export class AdminService {
     }>;
     ip_restrictions: string[];
     expires_at?: string;
-  }): Promise<{ success: boolean; data?: any }> {
+  }): Promise<{ success: boolean; data?: { moduleId: string; userId: string } }> {
     try {
       const response = await createApiKey(request);
       return { success: true, data: response };
@@ -400,7 +400,7 @@ export class AdminService {
     status?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; data: { api_keys: any[] } }> {
+  }): Promise<{ success: boolean; data: { api_keys: Array<{ id: string; name: string; status: string; created_at: string }> } }> {
     try {
       const response = await listApiKeys(filters);
       return { success: true, data: response };

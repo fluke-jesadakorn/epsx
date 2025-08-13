@@ -10,7 +10,7 @@ interface UserWithPermissions extends ImportedUserWithPermissions {
   name?: string;
   packageTier: PackageTier;
   status: 'active' | 'inactive' | 'disabled';
-  customPermissions: any[];
+  customPermissions: Array<{ id: string; name: string; granted: boolean }>;
 }
 
 interface Role {

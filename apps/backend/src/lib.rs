@@ -6,6 +6,7 @@ pub mod app;    // Application layer
 pub mod infra;  // Infrastructure layer
 pub mod web;    // Web/API layer
 pub mod config; // Configuration
+pub mod auth;   // Modern authentication
 
 // Re-exports for convenience
 #[allow(ambiguous_glob_reexports)]

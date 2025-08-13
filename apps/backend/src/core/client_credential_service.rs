@@ -95,14 +95,14 @@ impl ClientCredentialService {
         tracing::debug!("Validating client credentials for client_id: {}", client_id);
         
         let client = self.clients.get(client_id)
-            .ok_or_else(|| AppError::SecurityError(
+            .ok_or_else(|| AppError::security_error(
                 format!("Unknown client_id: {}", client_id)
             ))?;
         
         // Use constant-time comparison to prevent timing attacks
         if !self.constant_time_compare(&client.client_secret, client_secret) {
             tracing::warn!("Invalid client secret for client_id: {}", client_id);
-            return Err(AppError::SecurityError("Invalid client credentials".to_string()));
+            return Err(AppError::security_error("Invalid client credentials".to_string()));
         }
         
         tracing::debug!("Client credentials validated successfully for: {}", client_id);
@@ -115,19 +115,19 @@ impl ClientCredentialService {
         auth_header: &str,
     ) -> Result<&ClientCredentials, AppError> {
         if !auth_header.starts_with("Basic ") {
-            return Err(AppError::SecurityError("Invalid authorization header format".to_string()));
+            return Err(AppError::security_error("Invalid authorization header format".to_string()));
         }
         
         let encoded_credentials = &auth_header[6..];
         let decoded = BASE64_STANDARD.decode(encoded_credentials)
-            .map_err(|_| AppError::SecurityError("Invalid base64 encoding".to_string()))?;
+            .map_err(|_| AppError::security_error("Invalid base64 encoding".to_string()))?;
             
         let credentials_str = String::from_utf8(decoded)
-            .map_err(|_| AppError::SecurityError("Invalid UTF-8 in credentials".to_string()))?;
+            .map_err(|_| AppError::security_error("Invalid UTF-8 in credentials".to_string()))?;
             
         let parts: Vec<&str> = credentials_str.splitn(2, ':').collect();
         if parts.len() != 2 {
-            return Err(AppError::SecurityError("Invalid credential format".to_string()));
+            return Err(AppError::security_error("Invalid credential format".to_string()));
         }
         
         let (client_id, client_secret) = (parts[0], parts[1]);
@@ -141,7 +141,7 @@ impl ClientCredentialService {
         redirect_uri: &str,
     ) -> Result<bool, AppError> {
         let client = self.clients.get(client_id)
-            .ok_or_else(|| AppError::SecurityError(
+            .ok_or_else(|| AppError::security_error(
                 format!("Unknown client_id: {}", client_id)
             ))?;
             
@@ -155,7 +155,7 @@ impl ClientCredentialService {
         requested_scope: &str,
     ) -> Result<bool, AppError> {
         let client = self.clients.get(client_id)
-            .ok_or_else(|| AppError::SecurityError(
+            .ok_or_else(|| AppError::security_error(
                 format!("Unknown client_id: {}", client_id)
             ))?;
         

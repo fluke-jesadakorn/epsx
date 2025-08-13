@@ -1,9 +1,7 @@
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@epsx/server-actions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-
 export default async function VerifyEmailPage() {
   // Server-side authentication check
   let user = null;
@@ -13,15 +11,12 @@ export default async function VerifyEmailPage() {
   } catch (error) {
     console.error('VerifyEmailPage: Failed to get user:', error);
   }
-
   if (!user) {
     redirect('/login');
   }
-
   if (user.emailVerified) {
     redirect('/dashboard');
   }
-
   return (
     <div className="flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md">

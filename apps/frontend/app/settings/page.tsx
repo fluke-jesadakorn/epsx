@@ -1,13 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
 import { getCurrentUser } from '@epsx/server-actions';
 import { SettingsClient } from '@/components/settings/SettingsClient';
 import Link from 'next/link';
-
 export default async function SettingsPage() {
   // Fetch user data server-side
   const user = await getCurrentUser();
-
   // Allow access even without authentication for demo purposes
   if (!user) {
     return (
@@ -29,11 +26,9 @@ export default async function SettingsPage() {
       </div>
     );
   }
-
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
-      
       <div className="grid gap-6">
         <Card>
           <CardHeader>
@@ -47,7 +42,6 @@ export default async function SettingsPage() {
             </div>
           </CardContent>
         </Card>
-        
         <SettingsClient />
       </div>
     </div>

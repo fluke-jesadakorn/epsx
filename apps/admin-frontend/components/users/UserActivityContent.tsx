@@ -5,7 +5,7 @@
 
 import { Clock, LogIn, Settings, Shield, TrendingUp, Filter } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { ActivityTimelineCard } from './ActivityTimelineCard'
 import { LoginHistoryCard } from './LoginHistoryCard'
 import { StatsCard } from '@/components/ui/StatsCard'

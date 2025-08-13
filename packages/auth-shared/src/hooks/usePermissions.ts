@@ -1,256 +1,172 @@
-import { useMemo, useCallback } from 'react';
-import type { AuthenticatedUser } from '@epsx/types';
-import type { PermissionCheckResult } from '../types/index.js';
+import { useMemo } from 'react'
+import { useModernAuth } from './useModernAuth'
+import { createUserAbility, type Actions, type Subjects, can, cannot, PermissionChecks, PackagePermissions } from '../permissions/casl-abilities'
 
-export interface UsePermissionsOptions {
-  /** Enable caching of permission results */
-  enableCaching?: boolean;
-  /** Debug permission checks */
-  debug?: boolean;
-}
+/**
+ * Modern permission hook using CASL
+ * Replaces complex permission checking with simple, flexible abilities
+ */
+export function usePermissions() {
+  const { user, isAuthenticated } = useModernAuth()
 
-export interface PermissionsContext {
-  user: AuthenticatedUser | null;
-  permissions: string[];
-  roles: string[];
-  profiles: string[];
+  // Create CASL ability based on user's JWT claims
+  const ability = useMemo(() => {
+    if (!user || !isAuthenticated) {
+      // Return empty ability for unauthenticated users
+      return createUserAbility({
+        permissions: [],
+        admin_modules: [],
+        package_tier: 'FREE',
+        role: 'guest'
+      })
+    }
+
+    return createUserAbility({
+      permissions: user.permissions,
+      admin_modules: user.admin_modules,
+      package_tier: user.package_tier,
+      role: user.role
+    })
+  }, [user, isAuthenticated])
+
+  /**
+   * Check if user can perform action on subject
+   */
+  const checkPermission = (action: Actions, subject: Subjects): boolean => {
+    return can(ability, action, subject)
+  }
+
+  /**
+   * Check if user cannot perform action on subject
+   */
+  const checkForbidden = (action: Actions, subject: Subjects): boolean => {
+    return cannot(ability, action, subject)
+  }
+
+  /**
+   * Check multiple permissions (user must have ALL)
+   */
+  const checkAllPermissions = (checks: Array<[Actions, Subjects]>): boolean => {
+    return checks.every(([action, subject]) => can(ability, action, subject))
+  }
+
+  /**
+   * Check multiple permissions (user must have ANY)
+   */
+  const checkAnyPermissions = (checks: Array<[Actions, Subjects]>): boolean => {
+    return checks.some(([action, subject]) => can(ability, action, subject))
+  }
+
+  /**
+   * Get all permission rules (for debugging)
+   */
+  const getAllRules = () => {
+    return ability.rules
+  }
+
+  return {
+    // Core ability object
+    ability,
+    
+    // Permission checking functions
+    can: checkPermission,
+    cannot: checkForbidden,
+    checkAllPermissions,
+    checkAnyPermissions,
+    
+    // Common permission checks
+    canReadAnalytics: PermissionChecks.canReadAnalytics(ability),
+    canExportData: PermissionChecks.canExportData(ability),
+    canManageUsers: PermissionChecks.canManageUsers(ability),
+    canAccessAdmin: PermissionChecks.canAccessAdmin(ability),
+    canManagePayments: PermissionChecks.canManagePayments(ability),
+    canReadStock: PermissionChecks.canReadStock(ability),
+    isSystemAdmin: PermissionChecks.isSystemAdmin(ability),
+    
+    // Package tier checks
+    hasPremiumAccess: PackagePermissions.requiresPremium(ability),
+    hasAdvancedAccess: PackagePermissions.requiresAdvanced(ability),
+    hasEnterpriseAccess: PackagePermissions.requiresEnterprise(ability),
+    
+    // User info
+    user,
+    isAuthenticated,
+    
+    // Debugging
+    getAllRules,
+  }
 }
 
 /**
- * Unified permissions hook with advanced permission checking
- * Consolidates duplicate permission logic from across the codebase
+ * Simple permission hook for basic use cases
  */
-export function usePermissions(
-  context: PermissionsContext,
-  options: UsePermissionsOptions = {}
-) {
-  const { enableCaching = true, debug = false } = options;
-  const { user, permissions = [], roles = [], profiles = [] } = context;
+export function usePermission(action: Actions, subject: Subjects) {
+  const { can } = usePermissions()
+  return can(action, subject)
+}
 
-  // Permission cache (when enabled)
-  const permissionCache = useMemo(() => new Map<string, boolean>(), [enableCaching]);
-
-  // Core permission checking function
-  const checkPermission = useCallback((
-    permission: string,
-    options: { bypassCache?: boolean } = {}
-  ): PermissionCheckResult => {
-    const cacheKey = permission;
-    
-    // Check cache first (if enabled and not bypassed)
-    if (enableCaching && !options.bypassCache && permissionCache.has(cacheKey)) {
-      const cached = permissionCache.get(cacheKey)!;
-      return {
-        allowed: cached,
-        reason: cached ? 'Permission granted (cached)' : 'Permission denied (cached)',
-        requiredPermission: permission,
-        userPermissions: permissions,
-        userRole: roles[0],
-        userProfiles: profiles,
-      };
-    }
-
-    let allowed = false;
-    let reason = 'Permission denied';
-
-    if (!user) {
-      reason = 'User not authenticated';
-    } else if (permission === '*' || permissions.includes('*')) {
-      allowed = true;
-      reason = 'Wildcard permission granted';
-    } else if (permission.endsWith('.*')) {
-      // Handle namespace wildcards (e.g., "admin.*")
-      const basePermission = permission.slice(0, -2);
-      allowed = permissions.some(p => p.startsWith(basePermission));
-      reason = allowed 
-        ? `Namespace permission granted for ${basePermission}` 
-        : `No permissions found for namespace ${basePermission}`;
-    } else if (permission.endsWith(':*')) {
-      // Handle action wildcards (e.g., "users:*")
-      const basePermission = permission.slice(0, -2);
-      allowed = permissions.some(p => p.startsWith(basePermission + ':'));
-      reason = allowed 
-        ? `Action wildcard permission granted for ${basePermission}` 
-        : `No action permissions found for ${basePermission}`;
-    } else if (permission.includes('|')) {
-      // Handle OR logic (e.g., "admin:read|user:read")
-      const orPermissions = permission.split('|');
-      allowed = orPermissions.some(p => permissions.includes(p.trim()));
-      reason = allowed 
-        ? `OR permission granted for one of: ${permission}` 
-        : `None of the OR permissions granted: ${permission}`;
-    } else if (permission.includes('&')) {
-      // Handle AND logic (e.g., "admin:read&admin:write")
-      const andPermissions = permission.split('&');
-      allowed = andPermissions.every(p => permissions.includes(p.trim()));
-      reason = allowed 
-        ? `AND permission granted for all of: ${permission}` 
-        : `Not all AND permissions granted: ${permission}`;
-    } else {
-      // Exact permission match
-      allowed = permissions.includes(permission);
-      reason = allowed 
-        ? 'Exact permission match' 
-        : `Permission ${permission} not found in user permissions`;
-    }
-
-    // Cache result (if enabled)
-    if (enableCaching) {
-      permissionCache.set(cacheKey, allowed);
-    }
-
-    // Debug logging
-    if (debug) {
-      console.log('Permission Check:', {
-        permission,
-        allowed,
-        reason,
-        userPermissions: permissions,
-        userRoles: roles,
-      });
-    }
-
-    return {
-      allowed,
-      reason,
-      requiredPermission: permission,
-      userPermissions: permissions,
-      userRole: roles[0],
-      userProfiles: profiles,
-    };
-  }, [user, permissions, roles, profiles, enableCaching, debug, permissionCache]);
-
-  // Convenience methods
-  const hasPermission = useCallback((permission: string) => {
-    return checkPermission(permission).allowed;
-  }, [checkPermission]);
-
-  const hasAnyPermission = useCallback((requiredPermissions: string[]) => {
-    return requiredPermissions.some(permission => hasPermission(permission));
-  }, [hasPermission]);
-
-  const hasAllPermissions = useCallback((requiredPermissions: string[]) => {
-    return requiredPermissions.every(permission => hasPermission(permission));
-  }, [hasPermission]);
-
-  // Role checking methods
-  const hasRole = useCallback((role: string) => {
-    return roles.includes(role);
-  }, [roles]);
-
-  const hasAnyRole = useCallback((requiredRoles: string[]) => {
-    return requiredRoles.some(role => roles.includes(role));
-  }, [roles]);
-
-  const hasAllRoles = useCallback((requiredRoles: string[]) => {
-    return requiredRoles.every(role => roles.includes(role));
-  }, [roles]);
-
-  // Profile checking methods
-  const hasProfile = useCallback((profile: string) => {
-    return profiles.includes(profile);
-  }, [profiles]);
-
-  const hasAnyProfile = useCallback((requiredProfiles: string[]) => {
-    return requiredProfiles.some(profile => profiles.includes(profile));
-  }, [profiles]);
-
-  // Route access checking
-  const canAccessRoute = useCallback((
-    routeConfig: {
-      permissions?: string[];
-      roles?: string[];
-      profiles?: string[];
-      requireAuth?: boolean;
-    } = {}
-  ) => {
-    const { 
-      permissions: routePermissions, 
-      roles: routeRoles, 
-      profiles: routeProfiles,
-      requireAuth = true 
-    } = routeConfig;
-
-    // Check authentication requirement
-    if (requireAuth && !user) {
-      return {
-        allowed: false,
-        reason: 'Authentication required',
-      };
-    }
-
-    // Check permissions
-    if (routePermissions?.length) {
-      const hasRequiredPermissions = hasAnyPermission(routePermissions);
-      if (!hasRequiredPermissions) {
-        return {
-          allowed: false,
-          reason: `Missing required permissions: ${routePermissions.join(', ')}`,
-        };
-      }
-    }
-
-    // Check roles
-    if (routeRoles?.length) {
-      const hasRequiredRoles = hasAnyRole(routeRoles);
-      if (!hasRequiredRoles) {
-        return {
-          allowed: false,
-          reason: `Missing required roles: ${routeRoles.join(', ')}`,
-        };
-      }
-    }
-
-    // Check profiles
-    if (routeProfiles?.length) {
-      const hasRequiredProfiles = hasAnyProfile(routeProfiles);
-      if (!hasRequiredProfiles) {
-        return {
-          allowed: false,
-          reason: `Missing required profiles: ${routeProfiles.join(', ')}`,
-        };
-      }
-    }
-
-    return {
-      allowed: true,
-      reason: 'Route access granted',
-    };
-  }, [user, hasAnyPermission, hasAnyRole, hasAnyProfile]);
-
-  // Clear permission cache
-  const clearCache = useCallback(() => {
-    if (enableCaching) {
-      permissionCache.clear();
-    }
-  }, [enableCaching, permissionCache]);
-
+/**
+ * Admin permission hook
+ */
+export function useAdminPermissions() {
+  const { ability, user, isAuthenticated } = usePermissions()
+  
   return {
-    // Core permission methods
-    checkPermission,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
+    ability,
+    user,
+    isAuthenticated,
     
-    // Role methods
-    hasRole,
-    hasAnyRole,
-    hasAllRoles,
+    // Admin-specific checks
+    canManageUsers: can(ability, 'manage', 'User'),
+    canManageSystem: can(ability, 'manage', 'System'),
+    canManagePayments: can(ability, 'manage', 'Payment'),
+    canManageAnalytics: can(ability, 'manage', 'Analytics'),
+    canManageModules: can(ability, 'manage', 'Module'),
     
-    // Profile methods
-    hasProfile,
-    hasAnyProfile,
+    // Check specific admin modules
+    hasUserOperations: user?.admin_modules?.includes('user_operations') || false,
+    hasSystemAdmin: user?.admin_modules?.includes('system_admin') || false,
+    hasBillingAdmin: user?.admin_modules?.includes('billing_admin') || false,
+    hasAnalyticsSpecialist: user?.admin_modules?.includes('analytics_specialist') || false,
+    hasModuleCoordinator: user?.admin_modules?.includes('module_coordinator') || false,
+  }
+}
+
+/**
+ * Feature-based permission hook for package tiers
+ */
+export function useFeaturePermissions() {
+  const { ability, user } = usePermissions()
+  
+  return {
+    ability,
+    user,
+    packageTier: user?.package_tier || 'FREE',
     
-    // Route access
-    canAccessRoute,
+    // Feature access based on package tier
+    hasBasicFeatures: true, // Everyone has basic features
+    hasPremiumFeatures: can(ability, 'read', 'Analytics'),
+    hasAdvancedFeatures: can(ability, 'read', 'Stock'),
+    hasEnterpriseFeatures: can(ability, 'manage', 'all'),
     
-    // Cache management
-    clearCache,
+    // Specific feature checks
+    canUseAdvancedAnalytics: can(ability, 'export', 'Analytics'),
+    canAccessPremiumData: can(ability, 'read', 'Analytics'),
+    canExportData: can(ability, 'export', 'Analytics'),
+    canManageApiKeys: can(ability, 'manage', 'System'),
     
-    // State
-    permissions,
-    roles,
-    profiles,
-    isAuthenticated: !!user,
-  };
+    // Check if upgrade is needed for feature
+    needsUpgradeFor: (feature: 'premium' | 'advanced' | 'enterprise') => {
+      switch (feature) {
+        case 'premium':
+          return !can(ability, 'read', 'Analytics')
+        case 'advanced':
+          return !can(ability, 'read', 'Stock')
+        case 'enterprise':
+          return !can(ability, 'manage', 'all')
+        default:
+          return false
+      }
+    }
+  }
 }

@@ -9,7 +9,7 @@ interface UserWithPermissions {
   uid: string;
   email: string;
   name?: string;
-  customPermissions: any[];
+  customPermissions: Array<{ id: string; name: string; granted: boolean }>;
 }
 
 interface Role {

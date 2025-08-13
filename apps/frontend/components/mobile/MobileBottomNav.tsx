@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@epsx/ui';
 import { 
   Home, 
   BarChart3, 

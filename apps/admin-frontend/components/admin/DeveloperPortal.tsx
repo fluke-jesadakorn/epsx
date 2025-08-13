@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import {
   FormField,
   Input,
@@ -258,15 +258,13 @@ export const DeveloperPortal: React.FC = () => {
   };
 
   // Copy to clipboard
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        toast.success(`${label} copied to clipboard`);
-      })
-      .catch(() => {
-        toast.error('Failed to copy to clipboard');
-      });
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied to clipboard`);
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
   };
 
   // Get status color

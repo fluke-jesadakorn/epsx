@@ -1,27 +1,52 @@
-// All unused imports removed - components are rendered by DashboardClient
-import { getCurrentUser, getDashboardData, getUserFeatures } from '@epsx/server-actions';
+import { auth } from '@/lib/auth';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { redirect } from 'next/navigation';
 
 // ISR configuration for dashboard - revalidate every 1 minute for dynamic user data
 export const revalidate = 60;
 
 export default async function DashboardPage() {
-  // Fetch all data server-side
-  const [userResult, dashboardResult, featuresResult] = await Promise.allSettled([
-    getCurrentUser(),
-    getCurrentUser().then(user => user ? getDashboardData(user.user_id || user.id) : null),
-    getUserFeatures()
-  ]);
-
-  const user = userResult.status === 'fulfilled' ? userResult.value : null;
-  const dashboardData = dashboardResult.status === 'fulfilled' ? dashboardResult.value : null;
-  const features = featuresResult.status === 'fulfilled' ? featuresResult.value : [];
+  // Get session data server-side using NextAuth.js
+  const session = await auth();
   
-  // Extract permissions from user data
-  const permissions = {
-    role: user?.role || 'user',
-    permissions: user?.permissions || features || []
+  if (!session?.user) {
+    redirect('/login');
+  }
+
+  // Transform NextAuth.js session data to the expected format
+  const user = {
+    user_id: session.user.firebase_uid || session.user.id || '',
+    email: session.user.email || '',
+    role: session.user.role || 'user',
+    permissions: session.user.permissions || ['user:read'],
+    subscription_tier: session.user.package_tier || 'FREE',
+    admin_modules: session.user.admin_modules || [],
+    name: session.user.name || session.user.email || '',
   };
+
+  const permissions = {
+    role: user.role,
+    permissions: user.permissions,
+  };
+
+  // Mock dashboard data for now - you can replace this with API calls using the session
+  const dashboardData = {
+    success: true,
+    data: {
+      stats: {
+        totalViews: 0,
+        totalUsers: 1,
+        revenue: 0,
+      },
+      recentActivity: [],
+    },
+  };
+
+  console.log('Dashboard: User session loaded for', user.email, {
+    subscription_tier: user.subscription_tier,
+    permissions_count: user.permissions?.length || 0,
+    role: user.role,
+  });
 
   return (
     <DashboardClient 

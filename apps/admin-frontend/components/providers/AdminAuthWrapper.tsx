@@ -1,26 +1,66 @@
-'use client';
+import { ReactNode } from 'react';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { AdminLayoutServer } from '@/components/layout/AdminLayoutServer';
+import { ClientProviders } from './ClientProviders';
 
-import { usePathname } from 'next/navigation';
-import { AdminLayout } from '@/components/layout/AdminLayout';
+interface AdminAuthWrapperProps {
+  children: ReactNode;
+}
 
-export function AdminAuthWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+/**
+ * NextAuth.js Server-side Authentication Wrapper
+ * Handles authentication on the server and determines if layout is needed
+ */
+export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
+  // Get the current pathname from headers
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') || '';
   
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/simple-login', '/unauthorized', '/access-denied', '/auth/callback', '/auth/logout'];
-  const isPublicRoute = publicRoutes.includes(pathname);
+  // Public routes that don't require authentication or layout
+  const publicRoutes = [
+    '/login',
+    '/auth/callback',
+    '/auth/error',
+    '/auth/logout', 
+    '/unauthorized',
+    '/access-denied'
+  ];
   
-  // For public routes, skip auth checks and render without layout
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  
+  // For public routes, render without authentication or layout
   if (isPublicRoute) {
-    return <>{children}</>;
+    return (
+      <ClientProviders>
+        <div className="min-h-screen bg-gray-50">
+          {children}
+        </div>
+      </ClientProviders>
+    );
   }
-
-  // For protected routes, use AdminLayout directly
-  // Authentication is now handled by middleware with HTTP-only cookies
+  
+  // For protected routes, validate authentication
+  const session = await auth();
+  
+  if (!session?.user) {
+    redirect('/login');
+  }
+  
+  // Check if user has admin access
+  const userAdminModules = (session.user as any).admin_modules as string[] || [];
+  if (userAdminModules.length === 0) {
+    redirect('/access-denied?reason=insufficient_admin_access');
+  }
+  
+  // For protected routes, render with authentication and layout
   return (
-    <AdminLayout>
-      {children}
-    </AdminLayout>
+    <ClientProviders session={session}>
+      <AdminLayoutServer>
+        {children}
+      </AdminLayoutServer>
+    </ClientProviders>
   );
 }
 

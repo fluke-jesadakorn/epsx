@@ -10,14 +10,13 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use crate::app::dtos::auth::{LoginReq, RefreshReq, AutoRegistrationRequest, RegistrationResponse};
 // Legacy AuthCtx replacement for compatibility during migration
-use crate::dom::values::{Role, UserId, SessId};
+use crate::dom::values::{Role, UserId};
 
 // Temporary replacement for legacy AuthCtx during migration
 #[derive(Debug, Clone)]
-struct AuthCtx {
+pub struct AuthCtx {
     pub user_id: UserId,
     pub role: Role,
-    pub sess: SessId,
 }
 use crate::dom::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
 use super::AppState;
@@ -604,7 +603,6 @@ pub async fn validate_session_handler(
     let auth_ctx = AuthCtx {
         user_id: crate::dom::values::UserId::new("migration_user".to_string()),
         role: crate::dom::values::Role::User,
-        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
     };
     tracing::info!("Validating session for app_type: {}", request.app_type);
     
@@ -666,7 +664,6 @@ pub async fn validate_route_access_handler(
     let auth_ctx = AuthCtx {
         user_id: crate::dom::values::UserId::new("migration_user".to_string()),
         role: crate::dom::values::Role::User,
-        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
     };
     tracing::info!("Validating route access: {} {} for app: {}", 
                    request.method, request.route, request.app_type);
@@ -847,7 +844,6 @@ pub async fn single_permission_handler(
     let auth_ctx = AuthCtx {
         user_id: crate::dom::values::UserId::new("migration_user".to_string()),
         role: crate::dom::values::Role::User,
-        sess: crate::dom::values::SessId::from_string("migration_session".to_string()),
     };
     tracing::info!("Checking single permission '{}' for user {}", request.feature, auth_ctx.user_id);
     

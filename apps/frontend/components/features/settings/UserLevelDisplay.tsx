@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { useRouter } from 'next/navigation';
 import {
   PACKAGES,

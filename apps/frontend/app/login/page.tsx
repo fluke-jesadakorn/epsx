@@ -1,4 +1,4 @@
-import { OIDCLoginButton } from '@/components/auth/OIDCLoginButton';
+import { LoginForm } from '@/components/auth/LoginForm';
 
 interface LoginPageProps {
   searchParams: {
@@ -47,7 +47,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           )}
           
-          <OIDCLoginButton redirectTo={redirectTo} />
+          <LoginForm redirectTo={redirectTo} />
           
           {/* Additional links */}
           <div className="mt-6 text-center space-y-2">

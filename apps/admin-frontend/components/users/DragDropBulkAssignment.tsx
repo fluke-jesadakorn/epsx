@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
+import { Input } from '@epsx/ui';
 import { 
   Users, 
   Shield, 

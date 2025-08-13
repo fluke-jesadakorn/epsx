@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { MoreHorizontal, Power, Mail, Key, Trash2 } from 'lucide-react'
 import { EditProfileButton } from './EditProfileButton'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 
 interface QuickActionsProps {
   user: UnifiedUserData

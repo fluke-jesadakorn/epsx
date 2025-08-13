@@ -817,7 +817,7 @@ impl TTLPolicyManagerTrait for InMemoryTokenManager {
             tracing::info!(policy_id = %policy_id, "Removed TTL policy");
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Policy {} not found", policy_id)))
+            Err(AppError::not_found(format!("Policy {} not found", policy_id)))
         }
     }
 }

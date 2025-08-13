@@ -383,7 +383,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return pathname.startsWith(href);
   };
 
-  const isGroupActive = (items: any[]) => {
+  const isGroupActive = (items: { href: string; label: string }[]) => {
     return items.some(item => isActive(item.href));
   };
 

@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 // Button import removed - not used in current implementation
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@epsx/ui';
+import { Label } from '@epsx/ui';
+import { Card, CardContent } from '@epsx/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@epsx/ui';
 import { LoadingButton } from '@/components/ui/loading-button';
 import { TrendingUp, Calendar, Target, Zap } from 'lucide-react';
 

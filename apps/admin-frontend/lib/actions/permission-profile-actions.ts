@@ -5,7 +5,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdminAuth } from '@/lib/auth/server-auth-enhanced'
+import { requireAdminAuth } from '@/lib/auth/server-auth'
 import type { 
   PermissionProfile, 
   PermissionProfileQuery,
@@ -41,7 +41,12 @@ async function makeAuthenticatedRequest<T>(
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      let errorData = {}
+      try {
+        errorData = await response.json()
+      } catch {
+        // Ignore JSON parsing errors, use empty object
+      }
       return {
         success: false,
         error: {

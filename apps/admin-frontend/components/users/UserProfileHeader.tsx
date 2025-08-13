@@ -6,7 +6,7 @@
 import Image from 'next/image'
 import { User, Mail, Shield, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { UserStatusBadge } from './UserStatusBadge'
 import { QuickActions } from './QuickActions'
 

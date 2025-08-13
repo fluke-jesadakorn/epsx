@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { GRADIENTS, SPACING, ANIMATIONS } from '../constants/styles';
 import { FinancialCard } from './FinancialCard';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@epsx/ui';
 import {
   FinancialDataLoading,
   FinancialDataHeader,

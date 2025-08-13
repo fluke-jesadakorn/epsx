@@ -4,7 +4,7 @@
 
 'use server'
 
-import { validateServerActionAuth } from '@/lib/auth/server-auth-enhanced'
+import { validateServerActionAuth } from '@/lib/auth/server-auth'
 import { getBearerToken } from '@/lib/actions/server-auth'
 import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user'
 

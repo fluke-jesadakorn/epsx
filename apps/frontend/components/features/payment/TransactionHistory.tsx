@@ -1,15 +1,15 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+} from '@epsx/ui';
+import { Input } from '@epsx/ui';
 import {
   Table,
   TableBody,

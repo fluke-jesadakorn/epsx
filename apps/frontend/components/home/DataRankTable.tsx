@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@epsx/ui';
 import {
   Table,
   TableBody,
@@ -26,7 +26,7 @@ import { getLockedRankings, getNextLevelLimit } from '@/app/constants/packages';
 import {
   LockedRankingCard,
   UpgradePrompt,
-} from '@/components/ui/upgrade-prompt';
+} from '@/components/ui/prompt';
 import { Button } from '../ui/button';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';

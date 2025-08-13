@@ -6,6 +6,79 @@ use axum::{
 
 use crate::web::oidc::types::OidcDiscoveryDocument;
 
+/// Get the OIDC issuer URL based on environment and deployment context
+fn get_oidc_issuer_url() -> String {
+    // Priority order for determining issuer URL:
+    // 1. OIDC_ISSUER environment variable (explicit override)
+    // 2. PUBLIC_URL environment variable (for deployments)  
+    // 3. BACKEND_URL environment variable (for local development)
+    // 4. Detect from common deployment environments
+    // 5. Default localhost fallback
+    
+    if let Ok(issuer) = std::env::var("OIDC_ISSUER") {
+        if !issuer.is_empty() {
+            tracing::info!("Using OIDC issuer from OIDC_ISSUER: {}", issuer);
+            return issuer;
+        }
+    }
+    
+    if let Ok(public_url) = std::env::var("PUBLIC_URL") {
+        if !public_url.is_empty() {
+            tracing::info!("Using OIDC issuer from PUBLIC_URL: {}", public_url);
+            return public_url;
+        }
+    }
+    
+    if let Ok(backend_url) = std::env::var("BACKEND_URL") {
+        if !backend_url.is_empty() {
+            tracing::info!("Using OIDC issuer from BACKEND_URL: {}", backend_url);
+            return backend_url;
+        }
+    }
+    
+    // Check common deployment environment variables
+    if let Ok(render_external_url) = std::env::var("RENDER_EXTERNAL_URL") {
+        tracing::info!("Detected Render deployment, using: {}", render_external_url);
+        return render_external_url;
+    }
+    
+    if let Ok(railway_public_domain) = std::env::var("RAILWAY_PUBLIC_DOMAIN") {
+        let url = format!("https://{}", railway_public_domain);
+        tracing::info!("Detected Railway deployment, using: {}", url);
+        return url;
+    }
+    
+    if let Ok(vercel_url) = std::env::var("VERCEL_URL") {
+        let url = format!("https://{}", vercel_url);
+        tracing::info!("Detected Vercel deployment, using: {}", url);
+        return url;
+    }
+    
+    if std::env::var("HEROKU_APP_NAME").is_ok() {
+        if let Ok(app_name) = std::env::var("HEROKU_APP_NAME") {
+            let url = format!("https://{}.herokuapp.com", app_name);
+            tracing::info!("Detected Heroku deployment, using: {}", url);
+            return url;
+        }
+    }
+    
+    // Check if we're in Docker
+    if std::env::var("DOCKER_CONTAINER").is_ok() || std::path::Path::new("/.dockerenv").exists() {
+        if let Ok(port) = std::env::var("PORT") {
+            let url = format!("http://localhost:{}", port);
+            tracing::info!("Detected Docker environment, using: {}", url);
+            return url;
+        }
+    }
+    
+    // Development fallback
+    let default_url = "http://localhost:8080".to_string();
+    tracing::warn!("No explicit OIDC issuer configured, falling back to development default: {}", default_url);
+    tracing::warn!("For production, set OIDC_ISSUER or PUBLIC_URL environment variable");
+    
+    default_url
+}
+
 /// OIDC Well-Known Configuration Endpoint
 /// GET /.well-known/openid-configuration
 pub async fn oidc_discovery(
@@ -13,9 +86,8 @@ pub async fn oidc_discovery(
 ) -> Result<Json<OidcDiscoveryDocument>, StatusCode> {
     tracing::info!("OIDC discovery document requested");
     
-    // Get base URL from environment or default
-    let base_url = std::env::var("OIDC_ISSUER")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+    // Determine base URL with proper environment detection
+    let base_url = get_oidc_issuer_url();
     
     let discovery_doc = OidcDiscoveryDocument {
         issuer: base_url.clone(),
@@ -83,11 +155,25 @@ pub async fn jwks_endpoint(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     tracing::info!("JWKS endpoint requested");
     
-    // TODO: Implement proper JWKS with RSA public keys
-    // For now, return empty JWKS (Firebase tokens will be validated directly)
-    let jwks = serde_json::json!({
-        "keys": []
-    });
-    
-    Ok(Json(jwks))
+    // Get JWKS from the global JWT service
+    match &*crate::auth::modern_jwt::JWT_SERVICE {
+        jwt_service => {
+            match jwt_service.key_manager().generate_jwks() {
+                Ok(jwks) => {
+                    let jwks_json = serde_json::to_value(jwks)
+                        .map_err(|e| {
+                            tracing::error!("Failed to serialize JWKS: {}", e);
+                            StatusCode::INTERNAL_SERVER_ERROR
+                        })?;
+                    
+                    tracing::info!("Served JWKS with {} keys", jwks_json["keys"].as_array().map(|k| k.len()).unwrap_or(0));
+                    Ok(Json(jwks_json))
+                }
+                Err(e) => {
+                    tracing::error!("Failed to generate JWKS: {}", e);
+                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                }
+            }
+        }
+    }
 }

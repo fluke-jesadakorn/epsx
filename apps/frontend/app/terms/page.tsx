@@ -6,16 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { SkeletonLoader } from "@/components/common/Skeleton";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
-import { InputWithIcon } from "@/components/ui/input-with-icon";
+import { Button, Card, Form, FormControl, FormField, FormItem, FormMessage, InputWithIcon } from "@epsx/ui";
 import { Send } from "lucide-react";
 
 const formSchema = z.object({
@@ -106,13 +97,13 @@ export default function TermsPage() {
 
               <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">2. Authentication & Account Security</h3>
               <p className="text-gray-300">
-                We use Google Sign-in to provide secure authentication. By using this service:
+                We use OpenID Connect authentication to provide secure authentication. By using this service:
               </p>
               <ul className="list-disc pl-6 text-gray-300 space-y-2">
                 <li>You agree to provide accurate information during the sign-in process</li>
                 <li>You acknowledge that we only request necessary permissions (email and basic profile)</li>
                 <li>You understand that token revocation may occur for security purposes</li>
-                <li>You are responsible for maintaining the security of your Google account</li>
+                <li>You are responsible for maintaining the security of your account</li>
               </ul>
 
               <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">3. Data Collection & Usage</h3>
@@ -147,10 +138,10 @@ export default function TermsPage() {
                 <li>Terminate accounts that violate these terms</li>
               </ul>
 
-              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">6. Compliance with Google&apos;s Terms</h3>
+              <h3 className="text-2xl font-bold text-purple-400 mt-8 mb-4">6. Authentication Standards</h3>
               <p className="text-gray-300">
-                Our use of Google Sign-in complies with Google&apos;s OAuth 2.0 policies and terms of service.
-                You acknowledge that your use of Google Sign-in is also subject to Google&apos;s terms and policies.
+                Our authentication system follows OpenID Connect standards and OAuth 2.0 specifications.
+                We implement industry-standard security protocols to protect your account and data.
               </p>
             </div>
           </Card>

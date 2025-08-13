@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Input } from '@epsx/ui';
+import { Label } from '@epsx/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, X, Parentheses, Save, Download, Copy, Eye, Trash2 } from 'lucide-react';
 

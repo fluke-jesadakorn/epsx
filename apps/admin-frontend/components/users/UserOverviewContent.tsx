@@ -5,7 +5,7 @@
 
 import { User, Calendar, Clock, TrendingUp } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UserStatusBadge } from './UserStatusBadge'
 

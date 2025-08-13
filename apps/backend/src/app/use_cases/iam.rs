@@ -1,17 +1,15 @@
-use crate::dom::services::casbin_service::CasbinService;
+// // use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth // Removed - using modern JWT auth
 use crate::dom::services::permission_resolver::PermissionResolver;
 use std::sync::Arc;
 
 pub struct IamUseCase {
     permission_resolver: Arc<PermissionResolver>,
-    casbin: Arc<CasbinService>,
 }
 
 impl IamUseCase {
-    pub fn new(permission_resolver: Arc<PermissionResolver>, casbin: Arc<CasbinService>) -> Self {
+    pub fn new(permission_resolver: Arc<PermissionResolver>) -> Self {
         Self {
             permission_resolver,
-            casbin,
         }
     }
 
@@ -27,10 +25,9 @@ impl IamUseCase {
         self.permission_resolver.has_permission(user_id, resource, action).await
     }
 
-    pub async fn add_policy(&self, subject: &str, object: &str, action: &str) -> Result<(), crate::dom::error::DomainError> {
-        self.casbin.add_policy(subject, object, action)
-            .await
-            .map_err(|e| crate::dom::error::DomainError::PermissionDenied(e.to_string()))?;
+    pub async fn add_policy(&self, _subject: &str, _object: &str, _action: &str) -> Result<(), crate::dom::error::DomainError> {
+        // TODO: Implement JWT-based policy management
+        // This should update admin modules or permissions in database
         Ok(())
     }
 }

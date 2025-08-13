@@ -183,7 +183,7 @@ function hasAdminPermissions(userInfo: OIDCUserInfo): boolean {
  * Create secure session cookies
  */
 async function createSessionCookies(
-  cookieStore: any,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
   tokenResponse: OIDCTokenResponse,
   userInfo: OIDCUserInfo
 ): Promise<void> {

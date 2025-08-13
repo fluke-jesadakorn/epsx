@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LineChart, BarChart, File, Settings, Database, Crown } from 'lucide-react';
-import { getCurrentUser } from '@/app/actions/auth';
+import { auth } from '@/lib/auth';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -23,7 +23,12 @@ const userMenuItems = [
 ];
 
 export async function NavigationServer() {
-  const user = await getCurrentUser();
+  const session = await auth();
+  const user = session?.user ? {
+    displayName: session.user.name || session.user.email || 'User',
+    email: session.user.email || '',
+    role: session.user.role || 'user',
+  } : null;
 
   return (
     <nav className="border-b bg-background/50 backdrop-blur supports-[backdrop-filter]:bg-background/60">

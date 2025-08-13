@@ -2,9 +2,10 @@
 
 import { AdminOIDCLoginButton } from '@/components/auth/AdminOIDCLoginButton';
 import { useSearchParams } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 
 /**
- * Admin Login Page - Uses OIDC Authentication
+ * NextAuth.js Admin Login Page
  * Features enterprise-grade security with threat detection and audit logging
  */
 export default function AdminLoginPage() {
@@ -13,6 +14,42 @@ export default function AdminLoginPage() {
   // Extract redirect URL and any error from query parameters
   const redirectTo = searchParams.get('callbackUrl') || searchParams.get('redirect') || '/';
   const error = searchParams.get('error');
+
+  // Map NextAuth error codes to user-friendly messages
+  const getErrorMessage = (error: string | null) => {
+    switch (error) {
+      case 'Configuration':
+        return 'There is a problem with the server configuration.';
+      case 'AccessDenied':
+        return 'You do not have permission to sign in.';
+      case 'Verification':
+        return 'The verification token has expired or is invalid.';
+      case 'OAuthSignin':
+        return 'Error in constructing an authorization URL.';
+      case 'OAuthCallback':
+        return 'Error in handling the response from an OAuth provider.';
+      case 'OAuthCreateAccount':
+        return 'Could not create OAuth provider user in the database.';
+      case 'EmailCreateAccount':
+        return 'Could not create email provider user in the database.';
+      case 'Callback':
+        return 'Error in the OAuth callback handler route.';
+      case 'OAuthAccountNotLinked':
+        return 'The account is already associated with another user.';
+      case 'EmailSignin':
+        return 'Sending the e-mail with the verification token failed.';
+      case 'CredentialsSignin':
+        return 'Authorization failed. Check your credentials and try again.';
+      case 'SessionRequired':
+        return 'Please sign in to access this page.';
+      case 'insufficient_admin_access':
+        return 'Administrative privileges required for this application.';
+      default:
+        return error ? 'Authentication error occurred. Please try again.' : null;
+    }
+  };
+
+  const errorMessage = getErrorMessage(error);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -24,7 +61,21 @@ export default function AdminLoginPage() {
         <div className="absolute top-1/2 left-1/4 w-20 h-20 bg-gradient-to-br from-cyan-400/5 to-blue-400/5 rounded-full blur-xl" />
       </div>
 
-      <div className="relative z-10 flex items-center justify-center min-h-screen">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen gap-6">
+        {/* Error message */}
+        {errorMessage && (
+          <div className="w-full max-w-md mx-auto">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                <div className="text-sm text-red-800 dark:text-red-200">
+                  {errorMessage}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <AdminOIDCLoginButton
           redirectTo={redirectTo}
           requireMFA={true}

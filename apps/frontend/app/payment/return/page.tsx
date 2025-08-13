@@ -1,13 +1,12 @@
 'use client';
 
+import { Card, CardContent, Button } from '@epsx/ui';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
 import { realtimeClient  } from '@/lib/api-client.client';
 import type {PaymentStatusUpdate} from '@/lib/api-client.client';
-
 export default function PaymentReturnPage() {
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<
@@ -15,7 +14,6 @@ export default function PaymentReturnPage() {
   >('checking');
   const [paymentData, setPaymentData] = useState<any>(null);
   const [countdown, setCountdown] = useState(10);
-
   useEffect(() => {
     // Load payment data from session storage
     const storedPayment = sessionStorage.getItem('activePayment');
@@ -23,14 +21,12 @@ export default function PaymentReturnPage() {
       try {
         const payment = JSON.parse(storedPayment);
         setPaymentData(payment);
-
         // Monitor payment status using WebSocket/SSE
         if (payment.paymentRequest?.customerRefId) {
           const unsubscribe = realtimeClient.connectToPaymentUpdates(
             payment.paymentRequest.customerRefId,
             (update: PaymentStatusUpdate) => {
               // Payment status updated
-
               if (update.status === 'completed') {
                 setPaymentStatus('success');
                 // Clear session storage
@@ -42,7 +38,6 @@ export default function PaymentReturnPage() {
               }
             }
           );
-
           return () => unsubscribe();
         }
         return;
@@ -57,7 +52,6 @@ export default function PaymentReturnPage() {
       return;
     }
   }, []);
-
   // Countdown for automatic redirect on success
   useEffect(() => {
     if (paymentStatus === 'success' && countdown > 0) {
@@ -71,7 +65,6 @@ export default function PaymentReturnPage() {
     }
     return;
   }, [paymentStatus, countdown, router]);
-
   const handleReturnToMyData = () => {
     if (paymentStatus === 'success') {
       router.push('/my-data?payment=success');
@@ -79,11 +72,9 @@ export default function PaymentReturnPage() {
       router.push('/my-data');
     }
   };
-
   const handleRetryPayment = () => {
     router.push('/payment');
   };
-
   if (paymentStatus === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -104,7 +95,6 @@ export default function PaymentReturnPage() {
       </div>
     );
   }
-
   if (paymentStatus === 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -138,7 +128,6 @@ export default function PaymentReturnPage() {
       </div>
     );
   }
-
   if (paymentStatus === 'pending') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -172,7 +161,6 @@ export default function PaymentReturnPage() {
       </div>
     );
   }
-
   // Failed status
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">

@@ -70,7 +70,7 @@ export interface Permission {
 
 export interface PermissionCondition {
   type: 'usage_limit' | 'time_range' | 'ip_restriction' | 'resource_owner';
-  value: any;
+  value: string | number | string[] | { start: string; end: string } | { min: number; max: number };
   operator: 'eq' | 'gt' | 'lt' | 'in' | 'between';
 }
 

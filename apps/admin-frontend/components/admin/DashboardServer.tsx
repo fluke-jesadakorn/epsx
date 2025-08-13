@@ -5,7 +5,7 @@
 
 import { Shield, Users, CheckCircle, Crown, Activity, Zap, Database, TrendingUp } from 'lucide-react'
 import type { DashboardStats, RecentUser, SystemMetrics } from '@/lib/data/dashboard'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UserManagementOnly, AnalyticsOnly } from '@/components/auth/RoleGuard'
 import { RecentActivity } from './RecentActivity'

@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { Card, CardHeader, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardDescription } from "@epsx/ui";
 
 const DataTechSection: React.FC = () => {
   const features = [

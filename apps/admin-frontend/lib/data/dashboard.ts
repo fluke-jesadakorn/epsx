@@ -4,7 +4,7 @@
  */
 
 import { getBearerToken } from '@/lib/actions/server-auth'
-import { getUserContext } from '@/lib/auth/server-auth-enhanced'
+import { getUserContext } from '@/lib/auth/server-auth'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
 

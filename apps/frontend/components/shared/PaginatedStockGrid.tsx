@@ -12,10 +12,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import {
   TrendingUp,
   TrendingDown,

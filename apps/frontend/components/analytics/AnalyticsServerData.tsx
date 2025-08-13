@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { analyticsClient } from '@/lib/api-client.client';
 import {
   BarChart3,

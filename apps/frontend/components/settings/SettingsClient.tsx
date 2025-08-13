@@ -1,7 +1,7 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import { useRouter } from 'next/navigation';
 
 export function SettingsClient() {

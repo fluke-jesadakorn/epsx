@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { signIn } from 'next-auth/react';
+import { Button } from '@epsx/ui';
 import { Shield, ExternalLink, Loader2, Lock, Eye, UserCheck } from 'lucide-react';
 
 interface AdminOIDCLoginButtonProps {
@@ -21,39 +22,34 @@ export function AdminOIDCLoginButton({
 }: AdminOIDCLoginButtonProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
     setIsRedirecting(true);
     
-    // Build authorization URL with admin-specific parameters
-    const authParams = new URLSearchParams({
-      client_id: 'epsx-admin',
-      response_type: 'code',
-      scope: 'openid profile email admin:read admin:write system:manage', // Admin-specific scopes
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      // Add redirect destination as state parameter for server-side handling
-      state: redirectTo || '/'
-    });
-    
-    // Redirect to backend admin OIDC authorization endpoint
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    const loginUrl = `${backendUrl}/oauth/authorize?${authParams.toString()}`;
-    
-    console.log('🔐 Redirecting to secure admin OIDC login:', loginUrl);
-    
-    // Add audit log entry for login attempt
-    console.log('🔍 Admin OIDC login initiated', {
-      timestamp: new Date().toISOString(),
-      client_id: 'epsx-admin',
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      security_features: {
-        mfa: requireMFA,
-        threat_detection: enableThreatDetection,
-        session_monitoring: enableSessionMonitoring,
-        max_attempts: maxFailedAttempts
-      }
-    });
-    
-    window.location.href = loginUrl;
+    try {
+      console.log('🔐 Initiating NextAuth admin login');
+      
+      // Add audit log entry for login attempt
+      console.log('🔍 Admin OIDC login initiated', {
+        timestamp: new Date().toISOString(),
+        provider: 'epsx-backend',
+        redirect_to: redirectTo,
+        security_features: {
+          mfa: requireMFA,
+          threat_detection: enableThreatDetection,
+          session_monitoring: enableSessionMonitoring,
+          max_attempts: maxFailedAttempts
+        }
+      });
+      
+      // Use NextAuth.js signIn with admin provider
+      await signIn('epsx-backend', {
+        callbackUrl: redirectTo,
+        redirect: true
+      });
+    } catch (error) {
+      console.error('🚨 Admin login error:', error);
+      setIsRedirecting(false);
+    }
   };
 
   return (
@@ -145,16 +141,5 @@ export function AdminOIDCLoginButton({
   );
 }
 
-/**
- * Generate a secure state parameter for CSRF protection
- */
-function generateSecureState(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode.apply(null, Array.from(array)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
 
 export default AdminOIDCLoginButton;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
+import { Card } from '@epsx/ui';
 
 export default function PrivacyPage() {
   return (
@@ -50,15 +50,14 @@ export default function PrivacyPage() {
                 3. Third-Party Services
               </h3>
               <p className="text-gray-300">
-                We use Google Sign-in for authentication. When you choose to
-                sign in with Google:
+                We use OpenID Connect authentication for secure sign-in. When you authenticate:
               </p>
               <ul className="list-disc pl-6 text-gray-300 space-y-2">
                 <li>
                   We only request necessary permissions (email and basic
                   profile)
                 </li>
-                <li>Your Google credentials are handled securely by Google</li>
+                <li>Your credentials are handled securely by our authentication system</li>
                 <li>
                   We receive only basic profile information needed for account
                   creation

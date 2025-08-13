@@ -23,7 +23,6 @@ use crate::dom::ports::NotificationPort;
 // use crate::core::plugins::{PluginManager, PluginRegistry};
 use crate::dom::services::feature_expiration::FeatureExpirationService;
 use crate::dom::services::eps_ranking_service::EPSRankingService;
-use crate::infra::db::MigrationRunner;
 
 /// Database backend type
 #[derive(Debug, Clone)]
@@ -218,8 +217,6 @@ impl AppContainer {
         let config = Arc::new(crate::config::Config::from_env());
         let infra = InfraFactory::from_env()?;
         
-        // Run database migrations automatically
-        // Self::run_migrations(&infra.postgres_pool).await?; // Temporarily disabled
         
         let user_repo = infra.create_user_repo();
         let session_repo = infra.create_session_repo();
@@ -316,134 +313,6 @@ impl AppContainer {
         }
     }
     
-    /// Initialize and start all plugins
-    // pub async fn initialize_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
-    //     use crate::core::plugin_examples::{
-    //         SimpleAnalysisPlugin, MockDataProviderPlugin, EmailNotificationPlugin
-    //     };
-    //     use crate::core::plugins::PluginConfig;
-    //     use std::collections::HashMap;
-    //     
-    //     let mut plugin_manager = self.plugin_manager.lock().await;
-    //     
-    //     // Create plugin configurations
-    //     let mut settings = HashMap::new();
-    //     settings.insert("environment".to_string(), serde_json::Value::String("development".to_string()));
-    //     
-    //     let config = PluginConfig {
-    //         enabled: true,
-    //         settings,
-    //         environment: "development".to_string(),
-    //     };
-    //     
-    //     // Register example plugins
-    //     plugin_manager.register_plugin(
-    //         Arc::new(SimpleAnalysisPlugin::new()),
-    //         config.clone(),
-    //     ).await?;
-    //     
-    //     plugin_manager.register_plugin(
-    //         Arc::new(MockDataProviderPlugin::new()),
-    //         config.clone(),
-    //     ).await?;
-    //     
-    //     plugin_manager.register_plugin(
-    //         Arc::new(EmailNotificationPlugin::new()),
-    //         config.clone(),
-    //     ).await?;
-    //     
-    //     // Initialize and start all plugins
-    //     plugin_manager.initialize_all().await?;
-    //     plugin_manager.start_all().await?;
-    //     
-    //     tracing::info!("Plugin system initialized with {} plugins", plugin_manager.list_plugins().len());
-    //     Ok(())
-    // }
     
-    /// Stop all plugins gracefully
-    // pub async fn shutdown_plugins(&self) -> Result<(), Box<dyn std::error::Error>> {
-    //     let mut plugin_manager = self.plugin_manager.lock().await;
-    //     plugin_manager.stop_all().await?;
-    //     tracing::info!("Plugin system shut down");
-    //     Ok(())
-    // }
-    
-    /// Create database if it doesn't exist and run migrations automatically
-    async fn run_migrations(pool: &DatabasePool) -> Result<(), Box<dyn std::error::Error>> {
-        // First, try to create the database if it doesn't exist
-        Self::ensure_database_exists().await?;
-        
-        tracing::info!("Running database migrations...");
-        
-        let migrations_dir = std::env::var("MIGRATIONS_DIR")
-            .unwrap_or_else(|_| "migrations".to_string());
-            
-        let runner = MigrationRunner::new((**pool).clone(), migrations_dir);
-        
-        match runner.migrate().await {
-            Ok(count) => {
-                if count > 0 {
-                    tracing::info!("✅ Applied {} migrations successfully", count);
-                } else {
-                    tracing::info!("✅ Database is up to date");
-                }
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!("❌ Migration failed: {}", e);
-                Err(Box::new(e))
-            }
-        }
-    }
-    
-    /// Ensure database exists by connecting to postgres and creating it if needed
-    async fn ensure_database_exists() -> Result<(), Box<dyn std::error::Error>> {
-        use sqlx::postgres::{PgPoolOptions, PgConnectOptions};
-        use std::str::FromStr;
-        
-        let database_url = std::env::var("DATABASE_URL")
-            .or_else(|_| std::env::var("POSTGRES_URL"))
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost/epsx_db".to_string());
-        
-        // Parse the database URL to get connection details
-        let opts = PgConnectOptions::from_str(&database_url)?;
-        let db_name = opts.get_database().unwrap_or("epsx_db");
-        
-        // Extract connection details to build master URL
-        let master_url = database_url.replace(&format!("/{}", db_name), "/postgres");
-        
-        tracing::info!("Checking if database '{}' exists...", db_name);
-        
-        // Connect to master postgres database
-        let master_pool = PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&master_url)
-            .await?;
-        
-        // Check if database exists
-        let exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)"
-        )
-        .bind(db_name)
-        .fetch_one(&master_pool)
-        .await?;
-        
-        if !exists {
-            tracing::info!("Database '{}' does not exist, creating it...", db_name);
-            
-            // Create the database
-            let create_query = format!("CREATE DATABASE \"{}\"", db_name);
-            sqlx::query(&create_query)
-                .execute(&master_pool)
-                .await?;
-            
-            tracing::info!("✅ Database '{}' created successfully", db_name);
-        } else {
-            tracing::info!("✅ Database '{}' already exists", db_name);
-        }
-        
-        master_pool.close().await;
-        Ok(())
-    }
     
 }

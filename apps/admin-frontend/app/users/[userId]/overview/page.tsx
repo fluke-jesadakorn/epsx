@@ -3,7 +3,7 @@
  * Shows user's basic information, status, and quick actions
  */
 
-import { requireAdminAuth } from '@/lib/auth/server-auth-enhanced'
+import { requireAdminAuth } from '@/lib/auth/server-auth'
 import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'

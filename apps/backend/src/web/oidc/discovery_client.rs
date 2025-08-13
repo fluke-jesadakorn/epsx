@@ -105,7 +105,7 @@ impl HttpDiscoveryClient {
         
         let http_client = client_builder
             .build()
-            .map_err(|e| AppError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| AppError::internal_error(format!("Failed to create HTTP client: {}", e)))?;
             
         Ok(Self {
             http_client,
@@ -117,10 +117,10 @@ impl HttpDiscoveryClient {
     /// Construct discovery URL from issuer
     fn discovery_url(&self, issuer_url: &str) -> Result<String, AppError> {
         let base_url = Url::parse(issuer_url)
-            .map_err(|e| AppError::ValidationError(format!("Invalid issuer URL: {}", e)))?;
+            .map_err(|e| AppError::validation_error(format!("Invalid issuer URL: {}", e)))?;
             
         let discovery_url = base_url.join("/.well-known/openid_configuration")
-            .map_err(|e| AppError::ValidationError(format!("Failed to construct discovery URL: {}", e)))?;
+            .map_err(|e| AppError::validation_error(format!("Failed to construct discovery URL: {}", e)))?;
             
         Ok(discovery_url.to_string())
     }
@@ -140,23 +140,23 @@ impl HttpDiscoveryClient {
             .header("Accept", "application/json")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(
+            .map_err(|e| AppError::external_service_error(
                 format!("Failed to fetch discovery document from {}: {}", discovery_url, e)
             ))?;
             
         if !response.status().is_success() {
-            return Err(AppError::ExternalServiceError(
+            return Err(AppError::external_service_error(
                 format!("Discovery endpoint returned {}: {}", response.status(), discovery_url)
             ));
         }
         
         let discovery_text = response.text().await
-            .map_err(|e| AppError::ExternalServiceError(
+            .map_err(|e| AppError::external_service_error(
                 format!("Failed to read discovery response: {}", e)
             ))?;
             
         let discovery_doc: OIDCDiscoveryDocument = serde_json::from_str(&discovery_text)
-            .map_err(|e| AppError::ExternalServiceError(
+            .map_err(|e| AppError::external_service_error(
                 format!("Failed to parse discovery document: {}", e)
             ))?;
             
@@ -176,30 +176,30 @@ impl HttpDiscoveryClient {
     /// Validate discovery document has required fields
     fn validate_discovery_document(&self, doc: &OIDCDiscoveryDocument) -> Result<(), AppError> {
         if doc.issuer.is_empty() {
-            return Err(AppError::ValidationError("Discovery document missing issuer".to_string()));
+            return Err(AppError::validation_error("Discovery document missing issuer".to_string()));
         }
         
         if doc.authorization_endpoint.is_empty() {
-            return Err(AppError::ValidationError("Discovery document missing authorization_endpoint".to_string()));
+            return Err(AppError::validation_error("Discovery document missing authorization_endpoint".to_string()));
         }
         
         if doc.token_endpoint.is_empty() {
-            return Err(AppError::ValidationError("Discovery document missing token_endpoint".to_string()));
+            return Err(AppError::validation_error("Discovery document missing token_endpoint".to_string()));
         }
         
         if doc.jwks_uri.is_empty() {
-            return Err(AppError::ValidationError("Discovery document missing jwks_uri".to_string()));
+            return Err(AppError::validation_error("Discovery document missing jwks_uri".to_string()));
         }
         
         // Validate URLs
         Url::parse(&doc.issuer)
-            .map_err(|_| AppError::ValidationError("Invalid issuer URL in discovery document".to_string()))?;
+            .map_err(|_| AppError::validation_error("Invalid issuer URL in discovery document".to_string()))?;
         Url::parse(&doc.authorization_endpoint)
-            .map_err(|_| AppError::ValidationError("Invalid authorization_endpoint URL in discovery document".to_string()))?;
+            .map_err(|_| AppError::validation_error("Invalid authorization_endpoint URL in discovery document".to_string()))?;
         Url::parse(&doc.token_endpoint)
-            .map_err(|_| AppError::ValidationError("Invalid token_endpoint URL in discovery document".to_string()))?;
+            .map_err(|_| AppError::validation_error("Invalid token_endpoint URL in discovery document".to_string()))?;
         Url::parse(&doc.jwks_uri)
-            .map_err(|_| AppError::ValidationError("Invalid jwks_uri URL in discovery document".to_string()))?;
+            .map_err(|_| AppError::validation_error("Invalid jwks_uri URL in discovery document".to_string()))?;
         
         Ok(())
     }

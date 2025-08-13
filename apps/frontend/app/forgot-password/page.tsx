@@ -1,4 +1,4 @@
-import { requireGuest } from '@/app/actions/auth-improved';
+import { requireGuest } from '@/app/actions/auth';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 
 interface ForgotPasswordPageProps {

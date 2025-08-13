@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useRef, useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 
 interface LongPressButtonProps {
   children: ReactNode;

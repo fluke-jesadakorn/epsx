@@ -23,15 +23,15 @@ import {
   Play,
   Pause
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@epsx/ui';
+import { Input } from '@epsx/ui';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@epsx/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@epsx/ui';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/form-components';
 import {
@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from '@epsx/ui';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 

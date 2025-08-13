@@ -603,17 +603,17 @@ export class AdvancedThreatProtectionManager {
     return false; // Simplified
   }
 
-  private analyzeTimingPatterns(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; patterns: any } {
+  private analyzeTimingPatterns(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; patterns: Record<string, unknown> } {
     // Analyze request timing patterns for bot-like behavior
     return { suspicious: false, confidence: 0, patterns: {} };
   }
 
-  private analyzeBehavioralPatterns(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; patterns: any } {
+  private analyzeBehavioralPatterns(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; patterns: Record<string, unknown> } {
     // Analyze behavioral patterns for human-like interactions
     return { suspicious: false, confidence: 0, patterns: {} };
   }
 
-  private analyzeNetworkFingerprint(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; details: any } {
+  private analyzeNetworkFingerprint(context: ThreatAssessmentContext): { suspicious: boolean; confidence: number; details: Record<string, unknown> } {
     // Analyze network characteristics
     return { suspicious: false, confidence: 0, details: {} };
   }
@@ -908,7 +908,7 @@ export class AdvancedThreatProtectionManager {
     return limits[action] || 10;
   }
 
-  private analyzeAttackPatterns(context: ThreatAssessmentContext): any {
+  private analyzeAttackPatterns(context: ThreatAssessmentContext): Record<string, unknown> {
     // Analyze for known attack patterns
     return { patterns: [], confidence: 0 };
   }

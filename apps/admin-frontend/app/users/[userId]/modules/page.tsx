@@ -3,7 +3,7 @@
  * Consolidates module assignment and quota management
  */
 
-import { requireAdminAuth } from '@/lib/auth/server-auth-enhanced'
+import { requireAdminAuth } from '@/lib/auth/server-auth'
 import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
 import { notFound } from 'next/navigation'
 import { UserModulesContent } from '@/components/users/UserModulesContent'

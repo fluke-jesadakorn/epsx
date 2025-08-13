@@ -167,25 +167,8 @@ impl FirebaseAdmin {
         // For now, let's use a simpler approach that works with the Identity Toolkit API
         
         // Check if we have service account credentials from environment variables
-        if let (Ok(client_email), Ok(private_key)) = (
-            std::env::var("FIREBASE_CLIENT_EMAIL"),
-            std::env::var("FIREBASE_PRIVATE_KEY")
-        ) {
+        if let Ok(client_email) = std::env::var("FIREBASE_CLIENT_EMAIL") {
             tracing::info!("Using Firebase service account: {}", client_email);
-            
-            // Generate JWT token for Firebase Admin SDK
-            let now = chrono::Utc::now().timestamp() as u64;
-            let iat = now;
-            let exp = now + 3600; // 1 hour expiry
-            
-            let claims = json!({
-                "iss": client_email,
-                "sub": client_email,
-                "aud": "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
-                "iat": iat,
-                "exp": exp,
-                "scope": "https://www.googleapis.com/auth/identitytoolkit"
-            });
             
             // For demonstration, return a mock token that indicates we have proper service account setup
             // In a full implementation, we would use the private key to sign the JWT

@@ -291,7 +291,7 @@ impl ProviderRegistryTrait for InMemoryProviderRegistry {
     
     async fn resolve_provider_by_email(&self, email: &str) -> Result<Option<TenantResolution>, AppError> {
         let domain = email.split('@').nth(1).ok_or_else(|| {
-            AppError::ValidationError("Invalid email format".to_string())
+            AppError::validation_error("Invalid email format".to_string())
         })?;
         
         let domain_mapping = self.domain_mapping.read().await;
@@ -334,7 +334,7 @@ impl ProviderRegistryTrait for InMemoryProviderRegistry {
             tracing::info!(provider_id = %provider_id, "Updated OIDC provider");
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Provider {} not found", provider_id)))
+            Err(AppError::not_found(format!("Provider {} not found", provider_id)))
         }
     }
     
@@ -346,7 +346,7 @@ impl ProviderRegistryTrait for InMemoryProviderRegistry {
             tracing::info!(provider_id = %provider_id, "Deactivated OIDC provider");
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Provider {} not found", provider_id)))
+            Err(AppError::not_found(format!("Provider {} not found", provider_id)))
         }
     }
     
@@ -374,37 +374,37 @@ pub struct DatabaseProviderRegistry {
 impl ProviderRegistryTrait for DatabaseProviderRegistry {
     async fn register_provider(&self, _config: OIDCProviderConfig) -> Result<(), AppError> {
         // TODO: Implement database storage
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn get_provider(&self, _provider_id: &str) -> Result<Option<OIDCProviderConfig>, AppError> {
         // TODO: Implement database retrieval
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn get_providers_by_tenant(&self, _tenant_id: &str) -> Result<Vec<OIDCProviderConfig>, AppError> {
         // TODO: Implement database query
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn resolve_provider_by_email(&self, _email: &str) -> Result<Option<TenantResolution>, AppError> {
         // TODO: Implement database lookup
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn update_provider(&self, _config: OIDCProviderConfig) -> Result<(), AppError> {
         // TODO: Implement database update
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn deactivate_provider(&self, _provider_id: &str) -> Result<(), AppError> {
         // TODO: Implement database deactivation
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
     
     async fn list_active_providers(&self) -> Result<Vec<OIDCProviderConfig>, AppError> {
         // TODO: Implement database query
-        Err(AppError::InternalError("Database provider registry not implemented yet".to_string()))
+        Err(AppError::internal_error("Database provider registry not implemented yet".to_string()))
     }
 }
 

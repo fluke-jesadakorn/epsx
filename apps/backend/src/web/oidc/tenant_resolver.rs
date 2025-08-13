@@ -340,7 +340,7 @@ impl TenantResolverTrait for InMemoryTenantResolver {
                     }
                 }
                 
-                return Err(AppError::NotFound(format!(
+                return Err(AppError::not_found(format!(
                     "No active provider found for email domain: {}", 
                     email.split('@').nth(1).unwrap_or("unknown")
                 )));
@@ -400,7 +400,7 @@ impl TenantResolverTrait for InMemoryTenantResolver {
         {
             let mappings = self.mappings.read().await;
             if !mappings.contains_key(&mapping_id) {
-                return Err(AppError::NotFound(format!("Mapping {} not found", mapping_id)));
+                return Err(AppError::not_found(format!("Mapping {} not found", mapping_id)));
             }
         }
         
@@ -425,7 +425,7 @@ impl TenantResolverTrait for InMemoryTenantResolver {
             tracing::info!(mapping_id = %mapping_id, "Deactivated tenant mapping");
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Mapping {} not found", mapping_id)))
+            Err(AppError::not_found(format!("Mapping {} not found", mapping_id)))
         }
     }
     

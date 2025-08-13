@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { WithLoading } from '@/components/common/withLoading';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 
 import type { CSSProperties } from 'react';
 

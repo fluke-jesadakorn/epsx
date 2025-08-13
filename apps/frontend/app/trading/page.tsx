@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@epsx/server-actions';
 import { redirect } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 
 export default async function TradingPage() {
   // Server-side auth check with automatic redirect if not authenticated

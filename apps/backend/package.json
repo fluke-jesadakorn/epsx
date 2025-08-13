@@ -9,7 +9,31 @@
     "kill-port": "lsof -ti:8080 | xargs kill -9 2>/dev/null || true",
     "cleanup": "lsof -ti:8080 | xargs kill -9 2>/dev/null || echo 'Port cleaned, ready for restart'",
     "build": "cargo build --release",
+    "build:backend": "cargo build --release",
     "start": "cargo run --release",
-    "clean": "cargo clean"
+    "start:backend": "cargo run --release",
+    "clean": "cargo clean",
+    "test": "cargo test",
+    "test:backend": "cargo test",
+    
+    "// Clean Architecture Layer Tests": "===============================",
+    "test:domain": "cargo test --test domain_tests",
+    "test:application": "cargo test --test application_tests",
+    "test:infrastructure": "cargo test --test infrastructure_tests",
+    "test:presentation": "cargo test --test presentation_tests",
+    
+    "// Legacy Test Commands": "=====================================",
+    "test:unit": "cargo test --test domain_tests --test application_tests",
+    "test:integration": "cargo test --test infrastructure_tests --test presentation_tests",
+    "test:api": "cargo test --test api_tests",
+    "test:auth": "cargo test --test integration_firebase_auth",
+    
+    "// Development Workflows": "===================================",
+    "test:watch": "cargo watch --why --exec 'test'",
+    "test:coverage": "cargo tarpaulin --out html --output-dir coverage",
+    "test:layers": "cargo test --test domain_tests --test application_tests --test infrastructure_tests --test presentation_tests",
+    "bench": "cargo bench",
+    "lint": "cargo clippy -- -D warnings",
+    "lint:fix": "cargo clippy --fix --allow-dirty --allow-staged"
   }
 }

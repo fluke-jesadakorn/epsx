@@ -13,7 +13,7 @@ import {
   ChevronRight,
   ChevronDown
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@epsx/ui';
 import { toast } from 'react-hot-toast';
 
 interface EndpointExample {
@@ -280,12 +280,13 @@ export const ApiDocumentation: React.FC = () => {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
       toast.success(`${label} copied to clipboard`);
-    }).catch(() => {
+    } catch {
       toast.error('Failed to copy to clipboard');
-    });
+    }
   };
 
   const getMethodColor = (method: string) => {

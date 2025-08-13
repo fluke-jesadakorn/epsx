@@ -8,8 +8,24 @@ use tracing::{info, warn};
 use crate::{
     core::errors::AppError,
     dom::services::admin_module_service::ModuleAssignmentRequest,
-    web::auth::{casbin_claims_mapper::CasbinUserClaims, AppState},
+    web::auth::AppState,
 };
+
+// Temporary replacement for CasbinUserClaims
+#[derive(Debug, Clone)]
+pub struct ModernUserClaims {
+    pub user_id: String,
+    pub email: String,
+}
+
+impl Default for ModernUserClaims {
+    fn default() -> Self {
+        Self {
+            user_id: "system".to_string(),
+            email: "system@epsx.com".to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminModuleResponse {
@@ -136,7 +152,7 @@ pub async fn get_user_admin_modules(
 /// Assign admin modules to a user
 pub async fn assign_admin_modules(
     State(app_state): State<AppState>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
     Json(request): Json<AssignModulesRequest>,
 ) -> Result<Json<AdminRoleOperationResponse>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
@@ -152,7 +168,7 @@ pub async fn assign_admin_modules(
     
     if !can_assign {
         warn!("Admin {} attempted to assign modules without proper permissions", claims.user_id);
-        return Err(AppError::Unauthorized("Insufficient permissions to assign admin modules"));
+        return Err(AppError::unauthorized("Insufficient permissions to assign admin modules"));
     }
 
     let assignment_request = ModuleAssignmentRequest {
@@ -182,7 +198,7 @@ pub async fn assign_admin_modules(
 /// Revoke admin modules from a user
 pub async fn revoke_admin_modules(
     State(app_state): State<AppState>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
     Json(request): Json<RevokeModulesRequest>,
 ) -> Result<Json<AdminRoleOperationResponse>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
@@ -197,13 +213,13 @@ pub async fn revoke_admin_modules(
     
     if !can_revoke {
         warn!("Admin {} attempted to revoke modules without proper permissions", claims.user_id);
-        return Err(AppError::Unauthorized("Insufficient permissions to revoke admin modules"));
+        return Err(AppError::unauthorized("Insufficient permissions to revoke admin modules"));
     }
 
     // Prevent admins from revoking their own admin privileges
     if request.firebase_uid == claims.user_id {
         warn!("Admin {} attempted to revoke their own admin modules", claims.user_id);
-        return Err(AppError::BadRequest("Cannot revoke your own admin modules"));
+        return Err(AppError::bad_request("Cannot revoke your own admin modules"));
     }
 
     let revoked_modules = admin_module_service.revoke_admin_modules(
@@ -229,7 +245,7 @@ pub async fn revoke_admin_modules(
 pub async fn assign_all_admin_modules(
     State(app_state): State<AppState>,
     Path(firebase_uid): Path<String>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
 ) -> Result<Json<AdminRoleOperationResponse>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
     info!("Assigning ALL admin modules to user: {} by super admin: {}", firebase_uid, claims.user_id);
@@ -239,7 +255,7 @@ pub async fn assign_all_admin_modules(
     
     if !admin_modules.contains(&"system_admin".to_string()) {
         warn!("User {} attempted to create super admin without system_admin module", claims.user_id);
-        return Err(AppError::Unauthorized("Only system administrators can assign all admin modules"));
+        return Err(AppError::unauthorized("Only system administrators can assign all admin modules"));
     }
 
     let assigned_modules = admin_module_service.assign_all_admin_modules(
@@ -264,7 +280,7 @@ pub async fn get_admin_role_audit(
     State(app_state): State<AppState>,
     Path(firebase_uid): Path<String>,
     Query(params): Query<AdminRoleQueryParams>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
 ) -> Result<Json<Vec<serde_json::Value>>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
     info!("Fetching admin role audit for user: {} by admin: {}", firebase_uid, claims.user_id);
@@ -277,7 +293,7 @@ pub async fn get_admin_role_audit(
     
     if !can_view_audit {
         warn!("Admin {} attempted to view audit trail without proper permissions", claims.user_id);
-        return Err(AppError::Unauthorized("Insufficient permissions to view admin role audit"));
+        return Err(AppError::unauthorized("Insufficient permissions to view admin role audit"));
     }
 
     let limit = params.limit.or(Some(50)).map(|l| l.min(500)); // Max 500 records
@@ -311,7 +327,7 @@ pub async fn check_admin_module_access(
 pub async fn get_user_admin_module_details(
     State(app_state): State<AppState>,
     Path(firebase_uid): Path<String>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
 ) -> Result<Json<Vec<serde_json::Value>>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
     info!("Fetching detailed admin module assignments for user: {} by admin: {}", firebase_uid, claims.user_id);
@@ -325,7 +341,7 @@ pub async fn get_user_admin_module_details(
     
     if !can_view_details {
         warn!("Admin {} attempted to view detailed assignments without proper permissions", claims.user_id);
-        return Err(AppError::Unauthorized("Insufficient permissions to view detailed admin module assignments"));
+        return Err(AppError::unauthorized("Insufficient permissions to view detailed admin module assignments"));
     }
 
     let assignments = admin_module_service.get_user_admin_module_details(&firebase_uid).await?;
@@ -353,7 +369,7 @@ pub async fn get_user_admin_module_details(
 /// Get current authenticated user's admin modules
 pub async fn get_current_user_admin_modules(
     State(app_state): State<AppState>,
-    Extension(claims): Extension<CasbinUserClaims>,
+    Extension(claims): Extension<ModernUserClaims>,
 ) -> Result<Json<UserAdminModulesResponse>, AppError> {
     let admin_module_service = &app_state.admin_module_service;
     let firebase_uid = &claims.user_id;

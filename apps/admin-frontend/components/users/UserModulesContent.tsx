@@ -5,7 +5,7 @@
 
 import { Package, BarChart3, Settings, Plus, TrendingUp } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { ModuleAccessCard } from './ModuleAccessCard'
 import { ModuleQuotaCard } from './ModuleQuotaCard'
 import { StatsCard } from '@/components/ui/StatsCard'

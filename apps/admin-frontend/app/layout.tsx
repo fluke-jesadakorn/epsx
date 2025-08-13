@@ -1,5 +1,5 @@
-import { ClientProviders } from '@/components/providers/ClientProviders';
 import './globals.css';
+import { AdminAuthWrapper } from '@/components/providers/AdminAuthWrapper';
 
 export const metadata = {
   title: 'EPSX Admin',
@@ -14,9 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ClientProviders>
+        <AdminAuthWrapper>
           {children}
-        </ClientProviders>
+        </AdminAuthWrapper>
       </body>
     </html>
   );

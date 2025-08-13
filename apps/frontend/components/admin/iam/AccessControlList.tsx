@@ -1,15 +1,9 @@
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, 
   Edit2, 
@@ -27,7 +21,6 @@ import {
   MapPin,
   Smartphone
 } from 'lucide-react';
-
 interface AccessRule {
   id: string;
   name: string;
@@ -50,7 +43,6 @@ interface AccessRule {
   updatedAt: string;
   createdBy: string;
 }
-
 interface AccessCondition {
   id: string;
   type: 'ip_range' | 'time_range' | 'location' | 'device_type' | 'mfa_required';
@@ -58,7 +50,6 @@ interface AccessCondition {
   value: string | string[];
   description: string;
 }
-
 const MOCK_ACCESS_RULES: AccessRule[] = [
   {
     id: '1',
@@ -127,7 +118,6 @@ const MOCK_ACCESS_RULES: AccessRule[] = [
     createdBy: 'security-admin'
   }
 ];
-
 export function AccessControlList() {
   const [rules, setRules] = useState<AccessRule[]>(MOCK_ACCESS_RULES);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,25 +125,20 @@ export function AccessControlList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedRule, setSelectedRule] = useState<AccessRule | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
   const filteredRules = rules.filter(rule => {
     const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          rule.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesEffect = effectFilter === 'all' || rule.effect === effectFilter;
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' ? rule.isActive : !rule.isActive);
-    
     return matchesSearch && matchesEffect && matchesStatus;
   });
-
   const getEffectColor = (effect: string) => {
     return effect === 'allow' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50';
   };
-
   const getEffectIcon = (effect: string) => {
     return effect === 'allow' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />;
   };
-
   const getConditionIcon = (type: string) => {
     switch (type) {
       case 'ip_range': return <Globe className="h-4 w-4" />;
@@ -164,7 +149,6 @@ export function AccessControlList() {
       default: return <AlertTriangle className="h-4 w-4" />;
     }
   };
-
   const toggleRuleStatus = (ruleId: string) => {
     setRules(rules.map(rule =>
       rule.id === ruleId
@@ -172,11 +156,9 @@ export function AccessControlList() {
         : rule
     ));
   };
-
   const deleteRule = (ruleId: string) => {
     setRules(rules.filter(rule => rule.id !== ruleId));
   };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -187,7 +169,6 @@ export function AccessControlList() {
             Manage fine-grained access control rules and conditions
           </p>
         </div>
-
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -206,7 +187,6 @@ export function AccessControlList() {
           </DialogContent>
         </Dialog>
       </div>
-
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
@@ -220,7 +200,6 @@ export function AccessControlList() {
                 className="pl-9"
               />
             </div>
-
             <Select value={effectFilter} onValueChange={setEffectFilter}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Effect" />
@@ -231,7 +210,6 @@ export function AccessControlList() {
                 <SelectItem value="deny">Deny</SelectItem>
               </SelectContent>
             </Select>
-
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Status" />
@@ -245,7 +223,6 @@ export function AccessControlList() {
           </div>
         </CardContent>
       </Card>
-
       {/* Rules Table */}
       <Card>
         <CardHeader>
@@ -279,14 +256,12 @@ export function AccessControlList() {
                       </div>
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getEffectColor(rule.effect)}`}>
                       {getEffectIcon(rule.effect)}
                       {rule.effect.toUpperCase()}
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div>
                       <div className="font-medium text-sm">{rule.principal.name}</div>
@@ -295,7 +270,6 @@ export function AccessControlList() {
                       </Badge>
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div>
                       <div className="font-medium text-sm">{rule.resource.path}</div>
@@ -304,7 +278,6 @@ export function AccessControlList() {
                       </div>
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {rule.conditions.map((condition) => (
@@ -319,11 +292,9 @@ export function AccessControlList() {
                       ))}
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <Badge variant="outline">{rule.priority}</Badge>
                   </TableCell>
-
                   <TableCell>
                     <Button
                       variant="ghost"
@@ -334,7 +305,6 @@ export function AccessControlList() {
                       {rule.isActive ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                     </Button>
                   </TableCell>
-
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
@@ -359,7 +329,6 @@ export function AccessControlList() {
           </Table>
         </CardContent>
       </Card>
-
       {/* Rule Details Dialog */}
       {selectedRule && (
         <Dialog open={!!selectedRule} onOpenChange={() => setSelectedRule(null)}>
@@ -378,14 +347,12 @@ export function AccessControlList() {
     </div>
   );
 }
-
 // Access Rule Form Component
 interface AccessRuleFormProps {
   rule?: AccessRule;
   onSave: () => void;
   onCancel: () => void;
 }
-
 function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
   const [formData, setFormData] = useState<Partial<AccessRule>>(
     rule || {
@@ -399,13 +366,11 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
       isActive: true
     }
   );
-
   const handleSave = () => {
     // Save logic would go here
     // Rule data will be saved
     onSave();
   };
-
   return (
     <Tabs defaultValue="basic" className="space-y-6">
       <TabsList>
@@ -414,7 +379,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
         <TabsTrigger value="resource">Resource</TabsTrigger>
         <TabsTrigger value="conditions">Conditions</TabsTrigger>
       </TabsList>
-
       <TabsContent value="basic" className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -425,7 +389,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
               placeholder="Enter rule name"
             />
           </div>
-          
           <div>
             <label className="text-sm font-medium">Effect</label>
             <Select
@@ -444,7 +407,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
             </Select>
           </div>
         </div>
-
         <div>
           <label className="text-sm font-medium">Description</label>
           <Textarea
@@ -454,7 +416,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
             rows={3}
           />
         </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium">Priority</label>
@@ -468,7 +429,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
           </div>
         </div>
       </TabsContent>
-
       <TabsContent value="principal" className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -492,7 +452,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
               </SelectContent>
             </Select>
           </div>
-          
           <div>
             <label className="text-sm font-medium">Principal Name</label>
             <Input
@@ -506,7 +465,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
           </div>
         </div>
       </TabsContent>
-
       <TabsContent value="resource" className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -532,7 +490,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
               </SelectContent>
             </Select>
           </div>
-          
           <div>
             <label className="text-sm font-medium">Resource Path</label>
             <Input
@@ -545,7 +502,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
             />
           </div>
         </div>
-
         <div>
           <label className="text-sm font-medium">Actions</label>
           <Input
@@ -561,12 +517,10 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
           />
         </div>
       </TabsContent>
-
       <TabsContent value="conditions" className="space-y-4">
         <div className="text-sm text-muted-foreground">
           Add conditions to restrict when this rule applies
         </div>
-        
         {/* Conditions would be dynamically added here */}
         <div className="space-y-3">
           <Button variant="outline" size="sm">
@@ -575,7 +529,6 @@ function AccessRuleForm({ rule, onSave, onCancel }: AccessRuleFormProps) {
           </Button>
         </div>
       </TabsContent>
-
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>

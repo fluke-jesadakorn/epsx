@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@epsx/ui';
+import { Card, CardContent } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
 import { Zap, CreditCard, Wallet, ArrowRight, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 

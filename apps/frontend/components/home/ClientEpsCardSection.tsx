@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@epsx/ui';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 import type { CSSProperties } from 'react';

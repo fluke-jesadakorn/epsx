@@ -4,15 +4,7 @@ import { MessageCircle, Send, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { streamChat } from "@/app/actions/chat";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Input } from "@epsx/ui";
 
 
 import { ErrorBoundary } from "../common/ErrorBoundary";

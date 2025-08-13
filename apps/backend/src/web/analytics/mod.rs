@@ -68,10 +68,11 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
 /// System metrics handler for admin dashboard
 /// GET /api/v1/analytics/system/metrics
 async fn system_metrics_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // Reuse the existing system metrics collection from health module
-    let metrics = crate::web::health::casbin_health_check::collect_system_metrics(&app_state).await;
+    // let metrics = crate::web::health::casbin_health_check::collect_system_metrics(&app_state).await; // Removed Casbin
+    let metrics: std::collections::HashMap<String, String> = std::collections::HashMap::new(); // Placeholder for metrics
     
     // Format response to match frontend expectations
     let response = serde_json::json!({

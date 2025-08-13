@@ -625,7 +625,7 @@ impl ScimProviderTrait for AzureADProvider {
             Ok(user)
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            Err(AppError::NotFound(format!("User not found: {}", error_text)))
+            Err(AppError::not_found(format!("User not found: {}", error_text)))
         }
     }
 
@@ -754,7 +754,7 @@ impl ScimProviderTrait for AzureADProvider {
             Ok(group)
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            Err(AppError::NotFound(format!("Group not found: {}", error_text)))
+            Err(AppError::not_found(format!("Group not found: {}", error_text)))
         }
     }
 
@@ -946,7 +946,7 @@ impl ScimSyncServiceTrait for ScimSyncService {
         results
             .get(sync_id)
             .cloned()
-            .ok_or_else(|| AppError::NotFound(format!("Sync {} not found", sync_id)))
+            .ok_or_else(|| AppError::not_found(format!("Sync {} not found", sync_id)))
     }
 
     async fn cancel_sync(&self, sync_id: &str) -> Result<(), AppError> {
@@ -956,7 +956,7 @@ impl ScimSyncServiceTrait for ScimSyncService {
             sync_result.completed_at = Some(Utc::now());
             Ok(())
         } else {
-            Err(AppError::NotFound(format!("Sync {} not found", sync_id)))
+            Err(AppError::not_found(format!("Sync {} not found", sync_id)))
         }
     }
 

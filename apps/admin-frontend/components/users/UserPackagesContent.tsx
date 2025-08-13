@@ -5,7 +5,7 @@
 
 import { Star, Package, Calendar, Plus, TrendingUp, DollarSign } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth-enhanced'
+import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { StockRankingPackageCard } from './StockRankingPackageCard'
 import { StatsCard } from '@/components/ui/StatsCard'
 

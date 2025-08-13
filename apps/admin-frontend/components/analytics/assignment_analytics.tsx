@@ -1,16 +1,16 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@epsx/ui';
+import { Button } from '@epsx/ui';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from '@epsx/ui';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { fmtDateTime } from '@epsx/shared-utils/formatting';
 import React, { useEffect, useState } from 'react';
 import {

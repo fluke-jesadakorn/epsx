@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Badge } from '@epsx/ui';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';

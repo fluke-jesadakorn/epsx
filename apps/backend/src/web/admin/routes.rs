@@ -26,20 +26,8 @@ use super::unified_user_handlers::{
     update_user_billing_handler,
     get_user_activity_handler,
 };
-use super::casbin_handlers::{
-    get_all_policies_handler,
-    add_policy_handler,
-    remove_policy_handler,
-    add_batch_policies_handler,
-    assign_role_handler,
-    remove_role_handler,
-    get_user_roles_handler,
-    get_user_permissions_handler,
-    test_policy_handler,
-    reload_policies_handler,
-    get_cache_stats_handler,
-    clear_cache_handler,
-};
+// Casbin handlers removed - using modern JWT auth system
+// use super::casbin_handlers::{...};
 use super::permission_profile_handlers::{
     list_permission_profiles_handler,
     get_permission_profile_handler,
@@ -204,23 +192,8 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/permissions/system-backup", post(create_system_backup_handler))
         .route("/permissions/system-backup/:backup_id/restore", post(restore_system_backup_handler))
         
-        // Casbin policy management routes
-        .route("/casbin/policies", get(get_all_policies_handler))
-        .route("/casbin/policies", post(add_policy_handler))
-        .route("/casbin/policies", delete(remove_policy_handler))
-        .route("/casbin/policies/batch", post(add_batch_policies_handler))
-        .route("/casbin/policies/test", post(test_policy_handler))
-        .route("/casbin/policies/reload", post(reload_policies_handler))
-        
-        // Casbin role management routes
-        .route("/casbin/roles", post(assign_role_handler))
-        .route("/casbin/roles", delete(remove_role_handler))
-        .route("/casbin/users/:user_id/roles", get(get_user_roles_handler))
-        .route("/casbin/users/:user_id/permissions", get(get_user_permissions_handler))
-        
-        // Casbin cache management routes
-        .route("/casbin/cache/stats", get(get_cache_stats_handler))
-        .route("/casbin/cache/clear", post(clear_cache_handler))
+        // Modern JWT-based permission management routes (replaces Casbin)
+        // TODO: Implement modern permission management endpoints
         
         // API Keys management routes
         .route("/api-keys", get(list_api_keys_handler))

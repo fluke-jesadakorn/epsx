@@ -4,7 +4,10 @@ import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateReques
 import { createApiClient, isApiError } from '@epsx/api-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
-import { getBearerToken } from './server-auth';
+import { getBearerToken, getCurrentUser } from './server-auth';
+import { logger } from '@/lib/logger';
+
+export { getBearerToken } from './server-auth';
 
 // Get backend URL server-side only
 const getApiClient = async () => {
@@ -18,9 +21,9 @@ const getApiClient = async () => {
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-    console.log('✅ [AdminActions] Adding bearer token to API client');
+    logger.admin.audit('Adding bearer token to API client');
   } else {
-    console.warn('⚠️ [AdminActions] No bearer token found for API client');
+    logger.warn('No bearer token found for API client', { component: 'admin-actions' });
   }
   
   return createApiClient({ 
@@ -32,22 +35,23 @@ const getApiClient = async () => {
 // Server action to get users with proper authentication
 export async function getUsersAction(): Promise<ActionResult<any[]>> {
   try {
-    const session = await auth();
-    if (!session) {
-      return { success: false, error: 'No authentication session found' };
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
     }
 
-    console.log('🔐 [AdminActions] Getting users with session:', {
-      hasSession: !!session,
-      hasSessionId: !!session.session_id,
-      userEmail: session.user?.email
+    logger.admin.userOperation('Getting users list', {
+      userId: user.user_id,
+      email: user.email,
+      isAdmin: user.admin,
+      adminModules: user.admin_modules
     });
 
     const apiClient = await getApiClient();
     const response = await apiClient.get('/api/v1/admin/users');
 
     if (isApiError(response)) {
-      console.error('Failed to fetch users', { error: response.error, details: response.details });
+      logger.action.error('getUsersAction', response.error, { details: response.details });
       return { 
         success: false, 
         error: response.error || 'Failed to fetch users'
@@ -56,9 +60,7 @@ export async function getUsersAction(): Promise<ActionResult<any[]>> {
 
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('Users fetch error', { 
-      error: error instanceof Error ? error.message : String(error)
-    });
+    logger.action.error('getUsersAction', error);
     return { 
       success: false, 
       error: 'Failed to fetch users' 
@@ -81,7 +83,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     });
 
     if (isApiError(response)) {
-      console.error('Failed to assign permission profile', { error: response.error, details: response.details, profileId, userId }, 'AdminActionLayer');
+      logger.action.error('assignPermissionProfileAction', response.error, { details: response.details, profileId, userId });
       return { 
         success: false, 
         error: response.error || 'Failed to assign permission profile'
@@ -95,11 +97,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('Permission profile assignment error', { 
-      error: error instanceof Error ? error.message : String(error),
-      profileId,
-      userId
-    }, 'AdminActionLayer');
+    logger.action.error('assignPermissionProfileAction', error, { profileId, userId });
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Assignment failed' 

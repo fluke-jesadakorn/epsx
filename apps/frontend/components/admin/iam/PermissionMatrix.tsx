@@ -1,14 +1,9 @@
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
   // Filter - removed unused import 
@@ -23,8 +18,6 @@ import {
   XCircle
 } from 'lucide-react';
 import { permissionService, Permission, Role, User } from '@/services/permissionService';
-
-
 export function PermissionMatrix() {
   const [view, setView] = useState<'matrix' | 'list'>('matrix');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +27,6 @@ export function PermissionMatrix() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -53,22 +45,17 @@ export function PermissionMatrix() {
         setLoading(false);
       }
     };
-
     loadData();
   }, []);
-
   const resources = Array.from(new Set(permissions.map(p => p.resource)));
   const riskLevels = ['low', 'medium', 'high'];
-
   const filteredPermissions = permissions.filter(permission => {
     const matchesSearch = permission.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          permission.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesResource = selectedResource === 'all' || permission.resource === selectedResource;
     const matchesRisk = selectedRisk === 'all' || permission.risk === selectedRisk;
-    
     return matchesSearch && matchesResource && matchesRisk;
   });
-
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'low': return 'text-green-600 bg-green-50';
@@ -77,7 +64,6 @@ export function PermissionMatrix() {
       default: return 'text-gray-600 bg-gray-50';
     }
   };
-
   const getRiskIcon = (risk: string) => {
     switch (risk) {
       case 'low': return <CheckCircle className="h-4 w-4" />;
@@ -86,24 +72,19 @@ export function PermissionMatrix() {
       default: return null;
     }
   };
-
   const hasPermission = (roleId: string, permissionId: string) => {
     const role = roles.find(r => r.id === roleId);
     return role?.permissions.includes(permissionId) || false;
   };
-
   const getEffectivePermissions = (userId: string) => {
     const user = users.find(u => u.id === userId);
     if (!user) return new Set<string>();
-
     const rolePermissions = user.roles.flatMap(roleId => {
       const role = roles.find(r => r.id === roleId);
       return role?.permissions || [];
     });
-
     return new Set([...rolePermissions, ...user.directPermissions]);
   };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -111,7 +92,6 @@ export function PermissionMatrix() {
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -122,7 +102,6 @@ export function PermissionMatrix() {
             View and manage permissions across roles and users
           </p>
         </div>
-
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             <Button
@@ -140,14 +119,12 @@ export function PermissionMatrix() {
               <List className="h-4 w-4" />
             </Button>
           </div>
-
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
         </div>
       </div>
-
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
@@ -161,7 +138,6 @@ export function PermissionMatrix() {
                 className="pl-9"
               />
             </div>
-
             <Select value={selectedResource} onValueChange={setSelectedResource}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Resource" />
@@ -175,7 +151,6 @@ export function PermissionMatrix() {
                 ))}
               </SelectContent>
             </Select>
-
             <Select value={selectedRisk} onValueChange={setSelectedRisk}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Risk" />
@@ -192,7 +167,6 @@ export function PermissionMatrix() {
           </div>
         </CardContent>
       </Card>
-
       {/* Permission Matrix/List */}
       <Tabs defaultValue="roles" className="space-y-4">
         <TabsList>
@@ -205,7 +179,6 @@ export function PermissionMatrix() {
             User Permissions
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="roles">
           {view === 'matrix' ? (
             <RoleMatrixView 
@@ -225,7 +198,6 @@ export function PermissionMatrix() {
             />
           )}
         </TabsContent>
-
         <TabsContent value="users">
           <UserPermissionView 
             permissions={filteredPermissions}
@@ -240,7 +212,6 @@ export function PermissionMatrix() {
     </div>
   );
 }
-
 // Role Matrix View
 interface RoleMatrixViewProps {
   permissions: Permission[];
@@ -249,7 +220,6 @@ interface RoleMatrixViewProps {
   getRiskColor: (risk: string) => string;
   getRiskIcon: (risk: string) => JSX.Element | null;
 }
-
 function RoleMatrixView({ permissions, roles, hasPermission, getRiskColor, getRiskIcon }: RoleMatrixViewProps) {
   return (
     <Card>
@@ -289,14 +259,12 @@ function RoleMatrixView({ permissions, roles, hasPermission, getRiskColor, getRi
                       </Badge>
                     </div>
                   </TableCell>
-                  
                   <TableCell>
                     <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getRiskColor(permission.risk)}`}>
                       {getRiskIcon(permission.risk)}
                       {permission.risk}
                     </div>
                   </TableCell>
-                  
                   {roles.map(role => (
                     <TableCell key={role.id} className="text-center">
                       <Checkbox
@@ -314,10 +282,8 @@ function RoleMatrixView({ permissions, roles, hasPermission, getRiskColor, getRi
     </Card>
   );
 }
-
 // Role List View
 interface RoleListViewProps extends RoleMatrixViewProps {}
-
 function RoleListView({ permissions, roles, hasPermission, getRiskColor, getRiskIcon }: RoleListViewProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -361,7 +327,6 @@ function RoleListView({ permissions, roles, hasPermission, getRiskColor, getRisk
     </div>
   );
 }
-
 // User Permission View
 interface UserPermissionViewProps {
   permissions: Permission[];
@@ -371,7 +336,6 @@ interface UserPermissionViewProps {
   getRiskColor: (risk: string) => string;
   getRiskIcon: (risk: string) => JSX.Element | null;
 }
-
 function UserPermissionView({ 
   permissions, 
   users, 
@@ -385,7 +349,6 @@ function UserPermissionView({
       {users.map(user => {
         const effectivePermissions = getEffectivePermissions(user.id);
         const userRoles = roles.filter(role => user.roles.includes(role.id));
-        
         return (
           <Card key={user.id}>
             <CardHeader>
@@ -414,7 +377,6 @@ function UserPermissionView({
                   .filter(p => effectivePermissions.has(p.id))
                   .map(permission => {
                     const isDirect = user.directPermissions.includes(permission.id);
-                    
                     return (
                       <div key={permission.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex-1">
