@@ -46,7 +46,7 @@ export async function makeServerRequest<T = any>(
         );
 
         if (authToken) {
-          console.log('🔑 Using Auth.js session token');
+          console.log('🔑 Using JWT token for authentication');
         }
       } catch (authError) {
         console.warn('Authentication token extraction failed:', authError);
@@ -72,7 +72,7 @@ export async function makeServerRequest<T = any>(
       headers['Authorization'] = `Bearer ${authToken}`;
 
       // Add provider hint for backend routing
-      headers['X-Provider-Hint'] = 'auth.js';
+      headers['X-Provider-Hint'] = 'jwt';
 
       console.log(`📨 Adding Authorization header for request to ${url}`);
     } else {
@@ -164,16 +164,17 @@ export async function makeServerRequest<T = any>(
 }
 
 /**
- * Extract Auth.js session token from client-side
+ * Extract JWT token from client-side
  */
 async function extractClientSideToken(): Promise<string> {
-  // Client-side token extraction will be handled by Auth.js session
-  // For now, return empty string and let Auth.js handle it
+  // Client-side token extraction will be handled by client auth store
+  // For now, return empty string and let client handle it
   return '';
 }
 
 /**
- * Extract Auth.js session token from server-side cookies
+ * Extract JWT token from server-side cookies
+ * Supports both frontend and admin applications with their specific cookie names
  */
 async function extractServerSideToken(): Promise<string> {
   try {
@@ -189,33 +190,40 @@ async function extractServerSideToken(): Promise<string> {
       ).join(', ')
     );
 
-    // Look for Auth.js session token
+    // Look for application-specific JWT tokens first
+    // Frontend application uses 'epsx_frontend_jwt'
+    const frontendJwtToken = cookieStore.get('epsx_frontend_jwt');
+    if (frontendJwtToken?.value) {
+      console.log('🔑 Found frontend JWT token');
+      return frontendJwtToken.value;
+    }
+
+    // Admin application uses 'epsx_admin_jwt'
+    const adminJwtToken = cookieStore.get('epsx_admin_jwt');
+    if (adminJwtToken?.value) {
+      console.log('🔑 Found admin JWT token');
+      return adminJwtToken.value;
+    }
+
+    // Legacy fallback: generic JWT token (backward compatibility)
+    const genericJwtToken = cookieStore.get('epsx_jwt');
+    if (genericJwtToken?.value) {
+      console.log('🔑 Found generic JWT token (legacy)');
+      return genericJwtToken.value;
+    }
+
+    // Legacy fallback: look for NextAuth session tokens
     const sessionToken =
       cookieStore.get('next-auth.session-token') ||
       cookieStore.get('__Secure-next-auth.session-token');
 
     if (sessionToken?.value) {
-      console.log('🔑 Found Auth.js session token');
+      console.log('🔑 Found NextAuth session token (legacy)');
       return sessionToken.value;
-    } else {
-      console.log('❌ Auth.js session token not found or empty');
-    }
-
-    // Fallback: look for other JWT tokens
-    const allCookies = cookieStore.getAll();
-    const jwtCookie = allCookies.find(
-      c => c.value.includes('.') && c.value.split('.').length === 3
-    );
-
-    if (jwtCookie?.value) {
-      console.log('🔑 Found JWT token in fallback');
-      return jwtCookie.value;
-    } else {
-      console.log('❌ JWT token not found in fallback');
     }
 
     console.warn(
-      '⚠️ No valid tokens found in cookies. Available cookies:',
+      '⚠️ No JWT tokens found in cookies. Available cookies:',
       Array.from(cookieStore.getAll().map(c => c.name)).join(', ')
     );
     return '';
@@ -226,12 +234,12 @@ async function extractServerSideToken(): Promise<string> {
 }
 
 /**
- * Refresh Auth.js session token on client-side
+ * Refresh JWT token on client-side
  */
 async function refreshClientSideToken(): Promise<string | null> {
   try {
-    // Client-side refresh will be handled by Auth.js session hooks
-    console.debug('Client-side token refresh handled by Auth.js');
+    // Client-side refresh will be handled by auth store
+    console.debug('Client-side token refresh handled by auth store');
     return null;
   } catch (error) {
     console.debug('Client-side token refresh failed:', error);
@@ -240,12 +248,12 @@ async function refreshClientSideToken(): Promise<string | null> {
 }
 
 /**
- * Refresh token on server-side
+ * Refresh JWT token on server-side
  */
 async function refreshServerSideToken(): Promise<string | null> {
   try {
-    // Server-side refresh will be handled by Auth.js
-    console.debug('Server-side token refresh handled by Auth.js');
+    // Server-side refresh will be handled by JWT refresh logic
+    console.debug('Server-side token refresh handled by JWT system');
     return null;
   } catch (error) {
     console.debug('Server-side token refresh failed:', error);
