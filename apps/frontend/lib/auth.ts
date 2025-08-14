@@ -318,32 +318,52 @@ export function getPackageFeatures(tier: string): string[] {
 
 // OIDC Authorization URL generation with PKCE for main frontend
 export async function getAuthorizationUrl() {
-  // Generate PKCE parameters
-  const codeVerifier = generateCodeVerifier()
-  const codeChallenge = await generateCodeChallenge(codeVerifier)
-  const state = generateRandomString(32)
-  
-  // Build authorization URL
-  const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`
-  const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/epsx-backend`
-  
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: 'openid profile email',
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-  })
-  
-  const url = `${authorizationEndpoint}?${params.toString()}`
-  
-  return {
-    url,
-    codeVerifier,
-    state,
+  try {
+    console.log('🔄 Frontend: Generating PKCE parameters for OAuth authorization...')
+    
+    // Generate PKCE parameters
+    const codeVerifier = generateCodeVerifier()
+    console.log('✅ Frontend: Code verifier generated successfully')
+    
+    const codeChallenge = await generateCodeChallenge(codeVerifier)
+    console.log('✅ Frontend: Code challenge generated successfully')
+    
+    const state = generateRandomString(32)
+    console.log('✅ Frontend: State parameter generated successfully')
+    
+    // Build authorization URL
+    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`
+    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/epsx-backend`
+    
+    console.log('🔧 Frontend: OAuth configuration:', {
+      authorizationEndpoint,
+      clientId,
+      redirectUri,
+      scope: 'openid profile email'
+    })
+    
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: 'openid profile email',
+      state: state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    })
+    
+    const url = `${authorizationEndpoint}?${params.toString()}`
+    console.log('✅ Frontend: Authorization URL generated successfully:', url)
+    
+    return {
+      url,
+      codeVerifier,
+      state,
+    }
+  } catch (error) {
+    console.error('❌ Frontend: Failed to generate authorization URL:', error)
+    throw new Error(`OAuth authorization URL generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -376,22 +396,44 @@ export async function getUserInfo(accessToken: string) {
 
 // PKCE helper functions for main frontend
 function generateCodeVerifier(): string {
-  const array = new Uint8Array(32)
-  crypto.getRandomValues(array)
-  return base64URLEncode(array)
+  // Use Node.js crypto in server environment, Web Crypto API in browser
+  if (typeof window === 'undefined') {
+    // Server-side: use Node.js crypto
+    const crypto = require('crypto')
+    return crypto.randomBytes(32).toString('base64url')
+  } else {
+    // Client-side: use Web Crypto API
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
+    return base64URLEncode(array)
+  }
 }
 
 async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(verifier)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return base64URLEncode(new Uint8Array(digest))
+  if (typeof window === 'undefined') {
+    // Server-side: use Node.js crypto
+    const crypto = require('crypto')
+    return crypto.createHash('sha256').update(verifier).digest('base64url')
+  } else {
+    // Client-side: use Web Crypto API
+    const encoder = new TextEncoder()
+    const data = encoder.encode(verifier)
+    const digest = await crypto.subtle.digest('SHA-256', data)
+    return base64URLEncode(new Uint8Array(digest))
+  }
 }
 
 function generateRandomString(length: number): string {
-  const array = new Uint8Array(length)
-  crypto.getRandomValues(array)
-  return base64URLEncode(array)
+  if (typeof window === 'undefined') {
+    // Server-side: use Node.js crypto
+    const crypto = require('crypto')
+    return crypto.randomBytes(length).toString('base64url')
+  } else {
+    // Client-side: use Web Crypto API
+    const array = new Uint8Array(length)
+    crypto.getRandomValues(array)
+    return base64URLEncode(array)
+  }
 }
 
 function base64URLEncode(array: Uint8Array): string {
