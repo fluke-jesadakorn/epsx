@@ -18,11 +18,17 @@ export interface ServerRequestOptions extends RequestInit {
 export async function makeServerRequest<T = any>(
   options: ServerRequestOptions
 ): Promise<T> {
-  const { endpoint, baseUrl, skipAuth = false, retryAuth = true, ...fetchOptions } = options;
-  
+  const {
+    endpoint,
+    baseUrl,
+    skipAuth = false,
+    retryAuth = true,
+    ...fetchOptions
+  } = options;
+
   try {
     let authToken = '';
-    
+
     // Skip authentication if requested
     if (!skipAuth) {
       try {
@@ -34,9 +40,11 @@ export async function makeServerRequest<T = any>(
           // Server-side: extract token from cookies
           authToken = await extractServerSideToken();
         }
-        
-        console.log(`🔐 Token extraction result - SkipAuth: ${skipAuth}, Token: ${authToken ? 'present' : 'missing'}`);
-        
+
+        console.log(
+          `🔐 Token extraction result - SkipAuth: ${skipAuth}, Token: ${authToken ? 'present' : 'missing'}`
+        );
+
         if (authToken) {
           console.log('🔑 Using Auth.js session token');
         }
@@ -44,47 +52,54 @@ export async function makeServerRequest<T = any>(
         console.warn('Authentication token extraction failed:', authError);
       }
     }
-    
+
     // Use environment variable for backend URL
-    const backendUrl = baseUrl || process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+    const backendUrl =
+      baseUrl ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.BACKEND_URL ||
+      'http://localhost:8080';
     const url = `${backendUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(fetchOptions.headers as Record<string, string> || {}),
+      Accept: 'application/json',
+      ...((fetchOptions.headers as Record<string, string>) || {}),
     };
-    
+
     // Add unified OpenID Bearer token authentication
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
-      
+
       // Add provider hint for backend routing
       headers['X-Provider-Hint'] = 'auth.js';
-      
+
       console.log(`📨 Adding Authorization header for request to ${url}`);
     } else {
       console.log(`📨 No auth token, making unauthenticated request to ${url}`);
     }
-    
-    console.log(`📤 Making request to ${url} with headers:`, Object.keys(headers));
-    
+
+    console.log(
+      `📤 Making request to ${url} with headers:`,
+      Object.keys(headers)
+    );
+
     const response = await fetch(url, {
       ...fetchOptions,
       headers,
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       const errorMessage = `HTTP ${response.status}: ${errorText || 'Request failed'}`;
-      
+
       // Handle authentication errors with token refresh
       if (response.status === 401 && retryAuth && !skipAuth && authToken) {
         console.log('🔄 Token expired, attempting refresh...');
-        
+
         try {
           let refreshedToken: string | null = null;
-          
+
           if (typeof window !== 'undefined') {
             // Client-side: trigger Auth.js session refresh
             refreshedToken = await refreshClientSideToken();
@@ -92,41 +107,57 @@ export async function makeServerRequest<T = any>(
             // Server-side refresh logic
             refreshedToken = await refreshServerSideToken();
           }
-          
+
           if (refreshedToken && refreshedToken !== authToken) {
             console.log('🔄 Token refreshed, retrying request...');
             // Retry the request with refreshed token
             return makeServerRequest<T>({
               ...options,
-              retryAuth: false // Prevent infinite retry loop
+              retryAuth: false, // Prevent infinite retry loop
             });
           }
         } catch (refreshError) {
           console.error('Token refresh failed:', refreshError);
         }
       }
-      
+
       // Add more context for common errors
       if (response.status === 404) {
-        console.error(`API endpoint not found: ${url}. Please check if the backend implements this endpoint.`);
-        throw new Error(`${errorMessage}\nEndpoint: ${url}\nBackend URL: ${backendUrl}`);
+        console.error(
+          `API endpoint not found: ${url}. Please check if the backend implements this endpoint.`
+        );
+        throw new Error(
+          `${errorMessage}\nEndpoint: ${url}\nBackend URL: ${backendUrl}`
+        );
       } else if (response.status === 401) {
-        console.error(`Authentication failed for: ${url}. Token may be invalid or expired.`);
-        throw new Error(`${errorMessage}\nAuthentication required for: ${endpoint}`);
+        console.error(
+          `Authentication failed for: ${url}. Token may be invalid or expired.`
+        );
+        throw new Error(
+          `${errorMessage}\nAuthentication required for: ${endpoint}`
+        );
       } else if (response.status >= 500) {
-        console.error(`Server error for: ${url}. Backend may be down or misconfigured.`);
+        console.error(
+          `Server error for: ${url}. Backend may be down or misconfigured.`
+        );
         throw new Error(`${errorMessage}\nServer error at: ${endpoint}`);
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     return response.json();
   } catch (error) {
     // Handle network failures more gracefully
     if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      const backendUrl = baseUrl || process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-      throw new Error(`Network connection failed: Unable to reach backend at ${backendUrl}`);
+      const backendUrl =
+        baseUrl ||
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.BACKEND_URL ||
+        'http://localhost:8080';
+      throw new Error(
+        `Network connection failed: Unable to reach backend at ${backendUrl}`
+      );
     }
     throw error;
   }
@@ -148,41 +179,50 @@ async function extractServerSideToken(): Promise<string> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    
-    console.log('🍪 Available cookies:', Array.from(cookieStore.getAll().map(c => `${c.name}=${c.value?.substring(0, 10)}...`)).join(', '));
-    
+
+    console.log(
+      '🍪 Available cookies:',
+      Array.from(
+        cookieStore
+          .getAll()
+          .map(c => `${c.name}=${c.value?.substring(0, 10)}...`)
+      ).join(', ')
+    );
+
     // Look for Auth.js session token
-    const sessionToken = cookieStore.get('next-auth.session-token') || 
-                        cookieStore.get('__Secure-next-auth.session-token');
-    
+    const sessionToken =
+      cookieStore.get('next-auth.session-token') ||
+      cookieStore.get('__Secure-next-auth.session-token');
+
     if (sessionToken?.value) {
       console.log('🔑 Found Auth.js session token');
       return sessionToken.value;
     } else {
       console.log('❌ Auth.js session token not found or empty');
     }
-    
+
     // Fallback: look for other JWT tokens
     const allCookies = cookieStore.getAll();
-    const jwtCookie = allCookies.find(c => 
-      c.value.includes('.') && c.value.split('.').length === 3
+    const jwtCookie = allCookies.find(
+      c => c.value.includes('.') && c.value.split('.').length === 3
     );
-    
+
     if (jwtCookie?.value) {
       console.log('🔑 Found JWT token in fallback');
       return jwtCookie.value;
     } else {
       console.log('❌ JWT token not found in fallback');
     }
-    
-    console.warn('⚠️ No valid tokens found in cookies. Available cookies:', 
-      Array.from(cookieStore.getAll().map(c => c.name)).join(', '));
+
+    console.warn(
+      '⚠️ No valid tokens found in cookies. Available cookies:',
+      Array.from(cookieStore.getAll().map(c => c.name)).join(', ')
+    );
     return '';
   } catch (error) {
     console.debug('Failed to extract server-side token:', error);
     return '';
   }
-}
 }
 
 /**
@@ -217,12 +257,12 @@ async function refreshServerSideToken(): Promise<string | null> {
  * Helper for making GET requests
  */
 export async function serverGet<T = any>(
-  endpoint: string, 
+  endpoint: string,
   params?: Record<string, string | number | boolean>,
   options?: Omit<ServerRequestOptions, 'endpoint' | 'method'>
 ): Promise<T> {
   let url = endpoint;
-  
+
   if (params) {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -230,12 +270,12 @@ export async function serverGet<T = any>(
         queryParams.append(key, String(value));
       }
     });
-    
+
     if (queryParams.toString()) {
       url += `?${queryParams.toString()}`;
     }
   }
-  
+
   return makeServerRequest<T>({
     endpoint: url,
     method: 'GET',
@@ -247,7 +287,7 @@ export async function serverGet<T = any>(
  * Helper for making POST requests
  */
 export async function serverPost<T = any>(
-  endpoint: string, 
+  endpoint: string,
   data?: any,
   options?: Omit<ServerRequestOptions, 'endpoint' | 'method'>
 ): Promise<T> {
@@ -263,7 +303,7 @@ export async function serverPost<T = any>(
  * Helper for making PUT requests
  */
 export async function serverPut<T = any>(
-  endpoint: string, 
+  endpoint: string,
   data?: any,
   options?: Omit<ServerRequestOptions, 'endpoint' | 'method'>
 ): Promise<T> {
@@ -293,7 +333,7 @@ export async function serverDelete<T = any>(
  * Helper for making PATCH requests
  */
 export async function serverPatch<T = any>(
-  endpoint: string, 
+  endpoint: string,
   data?: any,
   options?: Omit<ServerRequestOptions, 'endpoint' | 'method'>
 ): Promise<T> {
