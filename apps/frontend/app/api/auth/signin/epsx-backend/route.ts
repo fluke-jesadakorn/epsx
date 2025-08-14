@@ -3,7 +3,7 @@
  * Initiates OAuth 2.0 authorization flow for trading platform backend
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthorizationUrl } from '@/lib/auth';
+import { getAuthorizationUrl } from '@/lib/server/auth';
 
 export async function GET(request: NextRequest) {
   try {

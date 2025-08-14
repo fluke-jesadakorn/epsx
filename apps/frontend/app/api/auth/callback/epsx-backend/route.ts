@@ -3,7 +3,7 @@
  * Handles OAuth authorization callback and creates user session
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens, getUserInfo } from '@/lib/auth';
+import { exchangeCodeForTokens, getUserInfo } from '@/lib/server/auth';
 import { signJWT, createJWTClaims, createCookieManager } from '@epsx/auth-shared';
 import { cookies } from 'next/headers';
 
