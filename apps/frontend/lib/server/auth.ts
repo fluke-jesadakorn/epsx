@@ -210,11 +210,45 @@ export async function getAuthorizationUrl() {
  * Exchange authorization code for tokens (simplified flow)
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
-  // In our simplified implementation, the authorization code IS the access token
-  return {
-    accessToken: code,
-    idToken: null, // Not used in simplified flow
-    refreshToken: null, // Not used in simplified flow
+  try {
+    console.log('🔄 Frontend: Exchanging authorization code for access token...')
+    
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/epsx-backend`
+    
+    const response = await fetch(`${apiUrl}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        code_verifier: codeVerifier,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Frontend: Token exchange failed:', response.status, response.statusText, errorText)
+      throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const tokens = await response.json()
+    console.log('✅ Frontend: Successfully received tokens from backend')
+    
+    return {
+      accessToken: tokens.access_token,
+      idToken: tokens.id_token,
+      refreshToken: tokens.refresh_token,
+    }
+  } catch (error) {
+    console.error('❌ Frontend: Token exchange error:', error)
+    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
