@@ -1,10 +1,9 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { PublicRankingPreviewClient } from './PublicRankingPreview.client';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface PublicRankingPreviewServerProps {
   className?: string;

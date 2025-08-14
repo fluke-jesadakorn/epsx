@@ -1,10 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Card } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { 
   LineChart, 
   Line, 
@@ -20,6 +16,7 @@ import {
   AreaChart
 } from 'recharts';
 import { TrendingUp, TrendingDown, BarChart3, LineChart as LineChartIcon, AreaChart as AreaChartIcon } from 'lucide-react';
+import { Card, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 
 interface EPSGrowthChartProps {
   data: any[];

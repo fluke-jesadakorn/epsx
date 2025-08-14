@@ -7,9 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Mail, ArrowLeft } from 'lucide-react';
+import { Button } from '@epsx/ui';
 
 interface SignupSuccessProps {
   email: string;

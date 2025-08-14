@@ -3,15 +3,12 @@
 import { apiClient, isApiError   } from '@/lib/api-client.client';
 import type {ProfileUpdateRequest as _ProfileUpdateRequest, PasswordChangeRequest as _PasswordChangeRequest} from '@/lib/api-client.client';
 import { useEffect, useState } from 'react';
+import { Badge, Button, Input, Label } from '@epsx/ui';
 
 import type { UserLevelType } from '@/app/constants/packages';
 import { canAccessLevel, getPackageByLevel } from '@/app/constants/packages';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
 // Note: User session data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Gem, Key, Save, Star, Trophy, User } from 'lucide-react';

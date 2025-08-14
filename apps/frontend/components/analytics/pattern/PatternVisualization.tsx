@@ -1,10 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { 
   ScatterChart, 
   Scatter, 
@@ -29,6 +25,7 @@ import {
   Eye,
   Download
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 
 interface PatternVisualizationProps {
   patterns: any[];

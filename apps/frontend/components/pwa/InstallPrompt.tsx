@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@epsx/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { pwaManager } from '@/lib/pwa';
 import { 
   Download, 
@@ -15,6 +12,7 @@ import {
   Wifi,
   Shield
 } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface InstallPromptProps {
   onInstall?: () => void;

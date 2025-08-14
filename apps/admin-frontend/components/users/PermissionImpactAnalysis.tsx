@@ -11,7 +11,7 @@ import { Button } from '@epsx/ui'
 import { Badge } from '@epsx/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui'
 import { Progress } from '@/components/ui/progress'
-import { getPermissionImpact } from '@/lib/actions/unified-user-actions'
+import { getPermissionImpact } from '@/lib/actions/user-actions'
 
 interface PermissionImpactAnalysisProps {
   userId: string

@@ -1,12 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Input } from '@epsx/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { X, Plus, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input } from '@epsx/ui';
 
 interface ComparisonTableProps {
   primarySymbol: string;

@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,6 +17,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { permissionService, Permission, Role, User } from '@/services/permissionService';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 export function PermissionMatrix() {
   const [view, setView] = useState<'matrix' | 'list'>('matrix');
   const [searchTerm, setSearchTerm] = useState('');

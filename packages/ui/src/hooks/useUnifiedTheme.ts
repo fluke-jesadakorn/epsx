@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 
-import { useTheme } from '../providers/theme-provider.js';
-import { designTokens } from '../tokens/design-tokens.js';
-import { themeConfig } from '../tokens/theme-config.js';
+import { useTheme } from '../providers/theme-provider';
+import { designTokens } from '../tokens/design-tokens';
+import { themeConfig } from '../tokens/theme-config';
 
-import type { ThemeVariant } from '../tokens/theme-config.js';
+import type { ThemeVariant } from '../tokens/theme-config';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type UnifiedThemeVariant = ThemeVariant;

@@ -1,43 +1,111 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './__test__/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
-  reporter: 'html',
+  timeout: 60000,
+  expect: {
+    timeout: 10000
+  },
+  reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+    ['list']
+  ],
+  outputDir: 'test-results',
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
   },
   projects: [
+    // Setup project for authentication
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'setup',
+      testMatch: /global\.setup\.ts/,
     },
+    
+    // Core functionality tests
+    {
+      name: 'core',
+      testMatch: [
+        '**/frontend.spec.ts',
+        '**/auth-flow.spec.ts'
+      ],
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    
+    // Complete coverage tests
+    {
+      name: 'coverage',
+      testMatch: '**/complete-coverage.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    
+    // Enhanced auth flow tests
+    {
+      name: 'auth-enhanced',
+      testMatch: '**/enhanced-auth-flow.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    
+    // User journey tests
+    {
+      name: 'journeys',
+      testMatch: '**/user-journey-flows.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    
+    // Cross-browser testing
     {
       name: 'firefox',
+      testMatch: '**/complete-coverage.spec.ts',
       use: { ...devices['Desktop Firefox'] },
+      dependencies: ['setup'],
     },
+    
     {
       name: 'webkit',
+      testMatch: '**/complete-coverage.spec.ts', 
       use: { ...devices['Desktop Safari'] },
+      dependencies: ['setup'],
     },
+    
+    // Mobile testing
     {
-      name: 'Mobile Chrome',
+      name: 'mobile-chrome',
+      testMatch: [
+        '**/complete-coverage.spec.ts',
+        '**/enhanced-auth-flow.spec.ts'
+      ],
       use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
     },
+    
     {
-      name: 'Mobile Safari',
+      name: 'mobile-safari',
+      testMatch: [
+        '**/complete-coverage.spec.ts',
+        '**/enhanced-auth-flow.spec.ts'
+      ],
       use: { ...devices['iPhone 12'] },
+      dependencies: ['setup'],
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  // webServer: {
+  //   command: 'npm run dev',
+  //   url: 'http://localhost:3000',
+  //   reuseExistingServer: !process.env.CI,
+  // },
 });

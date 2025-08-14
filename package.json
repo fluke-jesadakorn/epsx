@@ -49,25 +49,21 @@
     "type-check:apps": "turbo run type-check --filter='./apps/*'",
     "// Testing Scripts": "===================================",
     "test": "turbo run test",
-    
     "// Clean Architecture Layer Tests": "===============================",
     "test:domain": "turbo run test:domain",
-    "test:application": "turbo run test:application", 
+    "test:application": "turbo run test:application",
     "test:infrastructure": "turbo run test:infrastructure",
     "test:presentation": "turbo run test:presentation",
-    
     "// Legacy Test Commands": "=====================================",
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
     "test:e2e": "turbo run test:e2e",
-    
     "// Application-Specific Tests": "===============================",
     "test:backend": "turbo run test:backend",
     "test:frontend": "turbo run test:frontend",
     "test:admin": "turbo run test:admin",
     "test:e2e:frontend": "turbo run test:e2e:frontend",
     "test:e2e:admin": "turbo run test:e2e:admin",
-    
     "// Development & CI Workflows": "===============================",
     "test:watch": "turbo run test:watch",
     "test:ci": "turbo run test:ci",
@@ -141,5 +137,19 @@
   ],
   "dependencies": {
     "react-icons": "^5.5.0"
-  }
+  },
+  "main": "oauth-test-server.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fluke-jesadakorn/epsx.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/fluke-jesadakorn/epsx/issues"
+  },
+  "homepage": "https://github.com/fluke-jesadakorn/epsx#readme"
 }

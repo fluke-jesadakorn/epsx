@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 
 /**
  * Ensure user is not authenticated (guest only pages)
- * Now uses NextAuth.js session
+ * Uses custom iron-session based authentication
  */
 export async function requireGuest(): Promise<void> {
   const session = await auth();

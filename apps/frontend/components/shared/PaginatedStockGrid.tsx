@@ -12,10 +12,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Badge,
+  Button,
 } from '@epsx/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import {
   TrendingUp,
   TrendingDown,

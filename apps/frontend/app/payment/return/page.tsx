@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, Button } from '@epsx/ui';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +15,7 @@ export default function PaymentReturnPage() {
   const [countdown, setCountdown] = useState(10);
   useEffect(() => {
     // Load payment data from session storage
+import { Card, CardContent, Button } from '@epsx/ui';
     const storedPayment = sessionStorage.getItem('activePayment');
     if (storedPayment) {
       try {

@@ -1,6 +1,6 @@
 /**
  * User List Server Actions - Focused on user listing and search
- * Extracted from unified-user-actions.ts for better maintainability
+ * Extracted from user-actions.ts for better maintainability
  */
 
 'use server'

@@ -1,4 +1,4 @@
-export * from '../providers/theme-provider.js';
+export * from '../providers/theme-provider';
 
 // Re-export the comprehensive theme system as the canonical implementation
 // This consolidates all theme hook patterns into a single source of truth

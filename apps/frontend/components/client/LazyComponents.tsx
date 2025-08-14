@@ -13,7 +13,7 @@ export const LazyNavControls = lazy(() =>
 );
 
 export const LazyAnalyticsDashboard = lazy(() => 
-  import('../analytics/AnalyticsRankingDashboard')
+  import('../analytics/AnalyticsRankingDash')
 );
 
 export const LazyPaymentSection = lazy(() => 

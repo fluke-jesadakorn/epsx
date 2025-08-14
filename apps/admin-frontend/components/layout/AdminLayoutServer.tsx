@@ -1,10 +1,10 @@
 /**
  * Server-Side Admin Layout
- * Renders the layout with server-side authentication context
+ * Renders the layout with our custom session management
  */
 
 import { ReactNode } from 'react';
-import { getCurrentUser } from '@/lib/actions/server-auth';
+import { getSession } from '@/lib/auth/session';
 import { AdminLayoutClient } from './AdminLayoutClient';
 
 interface AdminLayoutServerProps {
@@ -12,20 +12,26 @@ interface AdminLayoutServerProps {
 }
 
 /**
- * Server component that fetches user data and passes it to the client layout
+ * Server component that fetches session and passes it to the client layout
  */
 export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
-  // Fetch user data on the server
-  let user = null;
+  // Fetch session on the server
+  let session = null;
   try {
-    user = await getCurrentUser();
+    const sessionData = await getSession();
+    if (sessionData?.isLoggedIn && sessionData.user) {
+      session = {
+        user: sessionData.user,
+        isLoggedIn: sessionData.isLoggedIn
+      };
+    }
   } catch (error) {
-    console.error('Failed to get user data in layout:', error);
+    console.error('Failed to get session data in layout:', error);
   }
 
   // Pass server data to client component
   return (
-    <AdminLayoutClient user={user}>
+    <AdminLayoutClient session={session}>
       {children}
     </AdminLayoutClient>
   );

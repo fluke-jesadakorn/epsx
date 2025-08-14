@@ -2,6 +2,7 @@
 
 import { ReactNode, useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSignOut, Session } from '@/lib/auth';
 import Link from 'next/link';
 import {
   Activity,
@@ -27,16 +28,16 @@ import {
   X,
 } from 'lucide-react';
 import { Breadcrumb } from './Breadcrumb';
-import { AuthUser } from '@/lib/actions/server-auth';
 
 interface AdminLayoutClientProps {
   children: ReactNode;
-  user: AuthUser | null;
+  session: Session | null;
 }
 
-export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
+export function AdminLayoutClient({ children, session }: AdminLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { signOut, isLoading: isSigningOut } = useSignOut();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // Load collapsed state from localStorage
@@ -246,10 +247,11 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
     },
   ];
 
-  // Filter menu items based on user's admin modules
+  // Filter menu items based on session's admin modules
   const hasAdminModule = (module: string | null) => {
     if (!module) return true; // No module required
-    return user?.admin_modules?.includes(module) || false;
+    const adminModules = (session?.user as any)?.admin_modules as string[] || [];
+    return adminModules.includes(module);
   };
 
   const filteredMenuGroups = menuGroups
@@ -295,11 +297,11 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
 
   const handleLogout = async () => {
     try {
-      // Call logout endpoint
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      // Use our custom signOut
+      await signOut();
     } catch (error) {
       console.error('Logout failed:', error);
+      // Fallback to manual redirect
       router.replace('/login');
     }
   };
@@ -597,15 +599,15 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
             }`}
           >
             <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-white">{user?.email?.charAt(0).toUpperCase() || 'A'}</span>
+              <span className="text-sm font-bold text-white">{session?.user?.email?.charAt(0).toUpperCase() || 'A'}</span>
             </div>
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user?.email || 'Admin User'}
+                  {session?.user?.email || 'Admin User'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user?.admin_modules?.length || 0} modules
+                  {((session?.user as any)?.admin_modules as string[] || []).length} modules
                 </p>
               </div>
             )}
@@ -620,13 +622,14 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-150 border border-transparent hover:border-red-200 dark:hover:border-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 min-h-[44px] touch-manipulation ${
+            disabled={isSigningOut}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-150 border border-transparent hover:border-red-200 dark:hover:border-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 min-h-[44px] touch-manipulation disabled:opacity-50 ${
               sidebarCollapsed ? 'justify-center px-2' : ''
             }`}
             title={sidebarCollapsed ? 'Sign out' : undefined}
           >
             <LogOut className="h-4 w-4" />
-            {!sidebarCollapsed && <span>Sign out</span>}
+            {!sidebarCollapsed && <span>{isSigningOut ? 'Signing out...' : 'Sign out'}</span>}
           </button>
         </div>
       </div>

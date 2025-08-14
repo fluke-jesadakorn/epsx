@@ -4,7 +4,7 @@
  */
 
 import { DollarSign, CreditCard, TrendingUp, Download, AlertTriangle, Settings, Activity, FileText } from 'lucide-react'
-import { getCurrentUser } from '@/lib/actions/server-auth'
+import { auth } from '@/lib/auth'
 import { getBillingDashboardData } from '@/lib/actions/billing-actions'
 import { BillingStatsCards } from './BillingStatsCards'
 import { BillingOverviewServer } from './BillingOverviewServer'
@@ -20,10 +20,10 @@ interface BillingDashboardServerProps {
 }
 
 export async function BillingDashboardServer({ searchParams }: BillingDashboardServerProps) {
-  const currentUser = await getCurrentUser()
+  const session = await auth()
   
   // Check authentication
-  if (!currentUser) {
+  if (!session?.user) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -36,9 +36,9 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
   }
 
   // Check billing admin permissions
-  const canManageBilling = currentUser.admin && 
-    (currentUser.admin_modules.includes('billing_admin') || 
-     currentUser.admin_modules.includes('system_admin'))
+  const userAdminModules = (session.user as any)?.admin_modules as string[] || []
+  const canManageBilling = userAdminModules.includes('billing_admin') || 
+                          userAdminModules.includes('system_admin')
 
   if (!canManageBilling) {
     return (

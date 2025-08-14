@@ -212,11 +212,15 @@ impl TemplateFactory {
         let allowed_redirects = match client_id {
             "epsx-frontend" => vec![
                 "http://localhost:3000/auth/callback",
+                "http://localhost:3000/api/auth/callback/epsx-backend",
                 "https://app.epsx.com/auth/callback",
+                "https://app.epsx.com/api/auth/callback/epsx-backend",
             ],
             "epsx-admin" => vec![
                 "http://localhost:3001/auth/callback",
+                "http://localhost:3001/api/auth/callback/epsx-backend",
                 "https://admin.epsx.com/auth/callback",
+                "https://admin.epsx.com/api/auth/callback/epsx-backend",
             ],
             _ => vec![],
         };
@@ -287,7 +291,15 @@ mod tests {
             "epsx-frontend"
         ));
         assert!(TemplateFactory::is_valid_redirect_uri(
+            "http://localhost:3000/api/auth/callback/epsx-backend",
+            "epsx-frontend"
+        ));
+        assert!(TemplateFactory::is_valid_redirect_uri(
             "http://localhost:3001/auth/callback",
+            "epsx-admin"
+        ));
+        assert!(TemplateFactory::is_valid_redirect_uri(
+            "http://localhost:3001/api/auth/callback/epsx-backend",
             "epsx-admin"
         ));
         assert!(!TemplateFactory::is_valid_redirect_uri(

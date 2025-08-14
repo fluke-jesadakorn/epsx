@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Shield, Plus, Loader2, X } from 'lucide-react'
-import { assignUserRole, removeUserRole } from '@/lib/actions/unified-user-actions'
+import { assignUserRole, removeUserRole } from '@/lib/actions/user-actions'
 
 interface RoleAssignmentFormProps {
   userId: string

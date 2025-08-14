@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Badge } from '@epsx/ui';
 import { 
   Home, 
   BarChart3, 
@@ -10,6 +9,7 @@ import {
   Bell, 
   User 
 } from 'lucide-react';
+import { Badge } from '@epsx/ui';
 
 interface NavItem {
   label: string;

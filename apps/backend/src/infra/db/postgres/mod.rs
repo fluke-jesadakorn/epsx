@@ -12,7 +12,7 @@ pub mod stock_repo;
 pub mod iam_repo;
 pub mod audit_repo;
 pub mod permission_profile_repo;
-pub mod permission_assignment_repo;
+pub mod assign_repo;
 pub mod eps_ranking_repo;
 // TODO: Implement level_history_repo
 // pub mod level_history_repo;
@@ -25,7 +25,7 @@ pub use stock_repo::*;
 pub use iam_repo::*;
 pub use audit_repo::*;
 pub use permission_profile_repo::*;
-pub use permission_assignment_repo::*;
+pub use assign_repo::*;
 pub use eps_ranking_repo::*;
 // pub use level_history_repo::*;
 

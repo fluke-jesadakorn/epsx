@@ -1,9 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import {
   TrendingUp,
   TrendingDown,
@@ -14,6 +11,7 @@ import {
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@epsx/ui';
 
 interface PublicRankingPreviewProps {
   className?: string;

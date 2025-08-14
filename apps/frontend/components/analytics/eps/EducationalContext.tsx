@@ -1,11 +1,9 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { BookOpen, AlertTriangle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@epsx/ui';
 
 export function EducationalContext() {
   const [isExpanded, setIsExpanded] = useState(false);

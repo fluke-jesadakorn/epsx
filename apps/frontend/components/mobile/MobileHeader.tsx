@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { MobileNav } from './MobileNav';
 import { 
   Bell, 
@@ -11,6 +9,7 @@ import {
   User,
   Settings as _Settings
 } from 'lucide-react';
+import { Button, Badge } from '@epsx/ui';
 
 interface MobileHeaderProps {
   title?: string;

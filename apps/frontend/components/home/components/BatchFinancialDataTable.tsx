@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { GRADIENTS, SPACING, ANIMATIONS } from '../constants/styles';
 import { FinancialCard } from './FinancialCard';
-import { Card, CardContent } from '@epsx/ui';
 import {
   FinancialDataLoading,
   FinancialDataHeader,
 } from './LayoutComponents';
 import type { StockFinancialData } from '@/types/financialChartData';
+import { Card, CardContent } from '@epsx/ui';
 
 interface BatchFinancialDataTableProps {
   style?: React.CSSProperties;

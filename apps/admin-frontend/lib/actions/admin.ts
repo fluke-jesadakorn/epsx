@@ -4,10 +4,14 @@ import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateReques
 import { createApiClient, isApiError } from '@epsx/api-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
-import { getBearerToken, getCurrentUser } from './server-auth';
+import { auth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-export { getBearerToken } from './server-auth';
+// Get bearer token from NextAuth session
+const getBearerToken = async () => {
+  const session = await auth();
+  return (session as any)?.accessToken || null;
+};
 
 // Get backend URL server-side only
 const getApiClient = async () => {
@@ -35,16 +39,18 @@ const getApiClient = async () => {
 // Server action to get users with proper authentication
 export async function getUsersAction(): Promise<ActionResult<any[]>> {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const session = await auth();
+    if (!session?.user) {
       return { success: false, error: 'Not authenticated' };
     }
 
+    const userAdminModules = (session.user as any)?.admin_modules as string[] || [];
+    
     logger.admin.userOperation('Getting users list', {
-      userId: user.user_id,
-      email: user.email,
-      isAdmin: user.admin,
-      adminModules: user.admin_modules
+      userId: session.user.id,
+      email: session.user.email,
+      isAdmin: userAdminModules.length > 0,
+      adminModules: userAdminModules
     });
 
     const apiClient = await getApiClient();

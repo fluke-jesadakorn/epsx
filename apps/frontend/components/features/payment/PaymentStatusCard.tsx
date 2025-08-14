@@ -1,8 +1,7 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface PaymentStatusCardProps {
   status: 'pending' | 'completed' | 'failed' | 'processing';

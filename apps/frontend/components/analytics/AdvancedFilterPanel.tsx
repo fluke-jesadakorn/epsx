@@ -1,11 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
 import {
   Select,
   SelectContent,
@@ -31,6 +26,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import type { AnalyticsFilters, FilterOptions } from '@/hooks/useAnalyticsFilters';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label } from '@epsx/ui';
 
 interface AdvancedFilterPanelProps {
   filters: AnalyticsFilters;

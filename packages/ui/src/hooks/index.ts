@@ -1,6 +1,6 @@
 // Core theme hooks (specific exports to avoid conflicts)
-export { useTheme as useThemeHook } from './useTheme.js';
-export { useUnifiedTheme } from './useUnifiedTheme.js';
+export { useTheme as useThemeHook } from './useTheme';
+export { useUnifiedTheme } from './useUnifiedTheme';
 // TODO: Re-enable after fixing zustand dependency
 // export { useThemeStore } from './useThemeStore.js';
 
@@ -11,4 +11,4 @@ export {
   withTheme, 
   ThemeVariantSelector, 
   DarkModeToggle 
-} from '../providers/theme-provider.js';
+} from '../providers/theme-provider';

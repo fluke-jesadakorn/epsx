@@ -19,7 +19,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 import type { Permission } from '@/lib/types/unified-user'
 import { UserStatusBadge } from './UserStatusBadge'
-import { removeCustomPermission } from '@/lib/actions/unified-user-actions'
+import { removeCustomPermission } from '@/lib/actions/user-actions'
 
 interface PermissionAssignmentCardProps {
   permission: Permission

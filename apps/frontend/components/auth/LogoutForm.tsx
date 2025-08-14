@@ -1,6 +1,6 @@
-import { signOut } from '@/lib/auth';
-import { Button } from '@epsx/ui';
+import { handleSignOut } from '@/lib/actions/auth';
 import { LogOut } from 'lucide-react';
+import { Button } from '@epsx/ui';
 
 interface LogoutFormProps {
   className?: string;
@@ -8,15 +8,6 @@ interface LogoutFormProps {
 }
 
 export function LogoutForm({ className, variant = 'outline' }: LogoutFormProps) {
-  async function handleSignOut() {
-    'use server';
-    
-    // Use NextAuth.js signOut with proper cleanup
-    await signOut({
-      redirectTo: '/login'
-    });
-  }
-
   return (
     <form action={handleSignOut}>
       <Button

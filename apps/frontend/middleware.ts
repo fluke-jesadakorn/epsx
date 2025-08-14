@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getSessionFromCookie } from '@/lib/auth/session';
 
-export default auth((request) => {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isLoggedIn = !!request.auth;
   
   // Public routes that don't require authentication
   const publicRoutes = [
@@ -15,12 +14,13 @@ export default auth((request) => {
     '/verify-email',
     '/access-denied',
     '/unauthorized',
-    '/auth/callback',
-    '/auth/error',
-    '/auth/signout',
     '/terms',
     '/privacy',
     '/analytics',
+    '/api/auth/signin',
+    '/api/auth/signout', 
+    '/api/auth/callback',
+    '/api/auth/session',
   ];
   
   const isPublicRoute = publicRoutes.some(route => 
@@ -32,16 +32,30 @@ export default auth((request) => {
     return NextResponse.next();
   }
   
-  // Redirect to login if not authenticated
-  if (!isLoggedIn) {
+  try {
+    // Check authentication status using manual session cookie
+    const sessionCookie = request.cookies.get('epsx-frontend-session')?.value;
+    const session = await getSessionFromCookie(sessionCookie);
+    const isLoggedIn = session.isLoggedIn && session.user;
+    
+    // Redirect to login if not authenticated
+    if (!isLoggedIn) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // Allow access to protected routes for authenticated users
+    return NextResponse.next();
+  } catch (error) {
+    console.error('Middleware authentication check failed:', error);
+    
+    // Redirect to login on error
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
-  
-  // Allow access to protected routes for authenticated users
-  return NextResponse.next();
-}) as any;
+}
 
 export const config = {
   matcher: [

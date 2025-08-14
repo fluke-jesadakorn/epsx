@@ -1,9 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { 
   Zap, 
   ArrowRight, 
@@ -12,6 +9,7 @@ import {
   Shield,
   Clock
 } from 'lucide-react';
+import { Card, CardContent, Button, Badge } from '@epsx/ui';
 
 interface PaymentWidgetProps {
   title?: string;

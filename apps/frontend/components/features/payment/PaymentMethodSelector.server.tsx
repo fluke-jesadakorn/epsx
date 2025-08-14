@@ -1,6 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Wallet, Shield, Clock, Star } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface PaymentMethod {
   id: string;

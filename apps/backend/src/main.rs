@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         job_notification_service.clone(),
     ));
     
-    let assignment_repo = Arc::new(epsx::infra::db::postgres::permission_assignment_repo::PostgresPermissionAssignmentRepo::new((*container.infra.postgres_pool).clone()));
+    let assignment_repo = Arc::new(epsx::infra::db::postgres::assign_repo::PostgresPermissionAssignmentRepo::new((*container.infra.postgres_pool).clone()));
     let auto_assignment_service = Arc::new(epsx::dom::services::auto_assignment::AutoAssignmentEngine::new(
         container.permission_profile_repo.clone(),
         assignment_repo,

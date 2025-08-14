@@ -1,8 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { 
   TrendingUp, 
   Users, 
@@ -12,6 +10,7 @@ import {
   Star
 } from 'lucide-react';
 import { formatLevelAsNumber } from '@/utils/env';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface AnalyticsMetricsProps {
   userLevel: string;

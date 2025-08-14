@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { Calendar, User, Shield, Key, Users, Clock, AlertTriangle } from 'lucide-react'
 import { Button } from '@epsx/ui'
 import { Badge } from '@epsx/ui'
-import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/unified-user-actions'
+import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/user-actions'
 import { formatDistanceToNow, format } from 'date-fns'
 
 interface PermissionHistoryCardProps {

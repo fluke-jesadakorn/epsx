@@ -2,12 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
 import { Alert } from '@/components/ui/alert';
-import { Badge } from '@epsx/ui';
 import { 
   ArrowRight, 
   Copy, 
@@ -20,6 +15,7 @@ import {
 } from 'lucide-react';
 import { realtimeClient  } from '@/lib/api-client.client';
 import type {PaymentStatusUpdate} from '@/lib/api-client.client';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Badge } from '@epsx/ui';
 // PaymentRequest type moved to local types since musepay.service was removed
 interface _PaymentRequest {
   amount: number;

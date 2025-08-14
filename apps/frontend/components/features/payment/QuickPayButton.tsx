@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@epsx/ui';
-import { Card, CardContent } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Zap, CreditCard, Wallet, ArrowRight, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Button, Card, CardContent, Badge } from '@epsx/ui';
 
 interface QuickPayButtonProps {
   packageId: string;

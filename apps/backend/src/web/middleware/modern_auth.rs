@@ -136,6 +136,7 @@ fn is_public_endpoint(path: &str) -> bool {
         "/oauth/jwks",                    // JWKS endpoint (public keys)
         "/oauth/authorize",               // OAuth authorization endpoint 
         "/oauth/token",                   // OAuth token endpoint
+        "/oauth/userinfo",                // OAuth userinfo endpoint (needs Bearer token but handled internally)
         "/oauth/revoke",                  // OAuth token revocation endpoint
         "/oauth/introspect",              // OAuth token introspection endpoint
         "/oauth/.well-known",             // OAuth discovery documents

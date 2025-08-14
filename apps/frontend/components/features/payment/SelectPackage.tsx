@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { PACKAGES } from '@/app/constants/packages';
 import { Check, ArrowRight, Star, CreditCard, Wallet } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
 
 interface SelectPackageProps {
   amount: string;

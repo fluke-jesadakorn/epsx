@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { AdminLayoutServer } from '@/components/layout/AdminLayoutServer';
 import { ClientProviders } from './ClientProviders';
@@ -10,7 +10,7 @@ interface AdminAuthWrapperProps {
 }
 
 /**
- * NextAuth.js Server-side Authentication Wrapper
+ * Server-side Authentication Wrapper
  * Handles authentication on the server and determines if layout is needed
  */
 export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
@@ -21,9 +21,10 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   // Public routes that don't require authentication or layout
   const publicRoutes = [
     '/login',
-    '/auth/callback',
+    '/api/auth/callback',
+    '/api/auth/login',
+    '/api/auth/logout',
     '/auth/error',
-    '/auth/logout', 
     '/unauthorized',
     '/access-denied'
   ];
@@ -42,21 +43,21 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   }
   
   // For protected routes, validate authentication
-  const session = await auth();
+  const session = await getSession();
   
-  if (!session?.user) {
+  if (!session?.isLoggedIn || !session?.user) {
     redirect('/login');
   }
   
   // Check if user has admin access
-  const userAdminModules = (session.user as any).admin_modules as string[] || [];
+  const userAdminModules = session.user.admin_modules || [];
   if (userAdminModules.length === 0) {
     redirect('/access-denied?reason=insufficient_admin_access');
   }
   
   // For protected routes, render with authentication and layout
   return (
-    <ClientProviders session={session}>
+    <ClientProviders>
       <AdminLayoutServer>
         {children}
       </AdminLayoutServer>

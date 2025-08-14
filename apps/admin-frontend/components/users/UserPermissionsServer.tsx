@@ -4,10 +4,10 @@
  */
 
 import { Shield, Users, Key } from 'lucide-react'
-import { getCurrentUser } from '@/lib/actions/server-auth'
+import { auth } from '@/lib/auth'
 import { getUnifiedUserData } from '@/lib/actions/user-profile-actions'
 import { getPermissionHistory } from '@/lib/actions/user-permissions-actions'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
+import type { Session } from 'next-auth'
 import { UserPermissionsClient } from './UserPermissionsClient'
 import { PermissionStatsCards } from './PermissionStatsCards'
 import { PermissionHistoryCard } from './PermissionHistoryCard'
@@ -18,14 +18,14 @@ interface UserPermissionsServerProps {
 
 export async function UserPermissionsServer({ userId }: UserPermissionsServerProps) {
   // Fetch data in parallel on the server
-  const [currentUserResult, userResult, historyResult] = await Promise.all([
-    getCurrentUser(),
+  const [session, userResult, historyResult] = await Promise.all([
+    auth(),
     getUnifiedUserData(userId),
     getPermissionHistory(userId, 50)
   ])
 
   // Handle authentication
-  if (!currentUserResult) {
+  if (!session?.user) {
     return (
       <div className="pancake-card p-6 text-center">
         <p className="text-muted-foreground">Authentication required</p>

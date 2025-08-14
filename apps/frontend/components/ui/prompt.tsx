@@ -1,10 +1,9 @@
 'use client';
 
-import { Button } from '@epsx/ui';
-import { Card, CardContent } from '@epsx/ui';
 import { Crown, Star, ArrowRight, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { UserLevelType } from '@/app/constants/packages';
+import { Button, Card, CardContent } from '@epsx/ui';
 
 interface UpgradePromptProps {
   currentLevel: UserLevelType;

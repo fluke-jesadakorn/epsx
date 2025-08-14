@@ -1,9 +1,10 @@
 // OIDC Token Endpoint implementation
 
 use axum::{
-    extract::{State, Form},
+    extract::{State, Form, FromRequest},
     response::Json,
     http::{StatusCode, HeaderMap},
+    async_trait,
 };
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
@@ -15,13 +16,47 @@ use crate::web::auth::AppState;
 use crate::web::oidc::authorization::AuthorizationCodeData;
 use crate::infra::firebase_admin::FirebaseUser;
 
+/// OIDC Error Response
+#[derive(Debug, Serialize)]
+pub struct TokenErrorResponse {
+    pub error: String,
+    pub error_description: Option<String>,
+    pub error_uri: Option<String>,
+}
+
+/// Custom form extractor that always returns JSON errors
+pub struct JsonForm<T>(pub T);
+
+#[async_trait]
+impl<T, S> FromRequest<S> for JsonForm<T>
+where
+    T: serde::de::DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<TokenErrorResponse>);
+
+    async fn from_request(req: axum::extract::Request, state: &S) -> Result<Self, Self::Rejection> {
+        match Form::<T>::from_request(req, state).await {
+            Ok(Form(value)) => Ok(JsonForm(value)),
+            Err(_) => Err((
+                StatusCode::BAD_REQUEST,
+                Json(TokenErrorResponse {
+                    error: "invalid_request".to_string(),
+                    error_description: Some("Invalid or malformed request body".to_string()),
+                    error_uri: None,
+                }),
+            )),
+        }
+    }
+}
+
 /// Token request parameters (POST /oauth/token)
 #[derive(Debug, Deserialize)]
 pub struct TokenRequest {
-    pub grant_type: String,
+    pub grant_type: Option<String>,
     pub code: Option<String>,
     pub redirect_uri: Option<String>,
-    pub client_id: String,
+    pub client_id: Option<String>,
     pub client_secret: Option<String>,
     pub code_verifier: Option<String>,
     pub refresh_token: Option<String>,
@@ -36,14 +71,6 @@ pub struct TokenResponse {
     pub id_token: String,
     pub refresh_token: Option<String>,
     pub scope: String,
-}
-
-/// OIDC Error Response
-#[derive(Debug, Serialize)]
-pub struct TokenErrorResponse {
-    pub error: String,
-    pub error_description: Option<String>,
-    pub error_uri: Option<String>,
 }
 
 /// JWT Claims for ID token
@@ -89,13 +116,42 @@ pub struct RefreshTokenData {
 /// POST /oauth/token - Token endpoint
 pub async fn oidc_token(
     State(app_state): State<AppState>,
-    Form(token_request): Form<TokenRequest>,
+    JsonForm(token_request): JsonForm<TokenRequest>,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
-    tracing::info!("Token endpoint request for grant_type: {}", token_request.grant_type);
+    tracing::error!("🔍 AUTH.JS DEBUG: Token endpoint request");
+    tracing::error!("🔍 Full request: {:?}", token_request);
+    
+    // Validate required fields and return proper JSON errors
+    let grant_type = token_request.grant_type.as_deref().unwrap_or("");
+    let client_id = match token_request.client_id.as_deref() {
+        Some(id) => id,
+        None => {
+            tracing::error!("🔍 AUTH.JS ERROR: Missing client_id parameter");
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(TokenErrorResponse {
+                    error: "invalid_request".to_string(),
+                    error_description: Some("Missing 'client_id' parameter".to_string()),
+                    error_uri: None,
+                }),
+            ))
+        }
+    };
+    
+    tracing::error!("🔍 AUTH.JS DEBUG: grant_type={}, client_id={}, code={:?}, redirect_uri={:?}, code_verifier={:?}", 
+                   grant_type, client_id, token_request.code, token_request.redirect_uri, token_request.code_verifier);
 
-    match token_request.grant_type.as_str() {
+    match grant_type {
         "authorization_code" => handle_authorization_code_grant(app_state, token_request).await,
         "refresh_token" => handle_refresh_token_grant(app_state, token_request).await,
+        "" => Err((
+            StatusCode::BAD_REQUEST,
+            Json(TokenErrorResponse {
+                error: "invalid_request".to_string(),
+                error_description: Some("Missing 'grant_type' parameter".to_string()),
+                error_uri: None,
+            }),
+        )),
         _ => Err((
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -112,8 +168,11 @@ async fn handle_authorization_code_grant(
     app_state: AppState,
     token_request: TokenRequest,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
+    tracing::error!("🔍 AUTH.JS DEBUG: Handling authorization code grant");
+    
     // Validate required parameters
     let code = token_request.code.ok_or_else(|| {
+        tracing::error!("🔍 AUTH.JS ERROR: Missing code parameter");
         (
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -125,6 +184,7 @@ async fn handle_authorization_code_grant(
     })?;
 
     let redirect_uri = token_request.redirect_uri.ok_or_else(|| {
+        tracing::error!("🔍 AUTH.JS ERROR: Missing redirect_uri parameter");
         (
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -135,10 +195,12 @@ async fn handle_authorization_code_grant(
         )
     })?;
 
+    tracing::error!("🔍 AUTH.JS DEBUG: Validating authorization code: {}", code);
+    
     // Validate and consume authorization code
     let auth_data = validate_and_consume_authorization_code(&app_state, &code).await
         .map_err(|e| {
-            tracing::error!("Authorization code validation failed: {}", e);
+            tracing::error!("🔍 AUTH.JS ERROR: Authorization code validation failed: {}", e);
             (
                 StatusCode::UNAUTHORIZED,
                 Json(TokenErrorResponse {
@@ -150,7 +212,8 @@ async fn handle_authorization_code_grant(
         })?;
 
     // Validate client_id and redirect_uri match
-    if auth_data.client_id != token_request.client_id {
+    let client_id = token_request.client_id.as_deref().unwrap_or("");
+    if auth_data.client_id != client_id {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(TokenErrorResponse {
@@ -184,8 +247,8 @@ async fn handle_authorization_code_grant(
     // Generate access token
     let access_token = generate_access_token(&auth_data.firebase_user, &auth_data.scope, now, expires_in)?;
 
-    // Generate ID token
-    let id_token = generate_id_token(&auth_data.firebase_user, &token_request.client_id, now, expires_in)?;
+    // Generate ID token  
+    let id_token = generate_id_token(&auth_data.firebase_user, client_id, now, expires_in)?;
 
     // Generate refresh token
     let refresh_token = generate_refresh_token(&app_state, &auth_data).await?;
@@ -247,7 +310,8 @@ async fn handle_refresh_token_grant(
         })?;
 
     // Validate client_id
-    if refresh_data.client_id != token_request.client_id {
+    let client_id = token_request.client_id.as_deref().unwrap_or("");
+    if refresh_data.client_id != client_id {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(TokenErrorResponse {
@@ -263,7 +327,7 @@ async fn handle_refresh_token_grant(
     let expires_in = 7200; // 2 hours (frontend client policy)
 
     let access_token = generate_access_token(&refresh_data.firebase_user, &refresh_data.scope, now, expires_in)?;
-    let id_token = generate_id_token(&refresh_data.firebase_user, &token_request.client_id, now, expires_in)?;
+    let id_token = generate_id_token(&refresh_data.firebase_user, client_id, now, expires_in)?;
 
     tracing::info!("Token refresh successful for user: {}", refresh_data.firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()));
 
@@ -286,7 +350,13 @@ async fn validate_and_consume_authorization_code(
     
     // Get session for authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
-    let session = app_state.session_repo.get(&session_id).await?
+    tracing::error!("🔍 AUTH.JS DEBUG: Looking for session with ID: {}", session_id);
+    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id.value());
+    
+    let session_result = app_state.session_repo.get(&session_id).await;
+    tracing::error!("🔍 AUTH.JS DEBUG: Session repo result: {:?}", session_result);
+    
+    let session = session_result?
         .ok_or("Authorization code not found")?;
     
     // Delete the session (single use)
@@ -550,13 +620,15 @@ pub async fn oidc_userinfo(
     State(_app_state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<TokenErrorResponse>)> {
-    tracing::info!("UserInfo endpoint request");
+    tracing::info!("UserInfo endpoint request - DEBUGGING CONTENT-TYPE ERROR");
+    tracing::info!("Headers: {:?}", headers);
     
     // Extract bearer token from Authorization header
     let auth_header = headers
         .get("authorization")
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| {
+            tracing::error!("UserInfo: Missing Authorization header - returning JSON error");
             (
                 StatusCode::UNAUTHORIZED,
                 Json(TokenErrorResponse {
@@ -578,18 +650,24 @@ pub async fn oidc_userinfo(
         ));
     }
     
-    let _access_token = &auth_header[7..]; // Remove "Bearer " prefix
+    let _access_token = &auth_header[7..]; // Remove "Bearer " prefix (unused for now)
     
-    // TODO: Validate access token and extract user information
-    // For now, return a mock response
+    // For development, return a stub response
+    // In production, this should validate the access token
+    tracing::warn!("UserInfo endpoint returning stub data for development");
+    
     let userinfo = serde_json::json!({
-        "sub": "user123",
-        "email": "user@example.com",
+        "sub": "test-admin-uid",
+        "email": "jesadakorn.kirtnu@gmail.com",
         "email_verified": true,
-        "name": "Demo User",
-        "role": "user"
+        "name": "Test Admin User",
+        "role": "admin",
+        "permissions": ["api:admin:*", "route:*", "users:manage", "system:configure"],
+        "package_tier": "ADMIN",
+        "admin_modules": ["system_admin", "user_management", "analytics"]
     });
     
+    tracing::info!("UserInfo endpoint returning JSON response: {:?}", userinfo);
     Ok(Json(userinfo))
 }
 

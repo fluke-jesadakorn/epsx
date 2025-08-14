@@ -1,7 +1,5 @@
 'use client';
 
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import {
   Card,
   CardContent,
@@ -9,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@epsx/ui';
-import { Input } from '@epsx/ui';
 import {
   Table,
   TableBody,
@@ -19,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
+import { Badge, Button, Input } from '@epsx/ui';
 
 interface Transaction {
   orderNo: string;

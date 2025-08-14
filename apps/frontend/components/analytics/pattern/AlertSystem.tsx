@@ -1,14 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { 
   Bell, 
   Plus, 
@@ -20,6 +13,7 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 
 interface Alert {
   id: string;

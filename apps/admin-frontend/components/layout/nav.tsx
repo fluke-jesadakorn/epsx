@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
-// Note: Auth is now handled by middleware with HTTP-only cookies
+import { useAuth, useSignOut } from '@/lib/auth';
 import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database } from 'lucide-react';
 import _Image from 'next/image';
 import Link from 'next/link';
@@ -91,14 +91,22 @@ const navItems: NavItem[] = [
 
 export function Navigation() {
   const pathname = usePathname();
-  
-  // Mock user data - authentication is handled by middleware
-  const user = { email: 'admin@example.com', displayName: 'Admin User' };
-  const loading = false;
+  const { session, isLoading } = useAuth();
+  const { signOut, isLoading: isSigningOut } = useSignOut();
   const [_mobileOpen, _setMobileOpen] = useState(false);
 
-  // Since admin is authenticated via middleware, show all navigation items
-  const filteredItems = navItems;
+  const user = session?.user;
+  const loading = isLoading;
+
+  // Filter navigation items based on user's admin modules
+  const filteredItems = navItems.filter(item => {
+    if (!item.requiredModules || item.requiredModules.length === 0) {
+      return true; // Show items that don't require specific modules
+    }
+    return item.requiredModules.some(module => 
+      user?.admin_modules?.includes(module)
+    );
+  });
 
   if (loading) {
     return (
@@ -184,25 +192,15 @@ export function Navigation() {
             ))}
             {user ? (
               <>
-                {/* Client-side logout with JS */}
+                <span className="text-sm text-muted-foreground">{user.email}</span>
                 <button
-                  onClick={() => window.location.href = '/auth/logout'}
-                  className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
+                  onClick={signOut}
+                  disabled={isSigningOut}
+                  className="pancake-button-secondary flex items-center gap-2 text-sm font-medium disabled:opacity-50"
                 >
                   <LogOut className="w-4 h-4" />
-                  Logout
+                  {isSigningOut ? 'Signing out...' : 'Logout'}
                 </button>
-                
-                {/* Fallback form-based logout for server-side redirect (hidden, for no-JS scenarios) */}
-                <form action="/api/auth/logout" method="POST" className="hidden">
-                  <button
-                    type="submit"
-                    className="pancake-button-secondary flex items-center gap-2 text-sm font-medium"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </button>
-                </form>
               </>
             ) : (
               <Link href="/login">

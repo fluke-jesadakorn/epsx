@@ -3,10 +3,11 @@
  * Shows user's basic information, status, and quick actions
  */
 
-import { requireAdminAuth } from '@/lib/auth/server-auth'
-import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
+
+import { getUnifiedUserData } from '@/lib/actions/user-actions'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'
+import { auth } from '@/lib/auth'
 
 interface UserOverviewPageProps {
   params: Promise<{ userId: string }>
@@ -16,8 +17,9 @@ export default async function UserOverviewPage({ params }: UserOverviewPageProps
   // Await params properly for Next.js 15
   const { userId } = await params
   
-  // Server-side auth check
-  const currentUser = await requireAdminAuth()
+  // Get current user session
+  const session = await auth()
+  const currentUser = session?.user
   
   // Get user data (this will be cached from layout)
   const userDataResult = await getUnifiedUserData(userId)

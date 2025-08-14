@@ -1,7 +1,5 @@
 'use client';
 
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import {
   Card,
   CardContent,
@@ -20,6 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
+import { Badge, Button } from '@epsx/ui';
 
 interface DashboardClientProps {
   user: any;

@@ -1,38 +1,38 @@
-import NextAuth from "next-auth"
-import { authConfig } from "@epsx/auth-shared"
-
 /**
- * Frontend Auth.js v5 configuration
- * Uses the shared auth config from packages/auth-shared
+ * Frontend Custom Authentication System
+ * Replacement for Auth.js with custom OAuth 2.0 implementation
  */
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
-  
-  // Frontend-specific customizations
-  pages: {
-    signIn: '/login',
-    error: '/auth/error',
-    signOut: '/auth/signout',
-  },
-  
-  // Frontend callback customizations
-  callbacks: {
-    ...authConfig.callbacks,
-    
-    async redirect({ url, baseUrl }) {
-      // Frontend-specific redirect logic
-      
-      // Always redirect to dashboard after sign in
-      if (url.includes('/login') || url.includes('/auth/callback')) {
-        return `${baseUrl}/dashboard`
-      }
-      
-      // Handle other redirects
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      else if (new URL(url).origin === baseUrl) return url
-      return baseUrl
-    }
-  }
-})
 
-export default { handlers, auth, signIn, signOut }
+export { OIDC_CONFIG, OAUTH_ENDPOINTS } from './auth/client';
+export { SessionData, getSession, saveSession, clearSession } from './auth/session';
+export { 
+  AuthProvider, 
+  useAuth, 
+  useSignIn, 
+  useSignOut, 
+  useUser, 
+  useSession,
+  usePermissions,
+  usePackageTier
+} from './auth/hooks';
+
+// Legacy compatibility exports for existing components
+export const signIn = () => {
+  window.location.href = '/api/auth/signin';
+};
+
+export const signOut = async () => {
+  await fetch('/api/auth/signout', { method: 'POST' });
+  window.location.href = '/login';
+};
+
+// Server-side auth function for middleware compatibility
+export const auth = async () => {
+  try {
+    const session = await getSession();
+    return session.isLoggedIn ? { user: session.user } : null;
+  } catch (error) {
+    console.error('Auth function error:', error);
+    return null;
+  }
+};

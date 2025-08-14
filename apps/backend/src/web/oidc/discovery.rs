@@ -84,7 +84,8 @@ fn get_oidc_issuer_url() -> String {
 pub async fn oidc_discovery(
     State(_state): State<crate::web::auth::routes::AppState>,
 ) -> Result<Json<OidcDiscoveryDocument>, StatusCode> {
-    tracing::info!("OIDC discovery document requested");
+    tracing::info!("OIDC discovery document requested - DEBUGGING CONTENT-TYPE ERROR");
+    tracing::info!("This endpoint returns JSON content-type");
     
     // Determine base URL with proper environment detection
     let base_url = get_oidc_issuer_url();
@@ -153,7 +154,8 @@ pub async fn oidc_discovery(
 pub async fn jwks_endpoint(
     State(_state): State<crate::web::auth::routes::AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    tracing::info!("JWKS endpoint requested");
+    tracing::info!("JWKS endpoint requested - DEBUGGING CONTENT-TYPE ERROR");
+    tracing::info!("This endpoint returns JSON content-type");
     
     // Get JWKS from the global JWT service
     match &*crate::auth::modern_jwt::JWT_SERVICE {

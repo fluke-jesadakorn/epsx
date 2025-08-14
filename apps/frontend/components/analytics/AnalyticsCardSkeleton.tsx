@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent } from '@epsx/ui';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@epsx/ui';
 
 interface AnalyticsCardSkeletonProps {
   index: number;

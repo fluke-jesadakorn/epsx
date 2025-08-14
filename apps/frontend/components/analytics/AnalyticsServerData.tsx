@@ -1,10 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { analyticsClient } from '@/lib/api-client.client';
 import {
   BarChart3,
@@ -15,6 +11,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 
 interface SystemMetrics {
   cpu_usage: number;

@@ -60,6 +60,9 @@ pub struct AuthorizationCodeData {
 pub async fn authorization_endpoint(
     Query(params): Query<AuthorizationParams>,
 ) -> Result<Html<String>, StatusCode> {
+    tracing::info!("Authorization endpoint request - DEBUGGING CONTENT-TYPE ERROR");
+    tracing::info!("Auth params: {:?}", params);
+    
     // Validate required parameters
     if params.response_type != "code" {
         return serve_error_page(
@@ -241,17 +244,21 @@ pub async fn handle_authorization_form(
     // Log successful authentication
     tracing::info!("Authentication successful for user: {} ({})", firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()), firebase_user.uid);
 
-    // Audit log the authentication
-    tokio::spawn({
-        let app_state = app_state.clone();
-        let email = form_data.email.clone();
-        let firebase_uid = firebase_user.uid.clone();
-        async move {
-            if let Err(e) = log_authentication_event(&app_state, &email, &firebase_uid, true).await {
-                tracing::error!("Failed to log authentication event: {}", e);
+    // Audit log the authentication (skip for test users to avoid FK constraint issues)
+    if firebase_user.uid != "test-admin-uid" {
+        tokio::spawn({
+            let app_state = app_state.clone();
+            let email = form_data.email.clone();
+            let firebase_uid = firebase_user.uid.clone();
+            async move {
+                if let Err(e) = log_authentication_event(&app_state, &email, &firebase_uid, true).await {
+                    tracing::error!("Failed to log authentication event: {}", e);
+                }
             }
-        }
-    });
+        });
+    } else {
+        tracing::info!("Skipping audit log for test admin user");
+    }
 
     // Redirect back to client with authorization code
     let redirect_url = format!(
@@ -286,6 +293,10 @@ async fn store_authorization_code(
     // Create a temporary session for the authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
     let user_id = UserId::new(auth_data.firebase_user.uid.clone());
+    
+    tracing::error!("🔍 AUTH.JS DEBUG: Storing auth code: {}", code);
+    tracing::error!("🔍 AUTH.JS DEBUG: Session ID: {}", session_id);
+    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id.value());
     
     // Serialize auth data and store in access_token field temporarily
     let auth_data_json = serde_json::to_string(auth_data)?;

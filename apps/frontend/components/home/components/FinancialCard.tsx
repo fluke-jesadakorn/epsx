@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card, CardContent } from '@epsx/ui';
 import { GRADIENTS, COLORS, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './GrowthIndicators';
 import { MetricCard, QuarterRow } from './MetricComponents';
@@ -13,6 +12,7 @@ import {
   getLastEpsVsCurrentPriceComparison,
   getPriceEpsAlignment,
 } from '@/utils/stk';
+import { Card, CardContent } from '@epsx/ui';
 
 interface FinancialCardProps {
   data: StockFinancialData;

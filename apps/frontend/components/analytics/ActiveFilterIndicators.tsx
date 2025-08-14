@@ -1,9 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Card, CardContent } from '@epsx/ui';
 import {
   Globe,
   Building,
@@ -16,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { AnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import { Badge, Button, Card, CardContent } from '@epsx/ui';
 
 interface ActiveFilterIndicatorsProps {
   filters: AnalyticsFilters;

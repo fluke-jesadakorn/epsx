@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
 import { getCurrentUser } from '@epsx/server-actions';
 import { SettingsClient } from '@/components/settings/SettingsClient';
 import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
 export default async function SettingsPage() {
   // Fetch user data server-side
   const user = await getCurrentUser();

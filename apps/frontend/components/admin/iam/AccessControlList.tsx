@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 'use client';
 
 import { useState } from 'react';
@@ -99,6 +98,7 @@ const MOCK_ACCESS_RULES: AccessRule[] = [
     id: '3',
     name: 'Block External IP Access',
     description: 'Deny access from external IP ranges',
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
     effect: 'deny',
     principal: { type: 'user', id: '*', name: 'All Users' },
     resource: { type: 'system', path: '/admin/*', actions: ['*'] },

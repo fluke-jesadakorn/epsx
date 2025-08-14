@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Button } from '@epsx/ui';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@epsx/ui';
 
 interface PaginationProps {
   currentPage: number;

@@ -1,12 +1,18 @@
 /**
  * User Permission Server Actions - Focused on permission management
- * Extracted from unified-user-actions.ts for better maintainability
+ * Extracted from user-actions.ts for better maintainability
  */
 
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getBearerToken } from '@/lib/actions/server-auth'
+import { auth } from '@/lib/auth'
+
+// Get bearer token from NextAuth session
+const getBearerToken = async () => {
+  const session = await auth();
+  return (session as any)?.accessToken || null;
+};
 import { logger } from '@/lib/logger'
 import type { UserOperationResult } from '@/lib/types/unified-user'
 

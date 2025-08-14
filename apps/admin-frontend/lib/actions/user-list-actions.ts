@@ -4,8 +4,13 @@
 
 'use server'
 
-import { validateServerActionAuth } from '@/lib/auth/server-auth'
-import { getBearerToken } from '@/lib/actions/server-auth'
+import { auth } from '@/lib/auth'
+
+// Get bearer token from NextAuth session
+const getBearerToken = async () => {
+  const session = await auth();
+  return (session as any)?.accessToken || null;
+};
 import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'

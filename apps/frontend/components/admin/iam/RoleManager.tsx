@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@epsx/ui';
 'use client';
 
 import { useState } from 'react';
@@ -18,6 +17,7 @@ import {
   Filter,
   // MoreVertical - removed unused import
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@epsx/ui';
 interface Permission {
   id: string;
   name: string;

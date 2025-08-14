@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Key, Plus, Loader2, X } from 'lucide-react'
-import { assignPermissionProfile, removeCustomPermission } from '@/lib/actions/unified-user-actions'
+import { assignPermissionProfile, removeCustomPermission } from '@/lib/actions/user-actions'
 
 interface PermissionProfileFormProps {
   userId: string

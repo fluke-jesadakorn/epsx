@@ -1,6 +1,6 @@
 /**
  * User Profile Server Actions - Focused on profile operations
- * Extracted from unified-user-actions.ts for better maintainability
+ * Extracted from user-actions.ts for better maintainability
  */
 
 'use server'

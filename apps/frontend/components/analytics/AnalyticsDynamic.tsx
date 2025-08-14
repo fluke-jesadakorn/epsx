@@ -18,7 +18,7 @@ interface AnalyticsProps {
 
 // Dynamic import for heavy analytics components to reduce initial bundle size
 export const AnalyticsRankingDashboard: ComponentType<AnalyticsProps> = dynamic(
-  () => import('./AnalyticsRankingDashboard').then(mod => ({ default: mod.AnalyticsRankingDashboard })),
+  () => import('./AnalyticsRankingDash').then(mod => ({ default: mod.AnalyticsRankingDashboard })),
   {
     loading: () => <AnalyticsCardSkeleton />,
     ssr: false, // Disable SSR for client-heavy analytics

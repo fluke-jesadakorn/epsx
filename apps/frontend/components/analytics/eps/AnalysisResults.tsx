@@ -1,7 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { 
@@ -14,6 +12,7 @@ import {
   CheckCircle,
   Info
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
 
 interface AnalysisResultsProps {
   data: {

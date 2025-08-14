@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   Menu, 
@@ -21,6 +19,7 @@ import {
   HelpCircle,
   LogOut
 } from 'lucide-react';
+import { Button, Badge } from '@epsx/ui';
 
 interface NavItem {
   label: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useSignIn } from '@/lib/auth';
 import { Button } from '@epsx/ui';
 import { Shield, ExternalLink, Loader2, Lock, Eye, UserCheck } from 'lucide-react';
 
@@ -20,13 +20,14 @@ export function AdminOIDCLoginButton({
   enableSessionMonitoring = true,
   maxFailedAttempts = 3
 }: AdminOIDCLoginButtonProps) {
+  const { signIn, isLoading } = useSignIn();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleAdminLogin = async () => {
     setIsRedirecting(true);
     
     try {
-      console.log('🔐 Initiating NextAuth admin login');
+      console.log('🔐 Initiating OAuth admin login');
       
       // Add audit log entry for login attempt
       console.log('🔍 Admin OIDC login initiated', {
@@ -41,11 +42,8 @@ export function AdminOIDCLoginButton({
         }
       });
       
-      // Use NextAuth.js signIn with admin provider
-      await signIn('epsx-backend', {
-        callbackUrl: redirectTo,
-        redirect: true
-      });
+      // Use our custom signIn function
+      await signIn();
     } catch (error) {
       console.error('🚨 Admin login error:', error);
       setIsRedirecting(false);

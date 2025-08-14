@@ -8,7 +8,7 @@ import { UserManagement } from '../UserManagement'
 // const mockAuthService = ModernAuthService as jest.Mocked<typeof ModernAuthService>
 
 // Mock API calls
-jest.mock('../../../lib/actions/unified-user-actions', () => ({
+jest.mock('../../../lib/actions/user-actions', () => ({
   fetchUsersAction: jest.fn(() => Promise.resolve({
     success: true,
     data: {

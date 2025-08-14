@@ -1,11 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Crown, Lock, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Card, CardContent, Button, Badge } from '@epsx/ui';
 
 export function PublicRankingPreviewClient() {
   const router = useRouter();

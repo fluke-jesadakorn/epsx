@@ -5,11 +5,12 @@
 
 import { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
-import { requireAdminAuth } from '@/lib/auth/server-auth'
-import { getUnifiedUserData } from '@/lib/actions/unified-user-actions'
+// Authentication is handled at the root layout level by AdminAuthWrapper
+import { getUnifiedUserData } from '@/lib/actions/user-actions'
 import { UserProfileHeader } from '@/components/users/UserProfileHeader'
 import { UserTabNavigation } from '@/components/users/UserTabNavigation'
 import { UserDataProvider } from '@/components/users/UserDataProvider'
+import { auth } from '@/lib/auth'
 
 interface UserProfileLayoutProps {
   children: ReactNode
@@ -29,8 +30,9 @@ export default async function UserProfileLayout({
   const { userId } = await params
   const searchParamsData = searchParams ? await searchParams : {}
   
-  // Server-side auth check
-  const currentUser = await requireAdminAuth()
+  // Get current user session
+  const session = await auth()
+  const currentUser = session?.user
   
   // Fetch unified user data
   let userDataResult

@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/auth/session';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import { redirect } from 'next/navigation';
 
@@ -6,21 +6,21 @@ import { redirect } from 'next/navigation';
 export const revalidate = 60;
 
 export default async function DashboardPage() {
-  // Get session data server-side using NextAuth.js
-  const session = await auth();
+  // Get session data server-side using custom iron-session
+  const session = await getSession();
   
-  if (!session?.user) {
+  if (!session?.isLoggedIn || !session.user) {
     redirect('/login');
   }
 
-  // Transform NextAuth.js session data to the expected format
+  // Transform custom session data to the expected format
   const user = {
     user_id: session.user.firebase_uid || session.user.id || '',
     email: session.user.email || '',
     role: session.user.role || 'user',
     permissions: session.user.permissions || ['user:read'],
     subscription_tier: session.user.package_tier || 'FREE',
-    admin_modules: session.user.admin_modules || [],
+    admin_modules: [], // Frontend users don't have admin modules
     name: session.user.name || session.user.email || '',
   };
 

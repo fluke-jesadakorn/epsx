@@ -1,8 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import {
   Select,
   SelectContent,
@@ -10,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@epsx/ui';
-import { Input } from '@epsx/ui';
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,6 +17,7 @@ import {
   Settings,
 } from 'lucide-react';
 import type { CardDashboardPagination } from '@/types/financialChartData';
+import { Button, Badge, Input } from '@epsx/ui';
 
 interface PaginationProps {
   pagination: CardDashboardPagination;

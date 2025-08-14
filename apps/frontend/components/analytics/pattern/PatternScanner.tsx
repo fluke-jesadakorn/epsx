@@ -1,13 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@epsx/ui';
 import { 
   Zap as _Zap, 
   Play, 
@@ -17,6 +12,7 @@ import {
   Clock,
   Activity
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Label } from '@epsx/ui';
 
 interface PatternScannerProps {
   isScanning: boolean;

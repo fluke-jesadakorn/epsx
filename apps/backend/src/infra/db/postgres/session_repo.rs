@@ -22,8 +22,8 @@ impl PostgresSessRepo {
 #[async_trait]
 impl SessRepo for PostgresSessRepo {
     async fn get(&self, id: &SessId) -> Result<Option<Session>, RepoError> {
-        let sess_uuid = Uuid::parse_str(&id.to_string())
-            .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
+        // SessId always contains a valid UUID (either original or generated from string)
+        let sess_uuid = *id.value();
 
         let row = sqlx::query(
             "SELECT id, firebase_uid as user_id, session_token as access_token, firebase_token_id as refresh_token, expires_at, created_at, is_active 
@@ -52,8 +52,8 @@ impl SessRepo for PostgresSessRepo {
     }
 
     async fn save(&self, session: &Session) -> Result<(), RepoError> {
-        let sess_uuid = Uuid::parse_str(&session.id().to_string())
-            .map_err(|e| RepoError::InvalidData(format!("Invalid session UUID: {}", e)))?;
+        // SessId always contains a valid UUID (either original or generated from string)
+        let sess_uuid = *session.id().value();
         
         sqlx::query(
             "INSERT INTO firebase_sessions (id, firebase_uid, session_token, firebase_token_id, expires_at, created_at, is_active)
@@ -78,8 +78,8 @@ impl SessRepo for PostgresSessRepo {
     }
 
     async fn delete(&self, id: &SessId) -> Result<(), RepoError> {
-        let sess_uuid = Uuid::parse_str(&id.to_string())
-            .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
+        // SessId always contains a valid UUID (either original or generated from string)
+        let sess_uuid = *id.value();
 
         let result = sqlx::query(
             "UPDATE firebase_sessions SET is_active = false WHERE id = $1"

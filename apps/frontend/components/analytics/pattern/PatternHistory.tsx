@@ -1,11 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Input } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,6 +15,7 @@ import {
   Download,
   ArrowUpDown as _ArrowUpDown
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 
 interface HistoricalPattern {
   id: string;

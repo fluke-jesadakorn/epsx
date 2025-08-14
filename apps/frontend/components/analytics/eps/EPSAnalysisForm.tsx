@@ -2,15 +2,11 @@
 
 import { useState } from 'react';
 // Button import removed - not used in current implementation
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
-import { Card, CardContent } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@epsx/ui';
 import { LoadingButton } from '@/components/ui/loading-button';
 import { TrendingUp, Calendar, Target, Zap } from 'lucide-react';
+import { Input, Label, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@epsx/ui';
 
 interface EPSAnalysisFormProps {
   onSubmit: (symbol: string, parameters: AnalysisParameters) => void;

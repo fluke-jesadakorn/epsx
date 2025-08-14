@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Menu, User, LogOut, LogIn, Crown } from 'lucide-react';
 import { OptimizedThemeToggle } from './OptimizedThemeToggle';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 // Note: This component will be replaced by server-only auth flow
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
+import { Button, Badge } from '@epsx/ui';
 
 interface ClientNavControlsProps {
   user: { email: string; displayName: string } | null;

@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui'
 import { Badge } from '@epsx/ui'
-import { bulkAssignPermissions, bulkRemovePermissions } from '@/lib/actions/unified-user-actions'
+import { bulkAssignPermissions, bulkRemovePermissions } from '@/lib/actions/user-actions'
 import { useToast } from '@/components/ui/use-toast'
 
 interface BulkPermissionManagerProps {

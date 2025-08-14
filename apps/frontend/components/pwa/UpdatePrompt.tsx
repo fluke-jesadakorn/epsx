@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@epsx/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 import { 
   RefreshCw, 
   X, 
@@ -10,6 +8,7 @@ import {
   CheckCircle,
   Download
 } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
 
 interface UpdatePromptProps {
   onUpdate?: () => void;

@@ -1,10 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '@epsx/ui';
-import { Button } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { 
   ComposedChart, 
   Line, 
@@ -17,6 +13,7 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Calendar, TrendingUp, BarChart3 } from 'lucide-react';
+import { Card, CardContent, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 
 interface HistoricalComparisonProps {
   data: any[];

@@ -2,10 +2,10 @@
 
 import { Check, Sparkles } from 'lucide-react';
 import React from 'react';
-import { Button } from '@epsx/ui';
 import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
 import type { Package } from '@/app/constants/packages';
 import { useRouter } from 'next/navigation';
+import { Button } from '@epsx/ui';
 
 interface PlanFeature {
   text: string;

@@ -18,7 +18,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 import type { UserRole } from '@/lib/types/unified-user'
 import { UserStatusBadge } from './UserStatusBadge'
-import { removeUserRole } from '@/lib/actions/unified-user-actions'
+import { removeUserRole } from '@/lib/actions/user-actions'
 
 interface RoleAssignmentCardProps {
   role: UserRole

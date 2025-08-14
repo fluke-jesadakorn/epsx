@@ -1,11 +1,11 @@
 /**
- * Dashboard Server Component
+ * NextAuth.js Dashboard Server Component
  * Replaces client-side AdminDashboard with server-rendered version
  */
 
 import { Shield, Users, CheckCircle, Crown, Activity, Zap, Database, TrendingUp } from 'lucide-react'
 import type { DashboardStats, RecentUser, SystemMetrics } from '@/lib/data/dashboard'
-import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
+import type { Session } from 'next-auth'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UserManagementOnly, AnalyticsOnly } from '@/components/auth/RoleGuard'
 import { RecentActivity } from './RecentActivity'
@@ -13,13 +13,13 @@ import { SystemHealthCard } from './SystemHealthCard'
 import Link from 'next/link'
 
 interface DashboardServerProps {
-  user: EnhancedAuthUser
+  session: Session
   stats: DashboardStats
   recentUsers: RecentUser[]
   systemMetrics: SystemMetrics
 }
 
-export function DashboardServer({ user, stats, recentUsers, systemMetrics }: DashboardServerProps) {
+export function DashboardServer({ session, stats, recentUsers, systemMetrics }: DashboardServerProps) {
   const statCards = [
     {
       title: 'Total Users',
@@ -103,7 +103,7 @@ export function DashboardServer({ user, stats, recentUsers, systemMetrics }: Das
               Admin Dashboard
             </h1>
             <p className="text-muted-foreground mt-1">
-              Welcome back, {user.displayName || user.email}
+              Welcome back, {session?.user?.name || session?.user?.email}
             </p>
           </div>
         </div>

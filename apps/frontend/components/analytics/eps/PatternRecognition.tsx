@@ -1,11 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -16,6 +12,7 @@ import {
   Brain,
   Zap
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 
 interface PatternRecognitionProps {
   patterns: any[];

@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Mail, Shield, Phone, ArrowLeft, Save, Loader2 } from 'lucide-react'
-import { createUser } from '@/lib/actions/unified-user-actions'
+import { createUser } from '@/lib/actions/user-actions'
 
 interface CreateFormData {
   email: string

@@ -1,4 +1,4 @@
-import { PermissionManagementDashboard } from '@/components/admin/PermissionManagementDashboard';
+import { PermissionManagementDashboard } from '@/components/admin/PermissionMgmtDash';
 
 export default async function UserPermissionsPage() {
   return (

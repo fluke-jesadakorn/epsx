@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
 import { useRouter } from 'next/navigation';
 import {
   PACKAGES,
@@ -15,6 +12,7 @@ import type { UserLevelType } from '@/app/constants/packages';
 // Note: User level data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Star, Trophy, Gem, Zap, Lock, ArrowRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, Badge, Button } from '@epsx/ui';
 
 interface UserLevelDisplayProps {
   user?: any; // User data from server auth  
