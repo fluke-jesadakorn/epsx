@@ -7,7 +7,7 @@ import {
   Select,
   Textarea,
 } from '@/components/ui/form-components';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 import {
   Activity,
   AlertTriangle,
@@ -140,8 +140,8 @@ export const DeveloperPortal: React.FC = () => {
     try {
       setLoading(true);
       const [keysRes, modulesRes] = await Promise.all([
-        AdminService.listApiKeys(),
-        AdminService.getModules({ status: 'active' }),
+        AdminApiService.listApiKeys(),
+        AdminApiService.getModules({ status: 'active' }),
       ]);
 
       if (keysRes.success) {
@@ -167,7 +167,7 @@ export const DeveloperPortal: React.FC = () => {
     }
 
     try {
-      const response = await AdminService.createApiKey(createForm);
+      const response = await AdminApiService.createApiKey(createForm);
       if (response.success) {
         setNewApiKey(response.data.api_key);
         toast.success('API key created successfully!');
@@ -198,7 +198,7 @@ export const DeveloperPortal: React.FC = () => {
     if (!reason) return;
 
     try {
-      const response = await AdminService.revokeApiKey(keyId, reason);
+      const response = await AdminApiService.revokeApiKey(keyId, reason);
       if (response.success) {
         toast.success('API key revoked successfully');
         loadData();

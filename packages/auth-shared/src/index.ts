@@ -1,14 +1,12 @@
-// ============================================================================
-// MODERN AUTH.JS - Single Entry Point for Auth.js v5 Features
-// ============================================================================
+/**
+ * EPSX Auth Shared Package - JWT-Based Authentication
+ * Optimized exports for server-side-first JWT authentication
+ */
 
-// Types (always safe to import)
-export * from './types';
+// Essential types for JWT authentication
+export type * from './types';
 
-// Modern Auth.js v5 configuration
-export { default as authConfig } from './config/auth.config';
-
-// Modern JWT utilities with jose library
+// Core JWT utilities (server-safe)
 export {
   signJWT,
   verifyJWT,
@@ -25,84 +23,29 @@ export {
   type EPSXJWTPayload
 } from './jwt/jwt-utils';
 
-// Modern auth hooks (client-side only)
+// JWT Cookie Management (server-safe)
 export {
-  useModernAuth,
-  useAuth,
-  useAdminAuth,
-  useFeatureAccess,
-  type EPSXUser
-} from './hooks/useModernAuth';
+  JWTCookieManager,
+  createCookieManager,
+  extractJWTClaims,
+  type CookieConfig,
+  type TokenCookies
+} from './cookies/cookie-manager';
 
-// Modern permission gate components (client-side only)
+// Server-side guards and utilities
 export {
-  PermissionGate,
-  AdminGate,
-  SystemAdminGate,
-  PackageTierGate,
-  PremiumGate
-} from './components/PermissionGate';
-
-// Legacy middleware (will be removed in Phase 6)
-export { 
-  getSessionToken,
-  checkPermissionAccess,
-  checkRoleHierarchy,
-  clearPermissionCache,
-  addSecurityHeaders,
-  addAdminSecurityHeaders,
-  createUnifiedMiddleware,
-  createFrontendMiddleware,
-  createAdminMiddleware
-} from './middleware/index';
-
-// Shared cookie and cross-app sync utilities
-export {
-  getSharedCookieConfig,
-  getCrossAppAuthConfig,
-  SharedCookieManager,
-  sharedCookieManager
-} from './config/shared-cookie';
-
-export {
-  CrossAppAuthSync,
-  createCrossAppSync,
-  getCrossAppSync
-} from './sync/cross-app-sync';
-
-export {
-  useSharedAuth,
-  type SharedAuthUser,
-  type SharedAuthState,
-  type SharedAuthActions,
-  type UseSharedAuthReturn
-} from './hooks/useSharedAuth';
-
-// CSRF protection utilities
-export {
-  CSRFProtection,
-  CSRFProtectedRequest,
-  getCSRFProtection,
-  getCSRFProtectedRequest,
-  type CSRFToken,
-  type CSRFConfig
-} from './security/csrf-protection';
-
-// NOTE: Client-side components (providers, hooks, guards) are exported 
-// from separate entry points to avoid server/client bundling conflicts:
-// 
-// - Use '@epsx/auth-shared/client' for React providers and hooks
-// - Use '@epsx/auth-shared/middleware' for middleware utilities
-// - Use '@epsx/auth-shared' for types and server-safe utilities
+  SSRAuthGuard,
+  SSRRoleContent,
+  SSRUserInfo,
+  SSRAdminGuard
+} from './server/guards';
 
 // ============================================================================
-// IMPORT GUIDANCE - Use these imports to minimize dependencies:
+// IMPORT GUIDANCE FOR JWT-BASED ARCHITECTURE:
 // 
-// Types only:      import type { AuthConfig, AuthState } from '@epsx/auth-shared';
-// Middleware:      import { createFrontendMiddleware } from '@epsx/auth-shared';
-// Providers:       import { UnifiedAuthProvider } from '@epsx/auth-shared';
-// Hooks:           import { useAuth, usePermissions } from '@epsx/auth-shared';
-// Guards:          import { AuthGuard } from '@epsx/auth-shared';
+// Server Components:   import { verifyJWT, signJWT } from '@epsx/auth-shared';
+// JWT Utilities:       import { hasPermissionInJWT } from '@epsx/auth-shared';
+// Types:              import type { EPSXJWTPayload } from '@epsx/auth-shared';
 // 
-// Avoid importing everything: import * from '@epsx/auth-shared' (discouraged)
+// Client components should use local auth providers in each app.
 // ============================================================================

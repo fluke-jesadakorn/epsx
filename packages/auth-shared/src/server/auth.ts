@@ -48,35 +48,29 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
 
     const cookieHeader = `${finalConfig.sessionCookieName}=${sessionId}`;
 
-    // Try multiple endpoints to handle both admin and regular users
-    const endpoints = ['/api/v1/auth/me', '/api/admin/auth/profile'];
-    
+    // Use OIDC userinfo endpoint for both admin and regular users
     let userData = null;
     let lastError: string | null = null;
     
-    for (const endpoint of endpoints) {
-      try {
-        const response = await fetch(`${finalConfig.backendUrl}${endpoint}`, {
-          method: 'GET',
-          headers: {
-            'Cookie': cookieHeader,
-            'Content-Type': 'application/json',
-            'User-Agent': 'Auth-Shared Server Component',
-          },
-        });
+    try {
+      const response = await fetch(`${finalConfig.backendUrl}/oauth/userinfo`, {
+        method: 'GET',
+        headers: {
+          'Cookie': cookieHeader,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Auth-Shared Server Component',
+        },
+      });
 
-        if (response.ok) {
-          userData = await response.json();
-          break;
-        } else if (response.status === 401) {
-          lastError = 'Session expired';
-        } else {
-          lastError = 'Authentication failed';
-        }
-      } catch (fetchError) {
-        lastError = fetchError instanceof Error ? fetchError.message : 'Network error';
-        continue;
+      if (response.ok) {
+        userData = await response.json();
+      } else if (response.status === 401) {
+        lastError = 'Session expired';
+      } else {
+        lastError = 'Authentication failed';
       }
+    } catch (fetchError) {
+      lastError = fetchError instanceof Error ? fetchError.message : 'Network error';
     }
 
     if (!userData) {
@@ -86,17 +80,18 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
       };
     }
 
+    // Transform OIDC userinfo claims to expected format
     return {
         isAuthenticated: true,
         user: {
-          id: userData.user_id || userData.id,
+          id: userData.sub, // OIDC subject identifier
           email: userData.email,
           role: userData.role,
           isActive: true,
-          createdAt: new Date(userData.created_at || Date.now()),
+          createdAt: new Date(userData.iat ? userData.iat * 1000 : Date.now()),
           updatedAt: new Date(userData.updated_at || Date.now()),
-          displayName: userData.displayName || userData.display_name || userData.email?.split('@')[0],
-          avatar: userData.photoURL || userData.photo_url,
+          displayName: userData.name || userData.email?.split('@')[0],
+          avatar: userData.picture,
         } as UserProfile & { 
           permissions?: string[];
           session_type?: string;
@@ -104,6 +99,7 @@ export async function getServerAuth(config: AuthServerConfig = {}): Promise<Serv
           subscription_tier?: string;
           expires_at?: string;
           permission_profiles?: string[];
+          admin_modules?: string[];
         },
       };
   } catch (networkError) {

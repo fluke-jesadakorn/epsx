@@ -4,7 +4,7 @@
  */
 
 
-import { getUnifiedUserData } from '@/lib/actions/user-actions'
+import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'
 import { auth } from '@/lib/auth'

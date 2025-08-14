@@ -13,6 +13,7 @@ pub mod module;
 pub mod market_data;
 pub mod eps_growth;
 
+// Temporary glob re-exports - to be refined in next phase  
 pub use user::*;
 pub use auth::*;
 pub use payment::*;

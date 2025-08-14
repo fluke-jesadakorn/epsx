@@ -12,7 +12,7 @@ import {
   Shield,
 } from 'lucide-react';
 import * as React from 'react';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 
 interface SettingsDashboardProps {
   initialSystemConfig: any;
@@ -79,7 +79,7 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = ({
   const handleSaveSettings = async () => {
     try {
       for (const [category, categorySettings] of Object.entries(settings)) {
-        await AdminService.updateSettings({
+        await AdminApiService.updateSettings({
           category,
           settings: categorySettings,
           updatedBy: 'current-admin-id'

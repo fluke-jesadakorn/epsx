@@ -8,11 +8,8 @@ pub mod events;
 pub mod error;
 pub mod ports;
 
-#[allow(ambiguous_glob_reexports)]
-pub use entities::*;
-#[allow(ambiguous_glob_reexports)]
-pub use values::*;
-#[allow(ambiguous_glob_reexports)]
-pub use services::*;
-#[allow(ambiguous_glob_reexports)]
+// Selective re-exports to prevent namespace pollution
+pub use entities::{AggregateRoot, UnitOfWork};
+pub use values::{UserId, SessId, PayId, Email, Role, PermSet, SubTier, Subscription, Currency, PayStatus, Network};  // Explicit re-exports
+pub use services::{DatabaseRoleService, AutoAssignmentEngine, AuditService, EPSCacheService, AdminModuleService, FirebaseSessionService, FirebaseUserService};  // Explicit re-exports
 pub use events::*;

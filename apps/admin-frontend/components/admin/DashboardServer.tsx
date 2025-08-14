@@ -1,11 +1,23 @@
 /**
- * NextAuth.js Dashboard Server Component
- * Replaces client-side AdminDashboard with server-rendered version
+ * JWT Dashboard Server Component
+ * Server-rendered admin dashboard with JWT authentication
  */
 
 import { Shield, Users, CheckCircle, Crown, Activity, Zap, Database, TrendingUp } from 'lucide-react'
 import type { DashboardStats, RecentUser, SystemMetrics } from '@/lib/data/dashboard'
-import type { Session } from 'next-auth'
+// Session type compatible with Zustand auth system
+interface Session {
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+    adminModules: string[];
+    permissions: string[];
+    packageTier: string;
+  };
+  isLoggedIn: boolean;
+}
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UserManagementOnly, AnalyticsOnly } from '@/components/auth/RoleGuard'
 import { RecentActivity } from './RecentActivity'

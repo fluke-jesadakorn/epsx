@@ -35,6 +35,8 @@ export async function makeServerRequest<T = any>(
           authToken = await extractServerSideToken();
         }
         
+        console.log(`🔐 Token extraction result - SkipAuth: ${skipAuth}, Token: ${authToken ? 'present' : 'missing'}`);
+        
         if (authToken) {
           console.log('🔑 Using Auth.js session token');
         }
@@ -59,7 +61,13 @@ export async function makeServerRequest<T = any>(
       
       // Add provider hint for backend routing
       headers['X-Provider-Hint'] = 'auth.js';
+      
+      console.log(`📨 Adding Authorization header for request to ${url}`);
+    } else {
+      console.log(`📨 No auth token, making unauthenticated request to ${url}`);
     }
+    
+    console.log(`📤 Making request to ${url} with headers:`, Object.keys(headers));
     
     const response = await fetch(url, {
       ...fetchOptions,
@@ -141,12 +149,17 @@ async function extractServerSideToken(): Promise<string> {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     
+    console.log('🍪 Available cookies:', Array.from(cookieStore.getAll().map(c => `${c.name}=${c.value?.substring(0, 10)}...`)).join(', '));
+    
     // Look for Auth.js session token
     const sessionToken = cookieStore.get('next-auth.session-token') || 
                         cookieStore.get('__Secure-next-auth.session-token');
     
     if (sessionToken?.value) {
+      console.log('🔑 Found Auth.js session token');
       return sessionToken.value;
+    } else {
+      console.log('❌ Auth.js session token not found or empty');
     }
     
     // Fallback: look for other JWT tokens
@@ -155,11 +168,21 @@ async function extractServerSideToken(): Promise<string> {
       c.value.includes('.') && c.value.split('.').length === 3
     );
     
-    return jwtCookie?.value || '';
+    if (jwtCookie?.value) {
+      console.log('🔑 Found JWT token in fallback');
+      return jwtCookie.value;
+    } else {
+      console.log('❌ JWT token not found in fallback');
+    }
+    
+    console.warn('⚠️ No valid tokens found in cookies. Available cookies:', 
+      Array.from(cookieStore.getAll().map(c => c.name)).join(', '));
+    return '';
   } catch (error) {
     console.debug('Failed to extract server-side token:', error);
     return '';
   }
+}
 }
 
 /**

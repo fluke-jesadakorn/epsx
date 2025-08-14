@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 import { UserLevel, USER_LEVEL_CONFIGS } from '@/types/admin/userLevels';
 import { Upload, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -52,7 +52,7 @@ export function BulkUserLevelAssignment() {
         reason: reason || 'Bulk assignment'
       }));
 
-      const response = await AdminService.bulkUpdateLevels(updates);
+      const response = await AdminApiService.bulkUpdateLevels(updates);
       
       
       // Check if response has results property

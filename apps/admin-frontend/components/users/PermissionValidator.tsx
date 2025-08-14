@@ -10,7 +10,7 @@ import { AlertTriangle, Shield, CheckCircle, XCircle, Info, AlertCircle, Setting
 import { Button } from '@epsx/ui'
 import { Badge } from '@epsx/ui'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { validatePermissionAssignment } from '@/lib/actions/user-actions'
+import { validatePermissionAssignment } from '@/lib/actions/users'
 import { PermissionConflictResolver } from './PermissionConflictResolver'
 
 interface ValidationResult {

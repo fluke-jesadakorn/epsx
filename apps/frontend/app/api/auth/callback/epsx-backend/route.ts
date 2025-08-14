@@ -3,9 +3,8 @@
  * Handles OAuth authorization callback and creates user session
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens, getUserInfo } from '@/lib/auth/client';
-import { createUserSession } from '@/lib/auth/session';
-import { setSessionCookie } from '@/lib/auth/session';
+import { exchangeCodeForTokens, getUserInfo } from '@/lib/auth';
+import { signJWT, createJWTClaims, createCookieManager } from '@epsx/auth-shared';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -78,13 +77,24 @@ export async function GET(request: NextRequest) {
       email: userinfo.email,
       role: userinfo.role,
       permissions: userinfo.permissions,
-      package_tier: userinfo.package_tier,
+      subscription_tier: userinfo.subscription_tier,
     });
 
-    // Create user session
-    const sessionData = createUserSession(userinfo, accessToken, refreshToken);
+    // Create JWT token with user claims
+    const jwtClaims = createJWTClaims({
+      id: userinfo.sub || userinfo.id,
+      email: userinfo.email,
+      name: userinfo.name || userinfo.display_name,
+      admin_modules: userinfo.admin_modules || [],
+      permissions: userinfo.permissions || ['user:read'],
+      package_tier: userinfo.subscription_tier || 'FREE', // Use subscription_tier from backend
+      role: userinfo.role || 'user',
+      firebase_uid: userinfo.firebase_uid || userinfo.sub,
+    });
 
-    console.log('✅ Frontend: User session created successfully');
+    const jwtToken = await signJWT(jwtClaims);
+
+    console.log('✅ Frontend: JWT token created successfully');
 
     // Get callback URL from cookies or default to dashboard
     const callbackUrl = cookieStore.get('oauth_callback_url')?.value || '/dashboard';
@@ -92,9 +102,11 @@ export async function GET(request: NextRequest) {
     // Clean up OAuth cookies and create redirect response
     const response = NextResponse.redirect(new URL(callbackUrl, request.url));
     
-    // Use manual session cookie setting instead of iron-session
-    console.log('🔧 Frontend: Setting session cookie manually for redirect...');
-    await setSessionCookie(response, sessionData);
+    // Set JWT cookie using new cookie manager
+    console.log('🔧 Frontend: Setting JWT cookie for redirect...');
+    const cookieManager = createCookieManager('frontend');
+    cookieManager.setAccessTokenCookie(response, jwtToken);
+    
     response.cookies.delete('oauth_code_verifier');
     response.cookies.delete('oauth_state');
     response.cookies.delete('oauth_callback_url');

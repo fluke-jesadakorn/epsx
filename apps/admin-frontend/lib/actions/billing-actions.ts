@@ -5,14 +5,8 @@
 
 'use server'
 
-import { auth } from '@/lib/auth'
-
-// Get bearer token from NextAuth session
-const getBearerToken = async () => {
-  const session = await auth();
-  return (session as any)?.accessToken || null;
-};
-import { logger } from '@/lib/logger'
+import { getBearerToken, getCurrentUser } from '@/lib/actions/server-auth';
+import { logger } from '@/lib/logger';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
 

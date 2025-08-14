@@ -8,14 +8,7 @@ pub mod web;    // Web/API layer
 pub mod config; // Configuration
 pub mod auth;   // Modern authentication
 
-// Re-exports for convenience
-#[allow(ambiguous_glob_reexports)]
-pub use core::*;
-#[allow(ambiguous_glob_reexports)]
-pub use dom::*;
-#[allow(ambiguous_glob_reexports)]
-pub use app::*;
-#[allow(ambiguous_glob_reexports)]
-pub use infra::*;
-#[allow(ambiguous_glob_reexports)]
-pub use web::*;
+// Selective re-exports for clean namespace
+pub use core::{errors, types, telemetry};
+pub use infra::{AppContainer, PostgresAuditRepo};
+pub use web::create_router;

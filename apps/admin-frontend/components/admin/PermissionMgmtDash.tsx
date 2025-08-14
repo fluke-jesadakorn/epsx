@@ -1,7 +1,7 @@
 'use client';
 
 import type { CustomPermission } from '@/types/admin/iam';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 import { Edit, Eye, Filter, Key, Plus, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 
@@ -60,7 +60,7 @@ export function PermissionManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const data = await AdminService.getCustomPermissions();
+      const data = await AdminApiService.getCustomPermissions();
 
       // Transform permissions and add mock categories/scopes
       const permissionsWithDetails: PermissionWithDetails[] = (data || []).map(

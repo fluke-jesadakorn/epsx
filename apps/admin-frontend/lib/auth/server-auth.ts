@@ -1,108 +1,123 @@
 /**
- * Server-side authentication and user context
- * Provides user context and admin auth requirements
+ * Server-side Auth Types and Utilities
+ * Provides types and utilities for server-side authentication
  */
 
-'use server'
+import type { EPSXJWTPayload } from '@epsx/auth-shared';
 
-import { headers } from 'next/headers'
-
-export interface EnhancedAuthUser {
-  id: string
-  email: string
-  displayName?: string
-  role: string
-  permissions: string[]
-  isAdmin: boolean
-  emailVerified: boolean
-  createdAt: Date
-  lastLogin?: Date
+/**
+ * Enhanced auth user type based on our JWT structure
+ */
+export interface EnhancedAuthUser extends EPSXJWTPayload {
+  id: string;  // Maps to `sub` field
 }
 
-export interface UserContext {
-  user: EnhancedAuthUser
-  session: {
-    token: string
-    expiresAt: Date
+/**
+ * Server-side session type
+ */
+export interface ServerSession {
+  user: EnhancedAuthUser;
+  expires: string;
+  accessToken?: string;
+}
+
+/**
+ * Convert JWT payload to EnhancedAuthUser
+ */
+export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUser {
+  return {
+    ...payload,
+    id: payload.sub,
+  };
+}
+
+/**
+ * Server-side auth utilities
+ */
+export async function getServerSession(): Promise<ServerSession | null> {
+  try {
+    const { auth } = await import('@/lib/auth');
+    const session = await auth();
+    if (!session?.user) return null;
+    
+    // Convert to proper ServerSession type
+    return {
+      user: createEnhancedAuthUser(session.user as any),
+      expires: session.expires,
+      accessToken: session.accessToken,
+    };
+  } catch (error) {
+    console.error('❌ Failed to get server session:', error);
+    return null;
   }
 }
 
 /**
- * Get the current user context from session
+ * Get current user from server session
  */
-export async function getUserContext(): Promise<UserContext | null> {
+export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
   try {
-    // For development, return a mock admin user
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        user: {
-          id: 'dev-admin-001',
-          email: 'admin@epsx.dev',
-          displayName: 'Development Admin',
-          role: 'admin',
-          permissions: ['admin:read', 'admin:write', 'admin:delete'],
-          isAdmin: true,
-          emailVerified: true,
-          createdAt: new Date(),
-          lastLogin: new Date()
-        },
-        session: {
-          token: 'dev-admin-token',
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-        }
-      }
-    }
-
-    // TODO: Implement proper session management
-    // This should:
-    // 1. Extract session token from cookies or headers
-    // 2. Validate the token with the backend
-    // 3. Return user data if valid
-
-    return null
+    const session = await getServerSession();
+    if (!session?.user) return null;
+    
+    return createEnhancedAuthUser(session.user as any);
   } catch (error) {
-    console.error('Failed to get user context:', error)
-    return null
+    console.error('❌ Failed to get current user:', error);
+    return null;
   }
+}
+
+/**
+ * Check if user has required permissions
+ */
+export function hasPermission(user: EnhancedAuthUser | null, permission: string): boolean {
+  if (!user?.permissions) return false;
+  return user.permissions.includes(permission) || user.permissions.includes('*');
+}
+
+/**
+ * Check if user has required admin module
+ */
+export function hasAdminModule(user: EnhancedAuthUser | null, module: string): boolean {
+  if (!user?.admin_modules) return false;
+  return user.admin_modules.includes(module);
+}
+
+/**
+ * Check if user is admin (has any admin module)
+ */
+export function isAdmin(user: EnhancedAuthUser | null): boolean {
+  if (!user?.admin_modules) return false;
+  return user.admin_modules.length > 0;
 }
 
 /**
  * Require admin authentication - throws if not admin
  */
 export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
-  const context = await getUserContext()
-  
-  if (!context) {
-    throw new Error('Authentication required')
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) {
+    throw new Error('Admin authentication required');
   }
-
-  if (!context.user.isAdmin) {
-    throw new Error('Admin access required')
-  }
-
-  return context.user
+  return user;
 }
 
 /**
- * Check if current user is authenticated and has admin role
+ * Get user context with permissions info
  */
-export async function isAdminAuthenticated(): Promise<boolean> {
+export async function getUserContext() {
   try {
-    const context = await getUserContext()
-    return context?.user.isAdmin ?? false
-  } catch {
-    return false
-  }
-}
-
-/**
- * Get current user ID if authenticated
- */
-export async function getCurrentUserId(): Promise<string | null> {
-  try {
-    const context = await getUserContext()
-    return context?.user.id ?? null
-  } catch {
-    return null
+    const user = await getCurrentUser();
+    if (!user) return null;
+    
+    return {
+      user,
+      isAdmin: isAdmin(user),
+      permissions: user.permissions || [],
+      adminModules: user.admin_modules || [],
+    };
+  } catch (error) {
+    console.error('❌ Failed to get user context:', error);
+    return null;
   }
 }

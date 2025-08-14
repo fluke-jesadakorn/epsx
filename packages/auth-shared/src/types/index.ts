@@ -67,3 +67,15 @@ export {
   UserRole,
   ROLE_HIERARCHY
 } from './consolidated-permissions';
+
+// Temporary EPSXUser type for migration
+export interface EPSXUser {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  permissions: string[];
+  admin_modules: string[];
+  package_tier: string;
+  firebase_uid?: string;
+}

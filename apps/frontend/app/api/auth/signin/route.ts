@@ -1,54 +1,24 @@
 /**
- * Frontend Sign In API Route
- * Initiates OAuth 2.0 authorization flow
+ * Frontend Main Sign In Route
+ * Redirects to EPSX backend OAuth flow
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthorizationUrl } from '@/lib/auth/client';
 
 export async function GET(request: NextRequest) {
-  try {
-    console.log('🔄 Frontend: Initiating OAuth sign-in flow');
-
-    // Generate authorization URL with PKCE parameters
-    const { url, codeVerifier, state } = await getAuthorizationUrl();
-
-    console.log('✅ Frontend: Generated authorization URL');
-
-    // Create response that redirects to authorization server
-    const response = NextResponse.redirect(url);
-
-    // Store PKCE parameters in secure cookies
-    response.cookies.set('oauth_code_verifier', codeVerifier, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 600, // 10 minutes
-      path: '/',
-    });
-
-    response.cookies.set('oauth_state', state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 600, // 10 minutes
-      path: '/',
-    });
-
-    console.log('🔄 Frontend: Redirecting to EPSX backend authorization server');
-    return response;
-
-  } catch (error) {
-    console.error('❌ Frontend: Sign-in initiation failed:', error);
-    
-    // Redirect to login page with error
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('error', 'signin_failed');
-    
-    return NextResponse.redirect(loginUrl);
+  // Get callback URL from query parameters
+  const { searchParams } = new URL(request.url);
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  
+  // Redirect to EPSX backend signin with callback URL
+  const backendSigninUrl = new URL('/api/auth/signin/epsx-backend', request.url);
+  if (callbackUrl) {
+    backendSigninUrl.searchParams.set('callbackUrl', callbackUrl);
   }
+  
+  return NextResponse.redirect(backendSigninUrl);
 }
 
-// Allow POST method as well for form submissions
+// Allow POST method as well
 export async function POST(request: NextRequest) {
   return GET(request);
 }

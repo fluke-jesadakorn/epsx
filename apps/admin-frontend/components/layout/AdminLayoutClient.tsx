@@ -2,7 +2,20 @@
 
 import { ReactNode, useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSignOut, Session } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
+
+interface Session {
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+    adminModules: string[];
+    permissions: string[];
+    packageTier: string;
+  };
+  isLoggedIn: boolean;
+}
 import Link from 'next/link';
 import {
   Activity,
@@ -37,7 +50,7 @@ interface AdminLayoutClientProps {
 export function AdminLayoutClient({ children, session }: AdminLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut, isLoading: isSigningOut } = useSignOut();
+  const { logout, isLoading: isSigningOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // Load collapsed state from localStorage
@@ -248,14 +261,14 @@ export function AdminLayoutClient({ children, session }: AdminLayoutClientProps)
   ];
 
   // Filter menu items based on session's admin modules
-  const hasAdminModule = (module: string | null) => {
+  const hasUserAdminModule = (module: string | null) => {
     if (!module) return true; // No module required
-    const adminModules = (session?.user as any)?.admin_modules as string[] || [];
+    const adminModules = session?.user?.admin_modules || [];
     return adminModules.includes(module);
   };
 
   const filteredMenuGroups = menuGroups
-    .filter(group => hasAdminModule(group.requiredModule))
+    .filter(group => hasUserAdminModule(group.requiredModule))
     .map(group => {
       if (group.type === 'single') {
         return group;
@@ -264,7 +277,7 @@ export function AdminLayoutClient({ children, session }: AdminLayoutClientProps)
         ...group,
         items: group.items?.filter(
           item => 
-            hasAdminModule(item.requiredModule) &&
+            hasUserAdminModule(item.requiredModule) &&
             (item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
              item.description.toLowerCase().includes(searchQuery.toLowerCase()))
         ),
@@ -297,8 +310,8 @@ export function AdminLayoutClient({ children, session }: AdminLayoutClientProps)
 
   const handleLogout = async () => {
     try {
-      // Use our custom signOut
-      await signOut();
+      // Use Zustand auth logout
+      await logout();
     } catch (error) {
       console.error('Logout failed:', error);
       // Fallback to manual redirect
@@ -607,7 +620,7 @@ export function AdminLayoutClient({ children, session }: AdminLayoutClientProps)
                   {session?.user?.email || 'Admin User'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {((session?.user as any)?.admin_modules as string[] || []).length} modules
+                  {(session?.user?.admin_modules || []).length} modules
                 </p>
               </div>
             )}

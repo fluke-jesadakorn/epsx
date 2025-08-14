@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { AdminService as _AdminService } from '@/services/adminService';
+import { AdminApiService as _AdminApiService } from '@/services/adminApiService';
 // Note: Auth is handled by middleware with HTTP-only cookies
 import { 
   Shield, 

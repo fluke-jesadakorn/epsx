@@ -42,6 +42,10 @@ pub struct LoginFormData {
     pub response_type: String,
     #[serde(default)]
     pub trust_device: Option<String>,
+    #[serde(default)]
+    pub code_challenge: Option<String>,
+    #[serde(default)]
+    pub code_challenge_method: Option<String>,
 }
 
 /// Authorization code data stored in Redis
@@ -100,11 +104,13 @@ pub async fn authorization_endpoint(
 
     // Render appropriate login template
     if is_admin_login {
-        let template = TemplateFactory::create_admin_login_template(
+        let template = TemplateFactory::create_admin_login_template_with_pkce(
             params.client_id,
             params.redirect_uri,
             params.state,
             params.scope,
+            params.code_challenge,
+            params.code_challenge_method,
             String::new(), // No error on initial load
         );
         
@@ -115,11 +121,13 @@ pub async fn authorization_endpoint(
                 StatusCode::INTERNAL_SERVER_ERROR
             })
     } else {
-        let template = TemplateFactory::create_login_template(
+        let template = TemplateFactory::create_login_template_with_pkce(
             params.client_id,
             params.redirect_uri,
             params.state,
             params.scope,
+            params.code_challenge,
+            params.code_challenge_method,
             String::new(), // No error on initial load
         );
         
@@ -222,18 +230,68 @@ pub async fn handle_authorization_form(
         }
     }
 
+    // Extract user role for scope validation
+    let user_role = extract_user_role(&firebase_user);
+    
+    // Validate requested scopes against user's role and permissions
+    let validated_scopes = match validate_scopes_with_user_context(
+        &form_data.scope,
+        &user_role,
+        &form_data.client_id,
+    ) {
+        Ok(scopes) => scopes,
+        Err(ref scope_error) => {
+            let error_message = match scope_error {
+                crate::auth::ScopeError::InsufficientRole { scope, required_role, .. } => {
+                    format!("Insufficient privileges for scope '{}'. Role '{}' required.", scope, required_role)
+                }
+                crate::auth::ScopeError::InvalidScope { scope } => {
+                    format!("Invalid scope requested: '{}'", scope)
+                }
+                crate::auth::ScopeError::ClientNotAuthorized { scope, .. } => {
+                    format!("Client not authorized for sensitive scope: '{}'", scope)
+                }
+                crate::auth::ScopeError::MissingOpenIDScope => {
+                    "OpenID scope is required when requesting profile information".to_string()
+                }
+                _ => "Invalid scope configuration".to_string(),
+            };
+            
+            tracing::warn!(
+                user_email = %form_data.email,
+                user_role = %user_role,
+                requested_scopes = %form_data.scope,
+                client_id = %form_data.client_id,
+                error = %scope_error,
+                "Scope validation failed during authorization"
+            );
+            
+            return serve_login_with_error(&form_data, &error_message);
+        }
+    };
+
+    // Log successful scope validation
+    tracing::info!(
+        user_email = %form_data.email,
+        user_role = %user_role,
+        granted_scopes = %validated_scopes.granted_scopes,
+        sensitive_scopes = ?validated_scopes.sensitive_scopes,
+        permission_count = %validated_scopes.permissions.len(),
+        "Scopes validated successfully"
+    );
+
     // Generate authorization code
     let auth_code = generate_authorization_code();
     
-    // Store authorization code data
+    // Store authorization code data with PKCE parameters and validated scopes
     let auth_data = AuthorizationCodeData {
         firebase_user: firebase_user.clone(),
         client_id: form_data.client_id.clone(),
         redirect_uri: form_data.redirect_uri.clone(),
-        scope: form_data.scope.clone(),
+        scope: validated_scopes.granted_scopes.clone(), // Use validated scopes, not raw request
         created_at: Utc::now(),
-        code_challenge: None, // TODO: Extract from session if PKCE was used
-        code_challenge_method: None,
+        code_challenge: form_data.code_challenge.clone(),
+        code_challenge_method: form_data.code_challenge_method.clone(),
     };
 
     if let Err(e) = store_authorization_code(&app_state, &auth_code, &auth_data).await {
@@ -356,35 +414,78 @@ fn is_valid_client_id(client_id: &str) -> bool {
 
 /// Validate scope
 fn is_valid_scope(scope: &str) -> bool {
-    let required_scopes = ["openid"];
-    let valid_scope_patterns = [
-        "openid", "profile", "email", 
-        "admin", "administrator",
-        "admin:read", "admin:write", "admin:manage",
-        "system:read", "system:write", "system:manage",
-        "user:read", "user:write", "user:manage"
-    ];
+    use crate::auth::SCOPE_SERVICE;
     
-    let scopes: Vec<&str> = scope.split_whitespace().collect();
+    // Basic validation - check if all requested scopes exist
+    let scope_names = SCOPE_SERVICE.parse_scope_string(scope);
     
-    // Must contain required scopes
-    for required in &required_scopes {
-        if !scopes.contains(required) {
+    if scope_names.is_empty() {
+        return false;
+    }
+    
+    // Check if all requested scopes are registered
+    for scope_name in &scope_names {
+        if SCOPE_SERVICE.get_scope(scope_name).is_none() {
+            tracing::warn!(
+                scope = %scope_name,
+                "Unknown scope requested during authorization"
+            );
             return false;
         }
     }
     
-    // All scopes must be valid or follow admin/system/user pattern
-    for scope in &scopes {
-        if !valid_scope_patterns.contains(scope) {
-            // Check if it follows a valid pattern like "admin:*", "system:*", "user:*"
-            if !(scope.starts_with("admin:") || scope.starts_with("system:") || scope.starts_with("user:")) {
-                return false;
+    // Additional validation: if profile/email scopes are requested, openid must be present
+    let has_profile_scopes = scope_names.iter()
+        .any(|s| matches!(s.as_str(), "profile" | "email"));
+    let has_openid = scope_names.contains(&"openid".to_string());
+    
+    if has_profile_scopes && !has_openid {
+        tracing::warn!("Profile scopes requested without openid scope");
+        return false;
+    }
+    
+    true
+}
+
+/// Validate scopes with user context (called after authentication)
+fn validate_scopes_with_user_context(
+    scope: &str,
+    user_role: &str,
+    client_id: &str,
+) -> Result<crate::auth::ValidatedScopes, crate::auth::ScopeError> {
+    use crate::auth::SCOPE_SERVICE;
+    
+    SCOPE_SERVICE.validate_scopes(scope, user_role, client_id)
+}
+
+/// Extract user role from Firebase user custom claims
+fn extract_user_role(firebase_user: &FirebaseUser) -> String {
+    // Try to extract role from custom claims
+    let custom_claims = &firebase_user.custom_claims;
+    if !custom_claims.is_empty() {
+        if let Some(role_value) = custom_claims.get("role") {
+            if let Some(role_str) = role_value.as_str() {
+                return role_str.to_string();
             }
         }
     }
     
-    true
+    // Fallback logic for determining role
+    if firebase_user.uid == "test-admin-uid" {
+        // Test admin user gets admin role
+        return "admin".to_string();
+    }
+    
+    // Check if user has admin access (legacy Firebase admin check)
+    // This is a simplified check - in production you'd have more sophisticated role determination
+    if let Some(email) = &firebase_user.email {
+        if email.contains("admin") || email.contains("moderator") {
+            return "moderator".to_string();
+        }
+    }
+    
+    // Default role
+    "user".to_string()
 }
 
 /// Serve error page for authorization errors

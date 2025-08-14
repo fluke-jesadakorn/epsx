@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { getSession } from '@/lib/auth/session';
+import { getSessionFromJWT } from '@/lib/server/jwt';
 import { redirect } from 'next/navigation';
 import { AdminLayoutServer } from '@/components/layout/AdminLayoutServer';
 import { ClientProviders } from './ClientProviders';
@@ -21,7 +21,7 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   // Public routes that don't require authentication or layout
   const publicRoutes = [
     '/login',
-    '/api/auth/callback',
+    '/api/auth/callback/epsx-backend',
     '/api/auth/login',
     '/api/auth/logout',
     '/auth/error',
@@ -43,14 +43,14 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   }
   
   // For protected routes, validate authentication
-  const session = await getSession();
+  const sessionData = await getSessionFromJWT();
   
-  if (!session?.isLoggedIn || !session?.user) {
+  if (!sessionData?.isAuthenticated || !sessionData?.user) {
     redirect('/login');
   }
   
   // Check if user has admin access
-  const userAdminModules = session.user.admin_modules || [];
+  const userAdminModules = sessionData.user.admin_modules || [];
   if (userAdminModules.length === 0) {
     redirect('/access-denied?reason=insufficient_admin_access');
   }

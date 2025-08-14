@@ -14,6 +14,7 @@ pub mod audit_repo;
 pub mod permission_profile_repo;
 pub mod assign_repo;
 pub mod eps_ranking_repo;
+pub mod module_repo;
 // TODO: Implement level_history_repo
 // pub mod level_history_repo;
 
@@ -27,6 +28,7 @@ pub use audit_repo::*;
 pub use permission_profile_repo::*;
 pub use assign_repo::*;
 pub use eps_ranking_repo::*;
+pub use module_repo::*;
 // pub use level_history_repo::*;
 
 /// Enhanced database configuration

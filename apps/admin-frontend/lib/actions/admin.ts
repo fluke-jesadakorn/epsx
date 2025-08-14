@@ -7,8 +7,8 @@ import { config } from '../config';
 import { auth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-// Get bearer token from NextAuth session
-const getBearerToken = async () => {
+// Get bearer token from NextAuth session  
+export const getBearerToken = async () => {
   const session = await auth();
   return (session as any)?.accessToken || null;
 };

@@ -6,8 +6,9 @@ pub mod payment;
 pub mod stock;
 pub mod iam;
 
-pub use auth::*;
-pub use user::*;
-pub use payment::*;
-pub use stock::*;
-pub use iam::*;
+// Selective use case re-exports
+pub use auth::AuthUC;
+pub use user::UserMgmtUC;
+pub use payment::PayUC;
+pub use stock::StockUC;
+pub use iam::IamUseCase;

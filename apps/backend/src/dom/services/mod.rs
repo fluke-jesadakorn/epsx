@@ -16,15 +16,14 @@ pub mod firebase_session_service;
 pub mod database_role_service;
 pub mod admin_module_service;
 
+// Temporary glob re-exports - to be refined in next phase
 pub use role_hierarchy::*;
-// pub use permission_checker::*;
 pub use audit_service::*;
 pub use auto_assignment::*;
 pub use feature_expiration::*;
 pub use permission_resolver::*;
 pub use permission_cache_service::*;
 pub use permissions::*;
-// casbin_service removed - using modern JWT auth
 pub use eps_ranking_service::*;
 pub use eps_cache_service::*;
 pub use firebase_user_service::*;

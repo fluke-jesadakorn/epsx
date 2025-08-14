@@ -5,11 +5,8 @@ pub mod ports;
 pub mod dtos;
 pub mod services;
 
-#[allow(ambiguous_glob_reexports)]
-pub use use_cases::*;
-#[allow(ambiguous_glob_reexports)]
-pub use ports::*;
-#[allow(ambiguous_glob_reexports)]
-pub use dtos::*;
-#[allow(ambiguous_glob_reexports)]
-pub use services::*;
+// Selective re-exports for clean interfaces
+pub use use_cases::{AuthUC, UserMgmtUC, IamUseCase};
+pub use ports::repositories::{UserRepo, SessRepo, AuditRepo};
+pub use dtos::auth::{LoginReq, LoginRes, LogoutReq};
+pub use services::AppService;

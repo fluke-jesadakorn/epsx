@@ -12,7 +12,7 @@ import { Input } from '@epsx/ui'
 import { Label } from '@epsx/ui'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui'
-import { assignTemporaryPermission, validatePermissionAssignment } from '@/lib/actions/user-actions'
+import { assignTemporaryPermission, validatePermissionAssignment } from '@/lib/actions/users'
 import { useToast } from '@/components/ui/use-toast'
 import { format, addDays, addHours, addWeeks } from 'date-fns'
 

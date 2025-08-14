@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 
 /**
- * NextAuth.js Admin Login Page
+ * JWT Admin Login Page
  * Features enterprise-grade security with threat detection and audit logging
  */
 export default function AdminLoginPage() {

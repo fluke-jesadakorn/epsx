@@ -7,7 +7,7 @@ use axum::{
 // use tower::Service; // Not needed for simple middleware
 use tracing::{info, warn, error};
 
-use crate::auth::{JWT_SERVICE, AuthenticatedUser, JWTError};
+use crate::auth::{JWT, User, JWTError};
 
 /**
  * Modern Auth.js v5 JWT middleware
@@ -46,13 +46,13 @@ pub async fn modern_jwt_auth_middleware(
     };
 
     // Validate JWT and extract user
-    let user = match JWT_SERVICE.extract_user(token) {
+    let user = match JWT.extract_user(token) {
         Ok(user) => user,
         Err(JWTError::Expired) => {
             warn!("Expired token for endpoint: {}", path);
             return Err(StatusCode::UNAUTHORIZED);
         }
-        Err(JWTError::InvalidToken(msg)) => {
+        Err(JWTError::Invalid(msg)) => {
             warn!("Invalid token for endpoint {}: {}", path, msg);
             return Err(StatusCode::UNAUTHORIZED);
         }
@@ -68,7 +68,7 @@ pub async fn modern_jwt_auth_middleware(
 
     // Check admin access for admin endpoints
     if path.starts_with("/api/admin") || path.starts_with("/api/v1/admin") {
-        if !JWT_SERVICE.validate_admin_endpoint(&user, &path) {
+        if !JWT.validate_admin_endpoint(&user, &path) {
             warn!(
                 "Admin access denied for user {} to endpoint: {}", 
                 user.email, path
@@ -84,7 +84,7 @@ pub async fn modern_jwt_auth_middleware(
 
     // Check specific permission requirements
     if let Some(required_permission) = get_required_permission(&path) {
-        if !JWT_SERVICE.has_permission(&user, &required_permission) {
+        if !JWT.has_permission(&user, &required_permission) {
             warn!(
                 "Permission '{}' denied for user {} to endpoint: {}", 
                 required_permission, user.email, path
@@ -95,7 +95,7 @@ pub async fn modern_jwt_auth_middleware(
 
     // Check package tier requirements
     if let Some(required_tier) = get_required_package_tier(&path) {
-        if !JWT_SERVICE.has_package_tier(&user, &required_tier) {
+        if !JWT.has_package_tier(&user, &required_tier) {
             warn!(
                 "Package tier '{}' required for user {} to access endpoint: {}", 
                 required_tier, user.email, path
@@ -225,7 +225,7 @@ pub async fn request_logging_middleware(
     let path = request.uri().path().to_string();
     let user_email = request
         .extensions()
-        .get::<AuthenticatedUser>()
+        .get::<User>()
         .map(|user| user.email.clone())
         .unwrap_or_else(|| "anonymous".to_string());
 

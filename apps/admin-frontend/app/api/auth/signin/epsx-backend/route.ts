@@ -3,11 +3,15 @@
  * Initiates OAuth 2.0 authorization flow for admin backend
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthorizationUrl } from '@/lib/auth/client';
+import { getAuthorizationUrl } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🔄 Admin: Initiating OAuth sign-in flow');
+
+    // Get callback URL from query parameters
+    const { searchParams } = new URL(request.url);
+    const callbackUrl = searchParams.get('callbackUrl') || '/';
 
     // Generate authorization URL with PKCE parameters
     const { url, codeVerifier, state } = await getAuthorizationUrl();
@@ -34,7 +38,16 @@ export async function GET(request: NextRequest) {
       path: '/',
     });
 
-    console.log('🔄 Admin: Redirecting to EPSX backend authorization server');
+    // Store callback URL for post-authentication redirect
+    response.cookies.set('oauth_callback_url', callbackUrl, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600, // 10 minutes
+      path: '/',
+    });
+
+    console.log('🔄 Admin: Redirecting to EPSX backend authorization server with callback URL:', callbackUrl);
     return response;
 
   } catch (error) {

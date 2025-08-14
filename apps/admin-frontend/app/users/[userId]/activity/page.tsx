@@ -4,7 +4,7 @@
  */
 
 // Authentication is handled at the layout level by AdminAuthWrapper
-import { getUnifiedUserData } from '@/lib/actions/user-actions'
+import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserActivityContent } from '@/components/users/UserActivityContent'
 import { auth } from '@/lib/auth'

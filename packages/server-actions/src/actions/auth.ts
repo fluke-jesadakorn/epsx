@@ -21,15 +21,13 @@ import {
 // Use imported schemas from @epsx/types
 
 // Enhanced Authentication Actions
+// Note: Direct login via API is deprecated in favor of OIDC authorization code flow
 export const enhancedLogin = withServerAction(
   'auth.login',
   async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
-    const result = await serverPost('/api/v1/auth/login', credentials, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
-    return result;
+    // For OIDC, login should redirect to /oauth/authorize instead of API calls
+    // This function is kept for compatibility but should use frontend redirect
+    throw new Error('Direct API login is deprecated. Use OIDC authorization code flow via /oauth/authorize');
   },
   {
     validateInput: LoginRequestSchema,
@@ -41,7 +39,8 @@ export const enhancedLogin = withServerAction(
 export const enhancedLogout = createServerAction(
   'auth.logout',
   async (_, context) => {
-    return await serverPost('/api/v1/auth/logout', undefined, {
+    // Use OIDC logout endpoint
+    return await serverPost('/oauth/logout', undefined, {
       action: context.action,
       userId: context.userId,
       requestId: context.requestId
@@ -53,8 +52,8 @@ export const logoutWithRevalidation = createServerAction(
   'auth.logoutWithRevalidation',
   async (_, context) => {
     try {
-      // Call the backend logout API to clear server-side session
-      await serverPost('/api/v1/auth/logout', undefined, {
+      // Call the OIDC logout endpoint to clear server-side session
+      await serverPost('/oauth/logout', undefined, {
         action: context.action,
         userId: context.userId,
         requestId: context.requestId
@@ -66,7 +65,7 @@ export const logoutWithRevalidation = createServerAction(
       
       return { success: true, message: 'Logged out successfully' };
     } catch (error) {
-      console.error('Server logout error:', error);
+      console.error('OIDC logout error:', error);
       // Still revalidate even if backend logout fails
       revalidatePath('/', 'layout');
       throw error;
@@ -78,36 +77,38 @@ export const enhancedGetCurrentUser = createServerAction(
   'auth.getCurrentUser',
   async (_, context) => {
     try {
-      console.log('🔍 [getCurrentUser] Attempting to fetch user profile');
+      console.log('🔍 [getCurrentUser] Attempting to fetch user profile using OIDC userinfo');
       
-      const result = await serverGet('/api/v1/auth/me', undefined, {
+      // Use OIDC userinfo endpoint instead of REST API
+      const result = await serverGet('/oauth/userinfo', undefined, {
         action: context.action,
         userId: context.userId,
         requestId: context.requestId
       });
       
-      // Validate token expiry from response if present
-      if (result && result.expires_at) {
-        const expiresAt = new Date(result.expires_at);
-        const now = new Date();
+      // OIDC userinfo returns standard claims
+      if (result) {
+        console.log('✅ [getCurrentUser] Profile fetched successfully for:', result?.email || result?.sub || 'unknown');
         
-        if (expiresAt <= now) {
-          console.warn('⚠️ [getCurrentUser] Token expired, clearing session');
-          throw new Error('Token expired');
-        }
-        
-        // Check if token will expire soon (within 5 minutes)
-        const fiveMinutes = 5 * 60 * 1000;
-        if (expiresAt.getTime() - now.getTime() < fiveMinutes) {
-          console.warn('⚠️ [getCurrentUser] Token expires soon, consider refreshing');
-        }
+        // Transform OIDC claims to expected frontend format
+        return {
+          id: result.sub,
+          email: result.email,
+          name: result.name,
+          role: result.role,
+          permissions: result.permissions || [],
+          package_tier: result.package_tier,
+          admin_modules: result.admin_modules || [],
+          email_verified: result.email_verified,
+          exp: result.exp,
+          iat: result.iat
+        };
       }
       
-      console.log('✅ [getCurrentUser] Profile fetched successfully for:', result?.email || 'unknown');
       return result;
       
     } catch (error) {
-      console.error('❌ [getCurrentUser] Failed to fetch user profile:', error);
+      console.error('❌ [getCurrentUser] Failed to fetch user profile via OIDC userinfo:', error);
       throw error;
     }
   }
@@ -116,10 +117,9 @@ export const enhancedGetCurrentUser = createServerAction(
 export const enhancedRegister = withServerAction(
   'auth.register',
   async (userData: z.infer<typeof RegisterRequestSchema>, context) => {
-    return await serverPost('/api/v1/auth/register', userData, {
-      action: context.action,
-      requestId: context.requestId
-    });
+    // Registration in OIDC is typically handled via external identity providers
+    // or through special registration flows. For now, disable direct registration.
+    throw new Error('Direct API registration is not supported in OIDC flow. Use identity provider registration.');
   },
   {
     validateInput: RegisterRequestSchema,
@@ -130,11 +130,9 @@ export const enhancedRegister = withServerAction(
 export const enhancedUpdateProfile = createAuthenticatedAction(
   'auth.updateProfile',
   async (data: z.infer<typeof ProfileUpdateRequestSchema>, context) => {
-    return await serverPost('/api/v1/auth/me/update', data, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    // Profile updates in OIDC should go through the identity provider
+    // or via OIDC-compliant user management endpoints
+    throw new Error('Profile updates should be handled through identity provider or OIDC user management endpoints');
   },
   {
     validateInput: ProfileUpdateRequestSchema
@@ -144,11 +142,9 @@ export const enhancedUpdateProfile = createAuthenticatedAction(
 export const enhancedChangePassword = createAuthenticatedAction(
   'auth.changePassword',
   async (data: z.infer<typeof PasswordChangeRequestSchema>, context) => {
-    return await serverPost('/api/v1/auth/change-password', data, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    // Password changes in OIDC should go through the identity provider
+    // For Firebase Auth, this should be handled via Firebase SDK
+    throw new Error('Password changes should be handled through identity provider (Firebase Auth)');
   },
   {
     validateInput: PasswordChangeRequestSchema,
@@ -159,7 +155,8 @@ export const enhancedChangePassword = createAuthenticatedAction(
 export const enhancedResetPassword = withServerAction(
   'auth.resetPassword',
   async (data: z.infer<typeof PasswordResetRequestSchema>, context) => {
-    return await serverPost('/api/v1/auth/password-reset', data, {
+    // Use OIDC password reset endpoint
+    return await serverPost('/oauth/password-reset', data, {
       action: context.action,
       requestId: context.requestId
     });
@@ -173,7 +170,10 @@ export const enhancedResetPassword = withServerAction(
 export const enhancedRefreshToken = createServerAction(
   'auth.refreshToken',
   async (_, context) => {
-    return await serverPost('/api/v1/auth/refresh', undefined, {
+    // Use OIDC token endpoint for refresh token grant
+    return await serverPost('/oauth/token', {
+      grant_type: 'refresh_token'
+    }, {
       action: context.action,
       userId: context.userId,
       requestId: context.requestId
@@ -182,14 +182,13 @@ export const enhancedRefreshToken = createServerAction(
 );
 
 // Feature access functions with enhanced error handling
+// Note: Feature access should be determined from JWT claims in OIDC
 export const enhancedCheckFeatureAccess = createAuthenticatedAction(
   'auth.checkFeatureAccess',
   async (feature: string, context) => {
-    return await serverGet('/api/v1/auth/features/check', { feature }, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    // In OIDC, feature access should be determined from JWT token claims
+    // rather than making additional API calls. This should be handled client-side.
+    throw new Error('Feature access should be checked via JWT claims, not API calls in OIDC flow');
   },
   {
     validateInput: z.string().min(1, 'Feature name is required')
@@ -199,11 +198,8 @@ export const enhancedCheckFeatureAccess = createAuthenticatedAction(
 export const enhancedGetUserFeatures = createAuthenticatedAction(
   'auth.getUserFeatures',
   async (_, context) => {
-    return await serverGet('/api/v1/auth/features', undefined, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    // User features should be included in JWT token claims from userinfo endpoint
+    throw new Error('User features should be retrieved from JWT claims via /oauth/userinfo');
   }
 );
 
@@ -211,10 +207,9 @@ export const enhancedGetUserFeatures = createAuthenticatedAction(
 export const enhancedAdminLogin = withServerAction(
   'auth.adminLogin',
   async (credentials: z.infer<typeof LoginRequestSchema>, context) => {
-    return await serverPost('/api/v1/admin/auth/login', credentials, {
-      action: context.action,
-      requestId: context.requestId
-    });
+    // Admin login should use the same OIDC flow as regular users
+    // Admin permissions are determined by JWT claims and roles
+    throw new Error('Admin login should use OIDC authorization code flow via /oauth/authorize with admin scope');
   },
   {
     validateInput: LoginRequestSchema,
@@ -225,11 +220,9 @@ export const enhancedAdminLogin = withServerAction(
 export const enhancedCheckAdminPermission = createAuthenticatedAction(
   'auth.checkAdminPermission',
   async (permission: string, context) => {
-    return await serverGet('/api/v1/admin/auth/permissions/check', { permission }, {
-      action: context.action,
-      userId: context.userId,
-      requestId: context.requestId
-    });
+    // Admin permissions should be checked from JWT token claims
+    // obtained via /oauth/userinfo endpoint
+    throw new Error('Admin permissions should be checked via JWT claims from /oauth/userinfo');
   },
   {
     validateInput: z.string().min(1, 'Permission name is required'),

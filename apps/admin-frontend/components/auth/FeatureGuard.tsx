@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
-import { useAuth, usePermission } from '@/components/providers/AuthContext';
+import { useAuth } from '@/lib/auth';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 
 interface FeatureGuardProps {
@@ -23,7 +23,7 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
   requireAll = true,
   features,
 }) => {
-  const { isAuthenticated, isLoading, permissions } = useAuth();
+  const { isAuthenticated, isLoading, can } = useAuth();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -37,9 +37,9 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
     setLoading(true);
   };
 
-  // Helper function to check permissions using NextAuth session
+  // Helper function to check permissions using Zustand auth system
   const hasPermission = (permission: string): boolean => {
-    return permissions.includes(permission);
+    return can(permission);
   };
 
   useEffect(() => {
@@ -141,7 +141,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
   fallback = null,
   loadingComponent = <div>Checking route access...</div>
 }) => {
-  const { isAuthenticated, isLoading, adminModules } = useAuth();
+  const { isAuthenticated, isLoading, hasModule } = useAuth();
   const [canAccess, setCanAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -165,7 +165,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
   const canAccessRoute = (route: string): boolean => {
     const requiredModule = routeModuleMap[route];
     if (!requiredModule) return true; // No specific module required
-    return adminModules.includes(requiredModule);
+    return hasModule(requiredModule);
   };
 
   useEffect(() => {
@@ -194,7 +194,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({
     if (!isLoading) {
       checkRouteAccess();
     }
-  }, [route, adminModules, isAuthenticated, isLoading]);
+  }, [route, isAuthenticated, isLoading]);
 
   if (isLoading || loading) return <>{loadingComponent}</>;
   
@@ -251,19 +251,19 @@ export const TierGuard: React.FC<TierGuardProps> = ({
   children,
   fallback = null,
 }) => {
-  const tierHierarchy = {
-    'free': 0,
-    'bronze': 1,
-    'silver': 2,
-    'gold': 3,
-    'platinum': 4,
-    'enterprise': 5,
-  };
+  const { hasTier } = useAuth();
 
-  const userLevel = tierHierarchy[userTier?.toLowerCase() as keyof typeof tierHierarchy] || 0;
-  const requiredLevel = tierHierarchy[requiredTier.toLowerCase() as keyof typeof tierHierarchy] || 0;
-
-  const hasAccess = userLevel >= requiredLevel;
+  // Use provided userTier or check against current user's tier
+  const hasAccess = userTier 
+    ? (() => {
+        const tierHierarchy = {
+          'FREE': 0, 'BRONZE': 1, 'SILVER': 2, 'GOLD': 3, 'PLATINUM': 4, 'ENTERPRISE': 5
+        };
+        const userLevel = tierHierarchy[userTier.toUpperCase() as keyof typeof tierHierarchy] || 0;
+        const requiredLevel = tierHierarchy[requiredTier.toUpperCase() as keyof typeof tierHierarchy] || 0;
+        return userLevel >= requiredLevel;
+      })()
+    : hasTier(requiredTier);
 
   return hasAccess ? <>{children}</> : <>{fallback}</>;
 };

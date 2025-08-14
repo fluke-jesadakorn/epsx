@@ -1,60 +1,56 @@
 /**
- * Server-side authentication utilities
- * Provides bearer token access for admin API calls
+ * Server-side authentication utilities for API actions
+ * Uses JWT-based authentication for admin API calls
  */
 
 'use server'
 
-import { headers } from 'next/headers'
+import { getJWTFromCookies } from '@/lib/server/jwt';
+import { getAuthUser } from '@/lib/server/auth';
 
 /**
- * Get bearer token for authenticated API requests
+ * Get JWT bearer token for authenticated API requests
  */
 export async function getBearerToken(): Promise<string | null> {
   try {
-    // Try to get token from headers first
-    const headersList = await headers()
-    const authHeader = headersList.get('authorization')
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7)
-    }
-
-    // For development, return a placeholder token
-    if (process.env.NODE_ENV === 'development') {
-      return 'dev-admin-token'
-    }
-
-    // TODO: Implement proper JWT token extraction from session
-    // This should integrate with the authentication system
-    return null
+    return await getJWTFromCookies();
   } catch (error) {
-    console.error('Failed to get bearer token:', error)
-    return null
+    console.error('❌ Failed to get bearer token:', error);
+    return null;
   }
 }
 
 /**
- * Validate that the current user has admin privileges
+ * Get current authenticated user from JWT
+ */
+export async function getCurrentUser() {
+  try {
+    return await getAuthUser();
+  } catch (error) {
+    console.error('❌ Failed to get current user:', error);
+    return null;
+  }
+}
+
+/**
+ * Validate that current user has admin privileges
  */
 export async function validateAdminAccess(): Promise<boolean> {
   try {
-    const token = await getBearerToken()
+    const user = await getCurrentUser();
     
-    if (!token) {
-      return false
+    if (!user) {
+      return false;
     }
 
-    // For development, allow access
-    if (process.env.NODE_ENV === 'development') {
-      return true
-    }
+    // Check if user has any admin modules or is super admin
+    const hasAdminAccess = user.admin_modules.length > 0 || 
+                          user.role === 'super_admin' ||
+                          user.role === 'admin';
 
-    // TODO: Implement proper admin validation
-    // This should verify the token and check admin permissions
-    return true
+    return hasAdminAccess;
   } catch (error) {
-    console.error('Failed to validate admin access:', error)
-    return false
+    console.error('❌ Failed to validate admin access:', error);
+    return false;
   }
 }

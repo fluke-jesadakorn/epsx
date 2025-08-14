@@ -1,8 +1,18 @@
 'use server';
 
-import { signOut } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function handleSignOut() {
-  // Use custom signOut with proper cleanup
-  await signOut();
+  try {
+    // Clear JWT cookie
+    const cookieStore = await cookies();
+    cookieStore.delete('epsx_jwt');
+    
+    // Redirect to login page
+    redirect('/login');
+  } catch (error) {
+    console.error('❌ Sign out error:', error);
+    redirect('/login');
+  }
 }

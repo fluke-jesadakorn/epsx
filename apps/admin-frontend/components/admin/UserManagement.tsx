@@ -1,7 +1,7 @@
 'use client';
 
-import { AdminService } from '@/services/adminService';
-import type { AdminUser } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
+import type { AdminUser } from '@/services/adminApiService';
 import { USER_LEVEL_CONFIGS, UserLevel } from '@/types/admin/userLevels';
 import { assignPermissionProfileAction, softDeleteUserAction } from '@/lib/actions/admin';
 import {
@@ -107,7 +107,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
     try {
       setLoading(true);
       setError(null);
-      const result = await AdminService.listUsers({ maxResults: 1000 });
+      const result = await AdminApiService.listUsers({ maxResults: 1000 });
       setUsers(result.users);
     } catch (err: any) {
       console.error('Failed to load users', { error: err instanceof Error ? err.message : err }, 'UserManagement.loadUsers');
@@ -120,7 +120,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
   const handleRoleChange = async (uid: string, newRole: string) => {
     try {
       setActionLoading(uid);
-      await AdminService.setUserRole(uid, newRole);
+      await AdminApiService.setUserRole(uid, newRole);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
       console.error('Failed to change role', { error: err instanceof Error ? err.message : err, uid, newRole }, 'UserManagement.handleRoleChange');
@@ -137,7 +137,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
   const handleStatusToggle = async (uid: string, disabled: boolean) => {
     try {
       setActionLoading(uid);
-      await AdminService.updateUserStatus(uid, !disabled);
+      await AdminApiService.updateUserStatus(uid, !disabled);
       await loadUsers(); // Refresh the list
     } catch (err: any) {
       console.error('Failed to toggle status', { error: err instanceof Error ? err.message : err, uid, disabled }, 'UserManagement.handleStatusToggle');
@@ -189,7 +189,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
   const handleSendPasswordReset = async (email: string) => {
     try {
       setActionLoading(email);
-      await AdminService.sendResetEmail(email);
+      await AdminApiService.sendResetEmail(email);
       addToast({
         type: 'success',
         title: 'Password reset link generated',
@@ -211,7 +211,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
   const handleLevelChange = async (uid: string, newLevel: UserLevel, reason?: string) => {
     try {
       setActionLoading(uid);
-      await AdminService.setLevel(uid, newLevel, reason);
+      await AdminApiService.setLevel(uid, newLevel, reason);
       await loadUsers(); // Refresh the list
       setShowLevelModal(false);
       setLevelReason('');
@@ -235,7 +235,7 @@ export function UserManagement({ initialData }: UserManagementProps) {
 
   const handleShowLevelHistory = async (uid: string) => {
     try {
-      const history = await AdminService.getLevelHistory(uid);
+      const history = await AdminApiService.getLevelHistory(uid);
       setLevelHistory(history);
       setShowLevelHistory(true);
     } catch (err: any) {

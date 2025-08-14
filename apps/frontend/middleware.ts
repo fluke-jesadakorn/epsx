@@ -1,5 +1,9 @@
+/**
+ * Enhanced JWT Middleware for Frontend (Trading Platform)
+ * Uses JWT cookie verification with security headers
+ */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionFromCookie } from '@/lib/auth/session';
+import { verifyJWT } from '@epsx/auth-shared';
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,6 +23,7 @@ export default async function middleware(request: NextRequest) {
     '/analytics',
     '/api/auth/signin',
     '/api/auth/signout', 
+    '/api/auth/logout',
     '/api/auth/callback',
     '/api/auth/session',
   ];
@@ -27,28 +32,56 @@ export default async function middleware(request: NextRequest) {
     pathname === route || pathname.startsWith(route + '/')
   );
   
+  // Create response with security headers
+  const response = NextResponse.next();
+  
+  // Add security headers
+  response.headers.set('x-pathname', pathname);
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
   // Allow access to public routes
   if (isPublicRoute) {
-    return NextResponse.next();
+    return response;
   }
   
   try {
-    // Check authentication status using manual session cookie
-    const sessionCookie = request.cookies.get('epsx-frontend-session')?.value;
-    const session = await getSessionFromCookie(sessionCookie);
-    const isLoggedIn = session.isLoggedIn && session.user;
+    // Get JWT token from frontend-specific httpOnly cookie
+    const jwtToken = request.cookies.get('epsx_frontend_jwt')?.value;
     
-    // Redirect to login if not authenticated
-    if (!isLoggedIn) {
+    // Redirect to login if no token
+    if (!jwtToken) {
+      console.log('🔓 Frontend middleware: No JWT token found, redirecting to login');
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
     
+    // Verify JWT token
+    const payload = await verifyJWT(jwtToken);
+    
+    // Redirect to login if invalid token
+    if (!payload) {
+      console.log('🔓 Frontend middleware: Invalid JWT token, redirecting to login');
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // Add user info to headers for server components (non-sensitive data only)
+    response.headers.set('x-user-id', payload.sub);
+    response.headers.set('x-user-role', payload.role);
+    response.headers.set('x-user-package-tier', payload.package_tier || 'FREE');
+    
+    console.log(`🔐 Frontend middleware: Authenticated user ${payload.email} accessing ${pathname}`);
+    
     // Allow access to protected routes for authenticated users
-    return NextResponse.next();
+    return response;
+    
   } catch (error) {
-    console.error('Middleware authentication check failed:', error);
+    console.error('❌ Frontend middleware JWT verification failed:', error);
     
     // Redirect to login on error
     const loginUrl = new URL('/login', request.url);

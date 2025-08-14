@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::{info, warn, error};
 
-// use crate::auth::{UserClaimsInput, JWT_SERVICE};
-
 /**
  * Modern Auth.js v5 handler implementations
  * Provides endpoints for Auth.js frontend integration

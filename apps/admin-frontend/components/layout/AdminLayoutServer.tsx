@@ -4,7 +4,7 @@
  */
 
 import { ReactNode } from 'react';
-import { getSession } from '@/lib/auth/session';
+import { getSessionFromJWT } from '@/lib/server/jwt';
 import { AdminLayoutClient } from './AdminLayoutClient';
 
 interface AdminLayoutServerProps {
@@ -18,11 +18,11 @@ export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
   // Fetch session on the server
   let session = null;
   try {
-    const sessionData = await getSession();
-    if (sessionData?.isLoggedIn && sessionData.user) {
+    const sessionData = await getSessionFromJWT();
+    if (sessionData?.isAuthenticated && sessionData.user) {
       session = {
         user: sessionData.user,
-        isLoggedIn: sessionData.isLoggedIn
+        isLoggedIn: sessionData.isAuthenticated
       };
     }
   } catch (error) {

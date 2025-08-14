@@ -1,12 +1,13 @@
-// Simple stub implementations for module and usage repositories
+// Simple stub implementations for repositories and services
 
-use crate::app::ports::repositories::{ModuleRepo, UsageRepo};
+use crate::app::ports::repositories::*;
 use crate::dom::entities::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::UserId;
 use crate::dom::error::DomainError;
 use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
 use std::collections::HashMap;
 use uuid::Uuid;
+use async_trait::async_trait;
 
 pub struct StubModuleRepo;
 
@@ -53,3 +54,26 @@ impl UsageRepo for StubUsageRepo {
     async fn get_usage_stats(&self, _user_id: &UserId, _module_name: &str) -> Result<HashMap<String, i32>, DomainError> { Ok(HashMap::new()) }
     async fn get_current_usage(&self, _user_id: &UserId, _module_name: &str, _quota_type: &str) -> Result<i32, DomainError> { Ok(0) }
 }
+
+// Additional stub implementations for missing repositories
+pub struct StubSessRepo;
+
+impl StubSessRepo {
+    pub fn new() -> Self { Self }
+}
+
+#[async_trait]
+impl SessRepo for StubSessRepo {
+    async fn get(&self, _id: &crate::dom::values::SessId) -> Result<Option<crate::dom::entities::Session>, crate::app::ports::repositories::RepoError> { Ok(None) }
+    async fn save(&self, _session: &crate::dom::entities::Session) -> Result<(), crate::app::ports::repositories::RepoError> { Ok(()) }
+    async fn delete(&self, _id: &crate::dom::values::SessId) -> Result<(), crate::app::ports::repositories::RepoError> { Ok(()) }
+    async fn find_by_user(&self, _uid: &crate::dom::values::UserId) -> Result<Vec<crate::dom::entities::Session>, crate::app::ports::repositories::RepoError> { Ok(vec![]) }
+    async fn cleanup_expired(&self) -> Result<u64, crate::app::ports::repositories::RepoError> { Ok(0) }
+    async fn deactivate_user_sessions(&self, _uid: &crate::dom::values::UserId) -> Result<(), crate::app::ports::repositories::RepoError> { Ok(()) }
+    async fn find_by_id(&self, _id: &crate::dom::values::SessId) -> Result<crate::dom::entities::Session, crate::app::ports::repositories::RepoError> { 
+        Err(crate::app::ports::repositories::RepoError::NotFound)
+    }
+}
+
+// Complex stub implementations removed during auth migration
+// Only keeping essential StubModuleRepo and StubUsageRepo for now

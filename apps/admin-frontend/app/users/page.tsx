@@ -1,6 +1,6 @@
 import { Users, Mail, Plus, Search, Filter, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { getUsersList } from '@/lib/actions/user-actions'
+import { getUsersList } from '@/lib/actions/users'
 import { reloadPage } from '@/lib/actions/page-actions'
 import UserListClient from './UserListClient'
 import { CreateUserButton } from '@/components/users/CreateUserButton'

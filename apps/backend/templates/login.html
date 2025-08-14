@@ -49,6 +49,12 @@
             <input type="hidden" name="state" value="{{ state }}">
             <input type="hidden" name="scope" value="{{ scope }}">
             <input type="hidden" name="response_type" value="code">
+            {% if code_challenge.is_some() %}
+            <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
+            {% endif %}
+            {% if code_challenge_method.is_some() %}
+            <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
+            {% endif %}
 
             <div class="space-y-4">
                 <!-- Email Field -->

@@ -3,7 +3,7 @@
  * Clears user session and redirects to login
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { clearSession } from '@/lib/auth/session';
+import { clearSession } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {

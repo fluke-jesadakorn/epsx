@@ -76,11 +76,13 @@ pub struct TokenResponse {
 /// JWT Claims for ID token
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdTokenClaims {
+    pub jti: String, // JWT ID for token revocation support
     pub iss: String,
     pub sub: String,
     pub aud: String,
     pub exp: i64,
     pub iat: i64,
+    pub nbf: i64, // Not before
     pub auth_time: i64,
     pub email: String,
     pub email_verified: bool,
@@ -93,11 +95,13 @@ pub struct IdTokenClaims {
 /// JWT Claims for Access token
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessTokenClaims {
+    pub jti: String, // JWT ID for token revocation support
     pub iss: String,
     pub sub: String,
     pub aud: String,
     pub exp: i64,
     pub iat: i64,
+    pub nbf: i64, // Not before
     pub scope: String,
     pub email: String,
     pub role: String,
@@ -235,10 +239,32 @@ async fn handle_authorization_code_grant(
         ));
     }
 
-    // TODO: Validate PKCE if code_challenge was used
-    // if let (Some(challenge), Some(verifier)) = (&auth_data.code_challenge, &token_request.code_verifier) {
-    //     validate_pkce(challenge, verifier)?;
-    // }
+    // Validate PKCE if code_challenge was used
+    if let (Some(challenge), Some(method), Some(verifier)) = 
+        (&auth_data.code_challenge, &auth_data.code_challenge_method, &token_request.code_verifier) {
+        validate_pkce(challenge, method, verifier).map_err(|e| {
+            tracing::error!("PKCE validation failed: {}", e);
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(TokenErrorResponse {
+                    error: "invalid_grant".to_string(),
+                    error_description: Some("PKCE validation failed".to_string()),
+                    error_uri: None,
+                }),
+            )
+        })?;
+    } else if auth_data.code_challenge.is_some() && token_request.code_verifier.is_none() {
+        // PKCE was used but no verifier provided
+        tracing::error!("PKCE code_challenge was used but no code_verifier provided");
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(TokenErrorResponse {
+                error: "invalid_request".to_string(),
+                error_description: Some("code_verifier is required when PKCE was used".to_string()),
+                error_uri: None,
+            }),
+        ));
+    }
 
     // Generate tokens
     let now = Utc::now();
@@ -250,8 +276,8 @@ async fn handle_authorization_code_grant(
     // Generate ID token  
     let id_token = generate_id_token(&auth_data.firebase_user, client_id, now, expires_in)?;
 
-    // Generate refresh token
-    let refresh_token = generate_refresh_token(&app_state, &auth_data).await?;
+    // Generate refresh token using new rotation service
+    let refresh_token = generate_refresh_token_v2(&auth_data, client_id).await?;
 
     // Create session
     create_session(&app_state, &auth_data.firebase_user, &access_token).await
@@ -279,11 +305,13 @@ async fn handle_authorization_code_grant(
     }))
 }
 
-/// Handle refresh token grant
+/// Handle refresh token grant with secure token rotation
 async fn handle_refresh_token_grant(
-    app_state: AppState,
+    _app_state: AppState,
     token_request: TokenRequest,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
+    use crate::auth::REFRESH_TOKEN_SERVICE;
+    
     let refresh_token = token_request.refresh_token.ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
@@ -295,23 +323,44 @@ async fn handle_refresh_token_grant(
         )
     })?;
 
-    // Validate and get refresh token data
-    let refresh_data = validate_and_get_refresh_token(&app_state, &refresh_token).await
-        .map_err(|e| {
-            tracing::error!("Refresh token validation failed: {}", e);
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(TokenErrorResponse {
-                    error: "invalid_grant".to_string(),
-                    error_description: Some("Invalid or expired refresh token".to_string()),
-                    error_uri: None,
-                }),
-            )
-        })?;
-
     // Validate client_id
     let client_id = token_request.client_id.as_deref().unwrap_or("");
-    if refresh_data.client_id != client_id {
+
+    // Validate and rotate the refresh token using our new service
+    let rotation = REFRESH_TOKEN_SERVICE.rotate_refresh_token(
+        &refresh_token,
+        None, // TODO: Add device info from request headers
+    ).await.map_err(|e| {
+        tracing::error!("Refresh token rotation failed: {}", e);
+        
+        let (error_code, error_description) = match e {
+            crate::auth::RefreshTokenError::TokenNotFound { .. } => {
+                ("invalid_grant", "Refresh token not found")
+            }
+            crate::auth::RefreshTokenError::TokenExpired { .. } => {
+                ("invalid_grant", "Refresh token has expired")
+            }
+            crate::auth::RefreshTokenError::TokenRevoked { .. } => {
+                ("invalid_grant", "Refresh token has been revoked")
+            }
+            crate::auth::RefreshTokenError::RotationLimitExceeded { .. } => {
+                ("invalid_grant", "Token rotation limit exceeded")
+            }
+            _ => ("server_error", "Internal server error during token refresh")
+        };
+        
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(TokenErrorResponse {
+                error: error_code.to_string(),
+                error_description: Some(error_description.to_string()),
+                error_uri: None,
+            }),
+        )
+    })?;
+
+    // Validate client_id matches the stored data
+    if rotation.new_token_data.client_id != client_id {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(TokenErrorResponse {
@@ -322,23 +371,53 @@ async fn handle_refresh_token_grant(
         ));
     }
 
-    // Generate new tokens
+    // Get user data for token generation - we need to fetch fresh user data
+    // TODO: This should ideally use a user service to get current user data
+    // For now, we'll create a minimal FirebaseUser from the stored data
+    let firebase_user = create_firebase_user_from_token_data(&rotation.new_token_data);
+
+    // Generate new access and ID tokens
     let now = Utc::now();
     let expires_in = 7200; // 2 hours (frontend client policy)
 
-    let access_token = generate_access_token(&refresh_data.firebase_user, &refresh_data.scope, now, expires_in)?;
-    let id_token = generate_id_token(&refresh_data.firebase_user, client_id, now, expires_in)?;
+    let access_token = generate_access_token(&firebase_user, &rotation.new_token_data.scope, now, expires_in)?;
+    let id_token = generate_id_token(&firebase_user, client_id, now, expires_in)?;
 
-    tracing::info!("Token refresh successful for user: {}", refresh_data.firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()));
+    tracing::info!(
+        old_token_id = %rotation.old_token_id,
+        new_token_id = %rotation.new_token_data.token_id,
+        user_id = %rotation.new_token_data.user_id,
+        client_id = %client_id,
+        rotation_count = %rotation.new_token_data.rotation_count,
+        "Refresh token rotated successfully"
+    );
 
     Ok(Json(TokenResponse {
         access_token,
         token_type: "Bearer".to_string(),
         expires_in,
         id_token,
-        refresh_token: Some(refresh_token), // Return the same refresh token
-        scope: refresh_data.scope,
+        refresh_token: Some(rotation.new_token), // Return the NEW rotated refresh token
+        scope: rotation.new_token_data.scope,
     }))
+}
+
+/// Helper function to create FirebaseUser from refresh token data
+/// TODO: Replace with proper user service lookup
+fn create_firebase_user_from_token_data(token_data: &crate::auth::RefreshTokenData) -> FirebaseUser {
+    FirebaseUser {
+        uid: token_data.user_id.clone(),
+        email: Some(format!("user-{}@example.com", token_data.user_id)), // Placeholder
+        email_verified: true,
+        display_name: None,
+        photo_url: None,
+        phone_number: None,
+        custom_claims: std::collections::HashMap::new(),
+        provider_data: vec![],
+        disabled: false,
+        created_at: chrono::Utc::now(),
+        last_login_at: Some(chrono::Utc::now()),
+    }
 }
 
 /// Validate and consume authorization code
@@ -383,11 +462,13 @@ fn generate_access_token(
     let permissions = get_user_permissions_from_role(&firebase_user.custom_claims);
 
     let claims = AccessTokenClaims {
+        jti: generate_jti(),
         iss: get_issuer_url(),
         sub: firebase_user.uid.clone(),
         aud: "epsx-api".to_string(),
         exp: (now + Duration::seconds(expires_in)).timestamp(),
         iat: now.timestamp(),
+        nbf: now.timestamp(),
         scope: scope.to_string(),
         email: firebase_user.email.clone().unwrap_or_default(),
         role: get_role_from_custom_claims(&firebase_user.custom_claims),
@@ -419,11 +500,13 @@ fn generate_id_token(
     expires_in: i64,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
     let claims = IdTokenClaims {
+        jti: generate_jti(),
         iss: get_issuer_url(),
         sub: firebase_user.uid.clone(),
         aud: client_id.to_string(),
         exp: (now + Duration::seconds(expires_in)).timestamp(),
         iat: now.timestamp(),
+        nbf: now.timestamp(),
         auth_time: now.timestamp(),
         email: firebase_user.email.clone().unwrap_or_default(),
         email_verified: firebase_user.email_verified,
@@ -450,29 +533,33 @@ fn generate_id_token(
         })
 }
 
-/// Generate refresh token
+/// Generate refresh token using new rotation service (DEPRECATED - use generate_refresh_token_v2)
 async fn generate_refresh_token(
-    app_state: &AppState,
+    _app_state: &AppState,
     auth_data: &AuthorizationCodeData,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
-    // Generate random bytes first, before any async operations
-    use rand::Rng;
-    let random_bytes: [u8; 32] = {
-        let mut rng = rand::thread_rng();
-        rng.gen()
-    };
-    let refresh_token = format!("rt_{}", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(random_bytes));
+    // This function is deprecated - keeping for compatibility during migration
+    generate_refresh_token_v2(auth_data, &auth_data.client_id).await
+}
 
-    let refresh_data = RefreshTokenData {
-        firebase_user: auth_data.firebase_user.clone(),
-        client_id: auth_data.client_id.clone(),
-        scope: auth_data.scope.clone(),
-        created_at: Utc::now(),
-    };
-
-    let serialized = serde_json::to_string(&refresh_data)
+/// Generate refresh token using new rotation service
+async fn generate_refresh_token_v2(
+    auth_data: &AuthorizationCodeData,
+    client_id: &str,
+) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
+    use crate::auth::REFRESH_TOKEN_SERVICE;
+    
+    let user_id = &auth_data.firebase_user.uid;
+    let scope = &auth_data.scope;
+    
+    // TODO: Extract device info from request headers
+    let device_info = Some("Web Browser".to_string()); // Placeholder
+    
+    REFRESH_TOKEN_SERVICE
+        .create_refresh_token(user_id, client_id, scope, device_info)
+        .await
         .map_err(|e| {
-            tracing::error!("Failed to serialize refresh token data: {}", e);
+            tracing::error!("Failed to create refresh token: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(TokenErrorResponse {
@@ -481,42 +568,7 @@ async fn generate_refresh_token(
                     error_uri: None,
                 }),
             )
-        })?;
-
-    // Store with 30 day expiration using session repository
-    {
-        use crate::dom::entities::auth::Session;
-        use crate::dom::values::{SessId, UserId};
-        
-        let session_id = SessId::from_string(format!("refresh_token:{}", refresh_token));
-        let user_id = UserId::new(auth_data.firebase_user.uid.clone());
-        let expires_at = Utc::now() + Duration::days(7); // 7 days for frontend clients
-        
-        let session = Session {
-            id: session_id,
-            user_id,
-            access_token: serialized, // Store serialized refresh data here
-            refresh_token: None,
-            expires_at,
-            created_at: Utc::now(),
-            is_active: true,
-        };
-        
-        app_state.session_repo.save(&session).await
-            .map_err(|e| {
-                tracing::error!("Failed to store refresh token: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(TokenErrorResponse {
-                        error: "server_error".to_string(),
-                        error_description: Some("Failed to store refresh token".to_string()),
-                        error_uri: None,
-                    }),
-                )
-            })?;
-    }
-
-    Ok(refresh_token)
+        })
 }
 
 /// Validate and get refresh token data
@@ -571,6 +623,72 @@ fn get_jwt_secret() -> String {
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
 }
 
+/// Generate a unique JWT ID (JTI) for token revocation support
+fn generate_jti() -> String {
+    use uuid::Uuid;
+    Uuid::new_v4().to_string()
+}
+
+/// Validate access token and extract claims
+fn validate_access_token(token: &str) -> Result<AccessTokenClaims, Box<dyn std::error::Error>> {
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+
+    let decoding_key = DecodingKey::from_secret(get_jwt_secret().as_ref());
+    let mut validation = Validation::new(Algorithm::HS256);
+    
+    // Validate standard claims
+    validation.set_audience(&["epsx-api"]);
+    validation.set_issuer(&[&get_issuer_url()]);
+    
+    let token_data = decode::<AccessTokenClaims>(token, &decoding_key, &validation)
+        .map_err(|e| format!("JWT validation failed: {}", e))?;
+    
+    Ok(token_data.claims)
+}
+
+/// Get user admin modules from the database
+async fn get_user_admin_modules(
+    app_state: &AppState,
+    email: &str
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    // Use the admin module service to get user's admin modules
+    match app_state.admin_module_service.get_user_admin_modules(email).await {
+        Ok(modules) => Ok(modules),
+        Err(e) => {
+            tracing::warn!("Failed to get admin modules for user {}: {}", email, e);
+            // Return default empty modules on error
+            Ok(vec![])
+        }
+    }
+}
+
+/// Get user package tier from the database
+async fn get_user_package_tier(
+    app_state: &AppState,
+    email: &str
+) -> Result<String, Box<dyn std::error::Error>> {
+    use crate::dom::values::Email;
+    
+    // Try to get user from database
+    let user_email = Email::new(email.to_string())?;
+    
+    match app_state.user_repo.find_by_email(&user_email).await {
+        Ok(Some(_user)) => {
+            // Extract package tier from user data
+            // This depends on your user model structure
+            Ok("PREMIUM".to_string()) // Placeholder - replace with actual field
+        },
+        Ok(None) => {
+            tracing::warn!("User not found for email: {}", email);
+            Ok("FREE".to_string()) // Default for unknown users
+        },
+        Err(e) => {
+            tracing::error!("Database error getting user package tier: {}", e);
+            Ok("FREE".to_string()) // Default on error
+        }
+    }
+}
+
 fn get_role_from_custom_claims(custom_claims: &HashMap<String, serde_json::Value>) -> String {
     custom_claims.get("role")
         .and_then(|v| v.as_str())
@@ -615,20 +733,81 @@ fn get_user_permissions_from_role(custom_claims: &HashMap<String, serde_json::Va
     }
 }
 
+/// Validate PKCE code challenge and verifier
+fn validate_pkce(
+    challenge: &str, 
+    method: &str, 
+    verifier: &str
+) -> Result<(), Box<dyn std::error::Error>> {
+    use sha2::{Sha256, Digest};
+
+    tracing::debug!("Validating PKCE: method={}, challenge={}, verifier={}", 
+                   method, challenge, verifier);
+
+    // Validate code_verifier format (RFC 7636)
+    if verifier.len() < 43 || verifier.len() > 128 {
+        return Err("code_verifier must be 43-128 characters long".into());
+    }
+
+    // Check for valid characters (unreserved characters from RFC 3986)
+    let valid_chars = verifier.chars().all(|c| {
+        c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_' || c == '~'
+    });
+    
+    if !valid_chars {
+        return Err("code_verifier contains invalid characters".into());
+    }
+
+    match method {
+        "S256" => {
+            // Create SHA256 hash of the verifier
+            let mut hasher = Sha256::new();
+            hasher.update(verifier.as_bytes());
+            let digest = hasher.finalize();
+            
+            // Base64URL encode the hash
+            let computed_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(&digest);
+                
+            if computed_challenge == challenge {
+                tracing::debug!("PKCE validation successful");
+                Ok(())
+            } else {
+                tracing::error!("PKCE challenge mismatch: expected={}, computed={}", 
+                               challenge, computed_challenge);
+                Err("PKCE challenge verification failed".into())
+            }
+        },
+        "plain" => {
+            // Plain text comparison (not recommended but supported)
+            if verifier == challenge {
+                tracing::debug!("PKCE plain validation successful");
+                Ok(())
+            } else {
+                tracing::error!("PKCE plain challenge mismatch");
+                Err("PKCE plain challenge verification failed".into())
+            }
+        },
+        _ => {
+            tracing::error!("Unsupported PKCE method: {}", method);
+            Err("Unsupported code challenge method".into())
+        }
+    }
+}
+
 /// GET /oauth/userinfo - UserInfo endpoint
 pub async fn oidc_userinfo(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<TokenErrorResponse>)> {
-    tracing::info!("UserInfo endpoint request - DEBUGGING CONTENT-TYPE ERROR");
-    tracing::info!("Headers: {:?}", headers);
+    tracing::debug!("UserInfo endpoint request");
     
     // Extract bearer token from Authorization header
     let auth_header = headers
         .get("authorization")
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| {
-            tracing::error!("UserInfo: Missing Authorization header - returning JSON error");
+            tracing::error!("UserInfo: Missing Authorization header");
             (
                 StatusCode::UNAUTHORIZED,
                 Json(TokenErrorResponse {
@@ -650,24 +829,49 @@ pub async fn oidc_userinfo(
         ));
     }
     
-    let _access_token = &auth_header[7..]; // Remove "Bearer " prefix (unused for now)
+    let access_token = &auth_header[7..]; // Remove "Bearer " prefix
     
-    // For development, return a stub response
-    // In production, this should validate the access token
-    tracing::warn!("UserInfo endpoint returning stub data for development");
+    // Validate and decode the access token
+    let token_claims = validate_access_token(access_token)
+        .map_err(|e| {
+            tracing::error!("Access token validation failed: {}", e);
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(TokenErrorResponse {
+                    error: "invalid_token".to_string(),
+                    error_description: Some("Invalid or expired access token".to_string()),
+                    error_uri: None,
+                }),
+            )
+        })?;
+
+    // Check if token is revoked (if we implement token revocation)
+    // TODO: Check JTI against revoked tokens list
     
+    // Get additional user information based on the token claims
+    let admin_modules = if token_claims.scope.contains("admin") {
+        get_user_admin_modules(&app_state, &token_claims.email).await
+            .unwrap_or_else(|_| vec!["system_admin".to_string(), "user_management".to_string()])
+    } else {
+        vec![]
+    };
+
+    let package_tier = get_user_package_tier(&app_state, &token_claims.email).await
+        .unwrap_or_else(|_| "FREE".to_string());
+    
+    // Build OpenID Connect UserInfo response
     let userinfo = serde_json::json!({
-        "sub": "test-admin-uid",
-        "email": "jesadakorn.kirtnu@gmail.com",
-        "email_verified": true,
-        "name": "Test Admin User",
-        "role": "admin",
-        "permissions": ["api:admin:*", "route:*", "users:manage", "system:configure"],
-        "package_tier": "ADMIN",
-        "admin_modules": ["system_admin", "user_management", "analytics"]
+        "sub": token_claims.sub,
+        "email": token_claims.email,
+        "email_verified": true, // This should come from the user data
+        "name": token_claims.email.split('@').next().unwrap_or("User"),
+        "role": token_claims.role,
+        "permissions": token_claims.permissions,
+        "package_tier": package_tier,
+        "admin_modules": admin_modules
     });
     
-    tracing::info!("UserInfo endpoint returning JSON response: {:?}", userinfo);
+    tracing::debug!("UserInfo endpoint returning response for user: {}", token_claims.email);
     Ok(Json(userinfo))
 }
 

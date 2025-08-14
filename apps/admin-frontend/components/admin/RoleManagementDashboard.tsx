@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, Users, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import type { Role } from '@/types/admin/iam';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 
 interface RoleStats {
   totalRoles: number;
@@ -29,7 +29,7 @@ export function RoleManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      const data = await AdminService.getIAMRoles();
+      const data = await AdminApiService.getIAMRoles();
       const rolesArray = data?.roles || data || [];
       setRoles(rolesArray);
       

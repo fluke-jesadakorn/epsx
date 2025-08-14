@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Mail, Shield, Phone, Globe, Clock, Loader2, ArrowLeft, Save } from 'lucide-react'
-import { updateUserProfile, updateUserStatus } from '@/lib/actions/user-actions'
+import { updateUserProfile, updateUserStatus } from '@/lib/actions/users'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 
 interface UserEditFormProps {

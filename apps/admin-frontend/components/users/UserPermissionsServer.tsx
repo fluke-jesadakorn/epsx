@@ -7,7 +7,19 @@ import { Shield, Users, Key } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { getUnifiedUserData } from '@/lib/actions/user-profile-actions'
 import { getPermissionHistory } from '@/lib/actions/user-permissions-actions'
-import type { Session } from 'next-auth'
+// Session type compatible with Zustand auth system
+interface Session {
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+    adminModules: string[];
+    permissions: string[];
+    packageTier: string;
+  };
+  isLoggedIn: boolean;
+}
 import { UserPermissionsClient } from './UserPermissionsClient'
 import { PermissionStatsCards } from './PermissionStatsCards'
 import { PermissionHistoryCard } from './PermissionHistoryCard'

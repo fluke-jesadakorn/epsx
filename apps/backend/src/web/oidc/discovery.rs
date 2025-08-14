@@ -1,7 +1,6 @@
 use axum::{
     http::StatusCode,
     response::Json,
-    extract::State,
 };
 
 use crate::web::oidc::types::OidcDiscoveryDocument;
@@ -81,9 +80,7 @@ fn get_oidc_issuer_url() -> String {
 
 /// OIDC Well-Known Configuration Endpoint
 /// GET /.well-known/openid-configuration
-pub async fn oidc_discovery(
-    State(_state): State<crate::web::auth::routes::AppState>,
-) -> Result<Json<OidcDiscoveryDocument>, StatusCode> {
+pub async fn oidc_discovery() -> Result<Json<OidcDiscoveryDocument>, StatusCode> {
     tracing::info!("OIDC discovery document requested - DEBUGGING CONTENT-TYPE ERROR");
     tracing::info!("This endpoint returns JSON content-type");
     
@@ -116,6 +113,7 @@ pub async fn oidc_discovery(
             "public".to_string(),
         ],
         id_token_signing_alg_values_supported: vec![
+            "HS256".to_string(),
             "RS256".to_string(),
         ],
         claims_supported: vec![
@@ -151,31 +149,25 @@ pub async fn oidc_discovery(
 
 /// JWKS (JSON Web Key Set) Endpoint  
 /// GET /oauth/jwks
-pub async fn jwks_endpoint(
-    State(_state): State<crate::web::auth::routes::AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+pub async fn jwks_endpoint() -> Result<Json<serde_json::Value>, StatusCode> {
     tracing::info!("JWKS endpoint requested - DEBUGGING CONTENT-TYPE ERROR");
     tracing::info!("This endpoint returns JSON content-type");
     
-    // Get JWKS from the global JWT service
-    match &*crate::auth::modern_jwt::JWT_SERVICE {
-        jwt_service => {
-            match jwt_service.key_manager().generate_jwks() {
-                Ok(jwks) => {
-                    let jwks_json = serde_json::to_value(jwks)
-                        .map_err(|e| {
-                            tracing::error!("Failed to serialize JWKS: {}", e);
-                            StatusCode::INTERNAL_SERVER_ERROR
-                        })?;
-                    
-                    tracing::info!("Served JWKS with {} keys", jwks_json["keys"].as_array().map(|k| k.len()).unwrap_or(0));
-                    Ok(Json(jwks_json))
-                }
-                Err(e) => {
-                    tracing::error!("Failed to generate JWKS: {}", e);
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
-                }
-            }
+    // Get JWKS from the new simplified JWT service
+    match crate::auth::JWT.keys().generate_jwks() {
+        Ok(jwks) => {
+            let jwks_json = serde_json::to_value(jwks)
+                .map_err(|e| {
+                    tracing::error!("Failed to serialize JWKS: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            
+            tracing::info!("Served JWKS with {} keys", jwks_json["keys"].as_array().map(|k| k.len()).unwrap_or(0));
+            Ok(Json(jwks_json))
+        }
+        Err(e) => {
+            tracing::error!("Failed to generate JWKS: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }

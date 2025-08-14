@@ -13,6 +13,8 @@ pub struct LoginTemplate {
     pub state: String,
     pub scope: String,
     pub error: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
 }
 
 /// Template for admin login with enhanced security features
@@ -24,6 +26,8 @@ pub struct AdminLoginTemplate {
     pub state: String,
     pub scope: String,
     pub error: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
 }
 
 /// Template for authentication errors
@@ -113,7 +117,7 @@ impl Default for SecurityFeatures {
 pub struct TemplateFactory;
 
 impl TemplateFactory {
-    /// Create standard login template
+    /// Create standard login template (without PKCE)
     pub fn create_login_template(
         client_id: String,
         redirect_uri: String,
@@ -127,10 +131,33 @@ impl TemplateFactory {
             state,
             scope,
             error,
+            code_challenge: None,
+            code_challenge_method: None,
         }
     }
 
-    /// Create admin login template
+    /// Create standard login template with PKCE parameters
+    pub fn create_login_template_with_pkce(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        code_challenge: Option<String>,
+        code_challenge_method: Option<String>,
+        error: String,
+    ) -> LoginTemplate {
+        LoginTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            error,
+            code_challenge,
+            code_challenge_method,
+        }
+    }
+
+    /// Create admin login template (without PKCE)
     pub fn create_admin_login_template(
         client_id: String,
         redirect_uri: String,
@@ -144,6 +171,29 @@ impl TemplateFactory {
             state,
             scope,
             error,
+            code_challenge: None,
+            code_challenge_method: None,
+        }
+    }
+
+    /// Create admin login template with PKCE parameters
+    pub fn create_admin_login_template_with_pkce(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        code_challenge: Option<String>,
+        code_challenge_method: Option<String>,
+        error: String,
+    ) -> AdminLoginTemplate {
+        AdminLoginTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            error,
+            code_challenge,
+            code_challenge_method,
         }
     }
 

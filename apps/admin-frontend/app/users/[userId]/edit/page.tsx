@@ -5,7 +5,7 @@
 
 import { notFound, redirect } from 'next/navigation'
 import { User, Mail, Shield, Phone, Globe, Clock } from 'lucide-react'
-import { getUnifiedUserData } from '@/lib/actions/user-actions'
+import { getUnifiedUserData } from '@/lib/actions/users'
 import { UserEditForm } from '@/components/users/UserEditForm'
 
 interface Props {

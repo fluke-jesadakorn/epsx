@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSignIn } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@epsx/ui';
 import { Shield, ExternalLink, Loader2, Lock, Eye, UserCheck } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export function AdminOIDCLoginButton({
   enableSessionMonitoring = true,
   maxFailedAttempts = 3
 }: AdminOIDCLoginButtonProps) {
-  const { signIn, isLoading } = useSignIn();
+  const { login, isLoading } = useAuth();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleAdminLogin = async () => {
@@ -42,8 +42,8 @@ export function AdminOIDCLoginButton({
         }
       });
       
-      // Use our custom signIn function
-      await signIn();
+      // Use Zustand auth login function
+      await login('', ''); // Empty credentials will trigger OIDC flow
     } catch (error) {
       console.error('🚨 Admin login error:', error);
       setIsRedirecting(false);

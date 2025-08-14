@@ -272,42 +272,9 @@ export class ApiClient {
 
   // Authentication methods - updated for new backend session system
   async login(credentials: LoginRequest): Promise<ApiResponse<UserProfile>> {
-    // Backend expects LoginRequest format with credentials
-    const loginPayload = {
-      credentials: {
-        email: credentials.email,
-        password: credentials.password
-      }
-    };
-    
-    const response = await this.post<{
-      user: UserProfile;
-      session: {
-        session_id: string;
-        expires_at: string;
-      };
-    }>('/api/v1/auth/login', loginPayload);
-
-    if (response.error) {
-      return { error: response.error, message: response.message } as ApiResponse<UserProfile>;
-    }
-
-    if (!response.data) {
-      return { error: 'Invalid response data' } as ApiResponse<UserProfile>;
-    }
-
-    // Store session_id for future requests (client-side only)
-    if (typeof window !== 'undefined' && response.data.session?.session_id) {
-      localStorage.setItem('session_id', response.data.session.session_id);
-      localStorage.setItem('session_expires', response.data.session.expires_at);
-    }
-
-    // Return just the user profile for backward compatibility
-    return { 
-      data: response.data.user,
-      error: response.error,
-      message: response.message
-    };
+    // Direct API login is deprecated in favor of OIDC authorization code flow
+    // Applications should redirect to /oauth/authorize instead
+    throw new Error('Direct API login is deprecated. Use OIDC authorization code flow via /oauth/authorize');
   }
 
   async register(userData: RegisterRequest): Promise<
@@ -579,22 +546,22 @@ export class ApiClient {
   async checkUserPermission(
     request: PermissionCheckRequest
   ): Promise<ApiResponse<PermissionCheckResponse>> {
-    return this.post<PermissionCheckResponse>(
-      '/api/v1/auth/check-permission',
-      request
-    );
+    // Permission checks should be done client-side using JWT claims
+    // from /oauth/userinfo endpoint
+    throw new Error('Permission checks should be done via JWT claims from /oauth/userinfo');
   }
 
   async getUserPermissionStatus(): Promise<ApiResponse<UserPermissionStatus>> {
-    const response = await this.get<unknown>('/api/v1/auth/me');
+    // Use OIDC userinfo endpoint
+    const response = await this.get<unknown>('/oauth/userinfo');
     if (response.error) {
       return response as ApiResponse<UserPermissionStatus>;
     }
 
-    // Transform API response to UserPermissionStatus format
+    // Transform OIDC userinfo claims to UserPermissionStatus format
     const userData = response.data as Record<string, unknown>;
     const transformedData: UserPermissionStatus = {
-      userId: userData.user_id as string,
+      userId: userData.sub as string,
       permissions: (userData.permissions as string[]) || [],
       profiles: (userData.permission_profiles as string[]) || [],
       role: (userData.role as string) || 'user',

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@epsx/ui';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 import { ConfirmDialog as _ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { AdminService } from '@/services/adminService';
+import { AdminApiService } from '@/services/adminApiService';
 // Note: Auth is handled by middleware with HTTP-only cookies
 import { toast } from 'react-hot-toast';
 import { Eye, Settings, UserPlus, Shield, AlertTriangle, Plus, Search, Filter, Lock } from 'lucide-react';
@@ -116,8 +116,8 @@ export const ModuleManagementClient: React.FC = () => {
     try {
       setLoading(true);
       const [modulesRes, usersRes] = await Promise.all([
-        AdminService.getModules({ category: categoryFilter, status: statusFilter, search: searchTerm }),
-        AdminService.getUsers({ limit: 1000 })
+        AdminApiService.getModules({ category: categoryFilter, status: statusFilter, search: searchTerm }),
+        AdminApiService.getUsers({ limit: 1000 })
       ]);
       
       if (modulesRes.success) {
@@ -143,7 +143,7 @@ export const ModuleManagementClient: React.FC = () => {
   // Load user assignments when user is selected
   const loadUserAssignments = async (userId: string) => {
     try {
-      const response = await AdminService.getUserModuleAssignments(userId);
+      const response = await AdminApiService.getUserModuleAssignments(userId);
       if (response.success) {
         setUserAssignments(response.data.assignments || []);
       } else {
@@ -170,7 +170,7 @@ export const ModuleManagementClient: React.FC = () => {
     }
 
     try {
-      const response = await AdminService.assignModulesToUser(assignmentForm);
+      const response = await AdminApiService.assignModulesToUser(assignmentForm);
       if (response.success) {
         toast.success(`Successfully assigned ${response.data.successful_count} modules`);
         if (response.data.failed_count > 0) {
@@ -192,7 +192,7 @@ export const ModuleManagementClient: React.FC = () => {
   // Handle module revocation
   const handleRevokeModule = async (userId: string, moduleId: string, reason: string) => {
     try {
-      const response = await AdminService.revokeModuleAccess(userId, moduleId, reason);
+      const response = await AdminApiService.revokeModuleAccess(userId, moduleId, reason);
       if (response.success) {
         toast.success('Module access revoked successfully');
         loadUserAssignments(userId);

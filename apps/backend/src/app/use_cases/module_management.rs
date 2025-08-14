@@ -7,25 +7,22 @@ use chrono::{DateTime, Utc};
 
 use crate::dom::{
     entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog},
-    repositories::module_repository::{
-        ModuleRepository, ModuleAssignmentBuilder, AssignmentAuditLog,
-        DateRange, UsageStatsRequest, ModuleFilters, ApiKeyFilters,
-    },
     error::DomainError,
     values::UserId,
 };
+use crate::app::ports::repositories::ModuleRepo;
 
 // ========================================
 // MODULE MANAGEMENT USE CASE
 // ========================================
 
 pub struct ModuleManagementUC {
-    module_repo: Arc<dyn ModuleRepository>,
+    module_repo: Arc<dyn ModuleRepo>,
     audit_enabled: bool,
 }
 
 impl ModuleManagementUC {
-    pub fn new(module_repo: Arc<dyn ModuleRepository>) -> Self {
+    pub fn new(module_repo: Arc<dyn ModuleRepo>) -> Self {
         Self {
             module_repo,
             audit_enabled: true,

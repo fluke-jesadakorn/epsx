@@ -6,7 +6,7 @@
 import { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 // Authentication is handled at the root layout level by AdminAuthWrapper
-import { getUnifiedUserData } from '@/lib/actions/user-actions'
+import { getUnifiedUserData } from '@/lib/actions/users'
 import { UserProfileHeader } from '@/components/users/UserProfileHeader'
 import { UserTabNavigation } from '@/components/users/UserTabNavigation'
 import { UserDataProvider } from '@/components/users/UserDataProvider'
