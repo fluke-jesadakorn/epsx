@@ -9,6 +9,27 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Helper to get environment config
+function getEnvConfig() {
+  try {
+    // Try to use the TypeScript config if possible, otherwise fallback to process.env
+    return {
+      NODE_ENV: process.env.NODE_ENV,
+      isProduction: () => process.env.NODE_ENV === 'production',
+      isDevelopment: () => process.env.NODE_ENV === 'development'
+    };
+  } catch (error) {
+    // Fallback to direct process.env access
+    return {
+      NODE_ENV: process.env.NODE_ENV,
+      isProduction: () => process.env.NODE_ENV === 'production',
+      isDevelopment: () => process.env.NODE_ENV === 'development'
+    };
+  }
+}
+
+const env = getEnvConfig();
+
 class ProductionValidator {
   constructor() {
     this.projectRoot = process.cwd();
@@ -52,7 +73,7 @@ class ProductionValidator {
     
     const envChecks = {
       nodeVersion: this.checkNodeVersion(),
-      buildMode: process.env.NODE_ENV === 'production',
+      buildMode: env.isProduction(),
       dependencies: this.checkDependencies(),
       environmentVars: this.checkEnvironmentVariables(),
     };
@@ -83,7 +104,7 @@ class ProductionValidator {
 
   checkEnvironmentVariables() {
     const required = ['NODE_ENV', 'NEXT_PUBLIC_APP_ENV'];
-    return required.every(env => process.env[env]);
+    return required.every(envVar => process.env[envVar]);
   }
 
   async validateBuildProcess() {

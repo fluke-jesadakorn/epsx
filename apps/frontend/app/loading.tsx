@@ -1,5 +1,4 @@
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/common/Skeleton';
 
 import type { Metadata } from 'next';
 
@@ -12,7 +11,7 @@ export default function LoadingPage() {
   return (
     <div className="container mx-auto p-4 space-y-8">
       <div className="flex items-center justify-center py-8">
-        <LoadingSpinner size="lg" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
 
       <div className="space-y-6">

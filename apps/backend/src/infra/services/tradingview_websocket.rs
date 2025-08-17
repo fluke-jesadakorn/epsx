@@ -421,18 +421,18 @@ impl TradingViewWebSocketService {
           .map(|f| f as i64);
         let actual_eps = v.get(5).and_then(|v| v.as_f64());
         
-        // Try v[5] first (observed to be actual EPS like 0.27) - EXACT Node.js logic
+        // Try v[5] first (observed to be actual EPS) - Dynamic validation without hardcoded limits
         let mut actual_eps_value = None;
         if let Some(eps) = actual_eps {
-          if v.len() > 5 && eps > 0.0 && eps < 10.0 && eps.is_finite() {
+          if v.len() > 5 && self.is_valid_quarterly_eps(eps) {
             actual_eps_value = Some(eps);
           }
         }
         
-        // Try v[1] as backup (might be estimated EPS) - EXACT Node.js logic  
+        // Try v[1] as backup (might be estimated EPS) - Dynamic validation
         if actual_eps_value.is_none() {
           if let Some(eps) = estimated_eps {
-            if v.len() > 1 && eps > 0.0 && eps < 10.0 && eps.is_finite() {
+            if v.len() > 1 && self.is_valid_quarterly_eps(eps) {
               actual_eps_value = Some(eps);
             }
           }
@@ -461,6 +461,10 @@ impl TradingViewWebSocketService {
           let stored_estimated_eps = if let Some(est) = estimated_eps {
             if (est - eps_value).abs() > 0.01 { Some(est) } else { None }
           } else { None };
+          
+          // Log EPS values to diagnose frontend display issue
+          info!("📊 WebSocket EPS data - Symbol: {}, Quarter: {}, EPS: {}", 
+                symbol, fiscal_period, eps_value);
           
           quarterly_data.push(QuarterlyEPSData {
             quarter_number: index + 1,
@@ -765,7 +769,7 @@ impl TradingViewWebSocketService {
       historical_eps: quarterly_data.iter().map(|q| q.eps).collect(),
       quarterly_data,
       price_data,
-      earnings_per_share_basic_ttm: current_eps * 4.0,
+      earnings_per_share_basic_ttm: current_eps, // Remove TTM conversion - use quarterly EPS directly
       market_cap_basic: 0.0,
       price_current: current_price,
       volume: current_volume,
@@ -840,6 +844,32 @@ impl TradingViewWebSocketService {
     }
     
     messages
+  }
+
+  /// Dynamic validation for quarterly EPS values - no hardcoded limits
+  fn is_valid_quarterly_eps(&self, eps: f64) -> bool {
+    // Basic sanity checks
+    if !eps.is_finite() || eps <= 0.0 {
+      return false;
+    }
+
+    // Allow wide range for different markets and currencies
+    // US stocks: typically 0.01 to 50.0 USD per share
+    // International stocks: can be much higher (e.g., Taiwan stocks in TWD)
+    // Accept any reasonable positive value up to 50,000 to handle all currencies
+    if eps > 50000.0 {
+      warn!("EPS value {} seems extremely high, might be an error", eps);
+      return false;
+    }
+
+    // Accept very small values too (penny stocks, recent IPOs)
+    if eps < 0.001 {
+      warn!("EPS value {} is very small, might be noise", eps);
+      return false;
+    }
+
+    // All other values are considered valid
+    true
   }
   
   /// Format message for TradingView WebSocket (ported from Node.js devtools)

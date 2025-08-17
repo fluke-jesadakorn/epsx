@@ -1,39 +1,94 @@
-# Dependencies
+# ===========================================
+# EPSX MONOREPO GITIGNORE (2025 Updated)
+# Optimized for Next.js 15, Rust, pnpm workspaces
+# ===========================================
+
+# Dependencies & Package Managers
 node_modules/
 .pnp/
 .pnp.js
+.pnp.cjs
 package-lock.json
 yarn.lock
 bun.lockb
 bun.lock
+.yarn/
+**/.pnpm-store/
+pnpm-lock.yaml.backup
 
-# Testing - Only ignore test outputs, NOT test files
+# Build Outputs & Caches
+build/
+dist/
+**/dist/
+.next/
+**/.next/
+.next/cache/
+.next/static/chunks/
+.next/standalone/
+out/
+**out/
+tmp/
+**/tmp/
+
+# Testing Outputs (keep test source files)
 coverage/
 **/.nyc_output/
 **/coverage/
 reports/
+**/reports/
 **/junit/
 test-results/
 **/test-results/
 playwright-report/
 **/playwright-report/
-# Note: __tests__/ directories should NOT be ignored - they contain source test files
+.lighthouseci/
+**/.lighthouseci/
+# NOTE: __tests__, *.test.*, *.spec.* files are kept
 
-# Production
-build/
-dist/
-**/dist/
-.next/
-.next/cache/
-out/
+# Environment Files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+*.env
+!.env.example
+!**/.env.example
 
-# Misc
+# Runtime Logs
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+debug.log
+error.log
+access.log
+
+# TypeScript Build Info
+*.tsbuildinfo
+**/tsconfig.tsbuildinfo
+.tscache/
+**/.tscache/
+
+# Operating Systems
 # macOS
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
-Icon
+Icon?
 ._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 
 # Windows
 Thumbs.db
@@ -43,6 +98,7 @@ ehthumbs_vista.db
 *.stackdump
 [Dd]esktop.ini
 $RECYCLE.BIN/
+*.lnk
 
 # Linux
 *~
@@ -51,39 +107,14 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# Environment Variables
-.env
-.env.local
-.env.development
-.env.test
-.env.production
-*.env
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-
-# TypeScript
-*.tsbuildinfo
-tsconfig.tsbuildinfo
-
-# Turbo
+# Monorepo Build Tools
 .turbo/
-
-# NX
+**/.turbo/
 .nx/
-tmp/
-**/tmp/
-/dist/
-/tmp/
-/.nx/
 **/.nx/
 **/nx-cache/
+.rush/
+**/.rush/
 
 # IDE and Editors
 ## VSCode
@@ -92,19 +123,24 @@ tmp/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/*.code-snippets
 *.code-workspace
+.history/
+**/.history/
 
-## JetBrains
+## JetBrains IDEs
 .idea/
 *.iml
 *.iws
 *.ipr
+*.iwl
+out/
 
 ## Sublime Text
 *.sublime-workspace
 *.sublime-project
 
-## Vim
+## Vim/Neovim
 [._]*.s[a-v][a-z]
 [._]*.sw[a-p]
 [._]s[a-rt-v][a-z]
@@ -113,13 +149,26 @@ tmp/
 Session.vim
 Sessionx.vim
 .netrwhist
+*~
 
-# Rust/Backend specific
+## Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Rust/Backend Specific
 target/
+**/target/
 Cargo.lock
 **/*.rs.bk
+*.pdb
 
-# SSL/TLS
+# Security & Secrets
 *.pem
 *.key
 *.crt
@@ -127,50 +176,142 @@ Cargo.lock
 *.der
 *.pfx
 *.p12
+*.keystore
+secrets/
+**/secrets/
+.secrets/
+**/.secrets/
 
-# Packages specific
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Caches & Temporary Files
+.cache/
+**/.cache/
+.swc/
+**/.swc/
+.parcel-cache/
+**/.parcel-cache/
+.rollup.cache/
+**/.rollup.cache/
+
+# Monorepo Package Specific
 packages/**/dist/
 packages/**/build/
 packages/**/.cache/
+packages/**/.next/
+packages/**/out/
 
-# Backups
+# Backup Files
 *.bak
 *.backup
 *.old
 *.orig
+*.tmp
+*.temp
+
+# Editor Swap Files
 *.swp
 *.swo
+*.un~
 
-# Debug
+# Debug & Profiling
 .debug/
 debug/
 .debug.log
+*.dmp
+*.trace
+*.prof
+*.heapsnapshot
 
-# Cache
-.cache/
-**/.cache/
-
-# Vercel
-.vercel
-
-# Additional Next.js caches
-.next/cache/images/
-
-# Docker
+# Container & Deployment
+## OrbStack/Docker/Podman
 .docker/
+**/.docker/
 docker-compose.override.yml
+docker-compose.*.override.yml
+.dockerignore.backup
 
-# Additional caches
+## Container Build Caches (Apple Silicon Optimized)
+/tmp/.buildx-cache-orbstack/
+/tmp/.buildx-cache/
+.buildx-cache/
+**/.buildx-cache/
+
+## Cloud Deployment
+.vercel/
+**/.vercel/
+.now/
+**/.now/
+.firebase/
+**/.firebase/
+.gcp/
+**/.gcp/
+
+# Package Manager Caches
 npm-cache/
 yarn-cache/
 .pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# Todo tracking
+# AI & Development Tools
+.copilot/
+**/.copilot/
+.cursor/
+**/.cursor/
+.ai/
+**/.ai/
+
+# Performance & Monitoring
+.perfconfig
+lighthouse-results/
+**/lighthouse-results/
+bundle-analyzer/
+**/bundle-analyzer/
+
+# Project Management & Documentation
 .todo/
+**/.todo/
+TODO.md
+NOTES.md
+.notes/
+**/.notes/
 
-# CI/CD and deployment artifacts
+# CI/CD & Deployment Artifacts
 .github/*.log
-.vercel/*.log
+.gitlab-ci.log
+.circleci/*.log
+deployment-logs/
+**/deployment-logs/
 
-# Crush agent
-.crush/
+# Apple Silicon & macOS Specific
+.Trash-*/
+.DocumentRevisions-V100/
+.PKInstallSandboxManager/
+.PKInstallSandboxManager-SystemSoftware/
+
+# Temporary Development Files
+scratch/
+**/scratch/
+temp/
+**/temp/
+sandbox/
+**/sandbox/
+
+# Analytics & Telemetry
+.next/trace/
+**/.next/trace/
+.sentry/
+**/.sentry/
+
+# Local Development Overrides
+local.*
+*.local
+.env.override
+docker-compose.local.yml

@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromJWT } from '@/lib/server/jwt';
-import { createCookieManager } from '@epsx/auth-shared';
+import { createCookieManager } from '@/lib/auth/cookie-manager';
 
 export async function GET() {
   try {

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::app::ports::repositories::*;
 use crate::dom::ports::NotificationPort;
 use crate::dom::services::feature_expiration::FeatureExpirationService;
+use crate::dom::services::admin_module_service::AdminModuleService;
 use crate::infra::{
     db::{PostgresUserRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool},
     firebase_admin::FirebaseAdmin,
@@ -13,7 +14,7 @@ use crate::infra::{
 
 /// Simplified dependency container with only essential services
 pub struct AppContainer {
-    pub infra: InfraBuilder,
+    pub infra: crate::infra::InfraFactory,
     
     // Essential repositories only
     pub user_repo: Arc<dyn UserRepo>,
@@ -23,6 +24,7 @@ pub struct AppContainer {
     // Essential services only  
     pub firebase_admin: Arc<FirebaseAdmin>,
     pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
+    pub admin_module_service: Arc<AdminModuleService>,
 }
 
 /// Builder for creating the dependency container
@@ -46,17 +48,24 @@ impl AppContainerBuilder {
         let postgres_pool = self.postgres_pool
             .ok_or("PostgreSQL pool is required")?;
         
-        // Create infrastructure factory
-        let infra = InfraBuilder::new(postgres_pool.clone());
+        // Create infrastructure factory for analytics support
+        let infra = crate::infra::InfraFactory {
+            database_backend: crate::infra::DatabaseBackend::PostgreSQL,
+            postgres_pool: postgres_pool.clone(),
+        };
         
-        // Create repositories
-        let user_repo = infra.create_user_repo();
-        let audit_repo = infra.create_audit_repo();
-        let permission_profile_repo = infra.create_permission_profile_repo();
+        // Create legacy InfraBuilder for existing services
+        let legacy_infra = InfraBuilder::new(postgres_pool.clone());
         
-        // Create services
-        let firebase_admin = infra.create_firebase_admin().await?;
-        let feature_expiration_service = infra.create_feature_expiration_service(user_repo.clone());
+        // Create repositories using legacy builder
+        let user_repo = legacy_infra.create_user_repo();
+        let audit_repo = legacy_infra.create_audit_repo();
+        let permission_profile_repo = legacy_infra.create_permission_profile_repo();
+        
+        // Create services using legacy builder
+        let firebase_admin = legacy_infra.create_firebase_admin().await?;
+        let feature_expiration_service = legacy_infra.create_feature_expiration_service(user_repo.clone());
+        let admin_module_service = legacy_infra.create_admin_module_service();
         
         Ok(AppContainer {
             infra,
@@ -65,6 +74,7 @@ impl AppContainerBuilder {
             permission_profile_repo,
             firebase_admin,
             feature_expiration_service,
+            admin_module_service,
         })
     }
 }
@@ -124,5 +134,9 @@ impl InfraBuilder {
             notification_port,
             Some(ExpirationConfig::default()),
         ))
+    }
+
+    pub fn create_admin_module_service(&self) -> Arc<AdminModuleService> {
+        Arc::new(AdminModuleService::new((*self.postgres_pool).clone()))
     }
 }

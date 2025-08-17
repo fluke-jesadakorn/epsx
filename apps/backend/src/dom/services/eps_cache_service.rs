@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use tokio::sync::RwLock;
 
 use crate::dom::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
@@ -31,7 +31,7 @@ impl Default for EPSCacheConfig {
         Self {
             ttl_seconds: 600, // 10 minutes
             max_entries: 1000,
-            enable_background_refresh: true,
+            enable_background_refresh: false, // Disabled for serverless compatibility
             batch_size: 50,
         }
     }
@@ -392,28 +392,8 @@ impl EPSCacheService {
         Ok(result.rankings.len())
     }
 
-    /// Background cache warming task
-    pub async fn start_background_refresh(&self) {
-        if !self.config.enable_background_refresh {
-            return;
-        }
-
-        let cache_service = self.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(
-                std::time::Duration::from_secs(cache_service.config.ttl_seconds / 2)
-            );
-
-            loop {
-                interval.tick().await;
-                
-                debug!("Starting background cache refresh");
-                if let Err(e) = cache_service.refresh_cache().await {
-                    warn!("Background cache refresh failed: {}", e);
-                }
-            }
-        });
-    }
+    // Background cache warming removed - using on-demand refresh instead
+    // Use refresh_cache() method for manual cache refresh when needed
 }
 
 // Implement Clone for background tasks

@@ -10,7 +10,7 @@ import { getUnifiedUserData } from '@/lib/actions/users'
 import { UserProfileHeader } from '@/components/users/UserProfileHeader'
 import { UserTabNavigation } from '@/components/users/UserTabNavigation'
 import { UserDataProvider } from '@/components/users/UserDataProvider'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/server-auth'
 
 interface UserProfileLayoutProps {
   children: ReactNode

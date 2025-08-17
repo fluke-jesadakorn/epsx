@@ -1,11 +1,20 @@
 import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
-import { 
-  getAnalyticsData, 
-  getUserAnalytics as _getUserAnalytics, 
-  getSystemMetrics, 
-  getRevenueAnalytics,
-  getRealtimeMetrics 
-} from '@epsx/server-actions';
+
+// TODO: Replace with direct API calls
+// import { 
+//   getAnalyticsData, 
+//   getUserAnalytics as _getUserAnalytics, 
+//   getSystemMetrics, 
+//   getRevenueAnalytics,
+//   getRealtimeMetrics 
+// } from '@epsx/server-actions';
+
+// Temporary placeholder functions for migration
+const getAnalyticsData = async () => ({ data: [] });
+const _getUserAnalytics = async () => ({ users: [] });
+const getSystemMetrics = async () => ({ metrics: {} });
+const getRevenueAnalytics = async () => ({ revenue: 0 });
+const getRealtimeMetrics = async () => ({ active: 0 });
 
 export const dynamic = 'force-dynamic';
 

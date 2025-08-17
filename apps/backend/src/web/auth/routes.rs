@@ -27,6 +27,7 @@ pub struct AppState {
     pub firebase_admin: Arc<FirebaseAdmin>,
     // casbin_service removed - using modern JWT auth
     pub admin_module_service: Arc<AdminModuleService>,
+    pub feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
 }
 
 impl Default for AppState {
@@ -51,6 +52,7 @@ impl AppState {
         firebase_admin: Arc<FirebaseAdmin>,
         // casbin_service removed - using modern JWT auth
         admin_module_service: Arc<AdminModuleService>,
+        feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
     ) -> Self {
         Self {
             auth_uc,
@@ -66,6 +68,7 @@ impl AppState {
             firebase_admin,
             // casbin_service removed - using modern JWT auth
             admin_module_service,
+            feature_expiration_service,
         }
     }
 }

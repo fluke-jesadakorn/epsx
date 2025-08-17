@@ -1,7 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "concurrency": "100",
   "globalDependencies": [
     "**/.env*",
     "tsconfig.base.json",
@@ -18,7 +17,6 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "target/**", "build/**"],
       "inputs": [
         "src/**",
@@ -34,13 +32,7 @@
         "postcss.config.*"
       ]
     },
-    "build:packages": {
-      "dependsOn": ["^build", "^build:types"],
-      "outputs": ["dist/**"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.*"]
-    },
     "build:apps": {
-      "dependsOn": ["^build", "build:packages"],
       "outputs": [".next/**"],
       "inputs": [
         "app/**",
@@ -54,7 +46,6 @@
       ]
     },
     "build:frontend": {
-      "dependsOn": ["^build"],
       "outputs": [".next/**"],
       "env": ["FIREBASE_*"],
       "inputs": [
@@ -69,7 +60,6 @@
       ]
     },
     "build:admin": {
-      "dependsOn": ["^build"],
       "outputs": [".next/**"],
       "env": [],
       "inputs": [
@@ -90,30 +80,16 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build:packages"]
-    },
-    "dev:packages": {
-      "cache": false,
-      "persistent": true,
-      "outputs": ["dist/**"],
-      "dependsOn": ["^build:types"]
-    },
-    "build:types": {
-      "dependsOn": [],
-      "outputs": ["dist/**"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.*"]
+      "persistent": true
     },
     "dev:frontend": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["^build:packages"],
       "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
     "dev:admin": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["^build:packages"],
       "env": []
     },
     "dev:backend": {
@@ -121,25 +97,20 @@
       "persistent": true
     },
     "start": {
-      "dependsOn": ["build"],
       "cache": false
     },
     "start:frontend": {
-      "dependsOn": ["build:frontend"],
       "cache": false,
       "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
     },
     "start:admin": {
-      "dependsOn": ["build:admin"],
       "cache": false,
       "env": []
     },
     "start:backend": {
-      "dependsOn": ["build:backend"],
       "cache": false
     },
     "lint": {
-      "dependsOn": ["^build:packages"],
       "outputs": ["node_modules/.cache/.eslintcache"],
       "inputs": [
         "src/**",
@@ -156,12 +127,10 @@
       ]
     },
     "lint:fix": {
-      "dependsOn": ["^build:packages"],
       "outputs": ["node_modules/.cache/.eslintcache"],
       "cache": false
     },
     "type-check": {
-      "dependsOn": ["^build:packages"],
       "outputs": ["**/.tsbuildinfo", "node_modules/.cache/tsbuildinfo.json"],
       "inputs": [
         "src/**",
@@ -175,13 +144,9 @@
       ]
     },
     "test": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
       "outputs": ["coverage/**", "test-results/**", "target/debug/**"]
     },
-    
-    // Clean Architecture Layer Tests - Optimized for parallel execution and caching
     "test:domain": {
-      "dependsOn": [],
       "outputs": ["coverage/domain/**", "target/debug/**"],
       "inputs": [
         "src/dom/**",
@@ -196,7 +161,6 @@
       ]
     },
     "test:application": {
-      "dependsOn": ["test:domain"],
       "outputs": ["coverage/application/**", "target/debug/**"],
       "inputs": [
         "src/app/**",
@@ -212,7 +176,6 @@
       ]
     },
     "test:infrastructure": {
-      "dependsOn": ["test:domain"],
       "outputs": ["coverage/infrastructure/**", "target/debug/**"],
       "inputs": [
         "src/infra/**",
@@ -227,7 +190,6 @@
       ]
     },
     "test:presentation": {
-      "dependsOn": ["test:application"],
       "outputs": ["coverage/presentation/**", "target/debug/**"],
       "inputs": [
         "src/web/**",
@@ -241,58 +203,41 @@
         "Cargo.toml"
       ]
     },
-    
-    // Legacy test configurations for backward compatibility
     "test:unit": {
-      "dependsOn": ["test:domain", "test:application"],
       "outputs": ["coverage/**", "target/debug/**"]
     },
     "test:integration": {
-      "dependsOn": ["test:infrastructure"],
       "outputs": ["coverage/**", "target/debug/**"]
     },
     "test:backend": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
       "outputs": ["target/debug/**"]
     },
     "test:frontend": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
       "outputs": ["coverage/**"]
     },
     "test:admin": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation"],
       "outputs": ["coverage/**"]
     },
-    
-    // E2E tests remain unchanged
     "test:e2e": {
-      "dependsOn": ["build:apps"],
       "outputs": ["test-results/**", "playwright-report/**"],
       "inputs": ["e2e/**", "playwright.config.*"]
     },
     "test:e2e:frontend": {
-      "dependsOn": ["build:frontend"],
       "outputs": ["test-results/**", "playwright-report/**"],
       "inputs": ["e2e/**", "playwright.config.*"]
     },
     "test:e2e:admin": {
-      "dependsOn": ["build:admin"],
       "outputs": ["test-results/**", "playwright-report/**"],
       "inputs": ["e2e/**", "playwright.config.*"]
     },
-    
-    // Development and CI workflows
     "test:watch": {
       "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build:packages"]
+      "persistent": true
     },
     "test:ci": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure", "test:presentation", "test:e2e"],
       "outputs": ["coverage/**", "test-results/**", "target/debug/**"]
     },
     "test:parallel": {
-      "dependsOn": ["test:domain", "test:application", "test:infrastructure"],
       "outputs": ["coverage/**", "target/debug/**"]
     },
     "format": {

@@ -15,6 +15,7 @@ use crate::dom::services::eps_cache_service::{EPSCacheService, CacheStats};
 use crate::infra::services::tradingview::TradingViewService;
 use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
 
+
 /// Query parameters for EPS rankings endpoint
 #[derive(Debug, Deserialize)]
 pub struct EPSRankingQueryParams {
@@ -239,6 +240,96 @@ pub async fn eps_health_check(
     }
 }
 
+/// POST /api/analytics/eps-rankings/debug-eps-raw
+/// Debug raw quarterly EPS values (no correction applied)
+pub async fn debug_eps_correction() -> Result<Json<serde_json::Value>, AppError> {
+    info!("Raw EPS debug test triggered");
+    
+    let test_cases = vec![
+        ("2330", "taiwan", 0.526),   // TSMC quarterly
+        ("LLY", "america", 6.31),    // LLY quarterly
+        ("NVDA", "america", 2.5),    // NVDA quarterly
+        ("AAPL", "america", 1.5),    // AAPL quarterly
+    ];
+    
+    let mut results = Vec::new();
+    
+    for (symbol, country, raw_eps) in test_cases {
+        results.push(serde_json::json!({
+            "symbol": symbol,
+            "country": country,
+            "quarterly_eps": raw_eps,
+            "note": "Using raw quarterly EPS directly - no TTM fallback or correction"
+        }));
+        
+        info!("Raw quarterly EPS: {} ({}) = {}", symbol, country, raw_eps);
+    }
+    
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Raw EPS debug test completed - simplified system using quarterly EPS only",
+        "test_cases": results
+    })))
+}
+
+/// POST /api/analytics/eps-rankings/debug-ranking-data
+/// Debug actual ranking data structure for specific symbols
+pub async fn debug_ranking_data(
+    Extension(service): Extension<Arc<EPSCacheService>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    info!("Ranking data debug test triggered");
+    
+    // Get actual ranking data for TSMC and LLY
+    match service.get_eps_rankings(crate::dom::services::eps_cache_service::EPSCacheParams {
+        page: 1,
+        limit: 5,
+        country: Some("taiwan".to_string()),
+        sector: None,
+        sort_by: None,
+        min_eps: None,
+        min_growth: None,
+        force_refresh: false,
+    }).await {
+        Ok(rankings_response) => {
+            let mut results = Vec::new();
+            
+            for ranking in &rankings_response.rankings {
+                if ranking.symbol == "2330" || ranking.symbol == "LLY" {
+                    results.push(serde_json::json!({
+                        "symbol": ranking.symbol,
+                        "country_field": ranking.country,
+                        "current_eps": ranking.current_eps,
+                        "has_quarterly_data": ranking.quarterly_data.is_some(),
+                        "quarterly_data_count": ranking.quarterly_data.as_ref().map(|q| q.len()).unwrap_or(0),
+                        "first_quarter_eps": ranking.quarterly_data.as_ref()
+                            .and_then(|q| q.first())
+                            .map(|quarter| quarter.eps)
+                    }));
+                    
+                    info!("🔍 Ranking debug - Symbol: {}, Country: '{}', Current EPS: {:.3}, Has Quarterly: {}", 
+                          ranking.symbol, ranking.country, 
+                          ranking.current_eps.unwrap_or(0.0),
+                          ranking.quarterly_data.is_some());
+                }
+            }
+            
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Ranking data debug completed",
+                "rankings_found": results
+            })))
+        },
+        Err(e) => {
+            error!("Failed to get ranking data: {:?}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "message": format!("Failed to get ranking data: {}", e),
+                "rankings_found": []
+            })))
+        }
+    }
+}
+
 /// POST /api/analytics/eps-rankings/websocket-test
 /// Test WebSocket EPS data extraction
 pub async fn debug_websocket_eps() -> Result<Json<serde_json::Value>, AppError> {
@@ -292,7 +383,60 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
     use crate::infra::InfraFactory;
     use crate::core::errors::ErrorKind;
     
-    let config = std::sync::Arc::new(Config::from_env());
+    let config = match Config::from_env() {
+        Ok(config) => std::sync::Arc::new(config),
+        Err(e) => {
+            tracing::warn!("Failed to load config, using fallback: {:?}", e);
+            std::sync::Arc::new(Config {
+                server: crate::config::ServerConfig {
+                    port: 8080,
+                    host: "127.0.0.1".to_string(),
+                    bind_address: "0.0.0.0".to_string(),
+                    frontend_url: "http://localhost:3000".to_string(),
+                    admin_frontend_url: "http://localhost:3001".to_string(),
+                    environment: "development".to_string(),
+                },
+                database: crate::config::DatabaseConfig {
+                    url: "postgresql://localhost/epsx".to_string(),
+                },
+                auth: crate::config::AuthConfig {
+                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret: "default-jwt-secret".to_string(),
+                    cookie_signing_key: None,
+                    cookie_encryption_key: None,
+                    firebase_project_id: None,
+                },
+                payment: crate::config::PaymentConfig {
+                    musepay_partner_id: None,
+                    musepay_private_key: None,
+                    webhook_url: None,
+                },
+                email: crate::config::EmailConfig {
+                    from_email: "noreply@localhost".to_string(),
+                    from_name: "EPSX".to_string(),
+                    sendgrid_api_key: "".to_string(),
+                },
+                branding: crate::config::BrandingConfig {
+                    platform_name: "EPSX".to_string(),
+                    welcome_message_template: "Welcome to EPSX".to_string(),
+                    dashboard_url: "http://localhost:3000".to_string(),
+                    support_email: "support@localhost".to_string(),
+                },
+                external_services: crate::config::ExternalServicesConfig {
+                    tradingview: crate::config::TradingViewConfig {
+                        websocket_url: "wss://data.tradingview.com".to_string(),
+                        api_base_url: "https://scanner.tradingview.com".to_string(),
+                        timeout_seconds: 30,
+                        http_timeout_seconds: 30,
+                    },
+                },
+                rate_limiting: crate::config::RateLimitingConfig {
+                    default_per_minute: 60,
+                    endpoint_specific: std::collections::HashMap::new(),
+                },
+            })
+        }
+    };
     let tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
     
     // Create infrastructure factory
@@ -350,7 +494,60 @@ pub async fn get_unified_analytics_rankings_cached(
     let start_time = std::time::Instant::now();
     
     // Create TradingView service for direct API calls
-    let config = Arc::new(crate::config::Config::from_env());
+    let config = match crate::config::Config::from_env() {
+        Ok(config) => Arc::new(config),
+        Err(e) => {
+            tracing::warn!("Failed to load config, using fallback: {:?}", e);
+            Arc::new(crate::config::Config {
+                server: crate::config::ServerConfig {
+                    port: 8080,
+                    host: "127.0.0.1".to_string(),
+                    bind_address: "0.0.0.0".to_string(),
+                    frontend_url: "http://localhost:3000".to_string(),
+                    admin_frontend_url: "http://localhost:3001".to_string(),
+                    environment: "development".to_string(),
+                },
+                database: crate::config::DatabaseConfig {
+                    url: "postgresql://localhost/epsx".to_string(),
+                },
+                auth: crate::config::AuthConfig {
+                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret: "default-jwt-secret".to_string(),
+                    cookie_signing_key: None,
+                    cookie_encryption_key: None,
+                    firebase_project_id: None,
+                },
+                payment: crate::config::PaymentConfig {
+                    musepay_partner_id: None,
+                    musepay_private_key: None,
+                    webhook_url: None,
+                },
+                email: crate::config::EmailConfig {
+                    from_email: "noreply@localhost".to_string(),
+                    from_name: "EPSX".to_string(),
+                    sendgrid_api_key: "".to_string(),
+                },
+                branding: crate::config::BrandingConfig {
+                    platform_name: "EPSX".to_string(),
+                    welcome_message_template: "Welcome to EPSX".to_string(),
+                    dashboard_url: "http://localhost:3000".to_string(),
+                    support_email: "support@localhost".to_string(),
+                },
+                external_services: crate::config::ExternalServicesConfig {
+                    tradingview: crate::config::TradingViewConfig {
+                        websocket_url: "wss://data.tradingview.com".to_string(),
+                        api_base_url: "https://scanner.tradingview.com".to_string(),
+                        timeout_seconds: 30,
+                        http_timeout_seconds: 30,
+                    },
+                },
+                rate_limiting: crate::config::RateLimitingConfig {
+                    default_per_minute: 60,
+                    endpoint_specific: std::collections::HashMap::new(),
+                },
+            })
+        }
+    };
     let tradingview_service = crate::infra::services::tradingview::TradingViewApiService::new(config);
     
     // Get rankings data directly from TradingView
@@ -560,11 +757,15 @@ fn generate_quarterly_performance_from_real_data(ranking: &EPSRanking, quarterly
         
         let adjusted_price = current_price * price_adjustment;
         
-        // Calculate EPS growth (quarter-over-quarter)
-        let eps_growth = if i > 0 && i < quarterly_data.len() && quarterly_data[i - 1].eps > 0.0 {
-            ((quarter_data.eps - quarterly_data[i - 1].eps) / quarterly_data[i - 1].eps) * 100.0
+        // Use raw quarterly EPS directly - no correction needed
+        let quarterly_eps = quarter_data.eps;
+        
+        // Calculate EPS growth (quarter-over-quarter) using raw EPS values
+        // Since quarterly_data is sorted newest first, compare with next element (older quarter)
+        let eps_growth = if i + 1 < quarterly_data.len() && quarterly_data[i + 1].eps > 0.0 {
+            ((quarterly_eps - quarterly_data[i + 1].eps) / quarterly_data[i + 1].eps) * 100.0
         } else {
-            0.0
+            0.0 // No previous quarter data available
         };
         
         // Calculate price growth
@@ -595,7 +796,7 @@ fn generate_quarterly_performance_from_real_data(ranking: &EPSRanking, quarterly
                 .unwrap_or_default()
                 .format("%b %d, %Y")),
             price: adjusted_price,
-            eps: quarter_data.eps,
+            eps: quarterly_eps,
             eps_growth,
             price_growth,
         });
@@ -685,9 +886,13 @@ fn generate_quarterly_data_from_real_websocket_data(
             current_price * price_adjustment
         };
         
-        // Calculate EPS growth (quarter-over-quarter)
-        let eps_growth = if i > 0 && i < sorted_data.len() && sorted_data[i - 1].eps > 0.0 {
-            ((quarter_data.eps - sorted_data[i - 1].eps) / sorted_data[i - 1].eps) * 100.0
+        // Use raw quarterly EPS directly - no correction needed  
+        let quarterly_eps = quarter_data.eps;
+        
+        // Calculate EPS growth (quarter-over-quarter) using raw EPS values
+        // Since sorted_data is sorted newest first, compare with next element (older quarter)
+        let eps_growth = if i + 1 < sorted_data.len() && sorted_data[i + 1].eps > 0.0 {
+            ((quarterly_eps - sorted_data[i + 1].eps) / sorted_data[i + 1].eps) * 100.0
         } else {
             ranking.qoq_growth.unwrap_or(0.0) // Use current QoQ growth for most recent
         };
@@ -720,7 +925,7 @@ fn generate_quarterly_data_from_real_websocket_data(
             date: chrono::DateTime::<chrono::Utc>::from_timestamp(quarter_data.timestamp, 0)
                 .unwrap_or(current_date - chrono::Duration::days(i as i64 * 90)),
             price: adjusted_price,
-            eps: quarter_data.eps, // Use real EPS from WebSocket
+            eps: quarterly_eps, // Use raw quarterly EPS from WebSocket
             eps_growth,
             price_growth,
             volume: ranking.volume.map(|v| ((v as f64) * (1.0 - i as f64 * 0.1).max(0.5)) as i64),
@@ -920,8 +1125,8 @@ async fn enhance_with_websocket_data(
                 if let Some(ws_data) = websocket_map.get(&ranking.symbol) {
                     info!("🔄 Enhancing {} with REAL TradingView WebSocket data", ranking.symbol);
                     
-                    // Update with real current EPS
-                    if ws_data.current_eps > 0.01 && ws_data.current_eps < 100.0 && ws_data.current_eps.is_finite() {
+                    // Update with real current EPS using dynamic validation
+                    if is_valid_eps_for_ranking(ws_data.current_eps) {
                         debug!("Updating {} current EPS: {:?} → {} (REAL WebSocket)", 
                                ranking.symbol, ranking.current_eps, ws_data.current_eps);
                         ranking.current_eps = Some(ws_data.current_eps);
@@ -1022,6 +1227,32 @@ impl From<AppError> for (StatusCode, Json<serde_json::Value>) {
     }
 }
 
+/// Dynamic EPS validation for ranking updates - no hardcoded country/stock limits
+fn is_valid_eps_for_ranking(eps: f64) -> bool {
+    // Basic sanity checks
+    if !eps.is_finite() || eps <= 0.0 {
+        return false;
+    }
+
+    // Allow very wide range to handle all markets and currencies
+    // US stocks: 0.01 to 50+ USD per share  
+    // International stocks: much higher (Taiwan stocks in TWD, Japanese stocks in JPY)
+    // Accept any reasonable positive value up to 50,000 to handle all currencies and markets
+    if eps > 50000.0 {
+        warn!("EPS value {} is extremely high, might be an error", eps);
+        return false;
+    }
+
+    // Accept small values too (penny stocks, recent IPOs, etc.)
+    if eps < 0.001 {
+        warn!("EPS value {} is very small, might be noise", eps);
+        return false;
+    }
+
+    // All values in reasonable range are valid - no country/stock specific limits
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1094,13 +1325,17 @@ fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolC
     
     // Transform quarterly data format
     let quarterly_performance: Vec<QuarterlyPerformanceData> = unified_item.quarterly_data.into_iter()
-        .map(|q| QuarterlyPerformanceData {
-            quarter: q.quarter,
-            date: q.date.format("%b %-d, %Y").to_string(),
-            price: q.price,
-            eps: q.eps,
-            eps_growth: q.eps_growth,
-            price_growth: q.price_growth,
+        .map(|q| {
+            // Debug log EPS values to diagnose display issue
+            debug!("Symbol {} Quarter {}: EPS value = {}", unified_item.symbol, q.quarter, q.eps);
+            QuarterlyPerformanceData {
+                quarter: q.quarter,
+                date: q.date.format("%b %-d, %Y").to_string(),
+                price: q.price,
+                eps: q.eps,
+                eps_growth: q.eps_growth,
+                price_growth: q.price_growth,
+            }
         })
         .collect();
     

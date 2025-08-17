@@ -7,7 +7,7 @@
 import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/server-auth'
 
 interface UserOverviewPageProps {
   params: Promise<{ userId: string }>

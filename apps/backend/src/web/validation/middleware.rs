@@ -77,7 +77,7 @@ pub async fn rate_limit_middleware(
     
     // Initialize rate limiter with configuration
     use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
-    let rate_limiter = UnifiedRateLimiter::with_config(std::sync::Arc::new(crate::config::Config::from_env()));
+    let rate_limiter = UnifiedRateLimiter::with_config(std::sync::Arc::new(crate::config::Config::from_env().expect("Failed to load config")));
     
     // Determine rate limits based on endpoint
     let config = match path {

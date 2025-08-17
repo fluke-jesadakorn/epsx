@@ -2,6 +2,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
+use crate::config::env::get_env_var;
 
 use crate::web::oidc::types::OidcDiscoveryDocument;
 
@@ -14,21 +15,21 @@ fn get_oidc_issuer_url() -> String {
     // 4. Detect from common deployment environments
     // 5. Default localhost fallback
     
-    if let Ok(issuer) = std::env::var("OIDC_ISSUER") {
+    if let Ok(issuer) = get_env_var("OIDC_ISSUER") {
         if !issuer.is_empty() {
             tracing::info!("Using OIDC issuer from OIDC_ISSUER: {}", issuer);
             return issuer;
         }
     }
     
-    if let Ok(public_url) = std::env::var("PUBLIC_URL") {
+    if let Ok(public_url) = get_env_var("PUBLIC_URL") {
         if !public_url.is_empty() {
             tracing::info!("Using OIDC issuer from PUBLIC_URL: {}", public_url);
             return public_url;
         }
     }
     
-    if let Ok(backend_url) = std::env::var("BACKEND_URL") {
+    if let Ok(backend_url) = get_env_var("BACKEND_URL") {
         if !backend_url.is_empty() {
             tracing::info!("Using OIDC issuer from BACKEND_URL: {}", backend_url);
             return backend_url;
@@ -36,25 +37,25 @@ fn get_oidc_issuer_url() -> String {
     }
     
     // Check common deployment environment variables
-    if let Ok(render_external_url) = std::env::var("RENDER_EXTERNAL_URL") {
+    if let Ok(render_external_url) = get_env_var("RENDER_EXTERNAL_URL") {
         tracing::info!("Detected Render deployment, using: {}", render_external_url);
         return render_external_url;
     }
     
-    if let Ok(railway_public_domain) = std::env::var("RAILWAY_PUBLIC_DOMAIN") {
+    if let Ok(railway_public_domain) = get_env_var("RAILWAY_PUBLIC_DOMAIN") {
         let url = format!("https://{}", railway_public_domain);
         tracing::info!("Detected Railway deployment, using: {}", url);
         return url;
     }
     
-    if let Ok(vercel_url) = std::env::var("VERCEL_URL") {
+    if let Ok(vercel_url) = get_env_var("VERCEL_URL") {
         let url = format!("https://{}", vercel_url);
         tracing::info!("Detected Vercel deployment, using: {}", url);
         return url;
     }
     
-    if std::env::var("HEROKU_APP_NAME").is_ok() {
-        if let Ok(app_name) = std::env::var("HEROKU_APP_NAME") {
+    if get_env_var("HEROKU_APP_NAME").is_ok() {
+        if let Ok(app_name) = get_env_var("HEROKU_APP_NAME") {
             let url = format!("https://{}.herokuapp.com", app_name);
             tracing::info!("Detected Heroku deployment, using: {}", url);
             return url;
@@ -62,8 +63,8 @@ fn get_oidc_issuer_url() -> String {
     }
     
     // Check if we're in Docker
-    if std::env::var("DOCKER_CONTAINER").is_ok() || std::path::Path::new("/.dockerenv").exists() {
-        if let Ok(port) = std::env::var("PORT") {
+    if get_env_var("DOCKER_CONTAINER").is_ok() || std::path::Path::new("/.dockerenv").exists() {
+        if let Ok(port) = get_env_var("PORT") {
             let url = format!("http://localhost:{}", port);
             tracing::info!("Detected Docker environment, using: {}", url);
             return url;

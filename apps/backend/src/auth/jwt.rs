@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::key_manager::KeyManager;
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::config::env::get_env_var;
 
 /// Complete JWT claims following RFC 7519 standard
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -69,11 +70,11 @@ impl Service {
         let key_manager = Arc::new(KeyManager::from_env_or_generate()
             .map_err(|e| Error::Invalid(format!("Failed to initialize KeyManager: {}", e)))?);
             
-        let legacy_secret = std::env::var("JWT_SECRET")
-            .or_else(|_| std::env::var("NEXTAUTH_SECRET"))
+        let legacy_secret = get_env_var("JWT_SECRET")
+            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
             .ok();
             
-        let issuer = std::env::var("OIDC_ISSUER")
+        let issuer = get_env_var("OIDC_ISSUER")
             .unwrap_or_else(|_| "http://localhost:8080".to_string());
             
         if legacy_secret.is_some() {

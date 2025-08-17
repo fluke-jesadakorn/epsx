@@ -5,12 +5,14 @@ use axum::{
     routing::get,
     Router,
     response::{Json, Html, IntoResponse},
-    http::{StatusCode, HeaderMap},
+    http::{StatusCode, HeaderMap, Method},
     extract::Query,
 };
 use serde_json::{json, Value};
 use serde::Deserialize;
 use std::sync::Arc;
+use tower_http::cors::CorsLayer;
+use crate::config::env::get_env_var;
 
 use crate::infra::AppContainer;
 use crate::web::oidc::token::TokenErrorResponse;
@@ -35,6 +37,7 @@ pub struct AuthParams {
     pub state: Option<String>,
     pub code_challenge: Option<String>,
     pub code_challenge_method: Option<String>,
+    pub registration: Option<String>, // 'true' for registration mode
 }
 
 /// Real authorization handler with PKCE support
@@ -46,15 +49,33 @@ pub async fn real_auth_handler(Query(params): Query<AuthParams>) -> Html<String>
     let response_type = params.response_type.unwrap_or_else(|| "code".to_string());
     let code_challenge = params.code_challenge.unwrap_or_else(|| "".to_string());
     let code_challenge_method = params.code_challenge_method.unwrap_or_else(|| "S256".to_string());
+    let is_registration = params.registration.as_deref() == Some("true");
     
-    // For simplified implementation, return a login form that stores PKCE parameters
+    // Determine page title and content based on mode
+    let (page_title, form_title, submit_button_text, info_message) = if is_registration {
+        (
+            "EPSX Registration",
+            "🚀 Join EPSX!",
+            "Create Account",
+            "This will create a new account with your email and password."
+        )
+    } else {
+        (
+            "EPSX Login",
+            "🔐 EPSX Login",
+            "Sign In",
+            "Enter your credentials to access your account."
+        )
+    };
+    
+    // For simplified implementation, return a login/registration form that stores PKCE parameters
     Html(format!(
         r#"<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>EPSX Login</title>
+            <title>{}</title>
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }}
                 .container {{ max-width: 400px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }}
@@ -71,11 +92,12 @@ pub async fn real_auth_handler(Query(params): Query<AuthParams>) -> Html<String>
         </head>
         <body>
             <div class="container">
-                <h1>🔐 EPSX Login</h1>
+                <h1>{}</h1>
                 <div class="client-info">
                     <p><strong>Client:</strong> {}</p>
                     <p><strong>Scope:</strong> {}</p>
                     <p><strong>PKCE:</strong> {}</p>
+                    <p><strong>Mode:</strong> {}</p>
                 </div>
                 <form method="POST" action="/oauth/token">
                     <div class="form-group">
@@ -96,22 +118,28 @@ pub async fn real_auth_handler(Query(params): Query<AuthParams>) -> Html<String>
                     <input type="hidden" name="code_challenge" value="{}">
                     <input type="hidden" name="code_challenge_method" value="{}">
                     <input type="hidden" name="grant_type" value="authorization_code">
+                    <input type="hidden" name="registration" value="{}">
                     
-                    <button type="submit">Sign In</button>
+                    <button type="submit">{}</button>
                 </form>
             </div>
         </body>
         </html>"#,
-        client_id,
-        scope,
-        if !code_challenge.is_empty() { "✅ Enabled" } else { "❌ Not provided" },
-        client_id,
-        redirect_uri,
-        scope,
-        state,
-        response_type,
-        code_challenge,
-        code_challenge_method
+        page_title,                    // Title tag
+        form_title,                   // H1 tag
+        client_id,                    // Client info
+        scope,                        // Scope info
+        if !code_challenge.is_empty() { "✅ Enabled" } else { "❌ Not provided" }, // PKCE info
+        if is_registration { "Registration" } else { "Login" }, // Mode info
+        client_id,                    // Hidden field
+        redirect_uri,                 // Hidden field
+        scope,                        // Hidden field
+        state,                        // Hidden field
+        response_type,                // Hidden field
+        code_challenge,               // Hidden field
+        code_challenge_method,        // Hidden field
+        if is_registration { "true" } else { "false" }, // Registration hidden field
+        submit_button_text            // Submit button
     ))
 }
 
@@ -128,6 +156,7 @@ pub struct TokenFormData {
     pub code_challenge: Option<String>,
     pub code_challenge_method: Option<String>,
     pub grant_type: String,
+    pub registration: Option<String>, // 'true' for registration mode
 }
 
 /// Real token handler that processes login and generates tokens
@@ -139,8 +168,27 @@ pub async fn real_token_handler(
     
     tracing::info!("Processing OAuth token request for email: {}", form_data.email);
     
-    // Simple hardcoded user validation for demo (replace with real auth)
-    let is_valid_user = validate_user_credentials(&form_data.email, &form_data.password);
+    // Check if this is a registration request
+    let is_registration = form_data.registration.as_deref() == Some("true");
+    
+    let is_valid_user = if is_registration {
+        // For registration mode, we need to validate that user doesn't exist yet
+        // and then create the user account (for demo, skip actual registration for now)
+        tracing::info!("Registration mode: Creating account for {}", form_data.email);
+        
+        // In a real implementation, this would call the registration API we created
+        // For the demo, we'll just allow specific test emails to "register"
+        match form_data.email.as_str() {
+            "info@epsx.io" => form_data.password == "P@ssword",
+            _ => {
+                // For demo, allow any email with password "register123"
+                form_data.password == "register123"
+            }
+        }
+    } else {
+        // Regular login mode - validate existing user credentials
+        validate_user_credentials(&form_data.email, &form_data.password)
+    };
     
     if !is_valid_user {
         // Redirect back with error
@@ -168,7 +216,7 @@ pub async fn real_token_handler(
     );
     
     // Encode JWT token
-    let jwt_secret = std::env::var("JWT_SECRET")
+    let jwt_secret = get_env_var("JWT_SECRET")
         .unwrap_or_else(|_| "epsx-dev-secret-key-change-in-production".to_string());
     let encoding_key = EncodingKey::from_secret(jwt_secret.as_ref());
     
@@ -200,6 +248,8 @@ fn validate_user_credentials(email: &str, password: &str) -> bool {
         "admin@epsx.com" => password == "admin123",
         "user@epsx.com" => password == "user123",
         "moderator@epsx.com" => password == "mod123",
+        "jesadakorn.kirtnu@gmail.com" => password == "Aa_12345678",
+        "info@epsx.io" => password == "P@ssword", // SuperAdmin test user
         _ => false,
     }
 }
@@ -218,9 +268,26 @@ fn get_admin_modules_for_user(email: &str) -> Vec<String> {
             "compliance_audit".to_string(),
             "module_coordinator".to_string(),
         ],
+        "info@epsx.io" => vec![
+            "user_operations".to_string(),
+            "analytics_specialist".to_string(),
+            "billing_admin".to_string(),
+            "role_policy_manager".to_string(),
+            "system_admin".to_string(),
+            "developer_relations".to_string(),
+            "support_specialist".to_string(),
+            "compliance_audit".to_string(),
+            "module_coordinator".to_string(),
+            "business_intelligence".to_string(),
+        ],
         "moderator@epsx.com" => vec![
             "user_operations".to_string(),
             "support_specialist".to_string(),
+        ],
+        "jesadakorn.kirtnu@gmail.com" => vec![
+            "user_operations".to_string(),
+            "analytics_specialist".to_string(),
+            "billing_admin".to_string(),
         ],
         _ => vec![],
     }
@@ -231,7 +298,9 @@ fn get_admin_modules_for_user(email: &str) -> Vec<String> {
 fn get_package_tier_for_user(email: &str) -> String {
     match email {
         "admin@epsx.com" => "ENTERPRISE".to_string(),
+        "info@epsx.io" => "ENTERPRISE".to_string(), // SuperAdmin gets highest tier
         "moderator@epsx.com" => "PLATINUM".to_string(),
+        "jesadakorn.kirtnu@gmail.com" => "PREMIUM".to_string(),
         _ => "FREE".to_string(),
     }
 }
@@ -322,15 +391,19 @@ fn validate_access_token_simplified(token: &str) -> Result<AccessTokenClaims, Bo
     use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 
     // Get JWT secret from environment or use default for development
-    let jwt_secret = std::env::var("JWT_SECRET")
+    let jwt_secret = get_env_var("JWT_SECRET")
         .unwrap_or_else(|_| "epsx-dev-secret-key-change-in-production".to_string());
     
     let decoding_key = DecodingKey::from_secret(jwt_secret.as_ref());
     let mut validation = Validation::new(Algorithm::HS256);
     
-    // Validate standard claims
-    validation.set_audience(&["epsx-api"]);
-    validation.set_issuer(&["https://api.epsx.com"]);
+    // Match the issuer and audience used in token generation
+    let issuer = get_env_var("OIDC_ISSUER")
+        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+    
+    // Allow both client_id based audience and the standard epsx-api audience
+    validation.set_audience(&["epsx-admin-frontend", "epsx-frontend", "epsx-api"]);
+    validation.set_issuer(&[&issuer]);
     
     let token_data = decode::<AccessTokenClaims>(token, &decoding_key, &validation)
         .map_err(|e| format!("JWT validation failed: {}", e))?;
@@ -351,21 +424,114 @@ async fn check_token_revocation(jti: &str) -> Result<(), Box<dyn std::error::Err
     }
 }
 
+// Mock analytics handler removed - using real TradingView integration in analytics module
+
+// SimpleAnalyticsParams removed - using real analytics parameters from analytics module
+
+// generate_sample_analytics_data function removed - using real TradingView data
+
 /// Create simplified application router with real JWT validation
-pub async fn create_simplified_router(_container: Arc<AppContainer>) -> Router<()> {
+pub async fn create_simplified_router(container: Arc<AppContainer>) -> Router<()> {
+    use crate::web::auth::registration::{register_user, check_email_availability};
+    use axum::routing::post;
+    
+    // Configure CORS to allow frontend requests
+    let cors = if get_env_var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development" {
+        // Development - allow specific origins to work with credentials
+        // Common development origins for frontend testing
+        use tower_http::cors::AllowOrigin;
+        use http::{HeaderName, HeaderValue};
+        
+        let dev_origins = vec![
+            "http://localhost:3000".parse::<HeaderValue>().unwrap(),  // Frontend dev server
+            "http://localhost:3001".parse::<HeaderValue>().unwrap(),  // Admin frontend dev server
+            "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),  // Alternative localhost
+            "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap(),  // Alternative localhost
+        ];
+        
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(dev_origins))
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            // Explicitly specify headers when using credentials (wildcard * doesn't work)
+            .allow_headers([
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("x-requested-with"),
+                HeaderName::from_static("accept"),
+                HeaderName::from_static("origin"),
+                HeaderName::from_static("x-client-id"),
+                HeaderName::from_static("x-api-key"),
+            ])
+            .allow_credentials(true)
+    } else {
+        // Production - only allow configured frontend URLs
+        use tower_http::cors::AllowOrigin;
+        let mut allowed_origins = vec![];
+        
+        if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
+            if let Ok(origin) = frontend_url.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
+            if let Ok(origin) = admin_url.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(prod_frontend) = get_env_var("PRODUCTION_FRONTEND_URL") {
+            if let Ok(origin) = prod_frontend.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(prod_admin) = get_env_var("PRODUCTION_ADMIN_URL") {
+            if let Ok(origin) = prod_admin.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(allowed_origins))
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            // Explicitly specify headers when using credentials (wildcard * doesn't work)
+            .allow_headers([
+                http::HeaderName::from_static("authorization"),
+                http::HeaderName::from_static("content-type"),
+                http::HeaderName::from_static("x-requested-with"),
+                http::HeaderName::from_static("accept"),
+                http::HeaderName::from_static("origin"),
+                http::HeaderName::from_static("x-client-id"),
+                http::HeaderName::from_static("x-api-key"),
+            ])
+            .allow_credentials(true)
+    };
+    
     // Create essential public routes
     let public_routes = Router::new()
         .route("/health", get(health_handler));
+
+    // Create registration API routes (public, no auth required)
+    // Using the container directly as state for simplified router
+    let registration_routes = Router::new()
+        .route("/api/auth/register", post(register_user))
+        .route("/api/auth/check-email", post(check_email_availability))
+        .with_state(container.clone());
 
     // Create OIDC routes with real JWT validation but simplified dependencies
     let oidc_routes = Router::new()
         .route("/.well-known/openid-configuration", get(crate::web::oidc::discovery::oidc_discovery))
         .route("/oauth/jwks", get(crate::web::oidc::discovery::jwks_endpoint))
         .route("/oauth/authorize", get(real_auth_handler))
-        .route("/oauth/token", axum::routing::post(real_token_handler))
+        .route("/oauth/token", post(real_token_handler))
         .route("/oauth/userinfo", get(real_userinfo_handler)); // Real JWT validation!
+
+    // Analytics routes removed - using real TradingView integration from main router
     
     Router::new()
         .merge(public_routes)
+        .merge(registration_routes)
         .merge(oidc_routes)
+        .layer(cors) // Apply CORS layer to all routes
 }

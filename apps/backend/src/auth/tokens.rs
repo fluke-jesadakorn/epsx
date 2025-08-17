@@ -6,6 +6,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
+use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
 use crate::infra::firebase_admin::FirebaseUser;
@@ -458,12 +459,12 @@ fn get_tier(custom_claims: &HashMap<String, serde_json::Value>) -> String {
 }
 
 fn get_issuer() -> String {
-    std::env::var("OIDC_ISSUER")
+    get_env_var("OIDC_ISSUER")
         .unwrap_or_else(|_| "http://localhost:8080".to_string())
 }
 
 fn get_jwt_secret() -> String {
-    std::env::var("JWT_SECRET")
+    get_env_var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
 }
 

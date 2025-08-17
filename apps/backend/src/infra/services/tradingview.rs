@@ -78,7 +78,7 @@ impl From<&Config> for TradingViewConfig {
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
             http_timeout_seconds: config.external_services.tradingview.http_timeout_seconds,
-            auth_token: config.auth.firebase_project_id.clone(), // Use appropriate auth token
+            auth_token: config.auth.firebase_project_id.clone().unwrap_or_else(|| "default-project".to_string()), // Use appropriate auth token
         }
     }
 }
@@ -217,7 +217,6 @@ impl TradingViewApiService {
             ],
             "ignore_unknown_fields": false,
             "options": { "lang": "en" },
-            "price_conversion": { "to_currency": "usd" },
             "range": [0, 100],
             "sort": { "sortBy": "market_cap_basic", "sortOrder": "desc" },
             "symbols": {},
@@ -427,7 +426,6 @@ impl TradingViewApiService {
             "filter": filters,
             "ignore_unknown_fields": false,
             "options": { "lang": "en" },
-            "price_conversion": { "to_currency": "usd" },
             "range": [range_start, range_end],
             "sort": { "sortBy": sort_field, "sortOrder": sort_order },
             "symbols": {},
@@ -556,59 +554,13 @@ impl TradingViewApiService {
         let country = get_string(&stock.d, 25, "unknown"); // market (index 25, shifted by +2)
         let sector = get_string(&stock.d, 24, ""); // sector.tr (index 24, shifted by +2)
         let exchange = get_string(&stock.d, 29, ""); // exchange (index 29, shifted by +2)
+        // EPS data extraction using dynamic detection algorithm
         
-        // DEBUG: Log all available fields for NVDA to find correct quarterly EPS
-        if symbol == "NVDA" {
-            debug!("=== NVDA RAW DATA DEBUG ===");
-            for (i, field) in stock.d.iter().enumerate() {
-                match field {
-                    StockDataField::Number(n) => debug!("Field[{}]: Number({})", i, n),
-                    StockDataField::String(s) => debug!("Field[{}]: String({})", i, s),
-                    StockDataField::Integer(n) => debug!("Field[{}]: Integer({})", i, n),
-                    _ => debug!("Field[{}]: {:?}", i, field),
-                }
-            }
-            debug!("=== END NVDA DEBUG ===");
-        }
-
-        // EPS data extraction with debug logging - trying multiple field indices
-        let current_eps_14 = get_number(&stock.d, 14); // earnings_per_share_fq (quarterly EPS)
-        let current_eps_18 = get_number(&stock.d, 18); // earnings_per_share_diluted_ttm 
-        let current_eps_19 = get_number(&stock.d, 19); // earnings_per_share_diluted_ttm (alternative)
-        let current_eps_20 = get_number(&stock.d, 20); // earnings_per_share_diluted_yoy_growth_ttm
+        // Dynamic EPS field selection - no hardcoded stock-specific logic
+        let current_eps = self.detect_quarterly_eps_dynamically(&stock.d, &symbol);
         
-        // Additional EPS fields after adding forecast columns
-        let current_eps_22 = get_number(&stock.d, 22); // earnings_per_share_forecast_fq
-        let current_eps_23 = get_number(&stock.d, 23); // earnings_per_share_forecast_next_fq
-        
-        // For NVDA, log all EPS-related fields to find the correct one
-        if symbol == "NVDA" {
-            debug!("NVDA EPS candidates: field[14]={:?}, field[18]={:?}, field[19]={:?}, field[20]={:?}, field[22]={:?}, field[23]={:?}", 
-                   current_eps_14, current_eps_18, current_eps_19, current_eps_20, current_eps_22, current_eps_23);
-        }
-        
-        // Convert TTM EPS to realistic quarterly EPS
-        // NVDA's TTM EPS is 12.96, but quarterly EPS should be around 0.81
-        // This suggests quarterly EPS ≈ TTM EPS / 4 with some seasonal variation
-        let current_eps = if let Some(ttm_eps) = current_eps_19 {
-            // Calculate approximate quarterly EPS from TTM
-            let base_quarterly = ttm_eps / 4.0;
-            
-            // Apply realistic quarterly variation based on symbol
-            match symbol.as_str() {
-                "NVDA" => Some(0.81), // Known quarterly EPS from TradingView chart
-                "MSFT" => Some(base_quarterly * 0.85), // Slightly lower than average
-                "GOOGL" => Some(base_quarterly * 0.90),
-                "AAPL" => Some(base_quarterly * 0.95),
-                "TSLA" => Some(base_quarterly * 1.1), // Higher seasonal variation
-                "9984" => Some(2.0609), // SoftBank Q3 '25 EPS from TradingView
-                _ => Some(base_quarterly), // Default quarterly approximation
-            }
-        } else {
-            current_eps_14 // Fallback to any available EPS
-        };
-        
-        let qoq_growth = get_number(&stock.d, 20); // earnings_per_share_diluted_yoy_growth_ttm
+        // QoQ growth will be calculated dynamically from quarterly data, not from TTM fields
+        let qoq_growth = None; // Remove TTM-based growth calculation
         let price_current = get_number(&stock.d, 6); // close
         let market_cap = get_number(&stock.d, 16).map(|mc| mc as i64); // market_cap_basic (index 16)
         let volume = get_number(&stock.d, 13).map(|vol| vol as i64); // volume
@@ -647,6 +599,88 @@ impl TradingViewApiService {
 
         debug!("Successfully converted TradingView data to EPS data for: {}", symbol);
         Ok(eps_data)
+    }
+
+    /// Dynamically detect the correct quarterly EPS field without hardcoded logic
+    fn detect_quarterly_eps_dynamically(&self, data: &[StockDataField], symbol: &str) -> Option<f64> {
+        let get_number = |data: &[StockDataField], idx: usize| -> Option<f64> {
+            match data.get(idx) {
+                Some(StockDataField::Number(n)) => Some(*n),
+                Some(StockDataField::Integer(i)) => Some(*i as f64),
+                _ => None
+            }
+        };
+
+        // Candidate quarterly EPS fields only - NO TTM fields per user request
+        let candidates = vec![
+            (14, "earnings_per_share_fq", "quarterly"),           // Primary quarterly EPS field
+            (22, "earnings_per_share_forecast_fq", "quarterly"),   // Forecast quarterly
+            (23, "earnings_per_share_forecast_next_fq", "quarterly"), // Next quarter forecast
+        ];
+
+        let mut field_values = Vec::new();
+        for (idx, name, field_type) in candidates {
+            if let Some(value) = get_number(data, idx) {
+                field_values.push((idx, name, field_type, value));
+            }
+        }
+
+        debug!("EPS field candidates for {}: {:?}", symbol, field_values);
+
+        // Dynamic selection algorithm
+        self.select_best_quarterly_eps_field(field_values, symbol)
+    }
+
+    /// Select the best quarterly EPS field using dynamic intelligence
+    fn select_best_quarterly_eps_field(&self, candidates: Vec<(usize, &str, &str, f64)>, symbol: &str) -> Option<f64> {
+        if candidates.is_empty() {
+            return None;
+        }
+
+        // Filter out clearly invalid values using dynamic validation
+        let valid_candidates: Vec<_> = candidates.into_iter()
+            .filter(|(_, _, _, value)| self.is_valid_quarterly_eps_value(*value))
+            .collect();
+
+        if valid_candidates.is_empty() {
+            warn!("No valid quarterly EPS candidates found for {}", symbol);
+            return None;
+        }
+
+        // All candidates are quarterly fields - prioritize primary field (index 14)
+        for (idx, name, _, value) in &valid_candidates {
+            if *idx == 14 {
+                info!("Selected primary quarterly EPS field {} for {}: {}", name, symbol, value);
+                return Some(*value);
+            }
+        }
+        
+        // Fallback to first available quarterly field
+        let (idx, name, _, value) = &valid_candidates[0];
+        info!("Selected quarterly EPS field {} for {}: {}", name, symbol, value);
+        Some(*value)
+    }
+
+    /// Dynamic validation for quarterly EPS values - consistent with WebSocket service
+    fn is_valid_quarterly_eps_value(&self, eps: f64) -> bool {
+        // Basic sanity checks
+        if !eps.is_finite() || eps <= 0.0 {
+            return false;
+        }
+
+        // Allow wide range for different markets and currencies
+        // Same logic as WebSocket service for consistency
+        if eps > 50000.0 {
+            warn!("EPS value {} seems extremely high, might be an error", eps);
+            return false;
+        }
+
+        if eps < 0.001 {
+            warn!("EPS value {} is very small, might be noise", eps);
+            return false;
+        }
+
+        true
     }
 
     /// Convert TradingView stock data to stock screening result
@@ -783,17 +817,76 @@ impl TradingViewApiService {
         let volume = get_number(&stock.d, 13, 0.0) as i64; // volume  
         let market_cap = get_number(&stock.d, 15, 0.0) as i64; // market_cap_basic
         // Use TTM EPS divided by 4 to get approximate quarterly EPS
+        // Use quarterly EPS directly (field index 14 = earnings_per_share_fq)
+        let quarterly_eps = get_number(&stock.d, 14, 0.0); // earnings_per_share_fq
         let ttm_eps = get_number(&stock.d, 19, 0.0); // earnings_per_share_diluted_ttm
-        let current_eps = if ttm_eps > 0.0 {
-            ttm_eps / 4.0 // Convert TTM to quarterly approximation
-        } else {
-            // Fallback: Try basic EPS field if TTM is not available
-            get_number(&stock.d, 18, 0.0) // earnings_per_share_basic_ttm
-        };
+        let basic_ttm = get_number(&stock.d, 18, 0.0); // earnings_per_share_basic_ttm
         
         let qoq_growth = get_number(&stock.d, 20, 0.0); // earnings_per_share_diluted_yoy_growth_ttm (shifted by +1)
         let sector = get_string(&stock.d, 24, "Unknown"); // sector.tr (shifted by +3)
         let country = get_string(&stock.d, 25, "unknown"); // market (shifted by +3)
+        
+        // Debug log for Taiwan stocks to diagnose EPS issue
+        if country == "taiwan" || symbol == "2330" {
+            info!("📊 Taiwan Stock {} EPS Debug - Quarterly: {}, TTM: {}, Basic TTM: {}, Currency: {}", 
+                  symbol, quarterly_eps, ttm_eps, basic_ttm, 
+                  get_string(&stock.d, 11, "N/A")); // currency field
+            
+            // Log complete raw data array structure for debugging
+            info!("🔍 RAW API RESPONSE DEBUG for {}: Full symbol: {}, Data array length: {}", 
+                  symbol, stock.s, stock.d.len());
+            
+            // Log all data fields with indices for field mapping verification
+            for (idx, field) in stock.d.iter().enumerate() {
+                let field_value = match field {
+                    StockDataField::String(s) => format!("String(\"{}\")", s),
+                    StockDataField::Number(n) => format!("Number({})", n),
+                    StockDataField::Integer(i) => format!("Integer({})", i),
+                    StockDataField::Boolean(b) => format!("Boolean({})", b),
+                    StockDataField::Array(_) => "Array([...])".to_string(),
+                    StockDataField::Object(_) => "Object({...})".to_string(),
+                    StockDataField::Null => "Null".to_string(),
+                };
+                info!("🔍 Index {}: {}", idx, field_value);
+            }
+            
+            // Test different EPS field combinations and scaling factors
+            info!("🔬 EPS FIELD COMBINATION TESTING for {}:", symbol);
+            let test_fields = [
+                (14, "quarterly_eps"), (18, "price_earnings_ttm"), (19, "ttm_eps"),
+                (22, "forecast_fq"), (23, "forecast_next_fq")
+            ];
+            
+            for (idx, field_name) in test_fields.iter() {
+                let val = get_number(&stock.d, *idx, 0.0);
+                if val > 0.0 {
+                    info!("🔬 Index {} ({}): {} | x10: {} | x25: {}", 
+                          idx, field_name, val, val * 10.0, val * 25.0);
+                }
+            }
+            
+            // Currency and scale detection
+            let fund_currency = get_string(&stock.d, 17, "N/A"); // fundamental_currency_code  
+            let price = get_number(&stock.d, 6, 0.0); // close price
+            info!("🔬 SCALE ANALYSIS - Price: {} TWD, Currency: {}, Fund_Currency: {}", 
+                  price, get_string(&stock.d, 11, "N/A"), fund_currency);
+                  
+            // Calculate potential scaling factors based on expected vs actual
+            let expected_range = (12.0, 15.0); // Expected TSMC EPS range
+            if ttm_eps > 0.0 {
+                let scale_factor_ttm = expected_range.0 / ttm_eps;
+                info!("🔬 SCALING FACTOR - TTM EPS {} needs {}x to reach expected ~{}", 
+                      ttm_eps, scale_factor_ttm, expected_range.0);
+            }
+            if quarterly_eps > 0.0 {
+                let scale_factor_q = expected_range.0 / quarterly_eps;
+                info!("🔬 SCALING FACTOR - Quarterly EPS {} needs {}x to reach expected ~{}", 
+                      quarterly_eps, scale_factor_q, expected_range.0);
+            }
+        }
+        
+        // Use quarterly EPS directly - no TTM fallback needed
+        let current_eps = quarterly_eps;
 
         // Calculate ranking score based on EPS, growth, and market cap
         let ranking_score = self.calculate_ranking_score(current_eps, qoq_growth, market_cap as f64, price_current);
@@ -830,6 +923,7 @@ impl TradingViewApiService {
         (eps_score * eps_weight + growth_score * growth_weight + 
          market_cap_score * market_cap_weight + price_score * price_weight).round()
     }
+
 }
 
 #[async_trait]
@@ -981,6 +1075,40 @@ impl TradingViewService for TradingViewApiService {
 
         info!("Successfully received TradingView response with {} entries, total count: {}", 
               response.data.len(), response.total_count);
+              
+        // Debug log the first entry for field mapping analysis
+        if let Some(first_stock) = response.data.first() {
+            info!("🔍 FIRST STOCK SAMPLE - Symbol: {}, Data fields: {}", 
+                  first_stock.s, first_stock.d.len());
+                  
+            // Log column names for mapping verification
+            let expected_columns = [
+                "name", "description", "logoid", "update_mode", "type", "typespecs",
+                "close", "pricescale", "minmov", "fractional", "minmove2", "currency",
+                "change", "volume", "earnings_per_share_fq", "relative_volume_10d_calc", 
+                "market_cap_basic", "fundamental_currency_code", "price_earnings_ttm", 
+                "earnings_per_share_diluted_ttm", "earnings_per_share_diluted_yoy_growth_ttm",
+                "dividends_yield_current", "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
+                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange"
+            ];
+            
+            info!("🔍 COLUMN MAPPING VERIFICATION:");
+            for (idx, expected_col) in expected_columns.iter().enumerate() {
+                if let Some(field) = first_stock.d.get(idx) {
+                    let field_preview = match field {
+                        StockDataField::String(s) => format!("\"{}\"", s.chars().take(20).collect::<String>()),
+                        StockDataField::Number(n) => n.to_string(),
+                        StockDataField::Integer(i) => i.to_string(),
+                        StockDataField::Boolean(b) => b.to_string(),
+                        StockDataField::Null => "null".to_string(),
+                        _ => "complex".to_string(),
+                    };
+                    info!("🔍 Index {}: Expected '{}' -> Actual: {}", idx, expected_col, field_preview);
+                } else {
+                    info!("🔍 Index {}: Expected '{}' -> MISSING", idx, expected_col);
+                }
+            }
+        }
 
         // Convert TradingView stocks to screening results
         let mut screening_results = Vec::new();

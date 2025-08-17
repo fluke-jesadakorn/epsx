@@ -13,6 +13,9 @@ pub mod providers;
 pub mod token_broker;
 // casbin_claims_mapper removed - using modern JWT auth
 
+// Registration API endpoints
+pub mod registration;
+
 // Modern exports
 pub use modern_handlers::*;
 pub use modern_routes::*;
@@ -22,6 +25,9 @@ pub use handlers::*;
 pub use providers::*;
 pub use token_broker::*;
 // casbin_claims_mapper removed - using modern JWT auth
+
+// Registration exports
+pub use registration::{register_user, check_email_availability, RegisterRequest, RegisterResponse};
 
 // Re-export handlers as multi_handlers for backward compatibility
 pub mod multi_handlers {

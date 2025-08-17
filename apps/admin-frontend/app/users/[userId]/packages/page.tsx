@@ -7,7 +7,7 @@
 import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserPackagesContent } from '@/components/users/UserPackagesContent'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/server-auth'
 
 interface UserPackagesPageProps {
   params: Promise<{ userId: string }>

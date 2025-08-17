@@ -1,6 +1,7 @@
 // Binary to assign IAM/ACL permission profiles to users
 use clap::Parser;
 use std::sync::Arc;
+use epsx::config::env::get_env_var;
 
 use epsx::app::ports::{ UserRepo, EventDispatcher, LevelHistoryRepo, PermissionProfileRepo };
 use epsx::app::use_cases::user::UserMgmtUC;
@@ -52,20 +53,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Initialize config
-    let config = Config::from_env();
+    let config = Config::from_env().unwrap();
 
     // Initialize database connection
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| {
-            format!(
-                "postgresql://{}:{}@{}:{}/{}",
-                config.database.username,
-                config.database.password,
-                config.database.host,
-                config.database.port,
-                config.database.database
-            )
-        });
+    let database_url = get_env_var("DATABASE_URL")
+        .unwrap_or_else(|_| config.database.url.clone());
 
     let pool = PgPool::connect(&database_url).await.map_err(|e|
         format!("Failed to connect to database: {}", e)

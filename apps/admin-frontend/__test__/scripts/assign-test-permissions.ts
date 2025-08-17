@@ -6,11 +6,12 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { env } from '@/config/env';
 
 const execAsync = promisify(exec);
 
 const TEST_EMAIL = 'jesadakorn.kirtnu@gmail.com';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = env.getBackendUrl();
 
 // All admin modules that should be assigned to test user
 const REQUIRED_ADMIN_MODULES = [
@@ -196,7 +197,7 @@ async function assignModulesViaDatabase(email: string, modules: string[]): Promi
     
     // Execute via psql (assuming PostgreSQL)
     const { stdout, stderr } = await execAsync(
-      `psql ${process.env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${updateQuery}"`
+      `psql ${env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${updateQuery}"`
     );
     
     if (stderr && !stderr.includes('NOTICE')) {
@@ -239,7 +240,7 @@ async function assignPermissionsViaDatabase(email: string, permissions: string[]
     `;
     
     const { stdout, stderr } = await execAsync(
-      `psql ${process.env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${updateQuery}"`
+      `psql ${env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${updateQuery}"`
     );
     
     if (stderr && !stderr.includes('NOTICE')) {
@@ -302,7 +303,7 @@ async function createUserIfNotExists(email: string): Promise<AssignmentResult> {
     `;
     
     const { stdout, stderr } = await execAsync(
-      `psql ${process.env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${createUserQuery}"`
+      `psql ${env.DATABASE_URL || 'postgresql://localhost/epsx'} -c "${createUserQuery}"`
     );
     
     if (stderr && !stderr.includes('NOTICE')) {

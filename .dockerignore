@@ -1,63 +1,115 @@
-# Dependencies
+# ===========================================
+# EPSX OPTIMIZED DOCKERIGNORE 2025
+# Apple Silicon + OrbStack + Cloud Run optimized
+# Minimal build context for maximum performance
+# ===========================================
+
+# Node.js Dependencies (rebuilt in container)
 node_modules/
-**/node_modules
-.pnp
+**/node_modules/
+.pnp/
 .pnp.js
+.pnp.cjs
 yarn.lock
 package-lock.json
-pnpm-lock.yaml
+bun.lockb
+bun.lock
+.npmrc
+**/.npmrc
+pnpm-lock.yaml.backup
 
-# Build and Cache
+# Build Artifacts (rebuilt in container)
 .next/
+**/.next/
 dist/
+**/dist/
 build/
+**/build/
 out/
+**/out/
 tmp/
 **/tmp/
 .cache/
-**/.cache
-# Keep turbo build outputs
-!.next/
-!dist/
+**/.cache/
+.turbo/
+**/.turbo/
+.swc/
+**/.swc/
+.parcel-cache/
+**/.parcel-cache/
+.rollup.cache/
+**/.rollup.cache/
 
-# Environment and Config
+# Rust Build Artifacts
+target/
+**/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Environment Files (use Cloud Run env vars)
 .env
 .env.*
-!.env.production
+!.env.example
 **/.env
 **/.env.*
-!**/.env.production
+!**/.env.example
+.env.override
 
-# Testing and Coverage
+# Testing & Quality Assurance
 coverage/
-**/.nyc_output/
 **/coverage/
+**/.nyc_output/
 reports/
+**/reports/
 **/junit/
 **/__tests__/
 **/__mocks__/
 **/test/
 **/tests/
+*.test.*
+*.spec.*
+**/*.test.*
+**/*.spec.*
 vitest.config.*
 jest.config.*
+playwright.config.*
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+.lighthouseci/
+**/.lighthouseci/
 
-# Logs
+# Runtime Logs & Debug Files
 logs/
+**/logs/
 *.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+debug.log
+error.log
+access.log
+debug/
+**/debug/
+*.dmp
+*.trace
+*.prof
+*.heapsnapshot
 
 # Version Control
 .git/
 .gitignore
 .gitattributes
-**/.git
+.gitmodules
+**/.git/
 **/.gitignore
 
-# IDE
+# IDE & Editor Files
 .idea/
 .vscode/
 .project
@@ -65,44 +117,254 @@ lerna-debug.log*
 .c9/
 *.launch
 .settings/
-*.sublime-workspace
+*.sublime-*
 .history/
-**/.history
+**/.history/
+*.swp
+*.swo
+*.un~
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+Session.vim
+Sessionx.vim
+.netrwhist
 
-# Documentation
+# Documentation (not needed in runtime)
 *.md
+!README.md
 docs/
+**/docs/
 CHANGELOG*
 LICENSE*
 **/*.md
-**/docs/
+!**/README.md
 
-# OS Files
+# Operating System Files
+# macOS
 .DS_Store
-Thumbs.db
-*.swp
-*~
 **/.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.PKInstallSandboxManager/
+.PKInstallSandboxManager-SystemSoftware/
 
-# Rust/Backend
-target/
-Cargo.lock
-**/*.rs.bk
-**/target/
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# TypeScript
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# TypeScript Build Cache
 *.tsbuildinfo
 **/*.tsbuildinfo
+.tscache/
+**/.tscache/
 
-# Misc
-*.pem
-.directory
-**/.directory
+# Container & Deployment
+## OrbStack/Docker Build Caches (Apple Silicon)
+.buildx-cache/
+**/.buildx-cache/
+/tmp/.buildx-cache-orbstack/
+/tmp/.buildx-cache/
+.docker/
+**/.docker/
+docker-compose.override.yml
+docker-compose.*.override.yml
+.dockerignore.backup
+
+## Cloud Deployment
+.vercel/
+**/.vercel/
+.now/
+**/.now/
+.firebase/
+**/.firebase/
+.gcp/
+**/.gcp/
+.github/
+**/.github/
+.gitlab-ci.yml
+.circleci/
+**/.circleci/
+deployment-logs/
+**/deployment-logs/
+
+# Scripts & CI/CD (exclude deployment scripts)
+scripts/
+!scripts/health-check.sh
+*.gcloudignore
+Dockerfile*
+!Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Development Configuration
 .eslintrc*
 .prettier*
 .editorconfig
+.husky/
+.lint-staged*
+turbo.json
+.commitlintrc*
+.renovaterc*
+.nvmrc
+.node-version
+
+# Storybook & UI Development Tools
 storybook/
 **/storybook/
 **/stories/
-.husky/
-.lint-staged*
+.storybook/
+**/.storybook/
+
+# Security & Secrets
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.keystore
+.env.local
+.env.development
+.env.test
+secrets/
+**/secrets/
+.secrets/
+**/.secrets/
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Package Manager Caches
+.yarn/
+**/.yarn/
+.pnpm-store/
+**/.pnpm-store/
+npm-cache/
+yarn-cache/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Monorepo Specific
+packages/*/node_modules/
+packages/*/.next/
+packages/*/dist/
+packages/*/build/
+packages/**/.cache/
+packages/**/out/
+
+# AI & Development Tools
+.copilot/
+**/.copilot/
+.cursor/
+**/.cursor/
+.ai/
+**/.ai/
+
+# Performance & Monitoring
+.perfconfig
+lighthouse-results/
+**/lighthouse-results/
+bundle-analyzer/
+**/bundle-analyzer/
+.next/trace/
+**/.next/trace/
+.sentry/
+**/.sentry/
+
+# Project Management & Temporary Files
+.todo/
+**/.todo/
+TODO.md
+NOTES.md
+.notes/
+**/.notes/
+scratch/
+**/scratch/
+temp/
+**/temp/
+sandbox/
+**/sandbox/
+
+# Backup & Temporary Files
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+*.temp
+**/.*~
+
+# Large Media Files (should use CDN)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+*.wmv
+*.mp3
+*.wav
+*.flac
+*.aac
+*.m4a
+*.ogg
+*.wma
+
+# Archive Files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Fonts (use CDN or optimize)
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.eot
+
+# Local Development Overrides
+local.*
+*.local
+docker-compose.local.yml
+
+# Cloud Run Optimization Notes:
+# This .dockerignore is optimized for:
+# - Apple Silicon development with OrbStack/Podman
+# - Google Cloud Run AMD64 deployment
+# - Minimal build context for faster uploads
+# - Maximum layer caching efficiency

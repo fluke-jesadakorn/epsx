@@ -3,6 +3,7 @@
 use sqlx::PgPool;
 use std::sync::Arc;
 use serde_json;
+use crate::config::env::get_env_var;
 
 pub mod user_repo;
 // pub mod user_repo_soft_delete;
@@ -51,35 +52,35 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            host: std::env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string()),
-            port: std::env::var("DATABASE_PORT")
+            host: get_env_var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string()),
+            port: get_env_var("DATABASE_PORT")
                 .unwrap_or_else(|_| "5432".to_string())
                 .parse()
                 .unwrap_or(5432),
-            username: std::env::var("DATABASE_USERNAME").unwrap_or_else(|_| "postgres".to_string()),
-            password: std::env::var("DATABASE_PASSWORD").unwrap_or_else(|_| "password".to_string()),
-            database: std::env::var("DATABASE_NAME").unwrap_or_else(|_| "epsx".to_string()),
-            max_connections: std::env::var("DATABASE_MAX_CONNECTIONS")
+            username: get_env_var("DATABASE_USERNAME").unwrap_or_else(|_| "postgres".to_string()),
+            password: get_env_var("DATABASE_PASSWORD").unwrap_or_else(|_| "password".to_string()),
+            database: get_env_var("DATABASE_NAME").unwrap_or_else(|_| "epsx".to_string()),
+            max_connections: get_env_var("DATABASE_MAX_CONNECTIONS")
                 .unwrap_or_else(|_| "20".to_string())
                 .parse()
                 .unwrap_or(20),
-            min_connections: std::env::var("DATABASE_MIN_CONNECTIONS")
+            min_connections: get_env_var("DATABASE_MIN_CONNECTIONS")
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
                 .unwrap_or(5),
-            migration_source: std::env::var("DATABASE_MIGRATION_SOURCE")
+            migration_source: get_env_var("DATABASE_MIGRATION_SOURCE")
                 .unwrap_or_else(|_| "./migrations".to_string()),
-            ssl_mode: std::env::var("DATABASE_SSL_MODE")
+            ssl_mode: get_env_var("DATABASE_SSL_MODE")
                 .unwrap_or_else(|_| "prefer".to_string()),
-            permission_pool_size: std::env::var("PERMISSION_POOL_SIZE")
+            permission_pool_size: get_env_var("PERMISSION_POOL_SIZE")
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()
                 .unwrap_or(10),
-            enable_statement_logging: std::env::var("DATABASE_STATEMENT_LOGGING")
+            enable_statement_logging: get_env_var("DATABASE_STATEMENT_LOGGING")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
                 .unwrap_or(false),
-            query_timeout_seconds: std::env::var("DATABASE_QUERY_TIMEOUT")
+            query_timeout_seconds: get_env_var("DATABASE_QUERY_TIMEOUT")
                 .unwrap_or_else(|_| "30".to_string())
                 .parse()
                 .unwrap_or(30),
@@ -93,15 +94,15 @@ pub type DatabasePool = Arc<PgPool>;
 /// Check if running in development mode
 fn is_development_mode() -> bool {
     // Check various environment indicators for development mode
-    std::env::var("NODE_ENV").map(|v| v == "development").unwrap_or(false) ||
-    std::env::var("RUST_ENV").map(|v| v == "development").unwrap_or(false) ||
-    std::env::var("ENV").map(|v| v == "dev" || v == "development").unwrap_or(false) ||
-    std::env::var("ENVIRONMENT").map(|v| v == "dev" || v == "development").unwrap_or(false) ||
+    get_env_var("NODE_ENV").map(|v| v == "development").unwrap_or(false) ||
+    get_env_var("RUST_ENV").map(|v| v == "development").unwrap_or(false) ||
+    get_env_var("ENV").map(|v| v == "dev" || v == "development").unwrap_or(false) ||
+    get_env_var("ENVIRONMENT").map(|v| v == "dev" || v == "development").unwrap_or(false) ||
     // If no explicit environment set, assume development (safer for local dev)
-    (!std::env::var("NODE_ENV").is_ok() && 
-     !std::env::var("RUST_ENV").is_ok() && 
-     !std::env::var("ENV").is_ok() && 
-     !std::env::var("ENVIRONMENT").is_ok())
+    (get_env_var("NODE_ENV").is_err() && 
+     get_env_var("RUST_ENV").is_err() && 
+     get_env_var("ENV").is_err() && 
+     get_env_var("ENVIRONMENT").is_err())
 }
 
 /// Initialize optimized database connection pool with permission query optimization
@@ -110,7 +111,7 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
     use std::time::Duration;
     
     // Use DATABASE_URL from environment if available, fallback to constructed URL
-    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+    let database_url = get_env_var("DATABASE_URL").unwrap_or_else(|_| {
         format!(
             "postgresql://{}:{}@{}:{}/{}?sslmode={}",
             config.username, config.password, config.host, config.port, config.database, config.ssl_mode

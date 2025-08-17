@@ -8,8 +8,9 @@ use crate::app::ports::repositories::{UserRepo, RepoError};
 use crate::dom::entities::User;
 use crate::dom::entities::iam::Permission;
 use crate::dom::entities::permission_profile::{PermissionProfileId};
-use crate::dom::values::{UserId, Email, Role};
+use crate::dom::values::{UserId, Email, Role, PermSet, Subscription, SubTier};
 use super::DatabasePool;
+use std::collections::HashSet;
 
 pub struct PostgresUserRepo {
     pool: DatabasePool,
@@ -28,7 +29,8 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at 
+            "SELECT id, firebase_uid, email, display_name, name, avatar_url, package_tier, permissions, 
+                    is_active, last_login_at, created_at, updated_at 
              FROM users WHERE id = $1"
         )
         .bind(uuid)
@@ -38,23 +40,7 @@ impl UserRepo for PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let fb_uid: String = row.try_get("firebase_uid")
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
-                let email_str: String = row.get("email");
-                let email = Email::new(email_str)
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
-
-                let uid: Uuid = row.get("id");
-                // Role is now managed through admin modules, default to User
-                let role = Role::User;
-                
-                let user = User::from_existing(
-                    UserId::from_string(uid.to_string()),
-                    fb_uid,
-                    email,
-                    role,
-                );
-
+                let user = self.construct_user_from_row(row).await?;
                 Ok(Some(user))
             },
             None => Ok(None),
@@ -65,17 +51,39 @@ impl UserRepo for PostgresUserRepo {
         let uuid = Uuid::parse_str(&user.id().to_string())
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
+        // Convert domain objects to database format
+        let package_tier = match user.sub().tier {
+            crate::dom::values::SubTier::Free => "FREE",
+            crate::dom::values::SubTier::Basic => "BASIC", 
+            crate::dom::values::SubTier::Premium => "PREMIUM",
+            crate::dom::values::SubTier::Enterprise => "ENTERPRISE",
+        };
+        
+        let permissions: Vec<String> = user.perms().permissions().iter().cloned().collect();
+        
         sqlx::query(
-            "INSERT INTO users (id, firebase_uid, email, created_at, updated_at)
-             VALUES ($1, $2, $3, NOW(), NOW())
+            "INSERT INTO users (id, firebase_uid, email, display_name, name, package_tier, permissions, is_active, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              ON CONFLICT (id) DO UPDATE SET
                 firebase_uid = EXCLUDED.firebase_uid,
                 email = EXCLUDED.email,
+                display_name = EXCLUDED.display_name,
+                name = EXCLUDED.name,
+                package_tier = EXCLUDED.package_tier,
+                permissions = EXCLUDED.permissions,
+                is_active = EXCLUDED.is_active,
                 updated_at = NOW()"
         )
         .bind(uuid)
         .bind(user.firebase_uid())
         .bind(user.email().value())
+        .bind(user.email().value().split('@').next().unwrap_or("User")) // display_name from email
+        .bind(user.email().value().split('@').next().unwrap_or("User")) // name from email  
+        .bind(package_tier)
+        .bind(permissions)
+        .bind(user.is_active())
+        .bind(user.created_at())
+        .bind(user.updated_at())
         .execute(&*self.pool)
         .await
         .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -104,7 +112,8 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepoError> {
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at 
+            "SELECT id, firebase_uid, email, display_name, name, avatar_url, package_tier, permissions, 
+                    is_active, last_login_at, created_at, updated_at 
              FROM users WHERE email = $1"
         )
         .bind(email.value())
@@ -114,23 +123,7 @@ impl UserRepo for PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let firebase_uid: String = row.try_get("firebase_uid")
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
-                let email_str: String = row.get("email");
-                let email = Email::new(email_str)
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
-
-                let user_id: Uuid = row.get("id");
-                // Role is now managed through admin modules, default to User
-                let role = Role::User;
-                
-                let user = User::from_existing(
-                    UserId::from_string(user_id.to_string()),
-                    firebase_uid,
-                    email,
-                    role,
-                );
-
+                let user = self.construct_user_from_row(row).await?;
                 Ok(Some(user))
             },
             None => Ok(None),
@@ -139,7 +132,8 @@ impl UserRepo for PostgresUserRepo {
 
     async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError> {
         let row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at 
+            "SELECT id, firebase_uid, email, display_name, name, avatar_url, package_tier, permissions, 
+                    is_active, last_login_at, created_at, updated_at 
              FROM users WHERE firebase_uid = $1"
         )
         .bind(firebase_uid)
@@ -149,23 +143,7 @@ impl UserRepo for PostgresUserRepo {
 
         match row {
             Some(row) => {
-                let fb_uid: String = row.try_get("firebase_uid")
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
-                let email_str: String = row.get("email");
-                let email = Email::new(email_str)
-                    .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
-
-                let uid: Uuid = row.get("id");
-                // Role is now managed through admin modules, default to User
-                let role = Role::User;
-                
-                let user = User::from_existing(
-                    UserId::from_string(uid.to_string()),
-                    fb_uid,
-                    email,
-                    role,
-                );
-
+                let user = self.construct_user_from_row(row).await?;
                 Ok(Some(user))
             },
             None => Ok(None),
@@ -410,6 +388,83 @@ impl UserRepo for PostgresUserRepo {
 
 // Additional methods for PostgresUserRepo
 impl PostgresUserRepo {
+    
+    /// Helper method to construct User entity from database row with complete data
+    async fn construct_user_from_row(&self, row: sqlx::postgres::PgRow) -> Result<User, RepoError> {
+        use sqlx::Row;
+        
+        let user_id: Uuid = row.get("id");
+        let firebase_uid: String = row.try_get("firebase_uid")
+            .map_err(|e| RepoError::InvalidData(format!("Invalid firebase_uid: {}", e)))?;
+        let email_str: String = row.get("email");
+        let email = Email::new(email_str)
+            .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
+        
+        // Parse package tier
+        let package_tier_str: String = row.get("package_tier");
+        let package_tier = match package_tier_str.as_str() {
+            "FREE" => SubTier::Free,
+            "BASIC" => SubTier::Basic,
+            "PREMIUM" => SubTier::Premium,
+            "ENTERPRISE" => SubTier::Enterprise,
+            _ => SubTier::Free, // Default fallback
+        };
+        
+        // Parse permissions
+        let permissions_array: Vec<String> = row.get("permissions");
+        let permissions_set: HashSet<String> = permissions_array.into_iter().collect();
+        let perm_set = PermSet::with_permissions(permissions_set);
+        
+        // Determine role based on email and admin modules
+        let role = if email.value() == "info@epsx.io" {
+            Role::SuperAdmin
+        } else {
+            // Check if user has admin modules to determine if they should be Admin
+            match self.has_any_admin_modules(&firebase_uid).await {
+                Ok(true) => Role::Admin,
+                _ => Role::User,
+            }
+        };
+        
+        let subscription = Subscription::new(package_tier);
+        let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
+        let updated_at: chrono::DateTime<chrono::Utc> = row.get("updated_at");
+        
+        let user = User::reconstruct(
+            UserId::from_string(user_id.to_string()),
+            firebase_uid,
+            email,
+            role,
+            perm_set,
+            subscription,
+            created_at,
+            updated_at,
+            None, // deleted_at - would need to add this column if needed
+        );
+        
+        Ok(user)
+    }
+    
+    /// Helper method to check if user has any admin modules
+    async fn has_any_admin_modules(&self, firebase_uid: &str) -> Result<bool, RepoError> {
+        let row = sqlx::query(
+            "SELECT EXISTS(
+                SELECT 1 FROM user_admin_roles uar
+                JOIN admin_modules am ON uar.module_code = am.module_code
+                WHERE uar.firebase_uid = $1
+                  AND uar.is_active = true
+                  AND am.is_active = true
+                  AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
+            ) as has_modules"
+        )
+        .bind(firebase_uid)
+        .fetch_one(&*self.pool)
+        .await
+        .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        
+        let has_modules: bool = row.get("has_modules");
+        Ok(has_modules)
+    }
     
     /// Get user permissions by resolving all assigned permission profiles
     pub async fn get_user_permissions(&self, user_id: &UserId) -> Result<Vec<Permission>, RepoError> {

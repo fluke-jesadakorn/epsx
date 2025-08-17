@@ -226,10 +226,9 @@ impl MigrationRunner {
 mod tests {
     use super::*;
     use sqlx::postgres::PgPoolOptions;
-    use std::env;
 
     async fn get_test_pool() -> PgPool {
-        let database_url = env::var("TEST_DATABASE_URL")
+        let database_url = get_env_var("TEST_DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://postgres:password@localhost/epsx_test".to_string());
         
         PgPoolOptions::new()

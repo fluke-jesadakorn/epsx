@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use askama::Template;
 use chrono::{DateTime, Utc};
 use base64::Engine;
+use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
 use crate::web::templates::TemplateFactory;
@@ -28,9 +29,12 @@ pub struct AuthorizationParams {
     pub code_challenge_method: Option<String>,
     #[serde(default)]
     pub tenant_id: Option<String>,
+    /// Registration mode flag to differentiate from login
+    #[serde(default)]
+    pub registration: Option<bool>,
 }
 
-/// Login form data (POST /oauth/authorize)
+/// Login/Registration form data (POST /oauth/authorize)
 #[derive(Debug, Deserialize)]
 pub struct LoginFormData {
     pub email: String,
@@ -46,6 +50,12 @@ pub struct LoginFormData {
     pub code_challenge: Option<String>,
     #[serde(default)]
     pub code_challenge_method: Option<String>,
+    /// Registration mode flag to differentiate from login
+    #[serde(default)]
+    pub registration: Option<bool>,
+    /// Display name for user registration
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 /// Authorization code data stored in Redis
@@ -101,59 +111,175 @@ pub async fn authorization_endpoint(
 
     // Determine if admin login is required
     let is_admin_login = TemplateFactory::should_use_admin_template(&params.scope);
+    let is_registration = params.registration.unwrap_or(false);
 
-    // Render appropriate login template
+    // Render appropriate login/registration template
     if is_admin_login {
-        let template = TemplateFactory::create_admin_login_template_with_pkce(
-            params.client_id,
-            params.redirect_uri,
-            params.state,
-            params.scope,
-            params.code_challenge,
-            params.code_challenge_method,
-            String::new(), // No error on initial load
-        );
-        
-        template.render()
-            .map(Html)
-            .map_err(|e| {
-                tracing::error!("Failed to render admin login template: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })
+        if is_registration {
+            // TODO: Implement admin registration template once HTML template is created
+            // For now, use admin login template with registration flag in error message
+            let template = TemplateFactory::create_admin_login_template_with_pkce(
+                params.client_id,
+                params.redirect_uri,
+                params.state,
+                params.scope,
+                params.code_challenge,
+                params.code_challenge_method,
+                "registration_mode".to_string(), // Flag to indicate registration
+            );
+            
+            template.render()
+                .map(Html)
+                .map_err(|e| {
+                    tracing::error!("Failed to render admin registration template: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
+        } else {
+            let template = TemplateFactory::create_admin_login_template_with_pkce(
+                params.client_id,
+                params.redirect_uri,
+                params.state,
+                params.scope,
+                params.code_challenge,
+                params.code_challenge_method,
+                String::new(), // No error on initial load
+            );
+            
+            template.render()
+                .map(Html)
+                .map_err(|e| {
+                    tracing::error!("Failed to render admin login template: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
+        }
     } else {
-        let template = TemplateFactory::create_login_template_with_pkce(
-            params.client_id,
-            params.redirect_uri,
-            params.state,
-            params.scope,
-            params.code_challenge,
-            params.code_challenge_method,
-            String::new(), // No error on initial load
-        );
-        
-        template.render()
-            .map(Html)
-            .map_err(|e| {
-                tracing::error!("Failed to render login template: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })
+        if is_registration {
+            // TODO: Implement user registration template once HTML template is created
+            // For now, use login template with registration flag in error message
+            let template = TemplateFactory::create_login_template_with_pkce(
+                params.client_id,
+                params.redirect_uri,
+                params.state,
+                params.scope,
+                params.code_challenge,
+                params.code_challenge_method,
+                "registration_mode".to_string(), // Flag to indicate registration
+            );
+            
+            template.render()
+                .map(Html)
+                .map_err(|e| {
+                    tracing::error!("Failed to render registration template: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
+        } else {
+            let template = TemplateFactory::create_login_template_with_pkce(
+                params.client_id,
+                params.redirect_uri,
+                params.state,
+                params.scope,
+                params.code_challenge,
+                params.code_challenge_method,
+                String::new(), // No error on initial load
+            );
+            
+            template.render()
+                .map(Html)
+                .map_err(|e| {
+                    tracing::error!("Failed to render login template: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
+        }
     }
 }
 
-/// POST /oauth/authorize - Process login form
+/// POST /oauth/authorize - Process login/registration form
 pub async fn handle_authorization_form(
     State(app_state): State<AppState>,
     Form(form_data): Form<LoginFormData>,
 ) -> Result<Redirect, StatusCode> {
-    tracing::info!("Processing login form for user: {}", form_data.email);
+    let is_registration = form_data.registration.unwrap_or(false);
+    
+    if is_registration {
+        tracing::info!("Processing registration form for user: {}", form_data.email);
+        return handle_user_registration(app_state, form_data).await;
+    } else {
+        tracing::info!("Processing login form for user: {}", form_data.email);
+        return handle_user_login(app_state, form_data).await;
+    }
+}
 
+/// Handle user registration flow
+async fn handle_user_registration(
+    app_state: AppState,
+    form_data: LoginFormData,
+) -> Result<Redirect, StatusCode> {
+    // Validate form data
+    if let Err(status) = validate_form_data(&form_data) {
+        return Err(status);
+    }
+
+    // Create Firebase user first
+    let firebase_user = match app_state.firebase_admin
+        .create_user_with_password(
+            &form_data.email,
+            &form_data.password,
+            form_data.display_name.clone()
+        )
+        .await
+    {
+        Ok(user) => {
+            tracing::info!("✅ Successfully created Firebase user: {} ({})", form_data.email, user.uid);
+            user
+        }
+        Err(e) => {
+            tracing::error!("❌ Firebase user creation failed for {}: {}", form_data.email, e);
+            return serve_login_with_error(&form_data, "Registration failed. Email may already be in use.");
+        }
+    };
+
+    // Create database user with Firebase UID
+    let user_role = determine_user_role_for_registration(&form_data.email);
+    match create_database_user(&app_state, &firebase_user, &user_role).await {
+        Ok(_) => {
+            tracing::info!("✅ Successfully created database user: {} with role: {}", form_data.email, user_role);
+        }
+        Err(e) => {
+            tracing::error!("❌ Database user creation failed for {}: {}", form_data.email, e);
+            // TODO: Consider cleanup of Firebase user on database creation failure
+            return serve_login_with_error(&form_data, "Registration failed. Please try again.");
+        }
+    }
+
+    // Assign admin modules if this is a SuperAdmin user (info@epsx.io)
+    if form_data.email == "info@epsx.io" {
+        match assign_superadmin_modules(&app_state, &firebase_user.uid).await {
+            Ok(_) => {
+                tracing::info!("✅ Successfully assigned SuperAdmin modules to: {}", form_data.email);
+            }
+            Err(e) => {
+                tracing::warn!("⚠️ Failed to assign SuperAdmin modules to {}: {}", form_data.email, e);
+                // Continue with login flow even if module assignment fails
+            }
+        }
+    }
+
+    // Now proceed with authentication flow using the newly created user
+    handle_authenticated_user_flow(app_state, form_data, firebase_user).await
+}
+
+/// Handle user login flow (existing functionality)
+async fn handle_user_login(
+    app_state: AppState,
+    form_data: LoginFormData,
+) -> Result<Redirect, StatusCode> {
     // Validate form data
     if let Err(status) = validate_form_data(&form_data) {
         return Err(status);
     }
 
     // Handle development test user
-    let firebase_user = if let Ok(test_email) = std::env::var("TEST_ADMIN_EMAIL") {
+    let firebase_user = if let Ok(test_email) = get_env_var("TEST_ADMIN_EMAIL") {
         if form_data.email == test_email && form_data.password == "Aa_12345678" {
             tracing::info!("Development mode: creating mock Firebase user for test admin");
             
@@ -204,6 +330,16 @@ pub async fn handle_authorization_form(
         }
     };
 
+    handle_authenticated_user_flow(app_state, form_data, firebase_user).await
+}
+
+/// Handle authenticated user flow (common to both login and registration)
+async fn handle_authenticated_user_flow(
+    app_state: AppState,
+    form_data: LoginFormData,
+    firebase_user: FirebaseUser,
+) -> Result<Redirect, StatusCode> {
+
     // Validate admin access if required
     if form_data.scope.contains("admin") {
         // For test user, skip Firebase admin validation and use granular admin modules
@@ -222,8 +358,17 @@ pub async fn handle_authorization_form(
                 }
             }
         } else {
-            // For real users, use Firebase admin validation
-            if !app_state.firebase_admin.user_has_admin_access(&firebase_user) {
+            // For real users, check both Firebase admin validation and database admin modules
+            let has_firebase_admin = app_state.firebase_admin.user_has_admin_access(&firebase_user);
+            let has_admin_modules = if let Some(email) = &firebase_user.email {
+                app_state.admin_module_service.get_user_admin_modules(email).await
+                    .map(|modules| !modules.is_empty())
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+            
+            if !has_firebase_admin && !has_admin_modules {
                 tracing::warn!("User {} attempted admin login without privileges", form_data.email);
                 return serve_login_with_error(&form_data, "Administrator privileges required");
             }
@@ -500,12 +645,12 @@ fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>
         })
 }
 
-/// Serve login page with error message
+/// Serve login/registration page with error message
 fn serve_login_with_error(form_data: &LoginFormData, error_message: &str) -> Result<Redirect, StatusCode> {
     // For now, we'll redirect back to the authorization endpoint with an error parameter
     // In a more sophisticated implementation, we could render the template directly with the error
     
-    let error_url = format!(
+    let mut error_url = format!(
         "/oauth/authorize?client_id={}&response_type={}&scope={}&redirect_uri={}&state={}&error={}",
         urlencoding::encode(&form_data.client_id),
         urlencoding::encode(&form_data.response_type),
@@ -514,6 +659,11 @@ fn serve_login_with_error(form_data: &LoginFormData, error_message: &str) -> Res
         urlencoding::encode(&form_data.state),
         urlencoding::encode(error_message)
     );
+    
+    // Add registration parameter if this was a registration attempt
+    if form_data.registration.unwrap_or(false) {
+        error_url.push_str(&format!("&registration=true"));
+    }
     
     Ok(Redirect::to(&error_url))
 }
@@ -542,6 +692,72 @@ async fn log_authentication_event(
 
     app_state.audit_repo.store(&entry).await?;
     Ok(())
+}
+
+/// Determine user role for new registrations
+fn determine_user_role_for_registration(email: &str) -> String {
+    if email == "info@epsx.io" {
+        "SuperAdmin".to_string()
+    } else {
+        "User".to_string() // Default role for new registrations
+    }
+}
+
+/// Create user in database after Firebase user creation
+async fn create_database_user(
+    app_state: &AppState,
+    firebase_user: &FirebaseUser,
+    role: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::dom::entities::User;
+    use crate::dom::values::{Email, Role};
+    
+    let email = Email::new(firebase_user.email.as_ref().unwrap_or(&"unknown@example.com".to_string()).clone())
+        .map_err(|e| format!("Invalid email format: {}", e))?;
+    
+    let user_role = role.parse::<Role>()
+        .map_err(|e| format!("Invalid role: {}", e))?;
+    
+    // Create user entity with real Firebase UID
+    let user = User::new(
+        firebase_user.uid.clone(),
+        email,
+        user_role
+    );
+    
+    // Save to database
+    app_state.user_repo.save(&user).await
+        .map_err(|e| format!("Failed to save user to database: {}", e))?;
+    
+    tracing::info!("✅ Database user created with Firebase UID: {} for email: {}", 
+                   firebase_user.uid, firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()));
+    
+    Ok(())
+}
+
+/// Assign all admin modules to SuperAdmin user (info@epsx.io)
+async fn assign_superadmin_modules(
+    app_state: &AppState,
+    firebase_uid: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match app_state.admin_module_service
+        .assign_all_admin_modules(
+            firebase_uid,
+            firebase_uid, // Self-assigned during registration
+            "SuperAdmin auto-assignment during registration"
+        )
+        .await
+    {
+        Ok(assigned_modules) => {
+            tracing::info!("✅ Successfully assigned {} admin modules to SuperAdmin user: {} - modules: {:?}", 
+                          assigned_modules.len(), firebase_uid, assigned_modules);
+            Ok(())
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to assign SuperAdmin modules to user {}: {}", firebase_uid, e);
+            Err(format!("Failed to assign admin modules: {}", e).into())
+        }
+    }
 }
 
 #[cfg(test)]

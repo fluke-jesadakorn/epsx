@@ -1,10 +1,18 @@
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard';
-import {
-  getSystemConfig,
-  getSettingsByCategory,
-  getFeatureFlags,
-  getEnvironmentConfig
-} from '@epsx/server-actions';
+
+// TODO: Replace with direct API calls
+// import {
+//   getSystemConfig,
+//   getSettingsByCategory,
+//   getFeatureFlags,
+//   getEnvironmentConfig
+// } from '@epsx/server-actions';
+
+// Temporary placeholder functions for migration
+const getSystemConfig = async () => ({ config: {} });
+const getSettingsByCategory = async (category: string) => ({ settings: [] });
+const getFeatureFlags = async () => ({ flags: {} });
+const getEnvironmentConfig = async () => ({ env: {} });
 
 export const dynamic = 'force-dynamic';
 

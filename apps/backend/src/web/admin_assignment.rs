@@ -11,6 +11,7 @@ use reqwest::Client;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use chrono::Utc;
+use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
 
@@ -40,8 +41,8 @@ struct GoogleOAuthClaims {
 
 /// Generate Google OAuth2 access token using service account
 async fn get_google_access_token() -> Result<String, Box<dyn std::error::Error>> {
-    let client_email = std::env::var("FIREBASE_CLIENT_EMAIL")?;
-    let private_key = std::env::var("FIREBASE_PRIVATE_KEY")?;
+    let client_email = get_env_var("FIREBASE_CLIENT_EMAIL")?;
+    let private_key = get_env_var("FIREBASE_PRIVATE_KEY")?;
     
     // Clean up the private key (remove header/footer and normalize whitespace)
     let private_key = private_key
@@ -105,7 +106,7 @@ async fn set_firebase_custom_claims(
     user_id: &str,
     custom_claims: &HashMap<String, Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let project_id = std::env::var("FIREBASE_PROJECT_ID")?;
+    let project_id = get_env_var("FIREBASE_PROJECT_ID")?;
     let access_token = get_google_access_token().await?;
     
     let client = Client::new();
@@ -196,7 +197,7 @@ pub async fn get_user_claims_handler(
     State(_app_state): State<AppState>,
     Path(user_id): Path<String>,
 ) -> Result<Json<HashMap<String, Value>>, StatusCode> {
-    let api_key = std::env::var("FIREBASE_API_KEY")
+    let api_key = get_env_var("FIREBASE_API_KEY")
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let client = Client::new();

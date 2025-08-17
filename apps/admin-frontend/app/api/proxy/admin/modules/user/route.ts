@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken } from '@/lib/actions/admin';
+import { env } from '@/config/env';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
 
 export async function GET(request: NextRequest) {
   try {

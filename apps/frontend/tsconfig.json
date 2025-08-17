@@ -1,7 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Next.js",
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "plugins": [
       {
@@ -9,7 +8,7 @@
       }
     ],
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
+    "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["./*"],
       "@/components/*": ["./components/*"],
@@ -19,41 +18,28 @@
       "@/types/*": ["./types/*"],
       "@/context/*": ["./context/*"],
       "@/services/*": ["./services/*"],
-      "@epsx/config/*": ["../../packages/config/*"],
-      "@epsx/types/*": ["../../packages/types/*"],
-      "@epsx/utils/*": ["../../packages/utils/*"],
-      "@epsx/ui": ["../../packages/ui/src"],
-      "@epsx/ui/*": ["../../packages/ui/src/*"],
-      "@epsx/api-client": ["../../packages/api-client/src"],
-      "@epsx/api-client/*": ["../../packages/api-client/src/*"],
-      "@types/react": ["node_modules/@types/react"]
+      "@/config/*": ["./config/*"]
     },
     "target": "ES2022",
-    "module": "ESNext",
-    "jsx": "preserve",
-    "moduleResolution": "bundler",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
     "noEmit": true,
-    "incremental": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "declaration": false,
-    "declarationMap": false,
     "isolatedModules": true,
-    "esModuleInterop": true
+    "jsx": "preserve",
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "../../packages/types/src/**/*.ts",
-    "../../packages/ui/src/**/*.ts",
-    "../../packages/ui/src/**/*.tsx",
-    "eslint.config.js",
-    "lib/store/**/*.ts",
-    "lib/store/**/*.tsx",
+    ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

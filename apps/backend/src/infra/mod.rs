@@ -14,7 +14,7 @@ pub use container::{AppContainer, AppContainerBuilder, InfraBuilder};
 pub use services::{MockEmailService, notification::*};
 pub use events::SimpleEventDispatcher;
 pub use firebase_admin::FirebaseAdmin;
-pub use jobs::{JobScheduler, ExpirationChecker, NotificationService as JobNotificationService};
+pub use jobs::{NotificationService as JobNotificationService};
 
 
 /// Database backend type
@@ -54,5 +54,16 @@ impl InfraFactory {
                 Self::new()
             )
         })
+    }
+
+    /// Create EPS ranking service for analytics
+    pub fn create_eps_ranking_service(&self) -> std::sync::Arc<crate::dom::services::eps_ranking_service::EPSRankingService> {
+        let eps_repo = self.create_eps_repo();
+        std::sync::Arc::new(crate::dom::services::eps_ranking_service::EPSRankingService::new(eps_repo))
+    }
+
+    /// Create EPS repository for analytics
+    pub fn create_eps_repo(&self) -> std::sync::Arc<dyn crate::dom::services::eps_ranking_service::EPSRepository> {
+        std::sync::Arc::new(crate::infra::db::postgres::eps_ranking_repo::PostgresEPSRepository::new(self.postgres_pool.clone()))
     }
 }

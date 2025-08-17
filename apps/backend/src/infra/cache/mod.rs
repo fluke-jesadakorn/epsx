@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
+use crate::config::env::get_env_var;
 
 pub mod memory_cache;
 pub mod redis_cache;
@@ -176,8 +177,8 @@ impl CacheFactory {
 
     /// Create cache from environment variables
     pub async fn from_env() -> Result<Arc<dyn Cache>, CacheError> {
-        let backend = if let Ok(redis_url) = std::env::var("REDIS_URL") {
-            let pool_size = std::env::var("REDIS_POOL_SIZE")
+        let backend = if let Ok(redis_url) = get_env_var("REDIS_URL") {
+            let pool_size = get_env_var("REDIS_POOL_SIZE")
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()
                 .unwrap_or(10);
@@ -187,12 +188,12 @@ impl CacheFactory {
             CacheBackend::InMemory
         };
 
-        let ttl = std::env::var("CACHE_TTL_SECONDS")
+        let ttl = get_env_var("CACHE_TTL_SECONDS")
             .unwrap_or_else(|_| "300".to_string())
             .parse()
             .unwrap_or(300);
 
-        let max_entries = std::env::var("CACHE_MAX_ENTRIES")
+        let max_entries = get_env_var("CACHE_MAX_ENTRIES")
             .ok()
             .and_then(|s| s.parse().ok());
 
@@ -200,7 +201,7 @@ impl CacheFactory {
             backend,
             default_ttl_seconds: ttl,
             max_entries,
-            enable_compression: std::env::var("CACHE_ENABLE_COMPRESSION")
+            enable_compression: get_env_var("CACHE_ENABLE_COMPRESSION")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
                 .unwrap_or(false),

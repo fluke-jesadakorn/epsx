@@ -2,6 +2,7 @@ use jsonwebtoken::{decode, encode, Header, DecodingKey, Validation, Algorithm, e
 use serde::{Deserialize, Serialize};
 use super::key_manager::KeyManager;
 use std::sync::Arc;
+use crate::config::env::get_env_var;
 
 /**
  * Modern JWT handling for Auth.js v5 integration
@@ -60,8 +61,8 @@ impl JWTService {
             .map_err(|e| JWTError::InvalidToken(format!("Failed to initialize KeyManager: {}", e)))?); 
             
         // Support legacy HMAC tokens during transition
-        let legacy_secret = std::env::var("JWT_SECRET")
-            .or_else(|_| std::env::var("NEXTAUTH_SECRET"))
+        let legacy_secret = get_env_var("JWT_SECRET")
+            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
             .ok();
             
         if legacy_secret.is_some() {

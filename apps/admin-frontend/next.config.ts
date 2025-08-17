@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { env } from './config/env';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -8,18 +9,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  transpilePackages: [
-    '@epsx/config',
-    '@epsx/types',
-    '@epsx/ui',
-    '@epsx/utils',
-    '@epsx/auth-shared'
-  ],
+  // No transpile packages needed for standalone app
   experimental: {
     serverActions: {
       allowedOrigins: ['*'],
     },
-    optimizePackageImports: ['@radix-ui/react-*', 'lucide-react', '@epsx/ui'],
+    optimizePackageImports: ['@radix-ui/react-*', 'lucide-react'],
     useCache: true,
     staleTimes: {
       dynamic: 180, // 3 minutes for admin dynamic content
@@ -29,7 +24,7 @@ const nextConfig: NextConfig = {
   
   // Admin-specific caching and security headers
   async headers() {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
     
     return [
       {

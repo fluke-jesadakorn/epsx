@@ -6,6 +6,8 @@ use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey};
 use chrono::{DateTime, Utc, Duration};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use tracing::{info, error, warn};
+use crate::config::env::get_env_var;
 
 #[derive(Debug, Clone)]
 pub struct FirebaseAdmin {
@@ -143,13 +145,190 @@ struct AuthRequest {
     return_secure_token: bool,
 }
 
+// Firebase Cloud Messaging (FCM) Data Structures
+
+#[derive(Debug, Serialize)]
+pub struct FcmMessage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub condition: Option<String>,
+    pub notification: FcmNotification,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub android: Option<FcmAndroidConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apns: Option<FcmApnsConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webpush: Option<FcmWebpushConfig>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmNotification {
+    pub title: String,
+    pub body: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmAndroidConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification: Option<FcmAndroidNotification>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmAndroidNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub click_action: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_loc_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_loc_args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_loc_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_loc_args: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmApnsConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<HashMap<String, String>>,
+    pub payload: FcmApnsPayload,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmApnsPayload {
+    pub aps: FcmAps,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmAps {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alert: Option<FcmApnsAlert>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub badge: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmApnsAlert {
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmWebpushConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification: Option<FcmWebpushNotification>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmWebpushNotification {
+    pub title: String,
+    pub body: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub badge: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<HashMap<String, Value>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FcmRequest {
+    pub message: FcmMessage,
+    #[serde(rename = "validate_only")]
+    pub validate_only: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FcmResponse {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FcmErrorResponse {
+    pub error: FcmError,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FcmError {
+    pub code: u32,
+    pub message: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeviceToken {
+    pub token: String,
+    pub user_id: String,
+    pub platform: DevicePlatform,
+    pub app_version: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DevicePlatform {
+    Android,
+    iOS,
+    Web,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TopicSubscriptionRequest {
+    pub to: String, // Topic name with /topics/ prefix
+    pub registration_tokens: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TopicSubscriptionResponse {
+    pub results: Vec<TopicSubscriptionResult>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TopicSubscriptionResult {
+    pub error: Option<String>,
+}
+
 impl FirebaseAdmin {
     /// Create a new Firebase Admin SDK instance
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let project_id = std::env::var("FIREBASE_PROJECT_ID")
+        let project_id = get_env_var("FIREBASE_PROJECT_ID")
             .unwrap_or_else(|_| "default-project".to_string());
         
-        let service_account_key = std::env::var("FIREBASE_SERVICE_ACCOUNT_KEY")
+        let service_account_key = get_env_var("FIREBASE_SERVICE_ACCOUNT_KEY")
             .ok();
 
         Ok(Self {
@@ -167,7 +346,7 @@ impl FirebaseAdmin {
         // For now, let's use a simpler approach that works with the Identity Toolkit API
         
         // Check if we have service account credentials from environment variables
-        if let Ok(client_email) = std::env::var("FIREBASE_CLIENT_EMAIL") {
+        if let Ok(client_email) = get_env_var("FIREBASE_CLIENT_EMAIL") {
             tracing::info!("Using Firebase service account: {}", client_email);
             
             // For demonstration, return a mock token that indicates we have proper service account setup
@@ -176,7 +355,7 @@ impl FirebaseAdmin {
             Ok(format!("service_account_token_{}", client_email))
         } else {
             // Fallback to API key for development
-            if let Ok(api_key) = std::env::var("FIREBASE_API_KEY") {
+            if let Ok(api_key) = get_env_var("FIREBASE_API_KEY") {
                 tracing::info!("Using Firebase API key for development");
                 Ok(api_key)
             } else {
@@ -188,7 +367,7 @@ impl FirebaseAdmin {
     /// Get user by ID token (preferred method)
     pub async fn get_user_by_id_token(&self, id_token: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
         // For Firebase Identity Toolkit, use API key as query parameter
-        if let Ok(api_key) = std::env::var("FIREBASE_API_KEY") {
+        if let Ok(api_key) = get_env_var("FIREBASE_API_KEY") {
             let url = format!(
                 "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={}",
                 api_key
@@ -225,7 +404,7 @@ impl FirebaseAdmin {
     /// Get user by Firebase UID (legacy method - may have authentication issues)
     pub async fn get_user(&self, firebase_uid: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
         // For Firebase Identity Toolkit, use API key as query parameter
-        if let Ok(api_key) = std::env::var("FIREBASE_API_KEY") {
+        if let Ok(api_key) = get_env_var("FIREBASE_API_KEY") {
             let url = format!(
                 "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={}",
                 api_key
@@ -262,7 +441,7 @@ impl FirebaseAdmin {
     /// Get user by email
     pub async fn get_user_by_email(&self, email: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
         // For Firebase Identity Toolkit, use API key as query parameter
-        if let Ok(api_key) = std::env::var("FIREBASE_API_KEY") {
+        if let Ok(api_key) = get_env_var("FIREBASE_API_KEY") {
             let url = format!(
                 "https://identitytoolkit.googleapis.com/v1/projects/{}/accounts:lookup?key={}",
                 self.project_id, api_key
@@ -401,7 +580,7 @@ impl FirebaseAdmin {
     /// Authenticate user with email/password using Firebase Identity Toolkit API
     pub async fn authenticate_user(&self, email: &str, password: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
         // Get Firebase API key from environment
-        let api_key = std::env::var("FIREBASE_API_KEY")
+        let api_key = get_env_var("FIREBASE_API_KEY")
             .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
         
         let url = format!(
@@ -528,7 +707,7 @@ impl FirebaseAdmin {
         })
     }
 
-    /// Create a new Firebase user using Admin SDK
+    /// Create a new Firebase user using Admin SDK (original method with access token)
     pub async fn create_user(&self, email: Option<String>, password: Option<String>, display_name: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
         let access_token = self.get_access_token().await?;
         let url = format!(
@@ -567,6 +746,98 @@ impl FirebaseAdmin {
                 match error_response.error.message.as_str() {
                     "EMAIL_EXISTS" => Err("Email already exists".into()),
                     "WEAK_PASSWORD" => Err("Password is too weak".into()),
+                    _ => Err(format!("User creation failed: {}", error_response.error.message).into()),
+                }
+            } else {
+                Err("User creation failed".into())
+            }
+        }
+    }
+
+    /// Create a new Firebase user with email/password using Identity Toolkit API (preferred method)
+    pub async fn create_user_with_password(&self, email: &str, password: &str, display_name: Option<String>) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
+        // Get Firebase API key from environment 
+        let api_key = get_env_var("FIREBASE_API_KEY")
+            .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
+        
+        let url = format!(
+            "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={}",
+            api_key
+        );
+        
+        let mut signup_request = json!({
+            "email": email,
+            "password": password,
+            "returnSecureToken": true
+        });
+        
+        // Add display name if provided
+        if let Some(name) = display_name {
+            signup_request["displayName"] = json!(name);
+        }
+        
+        tracing::info!("Creating Firebase user with email: {}", email);
+        
+        let response = self.client
+            .post(&url)
+            .json(&signup_request)
+            .send()
+            .await?;
+        
+        if response.status().is_success() {
+            let signup_response: serde_json::Value = response.json().await?;
+            
+            // Extract user information from signup response
+            let firebase_uid = signup_response["localId"]
+                .as_str()
+                .ok_or("Missing localId in Firebase signup response")?;
+                
+            let email_returned = signup_response["email"]
+                .as_str()
+                .ok_or("Missing email in Firebase signup response")?;
+            
+            let display_name = signup_response.get("displayName")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            
+            // Create custom claims for admin access if this is a special email
+            let mut custom_claims = HashMap::new();
+            
+            // Special handling for info@epsx.io - grant admin privileges
+            if email == "info@epsx.io" {
+                custom_claims.insert("admin".to_string(), Value::Bool(true));
+                custom_claims.insert("access_level".to_string(), Value::String("super_admin".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("SuperAdmin".to_string()));
+                tracing::info!("🔐 Created SuperAdmin Firebase user for: {}", email);
+            } else {
+                custom_claims.insert("access_level".to_string(), Value::String("user".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("User".to_string()));
+            }
+            
+            // Create FirebaseUser from signup response
+            Ok(FirebaseUser {
+                uid: firebase_uid.to_string(),
+                email: Some(email_returned.to_string()),
+                email_verified: false, // New users need to verify email
+                display_name,
+                photo_url: None,
+                phone_number: None,
+                disabled: false,
+                custom_claims,
+                provider_data: vec![],
+                created_at: Utc::now(),
+                last_login_at: None, // Not logged in yet, just created
+            })
+        } else {
+            let error_text = response.text().await?;
+            tracing::error!("Firebase user creation failed for {}: {}", email, error_text);
+            
+            // Parse Firebase error for better error messages
+            if let Ok(error_response) = serde_json::from_str::<FirebaseErrorResponse>(&error_text) {
+                match error_response.error.message.as_str() {
+                    "EMAIL_EXISTS" => Err("Email address is already in use".into()),
+                    "WEAK_PASSWORD : Password should be at least 6 characters" => Err("Password must be at least 6 characters long".into()),
+                    "INVALID_EMAIL" => Err("Invalid email address format".into()),
                     _ => Err(format!("User creation failed: {}", error_response.error.message).into()),
                 }
             } else {
@@ -764,6 +1035,346 @@ impl FirebaseAdmin {
             created_at,
             last_login_at,
         })
+    }
+
+    // Firebase Cloud Messaging (FCM) Methods
+
+    /// Send a push notification to a specific device token
+    pub async fn send_push_notification(
+        &self,
+        device_token: &str,
+        title: &str,
+        body: &str,
+        data: Option<HashMap<String, String>>,
+    ) -> Result<FcmResponse, Box<dyn std::error::Error>> {
+        let message = FcmMessage {
+            token: Some(device_token.to_string()),
+            topic: None,
+            condition: None,
+            notification: FcmNotification {
+                title: title.to_string(),
+                body: body.to_string(),
+                image: None,
+            },
+            data,
+            android: Some(FcmAndroidConfig {
+                ttl: Some("3600s".to_string()),
+                priority: Some("high".to_string()),
+                notification: Some(FcmAndroidNotification {
+                    title: Some(title.to_string()),
+                    body: Some(body.to_string()),
+                    icon: Some("ic_notification".to_string()),
+                    color: Some("#4285F4".to_string()),
+                    sound: Some("default".to_string()),
+                    click_action: Some("OPEN_APP".to_string()),
+                    tag: None,
+                    body_loc_key: None,
+                    body_loc_args: None,
+                    title_loc_key: None,
+                    title_loc_args: None,
+                }),
+            }),
+            apns: Some(FcmApnsConfig {
+                headers: None,
+                payload: FcmApnsPayload {
+                    aps: FcmAps {
+                        alert: Some(FcmApnsAlert {
+                            title: title.to_string(),
+                            body: body.to_string(),
+                        }),
+                        badge: Some(1),
+                        sound: Some("default".to_string()),
+                        category: None,
+                    },
+                },
+            }),
+            webpush: Some(FcmWebpushConfig {
+                headers: None,
+                data: None,
+                notification: Some(FcmWebpushNotification {
+                    title: title.to_string(),
+                    body: body.to_string(),
+                    icon: Some("/icon-192x192.png".to_string()),
+                    badge: Some("/badge-72x72.png".to_string()),
+                    image: None,
+                    data: None,
+                }),
+            }),
+        };
+
+        self.send_fcm_message(message, false).await
+    }
+
+    /// Send a push notification to a topic (broadcast to all subscribers)
+    pub async fn send_topic_notification(
+        &self,
+        topic: &str,
+        title: &str,
+        body: &str,
+        data: Option<HashMap<String, String>>,
+    ) -> Result<FcmResponse, Box<dyn std::error::Error>> {
+        let message = FcmMessage {
+            token: None,
+            topic: Some(topic.to_string()),
+            condition: None,
+            notification: FcmNotification {
+                title: title.to_string(),
+                body: body.to_string(),
+                image: None,
+            },
+            data,
+            android: None,
+            apns: None,
+            webpush: None,
+        };
+
+        self.send_fcm_message(message, false).await
+    }
+
+    /// Send push notification for expiration warning
+    pub async fn send_expiration_push_notification(
+        &self,
+        device_token: &str,
+        permission_profile_name: &str,
+        days_until_expiration: i64,
+        expires_at: DateTime<Utc>,
+    ) -> Result<FcmResponse, Box<dyn std::error::Error>> {
+        let (title, body, priority) = if days_until_expiration <= 0 {
+            (
+                "Features Expired - Grace Period Active".to_string(),
+                format!(
+                    "Your {} subscription has expired but is still active. Renew now to avoid service interruption.",
+                    permission_profile_name
+                ),
+                "high"
+            )
+        } else if days_until_expiration == 1 {
+            (
+                "Subscription Expires Tomorrow!".to_string(),
+                format!(
+                    "Your {} subscription expires tomorrow. Renew now to keep access to your premium features.",
+                    permission_profile_name
+                ),
+                "high"
+            )
+        } else if days_until_expiration <= 7 {
+            (
+                format!("Subscription Expires in {} Days", days_until_expiration),
+                format!(
+                    "Your {} subscription expires in {} days. Don't lose access to your premium features!",
+                    permission_profile_name, days_until_expiration
+                ),
+                "normal"
+            )
+        } else {
+            (
+                "Subscription Renewal Reminder".to_string(),
+                format!(
+                    "Your {} subscription expires in {} days. Consider renewing to continue enjoying premium features.",
+                    permission_profile_name, days_until_expiration
+                ),
+                "normal"
+            )
+        };
+
+        let mut data = HashMap::new();
+        data.insert("permission_profile_name".to_string(), permission_profile_name.to_string());
+        data.insert("days_until_expiration".to_string(), days_until_expiration.to_string());
+        data.insert("expires_at".to_string(), expires_at.to_rfc3339());
+        data.insert("notification_type".to_string(), "expiration_warning".to_string());
+        data.insert("action".to_string(), "open_renewal".to_string());
+
+        let message = FcmMessage {
+            token: Some(device_token.to_string()),
+            topic: None,
+            condition: None,
+            notification: FcmNotification {
+                title: title.clone(),
+                body: body.clone(),
+                image: None,
+            },
+            data: Some(data),
+            android: Some(FcmAndroidConfig {
+                ttl: Some("86400s".to_string()), // 24 hours for expiration notifications
+                priority: Some(priority.to_string()),
+                notification: Some(FcmAndroidNotification {
+                    title: Some(title.clone()),
+                    body: Some(body.clone()),
+                    icon: Some("ic_warning".to_string()),
+                    color: Some("#FF9800".to_string()), // Orange for warnings
+                    sound: Some("default".to_string()),
+                    click_action: Some("OPEN_RENEWAL".to_string()),
+                    tag: Some("expiration_warning".to_string()),
+                    body_loc_key: None,
+                    body_loc_args: None,
+                    title_loc_key: None,
+                    title_loc_args: None,
+                }),
+            }),
+            apns: Some(FcmApnsConfig {
+                headers: Some({
+                    let mut headers = HashMap::new();
+                    headers.insert("apns-priority".to_string(), if priority == "high" { "10" } else { "5" }.to_string());
+                    headers
+                }),
+                payload: FcmApnsPayload {
+                    aps: FcmAps {
+                        alert: Some(FcmApnsAlert {
+                            title: title.clone(),
+                            body: body.clone(),
+                        }),
+                        badge: Some(1),
+                        sound: Some("default".to_string()),
+                        category: Some("EXPIRATION_WARNING".to_string()),
+                    },
+                },
+            }),
+            webpush: Some(FcmWebpushConfig {
+                headers: None,
+                data: None,
+                notification: Some(FcmWebpushNotification {
+                    title: title.clone(),
+                    body: body.clone(),
+                    icon: Some("/icon-warning.png".to_string()),
+                    badge: Some("/badge-warning.png".to_string()),
+                    image: None,
+                    data: Some({
+                        let mut web_data = HashMap::new();
+                        web_data.insert("action".to_string(), json!("open_renewal"));
+                        web_data.insert("url".to_string(), json!("/billing/renew"));
+                        web_data
+                    }),
+                }),
+            }),
+        };
+
+        self.send_fcm_message(message, false).await
+    }
+
+    /// Subscribe device tokens to a topic
+    pub async fn subscribe_to_topic(
+        &self,
+        device_tokens: Vec<String>,
+        topic: &str,
+    ) -> Result<TopicSubscriptionResponse, Box<dyn std::error::Error>> {
+        let access_token = self.get_access_token().await?;
+        let url = "https://iid.googleapis.com/iid/v1:batchAdd";
+
+        let request = TopicSubscriptionRequest {
+            to: format!("/topics/{}", topic),
+            registration_tokens: device_tokens,
+        };
+
+        let response = self.client
+            .post(url)
+            .bearer_auth(&access_token)
+            .json(&request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let subscription_response: TopicSubscriptionResponse = response.json().await?;
+            info!("Successfully subscribed devices to topic: {}", topic);
+            Ok(subscription_response)
+        } else {
+            let error_text = response.text().await?;
+            error!("Failed to subscribe to topic {}: {}", topic, error_text);
+            Err(format!("Topic subscription failed: {}", error_text).into())
+        }
+    }
+
+    /// Unsubscribe device tokens from a topic
+    pub async fn unsubscribe_from_topic(
+        &self,
+        device_tokens: Vec<String>,
+        topic: &str,
+    ) -> Result<TopicSubscriptionResponse, Box<dyn std::error::Error>> {
+        let access_token = self.get_access_token().await?;
+        let url = "https://iid.googleapis.com/iid/v1:batchRemove";
+
+        let request = TopicSubscriptionRequest {
+            to: format!("/topics/{}", topic),
+            registration_tokens: device_tokens,
+        };
+
+        let response = self.client
+            .post(url)
+            .bearer_auth(&access_token)
+            .json(&request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let subscription_response: TopicSubscriptionResponse = response.json().await?;
+            info!("Successfully unsubscribed devices from topic: {}", topic);
+            Ok(subscription_response)
+        } else {
+            let error_text = response.text().await?;
+            error!("Failed to unsubscribe from topic {}: {}", topic, error_text);
+            Err(format!("Topic unsubscription failed: {}", error_text).into())
+        }
+    }
+
+    /// Low-level FCM message sending
+    async fn send_fcm_message(
+        &self,
+        message: FcmMessage,
+        validate_only: bool,
+    ) -> Result<FcmResponse, Box<dyn std::error::Error>> {
+        let access_token = self.get_access_token().await?;
+        let url = format!(
+            "https://fcm.googleapis.com/v1/projects/{}/messages:send",
+            self.project_id
+        );
+
+        let request = FcmRequest {
+            message,
+            validate_only,
+        };
+
+        let response = self.client
+            .post(&url)
+            .bearer_auth(&access_token)
+            .json(&request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let fcm_response: FcmResponse = response.json().await?;
+            if !validate_only {
+                info!("FCM message sent successfully: {}", fcm_response.name);
+            }
+            Ok(fcm_response)
+        } else {
+            let error_text = response.text().await?;
+            error!("FCM message failed: {}", error_text);
+            
+            if let Ok(fcm_error) = serde_json::from_str::<FcmErrorResponse>(&error_text) {
+                match fcm_error.error.code {
+                    400 => Err(format!("Invalid FCM request: {}", fcm_error.error.message).into()),
+                    401 => Err("FCM authentication failed - check service account credentials".into()),
+                    403 => Err("FCM access denied - check permissions".into()),
+                    404 => Err("FCM resource not found".into()),
+                    429 => Err("FCM rate limit exceeded".into()),
+                    500 => Err("FCM internal server error".into()),
+                    503 => Err("FCM service unavailable".into()),
+                    _ => Err(format!("FCM error {}: {}", fcm_error.error.code, fcm_error.error.message).into()),
+                }
+            } else {
+                Err(format!("FCM request failed: {}", error_text).into())
+            }
+        }
+    }
+
+    /// Validate FCM message without sending (dry run)
+    pub async fn validate_fcm_message(&self, message: FcmMessage) -> Result<bool, Box<dyn std::error::Error>> {
+        match self.send_fcm_message(message, true).await {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                warn!("FCM message validation failed: {}", e);
+                Ok(false)
+            }
+        }
     }
 
     /// Generate role-based IAM profile for user

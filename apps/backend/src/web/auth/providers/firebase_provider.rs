@@ -6,6 +6,7 @@ use jsonwebtoken::{decode_header, jwk::JwkSet, Algorithm};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
 
@@ -47,9 +48,9 @@ pub struct FirebaseProviderConfig {
 impl Default for FirebaseProviderConfig {
     fn default() -> Self {
         Self {
-            project_id: std::env::var("FIREBASE_PROJECT_ID")
+            project_id: get_env_var("FIREBASE_PROJECT_ID")
                 .unwrap_or_else(|_| "your-project-id".to_string()),
-            service_account_email: std::env::var("FIREBASE_SERVICE_ACCOUNT_EMAIL").ok(),
+            service_account_email: get_env_var("FIREBASE_SERVICE_ACCOUNT_EMAIL").ok(),
             jwks_cache_ttl_seconds: 3600, // 1 hour
         }
     }

@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc, Duration};
 use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
 use std::collections::HashMap;
 use base64::Engine;
+use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
 use crate::web::oidc::authorization::AuthorizationCodeData;
@@ -90,6 +91,9 @@ pub struct IdTokenClaims {
     pub role: String,
     pub admin: Option<bool>,
     pub access_level: Option<String>,
+    // Database-derived fields
+    pub admin_modules: Vec<String>,
+    pub package_tier: String,
 }
 
 /// JWT Claims for Access token
@@ -106,6 +110,9 @@ pub struct AccessTokenClaims {
     pub email: String,
     pub role: String,
     pub permissions: Vec<String>,
+    // Database-derived fields
+    pub admin_modules: Vec<String>,
+    pub package_tier: String,
 }
 
 /// Refresh token data stored in Redis
@@ -270,11 +277,11 @@ async fn handle_authorization_code_grant(
     let now = Utc::now();
     let expires_in = 7200; // 2 hours (frontend client policy)
 
-    // Generate access token
-    let access_token = generate_access_token(&auth_data.firebase_user, &auth_data.scope, now, expires_in)?;
+    // Generate access token with database user data
+    let access_token = generate_access_token(&app_state, &auth_data.firebase_user, &auth_data.scope, now, expires_in).await?;
 
-    // Generate ID token  
-    let id_token = generate_id_token(&auth_data.firebase_user, client_id, now, expires_in)?;
+    // Generate ID token with database user data
+    let id_token = generate_id_token(&app_state, &auth_data.firebase_user, client_id, now, expires_in).await?;
 
     // Generate refresh token using new rotation service
     let refresh_token = generate_refresh_token_v2(&auth_data, client_id).await?;
@@ -380,8 +387,10 @@ async fn handle_refresh_token_grant(
     let now = Utc::now();
     let expires_in = 7200; // 2 hours (frontend client policy)
 
-    let access_token = generate_access_token(&firebase_user, &rotation.new_token_data.scope, now, expires_in)?;
-    let id_token = generate_id_token(&firebase_user, client_id, now, expires_in)?;
+    // TODO: For refresh token flow, we need to pass app_state to get fresh database data
+    // For now, generating tokens without database lookup (refresh tokens should be short-lived)
+    let access_token = generate_access_token_simple(&firebase_user, &rotation.new_token_data.scope, now, expires_in)?;
+    let id_token = generate_id_token_simple(&firebase_user, client_id, now, expires_in)?;
 
     tracing::info!(
         old_token_id = %rotation.old_token_id,
@@ -452,15 +461,26 @@ async fn validate_and_consume_authorization_code(
     Ok(auth_data)
 }
 
-/// Generate access token
-fn generate_access_token(
+/// Generate access token with database user data
+async fn generate_access_token(
+    app_state: &AppState,
     firebase_user: &FirebaseUser,
     scope: &str,
     now: DateTime<Utc>,
     expires_in: i64,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
-    let permissions = get_user_permissions_from_role(&firebase_user.custom_claims);
-
+    // Get user data from database for accurate permissions and admin modules
+    let (admin_modules, package_tier, database_permissions) = 
+        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
+    
+    // Combine Firebase role with database permissions
+    let firebase_role = get_role_from_custom_claims(&firebase_user.custom_claims);
+    let effective_permissions = if !database_permissions.is_empty() {
+        database_permissions // Use database permissions if available
+    } else {
+        get_user_permissions_from_role(&firebase_user.custom_claims) // Fallback to Firebase role-based permissions
+    };
+    
     let claims = AccessTokenClaims {
         jti: generate_jti(),
         iss: get_issuer_url(),
@@ -471,8 +491,10 @@ fn generate_access_token(
         nbf: now.timestamp(),
         scope: scope.to_string(),
         email: firebase_user.email.clone().unwrap_or_default(),
-        role: get_role_from_custom_claims(&firebase_user.custom_claims),
-        permissions,
+        role: firebase_role,
+        permissions: effective_permissions,
+        admin_modules,
+        package_tier,
     };
 
     let header = Header::new(Algorithm::HS256);
@@ -492,8 +514,98 @@ fn generate_access_token(
         })
 }
 
-/// Generate ID token
-fn generate_id_token(
+/// Generate access token without database lookup (for refresh token flow)
+fn generate_access_token_simple(
+    firebase_user: &FirebaseUser,
+    scope: &str,
+    now: DateTime<Utc>,
+    expires_in: i64,
+) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
+    let permissions = get_user_permissions_from_role(&firebase_user.custom_claims);
+
+    let claims = AccessTokenClaims {
+        jti: generate_jti(),
+        iss: get_issuer_url(),
+        sub: firebase_user.uid.clone(),
+        aud: "epsx-api".to_string(),
+        exp: (now + Duration::seconds(expires_in)).timestamp(),
+        iat: now.timestamp(),
+        nbf: now.timestamp(),
+        scope: scope.to_string(),
+        email: firebase_user.email.clone().unwrap_or_default(),
+        role: get_role_from_custom_claims(&firebase_user.custom_claims),
+        permissions,
+        admin_modules: vec![], // Empty for refresh token flow
+        package_tier: "FREE".to_string(), // Default for refresh token flow
+    };
+
+    let header = Header::new(Algorithm::HS256);
+    let encoding_key = EncodingKey::from_secret(get_jwt_secret().as_ref());
+
+    encode(&header, &claims, &encoding_key)
+        .map_err(|e| {
+            tracing::error!("Failed to generate access token: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(TokenErrorResponse {
+                    error: "server_error".to_string(),
+                    error_description: Some("Failed to generate access token".to_string()),
+                    error_uri: None,
+                }),
+            )
+        })
+}
+
+/// Generate ID token with database user data
+async fn generate_id_token(
+    app_state: &AppState,
+    firebase_user: &FirebaseUser,
+    client_id: &str,
+    now: DateTime<Utc>,
+    expires_in: i64,
+) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
+    // Get user data from database for accurate information
+    let (admin_modules, package_tier, _) = 
+        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
+    
+    let claims = IdTokenClaims {
+        jti: generate_jti(),
+        iss: get_issuer_url(),
+        sub: firebase_user.uid.clone(),
+        aud: client_id.to_string(),
+        exp: (now + Duration::seconds(expires_in)).timestamp(),
+        iat: now.timestamp(),
+        nbf: now.timestamp(),
+        auth_time: now.timestamp(),
+        email: firebase_user.email.clone().unwrap_or_default(),
+        email_verified: firebase_user.email_verified,
+        name: firebase_user.display_name.clone(),
+        role: get_role_from_custom_claims(&firebase_user.custom_claims),
+        admin: firebase_user.custom_claims.get("admin").and_then(|v| v.as_bool()),
+        access_level: firebase_user.custom_claims.get("access_level").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        admin_modules,
+        package_tier,
+    };
+
+    let header = Header::new(Algorithm::HS256);
+    let encoding_key = EncodingKey::from_secret(get_jwt_secret().as_ref());
+
+    encode(&header, &claims, &encoding_key)
+        .map_err(|e| {
+            tracing::error!("Failed to generate ID token: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(TokenErrorResponse {
+                    error: "server_error".to_string(),
+                    error_description: Some("Failed to generate ID token".to_string()),
+                    error_uri: None,
+                }),
+            )
+        })
+}
+
+/// Generate ID token without database lookup (for refresh token flow)
+fn generate_id_token_simple(
     firebase_user: &FirebaseUser,
     client_id: &str,
     now: DateTime<Utc>,
@@ -514,6 +626,8 @@ fn generate_id_token(
         role: get_role_from_custom_claims(&firebase_user.custom_claims),
         admin: firebase_user.custom_claims.get("admin").and_then(|v| v.as_bool()),
         access_level: firebase_user.custom_claims.get("access_level").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        admin_modules: vec![], // Empty for refresh token flow
+        package_tier: "FREE".to_string(), // Default for refresh token flow
     };
 
     let header = Header::new(Algorithm::HS256);
@@ -614,12 +728,12 @@ async fn create_session(
 /// Utility functions
 
 fn get_issuer_url() -> String {
-    std::env::var("OIDC_ISSUER")
+    get_env_var("OIDC_ISSUER")
         .unwrap_or_else(|_| "http://localhost:8080".to_string())
 }
 
 fn get_jwt_secret() -> String {
-    std::env::var("JWT_SECRET")
+    get_env_var("JWT_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
 }
 
@@ -662,7 +776,87 @@ async fn get_user_admin_modules(
     }
 }
 
-/// Get user package tier from the database
+/// Get comprehensive user database information for JWT token generation
+/// Returns (admin_modules, package_tier, permissions)
+async fn get_user_database_info(
+    app_state: &AppState,
+    firebase_uid: &str,
+    email: &str
+) -> (Vec<String>, String, Vec<String>) {
+    // Get admin modules from database
+    let admin_modules = match app_state.admin_module_service.get_user_admin_modules(firebase_uid).await {
+        Ok(modules) => {
+            tracing::debug!("Retrieved {} admin modules for user {}: {:?}", modules.len(), firebase_uid, modules);
+            modules
+        },
+        Err(e) => {
+            tracing::warn!("Failed to get admin modules for user {}: {}", firebase_uid, e);
+            vec![]
+        }
+    };
+    
+    // Get user data from database using Firebase UID for package tier and permissions
+    use crate::dom::values::UserId;
+    let user_id = UserId::new(firebase_uid.to_string());
+    
+    let (package_tier, permissions) = match app_state.user_repo.get(&user_id).await {
+        Ok(Some(user)) => {
+            let tier = match user.sub().tier {
+                crate::dom::values::SubTier::Free => "FREE".to_string(),
+                crate::dom::values::SubTier::Basic => "BASIC".to_string(),
+                crate::dom::values::SubTier::Premium => "PREMIUM".to_string(),
+                crate::dom::values::SubTier::Enterprise => "ENTERPRISE".to_string(),
+            };
+            
+            // Get user permissions from the domain entity
+            let user_permissions: Vec<String> = user.perms().permissions().iter().cloned().collect();
+            
+            tracing::debug!("Retrieved user data for {}: tier={}, {} permissions", firebase_uid, tier, user_permissions.len());
+            (tier, user_permissions)
+        },
+        Ok(None) => {
+            tracing::warn!("User not found in database for Firebase UID: {}", firebase_uid);
+            ("FREE".to_string(), vec![])
+        },
+        Err(e) => {
+            tracing::error!("Database error getting user data for {}: {}", firebase_uid, e);
+            ("FREE".to_string(), vec![])
+        }
+    };
+    
+    // If user has admin modules, add admin permissions
+    let enhanced_permissions = if !admin_modules.is_empty() {
+        let mut perms = permissions;
+        // Add comprehensive admin permissions for users with admin modules
+        perms.extend(vec![
+            "api:admin:read".to_string(),
+            "api:admin:write".to_string(),
+            "route:admin:*".to_string(),
+        ]);
+        
+        // Add system admin permissions for system_admin module
+        if admin_modules.contains(&"system_admin".to_string()) {
+            perms.extend(vec![
+                "api:admin:*".to_string(),
+                "route:*".to_string(),
+                "system:manage".to_string(),
+                "users:manage".to_string(),
+                "security:full".to_string(),
+            ]);
+        }
+        
+        perms
+    } else {
+        permissions
+    };
+    
+    tracing::info!("User database info for {}: {} admin modules, {} tier, {} permissions", 
+                  firebase_uid, admin_modules.len(), package_tier, enhanced_permissions.len());
+    
+    (admin_modules, package_tier, enhanced_permissions)
+}
+
+/// Get user package tier from the database (legacy function - use get_user_database_info instead)
 async fn get_user_package_tier(
     app_state: &AppState,
     email: &str
@@ -673,10 +867,15 @@ async fn get_user_package_tier(
     let user_email = Email::new(email.to_string())?;
     
     match app_state.user_repo.find_by_email(&user_email).await {
-        Ok(Some(_user)) => {
+        Ok(Some(user)) => {
             // Extract package tier from user data
-            // This depends on your user model structure
-            Ok("PREMIUM".to_string()) // Placeholder - replace with actual field
+            let tier = match user.sub().tier {
+                crate::dom::values::SubTier::Free => "FREE".to_string(),
+                crate::dom::values::SubTier::Basic => "BASIC".to_string(),
+                crate::dom::values::SubTier::Premium => "PREMIUM".to_string(),
+                crate::dom::values::SubTier::Enterprise => "ENTERPRISE".to_string(),
+            };
+            Ok(tier)
         },
         Ok(None) => {
             tracing::warn!("User not found for email: {}", email);

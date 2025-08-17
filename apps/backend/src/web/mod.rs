@@ -9,7 +9,7 @@ pub mod middleware;
 pub mod modules;
 pub mod validation;
 pub mod health;
-// pub mod analytics; // Temporarily disabled during auth migration
+pub mod analytics;
 pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
@@ -20,16 +20,18 @@ use axum::{
     routing::{get, post},
     Router,
     response::Json,
+    http::Method,
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
+use tower_http::cors::CorsLayer;
 
 use crate::infra::AppContainer;
 use auth::AppState;
 use permission_profile::create_permission_profile_router;
 use user::user_routes_v1;
 use modules::create_modules_router;
-// use analytics::create_analytics_router; // Disabled during migration
+use analytics::create_analytics_router;
 use settings::create_settings_router;
 use validation::comprehensive_validation_middleware;
 use auth::handlers::{
@@ -66,8 +68,7 @@ pub async fn premium_rankings_handler() -> Json<Value> {
 
 
 /// Create v1 API routes
-#[allow(dead_code)]
-fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Router<AppState> {
+fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router<AppState> {
     // Create public authentication routes (no auth required)
     let public_auth_routes = Router::new()
         .route("/auth/login", post(login_handler))
@@ -127,10 +128,10 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
     let module_routes_v1 = Router::new()
         .nest("/", create_modules_router(app_state.clone()));
 
-    // Analytics routes temporarily disabled during auth migration
-    // let analytics_routes_v1 = Router::new()
-    //     .nest("/", create_analytics_router(&container.infra))
-    //     .nest("/api", create_analytics_router(&container.infra)); // Legacy support
+    // Analytics routes with TradingView integration
+    let analytics_routes_v1 = Router::new()
+        .nest("/", create_analytics_router(&container.infra))
+        .nest("/api/v1", create_analytics_router(&container.infra)); // v1 API support
 
     // Settings routes for v1 API (auth required)
     let settings_routes_v1 = Router::new()
@@ -144,6 +145,9 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .route("/monitoring/events", post(placeholder_monitoring_handler))
         .route("/stream", post(placeholder_stream_handler));
 
+    // Configure CORS for frontend compatibility
+    let cors = configure_cors_for_frontend();
+    
     Router::new()
         .route("/health", get(health_handler))
         .merge(public_auth_routes)
@@ -155,9 +159,10 @@ fn create_v1_routes(app_state: AppState, _container: Arc<AppContainer>) -> Route
         .merge(premium_routes)
         .merge(permission_profile_routes_v1)
         .merge(module_routes_v1)
-        // .merge(analytics_routes_v1) // Temporarily disabled
+        .merge(analytics_routes_v1)
         .merge(settings_routes_v1)
         .merge(placeholder_routes)
+        .layer(cors) // Apply CORS to all routes
         .with_state(app_state)
 }
 
@@ -217,11 +222,208 @@ async fn placeholder_stream_handler() -> Json<Value> {
     }))
 }
 
-/// Create the main application router (simplified during auth migration)
+/// Configure CORS for frontend applications
+fn configure_cors_for_frontend() -> CorsLayer {
+    use crate::config::get_env_var;
+    use tower_http::cors::AllowOrigin;
+    use http::{HeaderName, HeaderValue};
+    
+    if get_env_var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development" {
+        // Development - allow common development origins
+        let dev_origins = vec![
+            "http://localhost:3000".parse::<HeaderValue>().unwrap(),  // Frontend dev server
+            "http://localhost:3001".parse::<HeaderValue>().unwrap(),  // Admin frontend dev server
+            "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),  // Alternative localhost
+            "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap(),  // Alternative localhost
+        ];
+        
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(dev_origins))
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_headers([
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("x-requested-with"),
+                HeaderName::from_static("accept"),
+                HeaderName::from_static("origin"),
+                HeaderName::from_static("x-client-id"),
+                HeaderName::from_static("x-api-key"),
+            ])
+            .allow_credentials(true)
+    } else {
+        // Production - only allow configured frontend URLs
+        let mut allowed_origins = vec![];
+        
+        if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
+            if let Ok(origin) = frontend_url.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
+            if let Ok(origin) = admin_url.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(prod_frontend) = get_env_var("PRODUCTION_FRONTEND_URL") {
+            if let Ok(origin) = prod_frontend.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        if let Ok(prod_admin) = get_env_var("PRODUCTION_ADMIN_URL") {
+            if let Ok(origin) = prod_admin.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        // Add Vercel deployment domains
+        let vercel_domains = vec![
+            "https://epsx.com",
+            "https://www.epsx.com", 
+            "https://admin.epsx.com",
+            "https://api.epsx.com",
+            // Add preview deployment patterns
+            "https://epsx-frontend.vercel.app",
+            "https://epsx-admin.vercel.app",
+            "https://epsx-backend.vercel.app"
+        ];
+        
+        for domain in vercel_domains {
+            if let Ok(origin) = domain.parse() {
+                allowed_origins.push(origin);
+            }
+        }
+        
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(allowed_origins))
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_headers([
+                HeaderName::from_static("authorization"),
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("x-requested-with"),
+                HeaderName::from_static("accept"),
+                HeaderName::from_static("origin"),
+                HeaderName::from_static("x-client-id"),
+                HeaderName::from_static("x-api-key"),
+            ])
+            .allow_credentials(true)
+    }
+}
+
+/// Create standalone analytics routes without AppState dependency
+fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraFactory) -> Router {
+    use axum::Extension;
+    
+    // Create services for analytics
+    let eps_ranking_service = infra_factory.create_eps_ranking_service();
+    
+    // Create cache-based EPS service with TradingView integration
+    let config = match crate::config::Config::from_env() {
+        Ok(config) => std::sync::Arc::new(config),
+        Err(e) => {
+            tracing::warn!("Failed to load config, using fallback: {:?}", e);
+            // Use a minimal config that should work for basic operation
+            std::sync::Arc::new(crate::config::Config {
+                server: crate::config::ServerConfig {
+                    port: 8080,
+                    host: "127.0.0.1".to_string(),
+                    bind_address: "0.0.0.0".to_string(),
+                    frontend_url: "http://localhost:3000".to_string(),
+                    admin_frontend_url: "http://localhost:3001".to_string(),
+                    environment: "development".to_string(),
+                },
+                database: crate::config::DatabaseConfig {
+                    url: "postgresql://localhost/epsx".to_string(),
+                },
+                auth: crate::config::AuthConfig {
+                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret: "default-jwt-secret".to_string(),
+                    cookie_signing_key: None,
+                    cookie_encryption_key: None,
+                    firebase_project_id: None,
+                },
+                payment: crate::config::PaymentConfig {
+                    musepay_partner_id: None,
+                    musepay_private_key: None,
+                    webhook_url: None,
+                },
+                email: crate::config::EmailConfig {
+                    from_email: "noreply@localhost".to_string(),
+                    from_name: "EPSX".to_string(),
+                    sendgrid_api_key: "".to_string(),
+                },
+                branding: crate::config::BrandingConfig {
+                    platform_name: "EPSX".to_string(),
+                    welcome_message_template: "Welcome to EPSX".to_string(),
+                    dashboard_url: "http://localhost:3000".to_string(),
+                    support_email: "support@localhost".to_string(),
+                },
+                external_services: crate::config::ExternalServicesConfig {
+                    tradingview: crate::config::TradingViewConfig {
+                        websocket_url: "wss://data.tradingview.com".to_string(),
+                        api_base_url: "https://scanner.tradingview.com".to_string(),
+                        timeout_seconds: 30,
+                        http_timeout_seconds: 30,
+                    },
+                },
+                rate_limiting: crate::config::RateLimitingConfig {
+                    default_per_minute: 60,
+                    endpoint_specific: std::collections::HashMap::new(),
+                },
+            })
+        }
+    };
+    let tradingview_service = std::sync::Arc::new(crate::infra::services::tradingview::TradingViewApiService::new(config));
+    let eps_repository = infra_factory.create_eps_repo();
+    let eps_cache_service = std::sync::Arc::new(
+        crate::dom::services::eps_cache_service::EPSCacheService::new(
+            tradingview_service,
+            eps_repository,
+            None // Use default cache config
+        )
+    );
+
+    // Background cache refresh removed - using on-demand loading instead
+    
+    Router::new()
+        // Primary analytics ranking endpoint
+        .route("/api/v1/analytics/rankings", get(analytics::eps_handlers::get_unified_analytics_rankings_cached))
+        // EPS Analytics endpoints
+        .route("/api/v1/analytics/eps-rankings", get(analytics::eps_handlers::get_eps_rankings))
+        .route("/api/v1/analytics/eps-rankings/countries", get(analytics::eps_handlers::get_available_countries))
+        .route("/api/v1/analytics/eps-rankings/countries/all", get(analytics::eps_handlers::get_all_valid_countries))
+        .route("/api/v1/analytics/eps-rankings/sectors", get(analytics::eps_handlers::get_sectors_by_country))
+        .route("/api/v1/analytics/eps-rankings/health", get(analytics::eps_handlers::eps_health_check))
+        .route("/api/v1/analytics/eps-rankings/sync", post(analytics::eps_handlers::trigger_eps_sync))
+        .route("/api/v1/analytics/eps-rankings/websocket-debug", post(analytics::eps_handlers::debug_websocket_eps))
+        .route("/api/v1/analytics/eps-rankings/debug-eps-correction", post(analytics::eps_handlers::debug_eps_correction))
+        .route("/api/v1/analytics/eps-rankings/debug-ranking-data", post(analytics::eps_handlers::debug_ranking_data))
+        // Add cache endpoints
+        .route("/api/v1/analytics/cache/stats", get(analytics::eps_handlers::get_cache_stats))
+        .route("/api/v1/analytics/cache/refresh", post(analytics::eps_handlers::force_cache_refresh))
+        .route("/api/v1/analytics/cache/health", get(analytics::eps_handlers::cache_health_check))
+        // Add services as extensions
+        .layer(Extension(eps_ranking_service))
+        .layer(Extension(eps_cache_service))
+}
+
+/// Create the main application router with analytics support
 pub async fn create_router(container: Arc<AppContainer>) -> Router {
-    // Use simplified router with real JWT validation but simplified dependencies
-    // This provides security without complex database dependencies during migration
-    simplified_router::create_simplified_router(container).await
+    // Create simplified routes that provide essential functionality
+    let simplified_routes = simplified_router::create_simplified_router(container.clone()).await;
+    
+    // Create analytics routes that use the container's InfraFactory
+    let analytics_routes = create_standalone_analytics_routes(&container.infra);
+    
+    // Configure CORS for all routes
+    let cors = configure_cors_for_frontend();
+    
+    // Merge routes with analytics support
+    simplified_routes
+        .merge(analytics_routes)
+        .layer(cors)
 }
 
 /// Create test application for integration tests

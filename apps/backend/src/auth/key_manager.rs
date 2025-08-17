@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Sha256, Digest};
+use crate::config::env::get_env_var;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JWK {
@@ -76,19 +77,34 @@ impl KeyManager {
     /// Load KeyManager from environment or generate new keys
     pub fn from_env_or_generate() -> Result<Self, Box<dyn std::error::Error>> {
         // Try to load from environment first
-        if let Ok(private_pem) = std::env::var("RSA_PRIVATE_KEY") {
-            if let Ok(public_pem) = std::env::var("RSA_PUBLIC_KEY") {
-                if let Ok(kid) = std::env::var("RSA_KEY_ID") {
-                    match Self::from_pem(&private_pem, &public_pem, &kid) {
-                        Ok(key_manager) => {
-                            tracing::info!("Loaded RSA keys from environment variables");
-                            return Ok(key_manager);
-                        }
-                        Err(e) => {
-                            tracing::warn!("Failed to load RSA keys from environment: {}", e);
+        match get_env_var("RSA_PRIVATE_KEY") {
+            Ok(private_pem) => {
+                match get_env_var("RSA_PUBLIC_KEY") {
+                    Ok(public_pem) => {
+                        match get_env_var("RSA_KEY_ID") {
+                            Ok(kid) => {
+                                match Self::from_pem(&private_pem, &public_pem, &kid) {
+                                    Ok(key_manager) => {
+                                        tracing::info!("Loaded RSA keys from environment variables");
+                                        return Ok(key_manager);
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Failed to load RSA keys from environment: {}", e);
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                tracing::debug!("RSA_KEY_ID not found in environment, will generate new keys");
+                            }
                         }
                     }
+                    Err(_) => {
+                        tracing::debug!("RSA_PUBLIC_KEY not found in environment, will generate new keys");
+                    }
                 }
+            }
+            Err(_) => {
+                tracing::debug!("RSA_PRIVATE_KEY not found in environment, will generate new keys");
             }
         }
         

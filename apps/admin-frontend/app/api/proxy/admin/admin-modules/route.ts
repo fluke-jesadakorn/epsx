@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/server-auth';
+import { env } from '@/config/env';
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
@@ -7,7 +8,7 @@ const getBearerToken = async () => {
   return (session as any)?.accessToken || null;
 };
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = env.getBackendUrl();
 
 export async function GET(request: NextRequest) {
   try {

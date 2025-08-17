@@ -1,5 +1,12 @@
 import { IAMDashboard } from '@/components/admin/IAMDashboard';
-import { getIAMUsers, getIAMRoles, getIAMPolicies } from '@epsx/server-actions';
+
+// TODO: Replace with direct API calls
+// import { getIAMUsers, getIAMRoles, getIAMPolicies } from '@epsx/server-actions';
+
+// Temporary placeholder functions for migration
+const getIAMUsers = async () => [];
+const getIAMRoles = async () => [];
+const getIAMPolicies = async () => [];
 
 export default async function IAMPage() {
   // Fetch IAM data server-side

@@ -47,6 +47,46 @@ pub enum RealtimeEvent {
         timestamp: DateTime<Utc>,
     },
     
+    /// Feature expiration events
+    FeatureExpirationWarning {
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        days_until_expiration: i64,
+        expires_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+        warning_level: ExpirationWarningLevel,
+        timestamp: DateTime<Utc>,
+    },
+    FeatureExpired {
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        expired_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+        has_grace_period: bool,
+        grace_period_ends: Option<DateTime<Utc>>,
+        timestamp: DateTime<Utc>,
+    },
+    GracePeriodStarted {
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        grace_period_days: u32,
+        grace_period_ends: DateTime<Utc>,
+        features_affected: Vec<String>,
+        timestamp: DateTime<Utc>,
+    },
+    GracePeriodEnding {
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        hours_until_deactivation: u32,
+        deactivation_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+        timestamp: DateTime<Utc>,
+    },
+    
     /// Stock trading events
     StockPriceUpdate {
         symbol: String,
@@ -92,6 +132,20 @@ pub enum NotificationLevel {
     Warning,
     Error,
     Success,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ExpirationWarningLevel {
+    /// Early warning (30+ days)
+    Early,
+    /// Standard warning (7-14 days)  
+    Standard,
+    /// Urgent warning (3-7 days)
+    Urgent,
+    /// Critical warning (1-3 days)
+    Critical,
+    /// Final warning (0-1 day)
+    Final,
 }
 
 /// Event metadata for routing and processing
@@ -169,6 +223,87 @@ impl RealtimeEvent {
             currency,
             error_code,
             error_message,
+            timestamp: Utc::now(),
+        }
+    }
+    
+    /// Feature expiration event constructors
+    pub fn feature_expiration_warning(
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        days_until_expiration: i64,
+        expires_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+        warning_level: ExpirationWarningLevel,
+    ) -> Self {
+        Self::FeatureExpirationWarning {
+            user_id,
+            permission_profile_id,
+            permission_profile_name,
+            days_until_expiration,
+            expires_at,
+            features_affected,
+            warning_level,
+            timestamp: Utc::now(),
+        }
+    }
+    
+    pub fn feature_expired(
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        expired_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+        has_grace_period: bool,
+        grace_period_ends: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self::FeatureExpired {
+            user_id,
+            permission_profile_id,
+            permission_profile_name,
+            expired_at,
+            features_affected,
+            has_grace_period,
+            grace_period_ends,
+            timestamp: Utc::now(),
+        }
+    }
+    
+    pub fn grace_period_started(
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        grace_period_days: u32,
+        grace_period_ends: DateTime<Utc>,
+        features_affected: Vec<String>,
+    ) -> Self {
+        Self::GracePeriodStarted {
+            user_id,
+            permission_profile_id,
+            permission_profile_name,
+            grace_period_days,
+            grace_period_ends,
+            features_affected,
+            timestamp: Utc::now(),
+        }
+    }
+    
+    pub fn grace_period_ending(
+        user_id: String,
+        permission_profile_id: String,
+        permission_profile_name: String,
+        hours_until_deactivation: u32,
+        deactivation_at: DateTime<Utc>,
+        features_affected: Vec<String>,
+    ) -> Self {
+        Self::GracePeriodEnding {
+            user_id,
+            permission_profile_id,
+            permission_profile_name,
+            hours_until_deactivation,
+            deactivation_at,
+            features_affected,
             timestamp: Utc::now(),
         }
     }

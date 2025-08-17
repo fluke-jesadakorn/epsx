@@ -1,23 +1,44 @@
 'use server';
 
-// Import and re-export server actions from the shared package
-import { 
-  createUser as _createUser,
-  updateUser as _updateUser,
-  deleteUser as _deleteUser
-} from '@epsx/server-actions';
+import { env } from '../../config/env';
 
-export { 
-  _createUser as createUser,
-  _updateUser as updateUser,
-  _deleteUser as deleteUser
-};
+// TODO: Implement direct API calls to replace shared packages
+// import and re-export server actions from the shared package
+// import { 
+//   createUser as _createUser,
+//   updateUser as _updateUser,
+//   deleteUser as _deleteUser
+// } from '@epsx/server-actions';
+
+// export { 
+//   _createUser as createUser,
+//   _updateUser as updateUser,
+//   _deleteUser as deleteUser
+// };
 
 import type { TokenFeature } from '@/types/auth/features';
 import { Permission } from '@/types/auth/features';
 import type { UserRole } from '@/types/auth/roles';
-import type { AdminUser } from '@epsx/api-client';
-import { isApiError, serverGetAdminUsers, serverSetUserRole, serverGetUserStats as _serverGetUserStats } from '@epsx/api-client';
+
+// TODO: Replace with direct API client implementation
+// import type { AdminUser } from '@epsx/api-client';
+// import { isApiError, serverGetAdminUsers, serverSetUserRole, serverGetUserStats as _serverGetUserStats } from '@epsx/api-client';
+
+// Temporary type definitions for migration
+interface AdminUser {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  admin_modules: string[];
+  permissions: string[];
+}
+
+// Temporary placeholder functions
+const isApiError = (error: any): boolean => false;
+const serverGetAdminUsers = async (): Promise<AdminUser[]> => [];
+const serverSetUserRole = async (userId: string, role: string): Promise<void> => {};
+const _serverGetUserStats = async (): Promise<any> => ({});
 
 interface User {
   userId: string;
@@ -83,7 +104,7 @@ export async function getUserStats() {
     const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
     
     // Direct fetch to backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = env.getBackendUrl();
     const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
     
     
@@ -118,7 +139,7 @@ async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
   const allCookies = cookieStore.getAll();
   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
   
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = env.getBackendUrl();
   const url = `${backendUrl}/api/v1/iam/${endpoint}`;
   
   const response = await fetch(url, {

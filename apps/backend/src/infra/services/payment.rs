@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use crate::config::env::get_env_var;
 
 use crate::app::ports::services::{PayGw, PaymentServiceError, PaymentAddress, TransactionDetails, TransactionStatus};
 use crate::dom::values::{UserId, Currency};
@@ -128,10 +129,10 @@ impl CoinPaymentsGateway {
     }
 
     pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let api_key = std::env::var("COINPAYMENTS_API_KEY")
+        let api_key = get_env_var("COINPAYMENTS_API_KEY")
             .map_err(|_| "COINPAYMENTS_API_KEY environment variable not set")?;
-        let api_secret = std::env::var("COINPAYMENTS_API_SECRET").ok();
-        let webhook_secret = std::env::var("COINPAYMENTS_WEBHOOK_SECRET").ok();
+        let api_secret = get_env_var("COINPAYMENTS_API_SECRET").ok();
+        let webhook_secret = get_env_var("COINPAYMENTS_WEBHOOK_SECRET").ok();
 
         let config = PaymentGatewayConfig {
             api_key,

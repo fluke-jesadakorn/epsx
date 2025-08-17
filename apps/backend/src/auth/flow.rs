@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use askama::Template;
 use chrono::{DateTime, Utc, Duration};
 use base64::Engine;
+use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
 use crate::web::templates::TemplateFactory;
@@ -252,7 +253,7 @@ async fn authenticate_user(
     form: &LoginForm,
 ) -> Result<FirebaseUser, Error> {
     // Handle test user in development
-    if let Ok(test_email) = std::env::var("TEST_ADMIN_EMAIL") {
+    if let Ok(test_email) = get_env_var("TEST_ADMIN_EMAIL") {
         if form.email == test_email && form.password == "Aa_12345678" {
             return Ok(create_test_user(test_email));
         }

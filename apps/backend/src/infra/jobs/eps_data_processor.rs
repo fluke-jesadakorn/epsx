@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use tokio::time::Duration;
 use tracing::{debug, info, warn, error};
 
 use crate::core::errors::AppError;
@@ -61,37 +61,8 @@ impl EPSDataProcessor {
         }
     }
 
-    /// Start the background processing job
-    pub async fn start_background_job(&self, processor_config: EPSProcessorConfig) -> Result<(), AppError> {
-        if !processor_config.enabled {
-            info!("EPS data processor is disabled");
-            return Ok(());
-        }
-
-        info!("Starting EPS data background processor with interval: {} minutes", 
-              processor_config.interval_minutes);
-
-        let mut interval = interval(Duration::from_secs(processor_config.interval_minutes * 60));
-        
-        loop {
-            interval.tick().await;
-            
-            info!("Starting scheduled EPS data processing");
-            let start_time = std::time::Instant::now();
-            
-            match self.process_eps_data_with_retry(&processor_config).await {
-                Ok(stats) => {
-                    let duration = start_time.elapsed();
-                    info!("EPS data processing completed successfully in {:?}", duration);
-                    self.log_processing_stats(&stats);
-                }
-                Err(e) => {
-                    error!("EPS data processing failed: {:?}", e);
-                    // Continue with next scheduled run despite failure
-                }
-            }
-        }
-    }
+    // Background processing job removed - using on-demand processing instead
+    // Use trigger_manual_processing() or process_eps_data() for on-demand EPS data updates
 
     /// Process EPS data with retry logic
     async fn process_eps_data_with_retry(&self, config: &EPSProcessorConfig) -> Result<ProcessingStats, AppError> {

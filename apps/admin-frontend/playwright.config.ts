@@ -1,11 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { env } from './config/env';
 
 export default defineConfig({
   testDir: './__test__/e2e',
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : 2,
+  forbidOnly: !!env.CI,
+  retries: env.CI ? 2 : 0,
+  workers: env.CI ? 1 : 2,
   timeout: 60000,
   expect: {
     timeout: 10000
@@ -117,6 +118,6 @@ export default defineConfig({
   // webServer: {
   //   command: 'npm run dev',
   //   url: 'http://localhost:3001',
-  //   reuseExistingServer: !process.env.CI,
+  //   reuseExistingServer: !env.CI,
   // },
 });

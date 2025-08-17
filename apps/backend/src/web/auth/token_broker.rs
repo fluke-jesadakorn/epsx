@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use jsonwebtoken::{EncodingKey, Algorithm, Header, encode};
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc, Duration};
+use crate::config::env::get_env_var;
 
 // use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 use super::providers::{
@@ -62,10 +63,10 @@ pub struct TokenBrokerConfig {
 impl Default for TokenBrokerConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: std::env::var("NEXTAUTH_SECRET")
-                .or_else(|_| std::env::var("AUTH_SECRET"))
+            jwt_secret: get_env_var("NEXTAUTH_SECRET")
+                .or_else(|_| get_env_var("AUTH_SECRET"))
                 .unwrap_or_else(|_| "default-broker-secret".to_string()),
-            issuer_url: std::env::var("BACKEND_URL")
+            issuer_url: get_env_var("BACKEND_URL")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string()),
             default_audience: "frontend-client".to_string(),
             token_ttl_hours: 24,

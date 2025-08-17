@@ -1,5 +1,5 @@
-import { ClientProviders } from '@/components/providers/ClientProviders';
-import { NavigationWithAuth } from '@/components/nav/NavigationWithAuth';
+import { NavigationClient } from '@/components/nav/NavigationClient';
+import { getAuthUser } from '@/lib/server/auth';
 import { Kanit } from 'next/font/google';
 import './globals.css';
 
@@ -15,18 +15,18 @@ export const metadata = {
   description: 'Advanced stock trading and analytics platform',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getAuthUser();
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${kanit.variable} font-sans antialiased`}>
-        <ClientProviders>
-          <NavigationWithAuth />
-          {children}
-        </ClientProviders>
+        <NavigationClient user={user} />
+        {children}
       </body>
     </html>
   );

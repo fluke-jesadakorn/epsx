@@ -241,9 +241,38 @@ sqlx migrate run  # Apply migrations
 - **Conventional Commits**: Follow commit message standards
 - **Quality Gates**: All tests must pass before merging
 
+### Container Environment (Apple Silicon Optimized)
+- **Primary Engine**: OrbStack (recommended for 15x performance improvement)
+- **Alternative**: Podman (enterprise-grade, daemonless)
+- **Legacy**: Docker Desktop (migrate to OrbStack for better performance)
+- **Build Target**: AMD64 containers for Google Cloud Run deployment
+- **Performance**: Native ARM64 builds + cross-compilation optimization
+
+### Container Management Commands
+```bash
+# Check current container engine and performance
+./scripts/check-container-engine.sh
+
+# Build optimized containers (OrbStack/Podman/Docker compatible)
+./scripts/build.sh
+
+# Benchmark build performance
+./scripts/benchmark-builds.sh
+
+# Analyze performance trends
+./scripts/analyze-performance.sh
+
+# Deploy to Google Cloud Run
+./scripts/deploy-cloudrun.sh
+
+# Clean build artifacts
+./scripts/clean.sh
+```
+
 ### Environment Management
 - **Environment Files**: Separate configs for dev/test/prod
-- **Docker Support**: Containerized development environment
+- **Container Engines**: OrbStack/Podman/Docker Desktop support
+- **Migration Guide**: `./scripts/orbstack-migration-guide.md`
 - **Admin Tools**: CLI tools for user management and IAM assignment
 
 ## Troubleshooting Common Issues
@@ -263,4 +292,17 @@ sqlx migrate run  # Apply migrations
 - **Database Connection**: Ensure PostgreSQL is running and configured
 - **Environment Variables**: Check `.env` files are properly configured
 
-When working on this codebase, always follow the TDD process, understand the authentication flow, and respect the build dependencies between packages and applications.
+### Container Performance Issues
+- **Slow Container Startup**: Check engine with `./scripts/check-container-engine.sh`
+- **Build Performance**: Run `./scripts/benchmark-builds.sh` to identify bottlenecks
+- **OrbStack Migration**: Follow `./scripts/orbstack-migration-guide.md` for 15x improvement
+- **Cache Issues**: Clear build cache with `rm -rf /tmp/.buildx-cache-orbstack`
+- **Platform Issues**: Ensure AMD64 builds for Cloud Run compatibility
+
+### Performance Optimization Workflow
+1. **Baseline**: Run `./scripts/benchmark-builds.sh` to establish current performance
+2. **Migrate**: Install OrbStack following the migration guide
+3. **Verify**: Re-run benchmarks to confirm improvements
+4. **Monitor**: Use `./scripts/analyze-performance.sh` for ongoing optimization
+
+When working on this codebase, always follow the TDD process, understand the authentication flow, respect the build dependencies between packages and applications, and use OrbStack for optimal development performance on Apple Silicon.

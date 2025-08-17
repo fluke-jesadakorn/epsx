@@ -2,7 +2,7 @@
 use clap::{Parser, Subcommand};
 use epsx::infra::db::MigrationRunner;
 use sqlx::postgres::PgPoolOptions;
-use std::env;
+use epsx::config::env::get_env_var;
 use tracing::{info, error};
 use tracing_subscriber;
 
@@ -32,8 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     // Get database URL from environment
-    let database_url = env::var("DATABASE_URL")
-        .or_else(|_| env::var("POSTGRES_URL"))
+    let database_url = get_env_var("DATABASE_URL")
+        .or_else(|_| get_env_var("POSTGRES_URL"))
         .unwrap_or_else(|_| {
             error!("DATABASE_URL or POSTGRES_URL environment variable is required");
             std::process::exit(1);
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Database connection established");
 
     // Get migrations directory
-    let migrations_dir = env::var("MIGRATIONS_DIR")
+    let migrations_dir = get_env_var("MIGRATIONS_DIR")
         .unwrap_or_else(|_| "migrations".to_string());
 
     let runner = MigrationRunner::new(pool, migrations_dir);

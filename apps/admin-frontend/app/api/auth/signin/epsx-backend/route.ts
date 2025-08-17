@@ -3,7 +3,8 @@
  * Initiates OAuth 2.0 authorization flow for admin backend
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthorizationUrl } from '@/lib/auth';
+import { getAuthorizationUrl } from '@/lib/server/auth';
+import { env } from '../../../../config/env';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,9 +23,16 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(url);
 
     // Store PKCE parameters in secure cookies
+    console.log('🔧 Setting PKCE cookies:');
+    console.log('  - code_verifier:', codeVerifier.slice(0,10) + '...');
+    console.log('  - state:', state.slice(0,10) + '...');
+    console.log('  - callback_url:', callbackUrl);
+    console.log('  - NODE_ENV:', env.NODE_ENV);
+    console.log('  - secure flag:', env.isProduction());
+
     response.cookies.set('oauth_code_verifier', codeVerifier, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.isProduction(),
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     response.cookies.set('oauth_state', state, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.isProduction(),
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',
@@ -41,11 +49,13 @@ export async function GET(request: NextRequest) {
     // Store callback URL for post-authentication redirect
     response.cookies.set('oauth_callback_url', callbackUrl, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.isProduction(),
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',
     });
+
+    console.log('✅ PKCE cookies set successfully');
 
     console.log('🔄 Admin: Redirecting to EPSX backend authorization server with callback URL:', callbackUrl);
     return response;

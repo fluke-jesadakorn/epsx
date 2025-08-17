@@ -1,1 +1,0 @@
-export { GlobalThemeProvider, useTheme } from "./provider";

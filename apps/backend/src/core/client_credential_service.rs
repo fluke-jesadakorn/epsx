@@ -1,6 +1,6 @@
 use crate::core::errors::AppError;
 use sha2::{Sha256, Digest};
-use std::env;
+use crate::config::env::get_env_var;
 use std::collections::HashMap;
 use once_cell::sync::Lazy;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
@@ -34,8 +34,8 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(|| 
     
     // Frontend client
     if let (Ok(client_id), Ok(client_secret)) = (
-        env::var("OIDC_FRONTEND_CLIENT_ID"),
-        env::var("OIDC_FRONTEND_CLIENT_SECRET")
+        get_env_var("OIDC_FRONTEND_CLIENT_ID"),
+        get_env_var("OIDC_FRONTEND_CLIENT_SECRET")
     ) {
         clients.insert(client_id.clone(), ClientCredentials {
             client_id: client_id.clone(),
@@ -55,8 +55,8 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(|| 
     
     // Admin client  
     if let (Ok(client_id), Ok(client_secret)) = (
-        env::var("OIDC_ADMIN_CLIENT_ID"),
-        env::var("OIDC_ADMIN_CLIENT_SECRET")
+        get_env_var("OIDC_ADMIN_CLIENT_ID"),
+        get_env_var("OIDC_ADMIN_CLIENT_SECRET")
     ) {
         clients.insert(client_id.clone(), ClientCredentials {
             client_id: client_id.clone(), 
@@ -231,13 +231,12 @@ impl Default for ClientCredentialService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     
     fn setup_test_env() {
-        env::set_var("OIDC_FRONTEND_CLIENT_ID", "test-frontend");
-        env::set_var("OIDC_FRONTEND_CLIENT_SECRET", "test-frontend-secret");
-        env::set_var("OIDC_ADMIN_CLIENT_ID", "test-admin");
-        env::set_var("OIDC_ADMIN_CLIENT_SECRET", "test-admin-secret");
+        std::env::set_var("OIDC_FRONTEND_CLIENT_ID", "test-frontend");
+        std::env::set_var("OIDC_FRONTEND_CLIENT_SECRET", "test-frontend-secret");
+        std::env::set_var("OIDC_ADMIN_CLIENT_ID", "test-admin");
+        std::env::set_var("OIDC_ADMIN_CLIENT_SECRET", "test-admin-secret");
     }
     
     #[test]

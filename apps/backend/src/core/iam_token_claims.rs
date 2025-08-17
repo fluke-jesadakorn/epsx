@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use crate::core::permission_constants::{get_permissions_for_modules, AdminModuleValidator};
+use crate::config::env::get_env_var;
 
 /// IAM-enhanced access token claims for OpenID Connect tokens
 /// Includes granular admin modules, permissions, and subscription information
@@ -128,7 +129,7 @@ impl AccessTokenClaims {
         Self {
             // Standard claims
             sub: user_id.clone(),
-            iss: std::env::var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            iss: get_env_var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
             aud: vec![client_id.clone()],
             iat,
             exp,
@@ -229,7 +230,7 @@ impl IdTokenClaims {
         
         Self {
             sub: user_id,
-            iss: std::env::var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            iss: get_env_var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
             aud: client_id,
             iat,
             exp,
@@ -266,7 +267,7 @@ impl RefreshTokenClaims {
         
         Self {
             sub: user_id,
-            iss: std::env::var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            iss: get_env_var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
             aud: vec![client_id.clone()],
             iat,
             exp,

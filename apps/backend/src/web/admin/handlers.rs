@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use crate::web::auth::AppState;
+use crate::config::env::get_env_var;
 use chrono::{DateTime, Utc, Datelike};
 use serde_json::{json, Value};
 
@@ -1061,7 +1062,7 @@ async fn verify_admin_permissions(
     action: &str,
 ) -> Result<(), StatusCode> {
     // Development bypass: Skip Casbin permission check in development environment
-    if std::env::var("RUST_ENV").unwrap_or_default() == "development" {
+    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
         tracing::info!("Development mode: Bypassing Casbin permission check for user {} on {}/{}", user_id, resource, action);
         return Ok(());
     }
@@ -1076,7 +1077,7 @@ async fn verify_admin_permissions(
 /// Supports both Authorization header and session-based authentication
 fn extract_user_id_from_context() -> Result<String, StatusCode> {
     // Development mode: Allow admin access for testing
-    if std::env::var("RUST_ENV").unwrap_or_default() == "development" {
+    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
         tracing::info!("Development mode: Using default admin user ID for jesadakorn.kirtnu@gmail.com");
         return Ok("jesadakorn.kirtnu@gmail.com".to_string());
     }

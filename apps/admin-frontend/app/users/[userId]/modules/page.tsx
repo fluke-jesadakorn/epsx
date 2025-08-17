@@ -7,7 +7,7 @@
 import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserModulesContent } from '@/components/users/UserModulesContent'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/server-auth'
 
 interface UserModulesPageProps {
   params: Promise<{ userId: string }>

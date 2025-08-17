@@ -9,6 +9,17 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Helper to get environment config
+function getEnvConfig() {
+  return {
+    NODE_ENV: process.env.NODE_ENV,
+    isProduction: () => process.env.NODE_ENV === 'production',
+    isDevelopment: () => process.env.NODE_ENV === 'development'
+  };
+}
+
+const env = getEnvConfig();
+
 class DeploymentSafety {
   constructor() {
     this.projectRoot = process.cwd();

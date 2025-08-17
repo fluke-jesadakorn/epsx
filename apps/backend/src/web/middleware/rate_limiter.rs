@@ -198,7 +198,7 @@ impl UnifiedRateLimiter {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(HashMap::new())),
-            config: Arc::new(Config::from_env()),
+            config: Arc::new(Config::from_env().expect("Failed to load config")),
         }
     }
     

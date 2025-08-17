@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use crate::config::env::get_env_var;
 
 use crate::infra::firebase_admin::{FirebaseAdmin, FirebaseUser};
 use crate::dom::services::{DatabaseRoleService, DatabaseRoleServiceTrait, AdminModuleService};
@@ -157,8 +158,8 @@ impl FirebaseUserService {
         }
         
         // Development fallback: For specific test users (support both email and Firebase UID)
-        let test_admin_email = std::env::var("TEST_ADMIN_EMAIL").unwrap_or_default();
-        let test_admin_uid = std::env::var("TEST_ADMIN_UID").unwrap_or_default();
+        let test_admin_email = get_env_var("TEST_ADMIN_EMAIL").unwrap_or_default();
+        let test_admin_uid = get_env_var("TEST_ADMIN_UID").unwrap_or_default();
         
         if (!test_admin_email.is_empty() && firebase_uid == test_admin_email) ||
            (!test_admin_uid.is_empty() && firebase_uid == test_admin_uid) {

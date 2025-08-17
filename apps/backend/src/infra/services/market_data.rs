@@ -4,6 +4,7 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use std::collections::HashMap;
+use crate::config::env::get_env_var;
 
 use crate::app::ports::services::{StockDataSvc, StockServiceError, StockPrice, MarketStatus, SymbolInfo};
 use crate::dom::values::Symbol;
@@ -108,7 +109,7 @@ impl AlphaVantageService {
     }
 
     pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let api_key = std::env::var("ALPHA_VANTAGE_API_KEY")
+        let api_key = get_env_var("ALPHA_VANTAGE_API_KEY")
             .map_err(|_| "ALPHA_VANTAGE_API_KEY environment variable not set")?;
 
         let config = MarketDataConfig {

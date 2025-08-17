@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use crate::config::env::get_env_var;
 
 #[derive(Debug, Deserialize)]
 pub struct SettingsQuery {
@@ -72,7 +73,7 @@ pub async fn update_system_config_handler(
 /// Get environment configuration
 pub async fn get_environment_config_handler() -> Result<Json<EnvironmentConfig>, StatusCode> {
     let config = EnvironmentConfig {
-        environment: std::env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()),
+        environment: get_env_var("RUST_ENV").unwrap_or_else(|_| "development".to_string()),
         debug_mode: true,
         log_level: "info".to_string(),
         database_pool_size: 10,

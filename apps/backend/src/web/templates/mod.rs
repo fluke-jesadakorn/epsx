@@ -3,6 +3,7 @@
 use askama::Template;
 use serde::{Deserialize, Serialize};
 use base64::Engine;
+use crate::config::env::get_env_var;
 
 /// Template for standard user login
 #[derive(Template)]
@@ -29,6 +30,33 @@ pub struct AdminLoginTemplate {
     pub code_challenge: Option<String>,
     pub code_challenge_method: Option<String>,
 }
+
+// TODO: Implement registration templates once HTML files are created
+// /// Template for user registration
+// #[derive(Template)]
+// #[template(path = "register.html")]
+// pub struct RegistrationTemplate {
+//     pub client_id: String,
+//     pub redirect_uri: String,
+//     pub state: String,
+//     pub scope: String,
+//     pub error: String,
+//     pub code_challenge: Option<String>,
+//     pub code_challenge_method: Option<String>,
+// }
+
+// /// Template for admin user registration
+// #[derive(Template)]
+// #[template(path = "admin_register.html")]
+// pub struct AdminRegistrationTemplate {
+//     pub client_id: String,
+//     pub redirect_uri: String,
+//     pub state: String,
+//     pub scope: String,
+//     pub error: String,
+//     pub code_challenge: Option<String>,
+//     pub code_challenge_method: Option<String>,
+// }
 
 /// Template for authentication errors
 #[derive(Template)]
@@ -75,17 +103,17 @@ impl FirebaseConfig {
     /// Create Firebase config from environment variables
     pub fn from_env() -> Self {
         Self {
-            api_key: std::env::var("FIREBASE_API_KEY")
+            api_key: get_env_var("FIREBASE_API_KEY")
                 .unwrap_or_else(|_| "AIzaSyDtGcR8wF9f2M3VqQ7sN1xK9yP5tE8rU2wX".to_string()),
-            auth_domain: std::env::var("FIREBASE_AUTH_DOMAIN")
+            auth_domain: get_env_var("FIREBASE_AUTH_DOMAIN")
                 .unwrap_or_else(|_| "epsx-project.firebaseapp.com".to_string()),
-            project_id: std::env::var("FIREBASE_PROJECT_ID")
+            project_id: get_env_var("FIREBASE_PROJECT_ID")
                 .unwrap_or_else(|_| "epsx-project".to_string()),
-            storage_bucket: std::env::var("FIREBASE_STORAGE_BUCKET")
+            storage_bucket: get_env_var("FIREBASE_STORAGE_BUCKET")
                 .unwrap_or_else(|_| "epsx-project.appspot.com".to_string()),
-            messaging_sender_id: std::env::var("FIREBASE_MESSAGING_SENDER_ID")
+            messaging_sender_id: get_env_var("FIREBASE_MESSAGING_SENDER_ID")
                 .unwrap_or_else(|_| "123456789012".to_string()),
-            app_id: std::env::var("FIREBASE_APP_ID")
+            app_id: get_env_var("FIREBASE_APP_ID")
                 .unwrap_or_else(|_| "1:123456789012:web:abcdef123456789012345".to_string()),
         }
     }
@@ -197,6 +225,49 @@ impl TemplateFactory {
         }
     }
 
+    // TODO: Implement registration template methods once HTML files are created
+    // /// Create user registration template with PKCE parameters
+    // pub fn create_registration_template_with_pkce(
+    //     client_id: String,
+    //     redirect_uri: String,
+    //     state: String,
+    //     scope: String,
+    //     code_challenge: Option<String>,
+    //     code_challenge_method: Option<String>,
+    //     error: String,
+    // ) -> RegistrationTemplate {
+    //     RegistrationTemplate {
+    //         client_id,
+    //         redirect_uri,
+    //         state,
+    //         scope,
+    //         error,
+    //         code_challenge,
+    //         code_challenge_method,
+    //     }
+    // }
+
+    // /// Create admin user registration template with PKCE parameters
+    // pub fn create_admin_registration_template_with_pkce(
+    //     client_id: String,
+    //     redirect_uri: String,
+    //     state: String,
+    //     scope: String,
+    //     code_challenge: Option<String>,
+    //     code_challenge_method: Option<String>,
+    //     error: String,
+    // ) -> AdminRegistrationTemplate {
+    //     AdminRegistrationTemplate {
+    //         client_id,
+    //         redirect_uri,
+    //         state,
+    //         scope,
+    //         error,
+    //         code_challenge,
+    //         code_challenge_method,
+    //     }
+    // }
+
     /// Create error template
     pub fn create_error_template(
         error_message: String,
@@ -230,7 +301,7 @@ impl TemplateFactory {
         tenant_hint: Option<String>,
     ) -> FirebaseAuthTemplate {
         let firebase_config = FirebaseConfig::from_env();
-        let domain_hint = std::env::var("FIREBASE_DOMAIN_HINT")
+        let domain_hint = get_env_var("FIREBASE_DOMAIN_HINT")
             .unwrap_or_else(|_| "epsx.com".to_string());
             
         FirebaseAuthTemplate {

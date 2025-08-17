@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
 use chrono::DateTime;
+use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
 use crate::dom::values::{UserId, Email, Role};
@@ -49,12 +50,12 @@ pub struct OIDCProviderConfig {
 impl Default for OIDCProviderConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: std::env::var("NEXTAUTH_SECRET")
-                .or_else(|_| std::env::var("AUTH_SECRET"))
+            jwt_secret: get_env_var("NEXTAUTH_SECRET")
+                .or_else(|_| get_env_var("AUTH_SECRET"))
                 .unwrap_or_else(|_| "default-secret".to_string()),
-            issuer_url: std::env::var("BACKEND_URL")
+            issuer_url: get_env_var("BACKEND_URL")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string()),
-            expected_audience: std::env::var("OIDC_CLIENT_ID")
+            expected_audience: get_env_var("OIDC_CLIENT_ID")
                 .unwrap_or_else(|_| "frontend-client".to_string()),
             algorithm: Algorithm::HS256, // Using symmetric key for simplicity
         }

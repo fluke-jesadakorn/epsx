@@ -1,4 +1,4 @@
-use std::env;
+use epsx::config::env::get_env_var;
 use sqlx::PgPool;
 use tracing::{info, warn, error};
 
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("🧹 Starting user data cleanup utility");
     
     // Get database URL from environment
-    let database_url = env::var("DATABASE_URL")
+    let database_url = get_env_var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
     
     // Connect to database

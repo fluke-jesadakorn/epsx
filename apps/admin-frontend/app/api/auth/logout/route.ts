@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createCookieManager } from '@epsx/auth-shared';
+import { env } from '../../../config/env';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Call backend OAuth logout endpoint to properly revoke tokens (if token exists)
     if (accessToken) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
         const logoutResponse = await fetch(`${backendUrl}/oauth/logout`, {
           method: 'POST',
           headers: {
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
     // Call backend OAuth logout endpoint to revoke tokens (if token exists)
     if (accessToken) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
         await fetch(`${backendUrl}/oauth/logout`, {
           method: 'POST',
           headers: {

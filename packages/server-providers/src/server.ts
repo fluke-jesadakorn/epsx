@@ -1,1 +1,0 @@
-export { getPermissionData } from './ServerPermissionProvider';
