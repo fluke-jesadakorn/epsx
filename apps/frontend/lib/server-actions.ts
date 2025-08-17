@@ -21,23 +21,24 @@ export interface FeatureAccess {
 /**
  * Get current authenticated user from session
  */
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(params?: any): Promise<{ success: boolean; data?: User; error?: string } | User | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
     
     if (!token) {
-      return null;
+      // Return null for backward compatibility, or success format if params provided
+      return params ? { success: false, error: 'No authentication token found' } : null;
     }
 
     const secret = process.env.JWT_SECRET || 'default-secret';
     const payload = await verifyJWT(token, secret);
     
     if (!payload) {
-      return null;
+      return params ? { success: false, error: 'Invalid authentication token' } : null;
     }
 
-    return {
+    const user: User = {
       id: payload.uid,
       uid: payload.uid,
       email: payload.email,
@@ -45,9 +46,12 @@ export async function getCurrentUser(): Promise<User | null> {
       role: payload.role,
       name: payload.email?.split('@')[0], // Fallback name from email
     };
+
+    // Return success format if params provided, otherwise just the user
+    return params ? { success: true, data: user } : user;
   } catch (error) {
     console.error('Failed to get current user:', error);
-    return null;
+    return params ? { success: false, error: error instanceof Error ? error.message : 'Unknown error' } : null;
   }
 }
 

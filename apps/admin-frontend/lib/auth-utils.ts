@@ -9,6 +9,19 @@ export interface JWTUser {
   exp?: number;
 }
 
+export interface EPSXJWTPayload extends JWTPayload {
+  sub: string;
+  email: string;
+  name: string;
+  role: string;
+  permissions: string[];
+  package_tier: string;
+  firebase_uid: string;
+  admin_modules?: string[];
+  iat: number;
+  exp: number;
+}
+
 /**
  * Check if JWT token is expired
  */
@@ -38,10 +51,11 @@ export function getJWTTimeToExpiry(token: string): number {
 /**
  * Verify JWT token with secret
  */
-export async function verifyJWT(token: string, secret: string): Promise<JWTUser | null> {
+export async function verifyJWT(token: string, secret?: string): Promise<EPSXJWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
-    return payload as JWTUser;
+    const jwtSecret = secret || process.env.JWT_SECRET || 'your-default-secret-key';
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
+    return payload as EPSXJWTPayload;
   } catch {
     return null;
   }
@@ -50,13 +64,44 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTUser 
 /**
  * Sign JWT token with payload
  */
-export async function signJWT(payload: JWTPayload, secret: string, expiresIn = '7d'): Promise<string> {
+export async function signJWT(payload: EPSXJWTPayload, secret?: string, expiresIn = '24h'): Promise<string> {
+  const jwtSecret = secret || process.env.JWT_SECRET || 'your-default-secret-key';
   const jwt = new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(expiresIn);
   
-  return await jwt.sign(new TextEncoder().encode(secret));
+  return await jwt.sign(new TextEncoder().encode(jwtSecret));
+}
+
+/**
+ * Create JWT claims for EPSX user
+ */
+export function createJWTClaims(user: {
+  id: string;
+  email: string;
+  name: string;
+  role?: string;
+  permissions?: string[];
+  package_tier?: string;
+  firebase_uid?: string;
+  admin_modules?: string[];
+}): EPSXJWTPayload {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + (24 * 60 * 60); // 24 hours from now
+  
+  return {
+    sub: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role || 'user',
+    permissions: user.permissions || ['user:read'],
+    package_tier: user.package_tier || 'FREE',
+    firebase_uid: user.firebase_uid || user.id,
+    admin_modules: user.admin_modules || [],
+    iat: now,
+    exp: exp,
+  };
 }
 
 /**

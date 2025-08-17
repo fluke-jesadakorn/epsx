@@ -3,28 +3,9 @@
  * Handles OAuth authorization callback and creates user session
  */
 import { NextRequest, NextResponse } from 'next/server';
-// Removed legacy imports - using simplified OAuth flow
-import { signJWT, createJWTClaims } from '@/lib/auth/jwt-utils';
-import { createCookieManager } from '@/lib/auth/cookie-manager';
+import { signJWT, createJWTClaims } from '@/lib/auth-utils';
+import { getUserInfo } from '@/lib/server/auth';
 import { cookies } from 'next/headers';
-import { env } from '../../../../config/env';
-
-// Simple userinfo fetcher for our simplified OAuth flow
-async function fetchUserInfo(accessToken: string) {
-  const apiUrl = env.NEXT_PUBLIC_API_URL || env.getBackendUrl();
-  const response = await fetch(`${apiUrl}/oauth/userinfo`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText}`);
-  }
-
-  return await response.json();
-}
 
 export async function GET(request: NextRequest) {
   // FIRST: Log that route is called
@@ -112,16 +93,15 @@ export async function GET(request: NextRequest) {
       console.log('🔍 Skipping state validation (no stored state available)');
     }
 
-    console.log('🔄 Using authorization code as access token (simplified flow)');
+    console.log('🔄 Admin: Backend simplified flow - code IS the access token');
 
-    // In our simplified implementation, the authorization code IS the access token
+    // In the simplified backend flow, the 'code' parameter is actually the access token
     const accessToken = code;
-
-    console.log('✅ Using code as access token for simplified flow');
+    console.log('✅ Admin: Using authorization code as access token (simplified flow)');
 
     // Get user information from userinfo endpoint
-    console.log('🔄 Fetching user information from EPSX backend');
-    const userinfo = await fetchUserInfo(accessToken);
+    console.log('🔄 Admin: Fetching user information from EPSX backend');
+    const userinfo = await getUserInfo(accessToken);
 
     console.log('✅ Successfully received user info from EPSX backend:', {
       email: userinfo.email,
@@ -167,24 +147,16 @@ export async function GET(request: NextRequest) {
       console.log('✅ Cleaned oauth_callback_url cookie');
     }
     
-    // Set JWT cookie using new cookie manager (AFTER cleanup)
+    // Set JWT cookie (AFTER cleanup)
     console.log('🔧 Admin: Setting JWT cookie for redirect...');
-    console.log('🔧 JWT token length:', jwtToken.length);
-    try {
-      // Use shared cookie manager for cross-application authentication
-      const cookieManager = createCookieManager('shared');
-      console.log('🔧 Cookie manager created for shared cross-app auth');
-      cookieManager.setAccessTokenCookie(response, jwtToken);
-      console.log('✅ Shared JWT cookie set successfully');
-      
-      // Check if Set-Cookie header was added
-      const setCookieHeader = response.headers.get('Set-Cookie');
-      console.log('🔧 Set-Cookie header:', setCookieHeader);
-    } catch (sessionError) {
-      console.error('❌ JWT cookie error:', sessionError);
-      console.error('❌ Error details:', sessionError.stack);
-      throw sessionError;
-    }
+    response.cookies.set('epsx_admin_jwt', jwtToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours
+      path: '/'
+    });
+    console.log('✅ Admin JWT cookie set successfully');
     
     console.log('✅ Callback completed successfully, redirecting with clean cookies');
     console.log('🚨 CALLBACK ROUTE CALLED - END');

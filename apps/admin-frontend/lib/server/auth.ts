@@ -1,175 +1,114 @@
 /**
- * Enhanced Server-Side Authentication for Admin Frontend
- * Uses JWT-based authentication with admin-specific functions
+ * Server-side OAuth utilities for admin-frontend
  */
-import { redirect } from 'next/navigation';
-import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
-import { hasAdminModuleInJWT, hasPermissionInJWT, type EPSXJWTPayload } from '@epsx/auth-shared';
 
 /**
- * Get authenticated admin user from JWT cookies
+ * Generate PKCE code verifier
  */
-export async function getAuthUser(): Promise<EPSXJWTPayload | null> {
-  try {
-    return await verifyJWTFromCookies();
-  } catch (error) {
-    console.error('❌ Failed to get authenticated admin user:', error);
-    return null;
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
+}
+
+/**
+ * Generate PKCE code challenge
+ */
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(new Uint8Array(digest));
+}
+
+/**
+ * Generate random string
+ */
+function generateRandomString(length: number): string {
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
+}
+
+/**
+ * Base64 URL encode
+ */
+function base64URLEncode(array: Uint8Array): string {
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * Generate authorization URL with PKCE parameters
+ */
+export async function getAuthorizationUrl() {
+  console.log('🔄 Admin: Generating PKCE parameters for OAuth authorization...');
+  
+  // Generate PKCE parameters (server-side only)
+  const codeVerifier = generateCodeVerifier();
+  console.log('✅ Admin: Code verifier generated successfully');
+  
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  console.log('✅ Admin: Code challenge generated successfully');
+  
+  const state = generateRandomString(32);
+  console.log('✅ Admin: State parameter generated successfully');
+  
+  // Build authorization URL
+  const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`;
+  const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin-frontend';
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`;
+  
+  console.log('🔧 Admin: OAuth configuration:', {
+    authorizationEndpoint,
+    clientId,
+    redirectUri,
+    scope: 'openid profile email admin_modules'
+  });
+  
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: 'openid profile email admin_modules',
+    state: state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+  });
+  
+  const url = `${authorizationEndpoint}?${params.toString()}`;
+  console.log('✅ Admin: Authorization URL generated successfully:', url);
+  
+  return {
+    url,
+    codeVerifier,
+    state,
+  };
+}
+
+/**
+ * Fetch user info from OAuth userinfo endpoint
+ */
+export async function getUserInfo(accessToken: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  
+  console.log('🔄 Admin: Fetching user info from backend userinfo endpoint');
+  const response = await fetch(`${apiUrl}/oauth/userinfo`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
+    throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
-}
 
-/**
- * Require authentication - redirect to login if not authenticated
- */
-export async function requireAuth(redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await getAuthUser();
-  
-  if (!user) {
-    const loginUrl = `/login${redirectPath ? `?callbackUrl=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(loginUrl);
-  }
-  
-  return user;
-}
-
-/**
- * Check if user has specific admin module
- */
-export async function hasAdminModule(module: string): Promise<boolean> {
-  try {
-    const user = await getAuthUser();
-    if (!user) return false;
-    
-    return user.admin_modules.includes(module) || user.admin_modules.includes('system_admin');
-  } catch (error) {
-    console.error('❌ Failed to check admin module:', error);
-    return false;
-  }
-}
-
-/**
- * Require specific admin module - redirect to access denied if not found
- */
-export async function requireAdminModule(module: string, redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const hasRequiredModule = user.admin_modules.includes(module) || user.admin_modules.includes('system_admin');
-  
-  if (!hasRequiredModule) {
-    const accessDeniedUrl = `/access-denied?module=${encodeURIComponent(module)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-  
-  return user;
-}
-
-/**
- * Check if user has specific permission
- */
-export async function hasPermission(permission: string): Promise<boolean> {
-  try {
-    const user = await getAuthUser();
-    if (!user) return false;
-    
-    return user.permissions.includes(permission) || user.permissions.includes('*');
-  } catch (error) {
-    console.error('❌ Failed to check permission:', error);
-    return false;
-  }
-}
-
-/**
- * Require specific permission - redirect to access denied if not found
- */
-export async function requirePermission(permission: string, redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const hasRequiredPermission = user.permissions.includes(permission) || user.permissions.includes('*');
-  
-  if (!hasRequiredPermission) {
-    const accessDeniedUrl = `/access-denied?permission=${encodeURIComponent(permission)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-  
-  return user;
-}
-
-/**
- * Check if user is system admin
- */
-export async function isSystemAdmin(): Promise<boolean> {
-  try {
-    const user = await getAuthUser();
-    if (!user) return false;
-    
-    return user.admin_modules.includes('system_admin') || user.role === 'super_admin';
-  } catch (error) {
-    console.error('❌ Failed to check system admin:', error);
-    return false;
-  }
-}
-
-/**
- * Require system admin access
- */
-export async function requireSystemAdmin(redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const isSystemAdminUser = user.admin_modules.includes('system_admin') || user.role === 'super_admin';
-  
-  if (!isSystemAdminUser) {
-    const accessDeniedUrl = `/access-denied?reason=system_admin_required${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-  
-  return user;
-}
-
-/**
- * Check if user can manage users
- */
-export async function canManageUsers(): Promise<boolean> {
-  return await hasAdminModule('user_operations') || await hasAdminModule('user_management');
-}
-
-/**
- * Require user management permissions
- */
-export async function requireUserManagement(redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const canManage = user.admin_modules.includes('user_operations') || 
-                   user.admin_modules.includes('user_management') ||
-                   user.admin_modules.includes('system_admin');
-  
-  if (!canManage) {
-    const accessDeniedUrl = `/access-denied?reason=user_management_required${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-  
-  return user;
-}
-
-/**
- * Check if user can access analytics
- */
-export async function canAccessAnalytics(): Promise<boolean> {
-  return await hasAdminModule('analytics_specialist') || await hasAdminModule('system_admin');
-}
-
-/**
- * Require analytics access
- */
-export async function requireAnalytics(redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const canAccess = user.admin_modules.includes('analytics_specialist') ||
-                   user.admin_modules.includes('system_admin');
-  
-  if (!canAccess) {
-    const accessDeniedUrl = `/access-denied?reason=analytics_required${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-  
-  return user;
+  const userinfo = await response.json();
+  console.log('✅ Admin: Successfully received user info');
+  return userinfo;
 }

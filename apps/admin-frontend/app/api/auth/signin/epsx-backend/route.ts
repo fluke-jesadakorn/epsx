@@ -4,7 +4,6 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizationUrl } from '@/lib/server/auth';
-import { env } from '../../../../config/env';
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,12 +26,12 @@ export async function GET(request: NextRequest) {
     console.log('  - code_verifier:', codeVerifier.slice(0,10) + '...');
     console.log('  - state:', state.slice(0,10) + '...');
     console.log('  - callback_url:', callbackUrl);
-    console.log('  - NODE_ENV:', env.NODE_ENV);
-    console.log('  - secure flag:', env.isProduction());
+    console.log('  - NODE_ENV:', process.env.NODE_ENV);
+    console.log('  - secure flag:', process.env.NODE_ENV === 'production');
 
     response.cookies.set('oauth_code_verifier', codeVerifier, {
       httpOnly: true,
-      secure: env.isProduction(),
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     response.cookies.set('oauth_state', state, {
       httpOnly: true,
-      secure: env.isProduction(),
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',
@@ -49,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Store callback URL for post-authentication redirect
     response.cookies.set('oauth_callback_url', callbackUrl, {
       httpOnly: true,
-      secure: env.isProduction(),
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
       path: '/',

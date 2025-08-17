@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import type { CardDashboardResponse } from '@/types/financialChartData';
 
@@ -47,10 +47,12 @@ export const useAnalyticsFilters = () => {
     error: null,
   });
 
+  const filtersRef = useRef(DEFAULT_FILTERS);
+
   const analyticsClient = useMemo(() => {
     return axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-      timeout: 10000,
+      timeout: 30000, // Increased to 30 seconds for analytics API calls
       headers: {
         'Content-Type': 'application/json',
       },
@@ -64,46 +66,72 @@ export const useAnalyticsFilters = () => {
 
   // Fetch data with current filters
   const fetchData = useCallback(async (newFilters?: Partial<AnalyticsFilters>) => {
-    const currentFilters = { ...state.filters, ...newFilters };
-    const page = currentFilters.page;
+    // Update filters ref first
+    const currentFilters = { ...filtersRef.current, ...newFilters };
+    filtersRef.current = currentFilters;
     
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    // Update state with new filters and loading state
+    setState(prev => ({ 
+      ...prev, 
+      filters: currentFilters,
+      loading: true, 
+      error: null 
+    }));
 
     try {
-      const response = await analyticsClient.get('/api/v1/analytics/rankings', {
-        params: {
-          page,
-          limit: currentFilters.limit,
-          country: currentFilters.country,
-          sector: currentFilters.sector,
-          sort_by: currentFilters.sort_by,
-          min_eps: currentFilters.min_eps,
-          min_growth: currentFilters.min_growth,
-        }
+      const page = currentFilters.page;
+      
+      // Use Next.js API route as proxy to avoid CORS issues
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: currentFilters.limit.toString(),
+        sort_by: currentFilters.sort_by,
+        ...(currentFilters.country && { country: currentFilters.country }),
+        ...(currentFilters.sector && { sector: currentFilters.sector }),
+        ...(currentFilters.min_eps && { min_eps: currentFilters.min_eps.toString() }),
+        ...(currentFilters.min_growth && { min_growth: currentFilters.min_growth.toString() }),
       });
 
-      if (response.data) {
+      const url = `/api/analytics/rankings?${params.toString()}`;
+      console.log('🔄 Fetching analytics data from:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Analytics data received:', data);
+
+      if (data.success) {
         setState(prev => ({
           ...prev,
-          filters: currentFilters,
-          data: response.data,
+          data: data,
           options: {
-            countries: ['All Countries', ...response.data.metadata.available_countries],
-            sectors: ['All Sectors', ...(response.data.metadata.available_sectors || [])],
+            countries: ['All Countries', ...data.metadata.available_countries],
+            sectors: ['All Sectors', ...(data.metadata.available_sectors || [])],
           },
           loading: false,
         }));
       } else {
-        throw new Error(response.error || 'Failed to fetch analytics data');
+        throw new Error(data.error || 'Failed to fetch analytics data');
       }
     } catch (error) {
+      console.error('❌ Analytics API error:', error);
       setState(prev => ({
         ...prev,
         loading: false,
         error: error instanceof Error ? error.message : String(error),
       }));
     }
-  }, [analyticsClient]);
+  }, []); // No dependencies to avoid infinite loops
 
   // Update specific filter
   const updateFilter = useCallback(
@@ -220,7 +248,7 @@ export const useAnalyticsFilters = () => {
   // Initialize data on first load
   useEffect(() => {
     fetchData();
-  }, []);
+  }, []); // Empty dependency array to run only once on mount
 
   return {
     // State

@@ -58,16 +58,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    console.log('🔄 Frontend: Exchanging authorization code for tokens with EPSX backend');
+    console.log('🔄 Frontend: Backend simplified flow - code IS the access token');
 
-    // Exchange authorization code for tokens
-    const { accessToken, idToken, refreshToken } = await exchangeCodeForTokens(
-      code,
-      storedCodeVerifier,
-      state
-    );
-
-    console.log('✅ Frontend: Successfully received tokens from EPSX backend');
+    // In the simplified backend flow, the 'code' parameter is actually the access token
+    const accessToken = code;
+    console.log('✅ Frontend: Using authorization code as access token (simplified flow)');
 
     // Get user information from userinfo endpoint
     console.log('🔄 Frontend: Fetching user information from EPSX backend');
