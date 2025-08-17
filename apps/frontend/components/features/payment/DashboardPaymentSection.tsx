@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import PaymentWidget from '@/components/features/payment/PaymentWidget';
 import QuickPayButton from '@/components/features/payment/QuickPayButton';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui';
 
 interface DashboardPaymentSectionProps {
   currentPlan?: string;

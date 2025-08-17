@@ -4,8 +4,8 @@ import React, { createContext, useContext, useCallback, useEffect, useMemo, useR
 import { useAppState } from './app-state';
 import { TradingState as _TradingState, StockItem, PortfolioItem, StockRanking, PriceAlert } from '@/lib/state/types';
 import { useOptimisticUpdates, withAsyncState as _withAsyncState } from '@/lib/state/core';
-import { createApiClient, isApiError   } from '@epsx/api-client';
-import type {WatchlistAddRequest as _WatchlistAddRequest, PriceAlertCreateRequest} from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
+import type {WatchlistAddRequest as _WatchlistAddRequest, PriceAlertCreateRequest} from '@/lib/api-client';
 
 interface TradingContextType {
   // Data

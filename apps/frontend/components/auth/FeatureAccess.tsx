@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { checkFeatureAccess } from '@epsx/server-actions';
+import { checkFeatureAccess } from '@/lib/server-actions';
 import { AccessDenied } from './AccessDenied';
 
 interface FeatureAccessProps {

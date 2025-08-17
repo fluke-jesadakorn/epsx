@@ -1,6 +1,6 @@
 'use client';
 
-import { Card } from '@epsx/ui';
+import { Card } from '@/components/ui';
 
 export default function PrivacyPage() {
   return (
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
               <ul className="list-disc pl-6 text-gray-300 space-y-2">
                 <li>
                   Basic profile information from Google Sign-in (name and email)
-import { Card } from '@epsx/ui';
+import { Card } from '@/components/ui';
                 </li>
                 <li>Account preferences and settings</li>
                 <li>Usage data and analytics</li>

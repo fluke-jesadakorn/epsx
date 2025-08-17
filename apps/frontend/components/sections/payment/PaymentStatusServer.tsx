@@ -1,8 +1,8 @@
 import { 
   getPaymentStatus as _getPaymentStatusAction,
   getTransactionHistory
-} from '@epsx/server-actions';
-import type { PaymentTransaction as PaymentTx } from '@epsx/server-actions';
+} from '@/lib/server-actions';
+import type { PaymentTransaction as PaymentTx } from '@/lib/server-actions';
 import { PaymentStatusSection } from './PaymentStatusSection';
 
 // Transaction interface that matches what TransactionHistory expects

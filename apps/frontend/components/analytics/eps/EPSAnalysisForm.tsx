@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { LoadingButton } from '@/components/ui/loading-button';
 import { TrendingUp, Calendar, Target, Zap } from 'lucide-react';
-import { Input, Label, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@epsx/ui';
+import { Input, Label, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@/components/ui';
 
 interface EPSAnalysisFormProps {
   onSubmit: (symbol: string, parameters: AnalysisParameters) => void;

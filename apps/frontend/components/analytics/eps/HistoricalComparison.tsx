@@ -13,7 +13,7 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Calendar, TrendingUp, BarChart3 } from 'lucide-react';
-import { Card, CardContent, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Card, CardContent, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 
 interface HistoricalComparisonProps {
   data: any[];

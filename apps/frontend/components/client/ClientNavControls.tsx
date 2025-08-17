@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 // Note: This component will be replaced by server-only auth flow
 import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
-import { Button, Badge } from '@epsx/ui';
+import { Button, Badge } from '@/components/ui';
 
 interface ClientNavControlsProps {
   user: { email: string; displayName: string } | null;

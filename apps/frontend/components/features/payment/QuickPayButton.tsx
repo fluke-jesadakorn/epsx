@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Zap, CreditCard, Wallet, ArrowRight, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardContent, Badge } from '@epsx/ui';
+import { Button, Card, CardContent, Badge } from '@/components/ui';
 
 interface QuickPayButtonProps {
   packageId: string;

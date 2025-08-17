@@ -23,13 +23,13 @@ import {
   Ban
 } from 'lucide-react';
 
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Input } from '@epsx/ui';
 import { Label } from '@epsx/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';

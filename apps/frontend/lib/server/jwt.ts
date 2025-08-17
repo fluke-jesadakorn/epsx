@@ -3,7 +3,7 @@
  * Uses jose library for JWT verification and cookie management
  */
 import { cookies } from 'next/headers';
-import { verifyJWT, type EPSXJWTPayload } from '@epsx/auth-shared';
+import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
 
 /**
  * Get JWT token from httpOnly cookies

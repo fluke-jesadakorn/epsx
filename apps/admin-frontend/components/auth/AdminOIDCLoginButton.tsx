@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Shield, ExternalLink, Loader2, Lock, Eye, UserCheck } from 'lucide-react';
 
 interface AdminOIDCLoginButtonProps {

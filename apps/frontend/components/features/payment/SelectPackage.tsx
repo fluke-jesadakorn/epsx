@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { PACKAGES } from '@/app/constants/packages';
 import { Check, ArrowRight, Star, CreditCard, Wallet } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 
 interface SelectPackageProps {
   amount: string;

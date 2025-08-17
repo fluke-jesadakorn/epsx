@@ -1,7 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
-import { isJWTExpired, getJWTTimeToExpiry } from '@epsx/auth-shared'
+import { isJWTExpired, getJWTTimeToExpiry } from '@/lib/auth-utils';
 
 export interface User {
   id: string

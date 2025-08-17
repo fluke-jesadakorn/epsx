@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, Home, LogOut } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 
 export interface ErrorDisplayProps {
   error: string | Error | null;

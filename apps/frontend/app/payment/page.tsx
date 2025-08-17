@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@epsx/server-actions';
+import { getCurrentUser } from '@/lib/server-actions';
 import { redirect } from 'next/navigation';
 import { PaymentPageClient } from './PaymentPageClient';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';

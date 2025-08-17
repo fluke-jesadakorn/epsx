@@ -20,6 +20,16 @@ export async function resetPassword(token: string, password: string) {
   return { success: false, error: 'Password reset not implemented yet' };
 }
 
+export async function requestPasswordResetAction(email: string) {
+  // TODO: Implement password reset request
+  return { success: true, message: 'Password reset email sent (placeholder)' };
+}
+
+export async function resetPasswordAction(token: string, password: string) {
+  // TODO: Implement password reset with token
+  return { success: false, error: 'Password reset not implemented yet' };
+}
+
 export async function requireGuest() {
   // TODO: Implement guest requirement check
   // This function should redirect authenticated users

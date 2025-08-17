@@ -20,7 +20,9 @@ import { Pagination } from './Pagination';
 import { ActiveFilterIndicators } from './ActiveFilterIndicators';
 import { formatPrice, formatDate } from '@/utils/fmt';
 import { useToast } from '@/components/ui/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface AuthUser {
   user_id: string;

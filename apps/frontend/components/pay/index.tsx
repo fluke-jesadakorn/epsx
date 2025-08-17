@@ -6,7 +6,7 @@ import { Methods } from './Methods';
 import { Total } from './Total';
 import { QR } from './QR';
 import { Done } from './Done';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 
 const apiClient = createApiClient('/api');
 

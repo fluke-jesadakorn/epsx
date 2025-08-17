@@ -1,5 +1,5 @@
 // Updated to use the refactored API client packages
-import { apiClient } from '@epsx/api-client';
+import { apiClient } from '@/lib/api-client';
 
 // Server actions for server-side operations
 import {
@@ -31,7 +31,7 @@ import {
   _checkPermission,
   checkFeatureAccess,
   checkRankingAccess
-} from '@epsx/server-actions';
+} from '@/lib/server-actions';
 
 // Legacy wrapper class for backward compatibility
 class ApiService {

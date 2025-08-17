@@ -1,6 +1,6 @@
 'use server';
 
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 
 const getClient = () => createApiClient();
 

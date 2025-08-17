@@ -23,7 +23,7 @@ import {
   Play,
   Pause
 } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Input } from '@epsx/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@epsx/ui';
@@ -31,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/form-components';
 import {

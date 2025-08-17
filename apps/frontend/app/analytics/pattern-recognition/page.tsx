@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button } from '@epsx/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button } from '@/components/ui';
 
 export default function PatternRecognitionPage() {
   return (

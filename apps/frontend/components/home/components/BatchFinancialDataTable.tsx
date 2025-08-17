@@ -8,7 +8,7 @@ import {
   FinancialDataHeader,
 } from './LayoutComponents';
 import type { StockFinancialData } from '@/types/financialChartData';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface BatchFinancialDataTableProps {
   style?: React.CSSProperties;

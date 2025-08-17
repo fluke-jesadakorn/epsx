@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { PublicRankingPreviewClient } from './PublicRankingPreview.client';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 
 interface PublicRankingPreviewServerProps {
   className?: string;

@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { AnalyticsFilters } from '@/hooks/useAnalyticsFilters';
-import { Badge, Button, Card, CardContent } from '@epsx/ui';
+import { Badge, Button, Card, CardContent } from '@/components/ui';
 
 interface ActiveFilterIndicatorsProps {
   filters: AnalyticsFilters;

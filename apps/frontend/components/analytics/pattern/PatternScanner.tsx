@@ -12,7 +12,7 @@ import {
   Clock,
   Activity
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Label } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Label } from '@/components/ui';
 
 interface PatternScannerProps {
   isScanning: boolean;

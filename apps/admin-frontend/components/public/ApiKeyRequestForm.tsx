@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 import { toast } from 'react-hot-toast';
 import { Send, CheckCircle, Building, Mail, Globe, Code } from 'lucide-react';

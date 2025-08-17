@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { SkeletonLoader } from "@/components/common/Skeleton";
-import { Button, Card, Form, FormControl, FormField, FormItem, FormMessage, InputWithIcon } from "@epsx/ui";
+import { Button, Card, Form, FormControl, FormField, FormItem, FormMessage, InputWithIcon } from "@/components/ui";
 import { Send } from "lucide-react";
 
 const formSchema = z.object({

@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getSessionFromJWT } from '@/lib/server/jwt';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import { redirect } from 'next/navigation';
 
@@ -6,10 +6,10 @@ import { redirect } from 'next/navigation';
 export const revalidate = 60;
 
 export default async function DashboardPage() {
-  // Get session data server-side using custom iron-session
-  const session = await getSession();
+  // Get session data server-side using JWT
+  const session = await getSessionFromJWT();
   
-  if (!session?.isLoggedIn || !session.user) {
+  if (!session?.isAuthenticated || !session.user) {
     redirect('/login');
   }
 

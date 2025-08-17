@@ -12,7 +12,7 @@ import {
   // Calendar - removed unused import
   BarChart3
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 
 interface ExportReportProps {
   data: any;

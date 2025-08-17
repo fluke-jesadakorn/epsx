@@ -29,7 +29,7 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { getModuleUsageAnalytics as _getModuleUsageAnalytics } from '@epsx/server-actions';
 import { fmtCurrency } from '@epsx/shared-utils/formatting';

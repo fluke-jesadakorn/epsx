@@ -9,7 +9,7 @@ import {
   Shield,
   Clock
 } from 'lucide-react';
-import { Card, CardContent, Button, Badge } from '@epsx/ui';
+import { Card, CardContent, Button, Badge } from '@/components/ui';
 
 interface PaymentWidgetProps {
   title?: string;

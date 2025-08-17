@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { PaymentStatusSection } from '@/components/sections/payment/PaymentStatusSection';
 import { SelectPackageSection } from '@/components/sections/payment/SelectPackageSection';
-import { Card, CardHeader, CardContent } from '@epsx/ui';
+import { Card, CardHeader, CardContent } from '@/components/ui';
 
 // Dynamically import a payment component for enterprise (placeholder for now)
 const EnterprisePayment = dynamic(

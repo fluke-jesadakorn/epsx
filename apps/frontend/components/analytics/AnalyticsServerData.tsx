@@ -11,7 +11,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 
 interface SystemMetrics {
   cpu_usage: number;

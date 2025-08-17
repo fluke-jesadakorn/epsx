@@ -3,7 +3,7 @@
 import { apiClient, isApiError   } from '@/lib/api-client.client';
 import type {ProfileUpdateRequest as _ProfileUpdateRequest, PasswordChangeRequest as _PasswordChangeRequest} from '@/lib/api-client.client';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Input, Label } from '@epsx/ui';
+import { Badge, Button, Input, Label } from '@/components/ui';
 
 import type { UserLevelType } from '@/app/constants/packages';
 import { canAccessLevel, getPackageByLevel } from '@/app/constants/packages';

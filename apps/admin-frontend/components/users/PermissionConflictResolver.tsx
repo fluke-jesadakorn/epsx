@@ -15,11 +15,11 @@ import {
   Filter,
   AlertCircle
 } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Input } from '@epsx/ui';
 import { Label } from '@epsx/ui';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';

@@ -1,5 +1,5 @@
 // Import base formatting utilities
-import { fmtCurrency } from '@epsx/shared-utils';
+import { fmtCurrency } from '@/lib/utils';
 
 // Specialized financial formatting utilities
 // Use shared utility with legacy naming

@@ -1,6 +1,6 @@
 import { handleSignOut } from '@/lib/actions/auth';
 import { LogOut } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 
 interface LogoutFormProps {
   className?: string;

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { realtimeClient  } from '@/lib/api-client.client';
 import type {PaymentStatusUpdate} from '@/lib/api-client.client';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Badge } from '@/components/ui';
 // PaymentRequest type moved to local types since musepay.service was removed
 interface _PaymentRequest {
   amount: number;

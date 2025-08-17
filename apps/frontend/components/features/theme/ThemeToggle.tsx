@@ -1,10 +1,10 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useTheme } from "@epsx/theme";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
-import { Button } from "@epsx/ui";
+import { Button } from "@/components/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function ThemeToggle() {

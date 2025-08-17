@@ -3,7 +3,7 @@
  * Uses JWT cookie verification with admin module checking and security headers
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJWT } from '@epsx/auth-shared';
+import { verifyJWT } from '@/lib/auth-utils';
 
 // Public routes that don't require authentication
 const publicRoutes = [

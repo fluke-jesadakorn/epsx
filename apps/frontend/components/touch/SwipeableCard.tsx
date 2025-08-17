@@ -2,7 +2,7 @@
 
 import { ReactNode, useRef, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
-import { Card } from '@epsx/ui';
+import { Card } from '@/components/ui';
 
 interface SwipeAction {
   icon: ReactNode;

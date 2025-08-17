@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader, CardContent } from '@epsx/ui';
+import { Card, CardHeader, CardContent } from '@/components/ui';
 
 
 import type { TableDataMetrics } from '@/types/stockFetchData';

@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Input } from '@epsx/ui';
 import { Label } from '@epsx/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';

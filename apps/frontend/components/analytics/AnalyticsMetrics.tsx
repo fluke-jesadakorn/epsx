@@ -10,7 +10,7 @@ import {
   Star
 } from 'lucide-react';
 import { formatLevelAsNumber } from '@/utils/env';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 
 interface AnalyticsMetricsProps {
   userLevel: string;

@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 import { env } from './config/env';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,

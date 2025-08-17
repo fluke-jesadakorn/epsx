@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@epsx/ui';
+} from '@/components/ui';
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,7 +26,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import type { AnalyticsFilters, FilterOptions } from '@/hooks/useAnalyticsFilters';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Label } from '@/components/ui';
 
 interface AdvancedFilterPanelProps {
   filters: AnalyticsFilters;

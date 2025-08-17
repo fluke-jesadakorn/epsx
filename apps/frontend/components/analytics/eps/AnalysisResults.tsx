@@ -12,7 +12,7 @@ import {
   CheckCircle,
   Info
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 
 interface AnalysisResultsProps {
   data: {

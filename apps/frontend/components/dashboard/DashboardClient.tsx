@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@epsx/ui';
+} from '@/components/ui';
 // Note: OIDC logout handled by server-side auth flow
 import {
   BarChart3,
@@ -18,7 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Badge, Button } from '@epsx/ui';
+import { Badge, Button } from '@/components/ui';
 
 interface DashboardClientProps {
   user: any;

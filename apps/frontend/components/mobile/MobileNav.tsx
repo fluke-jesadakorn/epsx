@@ -19,7 +19,7 @@ import {
   HelpCircle,
   LogOut
 } from 'lucide-react';
-import { Button, Badge } from '@epsx/ui';
+import { Button, Badge } from '@/components/ui';
 
 interface NavItem {
   label: string;

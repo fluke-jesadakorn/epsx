@@ -5,7 +5,7 @@ import {
   getStockData as _getStockData,
   preloadStocks,
   checkStockCacheStatus
-} from '@epsx/server-actions';
+} from '@/lib/server-actions';
 
 interface BatchStockData {
   [symbol: string]: StockFinancialData | null;

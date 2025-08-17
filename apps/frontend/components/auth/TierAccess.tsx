@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { getCurrentUser } from '@epsx/server-actions';
+import { getCurrentUser } from '@/lib/server-actions';
 
 interface TierAccessProps {
   requiredTier: string;

@@ -1,21 +1,19 @@
-# Stage 1: Base with optimized Node.js (Admin Frontend)
+# Stage 1: Base with optimized Node.js (Admin Frontend Standalone)
 FROM --platform=$BUILDPLATFORM node:22-alpine AS base
 
 WORKDIR /app
 
-# Install only essential packages and enable pnpm
-RUN apk add --no-cache libc6-compat dumb-init \
-    && corepack enable pnpm \
-    && corepack prepare pnpm@latest --activate
+# Install only essential packages and enable npm
+RUN apk add --no-cache libc6-compat dumb-init
 
 # Stage 2: Dependencies (maximize caching)
 FROM base AS deps
 
 # Copy package files for dependency caching
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json* ./
 
-# Production dependencies only for smaller cache
-RUN pnpm install --frozen-lockfile --production=false
+# Install dependencies
+RUN npm ci --frozen-lockfile
 
 # Stage 3: Builder (optimized build process)
 FROM base AS builder
@@ -33,7 +31,7 @@ ENV NODE_ENV=production
 ENV NEXT_PUBLIC_BUILD_MODE=production
 
 # Optimized build with standalone output
-RUN pnpm build
+RUN npm run build
 
 # Stage 4: Runtime (ultra-minimal for Cloud Run)
 FROM --platform=$TARGETPLATFORM node:22-alpine AS runner

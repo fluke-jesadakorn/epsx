@@ -3,7 +3,7 @@
  * Uses JWT cookie verification with security headers
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJWT } from '@epsx/auth-shared';
+import { verifyJWT } from '@/lib/auth-utils';
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

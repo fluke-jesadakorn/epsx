@@ -1,11 +1,13 @@
 'use client';
 
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
 import { realtimeClient  } from '@/lib/api-client.client';
 import type {PaymentStatusUpdate} from '@/lib/api-client.client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
 export default function PaymentReturnPage() {
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<
@@ -13,9 +15,9 @@ export default function PaymentReturnPage() {
   >('checking');
   const [paymentData, setPaymentData] = useState<any>(null);
   const [countdown, setCountdown] = useState(10);
+  
   useEffect(() => {
     // Load payment data from session storage
-import { Card, CardContent, Button } from '@epsx/ui';
     const storedPayment = sessionStorage.getItem('activePayment');
     if (storedPayment) {
       try {

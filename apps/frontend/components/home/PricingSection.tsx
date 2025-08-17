@@ -5,7 +5,7 @@ import React from 'react';
 import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
 import type { Package } from '@/app/constants/packages';
 import { useRouter } from 'next/navigation';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 
 interface PlanFeature {
   text: string;

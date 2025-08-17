@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { Metadata } from 'next';
 
 import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsDynamic';
-import { getCurrentUser } from '@epsx/server-actions';
+import { getCurrentUser } from '@/lib/server-actions';
 
 // Disable ISR caching for analytics - always fetch fresh data from backend
 export const revalidate = 0;

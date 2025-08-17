@@ -1,4 +1,4 @@
-import { PaymentPlan, PaymentTier } from '@epsx/types';
+import { PaymentPlan, PaymentTier } from '@/types/payment-types';
 
 // Updated Types - Aligned with admin-frontend
 export type UserLevelType =

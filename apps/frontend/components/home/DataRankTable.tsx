@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 import {
   Table,

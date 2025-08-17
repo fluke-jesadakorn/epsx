@@ -9,7 +9,7 @@ import {
   Bell, 
   User 
 } from 'lucide-react';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 
 interface NavItem {
   label: string;

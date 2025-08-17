@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJWTFromCookies } from '@/lib/server/jwt';
-import { createCookieManager } from '@epsx/auth-shared';
+// Cookie management is now handled locally
 
 export async function GET() {
   try {
@@ -56,11 +56,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const cookieManager = createCookieManager('frontend');
     const response = NextResponse.json({ success: true });
     
     // Store JWT in secure cookie
-    await cookieManager.setAccessToken(response, accessToken);
+    response.cookies.set('epsx_frontend_jwt', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours
+      path: '/'
+    });
     
     return response;
     
@@ -100,11 +105,10 @@ export async function PUT() {
 
 export async function DELETE() {
   try {
-    const cookieManager = createCookieManager('frontend');
     const response = NextResponse.json({ success: true });
     
     // Clear all auth cookies
-    cookieManager.clearAllCookies(response);
+    response.cookies.delete('epsx_frontend_jwt');
     
     return response;
     

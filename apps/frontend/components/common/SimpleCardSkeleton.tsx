@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface SimpleCardSkeletonProps {
   index: number;

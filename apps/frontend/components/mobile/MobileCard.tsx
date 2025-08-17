@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { ChevronRight, MoreVertical } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 
 interface MobileCardProps {
   title?: string;

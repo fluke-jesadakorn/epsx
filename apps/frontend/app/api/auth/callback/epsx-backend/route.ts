@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getUserInfo } from '@/lib/server/auth';
-import { signJWT, createJWTClaims, createCookieManager } from '@epsx/auth-shared';
+import { signJWT, createJWTClaims } from '@/lib/auth-utils';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -102,10 +102,15 @@ export async function GET(request: NextRequest) {
     // Clean up OAuth cookies and create redirect response
     const response = NextResponse.redirect(new URL(callbackUrl, request.url));
     
-    // Set JWT cookie using new cookie manager
+    // Set JWT cookie
     console.log('🔧 Frontend: Setting JWT cookie for redirect...');
-    const cookieManager = createCookieManager('frontend');
-    cookieManager.setAccessTokenCookie(response, jwtToken);
+    response.cookies.set('epsx_frontend_jwt', jwtToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours
+      path: '/'
+    });
     
     response.cookies.delete('oauth_code_verifier');
     response.cookies.delete('oauth_state');

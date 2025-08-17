@@ -8,9 +8,9 @@ import {
   Puzzle, ClipboardCheck, HeadphonesIcon, Key
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { Input } from '@epsx/ui';
-import { Badge } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
 import { Label } from '@epsx/ui';
 import { Separator } from '@/components/ui/separator';

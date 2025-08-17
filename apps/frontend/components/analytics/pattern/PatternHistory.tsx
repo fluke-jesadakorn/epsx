@@ -15,7 +15,7 @@ import {
   Download,
   ArrowUpDown as _ArrowUpDown
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 
 interface HistoricalPattern {
   id: string;

@@ -1,27 +1,65 @@
-const baseConfig = require('../../packages/config/eslint/base.cjs');
+const js = require('@eslint/js');
+const typescript = require('@typescript-eslint/eslint-plugin');
+const typescriptParser = require('@typescript-eslint/parser');
 const nextjs = require('@next/eslint-plugin-next');
 
 module.exports = [
-  ...baseConfig,
+  js.configs.recommended,
   {
-    files: ['**/*.ts', '**/*.tsx'],
-    ignores: ['lib/store/theme.tsx'],
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+    },
     plugins: {
+      '@typescript-eslint': typescript,
       '@next/next': nextjs,
     },
     rules: {
+      // TypeScript rules
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/prefer-const': 'error',
+      
+      // Next.js rules
       '@next/next/no-html-link-for-pages': 'error',
       '@next/next/no-img-element': 'warn',
-      // Temporarily disabled to resolve persistent lint errors
-      'import/order': 'off',
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
-      '@typescript-eslint/consistent-type-imports': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
+      '@next/next/no-page-custom-font': 'warn',
+      
+      // General rules
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'prefer-const': 'error',
+      'no-var': 'error',
+      'object-shorthand': 'error',
+      'no-unreachable': 'error',
+      
+      // React rules
+      'react/jsx-uses-react': 'off',
+      'react/react-in-jsx-scope': 'off',
     },
+  },
+  {
+    files: ['**/*.js'],
+    rules: {
+      '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+  {
+    ignores: [
+      'node_modules/**',
+      '.next/**',
+      'out/**',
+      'dist/**',
+      'build/**',
+      'coverage/**',
+      'public/**',
+      '*.d.ts',
+    ],
   },
 ];

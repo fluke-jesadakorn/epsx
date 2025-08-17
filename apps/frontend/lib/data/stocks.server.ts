@@ -1,4 +1,4 @@
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 import { MarketCountry } from '../../types/marketCountries';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';

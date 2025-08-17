@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 
 // Get API client - will automatically use backend URL
 const getApi = () => {

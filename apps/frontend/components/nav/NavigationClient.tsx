@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { LogoutForm } from '@/components/auth/LogoutForm';
-import { Badge, Button } from '@epsx/ui';
+import { Badge, Button } from '@/components/ui';
 
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';

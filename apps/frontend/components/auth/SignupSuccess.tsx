@@ -6,10 +6,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@epsx/ui';
+} from '@/components/ui';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Mail, ArrowLeft } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 
 interface SignupSuccessProps {
   email: string;

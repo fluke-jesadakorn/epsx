@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import {
   FormField,
   Input,

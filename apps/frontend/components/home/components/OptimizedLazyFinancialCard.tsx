@@ -2,7 +2,7 @@ import React from 'react';
 import { FinancialCard } from './FinancialCard';
 import { SimpleCardSkeleton } from '../../common/SimpleCardSkeleton';
 import { useStockData } from '@/hooks/useStockData';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface OptimizedLazyFinancialCardProps {
   symbol: string;

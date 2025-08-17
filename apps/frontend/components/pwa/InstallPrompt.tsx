@@ -12,7 +12,7 @@ import {
   Wifi,
   Shield
 } from 'lucide-react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 
 interface InstallPromptProps {
   onInstall?: () => void;

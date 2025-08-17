@@ -13,7 +13,7 @@ import {
   Activity,
   FileText
 } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { ModuleAnalyticsDashboard } from './ModuleAnalyticsDashboard';
 import { BillingAlerts } from './BillingAlerts';

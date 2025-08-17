@@ -12,7 +12,7 @@ import type { UserLevelType } from '@/app/constants/packages';
 // Note: User level data will be passed as props from server components
 import { status } from '@/services/pay';
 import { Crown, Star, Trophy, Gem, Zap, Lock, ArrowRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, Badge, Button } from '@epsx/ui';
+import { Card, CardContent, CardHeader, Badge, Button } from '@/components/ui';
 
 interface UserLevelDisplayProps {
   user?: any; // User data from server auth  

@@ -1,7 +1,7 @@
 'use client';
 
 import { MessageCircle } from "lucide-react";
-import { Button } from "@epsx/ui";
+import { Button } from "@/components/ui";
 import { lazy, Suspense, useState } from "react";
 
 const ChatDialog = lazy(() => import('./ChatDialog').then(mod => ({ default: mod.ChatDialog })));

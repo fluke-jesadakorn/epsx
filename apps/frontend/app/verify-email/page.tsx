@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@epsx/server-actions';
+import { getCurrentUser } from '@/lib/server-actions';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 export default async function VerifyEmailPage() {
   // Server-side authentication check
   let user = null;

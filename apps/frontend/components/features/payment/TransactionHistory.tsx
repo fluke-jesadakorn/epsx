@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@epsx/ui';
+} from '@/components/ui';
 import {
   Table,
   TableBody,
@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Input } from '@epsx/ui';
+import { Badge, Button, Input } from '@/components/ui';
 
 interface Transaction {
   orderNo: string;

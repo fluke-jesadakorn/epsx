@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@epsx/ui';
-import { Button } from '@epsx/ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,

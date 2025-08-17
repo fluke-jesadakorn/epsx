@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 import { ConfirmDialog as _ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AdminApiService } from '@/services/adminApiService';

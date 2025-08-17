@@ -4,7 +4,7 @@
  */
 import { redirect } from 'next/navigation';
 import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
-import { hasPermissionInJWT, hasPackageTierInJWT, type EPSXJWTPayload } from '@epsx/auth-shared';
+import { type EPSXJWTPayload } from '@/lib/auth-utils';
 
 /**
  * Get authenticated user from JWT cookies

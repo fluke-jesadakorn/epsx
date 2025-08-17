@@ -1,4 +1,14 @@
-import { PaymentTier, UserSubscription } from '@epsx/types';
+import { PaymentTier } from '@/types/payment-types';
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  tier: PaymentTier;
+  status: 'active' | 'expired' | 'cancelled';
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+}
 
 // Legacy enum - keep for backward compatibility
 export enum UserLevel {

@@ -1,5 +1,5 @@
-import { apiClient } from '@epsx/api-client';
-import type { PaginatedResponse, CountResponse, StockFinancialData } from '@epsx/api-client';
+import { apiClient } from '@/lib/api-client';
+import type { PaginatedResponse, CountResponse, StockFinancialData } from '@/lib/api-client';
 import type { StockFinancialData as _LocalStockFinancialData } from '@/types/financialChartData';
 
 export interface StockApiParams {

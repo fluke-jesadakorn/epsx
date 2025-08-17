@@ -5,7 +5,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { getAssetInfo } from '@/app/actions/payment-server';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 
 interface PaymentDetailsServerProps {
   selectedPackage: string;

@@ -16,7 +16,7 @@ import {
   AreaChart
 } from 'recharts';
 import { TrendingUp, TrendingDown, BarChart3, LineChart as LineChartIcon, AreaChart as AreaChartIcon } from 'lucide-react';
-import { Card, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Card, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 
 interface EPSGrowthChartProps {
   data: any[];

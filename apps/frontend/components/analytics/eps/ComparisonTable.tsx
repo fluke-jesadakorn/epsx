@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { X, Plus, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Input } from '@/components/ui';
 
 interface ComparisonTableProps {
   primarySymbol: string;

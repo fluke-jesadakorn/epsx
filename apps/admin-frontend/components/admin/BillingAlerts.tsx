@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 import { BillingService } from '@/services/billingService';
 import type { BillingAlert } from '@/services/billingService';
 import { toast } from 'react-hot-toast';

@@ -3,7 +3,7 @@
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { Button } from '@epsx/ui';
+import { Button } from '@/components/ui/button';
 
 /**
  * Optimized theme toggle with minimal hydration impact

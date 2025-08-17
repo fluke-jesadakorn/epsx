@@ -9,7 +9,7 @@ import {
   User,
   Settings as _Settings
 } from 'lucide-react';
-import { Button, Badge } from '@epsx/ui';
+import { Button, Badge } from '@/components/ui';
 
 interface MobileHeaderProps {
   title?: string;

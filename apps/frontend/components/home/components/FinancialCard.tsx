@@ -12,7 +12,7 @@ import {
   getLastEpsVsCurrentPriceComparison,
   getPriceEpsAlignment,
 } from '@/utils/stk';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface FinancialCardProps {
   data: StockFinancialData;

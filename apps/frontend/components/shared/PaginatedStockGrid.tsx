@@ -18,7 +18,7 @@ import {
   CardTitle,
   Badge,
   Button,
-} from '@epsx/ui';
+} from '@/components/ui';
 import {
   TrendingUp,
   TrendingDown,

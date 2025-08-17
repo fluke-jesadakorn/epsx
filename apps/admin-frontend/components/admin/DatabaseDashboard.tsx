@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChevronRight,
   Database,

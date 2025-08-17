@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 
-import { apiClient } from '@epsx/api-client'
+import { apiClient } from '@/lib/api-client'
 
 import type { CreatePaymentRequest, CreatePaymentResponse, AssetInfo } from '@/types/payment'
 

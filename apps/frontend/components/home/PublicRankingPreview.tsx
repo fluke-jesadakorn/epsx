@@ -11,7 +11,7 @@ import {
 import { fetchPublicRankingData } from '@/app/actions/publicRanking';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui';
 
 interface PublicRankingPreviewProps {
   className?: string;
@@ -72,7 +72,7 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
     <div className={`space-y-8 ${className}`}>
       {/* Preview Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {data.slice(0, 6).map((stock, index) => {
+        {(Array.isArray(data) ? data : []).slice(0, 6).map((stock, index) => {
           const latestQuarter = stock.quarters[stock.quarters.length - 1];
           const previousQuarter = stock.quarters[stock.quarters.length - 2];
           const epsGrowth = previousQuarter

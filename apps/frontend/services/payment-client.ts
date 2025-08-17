@@ -10,7 +10,7 @@ import {
   getTransactionHistory, 
   initQRPayment, 
   getPlanDetails 
-} from '@epsx/server-actions';
+} from '@/lib/server-actions';
 
 interface CreatePaymentRequest {
   amount: number;

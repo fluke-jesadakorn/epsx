@@ -5,8 +5,8 @@ import {
   getTransactionHistory,
   initQRPayment,
   getPlanDetails
-} from '@epsx/server-actions';
-import type { PaymentStatus, PaymentTransaction as PaymentTx } from '@epsx/server-actions';
+} from '@/lib/server-actions';
+import type { PaymentStatus, PaymentTransaction as PaymentTx } from '@/lib/server-actions';
 import { nanoid } from 'nanoid';
 
 // Re-export types for compatibility

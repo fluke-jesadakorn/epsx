@@ -17,7 +17,7 @@ describe('Validation Utilities', () => {
       expect(validateEmail('invalid-email')).toBe(false)
       expect(validateEmail('test@')).toBe(false)
       expect(validateEmail('@domain.com')).toBe(false)
-      expect(validateEmail('test@@domain.com')).toBe(false)
+      expect(validateEmail('test@domain.com')).toBe(false)
       expect(validateEmail('')).toBe(false)
       expect(validateEmail('test.domain.com')).toBe(false)
     })

@@ -5,7 +5,7 @@ import FinancialDataTable from '@/components/home/FinancialDataTable';
 // Note: User session data will be passed as props from server components
 import { Lock } from 'lucide-react';
 import type { StockFinancialData } from '@/types/financialChartData';
-import { Card, CardContent } from '@epsx/ui';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface RoleBasedFinancialTableProps {
   data: StockFinancialData[];

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Crown, Lock, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, Button, Badge } from '@epsx/ui';
+import { Card, CardContent, Button, Badge } from '@/components/ui';
 
 export function PublicRankingPreviewClient() {
   const router = useRouter();

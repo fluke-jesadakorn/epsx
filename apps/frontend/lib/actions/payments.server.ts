@@ -15,7 +15,7 @@ export {
   applyPromoCode,
   createLegacyPayment,
   initQRPayment
-} from '@epsx/server-actions/actions/payments';
+} from '@/lib/server-actions/actions/payments';
 
 // Re-export enhanced versions for direct use
 export {
@@ -30,10 +30,10 @@ export {
   enhancedGetPaymentHistory,
   enhancedDownloadInvoice,
   enhancedApplyPromoCode
-} from '@epsx/server-actions/actions/payments';
+} from '@/lib/server-actions/actions/payments';
 
 // Legacy compatibility functions if needed
-import { createLegacyPayment, initQRPayment } from '@epsx/server-actions/actions/payments';
+import { createLegacyPayment, initQRPayment } from '@/lib/server-actions/actions/payments';
 
 export async function createMusePayPaymentAction(formData: FormData) {
   const amount = formData.get('amount') as string;

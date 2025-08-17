@@ -8,7 +8,7 @@ import {
   CheckCircle,
   Download
 } from 'lucide-react';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@epsx/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
 interface UpdatePromptProps {
   onUpdate?: () => void;

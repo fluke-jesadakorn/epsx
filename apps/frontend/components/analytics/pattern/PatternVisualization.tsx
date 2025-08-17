@@ -25,7 +25,7 @@ import {
   Eye,
   Download
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 
 interface PatternVisualizationProps {
   patterns: any[];

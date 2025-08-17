@@ -1,21 +1,49 @@
 // Unified API client using the refactored package structure
 // This file provides backward compatibility and convenience exports
 
-import { apiClient, ApiClientFactory } from '@epsx/api-client';
+import { apiClient, createApiClient } from '@/lib/api-client';
 
-// Re-export the main API client instance
-export { apiClient } from '@epsx/api-client';
+// Re-export the main API client instance and classes
+export { apiClient, AnalyticsClient } from '@/lib/api-client';
 
 // Re-export types for backward compatibility
-export type {
-  ApiResponse,
-  LoginRequest,
-  RegisterRequest,
-  UserProfile,
-  PasswordResetRequest,
-  ProfileUpdateRequest,
-  PasswordChangeRequest,
-} from '@epsx/types';
+export interface ApiResponse<T = any> {
+  data: T;
+  status: number;
+  success: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name?: string;
+  createdAt: string;
+}
+
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface ProfileUpdateRequest {
+  name?: string;
+  email?: string;
+}
+
+export interface PasswordChangeRequest {
+  currentPassword: string;
+  newPassword: string;
+}
 
 // Utility functions for common patterns (using shared-core error handling)
 import { ErrorHandler } from '@epsx/shared-core';

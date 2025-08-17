@@ -11,7 +11,6 @@ const customJestConfig = {
   moduleNameMapper: {
     // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/$1',
-    '^@/packages/(.*)$': '<rootDir>/../../packages/$1',
   },
   testEnvironment: 'jsdom',
   testEnvironmentOptions: {

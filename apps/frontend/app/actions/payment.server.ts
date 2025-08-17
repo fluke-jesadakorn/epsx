@@ -3,7 +3,7 @@
 import { createPaymentService } from '@/services/payment.service';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 
 const paymentService = createPaymentService();
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AnalyticsClient } from '@epsx/api-client';
+import axios from 'axios';
 import type { CardDashboardResponse } from '@/types/financialChartData';
 
 export interface AnalyticsFilters {
@@ -47,7 +47,15 @@ export const useAnalyticsFilters = () => {
     error: null,
   });
 
-  const analyticsClient = useMemo(() => new AnalyticsClient(), []);
+  const analyticsClient = useMemo(() => {
+    return axios.create({
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }, []);
 
   // Get current page directly from filters
   const getCurrentPage = useCallback((page: number) => {
@@ -62,14 +70,16 @@ export const useAnalyticsFilters = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const response = await analyticsClient.getUnifiedAnalyticsRankings({
-        page,
-        limit: currentFilters.limit,
-        country: currentFilters.country,
-        sector: currentFilters.sector,
-        sort_by: currentFilters.sort_by,
-        min_eps: currentFilters.min_eps,
-        min_growth: currentFilters.min_growth,
+      const response = await analyticsClient.get('/api/v1/analytics/rankings', {
+        params: {
+          page,
+          limit: currentFilters.limit,
+          country: currentFilters.country,
+          sector: currentFilters.sector,
+          sort_by: currentFilters.sort_by,
+          min_eps: currentFilters.min_eps,
+          min_growth: currentFilters.min_growth,
+        }
       });
 
       if (response.data) {

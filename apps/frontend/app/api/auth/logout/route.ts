@@ -3,17 +3,14 @@
  * Properly clears JWT cookies and revokes backend tokens
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createCookieManager } from '@epsx/auth-shared';
+// Cookie management handled locally
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Frontend: Processing logout request');
 
-    // Create cookie manager for frontend app
-    const cookieManager = createCookieManager('frontend');
-
-    // Get access token before clearing
-    const accessToken = await cookieManager.getAccessToken();
+    // Get access token from cookies before clearing
+    const accessToken = request.cookies.get('epsx_frontend_jwt')?.value;
 
     // Create success response
     const response = NextResponse.json({ 
@@ -22,7 +19,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Clear all authentication cookies
-    cookieManager.clearAllCookies(response);
+    response.cookies.delete('epsx_frontend_jwt');
 
     console.log('✅ Frontend: JWT cookies cleared');
 
@@ -67,8 +64,7 @@ export async function POST(request: NextRequest) {
       message: 'An error occurred during logout'
     }, { status: 500 });
 
-    const cookieManager = createCookieManager('frontend');
-    cookieManager.clearAllCookies(response);
+    response.cookies.delete('epsx_frontend_jwt');
 
     return response;
   }
