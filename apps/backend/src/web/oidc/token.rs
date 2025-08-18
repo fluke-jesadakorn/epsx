@@ -647,14 +647,6 @@ fn generate_id_token_simple(
         })
 }
 
-/// Generate refresh token using new rotation service (DEPRECATED - use generate_refresh_token_v2)
-async fn generate_refresh_token(
-    _app_state: &AppState,
-    auth_data: &AuthorizationCodeData,
-) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
-    // This function is deprecated - keeping for compatibility during migration
-    generate_refresh_token_v2(auth_data, &auth_data.client_id).await
-}
 
 /// Generate refresh token using new rotation service
 async fn generate_refresh_token_v2(
@@ -685,28 +677,6 @@ async fn generate_refresh_token_v2(
         })
 }
 
-/// Validate and get refresh token data
-async fn validate_and_get_refresh_token(
-    app_state: &AppState,
-    refresh_token: &str,
-) -> Result<RefreshTokenData, Box<dyn std::error::Error>> {
-    use crate::dom::values::SessId;
-    
-    // Get session for refresh token
-    let session_id = SessId::from_string(format!("refresh_token:{}", refresh_token));
-    let session = app_state.session_repo.get(&session_id).await?
-        .ok_or("Refresh token not found")?;
-    
-    // Deserialize refresh data from access_token field
-    let refresh_data: RefreshTokenData = serde_json::from_str(&session.access_token)?;
-
-    // Check if token is too old (7 days for frontend clients)
-    if Utc::now() - refresh_data.created_at > Duration::days(7) {
-        return Err("Refresh token expired".into());
-    }
-
-    Ok(refresh_data)
-}
 
 /// Create session for the authenticated user
 async fn create_session(

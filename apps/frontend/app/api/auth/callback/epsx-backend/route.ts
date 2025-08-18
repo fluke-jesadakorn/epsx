@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       email: userinfo.email,
       role: userinfo.role,
       permissions: userinfo.permissions,
-      subscription_tier: userinfo.subscription_tier,
+      package_tier: userinfo.subscription_tier,
     });
 
     // Create JWT token with user claims

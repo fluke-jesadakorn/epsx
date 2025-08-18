@@ -42,7 +42,7 @@ interface AuthUser {
   email: string;
   role: string;
   permissions: string[];
-  subscription_tier: string;
+  package_tier: string;
 }
 
 interface NavigationClientProps {
@@ -62,7 +62,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
-  const userLevel = user?.subscription_tier || 'free';
+  const userLevel = user?.package_tier || 'free';
   const userEmail = user?.email;
 
 

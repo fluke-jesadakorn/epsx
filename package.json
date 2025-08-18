@@ -114,6 +114,7 @@
     "apps/*"
   ],
   "dependencies": {
+    "dotenv": "^17.2.1",
     "react-icons": "^5.5.0"
   },
   "main": "oauth-test-server.js",

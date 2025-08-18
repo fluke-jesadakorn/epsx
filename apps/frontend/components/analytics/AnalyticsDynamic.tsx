@@ -9,7 +9,7 @@ interface AuthUser {
   email: string;
   role: string;
   permissions: string[];
-  subscription_tier: string;
+  package_tier: string;
 }
 
 interface AnalyticsProps {

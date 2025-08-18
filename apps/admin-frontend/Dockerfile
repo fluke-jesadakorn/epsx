@@ -3,17 +3,18 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS base
 
 WORKDIR /app
 
-# Install only essential packages and enable npm
-RUN apk add --no-cache libc6-compat dumb-init
+# Install pnpm and essential packages
+RUN apk add --no-cache libc6-compat dumb-init \
+    && npm install -g pnpm@10.14.0
 
 # Stage 2: Dependencies (maximize caching)
 FROM base AS deps
 
 # Copy package files for dependency caching
-COPY package.json package-lock.json* ./
+COPY apps/admin-frontend/package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN npm ci --frozen-lockfile
+# Install dependencies (allow lockfile updates for standalone apps)
+RUN pnpm install --no-frozen-lockfile
 
 # Stage 3: Builder (optimized build process)
 FROM base AS builder
@@ -22,7 +23,7 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source code (exclude dev files via .dockerignore)
-COPY . .
+COPY apps/admin-frontend/ .
 
 # Build optimization environment
 ENV NODE_OPTIONS="--max-old-space-size=4096 --experimental-specifier-resolution=node"
@@ -31,7 +32,7 @@ ENV NODE_ENV=production
 ENV NEXT_PUBLIC_BUILD_MODE=production
 
 # Optimized build with standalone output
-RUN npm run build
+RUN pnpm build
 
 # Stage 4: Runtime (ultra-minimal for Cloud Run)
 FROM --platform=$TARGETPLATFORM node:22-alpine AS runner

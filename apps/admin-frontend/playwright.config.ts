@@ -36,7 +36,10 @@ export default defineConfig({
     // Core admin functionality tests
     {
       name: 'admin-core',
-      testMatch: '**/admin.spec.ts',
+      testMatch: [
+        '**/admin.spec.ts',
+        '**/auth-comprehensive-test.spec.ts'
+      ],
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['admin-setup'],
     },

@@ -203,23 +203,6 @@ impl EPSDataProcessor {
         Ok(status)
     }
 
-    /// Log detailed processing statistics
-    fn log_processing_stats(&self, stats: &ProcessingStats) {
-        info!("=== EPS Data Processing Statistics ===");
-        info!("Total fetched: {}", stats.total_fetched);
-        info!("Total processed: {}", stats.total_processed);
-        info!("Total stored: {}", stats.total_stored);
-        info!("Total errors: {}", stats.total_errors);
-        info!("Processing duration: {}ms", stats.processing_duration_ms);
-        info!("Countries processed: {:?}", stats.countries_processed);
-        
-        if stats.total_fetched > 0 {
-            let success_rate = (stats.total_stored as f64 / stats.total_fetched as f64) * 100.0;
-            info!("Success rate: {:.1}%", success_rate);
-        }
-        
-        info!("=====================================");
-    }
 }
 
 /// Health status for the processing service

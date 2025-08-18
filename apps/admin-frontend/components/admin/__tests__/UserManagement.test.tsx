@@ -34,7 +34,7 @@ describe('UserManagement', () => {
       access_level: 'admin',
       admin_modules: ['user_operations', 'system_admin'],
       permissions: ['user:read', 'user:write', 'admin_access'],
-      subscription_tier: 'enterprise',
+      package_tier: 'enterprise',
       subscription_status: 'active'
     })
     mockAuthService.isAdmin.mockResolvedValue(true)
@@ -96,7 +96,7 @@ describe('UserManagement', () => {
       access_level: 'read',
       admin_modules: [],
       permissions: ['user:read'],
-      subscription_tier: 'free',
+      package_tier: 'free',
       subscription_status: 'active'
     })
     mockAuthService.isAdmin.mockResolvedValue(false)

@@ -109,11 +109,11 @@ impl std::str::FromStr for Role {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PermSet {
+pub struct PermissionSet {
     permissions: HashSet<String>,
 }
 
-impl PermSet {
+impl PermissionSet {
     pub fn new() -> Self {
         Self {
             permissions: HashSet::new(),
@@ -191,55 +191,55 @@ impl PermSet {
     }
 }
 
-impl Default for PermSet {
+impl Default for PermissionSet {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SubTier {
+pub enum SubscriptionTier {
     Free,
     Basic,
     Premium,
     Enterprise,
 }
 
-impl SubTier {
+impl SubscriptionTier {
     pub fn is_paid(&self) -> bool {
-        !matches!(self, SubTier::Free)
+        !matches!(self, SubscriptionTier::Free)
     }
 
     pub fn from_string(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
-            "free" => Ok(SubTier::Free),
-            "basic" => Ok(SubTier::Basic),
-            "premium" => Ok(SubTier::Premium),
-            "enterprise" => Ok(SubTier::Enterprise),
+            "free" => Ok(SubscriptionTier::Free),
+            "basic" => Ok(SubscriptionTier::Basic),
+            "premium" => Ok(SubscriptionTier::Premium),
+            "enterprise" => Ok(SubscriptionTier::Enterprise),
             _ => Err(format!("Invalid subscription tier: {}", s)),
         }
     }
 }
 
-impl std::fmt::Display for SubTier {
+impl std::fmt::Display for SubscriptionTier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SubTier::Free => write!(f, "free"),
-            SubTier::Basic => write!(f, "basic"),
-            SubTier::Premium => write!(f, "premium"),
-            SubTier::Enterprise => write!(f, "enterprise"),
+            SubscriptionTier::Free => write!(f, "free"),
+            SubscriptionTier::Basic => write!(f, "basic"),
+            SubscriptionTier::Premium => write!(f, "premium"),
+            SubscriptionTier::Enterprise => write!(f, "enterprise"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Subscription {
-    pub tier: SubTier,
+    pub tier: SubscriptionTier,
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Subscription {
-    pub fn new(tier: SubTier) -> Self {
+    pub fn new(tier: SubscriptionTier) -> Self {
         Self {
             tier,
             expires_at: None,
@@ -247,14 +247,14 @@ impl Subscription {
     }
 
     pub fn free() -> Self {
-        Self::new(SubTier::Free)
+        Self::new(SubscriptionTier::Free)
     }
 
-    pub fn paid(tier: SubTier, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn paid(tier: SubscriptionTier, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
         Self::with_expiry(tier, expires_at)
     }
 
-    pub fn with_expiry(tier: SubTier, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn with_expiry(tier: SubscriptionTier, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
         Self {
             tier,
             expires_at: Some(expires_at),
@@ -268,7 +268,14 @@ impl Subscription {
         }
     }
 
-    pub fn tier(&self) -> &SubTier {
+    pub fn tier(&self) -> &SubscriptionTier {
         &self.tier
     }
 }
+
+// Backward compatibility type aliases (deprecated)
+#[deprecated(note = "Use PermissionSet instead")]
+pub type PermSet = PermissionSet;
+
+#[deprecated(note = "Use SubscriptionTier instead")]
+pub type SubTier = SubscriptionTier;

@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnvVarType {
@@ -706,8 +707,25 @@ pub struct ValidatedConfig {
     pub rate_limiting: RateLimitingConfig,
 }
 
+// Load shared environment variables
+pub fn load_shared_env() {
+    // Load shared variables from project root
+    let shared_env_path = Path::new("../../.env.shared");
+    if shared_env_path.exists() {
+        if let Err(e) = dotenv::from_path(shared_env_path) {
+            eprintln!("Warning: Failed to load shared environment: {}", e);
+        }
+    }
+    
+    // Load app-specific variables (will override shared if needed)
+    if let Err(e) = dotenv::dotenv() {
+        eprintln!("Warning: Failed to load .env file: {}", e);
+    }
+}
+
 // Configuration loader
 pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> {
+    load_shared_env();
     validate_environment()?;
 
     let server_config = ServerConfig {

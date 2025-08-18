@@ -39,7 +39,7 @@ export async function TierAccess({
     'enterprise': 5,
   };
   
-  const userLevel = tierHierarchy[user.subscription_tier.toLowerCase() as keyof typeof tierHierarchy] || 0;
+  const userLevel = tierHierarchy[user.package_tier.toLowerCase() as keyof typeof tierHierarchy] || 0;
   const requiredLevel = tierHierarchy[requiredTier.toLowerCase() as keyof typeof tierHierarchy] || 0;
   
   const hasAccess = userLevel >= requiredLevel;
@@ -57,7 +57,7 @@ export async function TierAccess({
             This feature requires <span className="font-medium capitalize">{requiredTier}</span> tier or higher.
           </p>
           <p className="text-xs text-purple-600 dark:text-purple-400 mb-4">
-            Your current tier: <span className="font-medium capitalize">{user.subscription_tier}</span>
+            Your current tier: <span className="font-medium capitalize">{user.package_tier}</span>
           </p>
           <button className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors">
             Upgrade to {requiredTier.charAt(0).toUpperCase() + requiredTier.slice(1)}
@@ -71,7 +71,7 @@ export async function TierAccess({
     return (
       <div className="relative">
         <div className="absolute top-0 right-0 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded">
-          {user.subscription_tier.charAt(0).toUpperCase() + user.subscription_tier.slice(1)} Tier
+          {user.package_tier.charAt(0).toUpperCase() + user.package_tier.slice(1)} Tier
         </div>
         {children}
       </div>

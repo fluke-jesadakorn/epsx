@@ -44,6 +44,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cookie": "^1.0.2",
+    "dotenv": "^16.4.5",
     "cookies-next": "6.0.0",
     "firebase": "^12.0.0",
     "jose": "^5.2.3",

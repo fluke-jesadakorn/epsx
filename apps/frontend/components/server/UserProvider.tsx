@@ -10,7 +10,7 @@ interface UserData {
   email: string;
   role: string;
   permissions: string[];
-  subscription_tier: string;
+  package_tier: string;
   admin_modules: string[];
   name: string;
 }
@@ -27,7 +27,7 @@ export async function UserProvider({ children }: UserProviderProps) {
     email: session.user.email || '',
     role: session.user.role || 'user',
     permissions: session.user.permissions || ['user:read'],
-    subscription_tier: session.user.package_tier || 'FREE',
+    package_tier: session.user.package_tier || 'FREE',
     admin_modules: session.user.admin_modules || [],
     name: session.user.name || session.user.email || '',
   } : null;

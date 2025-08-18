@@ -1,4 +1,11 @@
 import type { NextConfig } from 'next';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load shared variables first, then app-specific
+config({ path: resolve(process.cwd(), '../..', '.env.shared') });
+config();
+
 import { env } from './config/env';
 
 const nextConfig: NextConfig = {
@@ -10,7 +17,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Force dynamic rendering for container builds
+  generateBuildId: () => 'build',
+  trailingSlash: false,
   experimental: {
+    forceSwcTransforms: true,
+    missingSuspenseWithCSRBailout: false,
     optimizePackageImports: [
       '@radix-ui/react-avatar',
       '@radix-ui/react-checkbox', 
@@ -26,7 +38,6 @@ const nextConfig: NextConfig = {
   },
   env: {
     SITE_URL: env.SITE_URL,
-    API_URL: env.API_URL,
     BACKEND_URL: env.BACKEND_URL,
     NEXT_PUBLIC_BACKEND_URL: env.NEXT_PUBLIC_BACKEND_URL,
   },

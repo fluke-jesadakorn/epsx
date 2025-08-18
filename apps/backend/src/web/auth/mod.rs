@@ -4,14 +4,13 @@
 pub mod modern_handlers;
 pub mod modern_routes;
 
-// Legacy handlers (will be removed in Phase 6)
+// Legacy handlers
 pub mod handlers;
 pub mod routes;
 pub mod password;
 pub mod api_key_service;
 pub mod providers;
 pub mod token_broker;
-// casbin_claims_mapper removed - using modern JWT auth
 
 // Registration API endpoints
 pub mod registration;
@@ -20,11 +19,10 @@ pub mod registration;
 pub use modern_handlers::*;
 pub use modern_routes::*;
 
-// Legacy exports (will be removed in Phase 6)
+// Legacy exports
 pub use handlers::*;
 pub use providers::*;
 pub use token_broker::*;
-// casbin_claims_mapper removed - using modern JWT auth
 
 // Registration exports
 pub use registration::{register_user, check_email_availability, RegisterRequest, RegisterResponse};

@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     email: session.user.email || '',
     role: session.user.role || 'user',
     permissions: session.user.permissions || ['user:read'],
-    subscription_tier: session.user.package_tier || 'FREE',
+    package_tier: session.user.package_tier || 'FREE',
     admin_modules: [], // Frontend users don't have admin modules
     name: session.user.name || session.user.email || '',
   };
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   };
 
   console.log('Dashboard: User session loaded for', user.email, {
-    subscription_tier: user.subscription_tier,
+    package_tier: user.package_tier,
     permissions_count: user.permissions?.length || 0,
     role: user.role,
   });

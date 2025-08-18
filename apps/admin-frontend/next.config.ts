@@ -1,4 +1,11 @@
 import type { NextConfig } from 'next';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load shared variables first, then app-specific
+config({ path: resolve(process.cwd(), '../..', '.env.shared') });
+config();
+
 import { env } from './config/env';
 
 const nextConfig: NextConfig = {

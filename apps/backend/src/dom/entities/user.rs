@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
-use crate::dom::values::{UserId, Email, PermSet, Subscription, Role};
+use crate::dom::values::{UserId, Email, PermissionSet, Subscription, Role};
 use crate::dom::events::UserRoleChangedEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,8 +12,8 @@ pub struct User {
     firebase_uid: String,
     email: Email,
     role: Role,
-    perms: PermSet,
-    sub: Subscription,
+    permissions: PermissionSet,
+    subscription: Subscription,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     deleted_at: Option<DateTime<Utc>>,
@@ -28,8 +28,8 @@ impl User {
             id: id.clone(),
             firebase_uid,
             email,
-            perms: PermSet::for_role(&role),
-            sub: Subscription::free(),
+            permissions: PermissionSet::for_role(&role),
+            subscription: Subscription::free(),
             role,
             created_at: now,
             updated_at: now,
@@ -49,8 +49,8 @@ impl User {
             id,
             firebase_uid,
             email,
-            perms: PermSet::for_role(&role),
-            sub: Subscription::free(), // Default to free subscription
+            permissions: PermissionSet::for_role(&role),
+            subscription: Subscription::free(), // Default to free subscription
             role,
             created_at: now,
             updated_at: now,
@@ -64,7 +64,7 @@ impl User {
         firebase_uid: String,
         email: Email,
         role: Role,
-        sub: Subscription,
+        subscription: Subscription,
         created_at: chrono::DateTime<chrono::Utc>,
         updated_at: chrono::DateTime<chrono::Utc>,
         deleted_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -73,8 +73,8 @@ impl User {
             id,
             firebase_uid,
             email,
-            perms: PermSet::for_role(&role),
-            sub,
+            permissions: PermissionSet::for_role(&role),
+            subscription,
             role,
             created_at,
             updated_at,
@@ -87,8 +87,8 @@ impl User {
         firebase_uid: String,
         email: Email, 
         role: Role,
-        perms: PermSet,
-        sub: Subscription,
+        permissions: PermissionSet,
+        subscription: Subscription,
         created_at: DateTime<Utc>,
         updated_at: DateTime<Utc>,
         deleted_at: Option<DateTime<Utc>>,
@@ -98,8 +98,8 @@ impl User {
             firebase_uid,
             email,
             role,
-            perms,
-            sub,
+            permissions,
+            subscription,
             created_at,
             updated_at,
             deleted_at,
@@ -111,8 +111,14 @@ impl User {
     pub fn firebase_uid(&self) -> &str { &self.firebase_uid }
     pub fn email(&self) -> &Email { &self.email }
     pub fn role(&self) -> &Role { &self.role }
-    pub fn perms(&self) -> &PermSet { &self.perms }
-    pub fn sub(&self) -> &Subscription { &self.sub }
+    pub fn permissions(&self) -> &PermissionSet { &self.permissions }
+    pub fn subscription(&self) -> &Subscription { &self.subscription }
+    
+    // Backward compatibility getters (deprecated)
+    #[deprecated(note = "Use permissions() instead")]
+    pub fn perms(&self) -> &PermissionSet { &self.permissions }
+    #[deprecated(note = "Use subscription() instead")]
+    pub fn sub(&self) -> &Subscription { &self.subscription }
     pub fn created_at(&self) -> DateTime<Utc> { self.created_at }
     pub fn updated_at(&self) -> DateTime<Utc> { self.updated_at }
     pub fn deleted_at(&self) -> Option<DateTime<Utc>> { self.deleted_at }
@@ -129,23 +135,36 @@ impl User {
         
         let old_role = self.role.clone();
         self.role = new_role.clone();
-        self.perms = PermSet::for_role(&new_role);
+        self.permissions = PermissionSet::for_role(&new_role);
         self.updated_at = Utc::now();
         
         Ok(UserRoleChangedEvent::new(self.id.clone(), old_role, new_role))
     }
     
-    pub fn has_perm(&self, perm: &str) -> bool {
-        self.perms.contains(perm)
+    pub fn has_permission(&self, permission: &str) -> bool {
+        self.permissions.contains(permission)
     }
     
+    // Backward compatibility method (deprecated)
+    #[deprecated(note = "Use has_permission() instead")]
+    pub fn has_perm(&self, perm: &str) -> bool {
+        self.permissions.contains(perm)
+    }
+    
+    pub fn update_subscription(&mut self, subscription: Subscription) {
+        self.subscription = subscription;
+        self.updated_at = Utc::now();
+    }
+    
+    // Backward compatibility method (deprecated)
+    #[deprecated(note = "Use update_subscription() instead")]
     pub fn update_sub(&mut self, sub: Subscription) {
-        self.sub = sub;
+        self.subscription = sub;
         self.updated_at = Utc::now();
     }
     
     pub fn is_active(&self) -> bool {
-        !self.is_deleted() && self.sub.is_active()
+        !self.is_deleted() && self.subscription.is_active()
     }
     
     pub fn soft_delete(&mut self) {

@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
-import { useAuth, useSignOut } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database } from 'lucide-react';
 import _Image from 'next/image';
 import Link from 'next/link';
@@ -91,12 +91,22 @@ const navItems: NavItem[] = [
 
 export function Navigation() {
   const pathname = usePathname();
-  const { session, isLoading } = useAuth();
-  const { signOut, isLoading: isSigningOut } = useSignOut();
+  const { user, isLoading, logout } = useAuth();
   const [_mobileOpen, _setMobileOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const user = session?.user;
   const loading = isLoading;
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   // Filter navigation items based on user's admin modules
   const filteredItems = navItems.filter(item => {
@@ -194,7 +204,7 @@ export function Navigation() {
               <>
                 <span className="text-sm text-muted-foreground">{user.email}</span>
                 <button
-                  onClick={signOut}
+                  onClick={handleSignOut}
                   disabled={isSigningOut}
                   className="pancake-button-secondary flex items-center gap-2 text-sm font-medium disabled:opacity-50"
                 >

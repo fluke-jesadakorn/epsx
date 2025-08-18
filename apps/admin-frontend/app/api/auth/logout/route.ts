@@ -1,20 +1,17 @@
 /**
- * Admin Frontend Logout API Route
- * Properly clears JWT cookies and revokes backend tokens
+ * Admin Frontend Logout API Route  
+ * Clears JWT cookies and revokes backend tokens
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createCookieManager } from '@epsx/auth-shared';
-import { env } from '../../../config/env';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Admin: Processing logout request');
 
-    // Create cookie manager for admin app
-    const cookieManager = createCookieManager('admin');
-
-    // Get access token before clearing
-    const accessToken = await cookieManager.getAccessToken();
+    // Get access token from cookies before clearing (use admin-specific cookie)
+    const cookieStore = await cookies();
+    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
 
     // Create success response
     const response = NextResponse.json({ 
@@ -22,19 +19,20 @@ export async function POST(request: NextRequest) {
       message: 'Admin logged out successfully' 
     });
 
-    // Clear all authentication cookies
-    cookieManager.clearAllCookies(response);
+    // Clear authentication cookies (both admin and standard)
+    response.cookies.delete('epsx_admin_jwt');
+    response.cookies.delete('epsx_jwt');
 
     console.log('✅ Admin: JWT cookies cleared');
 
     // Call backend OAuth logout endpoint to properly revoke tokens (if token exists)
-    if (accessToken) {
+    if (jwt) {
       try {
-        const backendUrl = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
         const logoutResponse = await fetch(`${backendUrl}/oauth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${jwt}`,
             'Content-Type': 'application/json',
           },
           // Add timeout to prevent hanging
@@ -68,8 +66,7 @@ export async function POST(request: NextRequest) {
       message: 'An error occurred during admin logout'
     }, { status: 500 });
 
-    const cookieManager = createCookieManager('admin');
-    cookieManager.clearAllCookies(response);
+    response.cookies.delete('epsx_jwt');
 
     return response;
   }
@@ -79,29 +76,28 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🔄 Admin: Processing logout request (GET)');
 
-    // Create cookie manager for admin app
-    const cookieManager = createCookieManager('admin');
-
-    // Get access token before clearing
-    const accessToken = await cookieManager.getAccessToken();
+    // Get access token from cookies before clearing (use admin-specific cookie)
+    const cookieStore = await cookies();
+    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
 
     // Create redirect response
     const loginUrl = new URL('/login', request.url);
     const response = NextResponse.redirect(loginUrl);
 
-    // Clear all authentication cookies
-    cookieManager.clearAllCookies(response);
+    // Clear authentication cookies (both admin and standard)
+    response.cookies.delete('epsx_admin_jwt');
+    response.cookies.delete('epsx_jwt');
 
     console.log('✅ Admin: JWT cookies cleared, redirecting to login');
 
     // Call backend OAuth logout endpoint to revoke tokens (if token exists)
-    if (accessToken) {
+    if (jwt) {
       try {
-        const backendUrl = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
         await fetch(`${backendUrl}/oauth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${jwt}`,
             'Content-Type': 'application/json',
           },
           signal: AbortSignal.timeout(5000),
@@ -122,9 +118,8 @@ export async function GET(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'logout_error');
     const response = NextResponse.redirect(loginUrl);
-
-    const cookieManager = createCookieManager('admin');
-    cookieManager.clearAllCookies(response);
+    
+    response.cookies.delete('epsx_jwt');
 
     return response;
   }

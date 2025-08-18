@@ -10,7 +10,7 @@ pub mod container;
 
 // Re-export essential implementations only
 pub use db::{PostgresUserRepo, PostgresAuditRepo, PostgresPermissionProfileRepo, DatabasePool, create_pool, DatabaseConfig};
-pub use container::{AppContainer, AppContainerBuilder, InfraBuilder};
+pub use container::{AppContainer, AppContainerBuilder};
 pub use services::{MockEmailService, notification::*};
 pub use events::SimpleEventDispatcher;
 pub use firebase_admin::FirebaseAdmin;

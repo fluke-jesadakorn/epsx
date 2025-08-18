@@ -38,7 +38,8 @@ export default defineConfig({
       name: 'core',
       testMatch: [
         '**/frontend.spec.ts',
-        '**/auth-flow.spec.ts'
+        '**/auth-flow.spec.ts',
+        '**/comprehensive-auth-test.spec.ts'
       ],
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],

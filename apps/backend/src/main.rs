@@ -20,7 +20,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let container = Arc::new(AppContainer::new().await?);
   info!("Dependency container initialized");
 
-  // Job scheduler system removed - using user-driven validation instead
 
   // Create application router
   let app = create_router(container).await;
@@ -78,7 +77,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       let shutdown_timeout = Duration::from_secs(10);
       let shutdown_start = std::time::Instant::now();
 
-      // Scheduler shutdown removed - using user-driven validation instead
 
       let elapsed = shutdown_start.elapsed();
       if elapsed > shutdown_timeout {

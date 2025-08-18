@@ -8,8 +8,6 @@ pub mod refresh_tokens;
 pub mod scopes;
 pub mod cleanup;
 
-// Legacy module (to be removed)
-pub mod modern_jwt;
 
 // Clean exports - use new simplified modules
 pub use jwt::{Service as JWTService, Claims, User, Error as JWTError, UserData};
@@ -27,6 +25,3 @@ lazy_static::lazy_static! {
         .expect("Failed to initialize JWT service");
 }
 
-// Legacy compatibility exports (temporary)
-pub use modern_jwt::{AuthenticatedUser, EPSXClaims, UserClaimsInput};
-pub use modern_jwt::JWT_SERVICE;

@@ -2,6 +2,7 @@
 
 use sqlx::PgPool;
 use std::sync::Arc;
+use std::time::Duration;
 use serde_json;
 use crate::config::env::get_env_var;
 
@@ -32,7 +33,7 @@ pub use eps_ranking_repo::*;
 pub use module_repo::*;
 // pub use level_history_repo::*;
 
-/// Enhanced database configuration
+/// Enhanced database configuration with environment-aware scaling
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
     pub host: String,
@@ -47,10 +48,27 @@ pub struct DatabaseConfig {
     pub permission_pool_size: u32,
     pub enable_statement_logging: bool,
     pub query_timeout_seconds: u64,
+    pub acquire_timeout_seconds: u64,
+    pub idle_timeout_seconds: u64,
+    pub max_lifetime_seconds: u64,
+    pub test_before_acquire: bool,
+    pub enable_pool_metrics: bool,
 }
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
+        let is_dev = is_development_mode();
+        let is_prod = is_production_mode();
+        
+        // Environment-aware connection pool sizing
+        let (default_max_conn, default_min_conn) = if is_prod {
+            (50, 10) // Production: higher capacity
+        } else if is_dev {
+            (10, 2)  // Development: lower overhead
+        } else {
+            (25, 5)  // Staging/other: balanced
+        };
+        
         Self {
             host: get_env_var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string()),
             port: get_env_var("DATABASE_PORT")
@@ -61,29 +79,49 @@ impl Default for DatabaseConfig {
             password: get_env_var("DATABASE_PASSWORD").unwrap_or_else(|_| "password".to_string()),
             database: get_env_var("DATABASE_NAME").unwrap_or_else(|_| "epsx".to_string()),
             max_connections: get_env_var("DATABASE_MAX_CONNECTIONS")
-                .unwrap_or_else(|_| "20".to_string())
+                .unwrap_or_else(|_| default_max_conn.to_string())
                 .parse()
-                .unwrap_or(20),
+                .unwrap_or(default_max_conn),
             min_connections: get_env_var("DATABASE_MIN_CONNECTIONS")
-                .unwrap_or_else(|_| "5".to_string())
+                .unwrap_or_else(|_| default_min_conn.to_string())
                 .parse()
-                .unwrap_or(5),
+                .unwrap_or(default_min_conn),
             migration_source: get_env_var("DATABASE_MIGRATION_SOURCE")
                 .unwrap_or_else(|_| "./migrations".to_string()),
             ssl_mode: get_env_var("DATABASE_SSL_MODE")
-                .unwrap_or_else(|_| "prefer".to_string()),
+                .unwrap_or_else(|_| if is_prod { "require" } else { "prefer" }.to_string()),
             permission_pool_size: get_env_var("PERMISSION_POOL_SIZE")
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()
                 .unwrap_or(10),
             enable_statement_logging: get_env_var("DATABASE_STATEMENT_LOGGING")
-                .unwrap_or_else(|_| "false".to_string())
+                .unwrap_or_else(|_| is_dev.to_string())
                 .parse()
-                .unwrap_or(false),
+                .unwrap_or(is_dev),
             query_timeout_seconds: get_env_var("DATABASE_QUERY_TIMEOUT")
                 .unwrap_or_else(|_| "30".to_string())
                 .parse()
                 .unwrap_or(30),
+            acquire_timeout_seconds: get_env_var("DATABASE_ACQUIRE_TIMEOUT")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .unwrap_or(10),
+            idle_timeout_seconds: get_env_var("DATABASE_IDLE_TIMEOUT")
+                .unwrap_or_else(|_| "300".to_string())
+                .parse()
+                .unwrap_or(300),
+            max_lifetime_seconds: get_env_var("DATABASE_MAX_LIFETIME")
+                .unwrap_or_else(|_| "1800".to_string())
+                .parse()
+                .unwrap_or(1800),
+            test_before_acquire: get_env_var("DATABASE_TEST_BEFORE_ACQUIRE")
+                .unwrap_or_else(|_| (!is_dev).to_string())
+                .parse()
+                .unwrap_or(!is_dev),
+            enable_pool_metrics: get_env_var("DATABASE_ENABLE_METRICS")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .unwrap_or(true),
         }
     }
 }
@@ -105,6 +143,14 @@ fn is_development_mode() -> bool {
      get_env_var("ENVIRONMENT").is_err())
 }
 
+/// Check if running in production mode
+fn is_production_mode() -> bool {
+    get_env_var("NODE_ENV").map(|v| v == "production").unwrap_or(false) ||
+    get_env_var("RUST_ENV").map(|v| v == "production").unwrap_or(false) ||
+    get_env_var("ENV").map(|v| v == "prod" || v == "production").unwrap_or(false) ||
+    get_env_var("ENVIRONMENT").map(|v| v == "prod" || v == "production").unwrap_or(false)
+}
+
 /// Initialize optimized database connection pool with permission query optimization
 pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::Error> {
     use sqlx::postgres::PgPoolOptions;
@@ -124,10 +170,10 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections)
         .min_connections(config.min_connections)
-        .acquire_timeout(Duration::from_secs(config.query_timeout_seconds))
-        .idle_timeout(Duration::from_secs(300))
-        .max_lifetime(Duration::from_secs(1800))
-        .test_before_acquire(true)
+        .acquire_timeout(Duration::from_secs(config.acquire_timeout_seconds))
+        .idle_timeout(Duration::from_secs(config.idle_timeout_seconds))
+        .max_lifetime(Duration::from_secs(config.max_lifetime_seconds))
+        .test_before_acquire(config.test_before_acquire)
         .after_connect(move |conn, _meta| {
             let logging_enabled = config.enable_statement_logging;
             Box::pin(async move {
@@ -172,7 +218,14 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
         }
     }
     
-    Ok(Arc::new(pool))
+    let pool_arc = Arc::new(pool);
+    
+    // Initialize connection pool monitoring if enabled
+    if config.enable_pool_metrics {
+        start_pool_monitoring(pool_arc.clone(), config.clone());
+    }
+    
+    Ok(pool_arc)
 }
 
 /// Ensure database exists by connecting to postgres and creating it if needed
@@ -328,6 +381,122 @@ async fn create_permission_indexes(pool: &PgPool) -> Result<(), sqlx::Error> {
     }
     
     Ok(())
+}
+
+/// Connection pool metrics for monitoring
+#[derive(Debug, Clone)]
+pub struct PoolMetrics {
+    pub active_connections: u32,
+    pub idle_connections: u32,
+    pub total_connections: u32,
+    pub max_connections: u32,
+    pub pending_requests: u32,
+    pub last_checked: chrono::DateTime<chrono::Utc>,
+}
+
+/// Start background pool monitoring task
+fn start_pool_monitoring(pool: DatabasePool, config: DatabaseConfig) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
+        
+        loop {
+            interval.tick().await;
+            
+            match get_pool_metrics(&pool).await {
+                Ok(metrics) => {
+                    let utilization = (metrics.active_connections as f64 / metrics.max_connections as f64) * 100.0;
+                    
+                    tracing::debug!(
+                        "Pool metrics - Active: {}, Idle: {}, Total: {}, Max: {}, Pending: {}, Utilization: {:.1}%",
+                        metrics.active_connections,
+                        metrics.idle_connections,
+                        metrics.total_connections,
+                        metrics.max_connections,
+                        metrics.pending_requests,
+                        utilization
+                    );
+                    
+                    // Log warning if utilization is high
+                    if utilization > 80.0 {
+                        tracing::warn!(
+                            "High database connection pool utilization: {:.1}% ({}/{})",
+                            utilization,
+                            metrics.active_connections,
+                            metrics.max_connections
+                        );
+                    }
+                    
+                    // Log warning if there are pending requests
+                    if metrics.pending_requests > 0 {
+                        tracing::warn!(
+                            "Database connection pool has {} pending requests",
+                            metrics.pending_requests
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to get pool metrics: {}", e);
+                }
+            }
+        }
+    });
+}
+
+/// Get current connection pool metrics
+pub async fn get_pool_metrics(pool: &DatabasePool) -> Result<PoolMetrics, DatabaseError> {
+    let pool_inner = pool.as_ref();
+    
+    let total_connections = pool_inner.size() as u32;
+    let idle_connections = pool_inner.num_idle() as u32;
+    let active_connections = total_connections.saturating_sub(idle_connections);
+    
+    Ok(PoolMetrics {
+        active_connections,
+        idle_connections,
+        total_connections,
+        max_connections: pool_inner.options().get_max_connections(),
+        pending_requests: 0, // SQLx doesn't expose this directly
+        last_checked: chrono::Utc::now(),
+    })
+}
+
+/// Health check for database connection pool
+pub async fn check_pool_health(pool: &DatabasePool) -> Result<PoolHealthStatus, DatabaseError> {
+    let metrics = get_pool_metrics(pool).await?;
+    
+    // Test basic connectivity
+    let conn_test = sqlx::query("SELECT 1").fetch_one(pool.as_ref()).await;
+    
+    let is_healthy = conn_test.is_ok() && metrics.total_connections > 0;
+    let utilization = (metrics.active_connections as f64 / metrics.max_connections as f64) * 100.0;
+    
+    let status = if is_healthy {
+        if utilization > 90.0 {
+            "warning"
+        } else {
+            "healthy"
+        }
+    } else {
+        "unhealthy"
+    };
+    
+    Ok(PoolHealthStatus {
+        healthy: is_healthy,
+        status: status.to_string(),
+        metrics,
+        connection_test_success: conn_test.is_ok(),
+        utilization_percentage: utilization,
+    })
+}
+
+/// Pool health status
+#[derive(Debug, Clone)]
+pub struct PoolHealthStatus {
+    pub healthy: bool,
+    pub status: String,
+    pub metrics: PoolMetrics,
+    pub connection_test_success: bool,
+    pub utilization_percentage: f64,
 }
 
 /// Transaction utilities for bulk permission operations
