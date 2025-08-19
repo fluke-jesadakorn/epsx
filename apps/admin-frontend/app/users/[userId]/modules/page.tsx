@@ -7,7 +7,7 @@
 import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserModulesContent } from '@/components/users/UserModulesContent'
-import { auth } from '@/lib/server-auth'
+import { getServerSession } from '@/lib/auth/server-auth'
 
 interface UserModulesPageProps {
   params: Promise<{ userId: string }>
@@ -18,7 +18,7 @@ export default async function UserModulesPage({ params }: UserModulesPageProps) 
   const { userId } = await params
   
   // Get current user session
-  const session = await auth()
+  const session = await getServerSession()
   const currentUser = session?.user
   
   const userDataResult = await getUnifiedUserData(userId)

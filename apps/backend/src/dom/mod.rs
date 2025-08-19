@@ -12,10 +12,5 @@ pub mod ports;
 pub use entities::{AggregateRoot, UnitOfWork};
 pub use values::{UserId, SessId, PayId, Email, Role, PermissionSet, SubscriptionTier, Subscription, Currency, PayStatus, Network};  // Explicit re-exports
 
-// Backward compatibility type aliases (deprecated)
-#[deprecated(note = "Use PermissionSet instead")]
-pub type PermSet = PermissionSet;
-#[deprecated(note = "Use SubscriptionTier instead")]
-pub type SubTier = SubscriptionTier;
 pub use services::{DatabaseRoleService, AutoAssignmentEngine, AuditService, EPSCacheService, AdminModuleService, FirebaseSessionService, FirebaseUserService};  // Explicit re-exports
 pub use events::*;

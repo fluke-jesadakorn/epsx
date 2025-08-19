@@ -4,7 +4,7 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::{info, warn, error};
 
 /**
@@ -158,7 +158,7 @@ async fn get_user_by_email(
     pool: &PgPool,
     email: &str,
 ) -> Result<Option<DatabaseUser>, sqlx::Error> {
-    let row = sqlx::query!(
+    let row = sqlx::query(
         r#"
         SELECT 
             id::text,
@@ -168,9 +168,9 @@ async fn get_user_by_email(
             'user' as role
         FROM users 
         WHERE email = $1
-        "#,
-        email
+        "#
     )
+    .bind(email)
     .fetch_optional(pool)
     .await?;
 
@@ -179,16 +179,22 @@ async fn get_user_by_email(
         let permissions = vec!["user:read".to_string()];
 
         // Get admin modules from user_admin_roles table
-        let admin_modules = get_user_admin_modules(pool, &row.firebase_uid).await.unwrap_or_default();
+        let firebase_uid: String = row.try_get("firebase_uid")?;
+        let admin_modules = get_user_admin_modules(pool, &firebase_uid).await.unwrap_or_default();
+
+        let id: Option<String> = row.try_get("id").ok();
+        let email: String = row.try_get("email")?;
+        let package_tier: Option<String> = row.try_get("package_tier").ok();
+        let role: Option<String> = row.try_get("role").ok();
 
         Ok(Some(DatabaseUser {
-            id: row.id.unwrap_or_default(),
-            email: row.email,
+            id: id.unwrap_or_default(),
+            email,
             admin_modules,
             permissions,
-            package_tier: row.package_tier.unwrap_or("FREE".to_string()),
-            role: row.role.unwrap_or("user".to_string()),
-            firebase_uid: Some(row.firebase_uid),
+            package_tier: package_tier.unwrap_or("FREE".to_string()),
+            role: role.unwrap_or("user".to_string()),
+            firebase_uid: Some(firebase_uid),
         }))
     } else {
         Ok(None)
@@ -202,7 +208,7 @@ async fn get_user_by_id(
     pool: &PgPool,
     user_id: &str,
 ) -> Result<Option<DatabaseUser>, sqlx::Error> {
-    let row = sqlx::query!(
+    let row = sqlx::query(
         r#"
         SELECT 
             id::text,
@@ -212,9 +218,9 @@ async fn get_user_by_id(
             'user' as role
         FROM users 
         WHERE id::text = $1 OR firebase_uid = $1
-        "#,
-        user_id
+        "#
     )
+    .bind(user_id)
     .fetch_optional(pool)
     .await?;
 
@@ -223,16 +229,22 @@ async fn get_user_by_id(
         let permissions = vec!["user:read".to_string()];
 
         // Get admin modules from user_admin_roles table
-        let admin_modules = get_user_admin_modules(pool, &row.firebase_uid).await.unwrap_or_default();
+        let firebase_uid: String = row.try_get("firebase_uid")?;
+        let admin_modules = get_user_admin_modules(pool, &firebase_uid).await.unwrap_or_default();
+
+        let id: Option<String> = row.try_get("id").ok();
+        let email: String = row.try_get("email")?;
+        let package_tier: Option<String> = row.try_get("package_tier").ok();
+        let role: Option<String> = row.try_get("role").ok();
 
         Ok(Some(DatabaseUser {
-            id: row.id.unwrap_or_default(),
-            email: row.email,
+            id: id.unwrap_or_default(),
+            email,
             admin_modules,
             permissions,
-            package_tier: row.package_tier.unwrap_or("FREE".to_string()),
-            role: row.role.unwrap_or("user".to_string()),
-            firebase_uid: Some(row.firebase_uid),
+            package_tier: package_tier.unwrap_or("FREE".to_string()),
+            role: role.unwrap_or("user".to_string()),
+            firebase_uid: Some(firebase_uid),
         }))
     } else {
         Ok(None)
@@ -249,7 +261,7 @@ async fn create_new_user(
     let user_id = uuid::Uuid::new_v4();
     let firebase_uid = format!("oauth_{}", &request.provider_id);
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO users (
             firebase_uid, 
@@ -258,10 +270,10 @@ async fn create_new_user(
             updated_at
         ) 
         VALUES ($1, $2, NOW(), NOW())
-        "#,
-        firebase_uid,
-        request.email
+        "#
     )
+    .bind(&firebase_uid)
+    .bind(&request.email)
     .execute(pool)
     .await?;
 
@@ -283,10 +295,10 @@ async fn update_user_last_login(
     pool: &PgPool,
     user_id: &str,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "UPDATE users SET updated_at = NOW() WHERE id::text = $1",
-        user_id
+    sqlx::query(
+        "UPDATE users SET updated_at = NOW() WHERE id::text = $1"
     )
+    .bind(user_id)
     .execute(pool)
     .await?;
 
@@ -301,18 +313,18 @@ async fn get_user_admin_modules(
     pool: &PgPool,
     firebase_uid: &str,
 ) -> Result<Vec<String>, sqlx::Error> {
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         r#"
         SELECT module_code 
         FROM user_admin_roles 
         WHERE firebase_uid = $1 
         AND is_active = true 
         AND (expires_at IS NULL OR expires_at > NOW())
-        "#,
-        firebase_uid
+        "#
     )
+    .bind(firebase_uid)
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|row| row.module_code).collect())
+    Ok(rows.into_iter().filter_map(|row| row.try_get("module_code").ok()).collect())
 }

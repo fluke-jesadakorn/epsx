@@ -1,28 +1,27 @@
 'use client';
 
-import React from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Zap,
-  Crown,
-  AlertCircle,
-  RefreshCw,
-  Activity,
-  Clock,
-  Server,
-  Globe,
-  BarChart3,
-  Download,
-} from 'lucide-react';
-import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
-import { AdvancedFilterPanel } from './AdvancedFilterPanel';
-import { Pagination } from './Pagination';
-import { ActiveFilterIndicators } from './ActiveFilterIndicators';
-import { formatPrice, formatDate } from '@/utils/fmt';
-import { useToast } from '@/components/ui/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import { formatDate, formatPrice } from '@/utils/fmt';
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Clock,
+  Crown,
+  Download,
+  Globe,
+  RefreshCw,
+  Server,
+  Zap,
+} from 'lucide-react';
+import { ActiveFilterIndicators } from './ActiveFilterIndicators';
+import { AdvancedFilterPanel } from './AdvancedFilterPanel';
+import { Pagination } from './Pagination';
 
 interface AuthUser {
   user_id: string;
@@ -37,16 +36,16 @@ interface AnalyticsRankingDashboardProps {
   user?: AuthUser | null;
 }
 
-export function AnalyticsRankingDashboard({ 
+export function AnalyticsRankingDashboard({
   className,
-  user 
+  user,
 }: AnalyticsRankingDashboardProps) {
   const { toast } = useToast();
-  
+
   // Replace useRankingAccess hook with inline logic
   const hasRankingAccess = user?.permissions?.includes('ranking:read') || false;
   const accessLoading = false; // No loading state needed since user is passed as prop
-  
+
   const {
     filters,
     data,
@@ -68,15 +67,15 @@ export function AnalyticsRankingDashboard({
   // Get data freshness indicator
   const getDataFreshness = () => {
     if (!data?.metadata.request_timestamp) return null;
-    
+
     const dataTime = new Date(data.metadata.request_timestamp);
     const now = new Date();
     const diffMs = now.getTime() - dataTime.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
-    
+
     if (diffMinutes < 1) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    
+
     const diffHours = Math.floor(diffMinutes / 60);
     return `${diffHours}h ago`;
   };
@@ -91,7 +90,7 @@ export function AnalyticsRankingDashboard({
   // Get rank badge style
   const getRankBadgeStyle = (rank: number) => {
     if (rank === 1) return 'bg-yellow-500 text-yellow-900'; // Gold
-    if (rank === 2) return 'bg-gray-400 text-gray-900'; // Silver  
+    if (rank === 2) return 'bg-gray-400 text-gray-900'; // Silver
     if (rank === 3) return 'bg-amber-600 text-amber-100'; // Bronze
     if (rank <= 10) return 'bg-green-500 text-white'; // Top 10
     if (rank <= 25) return 'bg-blue-500 text-white'; // Top 25
@@ -119,15 +118,15 @@ export function AnalyticsRankingDashboard({
     try {
       refresh();
       toast({
-        title: "Data Refreshed",
-        description: "Analytics data has been updated successfully",
-        variant: "default"
+        title: 'Data Refreshed',
+        description: 'Analytics data has been updated successfully',
+        variant: 'default',
       });
     } catch (error) {
       toast({
-        title: "Refresh Failed", 
+        title: 'Refresh Failed',
         description: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
+        variant: 'destructive',
       });
     }
   };
@@ -135,9 +134,9 @@ export function AnalyticsRankingDashboard({
   const handleExport = async () => {
     // Placeholder for export functionality
     toast({
-      title: "Export Started",
-      description: "Your filtered data export is being prepared",
-      variant: "default"
+      title: 'Export Started',
+      description: 'Your filtered data export is being prepared',
+      variant: 'default',
     });
   };
 
@@ -145,9 +144,9 @@ export function AnalyticsRankingDashboard({
   const handlePresetApply = (presetName: string) => {
     applyPreset(presetName as any);
     toast({
-      title: "Filter Preset Applied",
+      title: 'Filter Preset Applied',
       description: `Applied ${presetName} filter preset`,
-      variant: "default"
+      variant: 'default',
     });
   };
 
@@ -155,11 +154,11 @@ export function AnalyticsRankingDashboard({
     return (
       <div className={`space-y-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3 mb-8"></div>
+          <div className="mb-4 h-8 w-1/3 rounded bg-gray-200"></div>
+          <div className="mb-8 h-4 w-2/3 rounded bg-gray-200"></div>
           <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="h-64 bg-gray-200 rounded"></div>
+              <div key={i} className="h-64 rounded bg-gray-200"></div>
             ))}
           </div>
         </div>
@@ -170,32 +169,35 @@ export function AnalyticsRankingDashboard({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
-      <div className="text-center space-y-4">
+      <div className="space-y-4 text-center">
         <div className="flex items-center justify-center gap-3">
           <Zap className="h-10 w-10 text-green-600" />
           <h1 className="text-4xl font-bold">Enhanced EPS Rankings</h1>
         </div>
-        <p className="text-xl text-muted-foreground">
-          Advanced analytics dashboard with powerful filtering and page-based pagination
+        <p className="text-muted-foreground text-xl">
+          Advanced analytics dashboard with powerful filtering and page-based
+          pagination
         </p>
 
         {/* Data Source & Freshness Info */}
         {data && (
-          <div className="flex justify-center gap-4 flex-wrap">
-            <Badge className={`${getDataSourceColor(data.metadata.data_source)} text-white`}>
-              <Activity className="h-3 w-3 mr-1" />
+          <div className="flex flex-wrap justify-center gap-4">
+            <Badge
+              className={`${getDataSourceColor(data.metadata.data_source)} text-white`}
+            >
+              <Activity className="mr-1 h-3 w-3" />
               {data.metadata.data_source.replace('_', ' ').toUpperCase()}
             </Badge>
             <Badge variant="outline">
-              <Clock className="h-3 w-3 mr-1" />
+              <Clock className="mr-1 h-3 w-3" />
               Updated {getDataFreshness()}
             </Badge>
             <Badge variant="outline">
-              <Server className="h-3 w-3 mr-1" />
+              <Server className="mr-1 h-3 w-3" />
               {data.processing_time_ms}ms response
             </Badge>
             <Badge variant="outline">
-              <Globe className="h-3 w-3 mr-1" />
+              <Globe className="mr-1 h-3 w-3" />
               {data.metadata.available_countries.length} markets
             </Badge>
           </div>
@@ -203,7 +205,7 @@ export function AnalyticsRankingDashboard({
 
         {/* Refresh and Export Controls */}
         <div className="flex justify-center gap-2">
-          <Button 
+          <Button
             onClick={handleRefresh}
             disabled={loading}
             variant="outline"
@@ -240,7 +242,9 @@ export function AnalyticsRankingDashboard({
       {/* Active Filter Indicators */}
       <ActiveFilterIndicators
         filters={filters}
-        onRemoveFilter={(key) => updateFilter(key, key === 'sort_by' ? 'market_cap' : undefined)}
+        onRemoveFilter={key =>
+          updateFilter(key, key === 'sort_by' ? 'market_cap' : undefined)
+        }
         onClearAllFilters={resetFilters}
       />
 
@@ -281,29 +285,33 @@ export function AnalyticsRankingDashboard({
           <h3 className="text-2xl font-bold">Performance Cards</h3>
           <div className="flex items-center gap-2">
             <Badge className="bg-amber-500 text-white">
-              <Crown className="h-4 w-4 mr-1" />
+              <Crown className="mr-1 h-4 w-4" />
               Bronze Member
             </Badge>
-            <Badge variant="outline">
-              Page {currentPage}
-            </Badge>
+            <Badge variant="outline">Page {currentPage}</Badge>
           </div>
         </div>
 
         {data?.data && data.data.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {data.data.map((card) => (
-              <Card key={card.symbol} className="group hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+            {data.data.map(card => (
+              <Card
+                key={card.symbol}
+                className="group transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <span className="text-xl font-bold">{card.symbol}</span>
-                        <Badge className={getRankBadgeStyle(card.rank)} variant="secondary">
+                        <Badge
+                          className={getRankBadgeStyle(card.rank)}
+                          variant="secondary"
+                        >
                           #{card.rank}
                         </Badge>
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-muted-foreground mt-1 text-sm">
                         {formatDate(card.latest_date)}
                       </p>
                     </div>
@@ -313,52 +321,79 @@ export function AnalyticsRankingDashboard({
                 <CardContent className="space-y-4">
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                      <div className="text-xs text-muted-foreground mb-1">EPS Value</div>
-                      <div className="font-semibold text-sm">{card.value?.toFixed(4) ?? 'N/A'}</div>
+                    <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800/50">
+                      <div className="text-muted-foreground mb-1 text-xs">
+                        EPS Value
+                      </div>
+                      <div className="text-sm font-semibold">
+                        {card.value?.toFixed(4) ?? 'N/A'}
+                      </div>
                     </div>
-                    <div className="text-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                      <div className="text-xs text-muted-foreground mb-1">Index</div>
-                      <div className={`font-semibold text-sm ${getIndexColor(card.index)}`}>
+                    <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800/50">
+                      <div className="text-muted-foreground mb-1 text-xs">
+                        Index
+                      </div>
+                      <div
+                        className={`text-sm font-semibold ${getIndexColor(card.index)}`}
+                      >
                         {card.index?.toFixed(1) ?? 'N/A'}
                       </div>
                     </div>
                   </div>
 
                   {/* Average Growth */}
-                  <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">Avg Growth</div>
-                    <div className={`font-bold text-lg ${getGrowthColor(card.avg_growth)}`}>
-                      {card.avg_growth != null ? `${card.avg_growth > 0 ? '+' : ''}${card.avg_growth.toFixed(1)}%` : 'N/A'}
+                  <div className="rounded-lg bg-gradient-to-r from-blue-50 to-green-50 p-3 text-center dark:from-blue-900/20 dark:to-green-900/20">
+                    <div className="text-muted-foreground mb-1 text-xs">
+                      Avg Growth
+                    </div>
+                    <div
+                      className={`text-lg font-bold ${getGrowthColor(card.avg_growth)}`}
+                    >
+                      {card.avg_growth != null
+                        ? `${card.avg_growth > 0 ? '+' : ''}${card.avg_growth.toFixed(1)}%`
+                        : 'N/A'}
                     </div>
                   </div>
 
                   {/* Quarterly Performance Table */}
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Quarterly Performance</h4>
+                    <h4 className="text-muted-foreground text-sm font-semibold">
+                      Quarterly Performance
+                    </h4>
                     <div className="space-y-1">
-                      {card.quarterly_performance?.slice(0, 3).map((quarter, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-xs p-2 bg-slate-50 dark:bg-slate-800/30 rounded">
-                          <span className="font-medium">{quarter?.quarter ?? `Q${idx}`}</span>
-                          <div className="text-right space-y-0.5">
-                            <div>EPS: {quarter?.eps ?? 'N/A'}</div>
-                            <div className={getGrowthColor(quarter?.eps_growth)}>
-                              {quarter?.eps_growth != null ? `${quarter.eps_growth > 0 ? '+' : ''}${quarter.eps_growth.toFixed(1)}%` : 'N/A'}
+                      {card.quarterly_performance
+                        ?.slice(0, 3)
+                        .map((quarter, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded bg-slate-50 p-2 text-xs dark:bg-slate-800/30"
+                          >
+                            <span className="font-medium">
+                              {quarter?.quarter ?? `Q${idx}`}
+                            </span>
+                            <div className="space-y-0.5 text-right">
+                              <div>EPS: {quarter?.eps ?? 'N/A'}</div>
+                              <div
+                                className={getGrowthColor(quarter?.eps_growth)}
+                              >
+                                {quarter?.eps_growth != null
+                                  ? `${quarter.eps_growth > 0 ? '+' : ''}${quarter.eps_growth.toFixed(1)}%`
+                                  : 'N/A'}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div>{formatPrice(quarter?.price ?? null)}</div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div>{formatPrice(quarter?.price ?? null)}</div>
-                          </div>
-                        </div>
-                      )) ?? []}
+                        )) ?? []}
                     </div>
                   </div>
 
                   {/* TradingView Link */}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
                     asChild
                   >
                     <a
@@ -368,7 +403,7 @@ export function AnalyticsRankingDashboard({
                       className="flex items-center gap-2"
                     >
                       <BarChart3 className="h-4 w-4" />
-                      View Chart
+                      View Data
                     </a>
                   </Button>
                 </CardContent>
@@ -378,8 +413,8 @@ export function AnalyticsRankingDashboard({
         ) : (
           <Card>
             <CardContent className="p-12 text-center">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+              <AlertCircle className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <h3 className="mb-2 text-lg font-semibold">No Results Found</h3>
               <p className="text-muted-foreground mb-4">
                 No data matches your current filter criteria.
               </p>
@@ -406,8 +441,8 @@ export function AnalyticsRankingDashboard({
 
       {/* Loading overlay */}
       {loading && data && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="flex items-center gap-2 bg-card p-4 rounded-lg shadow-lg">
+        <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-card flex items-center gap-2 rounded-lg p-4 shadow-lg">
             <RefreshCw className="h-5 w-5 animate-spin" />
             <span>Loading filtered results...</span>
           </div>

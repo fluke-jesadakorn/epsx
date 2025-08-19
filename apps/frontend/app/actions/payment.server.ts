@@ -15,14 +15,14 @@ export async function createDepositAddress(
   packageId: string
 ) {
   try {
-    const response = await apiClient.serverCreateCryptoDepositAddress({
+    const response = await apiClient.post('/api/payments/deposit-address', {
       currency,
       userId,
       packageId,
     });
 
-    if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to get deposit address');
+    if (!response.success) {
+      throw new Error('Failed to get deposit address');
     }
 
     if (!response.data.deposit) {

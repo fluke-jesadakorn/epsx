@@ -7,7 +7,6 @@ use axum::{
     response::Json as ResponseJson,
 };
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 use crate::infra::AppContainer;

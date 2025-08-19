@@ -119,7 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   // Force upgrade role directly (bypass validation for admin script)
   use epsx::dom::events::UserRoleChangedEvent;
-  use epsx::dom::values::PermSet;
+  use epsx::dom::values::PermissionSet;
   use chrono::Utc;
 
   let old_role = target_user.role().clone();
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let permissions = if args.super_admin {
     // Grant ALL permissions for super admin mode
     use epsx::dom::values::Permissions;
-    let mut all_perms = PermSet::new();
+    let mut all_perms = PermissionSet::new();
     
     // Add all available permissions for full system access
     all_perms.add_permission(Permissions::READ_ALL.to_string());
@@ -153,7 +153,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     all_perms
   } else {
     // Standard SuperAdmin permissions
-    PermSet::for_role(&Role::SuperAdmin)
+    PermissionSet::for_role(&Role::SuperAdmin)
   };
 
   // Use reconstruct to create user with SuperAdmin role, preserving all other fields
@@ -163,7 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     target_user.email().clone(),
     Role::SuperAdmin,
     permissions,
-    target_user.sub().clone(),
+    target_user.subscription().clone(),
     target_user.created_at(),
     Utc::now(), // updated_at
     target_user.deleted_at()

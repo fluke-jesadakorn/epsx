@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/server-auth';
+import { getServerSession } from '@/lib/auth/server-auth';
 import { env } from '@/config/env';
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
-  const session = await auth();
+  const session = await getServerSession();
   return (session as any)?.accessToken || null;
 };
 
-const BACKEND_URL = env.getBackendUrl();
+const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL;
 
 export async function GET() {
   try {

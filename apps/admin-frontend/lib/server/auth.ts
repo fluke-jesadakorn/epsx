@@ -89,6 +89,22 @@ export async function getAuthorizationUrl() {
 }
 
 /**
+ * Get server session (mock implementation for build)
+ */
+export async function getServerSession() {
+  // TODO: Implement actual session retrieval
+  return null;
+}
+
+/**
+ * Get auth user (mock implementation for build)
+ */
+export async function getAuthUser() {
+  // TODO: Implement actual user retrieval
+  return null;
+}
+
+/**
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {

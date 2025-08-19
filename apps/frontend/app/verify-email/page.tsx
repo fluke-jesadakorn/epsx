@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/server-actions';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
+
+export const dynamic = 'force-dynamic';
 export default async function VerifyEmailPage() {
   // Server-side authentication check
   let user = null;

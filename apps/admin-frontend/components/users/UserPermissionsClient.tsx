@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react'
 import { Users, Key, Shield, Plus, Settings } from 'lucide-react'
-import { Button } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import type { UnifiedUserData } from '@/lib/types/unified-user'

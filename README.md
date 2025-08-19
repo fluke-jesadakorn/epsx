@@ -442,7 +442,7 @@ FIREBASE_SERVICE_ACCOUNT_KEY=path/to/service-account.json
 ## 🚀 Deployment
 
 ### Google Cloud Registry
-- **Registry**: `us-central1-docker.pkg.dev/epsx-449804/epsx`
+- **Registry**: `us-central1-docker.pkg.dev/epsx-469400/epsx`
 - **Multi-platform**: linux/amd64, linux/arm64 support
 - **Environments**: Development, test, production configurations
 

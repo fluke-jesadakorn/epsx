@@ -84,7 +84,7 @@ impl EPSRepository for PostgresEPSRepository {
     async fn store_eps_data(&self, eps_data: EPSGrowthData) -> Result<(), AppError> {
         debug!("Storing EPS data for symbol: {}", eps_data.symbol);
 
-        let query = sqlx::query!(
+        let query = sqlx::query(
             r#"
             INSERT INTO eps_growth_analytics (
                 symbol, name, country, sector, exchange, 
@@ -105,19 +105,19 @@ impl EPSRepository for PostgresEPSRepository {
                 volume = EXCLUDED.volume,
                 ranking_score = EXCLUDED.ranking_score,
                 updated_at = NOW()
-            "#,
-            eps_data.symbol,
-            eps_data.name,
-            eps_data.country,
-            eps_data.sector,
-            eps_data.exchange,
-            eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)),
-            eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)),
-            eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)),
-            eps_data.market_cap,
-            eps_data.volume,
-            eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v))
-        );
+            "#
+        )
+        .bind(&eps_data.symbol)
+        .bind(&eps_data.name)
+        .bind(&eps_data.country)
+        .bind(&eps_data.sector)
+        .bind(&eps_data.exchange)
+        .bind(eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)))
+        .bind(eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)))
+        .bind(eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)))
+        .bind(eps_data.market_cap)
+        .bind(eps_data.volume)
+        .bind(eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v)));
 
         match query.execute(&*self.pool).await {
             Ok(result) => {
@@ -257,7 +257,7 @@ impl EPSRepository for PostgresEPSRepository {
                 .map_err(|e| crate::database_error!("start_transaction", e))?;
 
             for eps_data in chunk {
-                let result = sqlx::query!(
+                let result = sqlx::query(
                     r#"
                     INSERT INTO eps_growth_analytics (
                         symbol, name, country, sector, exchange,
@@ -278,19 +278,20 @@ impl EPSRepository for PostgresEPSRepository {
                         volume = EXCLUDED.volume,
                         ranking_score = EXCLUDED.ranking_score,
                         updated_at = NOW()
-                    "#,
-                    eps_data.symbol,
-                    eps_data.name,
-                    eps_data.country,
-                    eps_data.sector,
-                    eps_data.exchange,
-                    eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)),
-                    eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)),
-                    eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)),
-                    eps_data.market_cap,
-                    eps_data.volume,
-                    eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v))
-                ).execute(&mut *tx).await;
+                    "#
+                )
+                .bind(&eps_data.symbol)
+                .bind(&eps_data.name)
+                .bind(&eps_data.country)
+                .bind(&eps_data.sector)
+                .bind(&eps_data.exchange)
+                .bind(eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)))
+                .bind(eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)))
+                .bind(eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)))
+                .bind(eps_data.market_cap)
+                .bind(eps_data.volume)
+                .bind(eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v)))
+                .execute(&mut *tx).await;
 
                 match result {
                     Ok(_) => {
@@ -316,13 +317,14 @@ impl EPSRepository for PostgresEPSRepository {
             }
 
             // Verify batch was actually stored by checking count
-            let verification_count = sqlx::query_scalar!(
+            let verification_count = sqlx::query_scalar(
                 "SELECT COUNT(*) FROM eps_growth_analytics"
             ).fetch_one(&*self.pool).await
                 .map_err(|e| crate::database_error!("verify_count", e))?;
             
+            let count: Option<i64> = verification_count;
             info!("Committed batch, stored {} entries so far, DB shows {} total entries", 
-                  stored_count, verification_count.unwrap_or(0));
+                  stored_count, count.unwrap_or(0));
         }
 
         info!("Batch storage completed - stored {} out of {} entries", stored_count, eps_data_list.len());
@@ -332,7 +334,7 @@ impl EPSRepository for PostgresEPSRepository {
     async fn get_countries(&self) -> Result<Vec<String>, AppError> {
         debug!("Getting distinct countries from EPS data");
 
-        let query = sqlx::query!(
+        let query = sqlx::query(
             r#"
             SELECT DISTINCT country 
             FROM eps_growth_analytics 
@@ -347,7 +349,7 @@ impl EPSRepository for PostgresEPSRepository {
             Ok(rows) => {
                 let countries: Vec<String> = rows
                     .into_iter()
-                    .filter_map(|row| Some(row.country))
+                    .filter_map(|row| row.try_get("country").ok())
                     .collect();
 
                 debug!("Found {} distinct countries", countries.len());

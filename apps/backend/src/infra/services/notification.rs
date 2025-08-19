@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
+use sqlx::Row;
 
 use crate::app::ports::services::NotificationServiceError;
 use crate::dom::ports::notification::{
@@ -198,22 +199,22 @@ impl NotificationService for DatabaseNotificationService {
         let metadata_json = serde_json::to_value(&notification.metadata)
             .map_err(|e| NotificationServiceError::StorageError(format!("Failed to serialize metadata: {}", e)))?;
         
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO notifications (id, user_id, title, message, notification_type, priority, is_read, created_at, expires_at, metadata)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            "#,
-            notification_id,
-            user_id,
-            notification.title,
-            notification.message,
-            notification_type_str,
-            priority_str,
-            notification.read,
-            notification.created_at,
-            notification.expires_at,
-            metadata_json
+            "#
         )
+        .bind(notification_id)
+        .bind(user_id)
+        .bind(notification.title)
+        .bind(notification.message)
+        .bind(notification_type_str)
+        .bind(priority_str)
+        .bind(notification.read)
+        .bind(notification.created_at)
+        .bind(notification.expires_at)
+        .bind(metadata_json)
         .execute(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to insert notification: {}", e)))?;
@@ -227,24 +228,25 @@ impl NotificationService for DatabaseNotificationService {
         
         let limit_value = limit.unwrap_or(50) as i64;
         
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT id, user_id, title, message, notification_type, priority, is_read, created_at, expires_at, metadata
             FROM notifications 
             WHERE user_id = $1 
             ORDER BY created_at DESC 
             LIMIT $2
-            "#,
-            user_uuid,
-            limit_value
+            "#
         )
+        .bind(user_uuid)
+        .bind(limit_value)
         .fetch_all(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to query notifications: {}", e)))?;
         
         let mut notifications = Vec::new();
         for row in rows {
-            let notification_type = match row.notification_type.as_str() {
+            let notification_type_str: String = row.try_get("notification_type").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get notification_type: {}", e)))?;
+            let notification_type = match notification_type_str.as_str() {
                 "system" => NotificationType::System,
                 "payment" => NotificationType::Payment,
                 "trading" => NotificationType::Trading,
@@ -254,7 +256,8 @@ impl NotificationService for DatabaseNotificationService {
                 _ => NotificationType::System,
             };
             
-            let priority = match row.priority.as_str() {
+            let priority_str: String = row.try_get("priority").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get priority: {}", e)))?;
+            let priority = match priority_str.as_str() {
                 "low" => NotificationPriority::Low,
                 "medium" => NotificationPriority::Medium,
                 "high" => NotificationPriority::High,
@@ -262,23 +265,32 @@ impl NotificationService for DatabaseNotificationService {
                 _ => NotificationPriority::Medium,
             };
             
-            let metadata: HashMap<String, String> = if let Some(metadata_value) = row.metadata {
+            let metadata_value: Option<serde_json::Value> = row.try_get("metadata").ok();
+            let metadata: HashMap<String, String> = if let Some(metadata_value) = metadata_value {
                 serde_json::from_value(metadata_value)
                     .unwrap_or_else(|_| HashMap::new())
             } else {
                 HashMap::new()
             };
             
+            let id: uuid::Uuid = row.try_get("id").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get id: {}", e)))?;
+            let user_id: uuid::Uuid = row.try_get("user_id").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get user_id: {}", e)))?;
+            let title: String = row.try_get("title").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get title: {}", e)))?;
+            let message: String = row.try_get("message").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get message: {}", e)))?;
+            let is_read: bool = row.try_get("is_read").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get is_read: {}", e)))?;
+            let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").map_err(|e| NotificationServiceError::StorageError(format!("Failed to get created_at: {}", e)))?;
+            let expires_at: Option<chrono::DateTime<chrono::Utc>> = row.try_get("expires_at").ok();
+            
             notifications.push(Notification {
-                id: row.id.to_string(),
-                user_id: row.user_id.to_string(),
-                title: row.title,
-                message: row.message,
+                id: id.to_string(),
+                user_id: user_id.to_string(),
+                title,
+                message,
                 notification_type,
                 priority,
-                read: row.is_read,
-                created_at: row.created_at,
-                expires_at: row.expires_at,
+                read: is_read,
+                created_at,
+                expires_at,
                 metadata,
             });
         }
@@ -293,11 +305,11 @@ impl NotificationService for DatabaseNotificationService {
         let user_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
         
-        let result = sqlx::query!(
-            "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2",
-            notification_uuid,
-            user_uuid
+        let result = sqlx::query(
+            "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2"
         )
+        .bind(notification_uuid)
+        .bind(user_uuid)
         .execute(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to mark notification as read: {}", e)))?;
@@ -313,10 +325,10 @@ impl NotificationService for DatabaseNotificationService {
         let user_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
         
-        sqlx::query!(
-            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false",
-            user_uuid
+        sqlx::query(
+            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false"
         )
+        .bind(user_uuid)
         .execute(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to mark all notifications as read: {}", e)))?;
@@ -331,11 +343,11 @@ impl NotificationService for DatabaseNotificationService {
         let user_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
         
-        let result = sqlx::query!(
-            "DELETE FROM notifications WHERE id = $1 AND user_id = $2",
-            notification_uuid,
-            user_uuid
+        let result = sqlx::query(
+            "DELETE FROM notifications WHERE id = $1 AND user_id = $2"
         )
+        .bind(notification_uuid)
+        .bind(user_uuid)
         .execute(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to delete notification: {}", e)))?;
@@ -351,21 +363,22 @@ impl NotificationService for DatabaseNotificationService {
         let user_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::StorageError(format!("Invalid user UUID: {}", e)))?;
         
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
             SELECT COUNT(*) as count
             FROM notifications 
             WHERE user_id = $1 
             AND is_read = false 
             AND (expires_at IS NULL OR expires_at > NOW())
-            "#,
-            user_uuid
+            "#
         )
+        .bind(user_uuid)
         .fetch_one(&*self.pool)
         .await
         .map_err(|e| NotificationServiceError::StorageError(format!("Failed to count unread notifications: {}", e)))?;
         
-        Ok(result.count.unwrap_or(0) as usize)
+        let count: i64 = result.try_get("count").unwrap_or(0);
+        Ok(count as usize)
     }
 }
 

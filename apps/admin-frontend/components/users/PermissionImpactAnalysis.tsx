@@ -7,9 +7,9 @@
 
 import React, { useState, useEffect } from 'react'
 import { Shield, Check, X, RefreshCw, Eye, AlertTriangle, Info } from 'lucide-react'
-import { Button } from '@epsx/ui'
-import { Badge } from '@epsx/ui'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { getPermissionImpact } from '@/lib/actions/users'
 

@@ -7,7 +7,7 @@
 import { getUnifiedUserData } from '@/lib/actions/users'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'
-import { auth } from '@/lib/server-auth'
+import { getServerSession } from '@/lib/auth/server-auth'
 
 interface UserOverviewPageProps {
   params: Promise<{ userId: string }>
@@ -18,7 +18,7 @@ export default async function UserOverviewPage({ params }: UserOverviewPageProps
   const { userId } = await params
   
   // Get current user session
-  const session = await auth()
+  const session = await getServerSession()
   const currentUser = session?.user
   
   // Get user data (this will be cached from layout)

@@ -54,6 +54,7 @@ export {
   isValidEmail,
   isValidPhone,
   truncateText,
+  calculatePercentageChange,
   storage,
   array,
   object

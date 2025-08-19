@@ -273,9 +273,3 @@ impl Subscription {
     }
 }
 
-// Backward compatibility type aliases (deprecated)
-#[deprecated(note = "Use PermissionSet instead")]
-pub type PermSet = PermissionSet;
-
-#[deprecated(note = "Use SubscriptionTier instead")]
-pub type SubTier = SubscriptionTier;

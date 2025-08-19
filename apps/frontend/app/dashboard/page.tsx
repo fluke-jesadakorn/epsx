@@ -2,8 +2,8 @@ import { getSessionFromJWT } from '@/lib/server/jwt';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import { redirect } from 'next/navigation';
 
-// ISR configuration for dashboard - revalidate every 1 minute for dynamic user data
-export const revalidate = 60;
+// Force dynamic rendering for pages that use authentication
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   // Get session data server-side using JWT

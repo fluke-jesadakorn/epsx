@@ -1,10 +1,10 @@
 // Unified API client using the refactored package structure
 // This file provides backward compatibility and convenience exports
 
-import { apiClient, createApiClient } from '@/lib/api-client';
+import { apiClient, createApiClient, AnalyticsClient } from './api-client';
 
 // Re-export the main API client instance and classes
-export { apiClient, AnalyticsClient } from '@/lib/api-client';
+export { apiClient, AnalyticsClient };
 
 // Re-export types for backward compatibility
 export interface ApiResponse<T = any> {

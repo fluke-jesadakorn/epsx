@@ -1,0 +1,12 @@
+# *
+User-agent: *
+Disallow: /api/
+Disallow: /unauthorized
+Disallow: /access-denied
+Disallow: /_next/
+
+# Host
+Host: https://admin.epsx.com
+
+# Sitemaps
+Sitemap: https://admin.epsx.com/sitemap.xml

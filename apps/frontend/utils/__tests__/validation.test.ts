@@ -2,30 +2,30 @@
 // Tests for validation utilities and business rules
 // Clean Architecture: Domain Layer - No external dependencies
 
-import { formatCurrency, calculatePercentageChange, validateEmail } from '../index'
+import { formatCurrency, calculatePercentageChange, isValidEmail } from '../index'
 
 describe('Validation Utilities', () => {
   describe('Email Validation', () => {
-    test('validateEmail should validate correct email formats', () => {
-      expect(validateEmail('test@example.com')).toBe(true)
-      expect(validateEmail('user.name+tag@domain.co.uk')).toBe(true)
-      expect(validateEmail('user123@test-domain.com')).toBe(true)
-      expect(validateEmail('name@subdomain.domain.org')).toBe(true)
+    test('isValidEmail should validate correct email formats', () => {
+      expect(isValidEmail('test@example.com')).toBe(true)
+      expect(isValidEmail('user.name+tag@domain.co.uk')).toBe(true)
+      expect(isValidEmail('user123@test-domain.com')).toBe(true)
+      expect(isValidEmail('name@subdomain.domain.org')).toBe(true)
     })
 
-    test('validateEmail should reject invalid email formats', () => {
-      expect(validateEmail('invalid-email')).toBe(false)
-      expect(validateEmail('test@')).toBe(false)
-      expect(validateEmail('@domain.com')).toBe(false)
-      expect(validateEmail('test@domain.com')).toBe(false)
-      expect(validateEmail('')).toBe(false)
-      expect(validateEmail('test.domain.com')).toBe(false)
+    test('isValidEmail should reject invalid email formats', () => {
+      expect(isValidEmail('invalid-email')).toBe(false)
+      expect(isValidEmail('test@')).toBe(false)
+      expect(isValidEmail('@domain.com')).toBe(false)
+      expect(isValidEmail('test@domain.com')).toBe(false)
+      expect(isValidEmail('')).toBe(false)
+      expect(isValidEmail('test.domain.com')).toBe(false)
     })
 
-    test('validateEmail should handle edge cases', () => {
-      expect(validateEmail('a@b.co')).toBe(true) // Minimal valid email
-      expect(validateEmail('test@domain-name.com')).toBe(true) // Hyphenated domain
-      expect(validateEmail('test+filter@domain.com')).toBe(true) // Plus addressing
+    test('isValidEmail should handle edge cases', () => {
+      expect(isValidEmail('a@b.co')).toBe(true) // Minimal valid email
+      expect(isValidEmail('test@domain-name.com')).toBe(true) // Hyphenated domain
+      expect(isValidEmail('test+filter@domain.com')).toBe(true) // Plus addressing
     })
   })
 

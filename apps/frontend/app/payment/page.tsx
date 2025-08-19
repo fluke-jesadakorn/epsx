@@ -4,6 +4,8 @@ import { PaymentPageClient } from './PaymentPageClient';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
 import { Suspense } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 interface PaymentPageProps {
   searchParams: { package?: string };
 }

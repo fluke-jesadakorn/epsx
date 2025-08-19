@@ -7,7 +7,7 @@
 
 import { useTransition } from 'react'
 import { RefreshCcw } from 'lucide-react'
-import { Button } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { refreshAnalyticsData } from '@/lib/actions/analytics-actions'

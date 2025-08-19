@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { MoreHorizontal, Shield, Trash2, Edit } from 'lucide-react'
-import { Button } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,

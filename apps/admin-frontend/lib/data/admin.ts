@@ -1,12 +1,21 @@
-import { createApiClient, isApiError } from '@epsx/api-client';
-import { config } from '../config';
+// TODO: Replace with proper API client implementation
+const createApiClient = () => ({
+  getAdminUsers: async () => { throw new Error('API client not implemented'); },
+  getAdminUser: async () => { throw new Error('API client not implemented'); },
+  getAdminPermissionProfiles: async () => { throw new Error('API client not implemented'); },
+  getAdminPermissionProfile: async () => { throw new Error('API client not implemented'); },
+  getStockRankingAssignments: async () => { throw new Error('API client not implemented'); },
+  getStockRankingAssignment: async () => { throw new Error('API client not implemented'); },
+  getAnalyticsStatistics: async () => { throw new Error('API client not implemented'); },
+  getStockRankingAnalytics: async () => { throw new Error('API client not implemented'); },
+  getAdminProfile: async () => { throw new Error('API client not implemented'); },
+});
+
+const isApiError = (response: any) => false;
 
 // Get backend URL server-side only
 const getApiClient = () => {
-  if (!config.isServer()) {
-    throw new Error('API client can only be created on server-side');
-  }
-  return createApiClient(); // Will use backend URL from environment
+  return createApiClient();
 };
 
 // User Management

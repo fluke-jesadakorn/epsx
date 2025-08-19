@@ -2,6 +2,8 @@ import { getCurrentUser } from '@/lib/server-actions';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+export const dynamic = 'force-dynamic';
+
 export default async function TradingPage() {
   // Server-side auth check with automatic redirect if not authenticated
   let user = null;

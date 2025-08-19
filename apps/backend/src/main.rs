@@ -2,7 +2,7 @@ use std::{ sync::Arc, net::SocketAddr, time::Duration };
 use tracing::{ info, warn };
 use epsx::{
   infra::{ AppContainer },
-  web::create_router,
+  web::{create_router, create_demo_router},
   config::{ Config },
 };
 
@@ -16,20 +16,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   info!("Starting EPSX backend server with clean architecture...");
 
-  // Initialize dependency container
-  let container = Arc::new(AppContainer::new().await?);
-  info!("Dependency container initialized");
-
-
-  // Create application router
-  let app = create_router(container).await;
-
-  // Load configuration
-  let config = Config::from_env().expect("Failed to load configuration");
+  // Try to create full router with database, fallback to demo mode if needed
+  let app = match AppContainer::new().await {
+    Ok(container) => {
+      info!("✅ Full application container created successfully");
+      create_router(Arc::new(container)).await
+    }
+    Err(e) => {
+      warn!("Failed to create container: {}, falling back to demo mode", e);
+      create_demo_router().await
+    }
+  };
   
-  // Determine server address
-  let host = config.server.host;
-  let port = config.server.port;
+  // Determine server address - Cloud Run requires 0.0.0.0
+  let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+  let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string()).parse::<u16>().unwrap_or(8080);
 
   let addr = SocketAddr::new(host.parse()?, port);
   info!("Server starting on {}", addr);

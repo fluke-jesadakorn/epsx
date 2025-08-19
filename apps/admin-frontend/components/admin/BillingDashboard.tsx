@@ -20,7 +20,7 @@ import { BillingAlerts } from './BillingAlerts';
 import { BillingService } from '@/services/billingService';
 import type { UsageBill } from '@/services/billingService';
 import { toast } from 'react-hot-toast';
-import { fmtCurrency } from '@epsx/shared-utils/formatting';
+import { fmtCurrency } from '@/lib/utils';
 
 interface InvoiceData {
   id: string;

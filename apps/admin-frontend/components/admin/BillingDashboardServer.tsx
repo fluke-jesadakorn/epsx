@@ -4,7 +4,7 @@
  */
 
 import { DollarSign, CreditCard, TrendingUp, Download, AlertTriangle, Settings, Activity, FileText } from 'lucide-react'
-import { auth } from '@/lib/auth'
+import { getServerSession } from '@/lib/auth'
 import { getBillingDashboardData } from '@/lib/actions/billing-actions'
 import { BillingStatsCards } from './BillingStatsCards'
 import { BillingOverviewServer } from './BillingOverviewServer'
@@ -20,7 +20,7 @@ interface BillingDashboardServerProps {
 }
 
 export async function BillingDashboardServer({ searchParams }: BillingDashboardServerProps) {
-  const session = await auth()
+  const session = await getServerSession()
   
   // Check authentication
   if (!session?.user) {

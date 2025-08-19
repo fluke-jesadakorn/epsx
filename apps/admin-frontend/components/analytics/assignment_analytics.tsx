@@ -8,10 +8,18 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@epsx/ui';
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
-import { fmtDateTime } from '@epsx/shared-utils/formatting';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDate } from '@/lib/utils';
+
+// Format date and time utility function
+const fmtDateTime = (date: string | Date): string => {
+  return formatDate(date) + ' ' + new Date(date).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 import React, { useEffect, useState } from 'react';
 import {
   Bar,

@@ -9,7 +9,7 @@ Simple deployment scripts for building containers locally and deploying the EPSX
 1. **Google Cloud CLI** configured
    ```bash
    gcloud auth login
-   gcloud config set project epsx-449804
+   gcloud config set project epsx-469400
    ```
 
 2. **Docker** running locally
@@ -48,7 +48,7 @@ Builds Docker containers for all three applications using existing Dockerfiles.
 ```
 
 **Environment Variables:**
-- `GOOGLE_CLOUD_PROJECT` - Project ID (default: epsx-449804)
+- `GOOGLE_CLOUD_PROJECT` - Project ID (default: epsx-469400)
 - `GOOGLE_CLOUD_REGION` - Region (default: us-central1)
 - `BUILD_VERSION` - Version tag (default: latest)
 
@@ -116,7 +116,7 @@ Set these in your shell or `.env` file:
 
 ```bash
 # Required
-GOOGLE_CLOUD_PROJECT=epsx-449804
+GOOGLE_CLOUD_PROJECT=epsx-469400
 GOOGLE_CLOUD_REGION=us-central1
 
 # Optional
@@ -134,7 +134,7 @@ NEXTAUTH_SECRET=your-jwt-secret
 COOKIE_ENCRYPTION_KEY=your-encryption-key
 
 # Firebase Configuration
-FIREBASE_PROJECT_ID=epsx-449804
+FIREBASE_PROJECT_ID=epsx-469400
 FIREBASE_CLIENT_EMAIL=your-service-account@epsx.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 
@@ -150,7 +150,7 @@ pnpm dev
 
 # Build and test containers
 ./scripts/build-all.sh
-docker run -p 3000:3000 us-central1-docker.pkg.dev/epsx-449804/epsx/frontend:latest
+docker run -p 3000:3000 us-central1-docker.pkg.dev/epsx-469400/epsx/frontend:latest
 ```
 
 ### Production Deployment
@@ -260,7 +260,7 @@ gcloud run services describe SERVICE_NAME --region=us-central1
 ```bash
 # Re-authenticate with gcloud
 gcloud auth login
-gcloud config set project epsx-449804
+gcloud config set project epsx-469400
 ```
 
 ## 🔍 Monitoring
@@ -275,7 +275,7 @@ Each service automatically gets:
 ### View Metrics
 ```bash
 # Open Cloud Console monitoring
-gcloud console --project=epsx-449804
+gcloud console --project=epsx-469400
 
 # Or use CLI to get basic stats
 gcloud run services describe epsx-frontend \

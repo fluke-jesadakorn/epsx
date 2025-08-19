@@ -16,7 +16,6 @@ pub mod admin_assignment;
 pub mod simplified_router;
 
 use axum::{
-    middleware::from_fn_with_state,
     routing::{get, post},
     Router,
     response::Json,
@@ -28,18 +27,6 @@ use tower_http::cors::CorsLayer;
 
 use crate::infra::AppContainer;
 use auth::AppState;
-use permission_profile::create_permission_profile_router;
-use user::user_routes_v1;
-use modules::create_modules_router;
-use analytics::create_analytics_router;
-use settings::create_settings_router;
-use validation::comprehensive_validation_middleware;
-use auth::handlers::{
-    logout_handler, refresh_handler, me_handler, validate_session_handler, 
-    validate_route_access_handler, validate_bulk_routes_handler, check_permission_handler, 
-    user_features_handler, navigation_handler, single_permission_handler, rotate_session_handler,
-    login_handler, register_handler
-};
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -67,104 +54,6 @@ pub async fn premium_rankings_handler() -> Json<Value> {
 }
 
 
-/// Create v1 API routes
-fn create_v1_routes(app_state: AppState, container: Arc<AppContainer>) -> Router<AppState> {
-    // Create public authentication routes (no auth required)
-    let public_auth_routes = Router::new()
-        .route("/auth/login", post(login_handler))
-        .route("/auth/register", post(register_handler))
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            comprehensive_validation_middleware,
-        ));
-
-    // Create protected authentication routes (auth required)
-    let protected_auth_routes = Router::new()
-        .route("/auth/logout", post(logout_handler))
-        .route("/auth/refresh", post(refresh_handler))
-        .route("/auth/profile", get(me_handler))
-        // Phase 1: Centralized auth API endpoints
-        .route("/auth/validate-session", post(validate_session_handler))
-        .route("/auth/validate-access", post(validate_route_access_handler))
-        .route("/auth/validate-routes", post(validate_bulk_routes_handler))
-        .route("/auth/check-permission", post(check_permission_handler))
-        .route("/auth/permission", get(single_permission_handler))
-        .route("/auth/features", get(user_features_handler))
-        .route("/auth/navigation", get(navigation_handler))
-        .route("/auth/rotate-session", post(rotate_session_handler))
-        .route_layer(from_fn_with_state(
-            app_state.clone(),
-            comprehensive_validation_middleware,
-        ));
-
-    // Create user admin routes (auth required)
-    let user_admin_routes = user_routes_v1();
-
-    // Payment routes (auth required)
-    let payment_routes = Router::new()
-        .route("/payments/crypto/deposit-address", get(placeholder_crypto_deposit))
-        .route("/payments/musepay/create", post(placeholder_musepay_create))
-        .route("/webhooks/payments/musepay", post(placeholder_musepay_webhook));
-
-    // System routes (auth required)
-    let system_routes = Router::new()
-        .route("/system/cache", post(cache_handler));
-
-    // Admin assignment routes (for Firebase admin privileges)
-    let admin_assignment_routes = Router::new()
-        .route("/admin/users/:user_id/role", post(admin_assignment::assign_admin_role_handler))
-        .route("/admin/users/:user_id/claims", get(admin_assignment::get_user_claims_handler));
-
-    // Premium routes (auth + permission required)
-    let premium_routes = Router::new()
-        .route("/premium/rankings", get(premium_rankings_handler));
-
-    // Permission profile routes for v1 API (auth required)
-    let permission_profile_routes_v1 = Router::new()
-        .nest("/permission-profiles", create_permission_profile_router());
-
-
-    // Module routes for v1 API (module auth required)
-    let module_routes_v1 = Router::new()
-        .nest("/", create_modules_router(app_state.clone()));
-
-    // Analytics routes with TradingView integration
-    let analytics_routes_v1 = Router::new()
-        .nest("/", create_analytics_router(&container.infra))
-        .nest("/api/v1", create_analytics_router(&container.infra)); // v1 API support
-
-    // Settings routes for v1 API (auth required)
-    let settings_routes_v1 = Router::new()
-        .nest("/settings", create_settings_router());
-
-    // Placeholder routes for frontend expectations
-    let placeholder_routes = Router::new()
-        .route("/notifications/subscribe", post(placeholder_notification_handler))
-        .route("/notifications/unsubscribe", post(placeholder_notification_handler))
-        .route("/monitoring/alerts", post(placeholder_monitoring_handler))
-        .route("/monitoring/events", post(placeholder_monitoring_handler))
-        .route("/stream", post(placeholder_stream_handler));
-
-    // Configure CORS for frontend compatibility
-    let cors = configure_cors_for_frontend();
-    
-    Router::new()
-        .route("/health", get(health_handler))
-        .merge(public_auth_routes)
-        .merge(protected_auth_routes)
-        .merge(user_admin_routes)
-        .merge(payment_routes)
-        .merge(system_routes)
-        .merge(admin_assignment_routes)
-        .merge(premium_routes)
-        .merge(permission_profile_routes_v1)
-        .merge(module_routes_v1)
-        .merge(analytics_routes_v1)
-        .merge(settings_routes_v1)
-        .merge(placeholder_routes)
-        .layer(cors) // Apply CORS to all routes
-        .with_state(app_state)
-}
 
 
 /// Placeholder handlers for payment endpoints
@@ -424,6 +313,22 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
     simplified_routes
         .merge(analytics_routes)
         .layer(cors)
+}
+
+/// Create a demo router for Cloud Run demonstration without database dependencies
+pub async fn create_demo_router() -> Router {
+    use axum::response::Json;
+    use serde_json::json;
+    
+    Router::new()
+        .route("/health", get(health_handler))
+        .route("/", get(|| async { Json(json!({
+            "status": "running",
+            "service": "epsx-backend",
+            "mode": "demo",
+            "message": "Backend is running in demo mode. Database connection required for full functionality.",
+            "timestamp": chrono::Utc::now()
+        })) }))
 }
 
 /// Create test application for integration tests

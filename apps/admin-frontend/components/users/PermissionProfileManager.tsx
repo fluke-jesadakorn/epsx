@@ -7,10 +7,10 @@
 
 import { useState, useEffect } from 'react'
 import { Shield, Plus, Settings, AlertCircle, CheckCircle, X } from 'lucide-react'
-import { Button } from '@epsx/ui'
-import { Badge } from '@epsx/ui'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { 
   assignPermissionProfile, 

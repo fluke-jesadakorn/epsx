@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getIAMUsers } from '@epsx/server-actions';
+// TODO: Replace with actual IAM service call
+const getIAMUsers = async () => {
+  // Mock implementation - replace with actual API call
+  return [];
+};
 import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {

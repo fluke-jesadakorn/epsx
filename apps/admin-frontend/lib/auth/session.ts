@@ -5,7 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { verifyJWTFromCookies } from '@/lib/server/jwt';
-import type { EPSXJWTPayload } from '@epsx/auth-shared';
+import type { EPSXJWTPayload } from '@/lib/auth-utils';
 
 export interface SessionData {
   isLoggedIn: boolean;

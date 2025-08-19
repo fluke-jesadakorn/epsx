@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# EPSX - Build All Containers with Apple Container Engine (15x Performance)
-# Builds frontend, admin-frontend, and backend containers in parallel using Apple's optimized container engine
+# EPSX - Smart Build All Containers
+# Automatically detects environment and routes to appropriate build script
 
 set -euo pipefail
 
@@ -10,7 +10,66 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
+
+# Script directory and root detection
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+echo -e "${BLUE}🚀 EPSX Smart Build System${NC}"
+
+# Load environment detection
+if [[ -f "$SCRIPT_DIR/env-manager.sh" ]]; then
+    source "$SCRIPT_DIR/env-manager.sh"
+else
+    echo -e "${RED}❌ env-manager.sh not found. Using fallback environment detection.${NC}"
+fi
+
+# Detect current environment
+DETECTED_ENV=$(detect_environment 2>/dev/null || echo "development")
+
+# Check for explicit build target override
+BUILD_TARGET="${BUILD_TARGET:-$DETECTED_ENV}"
+
+echo -e "${PURPLE}Environment Detection:${NC}"
+echo -e "  Detected Environment: ${GREEN}$DETECTED_ENV${NC}"
+echo -e "  Build Target: ${GREEN}$BUILD_TARGET${NC}"
+echo
+
+# Route to appropriate build script
+case "$BUILD_TARGET" in
+    development|dev)
+        echo -e "${BLUE}🔧 Routing to development build...${NC}"
+        exec "$SCRIPT_DIR/build-dev.sh" "$@"
+        ;;
+    staging)
+        echo -e "${BLUE}🏗️  Routing to staging build...${NC}"
+        exec "$SCRIPT_DIR/build-staging.sh" "$@"
+        ;;
+    production|prod)
+        echo -e "${BLUE}🏭 Routing to production build...${NC}"
+        exec "$SCRIPT_DIR/build-prod.sh" "$@"
+        ;;
+    cloud-run)
+        echo -e "${BLUE}☁️  Routing to Cloud Run optimized build...${NC}"
+        # For Cloud Run, use production build with cloud-run environment
+        BUILD_TARGET=cloud-run exec "$SCRIPT_DIR/build-prod.sh" "$@"
+        ;;
+    legacy|fallback)
+        echo -e "${YELLOW}⚠️  Using legacy build method...${NC}"
+        # Fall back to original build logic below
+        ;;
+    *)
+        echo -e "${RED}❌ Unknown build target: $BUILD_TARGET${NC}"
+        echo -e "${YELLOW}Available targets: development, staging, production, cloud-run${NC}"
+        echo -e "${YELLOW}Override with: BUILD_TARGET=<target> ./scripts/build-all.sh${NC}"
+        exit 1
+        ;;
+esac
+
+# Legacy build logic (fallback)
+echo -e "${YELLOW}Using legacy build method...${NC}"
 
 # Configuration
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-epsx-469400}"
@@ -23,33 +82,31 @@ FRONTEND_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/frontend:$VERSION
 ADMIN_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/admin:$VERSION"
 BACKEND_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/backend:$VERSION"
 
-echo -e "${BLUE}🚀 Building EPSX containers locally...${NC}"
-echo -e "${YELLOW}Project: $PROJECT_ID${NC}"
-echo -e "${YELLOW}Version: $VERSION${NC}"
+echo -e "${YELLOW}Legacy Build Configuration:${NC}"
+echo -e "  Project: $PROJECT_ID${NC}"
+echo -e "  Version: $VERSION${NC}"
 echo
 
-# Use Apple Container Engine exclusively for 15x performance improvement
-if command -v container >/dev/null 2>&1 && container system status >/dev/null 2>&1; then
-    echo -e "${BLUE}🚀 Using Apple container engine (optimized for Apple Silicon)${NC}"
-    CONTAINER_CMD="container"
+# Use Docker engine
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    echo -e "${BLUE}🐳 Using Docker engine${NC}"
+    CONTAINER_CMD="docker"
 else
-    echo -e "${RED}❌ Apple container engine not available. Please install container tooling.${NC}"
-    echo -e "${YELLOW}Install: https://github.com/containers/podman or use OrbStack${NC}"
+    echo -e "${RED}❌ Docker not available. Please install Docker.${NC}"
     exit 1
 fi
 
-# Function to build container with Apple container engine
+# Function to build container with Docker
 build_container() {
     local app_name=$1
     local dockerfile_path=$2
     local image_name=$3
     local context_path=$4
     
-    echo -e "${BLUE}📦 Building $app_name with Apple container engine...${NC}"
+    echo -e "${BLUE}📦 Building $app_name with Docker...${NC}"
     
-    container build \
-        --arch amd64 \
-        --os linux \
+    docker build \
+        --platform linux/amd64 \
         --tag "$image_name" \
         --file "$dockerfile_path" \
         "$context_path"

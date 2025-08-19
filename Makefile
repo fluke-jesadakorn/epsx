@@ -2,7 +2,7 @@
 # ===========================================
 
 # Docker registry and project variables
-REGISTRY := us-central1-docker.pkg.dev/epsx-449804/epsx
+REGISTRY := us-central1-docker.pkg.dev/epsx-469400/epsx
 PROJECT_NAME := epsx
 
 # Environment (default to development)

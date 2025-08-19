@@ -1,5 +1,5 @@
-import type { NextConfig } from 'next';
 import { config } from 'dotenv';
+import type { NextConfig } from 'next';
 import { resolve } from 'path';
 
 // Load shared variables first, then app-specific
@@ -9,7 +9,7 @@ config();
 import { env } from './config/env';
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: 'standalone',
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,
@@ -22,10 +22,9 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   experimental: {
     forceSwcTransforms: true,
-    missingSuspenseWithCSRBailout: false,
     optimizePackageImports: [
       '@radix-ui/react-avatar',
-      '@radix-ui/react-checkbox', 
+      '@radix-ui/react-checkbox',
       '@radix-ui/react-dialog',
       '@radix-ui/react-label',
       '@radix-ui/react-progress',

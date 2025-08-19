@@ -6,7 +6,6 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
-use askama::Template;
 use chrono::{DateTime, Utc};
 use base64::Engine;
 use crate::config::env::get_env_var;
@@ -115,81 +114,40 @@ pub async fn authorization_endpoint(
 
     // Render appropriate login/registration template
     if is_admin_login {
-        if is_registration {
-            // TODO: Implement admin registration template once HTML template is created
-            // For now, use admin login template with registration flag in error message
-            let template = TemplateFactory::create_admin_login_template_with_pkce(
-                params.client_id,
-                params.redirect_uri,
-                params.state,
-                params.scope,
-                params.code_challenge,
-                params.code_challenge_method,
-                "registration_mode".to_string(), // Flag to indicate registration
-            );
-            
-            template.render()
-                .map(Html)
-                .map_err(|e| {
-                    tracing::error!("Failed to render admin registration template: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
-        } else {
-            let template = TemplateFactory::create_admin_login_template_with_pkce(
-                params.client_id,
-                params.redirect_uri,
-                params.state,
-                params.scope,
-                params.code_challenge,
-                params.code_challenge_method,
-                String::new(), // No error on initial load
-            );
-            
-            template.render()
-                .map(Html)
-                .map_err(|e| {
-                    tracing::error!("Failed to render admin login template: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
-        }
+        // Temporary: Return simple HTML until template rendering is fixed
+        let html = format!(r#"
+<!DOCTYPE html>
+<html>
+<head><title>Admin Login - EPSX</title></head>
+<body>
+    <h1>EPSX Admin Login</h1>
+    <form method="post">
+        <p>Client: {}</p>
+        <p>Redirect: {}</p>
+        <button type="submit">Continue</button>
+    </form>
+</body>
+</html>"#, params.client_id, params.redirect_uri);
+        
+        Ok(Html(html))
     } else {
-        if is_registration {
-            // TODO: Implement user registration template once HTML template is created
-            // For now, use login template with registration flag in error message
-            let template = TemplateFactory::create_login_template_with_pkce(
-                params.client_id,
-                params.redirect_uri,
-                params.state,
-                params.scope,
-                params.code_challenge,
-                params.code_challenge_method,
-                "registration_mode".to_string(), // Flag to indicate registration
-            );
-            
-            template.render()
-                .map(Html)
-                .map_err(|e| {
-                    tracing::error!("Failed to render registration template: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
-        } else {
-            let template = TemplateFactory::create_login_template_with_pkce(
-                params.client_id,
-                params.redirect_uri,
-                params.state,
-                params.scope,
-                params.code_challenge,
-                params.code_challenge_method,
-                String::new(), // No error on initial load
-            );
-            
-            template.render()
-                .map(Html)
-                .map_err(|e| {
-                    tracing::error!("Failed to render login template: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
-        }
+        // Temporary: Return simple HTML until template rendering is fixed
+        let mode = if is_registration { "Registration" } else { "Login" };
+        let html = format!(r#"
+<!DOCTYPE html>
+<html>
+<head><title>{} - EPSX</title></head>
+<body>
+    <h1>EPSX {}</h1>
+    <form method="post">
+        <p>Client: {}</p>
+        <p>Redirect: {}</p>
+        <button type="submit">Continue</button>
+    </form>
+</body>
+</html>"#, mode, mode, params.client_id, params.redirect_uri);
+        
+        Ok(Html(html))
     }
 }
 
@@ -635,14 +593,19 @@ fn extract_user_role(firebase_user: &FirebaseUser) -> String {
 
 /// Serve error page for authorization errors
 fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>, StatusCode> {
-    let template = TemplateFactory::get_error_template_for_auth_error(error_code);
+    // Temporary: Return simple HTML until template rendering is fixed
+    let html = format!(r#"
+<!DOCTYPE html>
+<html>
+<head><title>Error - EPSX</title></head>
+<body>
+    <h1>Authentication Error</h1>
+    <p>Error: {}</p>
+    <a href="/login">Try Again</a>
+</body>
+</html>"#, error_code);
     
-    template.render()
-        .map(Html)
-        .map_err(|e| {
-            tracing::error!("Failed to render error template: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })
+    Ok(Html(html))
 }
 
 /// Serve login/registration page with error message

@@ -8,10 +8,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::web::auth::AppState;
-use crate::dom::services::feature_expiration::FeatureExpirationService;
 use crate::dom::values::UserId;
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 /// Extract session ID from headers
 fn extract_session_from_headers(headers: &HeaderMap) -> Result<String, StatusCode> {
@@ -215,8 +213,8 @@ pub async fn get_profile_handler(
         "email": user.email().value(),
         "roles": user_roles,
         "permissions": user_permissions,
-        "subscription_tier": user.sub().tier().to_string(),
-        "package_tier": user.sub().tier().to_string(), // Same as subscription tier
+        "subscription_tier": user.subscription().tier().to_string(),
+        "package_tier": user.subscription().tier().to_string(), // Same as subscription tier
         "created_at": user.created_at(),
         "updated_at": user.updated_at(),
         "display_name": format!("User {}", user.email().value()),
@@ -344,7 +342,7 @@ pub async fn list_users_handler(
             "id": user.id().to_string(),
             "email": user.email().value(),
             "role": user.role().to_string(),
-            "subscription_tier": user.sub().tier().to_string(),
+            "subscription_tier": user.subscription().tier().to_string(),
             "is_active": user.is_active(),
             "created_at": user.created_at(),
             "updated_at": user.updated_at(),

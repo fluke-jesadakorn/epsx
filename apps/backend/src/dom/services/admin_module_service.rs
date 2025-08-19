@@ -2,7 +2,7 @@ use crate::core::errors::AppError;
 use crate::core::permission_constants::{AdminModuleValidator, get_all_admin_module_codes};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::{info, warn, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,7 +65,7 @@ impl AdminModuleService {
 
     /// Get all available admin modules
     pub async fn get_all_admin_modules(&self) -> Result<Vec<AdminModule>, AppError> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT id, module_code, module_name, description, category, 
                    icon, color, sort_order, is_active, requires_modules,
@@ -83,18 +83,18 @@ impl AdminModuleService {
         })?;
 
         let modules: Vec<AdminModule> = rows.into_iter().map(|row| AdminModule {
-            id: row.id.to_string(),
-            module_code: row.module_code,
-            module_name: row.module_name,
-            description: row.description,
-            category: row.category,
-            icon: row.icon,
-            color: row.color,
-            sort_order: row.sort_order.unwrap_or(0),
-            is_active: row.is_active.unwrap_or(true),
-            requires_modules: row.requires_modules.unwrap_or_default(),
-            created_at: row.created_at.unwrap_or_else(|| Utc::now()),
-            updated_at: row.updated_at.unwrap_or_else(|| Utc::now()),
+            id: row.try_get::<uuid::Uuid, _>("id").unwrap_or_default().to_string(),
+            module_code: row.try_get("module_code").unwrap_or_default(),
+            module_name: row.try_get("module_name").unwrap_or_default(),
+            description: row.try_get("description").unwrap_or_default(),
+            category: row.try_get("category").unwrap_or_default(),
+            icon: row.try_get("icon").ok(),
+            color: row.try_get("color").ok(),
+            sort_order: row.try_get::<Option<i32>, _>("sort_order").unwrap_or_default().unwrap_or(0),
+            is_active: row.try_get::<Option<bool>, _>("is_active").unwrap_or_default().unwrap_or(true),
+            requires_modules: row.try_get::<Option<Vec<String>>, _>("requires_modules").unwrap_or_default().unwrap_or_default(),
+            created_at: row.try_get::<Option<DateTime<Utc>>, _>("created_at").unwrap_or_default().unwrap_or_else(|| Utc::now()),
+            updated_at: row.try_get::<Option<DateTime<Utc>>, _>("updated_at").unwrap_or_default().unwrap_or_else(|| Utc::now()),
         }).collect();
 
         info!("Retrieved {} admin modules", modules.len());
@@ -103,7 +103,7 @@ impl AdminModuleService {
 
     /// Get user's assigned admin modules
     pub async fn get_user_admin_modules(&self, firebase_uid: &str) -> Result<Vec<String>, AppError> {
-        let module_codes: Vec<String> = sqlx::query!(
+        let module_codes: Vec<String> = sqlx::query(
             r#"
             SELECT DISTINCT uar.module_code
             FROM user_admin_roles uar
@@ -113,9 +113,9 @@ impl AdminModuleService {
               AND am.is_active = true
               AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
             ORDER BY uar.module_code
-            "#,
-            firebase_uid
+            "#
         )
+        .bind(firebase_uid)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| {
@@ -123,7 +123,7 @@ impl AdminModuleService {
             AppError::database_error(e.to_string())
         })?
         .into_iter()
-        .map(|row| row.module_code)
+        .filter_map(|row| row.try_get("module_code").ok())
         .collect();
 
         info!("User {} has {} admin modules: {:?}", firebase_uid, module_codes.len(), module_codes);
@@ -132,7 +132,7 @@ impl AdminModuleService {
 
     /// Get detailed user admin module assignments
     pub async fn get_user_admin_module_details(&self, firebase_uid: &str) -> Result<Vec<UserAdminModule>, AppError> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT uar.id, uar.firebase_uid, uar.module_code, uar.granted_by,
                    uar.granted_reason, uar.expires_at, uar.is_active,
@@ -142,9 +142,9 @@ impl AdminModuleService {
             WHERE uar.firebase_uid = $1
               AND am.is_active = true
             ORDER BY uar.created_at DESC
-            "#,
-            firebase_uid
+            "#
         )
+        .bind(firebase_uid)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| {
@@ -153,16 +153,16 @@ impl AdminModuleService {
         })?;
 
         let assignments: Vec<UserAdminModule> = rows.into_iter().map(|row| UserAdminModule {
-            id: row.id.to_string(),
-            firebase_uid: row.firebase_uid,
-            module_code: row.module_code,
-            granted_by: row.granted_by,
-            granted_reason: row.granted_reason,
-            expires_at: row.expires_at,
-            is_active: row.is_active.unwrap_or(true),
-            assignment_metadata: row.assignment_metadata.unwrap_or_else(|| serde_json::json!({})),
-            created_at: row.created_at.unwrap_or_else(|| Utc::now()),
-            updated_at: row.updated_at.unwrap_or_else(|| Utc::now()),
+            id: row.try_get::<uuid::Uuid, _>("id").unwrap_or_default().to_string(),
+            firebase_uid: row.try_get("firebase_uid").unwrap_or_default(),
+            module_code: row.try_get("module_code").unwrap_or_default(),
+            granted_by: row.try_get("granted_by").ok(),
+            granted_reason: row.try_get("granted_reason").ok(),
+            expires_at: row.try_get("expires_at").ok(),
+            is_active: row.try_get::<Option<bool>, _>("is_active").unwrap_or_default().unwrap_or(true),
+            assignment_metadata: row.try_get::<Option<serde_json::Value>, _>("assignment_metadata").unwrap_or_default().unwrap_or_else(|| serde_json::json!({})),
+            created_at: row.try_get::<Option<DateTime<Utc>>, _>("created_at").unwrap_or_default().unwrap_or_else(|| Utc::now()),
+            updated_at: row.try_get::<Option<DateTime<Utc>>, _>("updated_at").unwrap_or_default().unwrap_or_else(|| Utc::now()),
         }).collect();
 
         Ok(assignments)
@@ -170,7 +170,7 @@ impl AdminModuleService {
 
     /// Check if user has specific admin module access
     pub async fn user_has_admin_module(&self, firebase_uid: &str, module_code: &str) -> Result<bool, AppError> {
-        let has_access = sqlx::query!(
+        let has_access = sqlx::query(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_admin_roles uar
@@ -181,24 +181,24 @@ impl AdminModuleService {
                   AND am.is_active = true
                   AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
             ) as has_access
-            "#,
-            firebase_uid,
-            module_code
+            "#
         )
+        .bind(firebase_uid)
+        .bind(module_code)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             error!("Failed to check admin module access for {} -> {}: {}", firebase_uid, module_code, e);
             AppError::database_error(e.to_string())
-        })?
-        .has_access.unwrap_or(false);
+        })?;
+        let has_access_bool: bool = has_access.try_get("has_access").unwrap_or(false);
 
-        Ok(has_access)
+        Ok(has_access_bool)
     }
 
     /// Check if user has any admin modules (is an admin)
     pub async fn user_is_admin(&self, firebase_uid: &str) -> Result<bool, AppError> {
-        let is_admin = sqlx::query!(
+        let is_admin = sqlx::query(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_admin_roles uar
@@ -208,18 +208,18 @@ impl AdminModuleService {
                   AND am.is_active = true
                   AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
             ) as is_admin
-            "#,
-            firebase_uid
+            "#
         )
+        .bind(firebase_uid)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {
             error!("Failed to check admin status for {}: {}", firebase_uid, e);
             AppError::database_error(e.to_string())
-        })?
-        .is_admin.unwrap_or(false);
+        })?;
+        let is_admin_bool: bool = is_admin.try_get("is_admin").unwrap_or(false);
 
-        Ok(is_admin)
+        Ok(is_admin_bool)
     }
 
     /// Assign admin modules to a user
@@ -233,25 +233,25 @@ impl AdminModuleService {
 
         for module_code in &request.module_codes {
             // Check if module exists and is active
-            let module_exists = sqlx::query!(
-                "SELECT EXISTS(SELECT 1 FROM admin_modules WHERE module_code = $1 AND is_active = true) as exists",
-                module_code
+            let module_exists = sqlx::query(
+                "SELECT EXISTS(SELECT 1 FROM admin_modules WHERE module_code = $1 AND is_active = true) as exists"
             )
+            .bind(module_code)
             .fetch_one(&mut *tx)
             .await
             .map_err(|e| {
                 error!("Failed to check module existence for {}: {}", module_code, e);
                 AppError::database_error(e.to_string())
-            })?
-            .exists.unwrap_or(false);
+            })?;
+            let exists: bool = module_exists.try_get("exists").unwrap_or(false);
 
-            if !module_exists {
+            if !exists {
                 warn!("Attempted to assign non-existent module: {}", module_code);
                 continue;
             }
 
             // Insert or update assignment (upsert)
-            let assignment_id = sqlx::query!(
+            let assignment_id = sqlx::query(
                 r#"
                 INSERT INTO user_admin_roles (firebase_uid, module_code, granted_by, granted_reason, expires_at, is_active, assignment_metadata)
                 VALUES ($1, $2, $3, $4, $5, true, '{}')
@@ -263,13 +263,13 @@ impl AdminModuleService {
                     is_active = true,
                     updated_at = NOW()
                 RETURNING id
-                "#,
-                request.firebase_uid,
-                module_code,
-                request.granted_by,
-                request.granted_reason,
-                request.expires_at
+                "#
             )
+            .bind(&request.firebase_uid)
+            .bind(module_code)
+            .bind(&request.granted_by)
+            .bind(&request.granted_reason)
+            .bind(&request.expires_at)
             .fetch_one(&mut *tx)
             .await
             .map_err(|e| {
@@ -278,21 +278,26 @@ impl AdminModuleService {
             })?;
 
             // Log assignment in audit trail
-            sqlx::query!(
+            let assignment_uuid: uuid::Uuid = assignment_id.try_get("id").map_err(|e| {
+                error!("Failed to get assignment id: {}", e);
+                AppError::database_error(e.to_string())
+            })?;
+            
+            sqlx::query(
                 r#"
                 INSERT INTO admin_role_audit (firebase_uid, module_code, action, new_status, performed_by, reason, timestamp)
                 VALUES ($1, $2, 'granted', $3, $4, $5, NOW())
-                "#,
-                request.firebase_uid,
-                module_code,
-                serde_json::json!({
-                    "assignment_id": assignment_id.id,
-                    "expires_at": request.expires_at,
-                    "is_active": true
-                }),
-                request.granted_by,
-                request.granted_reason
+                "#
             )
+            .bind(&request.firebase_uid)
+            .bind(module_code)
+            .bind(serde_json::json!({
+                "assignment_id": assignment_uuid,
+                "expires_at": request.expires_at,
+                "is_active": true
+            }))
+            .bind(&request.granted_by)
+            .bind(&request.granted_reason)
             .execute(&mut *tx)
             .await
             .map_err(|e| {
@@ -324,15 +329,15 @@ impl AdminModuleService {
 
         for module_code in &module_codes {
             // Deactivate assignment
-            let affected_rows = sqlx::query!(
+            let affected_rows = sqlx::query(
                 r#"
                 UPDATE user_admin_roles 
                 SET is_active = false, updated_at = NOW()
                 WHERE firebase_uid = $1 AND module_code = $2 AND is_active = true
-                "#,
-                firebase_uid,
-                module_code
+                "#
             )
+            .bind(firebase_uid)
+            .bind(module_code)
             .execute(&mut *tx)
             .await
             .map_err(|e| {
@@ -342,20 +347,20 @@ impl AdminModuleService {
 
             if affected_rows.rows_affected() > 0 {
                 // Log revocation in audit trail
-                sqlx::query!(
+                sqlx::query(
                     r#"
                     INSERT INTO admin_role_audit (firebase_uid, module_code, action, new_status, performed_by, reason, timestamp)
                     VALUES ($1, $2, 'revoked', $3, $4, $5, NOW())
-                    "#,
-                    firebase_uid,
-                    module_code,
-                    serde_json::json!({
-                        "is_active": false,
-                        "revoked_at": Utc::now()
-                    }),
-                    revoked_by,
-                    reason
+                    "#
                 )
+                .bind(firebase_uid)
+                .bind(module_code)
+                .bind(serde_json::json!({
+                    "is_active": false,
+                    "revoked_at": Utc::now()
+                }))
+                .bind(revoked_by)
+                .bind(reason)
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| {
@@ -395,15 +400,15 @@ impl AdminModuleService {
 
     /// Get module permissions for API/route validation
     pub async fn get_module_permissions(&self, module_code: &str) -> Result<Option<AdminModulePermissions>, AppError> {
-        let permissions = sqlx::query!(
+        let permissions = sqlx::query(
             r#"
             SELECT module_code, api_endpoints, frontend_routes, permissions, 
                    resource_patterns, access_level, description
             FROM admin_module_permissions 
             WHERE module_code = $1
-            "#,
-            module_code
+            "#
         )
+        .bind(module_code)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| {
@@ -413,12 +418,12 @@ impl AdminModuleService {
 
         if let Some(row) = permissions {
             Ok(Some(AdminModulePermissions {
-                module_code: row.module_code,
-                api_endpoints: row.api_endpoints,
-                frontend_routes: row.frontend_routes,
-                permissions: row.permissions,
-                resource_patterns: row.resource_patterns,
-                access_level: row.access_level.unwrap_or_else(|| "standard".to_string()),
+                module_code: row.try_get("module_code").unwrap_or_default(),
+                api_endpoints: row.try_get("api_endpoints").unwrap_or_default(),
+                frontend_routes: row.try_get("frontend_routes").unwrap_or_default(),
+                permissions: row.try_get("permissions").unwrap_or_default(),
+                resource_patterns: row.try_get("resource_patterns").unwrap_or_default(),
+                access_level: row.try_get::<Option<String>, _>("access_level").unwrap_or_default().unwrap_or_else(|| "standard".to_string()),
             }))
         } else {
             Ok(None)
@@ -441,7 +446,7 @@ impl AdminModuleService {
     pub async fn get_admin_role_audit(&self, firebase_uid: &str, limit: Option<i32>) -> Result<Vec<serde_json::Value>, AppError> {
         let limit = limit.unwrap_or(50).min(500); // Max 500 records
 
-        let audit_records = sqlx::query!(
+        let audit_records = sqlx::query(
             r#"
             SELECT firebase_uid, module_code, action, old_status, new_status, 
                    performed_by, reason, metadata, timestamp
@@ -449,10 +454,10 @@ impl AdminModuleService {
             WHERE firebase_uid = $1
             ORDER BY timestamp DESC
             LIMIT $2
-            "#,
-            firebase_uid,
-            limit as i64
+            "#
         )
+        .bind(firebase_uid)
+        .bind(limit as i64)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| {
@@ -463,15 +468,15 @@ impl AdminModuleService {
         let audit_json: Vec<serde_json::Value> = audit_records
             .into_iter()
             .map(|record| serde_json::json!({
-                "firebase_uid": record.firebase_uid,
-                "module_code": record.module_code,
-                "action": record.action,
-                "old_status": record.old_status,
-                "new_status": record.new_status,
-                "performed_by": record.performed_by,
-                "reason": record.reason,
-                "metadata": record.metadata,
-                "timestamp": record.timestamp
+                "firebase_uid": record.try_get::<String, _>("firebase_uid").unwrap_or_default(),
+                "module_code": record.try_get::<String, _>("module_code").unwrap_or_default(),
+                "action": record.try_get::<String, _>("action").unwrap_or_default(),
+                "old_status": record.try_get::<Option<serde_json::Value>, _>("old_status").unwrap_or_default(),
+                "new_status": record.try_get::<Option<serde_json::Value>, _>("new_status").unwrap_or_default(),
+                "performed_by": record.try_get::<String, _>("performed_by").unwrap_or_default(),
+                "reason": record.try_get::<Option<String>, _>("reason").unwrap_or_default(),
+                "metadata": record.try_get::<Option<serde_json::Value>, _>("metadata").unwrap_or_default(),
+                "timestamp": record.try_get::<Option<DateTime<Utc>>, _>("timestamp").unwrap_or_default()
             }))
             .collect();
 

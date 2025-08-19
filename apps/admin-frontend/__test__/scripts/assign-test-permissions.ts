@@ -11,7 +11,7 @@ import { env } from '@/config/env';
 const execAsync = promisify(exec);
 
 const TEST_EMAIL = 'jesadakorn.kirtnu@gmail.com';
-const BACKEND_URL = env.getBackendUrl();
+const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL;
 
 // All admin modules that should be assigned to test user
 const REQUIRED_ADMIN_MODULES = [

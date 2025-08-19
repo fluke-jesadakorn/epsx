@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
+import { getServerSession } from '@/lib/auth';
 
 interface ServerAuthProviderProps {
   children: ReactNode;
@@ -24,7 +24,7 @@ export async function ServerAuthProvider({
 }: ServerAuthProviderProps) {
   
   if (requireAuth) {
-    const session = await auth();
+    const session = await getServerSession();
     
     if (!session?.user) {
       console.log('🔐 Server auth: User not authenticated, redirecting to login');

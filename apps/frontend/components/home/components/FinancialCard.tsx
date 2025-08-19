@@ -287,8 +287,8 @@ export function FinancialCard({
                 className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
               >
                 <span className="text-xs">⏰</span>
-                {/* Show displayed quarters only (2Q) */}
-                2Q
+                {/* Show displayed quarters count dynamically */}
+                {validQuarters.length}Q
               </span>
             </div>
           </div>

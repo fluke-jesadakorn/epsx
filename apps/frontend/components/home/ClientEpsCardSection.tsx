@@ -1,8 +1,6 @@
 'use client';
 
-import React from 'react';
-import { Card, CardHeader, CardContent } from '@/components/ui';
-
+import { Card, CardContent, CardHeader } from '@/components/ui';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 import type { CSSProperties } from 'react';
@@ -35,26 +33,25 @@ export default function ClientEpsCardSection({
 
   return (
     <div
-      className={`flex flex-col gap-8 w-full ${className || ''}`}
+      className={`flex w-full flex-col gap-8 ${className || ''}`}
       style={style}
     >
       {/* Enhanced Section Header */}
-      <div className="text-center space-y-4 mb-6 animate-slide-up">
-        <h2 className="text-3xl sm:text-4xl font-bold pancake-gradient-text">
+      <div className="animate-slide-up mb-6 space-y-4 text-center">
+        <h2 className="pancake-gradient-text text-3xl font-bold sm:text-4xl">
           Top Performing Companies
         </h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-muted-foreground mx-auto max-w-2xl">
           Discover the data leaders with exceptional growth and performance
           metrics
         </p>
-        <div className="w-24 h-1 pancake-gradient mx-auto rounded-full" />
+        <div className="pancake-gradient mx-auto h-1 w-24 rounded-full" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full animate-slide-up-delayed">
+      <div className="animate-slide-up-delayed grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {safeData
           .filter(
-            (item) =>
-              item && typeof item === 'object' && item.symbol && item.name,
+            item => item && typeof item === 'object' && item.symbol && item.name
           )
           .slice(0, 3)
           .map((item, index) => {
@@ -67,23 +64,18 @@ export default function ClientEpsCardSection({
                 {index < 3 && (
                   <div className="absolute top-4 right-4 z-10">
                     <span
-                      className={`
-                        font-bold text-xs px-3 py-1.5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300
-                        ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900' : ''}
-                        ${index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-900' : ''}
-                        ${index === 2 ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-amber-900' : ''}
-                      `}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold shadow-lg transition-transform duration-300 group-hover:scale-110 ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900' : ''} ${index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-900' : ''} ${index === 2 ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-amber-900' : ''} `}
                     >
                       #{index + 1}
                     </span>
                   </div>
                 )}
 
-                <CardHeader className="pb-4 relative">
+                <CardHeader className="relative pb-4">
                   <div className="flex flex-col space-y-3">
-                    <div className="flex justify-between items-start">
+                    <div className="flex items-start justify-between">
                       <span
-                        className={`${getMarketColor(item.exchange)} font-semibold px-3 py-1.5 rounded-full bg-secondary border border-secondary group-hover:scale-105 transition-transform duration-300 text-sm`}
+                        className={`${getMarketColor(item.exchange)} bg-secondary border-secondary rounded-full border px-3 py-1.5 text-sm font-semibold transition-transform duration-300 group-hover:scale-105`}
                       >
                         {item.exchange || 'N/A'}
                       </span>
@@ -97,11 +89,11 @@ export default function ClientEpsCardSection({
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="group-hover:bg-gradient-to-br from-blue-500/5 to-purple-500/5 transition-colors duration-300">
+                <CardContent className="from-blue-500/5 to-purple-500/5 transition-colors duration-300 group-hover:bg-gradient-to-br">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground">Signal</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground text-sm">Signal</p>
                         <p
                           className={`font-semibold transition-colors ${
                             item.startBuy && item.startBuy.active
@@ -123,8 +115,8 @@ export default function ClientEpsCardSection({
                         </p>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground">Growth</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground text-sm">Growth</p>
                         <p
                           className={`font-semibold transition-colors ${
                             parseFloat(item.epsGrowth || '0') >= 0
@@ -136,8 +128,8 @@ export default function ClientEpsCardSection({
                         </p>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground">Status</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground text-sm">Status</p>
                         <p className="text-sm">
                           {item.startAction &&
                           item.startAction.type === 'hold' &&
@@ -151,17 +143,17 @@ export default function ClientEpsCardSection({
                         </p>
                       </div>
                     </div>
-                    <div className="pt-3 mt-2 border-t border-blue-500/10 flex justify-between items-center">
-                      <p className="text-xs text-muted-foreground">
+                    <div className="mt-2 flex items-center justify-between border-t border-blue-500/10 pt-3">
+                      <p className="text-muted-foreground text-xs">
                         Last Report: {item.lastEarningsDate || 'N/A'}
                       </p>
                       <a
                         href={`https://www.tradingview.com/symbols/${item.symbol}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:text-blue-400 transition-colors flex items-center gap-1 group-hover:gap-2"
+                        className="flex items-center gap-1 text-xs text-blue-500 transition-colors group-hover:gap-2 hover:text-blue-400"
                       >
-                        View Chart{' '}
+                        View Date{' '}
                         <span className="transition-transform group-hover:translate-x-1">
                           →
                         </span>

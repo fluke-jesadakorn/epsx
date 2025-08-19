@@ -395,7 +395,7 @@ pub struct PoolMetrics {
 }
 
 /// Start background pool monitoring task
-fn start_pool_monitoring(pool: DatabasePool, config: DatabaseConfig) {
+fn start_pool_monitoring(pool: DatabasePool, _config: DatabaseConfig) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
         

@@ -23,13 +23,13 @@ export async function createPayment(
     const schema = await getCreatePaymentSchema()
     const validatedData = schema.parse(data)
     
-    const result = await apiClient.createPayment(validatedData)
+    const result = await apiClient.post('/api/payments', validatedData)
     
-    if (result.error) {
-      throw new Error(result.error)
+    if (!result.success) {
+      throw new Error('Failed to create payment')
     }
     
-    return result.data!
+    return result.data as CreatePaymentResponse
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error('Invalid payment data: ' + error.message)
@@ -54,10 +54,10 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
 // Get payment status from backend
 export async function getPaymentStatus(): Promise<any> {
   try {
-    const result = await apiClient.getPaymentStatus()
+    const result = await apiClient.get('/api/payments/status')
     
-    if (result.error) {
-      console.error('Failed to get payment status:', result.error)
+    if (!result.success) {
+      console.error('Failed to get payment status')
       return null
     }
     
@@ -77,14 +77,14 @@ export async function verifyPayment(transactionId: string): Promise<boolean> {
     
     const validatedData = schema.parse({ transactionId })
     
-    const result = await apiClient.verifyPayment(validatedData.transactionId)
+    const result = await apiClient.post('/api/payments/verify', { transactionId: validatedData.transactionId })
     
-    if (result.error) {
-      console.error('Failed to verify payment:', result.error)
+    if (!result.success) {
+      console.error('Failed to verify payment')
       return false
     }
     
-    return result.data?.verified || false
+    return (result.data as any)?.verified || false
   } catch (error) {
     console.error('Failed to verify payment:', error)
     return false
@@ -100,10 +100,10 @@ export async function cancelPayment(paymentId: string): Promise<boolean> {
     
     const validatedData = schema.parse({ paymentId })
     
-    const result = await apiClient.cancelPayment(validatedData.paymentId)
+    const result = await apiClient.delete(`/api/payments/${validatedData.paymentId}`)
     
-    if (result.error) {
-      console.error('Failed to cancel payment:', result.error)
+    if (!result.success) {
+      console.error('Failed to cancel payment')
       return false
     }
     

@@ -7,8 +7,8 @@
 
 import React, { useState } from 'react'
 import { AlertTriangle, Shield, CheckCircle, XCircle, Info, AlertCircle, Settings } from 'lucide-react'
-import { Button } from '@epsx/ui'
-import { Badge } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { validatePermissionAssignment } from '@/lib/actions/users'
 import { PermissionConflictResolver } from './PermissionConflictResolver'

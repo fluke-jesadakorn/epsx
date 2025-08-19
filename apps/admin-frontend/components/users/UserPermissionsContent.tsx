@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Shield, Users, Key, Settings, Plus } from 'lucide-react'
-import { Button } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { PermissionAssignmentCard } from './PermissionAssignmentCard'

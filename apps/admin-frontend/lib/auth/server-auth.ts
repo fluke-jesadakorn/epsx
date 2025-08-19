@@ -3,7 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
-import type { EPSXJWTPayload } from '@epsx/auth-shared';
+import type { EPSXJWTPayload } from '@/lib/auth-utils';
 
 /**
  * Enhanced auth user type based on our JWT structure
@@ -36,15 +36,23 @@ export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUse
  */
 export async function getServerSession(): Promise<ServerSession | null> {
   try {
-    const { auth } = await import('@/lib/auth');
-    const session = await auth();
-    if (!session?.user) return null;
+    const { cookies } = await import('next/headers');
+    const { verifyJWT } = await import('@/lib/auth-utils');
+    
+    const cookieStore = await cookies();
+    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
+    
+    if (!jwt) return null;
+    
+    const payload = await verifyJWT(jwt);
+    if (!payload) return null;
     
     // Convert to proper ServerSession type
+    const user = createEnhancedAuthUser(payload);
     return {
-      user: createEnhancedAuthUser(session.user as any),
-      expires: session.expires,
-      accessToken: session.accessToken,
+      user,
+      expires: new Date(payload.exp * 1000).toISOString(),
+      accessToken: jwt,
     };
   } catch (error) {
     console.error('❌ Failed to get server session:', error);

@@ -6,7 +6,7 @@
 target/*
 !target/release/
 target/release/*
-!target/release/backend
+!target/release/epsx
 
 # Git directory
 .git/

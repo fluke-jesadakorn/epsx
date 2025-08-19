@@ -52,7 +52,7 @@ pub async fn real_auth_handler(Query(params): Query<AuthParams>) -> Html<String>
     let is_registration = params.registration.as_deref() == Some("true");
     
     // Determine page title and content based on mode
-    let (page_title, form_title, submit_button_text, info_message) = if is_registration {
+    let (page_title, form_title, submit_button_text, _info_message) = if is_registration {
         (
             "EPSX Registration",
             "🚀 Join EPSX!",

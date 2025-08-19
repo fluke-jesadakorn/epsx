@@ -84,7 +84,15 @@ export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
 
   // FORCE exactly 2 quarters for display (current + previous)
   // The 3rd quarter exists in the data for QoQ calculations but isn't displayed
-  return quarters.slice(0, 2);
+  const limitedQuarters = quarters.slice(0, 2);
+  
+  // Additional safety check to ensure we never return more than 2 quarters
+  if (limitedQuarters.length > 2) {
+    console.warn('getValidQuarters: More than 2 quarters detected, trimming to 2');
+    return limitedQuarters.slice(0, 2);
+  }
+  
+  return limitedQuarters;
 }
 
 /**

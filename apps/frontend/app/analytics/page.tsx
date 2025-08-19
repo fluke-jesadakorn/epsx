@@ -4,8 +4,8 @@ import type { Metadata } from 'next';
 import { AnalyticsRankingDashboard } from '@/components/analytics/AnalyticsDynamic';
 import { getCurrentUser } from '@/lib/server-actions';
 
-// Disable ISR caching for analytics - always fetch fresh data from backend
-export const revalidate = 0;
+// Force dynamic rendering for authentication
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Analytics Dashboard - EPSX',

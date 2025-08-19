@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react'
 import { Download, FileText } from 'lucide-react'
-import { Button } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
 import { toast } from 'react-hot-toast'
 import { exportBillingReport } from '@/lib/actions/billing-actions'
 

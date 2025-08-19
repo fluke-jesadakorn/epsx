@@ -320,7 +320,7 @@ impl UserMgmtUC {
 
         let mut tier_counts = std::collections::HashMap::new();
         for user in all_users {
-            let tier = user.sub().tier.to_string();
+            let tier = user.subscription().tier.to_string();
             *tier_counts.entry(tier).or_insert(0u64) += 1;
         }
 

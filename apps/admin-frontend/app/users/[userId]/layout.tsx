@@ -10,7 +10,7 @@ import { getUnifiedUserData } from '@/lib/actions/users'
 import { UserProfileHeader } from '@/components/users/UserProfileHeader'
 import { UserTabNavigation } from '@/components/users/UserTabNavigation'
 import { UserDataProvider } from '@/components/users/UserDataProvider'
-import { auth } from '@/lib/server-auth'
+import { getServerSession } from '@/lib/auth/server-auth'
 
 interface UserProfileLayoutProps {
   children: ReactNode
@@ -31,7 +31,7 @@ export default async function UserProfileLayout({
   const searchParamsData = searchParams ? await searchParams : {}
   
   // Get current user session
-  const session = await auth()
+  const session = await getServerSession()
   const currentUser = session?.user
   
   // Fetch unified user data

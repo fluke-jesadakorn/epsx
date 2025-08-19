@@ -4,7 +4,7 @@
  */
 
 import { ReactNode } from 'react'
-import { auth } from '@/lib/auth'
+import { getServerSession } from '@/lib/auth'
 
 interface ModuleGuardProps {
   children: ReactNode
@@ -51,7 +51,7 @@ export default async function ModuleGuard({
   let hasAccess = true
   
   try {
-    const session = await auth()
+    const session = await getServerSession()
     
     // If no session, deny access
     if (!session?.user) {

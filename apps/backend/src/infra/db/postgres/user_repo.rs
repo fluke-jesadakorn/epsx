@@ -8,7 +8,7 @@ use crate::app::ports::repositories::{UserRepo, RepoError};
 use crate::dom::entities::User;
 use crate::dom::entities::iam::Permission;
 use crate::dom::entities::permission_profile::{PermissionProfileId};
-use crate::dom::values::{UserId, Email, Role, PermSet, Subscription, SubTier};
+use crate::dom::values::{UserId, Email, Role, PermissionSet, Subscription, SubscriptionTier};
 use super::DatabasePool;
 use std::collections::HashSet;
 
@@ -52,14 +52,14 @@ impl UserRepo for PostgresUserRepo {
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
 
         // Convert domain objects to database format
-        let package_tier = match user.sub().tier {
-            crate::dom::values::SubTier::Free => "FREE",
-            crate::dom::values::SubTier::Basic => "BASIC", 
-            crate::dom::values::SubTier::Premium => "PREMIUM",
-            crate::dom::values::SubTier::Enterprise => "ENTERPRISE",
+        let package_tier = match user.subscription().tier {
+            crate::dom::values::SubscriptionTier::Free => "FREE",
+            crate::dom::values::SubscriptionTier::Basic => "BASIC", 
+            crate::dom::values::SubscriptionTier::Premium => "PREMIUM",
+            crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE",
         };
         
-        let permissions: Vec<String> = user.perms().permissions().iter().cloned().collect();
+        let permissions: Vec<String> = user.permissions().permissions().iter().cloned().collect();
         
         sqlx::query(
             "INSERT INTO users (id, firebase_uid, email, display_name, name, package_tier, permissions, is_active, created_at, updated_at)
@@ -403,17 +403,17 @@ impl PostgresUserRepo {
         // Parse package tier
         let package_tier_str: String = row.get("package_tier");
         let package_tier = match package_tier_str.as_str() {
-            "FREE" => SubTier::Free,
-            "BASIC" => SubTier::Basic,
-            "PREMIUM" => SubTier::Premium,
-            "ENTERPRISE" => SubTier::Enterprise,
-            _ => SubTier::Free, // Default fallback
+            "FREE" => SubscriptionTier::Free,
+            "BASIC" => SubscriptionTier::Basic,
+            "PREMIUM" => SubscriptionTier::Premium,
+            "ENTERPRISE" => SubscriptionTier::Enterprise,
+            _ => SubscriptionTier::Free, // Default fallback
         };
         
         // Parse permissions
         let permissions_array: Vec<String> = row.get("permissions");
         let permissions_set: HashSet<String> = permissions_array.into_iter().collect();
-        let perm_set = PermSet::with_permissions(permissions_set);
+        let perm_set = PermissionSet::with_permissions(permissions_set);
         
         // Determine role based on email and admin modules
         let role = if email.value() == "info@epsx.io" {

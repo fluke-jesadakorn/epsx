@@ -24,15 +24,15 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@epsx/ui';
-import { Label } from '@epsx/ui';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@epsx/ui';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@epsx/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@epsx/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/form-components';
 import {
   Dialog,
@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from '@epsx/ui';
+} from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 

@@ -1,12 +1,4 @@
 import type { NextConfig } from 'next';
-import { config } from 'dotenv';
-import { resolve } from 'path';
-
-// Load shared variables first, then app-specific
-config({ path: resolve(process.cwd(), '../..', '.env.shared') });
-config();
-
-import { env } from './config/env';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -32,7 +24,7 @@ const nextConfig: NextConfig = {
   
   // Admin-specific caching and security headers
   async headers() {
-    const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api-4nrslhaei-info-epsxs-projects.vercel.app';
     
     return [
       {

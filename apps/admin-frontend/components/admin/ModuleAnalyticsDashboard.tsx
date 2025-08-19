@@ -32,7 +32,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FormField, Select } from '@/components/ui/form-components';
 import { getModuleUsageAnalytics as _getModuleUsageAnalytics } from '@epsx/server-actions';
-import { fmtCurrency } from '@epsx/shared-utils/formatting';
+import { fmtCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
 interface UsageMetrics {

@@ -2,6 +2,8 @@ import { getCurrentUser } from '@/lib/server-actions';
 import { redirect } from 'next/navigation';
 import { QuickPaymentClient } from './QuickPaymentClient';
 
+export const dynamic = 'force-dynamic';
+
 interface QuickPaymentPageProps {
   searchParams: { package?: string; amount?: string };
 }

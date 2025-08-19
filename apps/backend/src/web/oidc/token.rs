@@ -751,7 +751,7 @@ async fn get_user_admin_modules(
 async fn get_user_database_info(
     app_state: &AppState,
     firebase_uid: &str,
-    email: &str
+    _email: &str
 ) -> (Vec<String>, String, Vec<String>) {
     // Get admin modules from database
     let admin_modules = match app_state.admin_module_service.get_user_admin_modules(firebase_uid).await {
@@ -771,15 +771,15 @@ async fn get_user_database_info(
     
     let (package_tier, permissions) = match app_state.user_repo.get(&user_id).await {
         Ok(Some(user)) => {
-            let tier = match user.sub().tier {
-                crate::dom::values::SubTier::Free => "FREE".to_string(),
-                crate::dom::values::SubTier::Basic => "BASIC".to_string(),
-                crate::dom::values::SubTier::Premium => "PREMIUM".to_string(),
-                crate::dom::values::SubTier::Enterprise => "ENTERPRISE".to_string(),
+            let tier = match user.subscription().tier {
+                crate::dom::values::SubscriptionTier::Free => "FREE".to_string(),
+                crate::dom::values::SubscriptionTier::Basic => "BASIC".to_string(),
+                crate::dom::values::SubscriptionTier::Premium => "PREMIUM".to_string(),
+                crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE".to_string(),
             };
             
             // Get user permissions from the domain entity
-            let user_permissions: Vec<String> = user.perms().permissions().iter().cloned().collect();
+            let user_permissions: Vec<String> = user.permissions().permissions().iter().cloned().collect();
             
             tracing::debug!("Retrieved user data for {}: tier={}, {} permissions", firebase_uid, tier, user_permissions.len());
             (tier, user_permissions)
@@ -839,11 +839,11 @@ async fn get_user_package_tier(
     match app_state.user_repo.find_by_email(&user_email).await {
         Ok(Some(user)) => {
             // Extract package tier from user data
-            let tier = match user.sub().tier {
-                crate::dom::values::SubTier::Free => "FREE".to_string(),
-                crate::dom::values::SubTier::Basic => "BASIC".to_string(),
-                crate::dom::values::SubTier::Premium => "PREMIUM".to_string(),
-                crate::dom::values::SubTier::Enterprise => "ENTERPRISE".to_string(),
+            let tier = match user.subscription().tier {
+                crate::dom::values::SubscriptionTier::Free => "FREE".to_string(),
+                crate::dom::values::SubscriptionTier::Basic => "BASIC".to_string(),
+                crate::dom::values::SubscriptionTier::Premium => "PREMIUM".to_string(),
+                crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE".to_string(),
             };
             Ok(tier)
         },

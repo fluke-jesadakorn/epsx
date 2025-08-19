@@ -16,9 +16,9 @@ import { env } from '../../config/env';
 //   _deleteUser as deleteUser
 // };
 
-import type { TokenFeature } from '@/types/auth/features';
-import { Permission } from '@/types/auth/features';
-import type { UserRole } from '@/types/auth/roles';
+import type { Feature } from '@/types/admin/iam';
+import { Permission } from '@/types/admin/iam';
+import type { Role } from '@/types/admin/iam';
 
 // TODO: Replace with direct API client implementation
 // import type { AdminUser } from '@epsx/api-client';
@@ -104,7 +104,7 @@ export async function getUserStats() {
     const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
     
     // Direct fetch to backend
-    const backendUrl = env.getBackendUrl();
+    const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
     const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
     
     
@@ -139,7 +139,7 @@ async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
   const allCookies = cookieStore.getAll();
   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
   
-  const backendUrl = env.getBackendUrl();
+  const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
   const url = `${backendUrl}/api/v1/iam/${endpoint}`;
   
   const response = await fetch(url, {

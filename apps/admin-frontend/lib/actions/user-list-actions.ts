@@ -4,11 +4,11 @@
 
 'use server'
 
-import { auth } from '@/lib/auth'
+import { getServerSession } from '@/lib/auth'
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
-  const session = await auth();
+  const session = await getServerSession();
   return (session as any)?.accessToken || null;
 };
 import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user'

@@ -3,7 +3,7 @@
 import {
   PackageTier,
   StockRankingPackageAssignment,
-} from '@epsx/types';
+} from '@/types';
 import { useEffect, useState } from 'react';
 
 interface User {

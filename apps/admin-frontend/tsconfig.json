@@ -33,7 +33,10 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": false,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "next-env.d.ts",

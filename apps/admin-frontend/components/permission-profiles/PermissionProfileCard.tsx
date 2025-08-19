@@ -6,8 +6,8 @@
 
 import { useState } from 'react'
 import { Settings, Users, Shield, Key, MoreVertical, Edit, Trash2, UserPlus } from 'lucide-react'
-import { Button } from '@epsx/ui'
-import { Badge } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 

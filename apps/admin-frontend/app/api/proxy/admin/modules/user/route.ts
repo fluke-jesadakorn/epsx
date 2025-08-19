@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken } from '@/lib/actions/admin';
 import { env } from '@/config/env';
 
-const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL || env.getBackendUrl();
+const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL || env.NEXT_PUBLIC_BACKEND_URL;
 
 export async function GET(request: NextRequest) {
   try {

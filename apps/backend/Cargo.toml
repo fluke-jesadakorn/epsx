@@ -17,30 +17,18 @@ path = "src/main.rs"
 [[bin]]
 name = "migrate"
 path = "src/bin/migrate.rs"
+required-features = ["cli-tools"]
 
 [[bin]]
 name = "promote_admin"
 path = "src/bin/promote_admin.rs"
+required-features = ["cli-tools"]
 
 [[bin]]
 name = "assign_iam"
 path = "src/bin/assign_iam.rs"
+required-features = ["cli-tools"]
 
-[[bin]]
-name = "test_websocket_extraction"
-path = "src/bin/test_websocket_extraction.rs"
-
-[[bin]]
-name = "test_50_symbols"
-path = "src/bin/test_50_symbols.rs"
-
-[[bin]]
-name = "test_key_symbols"
-path = "src/bin/test_key_symbols.rs"
-
-[[bin]]
-name = "cleanup_user_data"
-path = "src/bin/cleanup_user_data.rs"
 
 # Feature flags for selective compilation and optimization
 [features]

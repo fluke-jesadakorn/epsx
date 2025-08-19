@@ -7,8 +7,8 @@
 
 import { useState, useEffect } from 'react'
 import { Calendar, User, Shield, Key, Users, Clock, AlertTriangle } from 'lucide-react'
-import { Button } from '@epsx/ui'
-import { Badge } from '@epsx/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/users'
 import { formatDistanceToNow, format } from 'date-fns'
 

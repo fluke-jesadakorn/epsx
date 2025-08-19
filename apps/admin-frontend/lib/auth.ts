@@ -1,5 +1,8 @@
 'use client'
 
+// Export server functions for compatibility
+export { getServerSession, getAuthUser } from './server/auth';
+
 import { create } from 'zustand'
 
 export interface User {

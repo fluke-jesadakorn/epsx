@@ -4,7 +4,6 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
-use askama::Template;
 use chrono::{DateTime, Utc, Duration};
 use base64::Engine;
 use crate::config::env::get_env_var;
@@ -77,20 +76,18 @@ pub async fn authorize(
     }
 
     // Use standard login template for all requests during migration
-    let template = TemplateFactory::create_login_template(
-        params.client_id,
-        params.redirect_uri,
-        params.state,
-        params.scope,
-        String::new(),
-    );
+    // Temporary: Return simple HTML until template rendering is fixed
+    let html = r#"
+<!DOCTYPE html>
+<html>
+<head><title>Auth Flow - EPSX</title></head>
+<body>
+    <h1>EPSX Authentication</h1>
+    <p>Authentication flow in progress...</p>
+</body>
+</html>"#;
     
-    template.render()
-        .map(Html)
-        .map_err(|e| {
-            tracing::error!("Failed to render login template: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })
+    Ok(Html(html.to_string()))
 }
 
 /// POST /oauth/authorize - Process login
@@ -368,14 +365,19 @@ fn is_valid_scope(scope: &str) -> bool {
 }
 
 fn serve_error(_error: &Error) -> Result<Html<String>, StatusCode> {
-    let template = TemplateFactory::get_error_template_for_auth_error("invalid_request");
+    // Temporary: Return simple HTML until template rendering is fixed
+    let html = r#"
+<!DOCTYPE html>
+<html>
+<head><title>Error - EPSX</title></head>
+<body>
+    <h1>Authentication Error</h1>
+    <p>An error occurred during authentication.</p>
+    <a href="/login">Try Again</a>
+</body>
+</html>"#;
     
-    template.render()
-        .map(Html)
-        .map_err(|e| {
-            tracing::error!("Failed to render error template: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })
+    Ok(Html(html.to_string()))
 }
 
 fn serve_login_error(form: &LoginForm, error: &str) -> Result<Redirect, StatusCode> {

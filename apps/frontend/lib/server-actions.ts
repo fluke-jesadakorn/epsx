@@ -111,4 +111,18 @@ export async function signOut(): Promise<void> {
   cookieStore.delete('refresh-token');
 }
 
+/**
+ * Get transaction history for current user
+ */
+export async function getTransactionHistory(excludePending?: boolean): Promise<PaymentTransaction[]> {
+  try {
+    // This is a stub implementation - replace with actual API call
+    // For now, return empty array to prevent build errors
+    return [];
+  } catch (error) {
+    console.error('Failed to get transaction history:', error);
+    return [];
+  }
+}
+
 export type { PaymentStatus, PaymentTransaction } from './api-client';

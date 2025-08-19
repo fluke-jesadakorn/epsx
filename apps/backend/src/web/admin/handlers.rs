@@ -156,7 +156,7 @@ pub async fn list_users_handler(
             "id": user.id().to_string(),
             "email": user.email().value(),
             "role": user.role().to_string(),
-            "subscription_tier": user.sub().tier().to_string(),
+            "subscription_tier": user.subscription().tier().to_string(),
             "is_active": user.is_active(),
             "created_at": user.created_at(),
             "updated_at": user.updated_at()
@@ -285,7 +285,7 @@ pub async fn get_user_handler(
         "role": user.role().to_string(),
         "roles": user_roles,
         "permissions": user_permissions,
-        "subscription_tier": user.sub().tier().to_string(),
+        "subscription_tier": user.subscription().tier().to_string(),
         "is_active": user.is_active(),
         "is_deleted": user.is_deleted(),
         "created_at": user.created_at(),
@@ -520,7 +520,7 @@ pub async fn get_user_stats_handler(
         
         for user in &all_users {
             if !user.is_deleted() {  // Only count active users
-                let tier_str = user.sub().tier().to_string();
+                let tier_str = user.subscription().tier().to_string();
                 *tier_counts.entry(tier_str).or_insert(0) += 1;
             }
         }
@@ -855,7 +855,7 @@ pub async fn get_level_history_handler(
     // Generate user level summary
     let current_level_info = json!({
         "current_role": user.role().to_string(),
-        "current_tier": user.sub().tier().to_string(),
+        "current_tier": user.subscription().tier().to_string(),
         "account_age_days": (Utc::now().signed_duration_since(user.created_at())).num_days(),
         "is_active": user.is_active(),
         "created_at": user.created_at(),

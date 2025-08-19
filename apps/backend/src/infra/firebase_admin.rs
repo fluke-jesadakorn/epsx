@@ -300,6 +300,7 @@ pub struct DeviceToken {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum DevicePlatform {
     Android,
     iOS,

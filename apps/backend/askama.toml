@@ -1,0 +1,3 @@
+[general]
+# Template directory
+dirs = ["templates"]

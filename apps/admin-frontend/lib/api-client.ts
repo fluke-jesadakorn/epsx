@@ -48,6 +48,30 @@ export interface PaymentTransaction {
   description?: string;
 }
 
+// Admin API types
+export interface ActionResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface AssignmentResult {
+  id: string;
+  userId: string;
+  assignedAt: string;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
+export interface StockRankingAssignmentUpdateRequest {
+  userId: string;
+  packageTierId: string;
+  stockRankingTypeId: string;
+  expiresAt?: string;
+  metadata?: Record<string, any>;
+}
+
 export class ApiClient {
   private instance: AxiosInstance;
 

@@ -656,7 +656,7 @@ impl TradingViewApiService {
         }
         
         // Fallback to first available quarterly field
-        let (idx, name, _, value) = &valid_candidates[0];
+        let (_idx, name, _, value) = &valid_candidates[0];
         info!("Selected quarterly EPS field {} for {}: {}", name, symbol, value);
         Some(*value)
     }

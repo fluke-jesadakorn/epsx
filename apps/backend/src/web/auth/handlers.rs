@@ -183,7 +183,7 @@ async fn handle_credentials_login(
         email: user.email().value().to_string(),
         role: user.role().to_string(),
         permissions,
-        subscription_tier: user.sub().tier().to_string(),
+        subscription_tier: user.subscription().tier().to_string(),
         expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
         session_type: session_type.to_string(),
         access_token: bearer_token,
@@ -252,7 +252,7 @@ async fn handle_admin_login(
         email: user.email().value().to_string(),
         role: user.role().to_string(),
         permissions,
-        subscription_tier: user.sub().tier().to_string(),
+        subscription_tier: user.subscription().tier().to_string(),
         expires_at: chrono::Utc::now() + chrono::Duration::seconds(login_res.expires_in),
         session_type: "admin".to_string(),
         access_token: bearer_token,
@@ -467,7 +467,7 @@ pub async fn me_handler(
         email: user.email().value().to_string(),
         role: user.role().to_string(),
         permissions: permission_strings,
-        subscription_tier: user.sub().tier().to_string(),
+        subscription_tier: user.subscription().tier().to_string(),
     };
     
     Ok(Json(response))
@@ -646,7 +646,7 @@ pub async fn validate_session_handler(
         email: user.email().value().to_string(),
         role: auth_ctx.role.to_string(),
         permissions: permission_strings,
-        subscription_tier: user.sub().tier().to_string(),
+        subscription_tier: user.subscription().tier().to_string(),
         session_type: "regular".to_string(), // TODO: implement session types
         expires_at: chrono::Utc::now() + chrono::Duration::days(7),
         session_rotated: None, // No rotation performed in this call

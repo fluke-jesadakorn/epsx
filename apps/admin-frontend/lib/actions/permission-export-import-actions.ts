@@ -1,11 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/lib/auth';
+import { getServerSession } from '@/lib/auth';
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
-  const session = await auth();
+  const session = await getServerSession();
   return (session as any)?.accessToken || null;
 };
 

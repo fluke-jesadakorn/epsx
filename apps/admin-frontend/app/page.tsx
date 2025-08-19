@@ -5,6 +5,9 @@ import { StatsCard } from '@/components/ui/StatsCard'
 import { DashboardSkeleton } from '@/components/admin/DashboardSkeleton'
 import { getDashboardStats, getSystemMetrics } from '@/lib/data/dashboard'
 
+// This page uses authentication/cookies and should be dynamic
+export const dynamic = 'force-dynamic'
+
 async function DashboardContent() {
   // Fetch real data from backend
   const [dashboardStats, systemMetrics] = await Promise.allSettled([

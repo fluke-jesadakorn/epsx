@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO users (\n            firebase_uid, \n            email, \n            created_at,\n            updated_at\n        ) \n        VALUES ($1, $2, NOW(), NOW())\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "801d09654c94b2eb208aedb47657d6425a76c55eceda733bed0c4dbdd9eaa936"
+}

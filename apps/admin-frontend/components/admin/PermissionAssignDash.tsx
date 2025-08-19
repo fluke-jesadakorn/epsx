@@ -91,7 +91,8 @@ export function PermissionProfileAssignmentDashboard() {
       setError(null);
 
       // Use the server action to get admin permission profiles from backend
-      const { serverGetAdminPermissionProfiles } = await import('@epsx/api-client');
+      // TODO: Replace with actual API call
+      // const { serverGetAdminPermissionProfiles } = await import('@epsx/api-client');
       const searchParams = new URLSearchParams({
         category: permissionProfileFilter.category,
         package_tier: permissionProfileFilter.tier,
@@ -148,7 +149,8 @@ export function PermissionProfileAssignmentDashboard() {
       setError(null);
 
       // Use the server action to assign permission profiles
-      const { serverAssignPermissionProfile } = await import('@epsx/api-client');
+      // TODO: Replace with actual API call
+      // const { serverAssignPermissionProfile } = await import('@epsx/api-client');
       
       const assignmentRequest: PermissionProfileAssignmentRequest = {
         permission_profile_id: selectedPermissionProfile.id,

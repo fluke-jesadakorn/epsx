@@ -1,4 +1,4 @@
-import { PaymentTier, UserSubscription } from '@epsx/types';
+import { PaymentTier, UserSubscription } from './index';
 
 // Legacy enum - keep for backward compatibility
 export enum UserLevel {

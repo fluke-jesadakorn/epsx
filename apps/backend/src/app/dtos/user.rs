@@ -251,8 +251,8 @@ impl UserDto {
             display_name: None, // Not stored in domain entity
             disabled: false, // Not stored in domain entity
             role: user.role().to_string(),
-            sub_tier: user.sub().tier().to_string(),
-            perms: user.perms().to_vec(),
+            sub_tier: user.subscription().tier().to_string(),
+            perms: user.permissions().to_vec(),
             created_at: user.created_at().timestamp() as u64,
             last_updated: Some(user.updated_at().timestamp() as u64),
             metadata: UserMetadata {
@@ -361,7 +361,7 @@ pub enum ValidationError {
     LimitTooLarge(u32),
     
     #[error("Invalid subscription tier: {0}")]
-    InvalidSubTier(String),
+    InvalidSubscriptionTier(String),
     
     #[error("Bulk update too large: {0} updates (max 100)")]
     BulkUpdateTooLarge(usize),

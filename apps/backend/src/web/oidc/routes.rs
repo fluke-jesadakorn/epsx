@@ -1,10 +1,10 @@
 use axum::{
     routing::{get, post},
     Router,
+    response::Html,
 };
 
 use crate::web::auth::routes::AppState;
-use crate::web::templates::{TemplateFactory, FirebaseAuthTemplate};
 use super::discovery::*;
 use super::token::{oidc_token, oidc_userinfo};
 use super::authorization::{authorization_endpoint, handle_authorization_form};
@@ -35,7 +35,7 @@ pub fn oidc_routes() -> Router<AppState> {
 /// GET /firebase-auth
 async fn firebase_auth_handler(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
-) -> Result<FirebaseAuthTemplate, axum::http::StatusCode> {
+) -> Result<Html<String>, axum::http::StatusCode> {
     tracing::info!("Firebase auth page requested");
     
     let client_id = params.get("client_id").cloned().unwrap_or_default();
@@ -53,15 +53,21 @@ async fn firebase_auth_handler(
         "Firebase auth template parameters"
     );
     
-    let template = TemplateFactory::create_firebase_auth_template(
-        client_id,
-        redirect_uri,
-        state,
-        scope,
-        tenant_hint,
-    );
+    // Temporary: Return simple HTML until template rendering is fixed
+    let html = format!(r#"
+<!DOCTYPE html>
+<html>
+<head><title>Firebase Auth - EPSX</title></head>
+<body>
+    <h1>Firebase Authentication</h1>
+    <p>Client ID: {}</p>
+    <p>Redirect URI: {}</p>
+    <p>State: {}</p>
+    <p>Scope: {}</p>
+</body>
+</html>"#, client_id, redirect_uri, state, scope);
     
-    Ok(template)
+    Ok(Html(html))
 }
 
 /// Additional OIDC handlers for completeness

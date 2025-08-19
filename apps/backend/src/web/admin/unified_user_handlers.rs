@@ -248,7 +248,7 @@ pub async fn get_unified_user_data_handler(
         email: user.email().value().to_string(),
         display_name: None, // User entity doesn't store display name - would be fetched from Firebase/profile service
         role: user.role().to_string(),
-        subscription_tier: user.sub().tier().to_string(),
+        subscription_tier: user.subscription().tier().to_string(),
         is_active: user.is_active(),
         created_at: user.created_at(),
         updated_at: user.updated_at(),
@@ -278,7 +278,7 @@ pub async fn get_unified_user_data_handler(
     
     let billing = UserBilling {
         subscription: BillingSubscription {
-            tier: user.sub().tier().to_string(),
+            tier: user.subscription().tier().to_string(),
             status: "active".to_string(),
             started_at: user.created_at(),
             next_billing: Some(Utc::now() + Duration::days(30)), // Placeholder billing date
@@ -506,7 +506,7 @@ pub async fn update_user_modules_handler(
         };
         
         // Check if user's tier allows access to this module
-        let user_tier = user.sub().tier().to_string();
+        let user_tier = user.subscription().tier().to_string();
         let can_access = match (required_tier, user_tier.as_str()) {
             ("basic", _) => true, // Basic modules available to all users
             ("premium", "premium") => true,
@@ -595,7 +595,7 @@ pub async fn update_user_modules_handler(
         "data": {
             "user_id": user_id,
             "user_email": user.email().value(),
-            "user_tier": user.sub().tier().to_string(),
+            "user_tier": user.subscription().tier().to_string(),
             "module_assignments": module_assignments,
             "updated_quotas": updated_quotas,
             "statistics": {

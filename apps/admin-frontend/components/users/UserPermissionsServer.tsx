@@ -4,7 +4,7 @@
  */
 
 import { Shield, Users, Key } from 'lucide-react'
-import { auth } from '@/lib/auth'
+import { getServerSession } from '@/lib/auth'
 import { getUnifiedUserData } from '@/lib/actions/user-profile-actions'
 import { getPermissionHistory } from '@/lib/actions/user-permissions-actions'
 // Session type compatible with Zustand auth system
@@ -31,7 +31,7 @@ interface UserPermissionsServerProps {
 export async function UserPermissionsServer({ userId }: UserPermissionsServerProps) {
   // Fetch data in parallel on the server
   const [session, userResult, historyResult] = await Promise.all([
-    auth(),
+    getServerSession(),
     getUnifiedUserData(userId),
     getPermissionHistory(userId, 50)
   ])

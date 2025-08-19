@@ -3,13 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   PackageTier, 
-  StockRankingConfig as _StockRankingConfig, 
-  StockRankingPackageConfigs,
   StockRankingType,
-  BulkStockRankingAssignment as _BulkStockRankingAssignment,
+  BulkStockRankingAssignment,
   BulkStockRankingAssignmentResult,
   StockRankingPackageAssignment
-} from '@epsx/types';
+} from '@/types';
 
 interface User {
   id: string;

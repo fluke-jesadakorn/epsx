@@ -1,15 +1,15 @@
 'use server';
 
-import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateRequest } from '@epsx/api-client';
-import { createApiClient, isApiError } from '@epsx/api-client';
+import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateRequest } from '@/lib/api-client';
+import { createApiClient, isApiError } from '@/lib/api-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
-import { auth } from '@/lib/auth';
+import { getServerSession } from '@/lib/server/auth';
 import { logger } from '@/lib/logger';
 
 // Get bearer token from NextAuth session  
 export const getBearerToken = async () => {
-  const session = await auth();
+  const session = await getServerSession();
   return (session as any)?.accessToken || null;
 };
 
@@ -39,7 +39,7 @@ const getApiClient = async () => {
 // Server action to get users with proper authentication
 export async function getUsersAction(): Promise<ActionResult<any[]>> {
   try {
-    const session = await auth();
+    const session = await getServerSession();
     if (!session?.user) {
       return { success: false, error: 'Not authenticated' };
     }

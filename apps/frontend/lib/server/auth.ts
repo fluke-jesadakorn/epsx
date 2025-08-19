@@ -3,6 +3,7 @@
  * Uses JWT-based authentication with jose library and OAuth 2.0 flow
  */
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
 import { type EPSXJWTPayload } from '@/lib/auth-utils';
 
@@ -15,6 +16,20 @@ export async function getAuthUser(): Promise<EPSXJWTPayload | null> {
   } catch (error) {
     console.error('❌ Failed to get authenticated user:', error);
     return null;
+  }
+}
+
+/**
+ * Clear user session by removing JWT cookie
+ */
+export async function clearSession(): Promise<void> {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete('epsx_frontend_jwt');
+    console.log('✅ Frontend: User session cleared successfully');
+  } catch (error) {
+    console.error('❌ Failed to clear session:', error);
+    throw error;
   }
 }
 
