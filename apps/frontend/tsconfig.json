@@ -33,6 +33,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "tsBuildInfoFile": "./.cache/.tsbuildinfo",
     "forceConsistentCasingInFileNames": true
   },
   "include": [

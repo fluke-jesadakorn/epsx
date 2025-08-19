@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥞 Pancake Stack Login - EPSX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Inline PancakeSwap Theme Styles */
+        :root {
+            --pancake-primary: #FFB347;
+            --pancake-secondary: #FF8C42;
+            --pancake-accent: #FFE135;
+            --pancake-brown: #8B4513;
+            --pancake-light-brown: #D2B48C;
+            --pancake-cream: #FFF8DC;
+            --pancake-syrup: #DAA520;
+            --pancake-golden: #CD853F;
+            --pancake-gradient: linear-gradient(135deg, var(--pancake-primary) 0%, var(--pancake-secondary) 100%);
+            --cream-gradient: linear-gradient(135deg, var(--pancake-cream) 0%, #F5F5DC 100%);
+        }
+        
+        .pancake-theme { 
+            background: var(--cream-gradient);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .pancake-card {
+            background: white;
+            border-radius: 32px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(139, 69, 19, 0.15), 0 10px 30px rgba(255, 179, 71, 0.1);
+            border: 2px solid rgba(255, 179, 71, 0.1);
+        }
+        
+        .pancake-logo {
+            background: var(--pancake-gradient);
+            border-radius: 24px;
+            width: 80px;
+            height: 80px;
+            box-shadow: 0 8px 25px rgba(255, 179, 71, 0.4);
+            animation: pancake-pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pancake-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .syrup-input {
+            background: white;
+            border: 3px solid var(--pancake-cream);
+            border-radius: 20px;
+            padding: 16px 20px 16px 50px;
+            transition: all 0.3s ease;
+        }
+        
+        .syrup-input:focus {
+            outline: none;
+            border-color: var(--pancake-primary);
+            box-shadow: 0 4px 15px rgba(255, 179, 71, 0.3), 0 0 0 4px rgba(255, 179, 71, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .pancake-button {
+            background: var(--pancake-gradient);
+            border-radius: 24px;
+            padding: 16px 32px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(255, 179, 71, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pancake-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 179, 71, 0.6);
+        }
+        
+        .pancake-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .pancake-button:hover::before {
+            left: 100%;
+        }
+        
+        .pancake-toast {
+            background: linear-gradient(135deg, #8B0000 0%, #654321 100%);
+            border-radius: 24px;
+            padding: 16px 24px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(139, 69, 19, 0.4);
+        }
+        
+        .pancake-spinner {
+            width: 48px;
+            height: 48px;
+            background: var(--pancake-gradient);
+            border-radius: 50%;
+            animation: pancake-flip 1.5s linear infinite;
+            position: relative;
+        }
+        
+        .pancake-spinner::after {
+            content: '🥞';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+        
+        @keyframes pancake-flip {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(180deg) scale(1.1); }
+            100% { transform: rotateY(360deg); }
+        }
+        
+        .stack-shadow {
+            filter: drop-shadow(0 4px 8px rgba(139, 69, 19, 0.2));
+        }
+    </style>
+</head>
+<body class="pancake-theme min-h-screen flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Pancake Stack Header -->
+        <div class="text-center">
+            <div class="pancake-logo mx-auto flex items-center justify-center">
+                <i class="fas fa-layer-group text-white text-2xl stack-shadow"></i>
+            </div>
+            <h2 class="mt-6 text-4xl font-bold text-amber-900">
+                🥞 Pancake Stack Login
+            </h2>
+            <p class="mt-2 text-lg text-amber-700">
+                Stack up your credentials for a golden experience
+            </p>
+            
+            <!-- Sweet Security Badge -->
+            <div class="mt-4 flex justify-center">
+                <div class="bg-gradient-to-r from-amber-600 to-amber-800 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+                    <i class="fas fa-cookie-bite"></i>
+                    Sweet & Secure
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display - Burnt Pancake Alert -->
+        {% if !error.is_empty() %}
+        <div class="pancake-toast">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <span class="text-2xl">🔥</span>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">Oops! Burnt pancake detected!</p>
+                    <p class="text-xs opacity-90 mt-1">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Loading State - Pancake Flipping -->
+        <div id="loading" class="loading text-center p-8" style="display: none;">
+            <div class="pancake-spinner mx-auto mb-4"></div>
+            <p class="text-amber-700 font-medium">Flipping your pancakes...</p>
+        </div>
+
+        <!-- Login Form - Pancake Stack -->
+        <div class="pancake-card">
+            <form class="space-y-6" method="POST" action="/oauth/authorize" id="pancake-form">
+                <!-- Hidden OAuth Fields -->
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                <input type="hidden" name="state" value="{{ state }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="response_type" value="code">
+                {% if code_challenge.is_some() %}
+                <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
+                {% endif %}
+                {% if code_challenge_method.is_some() %}
+                <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
+                {% endif %}
+
+                <div class="space-y-5">
+                    <!-- Email Pancake Layer -->
+                    <div>
+                        <label for="email" class="block text-base font-semibold text-amber-900 mb-2">
+                            🍯 Email Address (First Layer)
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                autocomplete="email"
+                                required
+                                class="syrup-input block w-full text-amber-900 placeholder-amber-400"
+                                placeholder="your@email.com"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-amber-500 text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password Pancake Layer -->
+                    <div>
+                        <label for="password" class="block text-base font-semibold text-amber-900 mb-2">
+                            🧈 Secret Recipe (Second Layer)
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autocomplete="current-password"
+                                required
+                                class="syrup-input block w-full text-amber-900 placeholder-amber-400 pr-12"
+                                placeholder="Your secret pancake recipe"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-key text-amber-500 text-lg"></i>
+                            </div>
+                            <button
+                                type="button"
+                                onclick="togglePassword()"
+                                class="absolute inset-y-0 right-0 pr-4 flex items-center text-amber-500 hover:text-amber-700 transition-colors"
+                            >
+                                <i id="password-toggle" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stack Complete Button -->
+                <div>
+                    <button
+                        type="submit"
+                        id="login-button"
+                        class="pancake-button w-full flex justify-center items-center text-lg font-semibold"
+                    >
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
+                            <i class="fas fa-layer-group text-xl"></i>
+                        </span>
+                        🥞 Stack Complete! Let's Eat!
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sweet Footer -->
+        <div class="text-center space-y-3">
+            <div class="flex justify-center items-center gap-4 text-sm text-amber-600">
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Maple-grade security</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-cookie"></i>
+                    <span>Sweet monitoring</span>
+                </div>
+            </div>
+            <p class="text-xs text-amber-500">
+                🍯 Served fresh with love • All stacks are monitored for perfect golden brown
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.getElementById('password-toggle');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        // Show loading when form is submitted
+        document.getElementById('pancake-form').addEventListener('submit', function() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('login-button').style.opacity = '0.6';
+            document.getElementById('login-button').disabled = true;
+        });
+
+        // Auto-focus email field
+        document.getElementById('email').focus();
+
+        // Add pancake flip animation on successful submission
+        function celebratePancakeStack() {
+            const logo = document.querySelector('.pancake-logo');
+            logo.style.animation = 'pancake-flip 1s ease-in-out';
+            setTimeout(() => {
+                logo.style.animation = 'pancake-pulse 3s ease-in-out infinite';
+            }, 1000);
+        }
+        
+        // Accessibility: Reduced motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.documentElement.style.setProperty('--animation-duration', '0s');
+        }
+    </script>
+</body>
+</html>

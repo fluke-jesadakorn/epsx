@@ -2,10 +2,11 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { env } from '@/config/env';
 
 export async function handleSignOut() {
   // Use OIDC logout endpoint to properly revoke tokens
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = env.BACKEND_URL;
   
   // Get current JWT from cookie for revocation (check admin cookie first)
   const cookieStore = await cookies();

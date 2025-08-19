@@ -432,7 +432,7 @@ async fn check_token_revocation(jti: &str) -> Result<(), Box<dyn std::error::Err
 
 /// Create simplified application router with real JWT validation
 pub async fn create_simplified_router(container: Arc<AppContainer>) -> Router<()> {
-    use crate::web::auth::registration::{register_user, check_email_availability};
+    use crate::web::auth::handlers::{register_user, check_email_availability};
     use axum::routing::post;
     
     // Configure CORS to allow frontend requests

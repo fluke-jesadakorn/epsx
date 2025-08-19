@@ -10,7 +10,7 @@ use chrono::{Datelike};
 
 use crate::core::errors::AppError;
 use crate::dom::entities::eps_growth::{EPSRankingsResponse, EPSRanking};
-use crate::dom::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, CountryValidator};
+use crate::dom::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 use crate::dom::services::eps_cache_service::{EPSCacheService, CacheStats};
 use crate::infra::services::tradingview::TradingViewService;
 use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
@@ -52,10 +52,17 @@ pub struct EPSPaginationResponse {
     pub has_prev: bool,
 }
 
-/// Countries list response
+/// Country data with display name and API value
+#[derive(Debug, Serialize)]
+pub struct CountryData {
+    pub value: String,      // API value (lowercase)
+    pub label: String,      // Display name (proper capitalization)
+}
+
+/// Countries list response  
 #[derive(Debug, Serialize)]
 pub struct CountriesResponse {
-    pub countries: Vec<String>,
+    pub countries: Vec<CountryData>,
     pub count: usize,
 }
 
@@ -156,38 +163,38 @@ pub async fn get_eps_rankings(
 }
 
 /// GET /api/analytics/eps-rankings/countries
-/// Returns list of available countries in EPS data
+/// Returns list of available countries for TradingView API
 pub async fn get_available_countries(
-    Extension(service): Extension<Arc<EPSRankingService>>,
+    Extension(_service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<CountriesResponse>, AppError> {
-    debug!("Getting available countries from EPS data");
+    debug!("Getting available countries for TradingView API");
 
-    let countries = service.get_available_countries().await?;
-    debug!("Found {} countries in EPS data", countries.len());
+    let countries = get_available_countries_with_labels();
+    debug!("Found {} countries for TradingView API", countries.len());
 
     let response = CountriesResponse {
         count: countries.len(),
         countries,
     };
 
-    info!("Returning {} available countries", response.count);
+    info!("Returning {} available countries with display names", response.count);
     Ok(Json(response))
 }
 
 /// GET /api/analytics/eps-rankings/countries/all
-/// Returns complete list of valid countries from MarketCountry enum
+/// Returns complete list of valid countries for TradingView API
 pub async fn get_all_valid_countries() -> Result<Json<CountriesResponse>, AppError> {
-    debug!("Getting all valid countries from MarketCountry enum");
+    debug!("Getting all valid countries for TradingView API");
 
-    let countries = CountryValidator::get_valid_countries();
-    debug!("Found {} valid countries", countries.len());
+    let countries = get_available_countries_with_labels();
+    debug!("Found {} valid countries for TradingView API", countries.len());
 
     let response = CountriesResponse {
         count: countries.len(),
         countries,
     };
 
-    info!("Returning {} valid countries", response.count);
+    info!("Returning {} valid countries with display names", response.count);
     Ok(Json(response))
 }
 
@@ -408,6 +415,8 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
                     cookie_signing_key: None,
                     cookie_encryption_key: None,
                     firebase_project_id: None,
+                    backend_url: "http://localhost:8080".to_string(),
+                    oidc_issuer: "http://localhost:8080".to_string(),
                 },
                 payment: crate::config::PaymentConfig {
                     musepay_partner_id: None,
@@ -432,6 +441,7 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
                         timeout_seconds: 30,
                         http_timeout_seconds: 30,
                     },
+                    sendgrid_api_key: None,
                 },
                 rate_limiting: crate::config::RateLimitingConfig {
                     default_per_minute: 60,
@@ -555,6 +565,8 @@ pub async fn get_unified_analytics_rankings_cached(
                     cookie_signing_key: None,
                     cookie_encryption_key: None,
                     firebase_project_id: None,
+                    backend_url: "http://localhost:8080".to_string(),
+                    oidc_issuer: "http://localhost:8080".to_string(),
                 },
                 payment: crate::config::PaymentConfig {
                     musepay_partner_id: None,
@@ -579,6 +591,7 @@ pub async fn get_unified_analytics_rankings_cached(
                         timeout_seconds: 30,
                         http_timeout_seconds: 30,
                     },
+                    sendgrid_api_key: None,
                 },
                 rate_limiting: crate::config::RateLimitingConfig {
                     default_per_minute: 60,
@@ -1428,33 +1441,83 @@ fn convert_screening_result_to_eps_ranking(result: crate::dom::entities::market_
     }
 }
 
-/// Get static list of available countries
-fn get_available_countries_static() -> Vec<String> {
+/// Get static list of available countries with proper display names
+fn get_available_countries_with_labels() -> Vec<CountryData> {
     vec![
-        "america".to_string(), "argentina".to_string(), "australia".to_string(),
-        "austria".to_string(), "bahrain".to_string(), "bangladesh".to_string(),
-        "belgium".to_string(), "brazil".to_string(), "canada".to_string(),
-        "chile".to_string(), "china".to_string(), "colombia".to_string(),
-        "cyprus".to_string(), "czech".to_string(), "denmark".to_string(),
-        "egypt".to_string(), "estonia".to_string(), "finland".to_string(),
-        "france".to_string(), "germany".to_string(), "greece".to_string(),
-        "hongkong".to_string(), "hungary".to_string(), "iceland".to_string(),
-        "india".to_string(), "indonesia".to_string(), "ireland".to_string(),
-        "israel".to_string(), "italy".to_string(), "japan".to_string(),
-        "kenya".to_string(), "kuwait".to_string(), "latvia".to_string(),
-        "lithuania".to_string(), "luxembourg".to_string(), "malaysia".to_string(),
-        "mexico".to_string(), "morocco".to_string(), "netherlands".to_string(),
-        "newzealand".to_string(), "nigeria".to_string(), "norway".to_string(),
-        "pakistan".to_string(), "peru".to_string(), "philippines".to_string(),
-        "poland".to_string(), "portugal".to_string(), "qatar".to_string(),
-        "romania".to_string(), "russia".to_string(), "ksa".to_string(),
-        "serbia".to_string(), "singapore".to_string(), "slovakia".to_string(),
-        "rsa".to_string(), "korea".to_string(), "spain".to_string(),
-        "srilanka".to_string(), "sweden".to_string(), "switzerland".to_string(),
-        "taiwan".to_string(), "thailand".to_string(), "tunisia".to_string(),
-        "turkey".to_string(), "uae".to_string(), "uk".to_string(),
-        "venezuela".to_string(), "vietnam".to_string()
+        CountryData { value: "america".to_string(), label: "United States".to_string() },
+        CountryData { value: "argentina".to_string(), label: "Argentina".to_string() },
+        CountryData { value: "australia".to_string(), label: "Australia".to_string() },
+        CountryData { value: "austria".to_string(), label: "Austria".to_string() },
+        CountryData { value: "bahrain".to_string(), label: "Bahrain".to_string() },
+        CountryData { value: "bangladesh".to_string(), label: "Bangladesh".to_string() },
+        CountryData { value: "belgium".to_string(), label: "Belgium".to_string() },
+        CountryData { value: "brazil".to_string(), label: "Brazil".to_string() },
+        CountryData { value: "canada".to_string(), label: "Canada".to_string() },
+        CountryData { value: "chile".to_string(), label: "Chile".to_string() },
+        CountryData { value: "china".to_string(), label: "China".to_string() },
+        CountryData { value: "colombia".to_string(), label: "Colombia".to_string() },
+        CountryData { value: "cyprus".to_string(), label: "Cyprus".to_string() },
+        CountryData { value: "czech".to_string(), label: "Czech Republic".to_string() },
+        CountryData { value: "denmark".to_string(), label: "Denmark".to_string() },
+        CountryData { value: "egypt".to_string(), label: "Egypt".to_string() },
+        CountryData { value: "estonia".to_string(), label: "Estonia".to_string() },
+        CountryData { value: "finland".to_string(), label: "Finland".to_string() },
+        CountryData { value: "france".to_string(), label: "France".to_string() },
+        CountryData { value: "germany".to_string(), label: "Germany".to_string() },
+        CountryData { value: "greece".to_string(), label: "Greece".to_string() },
+        CountryData { value: "hongkong".to_string(), label: "Hong Kong".to_string() },
+        CountryData { value: "hungary".to_string(), label: "Hungary".to_string() },
+        CountryData { value: "iceland".to_string(), label: "Iceland".to_string() },
+        CountryData { value: "india".to_string(), label: "India".to_string() },
+        CountryData { value: "indonesia".to_string(), label: "Indonesia".to_string() },
+        CountryData { value: "ireland".to_string(), label: "Ireland".to_string() },
+        CountryData { value: "israel".to_string(), label: "Israel".to_string() },
+        CountryData { value: "italy".to_string(), label: "Italy".to_string() },
+        CountryData { value: "japan".to_string(), label: "Japan".to_string() },
+        CountryData { value: "kenya".to_string(), label: "Kenya".to_string() },
+        CountryData { value: "kuwait".to_string(), label: "Kuwait".to_string() },
+        CountryData { value: "latvia".to_string(), label: "Latvia".to_string() },
+        CountryData { value: "lithuania".to_string(), label: "Lithuania".to_string() },
+        CountryData { value: "luxembourg".to_string(), label: "Luxembourg".to_string() },
+        CountryData { value: "malaysia".to_string(), label: "Malaysia".to_string() },
+        CountryData { value: "mexico".to_string(), label: "Mexico".to_string() },
+        CountryData { value: "morocco".to_string(), label: "Morocco".to_string() },
+        CountryData { value: "netherlands".to_string(), label: "Netherlands".to_string() },
+        CountryData { value: "newzealand".to_string(), label: "New Zealand".to_string() },
+        CountryData { value: "nigeria".to_string(), label: "Nigeria".to_string() },
+        CountryData { value: "norway".to_string(), label: "Norway".to_string() },
+        CountryData { value: "pakistan".to_string(), label: "Pakistan".to_string() },
+        CountryData { value: "peru".to_string(), label: "Peru".to_string() },
+        CountryData { value: "philippines".to_string(), label: "Philippines".to_string() },
+        CountryData { value: "poland".to_string(), label: "Poland".to_string() },
+        CountryData { value: "portugal".to_string(), label: "Portugal".to_string() },
+        CountryData { value: "qatar".to_string(), label: "Qatar".to_string() },
+        CountryData { value: "romania".to_string(), label: "Romania".to_string() },
+        CountryData { value: "russia".to_string(), label: "Russia".to_string() },
+        CountryData { value: "ksa".to_string(), label: "Saudi Arabia".to_string() },
+        CountryData { value: "serbia".to_string(), label: "Serbia".to_string() },
+        CountryData { value: "singapore".to_string(), label: "Singapore".to_string() },
+        CountryData { value: "slovakia".to_string(), label: "Slovakia".to_string() },
+        CountryData { value: "rsa".to_string(), label: "South Africa".to_string() },
+        CountryData { value: "korea".to_string(), label: "South Korea".to_string() },
+        CountryData { value: "spain".to_string(), label: "Spain".to_string() },
+        CountryData { value: "srilanka".to_string(), label: "Sri Lanka".to_string() },
+        CountryData { value: "sweden".to_string(), label: "Sweden".to_string() },
+        CountryData { value: "switzerland".to_string(), label: "Switzerland".to_string() },
+        CountryData { value: "taiwan".to_string(), label: "Taiwan".to_string() },
+        CountryData { value: "thailand".to_string(), label: "Thailand".to_string() },
+        CountryData { value: "tunisia".to_string(), label: "Tunisia".to_string() },
+        CountryData { value: "turkey".to_string(), label: "Turkey".to_string() },
+        CountryData { value: "uae".to_string(), label: "United Arab Emirates".to_string() },
+        CountryData { value: "uk".to_string(), label: "United Kingdom".to_string() },
+        CountryData { value: "venezuela".to_string(), label: "Venezuela".to_string() },
+        CountryData { value: "vietnam".to_string(), label: "Vietnam".to_string() },
     ]
+}
+
+/// Get static list of available countries (for backward compatibility)
+fn get_available_countries_static() -> Vec<String> {
+    get_available_countries_with_labels().into_iter().map(|c| c.value).collect()
 }
 
 /// Get static list of available sectors

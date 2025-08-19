@@ -5,7 +5,6 @@ interface StockRanking {
   symbol: string;
   latest_date: string;
   value: number;
-  avg_growth: number;
   quarterly_performance: Array<{
     quarter: string;
     date: string;
@@ -29,11 +28,13 @@ interface ApiResponse {
   };
 }
 
-// Fetch data for PublicRankingPreview (StockFinancialData format)
-export async function fetchPublicRankingData(page = 1, limit = 12) {
+// Fetch data for PublicRankingPreview (StockFinancialData format) - Public ranks 101-105
+export async function fetchPublicRankingData(page = 1, limit = 5) {
   try {
     const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${page}&limit=${limit}&sort_by=market_cap`;
+    // Start from rank 101 (page 21 with 5 per page: (21-1)*5 + 1 = 101)
+    const publicPage = Math.floor(100 / limit) + page;
+    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -56,6 +57,9 @@ export async function fetchPublicRankingData(page = 1, limit = 12) {
 
     // Transform API data to match StockFinancialData format for PublicRankingPreview
     const transformedData = apiData.data.map(stock => {
+      // Calculate growth from latest quarter's EPS growth, fallback to 0
+      const latestGrowth = stock.quarterly_performance[0]?.eps_growth || 0;
+      
       return {
         symbol: stock.symbol,
         currentPrice: stock.value,
@@ -67,7 +71,7 @@ export async function fetchPublicRankingData(page = 1, limit = 12) {
           eps_growth: q.eps_growth,
           price_growth: q.price_growth,
         })),
-        growth: stock.avg_growth,
+        growth: latestGrowth,
         rank: stock.rank,
       };
     });
@@ -80,11 +84,13 @@ export async function fetchPublicRankingData(page = 1, limit = 12) {
   }
 }
 
-// Fetch data for ClientEpsCardSection (TableDataMetrics format)  
+// Fetch data for ClientEpsCardSection (TableDataMetrics format) - Public ranks 101-103
 export async function fetchEpsCardData(page = 1, limit = 3) {
   try {
     const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${page}&limit=${limit}&sort_by=market_cap`;
+    // Start from rank 101 (page 34 with 3 per page: (34-1)*3 + 1 = 100, so page 35 = 103)
+    const publicPage = Math.floor(100 / limit) + page;
+    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -108,11 +114,15 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     // Transform API data to match TableDataMetrics format for ClientEpsCardSection
     const transformedData = apiData.data.map(stock => {
       const latestQuarter = stock.quarterly_performance[0];
+      // Use latest quarter's growth data, fallback to 0
+      const epsGrowth = latestQuarter?.eps_growth || 0;
+      const priceGrowth = latestQuarter?.price_growth || 0;
+      
       return {
         symbol: stock.symbol,
         name: `Company ${stock.symbol}`, // Placeholder name
         valueIndex: stock.value.toString(),
-        growthRate: `${stock.avg_growth}%`,
+        growthRate: `${epsGrowth.toFixed(2)}%`,
         activityScore: "0",
         marketSize: "0",
         growthFactor: "0",
@@ -130,25 +140,25 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
           active: true,
         },
         metricScore: "0",
-        growthIndicator: stock.avg_growth > 0 ? "up" : "down",
+        growthIndicator: epsGrowth > 0 ? "up" : "down",
         currentMetric: latestQuarter?.eps?.toString() || "0",
         predictedMetric: "0",
         lastAnalysisDate: stock.latest_date,
         nextAnalysisDate: stock.latest_date,
         // Required fields for ClientEpsCardSection
         startBuy: {
-          active: stock.avg_growth > 5,
+          active: epsGrowth > 5,
         },
         startAction: {
-          type: stock.avg_growth < -5 ? 'sell' as const : 'hold' as const,
-          active: Math.abs(stock.avg_growth) > 5,
+          type: epsGrowth < -5 ? 'sell' as const : 'hold' as const,
+          active: Math.abs(epsGrowth) > 5,
         },
-        epsGrowth: `${stock.avg_growth.toFixed(2)}%`,
+        epsGrowth: `${epsGrowth.toFixed(2)}%`,
         lastEarningsDate: stock.latest_date,
         currentQuarterEps: latestQuarter?.eps?.toString() || "0",
         nextEps: "0",
         dataValue: stock.value.toString(),
-        changePercent: `${stock.avg_growth.toFixed(2)}%`,
+        changePercent: `${priceGrowth.toFixed(2)}%`,
         volume: "0",
         nextEarningsDate: stock.latest_date,
       };

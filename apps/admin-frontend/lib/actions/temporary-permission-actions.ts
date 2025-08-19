@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { env } from '@/config/env';
 
-const API_BASE = process.env.BACKEND_URL || 'http://localhost:8080';
+const API_BASE = env.BACKEND_URL;
 
 export interface TemporaryPermission {
   id: string;

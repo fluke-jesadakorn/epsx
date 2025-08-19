@@ -1,0 +1,123 @@
+<!-- Shared JavaScript Functions -->
+
+<script>
+// Password visibility toggle
+function togglePassword(passwordFieldId = 'password', toggleIconId = 'password-toggle') {
+    const passwordField = document.getElementById(passwordFieldId);
+    const toggleIcon = document.getElementById(toggleIconId);
+    
+    if (passwordField && toggleIcon) {
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            toggleIcon.className = 'fas fa-eye-slash';
+        } else {
+            passwordField.type = 'password';
+            toggleIcon.className = 'fas fa-eye';
+        }
+    }
+}
+
+// Auto-focus utility
+function autoFocus(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.focus();
+    }
+}
+
+// Current time display utility
+function updateCurrentTime(elementId = 'current-time') {
+    const now = new Date();
+    const timeString = now.toLocaleString('en-US', {
+        timeZone: 'UTC',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    const timeElement = document.getElementById(elementId);
+    if (timeElement) {
+        timeElement.textContent = `${timeString} UTC`;
+    }
+}
+
+// Form validation utilities
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePassword(password) {
+    // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+    const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
+    return re.test(password);
+}
+
+// Show/hide loading state
+function showLoading(containerId = 'loading', buttonId = null) {
+    const loadingEl = document.getElementById(containerId);
+    if (loadingEl) {
+        loadingEl.style.display = 'block';
+    }
+    
+    if (buttonId) {
+        const buttonEl = document.getElementById(buttonId);
+        if (buttonEl) {
+            buttonEl.disabled = true;
+            buttonEl.style.opacity = '0.6';
+        }
+    }
+}
+
+function hideLoading(containerId = 'loading', buttonId = null) {
+    const loadingEl = document.getElementById(containerId);
+    if (loadingEl) {
+        loadingEl.style.display = 'none';
+    }
+    
+    if (buttonId) {
+        const buttonEl = document.getElementById(buttonId);
+        if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.style.opacity = '1';
+        }
+    }
+}
+
+// Error display utility
+function showError(message, containerId = 'error', textId = 'error-text') {
+    const errorEl = document.getElementById(containerId);
+    const errorTextEl = document.getElementById(textId);
+    
+    if (errorTextEl) {
+        errorTextEl.textContent = message;
+    }
+    if (errorEl) {
+        errorEl.style.display = 'block';
+    }
+    
+    hideLoading();
+}
+
+// Success display utility
+function showSuccess(message, containerId = 'success', textId = 'success-text') {
+    const successEl = document.getElementById(containerId);
+    const successTextEl = document.getElementById(textId);
+    
+    if (successTextEl) {
+        successTextEl.textContent = message;
+    }
+    if (successEl) {
+        successEl.style.display = 'block';
+    }
+}
+
+// Initialize common functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize time display if element exists
+    if (document.getElementById('current-time')) {
+        updateCurrentTime();
+        setInterval(updateCurrentTime, 1000);
+    }
+});
+</script>

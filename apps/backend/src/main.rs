@@ -3,7 +3,6 @@ use tracing::{ info, warn };
 use epsx::{
   infra::{ AppContainer },
   web::{create_router, create_demo_router},
-  config::{ Config },
 };
 
 #[tokio::main]

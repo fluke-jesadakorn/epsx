@@ -7,9 +7,6 @@
     "ghcr.io/devcontainers/features/node:1": {
       "nodeGypDependencies": true,
       "version": "18"
-    },
-    "ghcr.io/devcontainers/features/rust:1": {
-      "version": "latest"
     }
   },
   "customizations": {
@@ -23,11 +20,15 @@
       ]
     }
   },
-  "forwardPorts": [80, 3000, 3001, 8080, 8090],
+  "forwardPorts": [80, 443, 3000, 3001, 8080, 8090, 5433, 6381],
   "portsAttributes": {
     "80": {
-      "label": "Traefik (epsx.io, admin.epsx.io, api.epsx.io)",
+      "label": "Traefik HTTP (epsx.io, admin.epsx.io, api.epsx.io)",
       "protocol": "http"
+    },
+    "443": {
+      "label": "Traefik HTTPS (epsx.io, admin.epsx.io, api.epsx.io)",
+      "protocol": "https"
     },
     "3000": {
       "label": "Frontend (Direct)",
@@ -44,8 +45,18 @@
     "8090": {
       "label": "Traefik Dashboard",
       "protocol": "http"
+    },
+    "5433": {
+      "label": "PostgreSQL Database",
+      "protocol": "tcp"
+    },
+    "6381": {
+      "label": "Redis Cache",
+      "protocol": "tcp"
     }
   },
-  "postCreateCommand": "pnpm install",
-  "remoteUser": "vscode"
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode && sudo mkdir -p /home/vscode/.vscode-server && sudo chown -R vscode:vscode /home/vscode/.vscode-server && sudo chown -R vscode:vscode /workspace/node_modules /workspace/.turbo /home/vscode/.local/share/pnpm && ./scripts/devcontainer-setup-domains.sh && pnpm install",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "updateRemoteUserUID": true
 }

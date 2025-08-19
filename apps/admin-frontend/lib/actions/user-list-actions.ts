@@ -5,15 +5,16 @@
 'use server'
 
 import { getServerSession } from '@/lib/auth'
+import { env } from '@/config/env'
+import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user'
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
   const session = await getServerSession();
   return (session as any)?.accessToken || null;
 };
-import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+const BACKEND_URL = env.BACKEND_URL
 
 /**
  * User filters for enhanced user list

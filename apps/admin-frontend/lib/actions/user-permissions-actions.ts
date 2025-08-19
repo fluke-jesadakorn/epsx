@@ -14,9 +14,10 @@ const getBearerToken = async () => {
   return (session as any)?.accessToken || null;
 };
 import { logger } from '@/lib/logger'
+import { env } from '@/config/env'
 import type { UserOperationResult } from '@/lib/types/unified-user'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+const BACKEND_URL = env.BACKEND_URL
 
 export interface AssignTemporaryPermissionData {
   userId: string

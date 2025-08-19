@@ -186,9 +186,9 @@ export async function getAuthorizationUrl() {
     console.log('✅ Frontend: State parameter generated successfully')
     
     // Build authorization URL
-    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`
+    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io'}/oauth/authorize`
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/epsx-backend`
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`
     
     console.log('🔧 Frontend: OAuth configuration:', {
       authorizationEndpoint,
@@ -228,9 +228,9 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
   try {
     console.log('🔄 Frontend: Exchanging authorization code for access token...')
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io'
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/epsx-backend`
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`
     
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: 'POST',
@@ -271,7 +271,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io'
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,

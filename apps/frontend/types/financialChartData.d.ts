@@ -16,6 +16,8 @@ export interface StockFinancialData {
   quarters: QuarterData[];
   currentPrice?: number | null;
   currentPriceDate?: string | null;
+  growth?: number;
+  rank?: number;
 }
 
 export interface CacheData<T> {

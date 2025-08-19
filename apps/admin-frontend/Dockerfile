@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat dumb-init \
 
 # Development stage
 FROM base AS development
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 RUN pnpm install --no-frozen-lockfile
 COPY . .
 EXPOSE 3000

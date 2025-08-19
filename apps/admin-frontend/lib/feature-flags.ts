@@ -3,22 +3,9 @@
  * Controls the gradual rollout of new unified admin interface features
  */
 
-export const FEATURE_FLAGS = {
-  // Unified User Management Hub
-  UNIFIED_USER_MANAGEMENT: process.env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
-  
-  // Server Components Migration
-  SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true',
-  
-  // New Navigation and URL Structure  
-  NEW_NAVIGATION: process.env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
-  
-  // Performance Optimizations
-  BUNDLE_OPTIMIZATION: process.env.NEXT_PUBLIC_ENABLE_BUNDLE_OPT === 'true',
-  
-  // Development and Testing
-  DEV_MODE: process.env.NODE_ENV === 'development',
-} as const
+import { featureFlags } from '@/config/env';
+
+export const FEATURE_FLAGS = featureFlags;
 
 /**
  * Check if a feature flag is enabled
@@ -53,13 +40,7 @@ export function shouldShowFeatureToUser(userId: string, featureName: string): bo
  * Can be configured per feature for gradual rollout
  */
 function getRolloutPercentage(featureName: string): number {
-  const rollouts: Record<string, number> = {
-    'unified_user_management': parseInt(process.env.NEXT_PUBLIC_ROLLOUT_UNIFIED_USERS || '0'),
-    'server_components': parseInt(process.env.NEXT_PUBLIC_ROLLOUT_SERVER_COMPONENTS || '0'),
-    'new_navigation': parseInt(process.env.NEXT_PUBLIC_ROLLOUT_NEW_NAV || '0'),
-  }
-  
-  return rollouts[featureName] || 0
+  return FEATURE_FLAGS.rolloutPercentages[featureName as keyof typeof FEATURE_FLAGS.rolloutPercentages] || 0;
 }
 
 /**

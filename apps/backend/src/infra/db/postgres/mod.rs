@@ -325,45 +325,59 @@ async fn create_permission_indexes(pool: &PgPool) -> Result<(), sqlx::Error> {
     use tracing::{info, warn};
     
     let indexes = [
-        // User permission assignment indexes
-        ("idx_user_permission_assignments_user_id", 
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_permission_assignments_user_id 
-          ON user_permission_assignments(user_id) WHERE is_active = true"),
+        // Admin role assignment indexes (matching modern schema)
+        ("idx_user_admin_roles_firebase_uid_active", 
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_admin_roles_firebase_uid_active 
+          ON user_admin_roles(firebase_uid) WHERE is_active = true"),
         
-        ("idx_user_permission_assignments_profile_id",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_permission_assignments_profile_id 
-          ON user_permission_assignments(permission_profile_id) WHERE is_active = true"),
+        ("idx_user_admin_roles_module_active",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_admin_roles_module_active 
+          ON user_admin_roles(module_code) WHERE is_active = true"),
         
-        ("idx_user_permission_assignments_expires_at",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_permission_assignments_expires_at 
-          ON user_permission_assignments(expires_at) WHERE expires_at IS NOT NULL AND is_active = true"),
+        ("idx_user_admin_roles_expires_at_active",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_admin_roles_expires_at_active 
+          ON user_admin_roles(expires_at) WHERE expires_at IS NOT NULL AND is_active = true"),
         
-        // Permission profile indexes for auto-assignment
-        ("idx_permission_profiles_auto_assignment",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permission_profiles_auto_assignment 
-          ON permission_profiles USING GIN (auto_assignment_rules) WHERE is_active = true"),
+        // Admin module permission indexes
+        ("idx_admin_module_permissions_module_code",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_module_permissions_module_code 
+          ON admin_module_permissions(module_code)"),
         
-        ("idx_permission_profiles_name_active",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permission_profiles_name_active 
-          ON permission_profiles(name) WHERE is_active = true"),
+        ("idx_admin_module_permissions_access_level",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_module_permissions_access_level 
+          ON admin_module_permissions(access_level)"),
         
-        // Permission assignment audit indexes
-        ("idx_permission_assignment_audit_user_id",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permission_assignment_audit_user_id 
-          ON permission_assignment_audit(user_id)"),
+        // Admin role audit indexes (matching modern schema)
+        ("idx_admin_role_audit_firebase_uid",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_role_audit_firebase_uid 
+          ON admin_role_audit(firebase_uid)"),
         
-        ("idx_permission_assignment_audit_timestamp",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permission_assignment_audit_timestamp 
-          ON permission_assignment_audit(created_at DESC)"),
+        ("idx_admin_role_audit_timestamp",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_role_audit_timestamp 
+          ON admin_role_audit(timestamp DESC)"),
         
-        // User lookup indexes for permission resolution
-        ("idx_users_email_active",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_active 
-          ON users(email) WHERE is_active = true"),
+        // Session indexes for JWT validation
+        ("idx_sessions_user_id_active",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_user_id_active 
+          ON sessions(user_id) WHERE is_active = true"),
         
-        ("idx_users_firebase_uid",
-         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_firebase_uid 
-          ON users(firebase_uid) WHERE firebase_uid IS NOT NULL"),
+        ("idx_sessions_expires_at_active",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_expires_at_active 
+          ON sessions(expires_at) WHERE is_active = true"),
+        
+        // Audit logs performance indexes
+        ("idx_audit_logs_user_timestamp",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_timestamp 
+          ON audit_logs(user_id, timestamp DESC)"),
+        
+        ("idx_audit_logs_action_timestamp",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_action_timestamp 
+          ON audit_logs(action, timestamp DESC)"),
+        
+        // Temporary permissions indexes (these exist in the schema)
+        ("idx_temporary_permissions_user_active",
+         "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_temporary_permissions_user_active 
+          ON temporary_permissions(user_id) WHERE status = 'active'"),
     ];
     
     for (name, sql) in indexes {
@@ -531,36 +545,31 @@ impl TransactionManager {
         }
     }
     
-    /// Execute bulk user permission assignments with rollback on any failure
-    pub async fn bulk_assign_permissions(&self, assignments: Vec<BulkPermissionAssignment>) -> Result<BulkAssignmentResult, DatabaseError> {
+    /// Execute bulk admin role assignments with rollback on any failure
+    pub async fn bulk_assign_admin_roles(&self, assignments: Vec<BulkAdminRoleAssignment>) -> Result<BulkAssignmentResult, DatabaseError> {
         let mut tx = self.pool.begin().await.map_err(DatabaseError::Connection)?;
         let mut successful_assignments = 0;
         let mut failed_assignments = Vec::new();
         
         for assignment in assignments {
-            let user_uuid = uuid::Uuid::parse_str(&assignment.user_id)
-                .map_err(|e| DatabaseError::Query(format!("Invalid user UUID: {}", e)))?;
-            let profile_uuid = uuid::Uuid::parse_str(&assignment.permission_profile_id)
-                .map_err(|e| DatabaseError::Query(format!("Invalid profile UUID: {}", e)))?;
-            let assigned_by_uuid = uuid::Uuid::parse_str(&assignment.assigned_by)
-                .map_err(|e| DatabaseError::Query(format!("Invalid assigned_by UUID: {}", e)))?;
-            
             let result = sqlx::query(
                 r#"
-                INSERT INTO admin_permission_profile_assignments 
-                (user_id, permission_profile_id, assigned_by, expires_at, assignment_reason, assignment_type, status, created_at)
-                VALUES ($1, $2, $3, $4, $5, 'promotional', 'active', NOW())
-                ON CONFLICT (user_id, permission_profile_id) 
+                INSERT INTO user_admin_roles 
+                (firebase_uid, module_code, granted_by, granted_reason, expires_at, is_active, created_at)
+                VALUES ($1, $2, $3, $4, $5, true, NOW())
+                ON CONFLICT (firebase_uid, module_code) 
                 DO UPDATE SET 
                     expires_at = EXCLUDED.expires_at,
-                    assignment_reason = EXCLUDED.assignment_reason
+                    granted_reason = EXCLUDED.granted_reason,
+                    is_active = true,
+                    updated_at = NOW()
                 "#,
             )
-            .bind(user_uuid)
-            .bind(profile_uuid)
-            .bind(assigned_by_uuid)
+            .bind(&assignment.firebase_uid)
+            .bind(&assignment.module_code)
+            .bind(&assignment.granted_by)
+            .bind(&assignment.granted_reason)
             .bind(assignment.expires_at.map(|dt| dt.naive_utc()))
-            .bind(assignment.reason.as_deref())
             .execute(&mut *tx)
             .await;
             
@@ -568,18 +577,19 @@ impl TransactionManager {
                 Ok(_) => {
                     successful_assignments += 1;
                     
-                    // Log the assignment
+                    // Log the assignment in admin role audit
                     let _audit_result = sqlx::query(
                         r#"
-                        INSERT INTO assignment_audit_log 
-                        (assignment_id, action, performed_by, details, timestamp)
-                        VALUES ((SELECT id FROM admin_permission_profile_assignments WHERE user_id = $1 AND permission_profile_id = $2), 'assign', $3, $4, NOW())
+                        INSERT INTO admin_role_audit 
+                        (firebase_uid, module_code, action, new_status, performed_by, reason, timestamp)
+                        VALUES ($1, $2, 'grant', $3, $4, $5, NOW())
                         "#,
                     )
-                    .bind(user_uuid)
-                    .bind(profile_uuid)
-                    .bind(assigned_by_uuid)
-                    .bind(serde_json::json!(assignment.reason.as_deref().unwrap_or("bulk_assignment")))
+                    .bind(&assignment.firebase_uid)
+                    .bind(&assignment.module_code)
+                    .bind(serde_json::json!({"is_active": true, "expires_at": assignment.expires_at}))
+                    .bind(&assignment.granted_by)
+                    .bind(&assignment.granted_reason)
                     .execute(&mut *tx)
                     .await;
                 },
@@ -588,8 +598,8 @@ impl TransactionManager {
                         tracing::error!("Failed to rollback transaction: {}", rollback_err);
                     }
                     failed_assignments.push(BulkAssignmentError {
-                        user_id: assignment.user_id,
-                        permission_profile_id: assignment.permission_profile_id,
+                        user_id: assignment.firebase_uid,
+                        permission_profile_id: assignment.module_code,
                         error: e.to_string(),
                     });
                     return Err(DatabaseError::Query(format!("Assignment failed: {:?}", failed_assignments)));
@@ -607,7 +617,17 @@ impl TransactionManager {
     }
 }
 
-/// Bulk permission assignment request
+/// Bulk admin role assignment request (matching modern schema)
+#[derive(Debug, Clone)]
+pub struct BulkAdminRoleAssignment {
+    pub firebase_uid: String,
+    pub module_code: String,
+    pub granted_by: String,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub granted_reason: String,
+}
+
+/// Legacy bulk permission assignment request (for backward compatibility)
 #[derive(Debug, Clone)]
 pub struct BulkPermissionAssignment {
     pub user_id: String,

@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { verifyJWT, type JWTUser } from './auth-utils';
+import { env } from '@/config/env';
 
 export interface User extends JWTUser {
   id: string;
@@ -30,7 +31,7 @@ export async function getCurrentUser(): Promise<User | null> {
       return null;
     }
 
-    const secret = process.env.JWT_SECRET || 'default-secret';
+    const secret = env.NEXTAUTH_SECRET;
     const payload = await verifyJWT(token, secret);
     
     if (!payload) {

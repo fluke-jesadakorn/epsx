@@ -75,7 +75,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
   if (!isMounted) {
     return (
       <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
-        <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
+        <div className="flex h-24 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4 sm:gap-8">
             <Link href="/" className="flex items-center gap-2 group">
               <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
@@ -105,7 +105,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
 
   return (
     <div className="relative z-50 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-b backdrop-blur-sm">
-      <div className="flex h-20 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
+      <div className="flex h-24 items-center px-4 sm:px-6 justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-4 sm:gap-8">
           <Link href="/" className="flex items-center gap-2 group">
             <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">

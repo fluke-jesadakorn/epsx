@@ -1,12 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
-import { env } from './config/env';
+
+// Simplified environment for testing
+const CI = process.env.CI === 'true';
 
 export default defineConfig({
   testDir: './__test__/e2e',
   fullyParallel: true,
-  forbidOnly: !!env.CI,
-  retries: env.CI ? 2 : 0,
-  workers: env.CI ? 1 : 2,
+  forbidOnly: !!CI,
+  retries: CI ? 2 : 0,
+  workers: CI ? 1 : 2,
   timeout: 60000,
   expect: {
     timeout: 10000
@@ -31,6 +33,14 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /global\.setup\.ts/,
+    },
+    
+    // PancakeSwap Complete Flow Tests - 100% Coverage
+    {
+      name: 'pancake-complete',
+      testMatch: '**/pancake-auth-complete-flow.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
     
     // Core functionality tests

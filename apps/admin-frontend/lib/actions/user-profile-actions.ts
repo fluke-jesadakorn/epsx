@@ -8,6 +8,7 @@
 import { revalidatePath } from 'next/cache'
 import { getBearerToken } from '@/lib/actions/server-auth'
 import { logger } from '@/lib/logger'
+import { env } from '@/config/env'
 import type { 
   UnifiedUserData, 
   UserProfileUpdateData,
@@ -15,7 +16,7 @@ import type {
   UserOperationResult 
 } from '@/lib/types/unified-user'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+const BACKEND_URL = env.BACKEND_URL
 
 export interface ProfileUpdateData {
   name?: string

@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireAdminAuth } from '@/lib/auth/server-auth'
+import { env } from '@/config/env'
 import type { 
   PermissionProfile, 
   PermissionProfileQuery,
@@ -19,7 +20,7 @@ import type {
   ApiResponse 
 } from '@/lib/types/permission-profiles'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const API_BASE_URL = env.BACKEND_URL
 
 // Helper function to make authenticated API requests
 async function makeAuthenticatedRequest<T>(

@@ -7,20 +7,33 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-# Install Rust
+# Install Rust and set default toolchain
 USER vscode
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . ~/.cargo/env \
+    && rustup default stable
 ENV PATH="/home/vscode/.cargo/bin:${PATH}"
 
-# Install additional tools as root
+# Install additional tools and mkcert as root
 USER root
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     wget \
     postgresql-client \
+    redis-tools \
+    dnsutils \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up workspace
+# Install mkcert for SSL certificate generation
+RUN curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/arm64" \
+    && chmod +x mkcert-v*-linux-arm64 \
+    && mv mkcert-v*-linux-arm64 /usr/local/bin/mkcert
+
+# Set up workspace and fix permissions
+RUN chown -R vscode:vscode /home/vscode && \
+    mkdir -p /home/vscode/.vscode-server && \
+    chown -R vscode:vscode /home/vscode/.vscode-server
 WORKDIR /workspace
 USER vscode

@@ -1,10 +1,11 @@
 // Server-side configuration utility
+import { env } from '@/config/env';
+
 export const config = {
   // Backend API URL - only available server-side
   getBackendUrl(): string {
-    // Use environment variables to get backend URL
-    const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:8080';
-    return backendUrl;
+    // Use consolidated environment configuration
+    return env.BACKEND_URL;
   },
 
   // Client-side should use relative URLs or API routes
@@ -35,6 +36,6 @@ export const config = {
 
   // Get port from environment
   getPort(): number {
-    return parseInt(process.env.PORT || '3001', 10);
+    return env.PORT;
   }
 };

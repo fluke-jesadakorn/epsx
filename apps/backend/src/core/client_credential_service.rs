@@ -32,18 +32,28 @@ pub struct ClientCredentialService {
 static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(|| {
     let mut clients = HashMap::new();
     
+    // Check if we're in development mode
+    let is_development = get_env_var("RUST_ENV").unwrap_or_else(|_| "production".to_string()) == "development";
+    
     // Frontend client
     if let (Ok(client_id), Ok(client_secret)) = (
         get_env_var("OIDC_FRONTEND_CLIENT_ID"),
         get_env_var("OIDC_FRONTEND_CLIENT_SECRET")
     ) {
+        let mut redirect_uris = vec![
+            "https://epsx.io/api/auth/callback/epsx-backend".to_string(),
+            "https://app.epsx.com/api/auth/callback/epsx-backend".to_string(),
+        ];
+        
+        // Add localhost only in development mode
+        if is_development {
+            redirect_uris.push("http://localhost:3000/api/auth/callback/epsx-backend".to_string());
+        }
+        
         clients.insert(client_id.clone(), ClientCredentials {
             client_id: client_id.clone(),
             client_secret,
-            redirect_uris: vec![
-                "http://localhost:3000/auth/callback".to_string(),
-                "https://app.epsx.com/auth/callback".to_string(),
-            ],
+            redirect_uris,
             allowed_scopes: vec![
                 "openid".to_string(),
                 "profile".to_string(), 
@@ -58,18 +68,25 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(|| 
         get_env_var("OIDC_ADMIN_CLIENT_ID"),
         get_env_var("OIDC_ADMIN_CLIENT_SECRET")
     ) {
+        let mut redirect_uris = vec![
+            "https://admin.epsx.io/api/auth/callback/epsx-backend".to_string(),
+            "https://admin.epsx.com/api/auth/callback/epsx-backend".to_string(),
+        ];
+        
+        // Add localhost only in development mode
+        if is_development {
+            redirect_uris.push("http://localhost:3001/api/auth/callback/epsx-backend".to_string());
+        }
+        
         clients.insert(client_id.clone(), ClientCredentials {
             client_id: client_id.clone(), 
             client_secret,
-            redirect_uris: vec![
-                "http://localhost:3001/auth/callback".to_string(),
-                "https://admin.epsx.com/auth/callback".to_string(),
-            ],
+            redirect_uris,
             allowed_scopes: vec![
                 "openid".to_string(),
                 "profile".to_string(),
                 "email".to_string(),
-                "admin".to_string(),
+                "admin_modules".to_string(),
             ],
             client_type: ClientType::Confidential,
         });

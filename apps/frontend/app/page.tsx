@@ -11,10 +11,10 @@ import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 export const revalidate = 300;
 
 export default async function HomePage() {
-  // Server-side data fetching for better SSR performance
+  // Server-side data fetching for better SSR performance - Public ranks 101-105
   const [initialData, epsCardData] = await Promise.all([
-    fetchPublicRankingData(1, 10), // For PublicRankingPreview
-    fetchEpsCardData(1, 3), // For ClientEpsCardSection
+    fetchPublicRankingData(1, 5), // For PublicRankingPreview - ranks 101-105
+    fetchEpsCardData(1, 3), // For ClientEpsCardSection - ranks 101-103
   ]);
   return (
     <div className="relative min-h-screen overflow-hidden">

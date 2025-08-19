@@ -8,6 +8,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
+import { env } from '@/config/env'
 import type { 
   UnifiedUserData, 
   UserProfileUpdateData,
@@ -32,7 +33,7 @@ export interface ProfileUpdateData {
   two_factor_enabled?: boolean
 }
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+const BACKEND_URL = env.BACKEND_URL
 
 // Get bearer token from session
 const getBearerToken = async () => {

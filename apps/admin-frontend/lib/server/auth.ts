@@ -44,6 +44,9 @@ function base64URLEncode(array: Uint8Array): string {
  * Generate authorization URL with PKCE parameters
  */
 export async function getAuthorizationUrl() {
+  // Use consolidated auth config
+  const { authConfig } = await import('../../config/env');
+  
   console.log('🔄 Admin: Generating PKCE parameters for OAuth authorization...');
   
   // Generate PKCE parameters (server-side only)
@@ -56,10 +59,10 @@ export async function getAuthorizationUrl() {
   const state = generateRandomString(32);
   console.log('✅ Admin: State parameter generated successfully');
   
-  // Build authorization URL
-  const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`;
-  const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin-frontend';
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`;
+  // Build authorization URL using consolidated config
+  const authorizationEndpoint = authConfig.authorizationEndpoint;
+  const clientId = authConfig.clientId;
+  const redirectUri = authConfig.callbackUrl;
   
   console.log('🔧 Admin: OAuth configuration:', {
     authorizationEndpoint,
@@ -108,7 +111,9 @@ export async function getAuthUser() {
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  // Use consolidated auth config
+  const { authConfig } = await import('../../config/env');
+  const apiUrl = authConfig.apiUrl;
   
   console.log('🔄 Admin: Fetching user info from backend userinfo endpoint');
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {

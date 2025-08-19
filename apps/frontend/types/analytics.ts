@@ -10,6 +10,11 @@ export interface EPSRanking {
   price_current: number | null;
   market_cap: number | null;
   volume: number | null;
+  pe_ratio?: number | null;
+  dividend_yield?: number | null;
+  price_change?: number | null;
+  price_change_pct?: number | null;
+  relative_volume?: number | null;
   ranking_position: number | null;
   active_status: string;
   quarterly_data?: QuarterlyEPSData[];
@@ -43,9 +48,23 @@ export interface EPSPagination {
 export interface AnalyticsFilters {
   country?: string;
   sector?: string;
-  sort_by: 'qoq_growth' | 'current_eps' | 'market_cap' | 'ranking_position';
+  sort_by: 'qoq_growth' | 'eps_growth' | 'current_eps' | 'eps' | 'market_cap' | 'volume' | 'price' | 'close' | 'pe_ratio' | 'dividend_yield' | 'change' | 'relative_volume' | 'name' | 'symbol' | 'ranking_position';
   min_eps?: number;
+  max_eps?: number;
   min_growth?: number;
+  max_growth?: number;
+  min_market_cap?: number;
+  max_market_cap?: number;
+  min_volume?: number;
+  max_volume?: number;
+  min_price?: number;
+  max_price?: number;
+  min_pe_ratio?: number;
+  max_pe_ratio?: number;
+  min_dividend_yield?: number;
+  max_dividend_yield?: number;
+  exchange?: string;
+  stock_type?: 'common' | 'preferred' | 'reit' | 'etf' | 'fund' | 'dr' | 'warrant' | 'unit' | 'all';
   page: number;
   limit: number;
 }
@@ -54,6 +73,8 @@ export interface AnalyticsFilters {
 export interface FilterOptions {
   countries: string[];
   sectors: string[];
+  exchanges?: string[];
+  stock_types?: string[];
 }
 
 // Component props types

@@ -31,32 +31,44 @@ pub struct AdminLoginTemplate {
     pub code_challenge_method: Option<String>,
 }
 
-// TODO: Implement registration templates once HTML files are created
-// /// Template for user registration
-// #[derive(Template)]
-// #[template(path = "register.html")]
-// pub struct RegistrationTemplate {
-//     pub client_id: String,
-//     pub redirect_uri: String,
-//     pub state: String,
-//     pub scope: String,
-//     pub error: String,
-//     pub code_challenge: Option<String>,
-//     pub code_challenge_method: Option<String>,
-// }
+/// Template for PancakeSwap-themed user login (OIDC)
+#[derive(Template)]
+#[template(path = "pancake/login.html")]
+pub struct PancakeLoginTemplate {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub scope: String,
+    pub error: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
+}
 
-// /// Template for admin user registration
-// #[derive(Template)]
-// #[template(path = "admin_register.html")]
-// pub struct AdminRegistrationTemplate {
-//     pub client_id: String,
-//     pub redirect_uri: String,
-//     pub state: String,
-//     pub scope: String,
-//     pub error: String,
-//     pub code_challenge: Option<String>,
-//     pub code_challenge_method: Option<String>,
-// }
+/// Template for PancakeSwap-themed admin login (OIDC)
+#[derive(Template)]
+#[template(path = "pancake/admin_login.html")]
+pub struct PancakeAdminLoginTemplate {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub scope: String,
+    pub error: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
+}
+
+/// Template for PancakeSwap-themed user registration (OIDC)
+#[derive(Template)]
+#[template(path = "pancake/register.html")]
+pub struct PancakeRegistrationTemplate {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub scope: String,
+    pub error: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
+}
 
 /// Template for authentication errors
 #[derive(Template)]
@@ -225,48 +237,68 @@ impl TemplateFactory {
         }
     }
 
-    // TODO: Implement registration template methods once HTML files are created
-    // /// Create user registration template with PKCE parameters
-    // pub fn create_registration_template_with_pkce(
-    //     client_id: String,
-    //     redirect_uri: String,
-    //     state: String,
-    //     scope: String,
-    //     code_challenge: Option<String>,
-    //     code_challenge_method: Option<String>,
-    //     error: String,
-    // ) -> RegistrationTemplate {
-    //     RegistrationTemplate {
-    //         client_id,
-    //         redirect_uri,
-    //         state,
-    //         scope,
-    //         error,
-    //         code_challenge,
-    //         code_challenge_method,
-    //     }
-    // }
+    /// Create PancakeSwap-themed user login template with PKCE parameters
+    pub fn create_pancake_login_template_with_pkce(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        code_challenge: Option<String>,
+        code_challenge_method: Option<String>,
+        error: String,
+    ) -> PancakeLoginTemplate {
+        PancakeLoginTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            error,
+            code_challenge,
+            code_challenge_method,
+        }
+    }
 
-    // /// Create admin user registration template with PKCE parameters
-    // pub fn create_admin_registration_template_with_pkce(
-    //     client_id: String,
-    //     redirect_uri: String,
-    //     state: String,
-    //     scope: String,
-    //     code_challenge: Option<String>,
-    //     code_challenge_method: Option<String>,
-    //     error: String,
-    // ) -> AdminRegistrationTemplate {
-    //     AdminRegistrationTemplate {
-    //         client_id,
-    //         redirect_uri,
-    //         state,
-    //         scope,
-    //         error,
-    //         code_challenge,
-    //         code_challenge_method,
-    //     }
-    // }
+    /// Create PancakeSwap-themed admin login template with PKCE parameters
+    pub fn create_pancake_admin_login_template_with_pkce(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        code_challenge: Option<String>,
+        code_challenge_method: Option<String>,
+        error: String,
+    ) -> PancakeAdminLoginTemplate {
+        PancakeAdminLoginTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            error,
+            code_challenge,
+            code_challenge_method,
+        }
+    }
+
+    /// Create PancakeSwap-themed user registration template with PKCE parameters
+    pub fn create_pancake_registration_template_with_pkce(
+        client_id: String,
+        redirect_uri: String,
+        state: String,
+        scope: String,
+        code_challenge: Option<String>,
+        code_challenge_method: Option<String>,
+        error: String,
+    ) -> PancakeRegistrationTemplate {
+        PancakeRegistrationTemplate {
+            client_id,
+            redirect_uri,
+            state,
+            scope,
+            error,
+            code_challenge,
+            code_challenge_method,
+        }
+    }
 
     /// Create error template
     pub fn create_error_template(
@@ -332,14 +364,24 @@ impl TemplateFactory {
     pub fn is_valid_redirect_uri(redirect_uri: &str, client_id: &str) -> bool {
         let allowed_redirects = match client_id {
             "epsx-frontend" => vec![
+                // Development
                 "http://localhost:3000/auth/callback",
                 "http://localhost:3000/api/auth/callback/epsx-backend",
+                // Production (.io domain)
+                "https://epsx.io/auth/callback",
+                "https://epsx.io/api/auth/callback/epsx-backend",
+                // Legacy (.com domain - keep for backward compatibility)
                 "https://app.epsx.com/auth/callback",
                 "https://app.epsx.com/api/auth/callback/epsx-backend",
             ],
             "epsx-admin" => vec![
+                // Development
                 "http://localhost:3001/auth/callback",
                 "http://localhost:3001/api/auth/callback/epsx-backend",
+                // Production (.io domain)
+                "https://admin.epsx.io/auth/callback",
+                "https://admin.epsx.io/api/auth/callback/epsx-backend",
+                // Legacy (.com domain - keep for backward compatibility)
                 "https://admin.epsx.com/auth/callback",
                 "https://admin.epsx.com/api/auth/callback/epsx-backend",
             ],

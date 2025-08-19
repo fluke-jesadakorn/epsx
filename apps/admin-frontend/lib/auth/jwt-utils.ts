@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
+import { env } from '@/config/env'
 
 /**
  * Extended JWT payload with custom claims for EPSX
@@ -18,10 +19,7 @@ export interface EPSXJWTPayload extends JWTPayload {
  * JWT secret key for signing and verification
  */
 const getSecretKey = () => {
-  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET
-  if (!secret) {
-    throw new Error('JWT_SECRET or NEXTAUTH_SECRET environment variable is required')
-  }
+  const secret = env.NEXTAUTH_SECRET // Use the consolidated config
   return new TextEncoder().encode(secret)
 }
 

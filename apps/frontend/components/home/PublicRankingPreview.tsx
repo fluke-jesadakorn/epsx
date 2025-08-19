@@ -1,42 +1,40 @@
 'use client';
-
-import React, { useState, useEffect } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
-  Lock,
-  Crown,
-  ArrowRight,
-} from 'lucide-react';
-import { fetchPublicRankingData } from '@/app/actions/publicRanking';
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui';
 import type { StockFinancialData } from '@/types/financialChartData';
+import {
+  ArrowRight,
+  Crown,
+  Lock,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui';
+import { useEffect, useState } from 'react';
 
 interface PublicRankingPreviewProps {
   className?: string;
   initialData?: StockFinancialData[];
 }
 
-export function PublicRankingPreview({ className, initialData }: PublicRankingPreviewProps) {
-  const [data, setData] = useState<StockFinancialData[]>(initialData || []);
+export function PublicRankingPreview({
+  className,
+  initialData,
+}: PublicRankingPreviewProps) {
+  const [data] = useState<StockFinancialData[]>(initialData || []);
   const [isLoading, setIsLoading] = useState(!initialData);
   const router = useRouter();
 
   useEffect(() => {
-    // Only fetch if no initial data provided (fallback for client-side usage)
+    // If no initial data provided, show empty state
     if (!initialData) {
-      const loadData = async () => {
-        try {
-          const publicData = await fetchPublicRankingData(10, 10);
-          setData(publicData);
-        } catch (error) {
-          console.error('Failed to load public ranking data:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      loadData();
+      setIsLoading(false);
     }
   }, [initialData]);
 
@@ -54,12 +52,12 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
         {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 w-3/4 rounded bg-gray-200"></div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="h-6 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-6 rounded bg-gray-200"></div>
+                <div className="h-4 w-1/2 rounded bg-gray-200"></div>
               </div>
             </CardContent>
           </Card>
@@ -84,13 +82,13 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
           return (
             <Card
               key={stock.symbol}
-              className="relative group hover:shadow-lg transition-all duration-300"
+              className="group relative transition-all duration-300 hover:shadow-lg"
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <Badge variant="outline" className="text-xs">
-                      #{100 + index}
+                      #{stock.rank || 101 + index}
                     </Badge>
                     {stock.symbol}
                   </CardTitle>
@@ -105,8 +103,8 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">
                       Index Growth
                     </span>
                     <span
@@ -117,8 +115,8 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
                       {epsGrowth ? `${epsGrowth.toFixed(2)}%` : 'N/A'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">
                       Current Value
                     </span>
                     <span className="font-medium">
@@ -128,8 +126,8 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
                         : latestQuarter?.price?.toFixed(2) || 'N/A'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">
                       Latest Index
                     </span>
                     <span className="text-sm font-medium">
@@ -151,16 +149,17 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
               <div className="flex justify-center">
                 <div className="relative">
                   <Crown className="h-16 w-16 text-yellow-500" />
-                  <Lock className="h-6 w-6 text-gray-600 absolute -top-1 -right-1 bg-white rounded-full p-1" />
+                  <Lock className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-white p-1 text-gray-600" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold mb-3">
+                <h3 className="mb-3 text-2xl font-bold">
                   🚀 Access Top 100 Rankings
                 </h3>
-                <p className="text-lg text-muted-foreground mb-2">
-                  You&apos;re seeing rankings #100-110. Unlock the top performers!
+                <p className="text-muted-foreground mb-2 text-lg">
+                  You&apos;re seeing rankings #101-105. Unlock the top
+                  performers!
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 text-sm">
                   <Badge variant="secondary">✨ Top 100 Entities</Badge>
@@ -170,7 +169,7 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <Button size="lg" onClick={handleUpgrade} className="gap-2">
                   <Crown className="h-5 w-5" />
                   Upgrade to Premium
@@ -187,7 +186,7 @@ export function PublicRankingPreview({ className, initialData }: PublicRankingPr
                 </Button>
               </div>
 
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 Starting from $1/month • 30-day money-back guarantee
               </div>
             </div>

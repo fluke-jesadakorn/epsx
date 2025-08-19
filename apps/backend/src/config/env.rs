@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
-use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnvVarType {
@@ -90,6 +89,15 @@ lazy_static::lazy_static! {
             category: EnvCategory::Infrastructure,
             example: "8080",
             default_value: Some("8080"),
+        });
+
+        schema.insert("BACKEND_URL", EnvVarDefinition {
+            objective: "Backend API URL for OIDC issuer and internal service communication",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::Infrastructure,
+            example: "http://localhost:8080",
+            default_value: Some("http://localhost:8080"),
         });
 
         schema.insert("HOST", EnvVarDefinition {
@@ -199,6 +207,15 @@ lazy_static::lazy_static! {
             var_type: EnvVarType::JwtSecret,
             category: EnvCategory::Authentication,
             example: "epsx-shared-jwt-secret-2024-cross-app-authentication",
+            default_value: None,
+        });
+
+        schema.insert("JWT_SECRET", EnvVarDefinition {
+            objective: "Legacy JWT secret for backward compatibility with existing tokens",
+            required: false,
+            var_type: EnvVarType::JwtSecret,
+            category: EnvCategory::Authentication,
+            example: "epsx-legacy-jwt-secret-for-compatibility",
             default_value: None,
         });
 
@@ -339,6 +356,69 @@ lazy_static::lazy_static! {
             default_value: Some("googleapis.com"),
         });
 
+        schema.insert("FIREBASE_SERVICE_ACCOUNT_KEY", EnvVarDefinition {
+            objective: "Firebase service account key JSON string for admin operations",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Security,
+            example: "{\"type\":\"service_account\",\"project_id\":\"your-project\"}",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_SERVICE_ACCOUNT_EMAIL", EnvVarDefinition {
+            objective: "Firebase service account email for auth provider operations",
+            required: false,
+            var_type: EnvVarType::Email,
+            category: EnvCategory::Services,
+            example: "your-service-account@your-project.iam.gserviceaccount.com",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_AUTH_DOMAIN", EnvVarDefinition {
+            objective: "Firebase auth domain for client-side Firebase authentication",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "your-project.firebaseapp.com",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_STORAGE_BUCKET", EnvVarDefinition {
+            objective: "Firebase storage bucket for file storage operations",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "your-project.appspot.com",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_MESSAGING_SENDER_ID", EnvVarDefinition {
+            objective: "Firebase messaging sender ID for push notifications",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "123456789",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_APP_ID", EnvVarDefinition {
+            objective: "Firebase app ID for client-side Firebase SDK initialization",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "1:123456789:web:abcdef123456",
+            default_value: None,
+        });
+
+        schema.insert("FIREBASE_DOMAIN_HINT", EnvVarDefinition {
+            objective: "Firebase domain hint for authentication flow optimization",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "your-domain.com",
+            default_value: None,
+        });
+
         // Cookie Security Configuration
         schema.insert("COOKIE_SIGNING_KEY", EnvVarDefinition {
             objective: "Cookie signing key for tamper-proof session cookies",
@@ -458,6 +538,164 @@ lazy_static::lazy_static! {
             category: EnvCategory::Authentication,
             example: "/oauth/jwks",
             default_value: Some("/oauth/jwks"),
+        });
+
+        // Email & Notification Configuration
+        schema.insert("EMAIL_FROM", EnvVarDefinition {
+            objective: "Default from email address for system notifications",
+            required: false,
+            var_type: EnvVarType::Email,
+            category: EnvCategory::Services,
+            example: "noreply@epsx.com",
+            default_value: Some("noreply@epsx.com"),
+        });
+
+        schema.insert("EMAIL_FROM_NAME", EnvVarDefinition {
+            objective: "Default from name for system email notifications",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "EPSX Platform",
+            default_value: Some("EPSX Platform"),
+        });
+
+        schema.insert("SENDGRID_API_KEY", EnvVarDefinition {
+            objective: "SendGrid API key for email delivery service",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::External,
+            example: "SG.your-sendgrid-api-key",
+            default_value: None,
+        });
+
+        // Branding & Platform Configuration
+        schema.insert("PLATFORM_NAME", EnvVarDefinition {
+            objective: "Platform brand name for user-facing communications",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "EPSX",
+            default_value: Some("EPSX"),
+        });
+
+        schema.insert("WELCOME_MESSAGE_TEMPLATE", EnvVarDefinition {
+            objective: "Welcome message template for new user onboarding",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Services,
+            example: "Welcome to {}!",
+            default_value: Some("Welcome to {}!"),
+        });
+
+        schema.insert("DASHBOARD_URL", EnvVarDefinition {
+            objective: "Dashboard URL for user navigation and email links",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::Infrastructure,
+            example: "http://localhost:3000/dashboard",
+            default_value: Some("http://localhost:3000/dashboard"),
+        });
+
+        schema.insert("SUPPORT_EMAIL", EnvVarDefinition {
+            objective: "Support email address for user assistance",
+            required: false,
+            var_type: EnvVarType::Email,
+            category: EnvCategory::Services,
+            example: "support@epsx.com",
+            default_value: Some("support@epsx.com"),
+        });
+
+        // Cache Configuration (Redis & In-Memory)
+        schema.insert("REDIS_URL", EnvVarDefinition {
+            objective: "Redis connection URL for caching and session storage",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::Infrastructure,
+            example: "redis://localhost:6379",
+            default_value: None,
+        });
+
+        schema.insert("REDIS_POOL_SIZE", EnvVarDefinition {
+            objective: "Redis connection pool size for concurrent operations",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Infrastructure,
+            example: "10",
+            default_value: Some("10"),
+        });
+
+        schema.insert("CACHE_TTL_SECONDS", EnvVarDefinition {
+            objective: "Default cache time-to-live in seconds",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Infrastructure,
+            example: "300",
+            default_value: Some("300"),
+        });
+
+        schema.insert("CACHE_MAX_ENTRIES", EnvVarDefinition {
+            objective: "Maximum number of entries in in-memory cache",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Infrastructure,
+            example: "10000",
+            default_value: Some("10000"),
+        });
+
+        schema.insert("CACHE_ENABLE_COMPRESSION", EnvVarDefinition {
+            objective: "Enable compression for cached data to save memory",
+            required: false,
+            var_type: EnvVarType::Boolean,
+            category: EnvCategory::Infrastructure,
+            example: "false",
+            default_value: Some("false"),
+        });
+
+        // Rate Limiting Configuration
+        schema.insert("RATE_LIMIT_DEFAULT_PER_MINUTE", EnvVarDefinition {
+            objective: "Default rate limit per minute for API endpoints",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::RateLimiting,
+            example: "60",
+            default_value: Some("60"),
+        });
+
+        // TradingView External Service Configuration
+        schema.insert("TRADINGVIEW_WEBSOCKET_URL", EnvVarDefinition {
+            objective: "TradingView WebSocket URL for real-time market data",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::External,
+            example: "wss://data.tradingview.com",
+            default_value: Some("wss://data.tradingview.com"),
+        });
+
+        schema.insert("TRADINGVIEW_API_BASE_URL", EnvVarDefinition {
+            objective: "TradingView API base URL for market data requests",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::External,
+            example: "https://api.tradingview.com",
+            default_value: Some("https://api.tradingview.com"),
+        });
+
+        schema.insert("TRADINGVIEW_TIMEOUT_SECONDS", EnvVarDefinition {
+            objective: "TradingView WebSocket connection timeout in seconds",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::External,
+            example: "30",
+            default_value: Some("30"),
+        });
+
+        schema.insert("TRADINGVIEW_HTTP_TIMEOUT_SECONDS", EnvVarDefinition {
+            objective: "TradingView HTTP request timeout in seconds",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::External,
+            example: "30",
+            default_value: Some("30"),
         });
 
         // Test User Configuration
@@ -646,6 +884,8 @@ pub struct AuthConfig {
     pub cookie_signing_key: Option<String>,
     pub cookie_encryption_key: Option<String>,
     pub firebase_project_id: Option<String>,
+    pub backend_url: String,
+    pub oidc_issuer: String,
 }
 
 #[derive(Debug, Clone)]
@@ -673,6 +913,7 @@ pub struct BrandingConfig {
 #[derive(Debug, Clone)]
 pub struct ExternalServicesConfig {
     pub tradingview: TradingViewConfig,
+    pub sendgrid_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -696,6 +937,38 @@ pub struct EndpointRateLimit {
 }
 
 #[derive(Debug, Clone)]
+pub struct CacheConfig {
+    pub redis_url: Option<String>,
+    pub redis_pool_size: u32,
+    pub default_ttl_seconds: i64,
+    pub max_entries: Option<usize>,
+    pub enable_compression: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct FirebaseExtendedConfig {
+    pub type_field: Option<String>,
+    pub project_id: Option<String>,
+    pub private_key_id: Option<String>,
+    pub private_key: Option<String>,
+    pub client_email: Option<String>,
+    pub client_id: Option<String>,
+    pub auth_uri: Option<String>,
+    pub token_uri: Option<String>,
+    pub auth_provider_cert_url: Option<String>,
+    pub client_cert_url: Option<String>,
+    pub universe_domain: Option<String>,
+    pub api_key: Option<String>,
+    pub service_account_key: Option<String>,
+    pub service_account_email: Option<String>,
+    pub auth_domain: Option<String>,
+    pub storage_bucket: Option<String>,
+    pub messaging_sender_id: Option<String>,
+    pub app_id: Option<String>,
+    pub domain_hint: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ValidatedConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -705,6 +978,8 @@ pub struct ValidatedConfig {
     pub branding: BrandingConfig,
     pub external_services: ExternalServicesConfig,
     pub rate_limiting: RateLimitingConfig,
+    pub cache: CacheConfig,
+    pub firebase: FirebaseExtendedConfig,
 }
 
 // Load environment variables from .env file
@@ -753,10 +1028,13 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
                 example: "epsx-shared-jwt-secret-2024-cross-app-authentication".to_string(),
                 severity: ErrorSeverity::Error,
             }])?,
-        jwt_secret: get_env_var("NEXTAUTH_SECRET").unwrap_or_else(|_| "default-jwt-secret".to_string()),
+        jwt_secret: get_env_var("JWT_SECRET")
+            .unwrap_or_else(|_| get_env_var("NEXTAUTH_SECRET").unwrap_or_else(|_| "default-jwt-secret".to_string())),
         cookie_signing_key: get_env_var("COOKIE_SIGNING_KEY").ok(),
         cookie_encryption_key: get_env_var("COOKIE_ENCRYPTION_KEY").ok(),
         firebase_project_id: get_env_var("FIREBASE_PROJECT_ID").ok(),
+        backend_url: get_env_var("BACKEND_URL").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+        oidc_issuer: get_env_var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
     };
 
     let payment_config = PaymentConfig {
@@ -787,11 +1065,42 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
 
     let external_services_config = ExternalServicesConfig {
         tradingview: tradingview_config,
+        sendgrid_api_key: get_env_var("SENDGRID_API_KEY").ok(),
     };
 
     let rate_limiting_config = RateLimitingConfig {
         default_per_minute: get_env_var("RATE_LIMIT_DEFAULT_PER_MINUTE").unwrap_or_else(|_| "60".to_string()).parse().unwrap_or(60),
         endpoint_specific: std::collections::HashMap::new(), // Can be populated from env vars if needed
+    };
+
+    let cache_config = CacheConfig {
+        redis_url: get_env_var("REDIS_URL").ok(),
+        redis_pool_size: get_env_var("REDIS_POOL_SIZE").unwrap_or_else(|_| "10".to_string()).parse().unwrap_or(10),
+        default_ttl_seconds: get_env_var("CACHE_TTL_SECONDS").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
+        max_entries: get_env_var("CACHE_MAX_ENTRIES").ok().and_then(|s| s.parse().ok()),
+        enable_compression: get_env_var("CACHE_ENABLE_COMPRESSION").unwrap_or_else(|_| "false".to_string()).parse().unwrap_or(false),
+    };
+
+    let firebase_config = FirebaseExtendedConfig {
+        type_field: get_env_var("FIREBASE_TYPE").ok(),
+        project_id: get_env_var("FIREBASE_PROJECT_ID").ok(),
+        private_key_id: get_env_var("FIREBASE_PRIVATE_KEY_ID").ok(),
+        private_key: get_env_var("FIREBASE_PRIVATE_KEY").ok(),
+        client_email: get_env_var("FIREBASE_CLIENT_EMAIL").ok(),
+        client_id: get_env_var("FIREBASE_CLIENT_ID").ok(),
+        auth_uri: get_env_var("FIREBASE_AUTH_URI").ok(),
+        token_uri: get_env_var("FIREBASE_TOKEN_URI").ok(),
+        auth_provider_cert_url: get_env_var("FIREBASE_AUTH_PROVIDER_CERT_URL").ok(),
+        client_cert_url: get_env_var("FIREBASE_CLIENT_CERT_URL").ok(),
+        universe_domain: get_env_var("FIREBASE_UNIVERSE_DOMAIN").ok(),
+        api_key: get_env_var("FIREBASE_API_KEY").ok(),
+        service_account_key: get_env_var("FIREBASE_SERVICE_ACCOUNT_KEY").ok(),
+        service_account_email: get_env_var("FIREBASE_SERVICE_ACCOUNT_EMAIL").ok(),
+        auth_domain: get_env_var("FIREBASE_AUTH_DOMAIN").ok(),
+        storage_bucket: get_env_var("FIREBASE_STORAGE_BUCKET").ok(),
+        messaging_sender_id: get_env_var("FIREBASE_MESSAGING_SENDER_ID").ok(),
+        app_id: get_env_var("FIREBASE_APP_ID").ok(),
+        domain_hint: get_env_var("FIREBASE_DOMAIN_HINT").ok(),
     };
 
     Ok(ValidatedConfig {
@@ -803,6 +1112,8 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         branding: branding_config,
         external_services: external_services_config,
         rate_limiting: rate_limiting_config,
+        cache: cache_config,
+        firebase: firebase_config,
     })
 }
 

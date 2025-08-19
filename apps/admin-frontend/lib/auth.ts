@@ -347,15 +347,18 @@ export function hasAdminAccess(): boolean {
 
 // OIDC Authorization URL generation with PKCE
 export async function getAuthorizationUrl() {
+  // Use consolidated auth config
+  const { authConfig } = await import('../config/env')
+  
   // Generate PKCE parameters
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = await generateCodeChallenge(codeVerifier)
   const state = generateRandomString(32)
   
-  // Build authorization URL
-  const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth/authorize`
-  const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin-frontend'
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`
+  // Build authorization URL using consolidated config
+  const authorizationEndpoint = authConfig.authorizationEndpoint
+  const clientId = authConfig.clientId
+  const redirectUri = authConfig.callbackUrl
   
   const params = new URLSearchParams({
     response_type: 'code',

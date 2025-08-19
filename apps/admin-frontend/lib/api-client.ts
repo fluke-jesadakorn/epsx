@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { env } from '@/config/env';
 
 export interface ApiError {
   message: string;
@@ -129,7 +130,7 @@ export class ApiClient {
 }
 
 export function createApiClient(baseURL?: string, token?: string): ApiClient {
-  const url = baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const url = baseURL || env.NEXT_PUBLIC_BACKEND_URL;
   return new ApiClient(url, token);
 }
 

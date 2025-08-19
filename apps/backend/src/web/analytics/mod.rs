@@ -1,4 +1,6 @@
 pub mod eps_handlers;
+pub mod tradingview_direct;
+pub mod direct_handlers;
 
 use axum::{
     routing::{get, post},
@@ -54,6 +56,8 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
                     cookie_signing_key: None,
                     cookie_encryption_key: None,
                     firebase_project_id: None,
+                    backend_url: "http://localhost:8080".to_string(),
+                    oidc_issuer: "http://localhost:8080".to_string(),
                 },
                 payment: crate::config::PaymentConfig {
                     musepay_partner_id: None,
@@ -78,6 +82,7 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
                         timeout_seconds: 30,
                         http_timeout_seconds: 30,
                     },
+                    sendgrid_api_key: None,
                 },
                 rate_limiting: crate::config::RateLimitingConfig {
                     default_per_minute: 60,
@@ -111,18 +116,30 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
     // Background cache refresh removed - using on-demand loading instead
     
     Router::new()
-        // Primary analytics ranking endpoint (preserved)
-        .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        // EPS Analytics endpoints - using proper handlers with service injection
-        .route("/analytics/eps-rankings", get(eps_handlers::get_eps_rankings))
-        .route("/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
-        .route("/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
-        .route("/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
-        .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        .route("/analytics/eps-rankings/sync", post(eps_handlers::trigger_eps_sync))
-        .route("/analytics/eps-rankings/websocket-debug", post(eps_handlers::debug_websocket_eps))
-        .route("/analytics/eps-rankings/debug-eps-correction", post(eps_handlers::debug_eps_correction))
-        .route("/analytics/eps-rankings/debug-ranking-data", post(eps_handlers::debug_ranking_data))
+        // Direct TradingView API endpoints (comprehensive filtering)
+        .route("/analytics/rankings", get(direct_handlers::handle_unified_rankings))
+        .route("/analytics/eps-rankings", get(direct_handlers::handle_eps_rankings))
+        .route("/analytics/eps-rankings/countries", get(direct_handlers::handle_available_countries))
+        .route("/analytics/eps-rankings/countries/all", get(direct_handlers::handle_all_valid_countries))
+        .route("/analytics/eps-rankings/sectors", get(direct_handlers::handle_sectors_by_country))
+        .route("/analytics/eps-rankings/exchanges", get(direct_handlers::handle_available_exchanges))
+        .route("/analytics/eps-rankings/stock-types", get(direct_handlers::handle_stock_types))
+        .route("/analytics/eps-rankings/health", get(direct_handlers::handle_eps_health_check))
+        // V1 API compatibility (frontend uses these)
+        .route("/v1/analytics/rankings", get(direct_handlers::handle_unified_rankings))
+        .route("/v1/analytics/eps-rankings", get(direct_handlers::handle_eps_rankings))
+        .route("/v1/analytics/eps-rankings/countries", get(direct_handlers::handle_available_countries))
+        .route("/v1/analytics/eps-rankings/countries/all", get(direct_handlers::handle_all_valid_countries))
+        .route("/v1/analytics/eps-rankings/sectors", get(direct_handlers::handle_sectors_by_country))
+        .route("/v1/analytics/eps-rankings/exchanges", get(direct_handlers::handle_available_exchanges))
+        .route("/v1/analytics/eps-rankings/stock-types", get(direct_handlers::handle_stock_types))
+        .route("/v1/analytics/eps-rankings/health", get(direct_handlers::handle_eps_health_check))
+        // Legacy EPS endpoints with service injection (for debugging/comparison)
+        .route("/analytics/legacy/eps-rankings", get(eps_handlers::get_eps_rankings))
+        .route("/analytics/legacy/eps-rankings/sync", post(eps_handlers::trigger_eps_sync))
+        .route("/analytics/legacy/websocket-debug", post(eps_handlers::debug_websocket_eps))
+        .route("/analytics/legacy/debug-eps-correction", post(eps_handlers::debug_eps_correction))
+        .route("/analytics/legacy/debug-ranking-data", post(eps_handlers::debug_ranking_data))
         // System metrics endpoint for admin dashboard
         .route("/analytics/system/metrics", get(system_metrics_handler))
         // Add services as extensions

@@ -1,0 +1,19 @@
+tls:
+  certificates:
+    - certFile: /certs/epsx.crt
+      keyFile: /certs/epsx.key
+      stores:
+        - default
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/epsx.crt
+        keyFile: /certs/epsx.key
+
+# HTTPS redirect middleware
+http:
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true

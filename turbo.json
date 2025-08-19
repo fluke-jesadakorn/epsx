@@ -3,7 +3,6 @@
   "ui": "tui",
   "globalDependencies": [
     "**/.env*",
-    "tsconfig.base.json",
     "turbo.json",
     "pnpm-workspace.yaml"
   ],
@@ -131,7 +130,7 @@
       "cache": false
     },
     "type-check": {
-      "outputs": ["**/.tsbuildinfo", "node_modules/.cache/tsbuildinfo.json"],
+      "outputs": ["**/.cache/.tsbuildinfo", "node_modules/.cache/tsbuildinfo.json"],
       "inputs": [
         "src/**",
         "app/**",

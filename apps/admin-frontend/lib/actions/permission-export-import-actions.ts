@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from '@/lib/auth';
+import { env } from '@/config/env';
 
 // Get bearer token from NextAuth session
 const getBearerToken = async () => {
@@ -9,7 +10,7 @@ const getBearerToken = async () => {
   return (session as any)?.accessToken || null;
 };
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = env.BACKEND_URL;
 
 export interface ApiResponse<T> {
   success: boolean;

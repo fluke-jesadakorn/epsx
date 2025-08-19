@@ -232,6 +232,8 @@ async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraF
                     cookie_signing_key: None,
                     cookie_encryption_key: None,
                     firebase_project_id: None,
+                    backend_url: "http://localhost:8080".to_string(),
+                    oidc_issuer: "http://localhost:8080".to_string(),
                 },
                 payment: crate::config::PaymentConfig {
                     musepay_partner_id: None,
@@ -256,6 +258,7 @@ async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraF
                         timeout_seconds: 30,
                         http_timeout_seconds: 30,
                     },
+                    sendgrid_api_key: None,
                 },
                 rate_limiting: crate::config::RateLimitingConfig {
                     default_per_minute: 60,
@@ -289,14 +292,15 @@ async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraF
     // Background cache refresh removed - using on-demand loading instead
     
     Router::new()
-        // Primary analytics ranking endpoint
-        .route("/api/v1/analytics/rankings", get(analytics::eps_handlers::get_unified_analytics_rankings_cached))
-        // EPS Analytics endpoints
-        .route("/api/v1/analytics/eps-rankings", get(analytics::eps_handlers::get_eps_rankings))
-        .route("/api/v1/analytics/eps-rankings/countries", get(analytics::eps_handlers::get_available_countries))
-        .route("/api/v1/analytics/eps-rankings/countries/all", get(analytics::eps_handlers::get_all_valid_countries))
-        .route("/api/v1/analytics/eps-rankings/sectors", get(analytics::eps_handlers::get_sectors_by_country))
-        .route("/api/v1/analytics/eps-rankings/health", get(analytics::eps_handlers::eps_health_check))
+        // Primary analytics ranking endpoints (using direct TradingView integration)
+        .route("/api/v1/analytics/rankings", get(analytics::direct_handlers::handle_unified_rankings))
+        .route("/api/v1/analytics/eps-rankings", get(analytics::direct_handlers::handle_eps_rankings))
+        .route("/api/v1/analytics/eps-rankings/countries", get(analytics::direct_handlers::handle_available_countries))
+        .route("/api/v1/analytics/eps-rankings/countries/all", get(analytics::direct_handlers::handle_all_valid_countries))
+        .route("/api/v1/analytics/eps-rankings/sectors", get(analytics::direct_handlers::handle_sectors_by_country))
+        .route("/api/v1/analytics/eps-rankings/exchanges", get(analytics::direct_handlers::handle_available_exchanges))
+        .route("/api/v1/analytics/eps-rankings/stock-types", get(analytics::direct_handlers::handle_stock_types))
+        .route("/api/v1/analytics/eps-rankings/health", get(analytics::direct_handlers::handle_eps_health_check))
         .route("/api/v1/analytics/eps-rankings/sync", post(analytics::eps_handlers::trigger_eps_sync))
         .route("/api/v1/analytics/eps-rankings/websocket-debug", post(analytics::eps_handlers::debug_websocket_eps))
         .route("/api/v1/analytics/eps-rankings/debug-eps-correction", post(analytics::eps_handlers::debug_eps_correction))

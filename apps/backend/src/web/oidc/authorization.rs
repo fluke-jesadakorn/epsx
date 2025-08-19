@@ -8,6 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use base64::Engine;
+use askama::Template;
 use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
@@ -31,6 +32,9 @@ pub struct AuthorizationParams {
     /// Registration mode flag to differentiate from login
     #[serde(default)]
     pub registration: Option<bool>,
+    /// Error message to display in template (for redirects with errors)
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 /// Login/Registration form data (POST /oauth/authorize)
@@ -109,46 +113,65 @@ pub async fn authorization_endpoint(
     }
 
     // Determine if admin login is required
-    let is_admin_login = TemplateFactory::should_use_admin_template(&params.scope);
+    let is_admin_login = TemplateFactory::should_use_admin_template(&params.scope) || params.client_id == "epsx-admin";
     let is_registration = params.registration.unwrap_or(false);
+    let error_message = params.error.clone().unwrap_or_else(|| "".to_string());
 
-    // Render appropriate login/registration template
-    if is_admin_login {
-        // Temporary: Return simple HTML until template rendering is fixed
-        let html = format!(r#"
-<!DOCTYPE html>
-<html>
-<head><title>Admin Login - EPSX</title></head>
-<body>
-    <h1>EPSX Admin Login</h1>
-    <form method="post">
-        <p>Client: {}</p>
-        <p>Redirect: {}</p>
-        <button type="submit">Continue</button>
-    </form>
-</body>
-</html>"#, params.client_id, params.redirect_uri);
+    // Render PancakeSwap-themed templates based on client type and flow
+    let html = if is_admin_login {
+        // Chef's Kitchen Portal for admin users
+        let template = TemplateFactory::create_pancake_admin_login_template_with_pkce(
+            params.client_id.clone(),
+            params.redirect_uri.clone(),
+            params.state.clone(),
+            params.scope.clone(),
+            params.code_challenge.clone(),
+            params.code_challenge_method.clone(),
+            error_message,
+        );
         
-        Ok(Html(html))
+        template.render().map_err(|e| {
+            tracing::error!("Failed to render admin login template: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        
+    } else if is_registration {
+        // Join the Pancake Family for new user registration
+        let template = TemplateFactory::create_pancake_registration_template_with_pkce(
+            params.client_id.clone(),
+            params.redirect_uri.clone(),
+            params.state.clone(),
+            params.scope.clone(),
+            params.code_challenge.clone(),
+            params.code_challenge_method.clone(),
+            error_message,
+        );
+        
+        template.render().map_err(|e| {
+            tracing::error!("Failed to render registration template: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        
     } else {
-        // Temporary: Return simple HTML until template rendering is fixed
-        let mode = if is_registration { "Registration" } else { "Login" };
-        let html = format!(r#"
-<!DOCTYPE html>
-<html>
-<head><title>{} - EPSX</title></head>
-<body>
-    <h1>EPSX {}</h1>
-    <form method="post">
-        <p>Client: {}</p>
-        <p>Redirect: {}</p>
-        <button type="submit">Continue</button>
-    </form>
-</body>
-</html>"#, mode, mode, params.client_id, params.redirect_uri);
+        // Pancake Stack Login for regular users
+        let template = TemplateFactory::create_pancake_login_template_with_pkce(
+            params.client_id.clone(),
+            params.redirect_uri.clone(),
+            params.state.clone(),
+            params.scope.clone(),
+            params.code_challenge.clone(),
+            params.code_challenge_method.clone(),
+            error_message,
+        );
         
-        Ok(Html(html))
-    }
+        template.render().map_err(|e| {
+            tracing::error!("Failed to render login template: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+    };
+
+    tracing::info!("Successfully rendered PancakeSwap-themed template for client: {}", params.client_id);
+    Ok(Html(html))
 }
 
 /// POST /oauth/authorize - Process login/registration form
@@ -591,20 +614,16 @@ fn extract_user_role(firebase_user: &FirebaseUser) -> String {
     "user".to_string()
 }
 
-/// Serve error page for authorization errors
-fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>, StatusCode> {
-    // Temporary: Return simple HTML until template rendering is fixed
-    let html = format!(r#"
-<!DOCTYPE html>
-<html>
-<head><title>Error - EPSX</title></head>
-<body>
-    <h1>Authentication Error</h1>
-    <p>Error: {}</p>
-    <a href="/login">Try Again</a>
-</body>
-</html>"#, error_code);
+/// Serve error page for authorization errors using PancakeSwap theme
+fn serve_error_page(error_code: &str, description: &str) -> Result<Html<String>, StatusCode> {
+    let template = TemplateFactory::get_error_template_for_auth_error(error_code);
     
+    let html = template.render().map_err(|e| {
+        tracing::error!("Failed to render error template: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
+    tracing::info!("Served PancakeSwap-themed error page for: {}", error_code);
     Ok(Html(html))
 }
 
