@@ -202,7 +202,7 @@ fn configure_cors_for_frontend() -> CorsLayer {
 }
 
 /// Create standalone analytics routes without AppState dependency
-fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraFactory) -> Router {
+async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraFactory) -> Router {
     use axum::Extension;
     
     // Create services for analytics
@@ -274,6 +274,18 @@ fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraFactory
         )
     );
 
+    // Create unified cache service (automatically selects InMemory or Redis)
+    let unified_cache_service = match crate::infra::cache::CacheFactory::from_env().await {
+        Ok(cache) => cache,
+        Err(e) => {
+            tracing::warn!("Failed to create cache service: {}, falling back to in-memory cache", e);
+            // Fallback to in-memory cache with default config
+            std::sync::Arc::new(crate::infra::cache::InMemoryCache::new(
+                crate::infra::cache::CacheConfig::default()
+            )) as std::sync::Arc<dyn crate::infra::cache::Cache>
+        }
+    };
+
     // Background cache refresh removed - using on-demand loading instead
     
     Router::new()
@@ -296,6 +308,7 @@ fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraFactory
         // Add services as extensions
         .layer(Extension(eps_ranking_service))
         .layer(Extension(eps_cache_service))
+        .layer(Extension(unified_cache_service))
 }
 
 /// Create the main application router with analytics support
@@ -304,7 +317,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Router {
     let simplified_routes = simplified_router::create_simplified_router(container.clone()).await;
     
     // Create analytics routes that use the container's InfraFactory
-    let analytics_routes = create_standalone_analytics_routes(&container.infra);
+    let analytics_routes = create_standalone_analytics_routes(&container.infra).await;
     
     // Configure CORS for all routes
     let cors = configure_cors_for_frontend();

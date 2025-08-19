@@ -11,6 +11,16 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+# Development stage
+FROM deps AS development
+COPY Cargo.toml Cargo.lock ./
+COPY src/ ./src/
+EXPOSE 8080
+CMD ["cargo", "run"]
+
+# Stage 2: Dependencies (maximize caching)
+FROM deps AS build_deps
+
 # Copy only dependency files for better caching
 COPY Cargo.toml Cargo.lock ./
 

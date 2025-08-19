@@ -7,6 +7,14 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat dumb-init \
     && npm install -g pnpm@10.14.0
 
+# Development stage
+FROM base AS development
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --no-frozen-lockfile
+COPY . .
+EXPOSE 3000
+CMD ["pnpm", "dev"]
+
 # Stage 2: Dependencies (maximize caching)
 FROM base AS deps
 

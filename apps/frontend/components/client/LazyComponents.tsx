@@ -12,9 +12,6 @@ export const LazyNavControls = lazy(() =>
   import('./ClientNavControls').then(mod => ({ default: mod.ClientNavControls }))
 );
 
-export const LazyAnalyticsDashboard = lazy(() => 
-  import('../analytics/AnalyticsRankingDash')
-);
 
 export const LazyPaymentSection = lazy(() => 
   import('../features/payment/DashboardPaymentSection')
@@ -42,6 +39,5 @@ export function withLazyLoading<T extends {}>(
 // Pre-configured lazy components with Suspense
 export const ThemeToggleWithSuspense = withLazyLoading(LazyThemeToggle, 'theme toggle');
 export const NavControlsWithSuspense = withLazyLoading(LazyNavControls, 'navigation controls');
-export const AnalyticsDashboardWithSuspense = withLazyLoading(LazyAnalyticsDashboard, 'analytics dashboard');
 export const PaymentSectionWithSuspense = withLazyLoading(LazyPaymentSection, 'payment section');
 export const SettingsPanelWithSuspense = withLazyLoading(LazySettingsPanel, 'settings panel');

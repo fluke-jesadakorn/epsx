@@ -141,10 +141,8 @@ export interface SymbolCardData {
   symbol: string;
   rank: number;
   latest_date: string;
-  value: number; // Current EPS value
-  index: number; // Performance index score
-  avg_growth: number; // Average quarterly growth
-  eps_to_price?: string | null; // EPS to price correlation data (optional)
+  value: number; // Current price
+  active_status: string; // Active or Non Active based on surplus
   quarterly_performance: QuarterlyPerformanceData[];
 }
 

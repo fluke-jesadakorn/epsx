@@ -14,6 +14,9 @@ use crate::dom::services::eps_ranking_service::{EPSRankingService, EPSRankingPar
 use crate::dom::services::eps_cache_service::{EPSCacheService, CacheStats};
 use crate::infra::services::tradingview::TradingViewService;
 use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
+use crate::infra::cache::{Cache, CacheExt};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 
 /// Query parameters for EPS rankings endpoint
@@ -36,7 +39,7 @@ pub struct EPSRankingsApiResponse {
 }
 
 /// Pagination response structure
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EPSPaginationResponse {
     pub page: i32,
     pub limit: i32,
@@ -473,11 +476,35 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
     }
 }
 
-/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint
-/// Returns EPS rankings in card format with direct TradingView API calls
+/// Generate cache key from query parameters for analytics rankings
+fn generate_cache_key(params: &EPSRankingQueryParams) -> String {
+    let mut hasher = DefaultHasher::new();
+    
+    // Hash relevant parameters
+    params.country.hash(&mut hasher);
+    params.sector.hash(&mut hasher);
+    params.sort_by.hash(&mut hasher);
+    params.page.unwrap_or(1).hash(&mut hasher);
+    params.limit.unwrap_or(10).hash(&mut hasher);
+    
+    // Handle f64 fields by converting to strings (to avoid NaN hash issues)
+    if let Some(min_eps) = params.min_eps {
+        min_eps.to_string().hash(&mut hasher);
+    }
+    if let Some(min_growth) = params.min_growth {
+        min_growth.to_string().hash(&mut hasher);
+    }
+    
+    let hash = hasher.finish();
+    format!("analytics:rankings:{:x}", hash)
+}
+
+/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint with caching
+/// Returns EPS rankings in card format with unified cache support (Redis/Memory)
 pub async fn get_unified_analytics_rankings_cached(
     Query(params): Query<EPSRankingQueryParams>,
     Extension(_eps_ranking_service): Extension<Arc<EPSRankingService>>,
+    Extension(cache): Extension<Arc<dyn Cache>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
     debug!("Direct TradingView analytics rankings API called with params: {:?}", params);
     
@@ -485,6 +512,18 @@ pub async fn get_unified_analytics_rankings_cached(
     let limit = params.limit.unwrap_or(10);
     let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
     let skip = (page - 1) * limit; // Convert page to skip internally
+    
+    // Generate cache key for this request
+    let cache_key = generate_cache_key(&params);
+    debug!("Generated cache key: {}", cache_key);
+    
+    // Check cache first (1-hour TTL)
+    if let Ok(Some(cached_response)) = cache.get::<CardDashboardResponse>(&cache_key).await {
+        info!("Cache hit for analytics rankings - returning cached data");
+        return Ok(Json(cached_response));
+    }
+    
+    debug!("Cache miss for analytics rankings - fetching fresh data");
     
     // Log request details for debugging
     info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
@@ -637,6 +676,14 @@ pub async fn get_unified_analytics_rankings_cached(
     info!("Direct TradingView API card dashboard completed in {:?} - {} items returned", 
           duration, data_len);
 
+    // Store response in cache with 1-hour TTL (3600 seconds)
+    if let Err(e) = cache.set(&cache_key, &card_response, Some(3600)).await {
+        warn!("Failed to store analytics rankings in cache: {}", e);
+        // Don't fail the request if cache storage fails
+    } else {
+        debug!("Successfully cached analytics rankings with key: {}", cache_key);
+    }
+
     Ok(Json(card_response))
 }
 
@@ -734,7 +781,7 @@ fn generate_quarterly_performance_from_real_data(ranking: &EPSRanking, quarterly
     let current_price = ranking.price_current.unwrap_or(100.0);
     
     // Process each quarter from the WebSocket data (already sorted by timestamp, newest first)
-    for (i, quarter_data) in quarterly_data.iter().enumerate().take(3) {
+    for (i, quarter_data) in quarterly_data.iter().enumerate().take(2) {
         // Calculate price progression based on EPS changes
         let price_adjustment = if i == 0 {
             1.0 // Current price
@@ -840,8 +887,8 @@ fn generate_quarterly_data_from_real_websocket_data(
     let mut sorted_data = quarterly_data.to_vec();
     sorted_data.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     
-    // Process each quarter from the WebSocket data (up to 8 quarters)
-    for (i, quarter_data) in sorted_data.iter().enumerate().take(8) {
+    // Process each quarter from the WebSocket data (up to 2 quarters)
+    for (i, quarter_data) in sorted_data.iter().enumerate().take(2) {
         // Use VWAP price correlation data when available, otherwise fall back to synthetic calculation
         let adjusted_price = if let Some(ref price_data) = quarter_data.price_data {
             // Use VWAP price correlation data - prefer post-earnings price for accuracy
@@ -949,8 +996,8 @@ fn generate_consecutive_quarterly_data(ranking: &EPSRanking, current_date: chron
     
     let mut quarterly_data = Vec::new();
     
-    // Generate last 8 quarters of data
-    for i in 0..8 {
+    // Generate last 2 quarters of data
+    for i in 0..2 {
         // Calculate quarter and year going backwards
         let quarters_back = i as i32;
         let (quarter, year) = calculate_quarter_backwards(current_quarter, current_year, quarters_back);
@@ -1317,12 +1364,6 @@ mod tests {
 
 /// Transform UnifiedRankingItem to SymbolCardData for card dashboard format
 fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolCardData {
-    // Calculate performance index from analytics data
-    let index = unified_item.analytics.ranking_score;
-    
-    // Use the real QoQ growth from TradingView analytics instead of synthetic calculation
-    let avg_growth = unified_item.analytics.qoq_growth;
-    
     // Transform quarterly data format
     let quarterly_performance: Vec<QuarterlyPerformanceData> = unified_item.quarterly_data.into_iter()
         .map(|q| {
@@ -1339,14 +1380,23 @@ fn transform_unified_to_card_format(unified_item: UnifiedRankingItem) -> SymbolC
         })
         .collect();
     
+    // Calculate active status based on last quarter surplus (positive EPS growth)
+    let active_status = if let Some(latest_quarter) = quarterly_performance.first() {
+        if latest_quarter.eps_growth > 0.0 {
+            "Active".to_string()
+        } else {
+            "Non Active".to_string()
+        }
+    } else {
+        "Non Active".to_string() // Default if no quarterly data
+    };
+    
     SymbolCardData {
         rank: unified_item.ranking_position,
         symbol: unified_item.symbol,
         latest_date: unified_item.current_price_date.format("%b %-d, %Y").to_string(),
         value: unified_item.current_price,
-        index,
-        avg_growth,
-        eps_to_price: None, // Additional correlation data not implemented yet
+        active_status,
         quarterly_performance,
     }
 }
@@ -1530,7 +1580,7 @@ pub struct CacheHealthResponse {
 }
 
 /// Card dashboard response structure for multi-symbol EPS analytics
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CardDashboardResponse {
     pub success: bool,
     pub data: Vec<SymbolCardData>,
@@ -1541,20 +1591,18 @@ pub struct CardDashboardResponse {
 }
 
 /// Individual symbol card data matching frontend UI requirements
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SymbolCardData {
     pub rank: i32,
     pub symbol: String,
     pub latest_date: String,
     pub value: f64,                    // Current price
-    pub index: f64,                    // EPS-weighted performance index
-    pub avg_growth: f64,               // Average growth percentage
-    pub eps_to_price: Option<String>,  // EPS to price correlation (N/A initially)
+    pub active_status: String,         // Active or Non Active based on surplus
     pub quarterly_performance: Vec<QuarterlyPerformanceData>,
 }
 
 /// Quarterly performance data for the card dashboard
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct QuarterlyPerformanceData {
     pub quarter: String,      // "Q1", "Q0", etc.
     pub date: String,         // "Aug 8, 2025"
@@ -1565,7 +1613,7 @@ pub struct QuarterlyPerformanceData {
 }
 
 /// Metadata for card dashboard
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CardDashboardMetadata {
     pub available_countries: Vec<String>,
     pub available_sectors: Vec<String>,

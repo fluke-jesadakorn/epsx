@@ -1,0 +1,51 @@
+{
+  "name": "EPSX Development Environment",
+  "dockerComposeFile": "docker-compose.dev.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "nodeGypDependencies": true,
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+  "forwardPorts": [80, 3000, 3001, 8080, 8090],
+  "portsAttributes": {
+    "80": {
+      "label": "Traefik (epsx.io, admin.epsx.io, api.epsx.io)",
+      "protocol": "http"
+    },
+    "3000": {
+      "label": "Frontend (Direct)",
+      "protocol": "http"
+    },
+    "3001": {
+      "label": "Admin (Direct)", 
+      "protocol": "http"
+    },
+    "8080": {
+      "label": "Backend (Direct)",
+      "protocol": "http"
+    },
+    "8090": {
+      "label": "Traefik Dashboard",
+      "protocol": "http"
+    }
+  },
+  "postCreateCommand": "pnpm install",
+  "remoteUser": "vscode"
+}

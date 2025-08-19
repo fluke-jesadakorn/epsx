@@ -1,4 +1,8 @@
+import { config } from 'dotenv';
 import type { NextConfig } from 'next';
+
+// Load app-specific environment
+config();
 
 const nextConfig: NextConfig = {
   output: 'standalone',

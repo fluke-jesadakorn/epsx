@@ -1,0 +1,138 @@
+services:
+  # Traefik Reverse Proxy for Real Domains
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "8090:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - epsx-dev
+
+  # Development Workspace
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.dev
+    volumes:
+      - ..:/workspace:cached
+      - vscode-server:/home/vscode/.vscode-server
+    networks:
+      - epsx-dev
+    command: sleep infinity
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ../apps/frontend
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - ../apps/frontend:/app:cached
+      - frontend_node_modules:/app/node_modules
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - BACKEND_URL=http://backend:8080
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8080
+    networks:
+      - epsx-dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`epsx.io`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    depends_on:
+      - traefik
+      - backend
+
+  # Admin Frontend Service
+  admin:
+    build:
+      context: ../apps/admin-frontend
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - ../apps/admin-frontend:/app:cached
+      - admin_node_modules:/app/node_modules
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - BACKEND_URL=http://backend:8080
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8080
+    networks:
+      - epsx-dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.epsx.io`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.services.admin.loadbalancer.server.port=3000"
+    depends_on:
+      - traefik
+      - backend
+
+  # Backend Service
+  backend:
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - ../apps/backend:/app:cached
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://postgres:password@db:5432/epsx
+      - RUST_ENV=development
+    networks:
+      - epsx-dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.epsx.io`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+    depends_on:
+      - traefik
+      - db
+
+  # Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=epsx
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - epsx-dev
+    ports:
+      - "5433:5432"
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    networks:
+      - epsx-dev
+    ports:
+      - "6380:6379"
+
+volumes:
+  postgres_data:
+  vscode-server:
+  frontend_node_modules:
+  admin_node_modules:
+
+networks:
+  epsx-dev:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

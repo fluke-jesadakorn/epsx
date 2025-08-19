@@ -14,6 +14,7 @@ use crate::web::AppState;
 use crate::infra::services::tradingview::TradingViewApiService;
 use crate::infra::InfraFactory;
 use crate::config::Config;
+use crate::infra::cache::{CacheFactory, Cache};
 
 pub use eps_handlers::*;
 
@@ -25,7 +26,7 @@ pub struct AnalyticsQuery {
 }
 
 
-pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState> {
+pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState> {
     // Create services for both database and cache approaches
     let eps_ranking_service = infra_factory.create_eps_ranking_service();
     
@@ -95,6 +96,18 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
         )
     );
 
+    // Create unified cache service (automatically selects InMemory or Redis)
+    let unified_cache_service = match CacheFactory::from_env().await {
+        Ok(cache) => cache,
+        Err(e) => {
+            tracing::warn!("Failed to create cache service: {}, falling back to in-memory cache", e);
+            // Fallback to in-memory cache with default config
+            std::sync::Arc::new(crate::infra::cache::InMemoryCache::new(
+                crate::infra::cache::CacheConfig::default()
+            )) as std::sync::Arc<dyn Cache>
+        }
+    };
+
     // Background cache refresh removed - using on-demand loading instead
     
     Router::new()
@@ -115,6 +128,7 @@ pub fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState>
         // Add services as extensions
         .layer(Extension(eps_ranking_service))
         .layer(Extension(eps_cache_service))
+        .layer(Extension(unified_cache_service))
 }
 
 /// System metrics handler for admin dashboard

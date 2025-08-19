@@ -5,7 +5,6 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
 # Testing
 coverage
@@ -22,8 +21,10 @@ dist
 .DS_Store
 *.pem
 *.log
-.env*
-!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Debug
 logs

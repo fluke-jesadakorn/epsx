@@ -3,7 +3,8 @@ import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 import DataTechSection from '@/components/home/DataTechSection';
 import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
-import { fetchPublicRankingData } from '@/app/actions/publicRanking';
+import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
+import { fetchPublicRankingData, fetchEpsCardData } from '@/app/actions/publicRanking';
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 
 // ISR configuration for homepage - revalidate every 5 minutes
@@ -11,7 +12,10 @@ export const revalidate = 300;
 
 export default async function HomePage() {
   // Server-side data fetching for better SSR performance
-  const initialData = await fetchPublicRankingData(10, 10);
+  const [initialData, epsCardData] = await Promise.all([
+    fetchPublicRankingData(1, 10), // For PublicRankingPreview
+    fetchEpsCardData(1, 3), // For ClientEpsCardSection
+  ]);
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}
@@ -58,15 +62,16 @@ export default async function HomePage() {
           <DataTechSection />
         </StreamingWrapper>
 
-        {/* EPS Cards Section - Temporarily commented out to use same data format as analytics
-        <div className="container mx-auto px-4 py-12 animate-fade-in-delayed">
-          <div className="relative">
-            <div className="absolute -top-8 -left-8 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-xl" />
-            <div className="absolute -bottom-8 -right-8 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl" />
-            <ClientEpsCardSection initialData={data} />
+        {/* EPS Cards Section - Top Performing Companies */}
+        <StreamingWrapper priority="medium" identifier="eps-cards">
+          <div className="container mx-auto px-4 py-12 animate-fade-in-delayed">
+            <div className="relative">
+              <div className="absolute -top-8 -left-8 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full blur-xl" />
+              <div className="absolute -bottom-8 -right-8 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl" />
+              <ClientEpsCardSection initialData={epsCardData} />
+            </div>
           </div>
-        </div>
-        */}
+        </StreamingWrapper>
 
         {/* Pricing Section with enhanced PancakeSwap styling */}
         <StreamingWrapper priority="medium" identifier="pricing">

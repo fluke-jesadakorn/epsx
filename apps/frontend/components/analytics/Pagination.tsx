@@ -1,280 +1,135 @@
 'use client';
 
-import React from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Crown,
-  Settings,
-} from 'lucide-react';
-import type { CardDashboardPagination } from '@/types/financialChartData';
-import { Button, Badge, Input } from '@/components/ui';
+import { memo } from 'react';
+import type { PaginationProps } from '@/types/analytics';
 
-interface PaginationProps {
-  pagination: CardDashboardPagination;
-  filters: {
-    page: number;
-    limit: number;
-  };
-  loading: boolean;
-  userTier?: string;
-  maxAllowedLimit?: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-  className?: string;
-}
+const Pagination = memo<PaginationProps>(({ pagination, onPageChange, isLoading }) => {
+  const { page, totalPages, hasNext, hasPrev, total, limit } = pagination;
 
-export function Pagination({
-  pagination,
-  filters,
-  loading,
-  userTier = 'BASIC',
-  maxAllowedLimit = 12,
-  onPageChange,
-  onPageSizeChange,
-  className,
-}: PaginationProps) {
-  const { page: currentPage, totalPages, total, hasNext, hasPrev } = pagination;
-  const { page, limit } = filters;
+  // Calculate visible page numbers for mobile
+  const getVisiblePages = () => {
+    const delta = 1; // Show 1 page on each side of current page on mobile
+    const range = [];
+    const rangeWithDots = [];
 
-  // Page size options based on user tier
-  const getPageSizeOptions = () => {
-    const basicOptions = [6, 12, 24];
-    const premiumOptions = [6, 12, 24, 48, 96];
-    const baseOptions = userTier === 'BASIC' ? basicOptions : premiumOptions;
-    return baseOptions.filter(size => size <= maxAllowedLimit);
-  };
+    for (
+      let i = Math.max(2, page - delta);
+      i <= Math.min(totalPages - 1, page + delta);
+      i++
+    ) {
+      range.push(i);
+    }
 
-  const pageSizeOptions = getPageSizeOptions();
-
-  // Calculate page-based pagination info
-  const startRecord = (page - 1) * limit + 1;
-  const endRecord = Math.min(page * limit, total);
-  
-  // Generate page numbers for pagination
-  const generatePageNumbers = () => {
-    const maxVisiblePages = 7;
-    const pages: (number | 'ellipsis')[] = [];
-    
-    if (totalPages <= maxVisiblePages) {
-      // Show all pages if total is small
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
+    if (page - delta > 2) {
+      rangeWithDots.push(1, '...');
     } else {
-      // Always show first page
-      pages.push(1);
-      
-      if (currentPage > 4) {
-        pages.push('ellipsis');
-      }
-      
-      // Show pages around current page
-      const start = Math.max(2, currentPage - 2);
-      const end = Math.min(totalPages - 1, currentPage + 2);
-      
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-      
-      if (currentPage < totalPages - 3) {
-        pages.push('ellipsis');
-      }
-      
-      // Always show last page
-      if (totalPages > 1) {
-        pages.push(totalPages);
-      }
+      rangeWithDots.push(1);
     }
-    
-    return pages;
+
+    rangeWithDots.push(...range);
+
+    if (page + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
   };
 
-  const handlePageInput = (pageValue: string) => {
-    const pageNum = parseInt(pageValue);
-    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
-      onPageChange(pageNum);
-    }
-  };
+  const visiblePages = getVisiblePages();
+  const startItem = (page - 1) * limit + 1;
+  const endItem = Math.min(page * limit, total);
 
-  const handleJumpToPage = (pageValue: string) => {
-    const pageNum = parseInt(pageValue);
-    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
-      onPageChange(pageNum);
-    }
-  };
-
-  const pageNumbers = generatePageNumbers();
+  if (totalPages <= 1) return null;
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Main Pagination Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-card border rounded-lg">
-        {/* Records Info & Page Size */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Show:</span>
-            <Select
-              value={limit.toString()}
-              onValueChange={(value) => onPageSizeChange(parseInt(value))}
-              disabled={loading}
-            >
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeOptions.map((size) => (
-                  <SelectItem key={size} value={size.toString()}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {userTier && (
-              <Badge variant="outline" className="text-xs">
-                {userTier}
-              </Badge>
-            )}
-          </div>
-          
-          <div className="text-muted-foreground">
-            Showing {startRecord.toLocaleString()} to {endRecord.toLocaleString()} of{' '}
-            {total.toLocaleString()} results
-          </div>
-        </div>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      {/* Results info */}
+      <div className="text-sm text-gray-600 text-center mb-4">
+        Showing {startItem}-{endItem} of {total} results
+      </div>
 
-        {/* Navigation Controls */}
-        <div className="flex items-center gap-2">
-          {/* First/Previous */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(1)}
-            disabled={!hasPrev || loading}
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={!hasPrev || loading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+      {/* Pagination controls */}
+      <div className="flex items-center justify-center gap-1">
+        {/* Previous button */}
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={!hasPrev || isLoading}
+          className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px]"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 19-7-7 7-7" />
+          </svg>
+          <span className="hidden sm:block ml-1">Previous</span>
+        </button>
 
-          {/* Page Numbers */}
-          <div className="flex items-center gap-1">
-            {pageNumbers.map((pageNum, idx) => (
-              pageNum === 'ellipsis' ? (
-                <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">
+        {/* Page numbers */}
+        <div className="flex items-center gap-1">
+          {visiblePages.map((pageNum, index) => {
+            if (pageNum === '...') {
+              return (
+                <span key={`dots-${index}`} className="px-2 py-2 text-gray-400">
                   ...
                 </span>
-              ) : (
-                <Button
-                  key={pageNum}
-                  variant={pageNum === currentPage ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onPageChange(pageNum)}
-                  disabled={loading}
-                  className="w-10"
-                >
-                  {pageNum}
-                </Button>
-              )
-            ))}
-          </div>
+              );
+            }
 
-          {/* Next/Last */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={!hasNext || loading}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(totalPages)}
-            disabled={!hasNext || loading}
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+            const isCurrentPage = pageNum === page;
+            return (
+              <button
+                key={pageNum}
+                onClick={() => onPageChange(pageNum as number)}
+                disabled={isLoading}
+                className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  isCurrentPage
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Next button */}
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={!hasNext || isLoading}
+          className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px]"
+        >
+          <span className="hidden sm:block mr-1">Next</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9 5 7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
-      {/* Advanced Skip-based Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg border">
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Advanced:</span>
-          </div>
-          
-          {/* Skip Input */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Page:</span>
-            <Input
-              type="number"
-              min="1"
-              max={totalPages}
-              value={page}
-              onChange={(e) => handlePageInput(e.target.value)}
-              className="w-20 h-8 text-xs"
-              disabled={loading}
-            />
-          </div>
-          
-          {/* Jump to Page */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Jump to:</span>
-            <Input
-              type="number"
-              min="1"
-              max={totalPages}
-              placeholder={currentPage.toString()}
-              onChange={(e) => handleJumpToPage(e.target.value)}
-              className="w-20 h-8 text-xs"
-              disabled={loading}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Page {currentPage} of {totalPages}</span>
-          <Badge variant="outline" className="text-xs">
-            Page: {page}
-          </Badge>
-        </div>
+      {/* Jump to page input - hidden on mobile to save space */}
+      <div className="hidden lg:flex items-center justify-center gap-2 mt-4">
+        <span className="text-sm text-gray-600">Go to page:</span>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              const value = parseInt((e.target as HTMLInputElement).value);
+              if (value >= 1 && value <= totalPages) {
+                onPageChange(value);
+                (e.target as HTMLInputElement).value = '';
+              }
+            }
+          }}
+          disabled={isLoading}
+        />
       </div>
-
-      {/* User Tier Upgrade Prompt (if applicable) */}
-      {userTier === 'BASIC' && totalPages > 5 && (
-        <div className="p-3 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg border border-orange-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-medium">
-                Unlock unlimited pagination with Premium access
-              </span>
-            </div>
-            <Button size="sm" variant="outline" className="text-xs">
-              Upgrade
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
+});
+
+Pagination.displayName = 'Pagination';
+
+export default Pagination;
