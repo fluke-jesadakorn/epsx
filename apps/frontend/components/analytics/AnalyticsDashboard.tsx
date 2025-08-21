@@ -35,15 +35,26 @@ export default function AnalyticsDashboard() {
       .sort((a, b) => (b.qoq_growth || 0) - (a.qoq_growth || 0))
       .slice(0, 3);
 
-    // Calculate Price QoQ leaders (highest price growth from latest quarter)
+    // Calculate Price QoQ leaders (use previous quarter if latest is 0.0)
     const priceLeaders = companiesWithQoQ
       .filter(ranking => {
         const latestQuarter = ranking.quarterly_data?.[0];
-        return latestQuarter?.price_growth !== null && latestQuarter?.price_growth !== undefined;
+        const previousQuarter = ranking.quarterly_data?.[1];
+        // Use previous quarter price growth if latest is 0.0, otherwise use latest
+        const latestGrowth = latestQuarter?.price_growth || 0;
+        const previousGrowth = previousQuarter?.price_growth || 0;
+        const displayGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
+        return displayGrowth !== null && displayGrowth !== undefined && displayGrowth !== 0;
       })
       .sort((a, b) => {
-        const aGrowth = a.quarterly_data?.[0]?.price_growth || 0;
-        const bGrowth = b.quarterly_data?.[0]?.price_growth || 0;
+        const aLatest = a.quarterly_data?.[0]?.price_growth || 0;
+        const aPrevious = a.quarterly_data?.[1]?.price_growth || 0;
+        const aGrowth = aLatest === 0 ? aPrevious : aLatest;
+        
+        const bLatest = b.quarterly_data?.[0]?.price_growth || 0;
+        const bPrevious = b.quarterly_data?.[1]?.price_growth || 0;
+        const bGrowth = bLatest === 0 ? bPrevious : bLatest;
+        
         return bGrowth - aGrowth;
       })
       .slice(0, 3);
@@ -116,232 +127,322 @@ export default function AnalyticsDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900 sm:text-3xl">
-            Quarter-over-Quarter (QoQ) Analytics
-          </h1>
-          <p className="text-gray-600">
-            Real-time EPS and price QoQ growth comparison analysis
-          </p>
-        </div>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* PancakeSwap-style vibrant background */}
+      <div className="fixed inset-0 z-0">
+        {/* Main gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
 
-        {/* Mobile Filter Toggle */}
-        <div className="mb-4 lg:hidden">
-          <button
-            onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white p-3 text-sm font-medium hover:bg-gray-50"
-          >
-            <span className="flex items-center gap-2">
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              Filters & Search
-              {hasActiveFilters && (
-                <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-            </span>
-            <svg
-              className={`h-4 w-4 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
+        {/* Floating gradient orbs - PancakeSwap style */}
+        <div className="animate-bounce-slow absolute -top-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-br from-orange-400/30 to-yellow-400/30 blur-3xl" />
+        <div className="animate-float absolute top-20 -right-32 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/25 to-cyan-400/25 blur-3xl" />
+        <div className="animate-pulse-gentle absolute bottom-20 left-20 h-72 w-72 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-3xl" />
+        <div className="animate-float-reverse absolute top-1/2 right-1/4 h-64 w-64 rounded-full bg-gradient-to-br from-green-400/15 to-emerald-400/15 blur-3xl" />
 
-        {/* Mobile Filters Panel */}
-        {showMobileFilters && (
-          <div className="mb-6 lg:hidden">
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <FilterPanel
-                filters={filters}
-                options={filterOptions}
-                onFiltersChange={updateFilters}
-                isLoading={isLoading}
-                isMobile={true}
+        {/* Mesh gradient overlays for depth */}
+        <div className="animate-pulse-slow absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,_rgba(255,133,27,0.1)_0%,_transparent_50%)]" />
+        <div
+          className="animate-pulse-slow absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,_rgba(59,130,246,0.08)_0%,_transparent_50%)]"
+          style={{ animationDelay: '1s' }}
+        />
+        <div
+          className="animate-pulse-slow absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(168,85,247,0.06)_0%,_transparent_60%)]"
+          style={{ animationDelay: '2s' }}
+        />
+
+        {/* Decorative geometric shapes */}
+        <div className="animate-spin-slow absolute top-1/4 left-1/4 h-32 w-32 rotate-45 rounded-2xl bg-gradient-to-br from-orange-300/10 to-yellow-300/10" />
+        <div className="animate-bounce-gentle absolute right-1/3 bottom-1/3 h-24 w-24 rounded-full bg-gradient-to-br from-blue-300/10 to-cyan-300/10" />
+      </div>
+
+      <div className="relative z-10">
+        <div className="container mx-auto px-4 py-6">
+          {/* Enhanced Header with gradient text */}
+          <div className="mb-6 text-center">
+            <h1 className="animate-gradient-x mb-4 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-3xl font-bold text-transparent sm:text-4xl dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
+              Quarter-over-Quarter{' '}
+              <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
+                (QoQ)
+              </span>{' '}
+              <span className="bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+                Analytics
+              </span>
+            </h1>
+            <p className="mx-auto max-w-2xl text-lg text-gray-600 dark:text-gray-300">
+              Real-time EPS and price QoQ growth comparison analysis with advanced filtering
+            </p>
+            {/* Decorative elements */}
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />
+              <div
+                className="h-3 w-3 animate-pulse rounded-full bg-purple-400"
+                style={{ animationDelay: '0.5s' }}
+              />
+              <div
+                className="h-2 w-2 animate-pulse rounded-full bg-blue-400"
+                style={{ animationDelay: '1s' }}
               />
             </div>
           </div>
-        )}
 
-        {/* QoQ Leaders Section */}
-        {!isLoading && data && data.data.length > 0 && (() => {
-          const { epsLeaders, priceLeaders } = calculateQoQLeaders(data);
-          return (
-            <div className="mb-6">
-              <div className="rounded-lg border border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 p-4 sm:p-6">
-                <div className="mb-4">
-                  <h2 className="text-lg font-bold text-orange-900 sm:text-xl">
-                    🏆 QoQ Performance Leaders
-                  </h2>
-                  <p className="text-sm text-orange-700">
-                    Top performers in EPS and price quarter-over-quarter growth
-                  </p>
+          {/* Enhanced Mobile Filter Toggle */}
+          <div className="mb-4 lg:hidden">
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="flex w-full items-center justify-between rounded-2xl border border-orange-200/50 bg-white/80 p-4 text-sm font-medium backdrop-blur-md transition-all duration-300 hover:bg-white/90 hover:scale-[1.02] dark:border-orange-400/20 dark:bg-slate-800/80 dark:hover:bg-slate-800/90"
+            >
+              <span className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 p-2">
+                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
                 </div>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">Filters & Search</span>
+                {hasActiveFilters && (
+                  <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </span>
+              <svg
+                className={`h-5 w-5 transition-transform duration-300 ${showMobileFilters ? 'rotate-180' : ''} text-gray-500 dark:text-gray-400`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {/* EPS QoQ Leaders */}
-                  <div className="rounded-lg bg-white p-4 shadow-sm">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-green-700">
-                      📈 Best EPS QoQ Growth
-                    </h3>
-                    <div className="space-y-2">
-                      {epsLeaders.slice(0, 3).map((leader, index) => (
-                        <div key={leader.symbol} className="flex items-center justify-between py-1">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">
-                              {index + 1}
-                            </span>
-                            <span className="font-medium text-gray-900">{leader.symbol}</span>
-                          </div>
-                          <span className="font-bold text-green-600">
-                            +{(leader.qoq_growth || 0).toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                      {epsLeaders.length === 0 && (
-                        <p className="text-xs text-gray-500">No EPS growth data available</p>
-                      )}
+          {/* Enhanced Mobile Filters Panel */}
+          {showMobileFilters && (
+            <div className="mb-6 lg:hidden">
+              <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-md dark:border-orange-400/20 dark:bg-slate-800/80">
+                <FilterPanel
+                  filters={filters}
+                  options={filterOptions}
+                  onFiltersChange={updateFilters}
+                  isLoading={isLoading}
+                  isMobile={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced QoQ Leaders Section */}
+          {!isLoading && data && data.data.length > 0 && (() => {
+            const { epsLeaders, priceLeaders } = calculateQoQLeaders(data);
+            return (
+              <div className="mb-8">
+                <div className="relative overflow-hidden rounded-3xl border border-orange-200/50 bg-white/80 p-6 sm:p-8 shadow-2xl backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
+                  {/* Enhanced background decorations */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 via-transparent to-yellow-50/50 dark:from-orange-900/10 dark:via-transparent dark:to-yellow-900/10" />
+                  <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-gradient-to-br from-orange-400/10 to-yellow-400/10 blur-2xl" />
+                  <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-2xl" />
+                  
+                  <div className="relative z-10">
+                    <div className="mb-6 text-center sm:text-left">
+                      <h2 className="animate-gradient-x mb-3 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
+                        🏆 QoQ Performance Leaders
+                      </h2>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        Top performers in EPS and price quarter-over-quarter growth
+                      </p>
                     </div>
-                  </div>
 
-                  {/* Price QoQ Leaders */}
-                  <div className="rounded-lg bg-white p-4 shadow-sm">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-blue-700">
-                      💰 Best Price QoQ Growth
-                    </h3>
-                    <div className="space-y-2">
-                      {priceLeaders.slice(0, 3).map((leader, index) => {
-                        const priceGrowth = leader.quarterly_data?.[0]?.price_growth || 0;
-                        return (
-                          <div key={leader.symbol} className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                                {index + 1}
-                              </span>
-                              <span className="font-medium text-gray-900">{leader.symbol}</span>
-                            </div>
-                            <span className="font-bold text-blue-600">
-                              {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
-                            </span>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      {/* Enhanced EPS QoQ Leaders */}
+                      <div className="rounded-2xl border border-green-200/50 bg-gradient-to-br from-green-50/80 to-emerald-50/80 p-5 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] dark:border-green-400/20 dark:from-green-900/20 dark:to-emerald-900/20">
+                        <h3 className="mb-4 flex items-center gap-3 text-sm font-bold text-green-700 dark:text-green-400">
+                          <div className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-2">
+                            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
                           </div>
-                        );
-                      })}
-                      {priceLeaders.length === 0 && (
-                        <p className="text-xs text-gray-500">No price growth data available</p>
-                      )}
+                          Best EPS QoQ Growth
+                        </h3>
+                        <div className="space-y-3">
+                          {epsLeaders.slice(0, 3).map((leader, index) => (
+                            <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
+                              <div className="flex items-center gap-3">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 text-xs font-bold text-white shadow-lg">
+                                  {index + 1}
+                                </span>
+                                <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                              </div>
+                              <span className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-sm font-bold text-white shadow-md">
+                                +{(leader.qoq_growth || 0).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                          {epsLeaders.length === 0 && (
+                            <div className="rounded-xl bg-white/60 p-4 text-center backdrop-blur-sm dark:bg-slate-800/60">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">No EPS growth data available</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Enhanced Price QoQ Leaders */}
+                      <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 p-5 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] dark:border-blue-400/20 dark:from-blue-900/20 dark:to-cyan-900/20">
+                        <h3 className="mb-4 flex items-center gap-3 text-sm font-bold text-blue-700 dark:text-blue-400">
+                          <div className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 p-2">
+                            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                          </div>
+                          Best Price QoQ Growth
+                        </h3>
+                        <div className="space-y-3">
+                          {priceLeaders.slice(0, 3).map((leader, index) => {
+                            // Use same logic as StockCard: show previous quarter if latest is 0.0
+                            const latestGrowth = leader.quarterly_data?.[0]?.price_growth || 0;
+                            const previousGrowth = leader.quarterly_data?.[1]?.price_growth || 0;
+                            const priceGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
+                            
+                            return (
+                              <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
+                                <div className="flex items-center gap-3">
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-xs font-bold text-white shadow-lg">
+                                    {index + 1}
+                                  </span>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                                </div>
+                                <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${
+                                  priceGrowth >= 0 
+                                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+                                    : 'bg-gradient-to-r from-red-500 to-pink-500'
+                                }`}>
+                                  {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {priceLeaders.length === 0 && (
+                            <div className="rounded-xl bg-white/60 p-4 text-center backdrop-blur-sm dark:bg-slate-800/60">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">No price growth data available</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
-        {/* Layout: Responsive grid */}
-        <div className="lg:grid lg:grid-cols-4 lg:gap-6">
-          {/* Desktop Filters sidebar */}
-          <div className="hidden lg:block lg:col-span-1">
-            <div className="sticky top-4">
-              <FilterPanel
-                filters={filters}
-                options={filterOptions}
-                onFiltersChange={updateFilters}
-                isLoading={isLoading}
-                isMobile={false}
-              />
-            </div>
-          </div>
-
-          {/* Main content */}
-          <div className="lg:col-span-3">
-            {/* Mobile-optimized Results header */}
-            <div className="mb-4 sm:mb-6 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-gray-900">
-                    {data
-                      ? `${data.pagination.total} Companies Found`
-                      : 'Loading...'}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                    Page {filters.page} of {data?.pagination.totalPages || 1}
-                    {hasActiveFilters &&
-                      ` • ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''} applied`}
-                  </p>
+          {/* Enhanced Layout: Responsive grid */}
+          <div className="lg:grid lg:grid-cols-4 lg:gap-8">
+            {/* Enhanced Desktop Filters sidebar */}
+            <div className="hidden lg:block lg:col-span-1">
+              <div className="sticky top-4">
+                <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
+                  <FilterPanel
+                    filters={filters}
+                    options={filterOptions}
+                    onFiltersChange={updateFilters}
+                    isLoading={isLoading}
+                    isMobile={false}
+                  />
                 </div>
+              </div>
+            </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                  {hasActiveFilters && (
+            {/* Enhanced Main content */}
+            <div className="lg:col-span-3">
+              {/* Enhanced Results header */}
+              <div className="mb-6 rounded-2xl border border-orange-200/50 bg-white/80 p-4 sm:p-6 backdrop-blur-xl shadow-lg dark:border-orange-400/20 dark:bg-slate-800/80">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1">
+                    <h2 className="mb-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-lg font-bold text-transparent sm:text-xl">
+                      {data
+                        ? `${data.pagination.total} Companies Found`
+                        : 'Loading Analytics...'}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <span className="flex items-center gap-1">
+                        <div className="h-2 w-2 rounded-full bg-blue-400"></div>
+                        Page {filters.page} of {data?.pagination.totalPages || 1}
+                      </span>
+                      {hasActiveFilters && (
+                        <span className="flex items-center gap-1">
+                          <div className="h-2 w-2 rounded-full bg-orange-400"></div>
+                          {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {hasActiveFilters && (
+                      <button
+                        onClick={resetFilters}
+                        className="rounded-xl border border-gray-300 bg-white/60 px-4 py-2 text-sm font-medium text-gray-700 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-105 disabled:opacity-50 dark:border-gray-600 dark:bg-slate-700/60 dark:text-gray-300 dark:hover:bg-slate-700/80"
+                        disabled={isLoading}
+                      >
+                        Clear All
+                      </button>
+                    )}
+
                     <button
-                      onClick={resetFilters}
-                      className="rounded-lg border border-gray-300 px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 flex-1 sm:flex-none"
+                      onClick={refreshData}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50"
                       disabled={isLoading}
                     >
-                      Clear All
+                      <svg
+                        className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      <span className="hidden sm:inline">Refresh Data</span>
+                      <span className="sm:hidden">Refresh</span>
                     </button>
-                  )}
+                  </div>
+                </div>
+              </div>
 
-                  <button
-                    onClick={refreshData}
-                    className="flex items-center justify-center gap-1 rounded-lg bg-orange-500 px-3 py-1.5 text-xs sm:text-sm text-white hover:bg-orange-600 disabled:opacity-50 flex-1 sm:flex-none min-w-0"
-                    disabled={isLoading}
-                  >
-                    <svg
-                      className={`h-3 w-3 sm:h-4 sm:w-4 ${isLoading ? 'animate-spin' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+              {/* Enhanced Error state */}
+              {error && (
+                <div className="mb-6 rounded-2xl border border-red-200/50 bg-gradient-to-br from-red-50/80 to-pink-50/80 p-6 backdrop-blur-sm dark:border-red-400/20 dark:from-red-900/20 dark:to-pink-900/20">
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 p-3">
+                      <svg
+                        className="h-6 w-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-red-700 dark:text-red-400">Unable to Load Data</p>
+                      <p className="mt-1 text-red-600 dark:text-red-300">{error}</p>
+                    </div>
+                    <button
+                      onClick={refreshData}
+                      className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                    <span className="hidden sm:inline">Refresh</span>
-                    <span className="sm:hidden">↻</span>
-                  </button>
+                      Try Again
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Error state */}
-            {error && (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-5 w-5 text-red-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p className="font-medium text-red-700">Error</p>
-                </div>
-                <p className="mt-1 text-red-600">{error}</p>
-                <button
-                  onClick={refreshData}
-                  className="mt-2 rounded bg-red-100 px-3 py-1 text-sm text-red-700 hover:bg-red-200"
-                >
-                  Try Again
-                </button>
-              </div>
-            )}
+              )}
 
             {/* Loading state - Mobile optimized */}
             {isLoading && (
@@ -467,36 +568,39 @@ export default function AnalyticsDashboard() {
               </>
             )}
 
-            {/* Empty state */}
-            {!isLoading && data && data.data.length === 0 && (
-              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-                <svg
-                  className="mx-auto mb-4 h-12 w-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <h3 className="mb-2 text-lg font-medium text-gray-900">
-                  No Results Found
-                </h3>
-                <p className="mb-4 text-gray-600">
-                  Try adjusting your filters to find more companies.
-                </p>
-                <button
-                  onClick={resetFilters}
-                  className="rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            )}
+              {/* Enhanced Empty state */}
+              {!isLoading && data && data.data.length === 0 && (
+                <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
+                    <svg
+                      className="h-10 w-10 text-gray-400 dark:text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="mb-3 bg-gradient-to-r from-gray-600 to-gray-800 bg-clip-text text-xl font-bold text-transparent dark:from-gray-300 dark:to-gray-100">
+                    No Results Found
+                  </h3>
+                  <p className="mb-6 max-w-md mx-auto text-gray-600 dark:text-gray-300">
+                    We couldn't find any companies matching your current filter criteria. Try adjusting your filters to discover more analytics data.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

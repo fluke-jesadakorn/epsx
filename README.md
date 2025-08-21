@@ -1,9 +1,9 @@
 # EPSX Trading Platform 📈
 
-A comprehensive trading platform monorepo built with modern technologies, featuring a Next.js frontend ecosystem with admin dashboard and a high-performance Rust backend. Configured for local development with custom *.epsx.io domains for production-like environment simulation.
+A comprehensive trading platform monorepo built with modern technologies, featuring an analytics-focused theme with enhanced mobile performance. The Next.js frontend ecosystem includes comprehensive analytics dashboards and high-performance Rust backend. Configured for local development with custom *.epsx.io domains for production-like environment simulation.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.4.2-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.0-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.1.0-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Rust](https://img.shields.io/badge/Rust-2021-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4.0.15-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
@@ -18,29 +18,29 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 - **Frontend** (`apps/frontend`) - Main trading platform interface
   - **URL**: https://epsx.io (local development)
-  - Trading interface, user dashboard, payment system, analytics
-  - Next.js 15.4.2 with React 19.1.0 and TypeScript 5.8.3
-  - Features: Real-time trading, payment processing, performance analytics
+  - Analytics dashboard, trading interface, user dashboard, payment system
+  - Next.js 15.5.0 with React 19.1.0 and TypeScript 5.8.3
+  - Features: Advanced analytics, mobile-optimized trading, payment processing, real-time market data
 
 - **Admin Frontend** (`apps/admin-frontend`) - Administrative dashboard
   - **URL**: https://admin.epsx.io (local development)
-  - User management, IAM, role assignment, system analytics
-  - Next.js 15.4.2 with comprehensive admin controls
-  - Features: User promotion tools, access control, system monitoring
+  - User management, IAM, role assignment, analytics administration
+  - Next.js 15.5.0 with comprehensive admin controls
+  - Features: User promotion tools, access control, analytics management, system monitoring
 
 - **Backend** (`apps/backend`) - High-performance Rust API server
   - **URL**: https://api.epsx.io (local development)
   - Axum framework with PostgreSQL and WebSocket support
-  - Real-time data, authentication, trading logic, payment processing
+  - Analytics processing, real-time market data, authentication, trading logic, payment processing
   - Includes CLI tools for admin operations and user management
 
-### 📦 Shared Packages (`packages/`)
+### 🎨 Analytics Theme & Features
 
-- **@epsx/api-client** - Unified API client with cookie-based authentication
-- **@epsx/ui** - Shared UI components built with Radix UI + Tailwind CSS
-- **@epsx/types** - Comprehensive TypeScript type definitions
-- **@epsx/config** - ESLint, TypeScript, and build configurations
-- **@epsx/theme** - Design system and theme provider
+- **Analytics Dashboard** - Comprehensive stock analysis and market insights with advanced filtering
+- **Mobile-First Design** - Touch-optimized interface with enhanced mobile performance optimizations
+- **Real-time Data Streaming** - Live market data with WebSocket integration and data visualization
+- **Responsive Components** - Adaptive layouts optimized for all device sizes and touch interactions
+- **Advanced Charts** - Interactive financial data visualization with Recharts and custom chart components
 
 ---
 
@@ -48,7 +48,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 ### Frontend Technologies
 
-- **Framework:** Next.js 15.4.2 with App Router
+- **Framework:** Next.js 15.5.0 with App Router
 - **Language:** TypeScript 5.8.3
 - **UI Components:** Radix UI + Tailwind CSS 4.0.15
 - **State Management:** Zustand + SWR for data fetching
@@ -63,14 +63,15 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **Web Framework:** Axum 0.7 with WebSocket support
 - **Database:** PostgreSQL with SQLx ORM and comprehensive migrations
 - **Authentication:** Multi-provider JWT with RBAC, OIDC, and Firebase integration
-- **Real-time:** WebSocket and Server-Sent Events
-- **Job Scheduling:** tokio-cron-scheduler
-- **Testing:** Unit, integration, and API tests
+- **Analytics Engine:** High-performance stock analysis and market data processing
+- **Real-time:** WebSocket and Server-Sent Events for live market updates
+- **Job Scheduling:** tokio-cron-scheduler for automated analytics processing
+- **Testing:** Unit, integration, and API tests with comprehensive E2E coverage
 
 ### Development Tools
 
-- **Monorepo:** Turborepo 2.5.4 for build orchestration
-- **Package Manager:** pnpm 10.13.1 with workspaces
+- **Monorepo:** Turborepo 2.5.5 for build orchestration
+- **Package Manager:** pnpm 10.14.0 with workspaces
 - **Node.js:** >=18.0.0 requirement
 - **Code Quality:** ESLint 9.23.0 + Prettier 3.6.2
 - **Git Hooks:** Husky 9.1.7 with Commitlint
@@ -197,7 +198,7 @@ pnpm dev
 pnpm dev:frontend      # Frontend only (port 3000)
 pnpm dev:admin         # Admin only (port 3001)
 pnpm dev:backend       # Backend only
-pnpm dev:packages      # Watch mode for packages
+pnpm dev:all          # All applications including backend
 
 # Start all including backend
 pnpm dev:all
@@ -209,12 +210,11 @@ pnpm dev:all
 # Build everything
 pnpm build
 
-# Build specific targets
-pnpm build:packages    # Build all packages
+# Build specific targets  
 pnpm build:apps        # Build all applications
 pnpm build:frontend    # Build frontend app
 pnpm build:admin       # Build admin app
-pnpm build:backend     # Build backend
+pnpm build:backend     # Build Rust backend
 ```
 
 ### Quality Assurance
@@ -291,34 +291,33 @@ make docker-push          # Push to registry
 epsx/
 ├── apps/
 │   ├── frontend/          # Main trading platform (Port: 3000)
-│   │   ├── app/           # Next.js App Router pages
-│   │   ├── components/    # React components including OIDC auth
-│   │   ├── context/       # Multi-provider authentication contexts
-│   │   ├── lib/           # Auth utilities and OIDC clients
-│   │   └── public/        # Static assets
+│   │   ├── app/           # Next.js App Router with analytics pages
+│   │   ├── components/    # React components including analytics dashboard
+│   │   │   ├── analytics/ # Advanced analytics and market data components
+│   │   │   ├── auth/      # Multi-provider authentication components
+│   │   │   ├── touch/     # Mobile-optimized touch interaction components
+│   │   │   └── ui/        # Shared UI components (Radix + Tailwind)
+│   │   ├── hooks/         # Custom hooks for analytics and mobile performance
+│   │   ├── lib/           # Utilities, API clients, and authentication helpers
+│   │   └── styles/        # Analytics theme CSS and mobile optimizations
 │   ├── admin-frontend/    # Admin dashboard (Port: 3001)
-│   │   ├── app/           # Admin pages and API routes
-│   │   ├── components/    # Admin-specific components with auth guards
-│   │   ├── auth/          # Enhanced authentication contexts
-│   │   ├── context/       # OIDC and multi-provider contexts
-│   │   └── lib/           # Threat protection and WebAuthn security
-│   └── backend/           # Rust API server
-│       ├── src/           # Rust source code with auth providers
-│       ├── migrations/    # Multi-provider auth database migrations
-│       ├── templates/     # HTML templates for auth flows
-│       ├── tests/         # Comprehensive integration tests
-│       └── bin/           # CLI tools and user management utilities
-├── packages/
-│   ├── api-client/        # Unified API client with enhanced auth
-│   ├── ui/                # Shared UI components (Radix + Tailwind)
-│   ├── types/             # TypeScript type definitions
-│   ├── auth-shared/       # Cross-app authentication utilities and security
-│   ├── firebase-analytics/# Firebase integration with auth validation
-│   ├── server-actions/    # Enhanced Next.js Server Actions
-│   ├── config/            # ESLint, TypeScript configs
-│   └── theme/             # Design system and theme provider
-├── scripts/               # Admin and deployment scripts
-├── .todo/                 # Task management
+│   │   ├── app/           # Admin pages including analytics management
+│   │   ├── components/    # Admin components with analytics administration
+│   │   │   ├── admin/     # Core admin management components
+│   │   │   ├── analytics/ # Analytics administration interface
+│   │   │   └── auth/      # Enhanced authentication with role management
+│   │   ├── lib/           # Admin utilities and API integration
+│   │   └── types/         # Admin-specific TypeScript definitions
+│   └── backend/           # High-performance Rust API server
+│       ├── src/           # Rust source code with analytics engine
+│       │   ├── web/analytics/ # Analytics API handlers and data processing
+│       │   ├── auth/      # Multi-provider authentication system
+│       │   └── stock/     # Market data and financial calculations
+│       ├── migrations/    # Database migrations for analytics data
+│       ├── templates/analytics/ # Analytics theme HTML templates
+│       └── tests/         # Comprehensive testing including analytics
+├── scripts/               # Deployment and development scripts
+├── types/                 # Shared TypeScript definitions
 ├── Makefile              # Build and Docker commands
 └── turbo.json            # Turborepo configuration
 ```
@@ -336,16 +335,17 @@ cp .env.example .env.development
 # Configure your environment variables
 ```
 
-### 2. Package Development
+### 2. Analytics Development
 
-Shared packages are built with Turborepo dependency management:
+The platform features an analytics-focused theme with mobile optimizations:
 
 ```bash
-# Build packages first (required for apps)
-pnpm build:packages
+# Start analytics development environment
+pnpm dev:frontend    # Frontend with comprehensive analytics dashboard
+pnpm dev:admin       # Admin with analytics administration
 
-# Watch mode for package development
-pnpm dev:packages
+# Mobile-optimized development with touch interactions
+pnpm dev             # All applications with enhanced mobile performance
 ```
 
 ### 3. Application Development

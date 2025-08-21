@@ -94,7 +94,7 @@ function normalizeCountryName(country: string): string {
 
 export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRankingsResponse | null> {
   try {
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = 'https://api.epsx.io';
     
     // Build query parameters
     const params = new URLSearchParams({
@@ -156,7 +156,7 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
     const epsRankings: EPSRanking[] = apiResponse.data.map((card, index) => {
       const latestQuarterly = card.quarterly_performance[0] || {};
       
-      return {
+      const transformedCard = {
         symbol: card.symbol,
         name: `Company ${card.symbol}`, // Placeholder - API doesn't return company name
         country: 'US', // Default - will be extracted from metadata if available
@@ -179,6 +179,8 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
           volume: 0, // Not available
         })),
       };
+      
+      return transformedCard;
     });
 
     const epsResponse: EPSRankingsResponse = {
@@ -208,7 +210,7 @@ interface CountryData {
 
 export async function fetchFilterOptions(): Promise<FilterOptions> {
   try {
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = 'https://api.epsx.io';
     
     // Fetch countries, sectors, exchanges, and stock types in parallel
     const [countriesResponse, sectorsResponse, exchangesResponse, stockTypesResponse] = await Promise.all([

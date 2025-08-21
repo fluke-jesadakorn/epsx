@@ -4,34 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EPSX is a production-ready trading platform monorepo built with modern technologies. The architecture consists of:
+EPSX is a production-ready trading platform monorepo built with modern technologies featuring an analytics-focused theme and enhanced mobile performance. The architecture consists of:
 
-- **Frontend** (Port 3000): Next.js 15 + React 19 trading platform
-- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management  
-- **Backend** (Port 8080): High-performance Rust API server with Axum framework
-- **12 Shared Packages**: Reusable components, utilities, and configurations
+- **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 trading platform with comprehensive analytics
+- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management and analytics administration
+- **Backend** (Port 8080): High-performance Rust API server with Axum framework and analytics engine
+- **Unified Architecture**: Streamlined monorepo structure optimized for development velocity
 
 ## Architecture & Technology Stack
 
 ### Monorepo Structure
-- **Build System**: Turborepo 2.5.4 with dependency-aware builds and caching
-- **Package Manager**: pnpm 10.13.1 with workspaces
-- **Dependencies**: Packages must build before apps (`build:packages` → `build:apps`)
+- **Build System**: Turborepo 2.5.5 with dependency-aware builds and caching
+- **Package Manager**: pnpm 10.14.0 with workspaces
+- **Architecture**: Unified structure with 3 applications (frontend, admin-frontend, backend)
+- **Analytics Focus**: All applications integrated with analytics theme and mobile optimizations
 
 ### Frontend Stack
-- **Framework**: Next.js 15.4.2 with App Router
+- **Framework**: Next.js 15.5.0 with App Router and analytics integration
 - **React**: 19.1.0 with Server Components and Server Actions
-- **UI**: Radix UI + Tailwind CSS 4.0.15
-- **State**: Zustand + SWR for data fetching
+- **UI**: Radix UI + Tailwind CSS 4.0.15 with analytics theme
+- **State**: Zustand + SWR for data fetching and analytics state management
 - **Forms**: React Hook Form + Zod validation
-- **Auth**: NextAuth.js 4.24.11 integration
+- **Auth**: Multi-provider OIDC with Firebase integration
+- **Mobile**: Enhanced touch interactions and performance optimizations
 
 ### Backend Stack  
 - **Language**: Rust (Edition 2021)
-- **Framework**: Axum 0.7 with WebSocket support
-- **Database**: PostgreSQL with SQLx ORM and migrations
-- **Cache**: Redis for session/performance data
-- **Auth**: JWT tokens with role-based access control
+- **Framework**: Axum 0.7 with WebSocket support for real-time analytics
+- **Database**: PostgreSQL with SQLx ORM and migrations for analytics data
+- **Cache**: Redis for session/performance data and analytics caching
+- **Auth**: Multi-provider JWT with role-based access control
+- **Analytics Engine**: High-performance market data processing and analysis
 - **Architecture**: Domain-driven design with clean architecture patterns
 
 ## Essential Development Commands
@@ -49,17 +52,18 @@ pnpm dev:all  # All applications including backend
 pnpm dev:frontend    # Port 3000
 pnpm dev:admin       # Port 3001  
 pnpm dev:backend     # Port 8080
-pnpm dev:packages    # Watch mode for packages
+pnpm dev:all         # All applications including backend
 ```
 
 ### Build Commands
 ```bash
-# IMPORTANT: Build packages first before apps
-pnpm build:packages  # Required before building apps
-pnpm build:apps      # Build frontend + admin apps
+# Build individual components
+pnpm build:apps      # Build frontend + admin apps  
 pnpm build:backend   # Build Rust backend
+pnpm build:frontend  # Build frontend only
+pnpm build:admin     # Build admin only
 
-# Full build (packages → apps → backend)
+# Full build (apps + backend)
 pnpm build
 ```
 
@@ -176,7 +180,7 @@ async fn test_user_creation_with_valid_data() {
 ## API Communication Patterns
 
 ### Frontend ↔ Backend Communication
-- **Unified API Client**: `@epsx/api-client` package handles all requests
+- **Unified API Client**: Integrated API client handles all requests
 - **Server Actions**: Next.js Server Actions for form submissions
 - **SWR Integration**: Data fetching with caching and revalidation
 - **WebSocket**: Real-time data updates for trading interface
@@ -214,26 +218,28 @@ sqlx migrate run  # Apply migrations
 - **Redis Caching**: Session and query result caching
 - **Async Processing**: Tokio for concurrent request handling
 
-## Package Development
+## Analytics & Mobile Development
 
-### Shared Package Guidelines
-- **Build Order**: Always build packages before apps
-- **TypeScript**: All packages use strict TypeScript configuration  
-- **Export Strategy**: ESM/CJS dual exports for compatibility
-- **Dependencies**: Use workspace references (`workspace:*`)
+### Analytics Development Guidelines
+- **Theme Integration**: All applications use unified analytics theme
+- **Mobile-First**: Touch interactions and responsive design throughout
+- **TypeScript**: Comprehensive type definitions for analytics data
+- **Real-time Updates**: WebSocket integration for live market data
 
-### Key Packages
-- `@epsx/ui`: Radix UI + Tailwind component library
-- `@epsx/api-client`: Unified API client with authentication
-- `@epsx/types`: Comprehensive TypeScript definitions
-- `@epsx/server-actions`: Shared Next.js Server Actions
+### Key Features
+- **Analytics Dashboard**: Advanced stock analysis with filtering and visualization
+- **Mobile Performance**: Touch gestures, responsive layouts, and performance optimizations
+- **Real-time Data**: Live market updates and streaming analytics
+- **Authentication**: Multi-provider OIDC with Firebase integration
 
 ## Development Best Practices
 
 ### Code Organization
-- **Feature-Based Structure**: Group related files together
+- **Feature-Based Structure**: Group related files together (analytics/, auth/, touch/)
+- **Analytics-First Design**: All components designed with analytics integration in mind
+- **Mobile-Optimized Components**: Touch interactions and responsive layouts
 - **Separation of Concerns**: Keep business logic separate from UI
-- **TypeScript First**: Leverage type safety throughout
+- **TypeScript First**: Leverage type safety throughout with comprehensive analytics types
 - **Error Boundaries**: Graceful error handling in React components
 
 ### Git Workflow
@@ -278,7 +284,7 @@ sqlx migrate run  # Apply migrations
 ## Troubleshooting Common Issues
 
 ### Build Issues
-- **Package Dependencies**: Run `pnpm build:packages` first
+- **Build Dependencies**: Run `pnpm build:apps` before starting development
 - **Type Errors**: Check `tsconfig.json` path mappings
 - **Cache Issues**: Clear with `pnpm clean` and `pnpm clean:cache`
 
@@ -305,4 +311,28 @@ sqlx migrate run  # Apply migrations
 3. **Verify**: Re-run benchmarks to confirm improvements
 4. **Monitor**: Use `./scripts/analyze-performance.sh` for ongoing optimization
 
-When working on this codebase, always follow the TDD process, understand the authentication flow, respect the build dependencies between packages and applications, and use OrbStack for optimal development performance on Apple Silicon.
+## Analytics Development Patterns
+
+### Component Structure for Analytics
+```typescript
+// Follow this pattern for analytics components
+// components/analytics/AnalyticsCard.tsx
+export function AnalyticsCard({ data, onFilter, mobile = false }) {
+  // Mobile-first responsive design
+  // Real-time data integration
+  // Touch-optimized interactions
+}
+```
+
+### Mobile Performance Best Practices
+- **Touch Interactions**: Use enhanced touch wrappers for mobile optimization
+- **Responsive Design**: All components must work on mobile/tablet/desktop
+- **Performance**: Leverage React 19 concurrent features for smooth scrolling
+- **Data Loading**: Use SWR for efficient data fetching with proper loading states
+
+### Real-time Data Integration
+- **WebSocket**: Use established patterns for real-time market data
+- **State Management**: Zustand for analytics state with proper selectors
+- **Error Handling**: Graceful fallbacks for network issues
+
+When working on this codebase, always follow the TDD process, understand the analytics-focused architecture, prioritize mobile performance, and use OrbStack for optimal development performance on Apple Silicon.

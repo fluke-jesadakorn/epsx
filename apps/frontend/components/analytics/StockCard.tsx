@@ -32,6 +32,7 @@ const StockCard = memo<StockCardAllProps>(props => {
     // New card format - switch display order for chronological flow
     cardData = props.cardData;
     quarters = cardData.quarterly_performance || [];
+    
     // Display order: older quarter (Q2) on left, newer quarter (Q3) on right
     latestQuarter = quarters[0]; // Latest fiscal quarter (right side)
     previousQuarter = quarters[1]; // Previous fiscal quarter (left side)
@@ -49,6 +50,7 @@ const StockCard = memo<StockCardAllProps>(props => {
     previousEPS = previousQuarter?.eps || 0;
     latestGrowth = latestQuarter?.eps_growth || ranking.qoq_growth || 0;
     previousGrowth = previousQuarter?.eps_growth || 0;
+
 
     // Convert to card format
     cardData = {
@@ -199,13 +201,22 @@ const StockCard = memo<StockCardAllProps>(props => {
               <p className="mb-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
                 Price Growth
               </p>
-              <p
-                className={`mb-1 text-lg sm:text-xl font-bold ${
-                  (latestQuarter?.price_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {formatPercentage(latestQuarter?.price_growth || 0)}
-              </p>
+              {/* Show previous quarter's price growth if latest is 0.0, otherwise show latest */}
+              {(() => {
+                const latestPriceGrowth = latestQuarter?.price_growth || 0;
+                const previousPriceGrowth = previousQuarter?.price_growth || 0;
+                const displayGrowth = latestPriceGrowth === 0 ? previousPriceGrowth : latestPriceGrowth;
+                
+                return (
+                  <p
+                    className={`mb-1 text-lg sm:text-xl font-bold ${
+                      displayGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {formatPercentage(displayGrowth)}
+                  </p>
+                );
+              })()}
               <div className="text-sm text-gray-600">
                 <span className="font-medium">${(latestQuarter?.price || 0).toFixed(2)}</span>
               </div>
