@@ -9,6 +9,7 @@ import { UserListFilters } from './UserListFilters'
 import { UserCard } from './UserCard'
 import { UserListPagination } from './UserListPagination'
 import { CreateUserButton } from './CreateUserButton'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface UserListProps {
   searchParams: {
@@ -41,7 +42,7 @@ export async function UserList({ searchParams }: UserListProps) {
 
   if (!result.success) {
     return (
-      <div className="text-center text-red-600 py-8">
+      <div className="text-center text-error-600 py-8">
         <p>Unable to load users</p>
         {result.error && (
           <p className="text-sm text-muted-foreground mt-2">{result.error}</p>
@@ -94,15 +95,15 @@ export async function UserList({ searchParams }: UserListProps) {
     <div className="space-y-6" data-testid="user-list-container">
       {/* Context Banner for Legacy Redirects */}
       {searchParams.view && (
-        <div className="pancake-card p-4 bg-blue-50 border-blue-200">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'bg-info-50 border-info-200')}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-info-600 rounded-lg flex items-center justify-center">
               <Users className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h3 className="font-medium text-blue-900">{viewContext.title}</h3>
-              <p className="text-sm text-blue-700">{viewContext.description}</p>
-              <p className="text-xs text-blue-600 mt-1">
+              <h3 className="font-medium text-info-900">{viewContext.title}</h3>
+              <p className="text-sm text-info-700">{viewContext.description}</p>
+              <p className="text-xs text-info-600 mt-1">
                 This page has been consolidated into the unified user management interface. 
                 Click on any user to access their {searchParams.view} settings.
               </p>
@@ -112,7 +113,7 @@ export async function UserList({ searchParams }: UserListProps) {
       )}
 
       {/* Search and Filters */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -132,7 +133,7 @@ export async function UserList({ searchParams }: UserListProps) {
           ))}
         </div>
       ) : (
-        <div className="pancake-card p-12" data-testid="no-users-message">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-12')} data-testid="no-users-message">
           <div className="text-center text-muted-foreground">
             <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">No users found</h3>

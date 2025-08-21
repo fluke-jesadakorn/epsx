@@ -84,17 +84,71 @@ export async function PUT() {
       }, { status: 401 });
     }
     
-    // For now, we'll implement token refresh later
-    // This is a placeholder for future refresh token functionality
-    return NextResponse.json({
-      message: 'Token refresh not yet implemented',
-      currentExp: sessionData.user.exp
-    });
+    const payload = sessionData.user;
+    
+    // Check if token is close to expiring (less than 5 minutes left)
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = payload.exp - now;
+    
+    if (timeUntilExpiry > 300) { // More than 5 minutes left
+      return NextResponse.json({
+        message: 'Token still valid, no refresh needed',
+        expiresAt: payload.exp * 1000,
+        timeUntilExpiry: timeUntilExpiry
+      });
+    }
+    
+    // For simple refresh, validate the current session with backend
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    
+    try {
+      // Make a userinfo request to validate the admin session
+      const response = await fetch(`${backendUrl}/oauth/userinfo`, {
+        headers: {
+          'Authorization': `Bearer ${payload.sub}`, // Use user ID as simplified token
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        // Admin session is no longer valid on backend
+        return NextResponse.json({
+          error: 'Admin session expired on backend'
+        }, { status: 401 });
+      }
+      
+      // Validate admin permissions are still active
+      const userInfo = await response.json();
+      
+      if (!userInfo.admin_modules || userInfo.admin_modules.length === 0) {
+        return NextResponse.json({
+          error: 'Admin privileges revoked'
+        }, { status: 403 });
+      }
+      
+      // Session is still valid, return current token info
+      return NextResponse.json({
+        message: 'Admin session validated with backend',
+        expiresAt: payload.exp * 1000,
+        isValid: true,
+        adminModules: userInfo.admin_modules
+      });
+      
+    } catch (fetchError) {
+      console.error('❌ Admin backend session validation failed:', fetchError);
+      
+      // Return current session info even if backend check failed
+      return NextResponse.json({
+        message: 'Backend validation failed, using cached admin session',
+        expiresAt: payload.exp * 1000,
+        warning: 'Backend unreachable'
+      });
+    }
     
   } catch (error) {
-    console.error('❌ Session refresh error:', error);
+    console.error('❌ Admin session refresh error:', error);
     return NextResponse.json({
-      error: 'Failed to refresh session'
+      error: 'Failed to refresh admin session'
     }, { status: 500 });
   }
 }

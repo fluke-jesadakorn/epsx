@@ -8,6 +8,7 @@ import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { StatsCard } from '@/components/ui/StatsCard'
 import { UserStatusBadge } from './UserStatusBadge'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface UserOverviewContentProps {
   user: UnifiedUserData
@@ -75,7 +76,7 @@ export function UserOverviewContent({ user, _currentUser }: UserOverviewContentP
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Personal Information */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <User className="h-5 w-5" />
             Personal Information
@@ -132,7 +133,7 @@ export function UserOverviewContent({ user, _currentUser }: UserOverviewContentP
         </div>
 
         {/* Account Information */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Account Information
@@ -186,7 +187,7 @@ export function UserOverviewContent({ user, _currentUser }: UserOverviewContentP
       </div>
 
       {/* Recent Activity */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="h-5 w-5" />
           Recent Activity

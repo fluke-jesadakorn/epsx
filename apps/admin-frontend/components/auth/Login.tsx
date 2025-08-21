@@ -27,16 +27,48 @@ export default function Login() {
     }
 
     try {
-      await login(email, password)
-      // Login will redirect to auth server, then back to callback
+      // POST directly to our backend OIDC endpoint
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const response = await fetch(`${backendUrl}/oauth/login-post`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          email,
+          password,
+        }),
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Admin login successful:', result);
+        
+        // Store access token in session API for proper JWT handling
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: result.access_token }),
+          credentials: 'include'
+        });
+        
+        // Redirect to admin dashboard
+        router.push('/');
+      } else {
+        setError('Invalid admin credentials. Please try again.');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      console.error('❌ Admin login failed:', err);
+      setError('Login failed. Please check your connection and try again.');
     }
   }
 
   const handleOIDCLogin = async () => {
     try {
-      await login('', '') // Empty credentials will trigger OIDC flow
+      // Redirect to backend OIDC login form for admin
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      window.location.href = `${backendUrl}/oauth/login`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OIDC login failed')
     }
@@ -151,7 +183,9 @@ export function LoginButton({
 
   const handleClick = async () => {
     try {
-      await login('', '')
+      // Redirect to backend OIDC login form
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      window.location.href = `${backendUrl}/oauth/login`;
     } catch (error) {
       console.error('Login failed:', error)
     }

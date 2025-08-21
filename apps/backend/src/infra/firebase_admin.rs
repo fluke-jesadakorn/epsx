@@ -580,6 +580,12 @@ impl FirebaseAdmin {
 
     /// Authenticate user with email/password using Firebase Identity Toolkit API
     pub async fn authenticate_user(&self, email: &str, password: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
+        // Check for development test credentials first
+        if self.is_development_environment() && self.is_test_credential(email, password) {
+            tracing::info!("🧪 Using development test credentials for: {}", email);
+            return self.create_test_firebase_user(email, password);
+        }
+        
         // Get Firebase API key from environment
         let api_key = get_env_var("FIREBASE_API_KEY")
             .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
@@ -753,6 +759,64 @@ impl FirebaseAdmin {
                 Err("User creation failed".into())
             }
         }
+    }
+
+    /// Check if we're in development environment
+    fn is_development_environment(&self) -> bool {
+        get_env_var("RUST_ENV").unwrap_or_else(|_| "production".to_string()) == "development"
+    }
+    
+    /// Check if credentials match test/development credentials
+    fn is_test_credential(&self, email: &str, password: &str) -> bool {
+        let test_credentials = vec![
+            ("info@epsx.io", "P@ssword"),
+            ("admin@epsx.io", "admin123"),
+            ("test@epsx.io", "test123"),
+        ];
+        
+        test_credentials.iter().any(|(test_email, test_password)| {
+            email == *test_email && password == *test_password
+        })
+    }
+    
+    /// Create test Firebase user for development
+    fn create_test_firebase_user(&self, email: &str, _password: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
+        let mut custom_claims = HashMap::new();
+        
+        // Set role and permissions based on email
+        match email {
+            "info@epsx.io" => {
+                custom_claims.insert("admin".to_string(), Value::Bool(true));
+                custom_claims.insert("access_level".to_string(), Value::String("super_admin".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("SuperAdmin".to_string()));
+            },
+            "admin@epsx.io" => {
+                custom_claims.insert("admin".to_string(), Value::Bool(true));
+                custom_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("Admin".to_string()));
+            },
+            _ => {
+                custom_claims.insert("access_level".to_string(), Value::String("user".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("User".to_string()));
+            }
+        }
+        
+        // Generate a consistent but unique UID for test users
+        let test_uid = format!("test_user_{}", email.replace("@", "_").replace(".", "_"));
+        
+        Ok(FirebaseUser {
+            uid: test_uid,
+            email: Some(email.to_string()),
+            email_verified: true,
+            display_name: Some(email.split('@').next().unwrap_or("Test User").to_string()),
+            photo_url: None,
+            phone_number: None,
+            disabled: false,
+            custom_claims,
+            provider_data: vec![],
+            created_at: Utc::now(),
+            last_login_at: Some(Utc::now()),
+        })
     }
 
     /// Create a new Firebase user with email/password using Identity Toolkit API (preferred method)
@@ -1437,5 +1501,97 @@ impl FirebaseAdmin {
             .and_then(|v| v.as_str())
             .unwrap_or("none")
             .to_string()
+    }
+
+    /// Send password reset email via Firebase
+    pub async fn send_password_reset_email(&self, email: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Get Firebase API key from environment
+        let api_key = get_env_var("FIREBASE_API_KEY")
+            .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
+        
+        let url = format!(
+            "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={}",
+            api_key
+        );
+        
+        let reset_request = json!({
+            "requestType": "PASSWORD_RESET",
+            "email": email
+        });
+        
+        tracing::info!("Sending password reset email to: {}", email);
+        
+        let response = self.client
+            .post(&url)
+            .json(&reset_request)
+            .send()
+            .await?;
+        
+        if response.status().is_success() {
+            let reset_response: serde_json::Value = response.json().await?;
+            tracing::info!("Password reset email sent successfully to: {}", email);
+            tracing::debug!("Reset response: {:?}", reset_response);
+            Ok(())
+        } else {
+            let error_text = response.text().await?;
+            tracing::error!("Failed to send password reset email to {}: {}", email, error_text);
+            
+            // Parse Firebase error for user-friendly message
+            if error_text.contains("EMAIL_NOT_FOUND") {
+                Err("No account found with this email address".into())
+            } else if error_text.contains("INVALID_EMAIL") {
+                Err("Invalid email address format".into())
+            } else {
+                Err("Failed to send password reset email. Please try again later.".into())
+            }
+        }
+    }
+
+    /// Confirm password reset with OOB code and new password
+    pub async fn confirm_password_reset(&self, oob_code: &str, new_password: &str) -> Result<String, Box<dyn std::error::Error>> {
+        // Get Firebase API key from environment
+        let api_key = get_env_var("FIREBASE_API_KEY")
+            .map_err(|_| "FIREBASE_API_KEY environment variable not set")?;
+        
+        let url = format!(
+            "https://identitytoolkit.googleapis.com/v1/accounts:resetPassword?key={}",
+            api_key
+        );
+        
+        let confirm_request = json!({
+            "oobCode": oob_code,
+            "newPassword": new_password
+        });
+        
+        tracing::info!("Confirming password reset with OOB code");
+        
+        let response = self.client
+            .post(&url)
+            .json(&confirm_request)
+            .send()
+            .await?;
+        
+        if response.status().is_success() {
+            let confirm_response: serde_json::Value = response.json().await?;
+            
+            let email = confirm_response["email"]
+                .as_str()
+                .ok_or("Missing email in password reset confirmation response")?;
+                
+            tracing::info!("Password reset confirmed successfully for: {}", email);
+            Ok(email.to_string())
+        } else {
+            let error_text = response.text().await?;
+            tracing::error!("Failed to confirm password reset: {}", error_text);
+            
+            // Parse Firebase error for user-friendly message
+            if error_text.contains("INVALID_OOB_CODE") {
+                Err("Invalid or expired reset code".into())
+            } else if error_text.contains("WEAK_PASSWORD") {
+                Err("Password is too weak. Please choose a stronger password.".into())
+            } else {
+                Err("Failed to reset password. Please try again.".into())
+            }
+        }
     }
 }

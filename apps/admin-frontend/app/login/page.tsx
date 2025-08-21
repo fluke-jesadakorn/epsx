@@ -1,32 +1,94 @@
-/**
- * Simplified Admin Login Page
- */
+'use client';
+
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { useSearchParams } from 'next/navigation';
+
 export default function AdminLoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  
+  const redirectTo = searchParams.get('redirect') || searchParams.get('callbackUrl') || '/';
+  const errorParam = searchParams.get('error');
+
+  async function handleOAuthLogin() {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Call initiate endpoint to set up PKCE parameters
+      const response = await fetch('/api/auth/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ redirectTo }),
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const { authorizationUrl } = await response.json();
+        console.log('✅ Admin PKCE parameters set, redirecting to:', authorizationUrl);
+        
+        // Redirect to authorization URL
+        window.location.href = authorizationUrl;
+      } else {
+        setError('Failed to initialize admin authentication. Please try again.');
+      }
+    } catch (err) {
+      console.error('❌ Admin OAuth initiation failed:', err);
+      setError('Connection error. Please check your network and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
-    <div style={{ padding: '40px', textAlign: 'center', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', maxWidth: '400px', margin: '0 auto', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ marginBottom: '20px', color: '#333' }}>Admin Login</h1>
-        <p style={{ marginBottom: '20px', color: '#666' }}>
-          Administrative access for EPSX platform
-        </p>
-        
-        <a 
-          href="/api/auth/signin/epsx-backend"
-          style={{
-            display: 'inline-block',
-            padding: '12px 24px',
-            backgroundColor: '#0070f3',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '6px',
-            fontWeight: '500'
-          }}
-        >
-          Sign in with EPSX Backend
-        </a>
-        
-        <div style={{ marginTop: '20px', fontSize: '12px', color: '#999' }}>
-          🔒 Administrative Access Only
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-gray-900 dark:to-gray-800 p-4">
+      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            👨‍🍳 Admin Portal
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Master Chef Access Required
+          </p>
+        </div>
+
+        {/* Error display */}
+        {(error || errorParam) && (
+          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 border border-red-200 dark:border-red-800">
+            <p className="text-sm text-red-700 dark:text-red-400">
+              ⚠️ {error || errorParam}
+            </p>
+          </div>
+        )}
+
+        {/* OAuth Sign In Button */}
+        <div className="space-y-4">
+          <Button
+            onClick={handleOAuthLogin}
+            disabled={isLoading}
+            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0 shadow-lg transform transition-transform hover:scale-105"
+          >
+            {isLoading ? (
+              <>
+                <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                👨‍🍳 Enter Chef's Kitchen
+              </>
+            )}
+          </Button>
+        </div>
+
+        <div className="text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            🔒 Secure Admin OAuth 2.0 authentication with PKCE
+          </p>
         </div>
       </div>
     </div>

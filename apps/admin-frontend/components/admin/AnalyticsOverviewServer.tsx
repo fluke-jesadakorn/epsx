@@ -5,6 +5,7 @@
 
 import { TrendingUp, Users, Activity, BarChart3 } from 'lucide-react'
 import type { TimeSeriesData, ModuleUsageData } from '@/lib/actions/analytics-actions'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface AnalyticsOverviewServerProps {
   timeSeriesData: TimeSeriesData[]
@@ -44,17 +45,17 @@ export function AnalyticsOverviewServer({
       {/* Time Series Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Requests Timeline */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Activity className="h-5 w-5" />
             Request Timeline
           </h3>
           
           <div className="mb-4">
-            <div className="text-2xl font-bold text-blue-600">{formatNumber(totalRequests)}</div>
-            <div className="text-sm text-gray-600">Total requests in {dateRange}</div>
+            <div className="text-2xl font-bold text-info-600">{formatNumber(totalRequests)}</div>
+            <div className="text-sm text-neutral-600">Total requests in {dateRange}</div>
             <div className={`text-xs flex items-center gap-1 mt-1 ${
-              requestsGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+              requestsGrowth >= 0 ? 'text-success-600' : 'text-error-600'
             }`}>
               <TrendingUp className="w-3 h-3" />
               {Math.abs(requestsGrowth).toFixed(1)}% {requestsGrowth >= 0 ? 'growth' : 'decline'}
@@ -65,16 +66,16 @@ export function AnalyticsOverviewServer({
         </div>
 
         {/* Revenue Timeline */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
             Revenue Timeline
           </h3>
           
           <div className="mb-4">
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
-            <div className="text-sm text-gray-600">Total revenue in {dateRange}</div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-2xl font-bold text-success-600">{formatCurrency(totalRevenue)}</div>
+            <div className="text-sm text-neutral-600">Total revenue in {dateRange}</div>
+            <div className="text-xs text-neutral-500 mt-1">
               Avg: {formatCurrency(totalRevenue / timeSeriesData.length)} per day
             </div>
           </div>
@@ -84,7 +85,7 @@ export function AnalyticsOverviewServer({
       </div>
 
       {/* Module Usage Breakdown */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
           Module Usage Breakdown
@@ -98,7 +99,7 @@ export function AnalyticsOverviewServer({
       </div>
 
       {/* Top Performing Modules */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4">Top Performing Modules</h3>
         <TopModulesTable moduleData={moduleData} />
       </div>
@@ -120,7 +121,7 @@ function TimeSeriesChart({
 }) {
   if (data.length === 0) {
     return (
-      <div className="h-32 flex items-center justify-center text-gray-400">
+      <div className="h-32 flex items-center justify-center text-neutral-400">
         <span>No data available</span>
       </div>
     )
@@ -151,7 +152,7 @@ function TimeSeriesChart({
         </defs>
         
         {/* Grid lines */}
-        <g className="stroke-gray-200" strokeWidth="1">
+        <g className="stroke-neutral-200" strokeWidth="1">
           {[0, 25, 50, 75, 100].map(percent => {
             const y = height - padding - (percent / 100) * (height - 2 * padding)
             return <line key={percent} x1={padding} y1={y} x2={width - padding} y2={y} />
@@ -207,45 +208,45 @@ function ModuleUsageCard({ module }: { module: ModuleUsageData }) {
   }
 
   const getQuotaColor = (percentage: number) => {
-    if (percentage < 50) return 'bg-green-500'
-    if (percentage < 80) return 'bg-yellow-500'
-    return 'bg-red-500'
+    if (percentage < 50) return 'bg-success-500'
+    if (percentage < 80) return 'bg-warning-500'
+    return 'bg-error-500'
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+    <div className="border border-neutral-200 rounded-lg p-4 bg-white">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="font-medium text-gray-900">{module.moduleName}</h4>
+        <h4 className="font-medium text-neutral-900">{module.moduleName}</h4>
         <div className={`w-2 h-2 rounded-full ${getQuotaColor(module.quotaPercentage)}`} />
       </div>
       
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-gray-600">Requests:</span>
+          <span className="text-neutral-600">Requests:</span>
           <span className="font-medium">{formatNumber(module.requests)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Users:</span>
+          <span className="text-neutral-600">Users:</span>
           <span className="font-medium">{formatNumber(module.users)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Revenue:</span>
-          <span className="font-medium text-green-600">{formatCurrency(module.revenue)}</span>
+          <span className="text-neutral-600">Revenue:</span>
+          <span className="font-medium text-success-600">{formatCurrency(module.revenue)}</span>
         </div>
       </div>
       
       <div className="mt-3">
-        <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <div className="flex justify-between text-xs text-neutral-600 mb-1">
           <span>Quota Usage</span>
           <span>{module.quotaPercentage.toFixed(1)}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-neutral-200 rounded-full h-2">
           <div 
             className={`h-2 rounded-full ${getQuotaColor(module.quotaPercentage)}`}
             style={{ width: `${Math.min(module.quotaPercentage, 100)}%` }}
           />
         </div>
-        <div className="text-xs text-gray-500 mt-1">
+        <div className="text-xs text-neutral-500 mt-1">
           {formatNumber(module.quotaUsed)} / {formatNumber(module.quota)}
         </div>
       </div>
@@ -267,7 +268,7 @@ function TopModulesTable({ moduleData }: { moduleData: ModuleUsageData[] }) {
     <div className="overflow-x-auto">
       <table className="min-w-full">
         <thead>
-          <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <tr className="text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
             <th className="pb-2">Rank</th>
             <th className="pb-2">Module</th>
             <th className="pb-2">Requests</th>
@@ -278,21 +279,21 @@ function TopModulesTable({ moduleData }: { moduleData: ModuleUsageData[] }) {
         </thead>
         <tbody className="space-y-2">
           {sortedModules.map((module, index) => (
-            <tr key={module.moduleName} className="border-t border-gray-100">
-              <td className="py-2 text-sm font-medium text-gray-900">#{index + 1}</td>
+            <tr key={module.moduleName} className="border-t border-neutral-100">
+              <td className="py-2 text-sm font-medium text-neutral-900">#{index + 1}</td>
               <td className="py-2 text-sm font-medium">{module.moduleName}</td>
               <td className="py-2 text-sm">{module.requests.toLocaleString()}</td>
               <td className="py-2 text-sm">{module.users.toLocaleString()}</td>
-              <td className="py-2 text-sm font-medium text-green-600">
+              <td className="py-2 text-sm font-medium text-success-600">
                 {formatCurrency(module.revenue)}
               </td>
               <td className="py-2 text-sm">
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   module.quotaPercentage < 50 
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-success-100 text-success-800'
                     : module.quotaPercentage < 80
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-warning-100 text-warning-800'
+                    : 'bg-error-100 text-error-800'
                 }`}>
                   {module.quotaPercentage.toFixed(1)}%
                 </span>

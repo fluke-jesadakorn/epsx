@@ -11,6 +11,7 @@ import { BillingOverviewServer } from './BillingOverviewServer'
 import { BillingInvoicesServer } from './BillingInvoicesServer'
 import { BillingTabNavigation } from './BillingTabNavigation'
 import { BillingExportButton } from './BillingExportButton'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface BillingDashboardServerProps {
   searchParams: {
@@ -27,9 +28,9 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h3>
-          <p className="text-gray-600">Please sign in to access billing information.</p>
+          <AlertTriangle className="w-12 h-12 text-warning-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-neutral-900 mb-2">Authentication Required</h3>
+          <p className="text-neutral-600">Please sign in to access billing information.</p>
         </div>
       </div>
     )
@@ -44,9 +45,9 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</h3>
-          <p className="text-gray-600">You don&apos;t have permission to view billing information.</p>
+          <AlertTriangle className="w-12 h-12 text-warning-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-neutral-900 mb-2">Access Restricted</h3>
+          <p className="text-neutral-600">You don&apos;t have permission to view billing information.</p>
         </div>
       </div>
     )
@@ -59,10 +60,10 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
   if (!billingResult.success) {
     return (
       <div className="max-w-7xl mx-auto p-6">
-        <div className="pancake-card p-6 text-center">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Billing Data</h3>
-          <p className="text-gray-600">{billingResult.error?.message}</p>
+        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'text-center')}>
+          <AlertTriangle className="w-12 h-12 text-error-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-neutral-900 mb-2">Failed to Load Billing Data</h3>
+          <p className="text-neutral-600">{billingResult.error?.message}</p>
         </div>
       </div>
     )
@@ -76,8 +77,8 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Billing & Analytics</h1>
-          <p className="text-gray-600">Monitor usage, costs, and billing across all modules</p>
+          <h1 className="text-3xl font-bold text-neutral-900">Billing & Analytics</h1>
+          <p className="text-neutral-600">Monitor usage, costs, and billing across all modules</p>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -107,7 +108,7 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
       )}
 
       {activeTab === 'analytics' && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
             Module Analytics
@@ -125,7 +126,7 @@ export async function BillingDashboardServer({ searchParams }: BillingDashboardS
       )}
 
       {activeTab === 'alerts' && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
             Billing Alerts

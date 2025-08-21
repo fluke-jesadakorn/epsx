@@ -9,6 +9,7 @@ import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { ModuleAccessCard } from './ModuleAccessCard'
 import { ModuleQuotaCard } from './ModuleQuotaCard'
 import { StatsCard } from '@/components/ui/StatsCard'
+import { adminCardVariants, adminButtonVariants, cn } from '@/design-system'
 
 interface UserModulesContentProps {
   user: UnifiedUserData
@@ -37,7 +38,7 @@ export function UserModulesContent({ user, currentUser }: UserModulesContentProp
       value: `${quotaUsagePercent}%`,
       description: `${totalQuotaUsed}/${totalQuotaLimit}`,
       icon: BarChart3,
-      color: quotaUsagePercent > 80 ? 'red' : quotaUsagePercent > 60 ? 'orange' : 'green'
+      color: quotaUsagePercent > 80 ? 'error' : quotaUsagePercent > 60 ? 'warning' : 'success'
     },
     {
       title: 'API Calls Today',
@@ -66,14 +67,14 @@ export function UserModulesContent({ user, currentUser }: UserModulesContentProp
       </div>
 
       {/* Module Access */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Package className="h-5 w-5" />
             Module Access
           </h3>
           {canManageModules && (
-            <button className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            <button className={cn(adminButtonVariants({ variant: 'primary', size: 'sm' }))}>
               <Plus className="h-4 w-4" />
               Assign Module
             </button>
@@ -99,14 +100,14 @@ export function UserModulesContent({ user, currentUser }: UserModulesContentProp
       </div>
 
       {/* Module Quotas */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
             Usage Quotas
           </h3>
           {canManageModules && (
-            <button className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+            <button className={cn(adminButtonVariants({ variant: 'success', size: 'sm' }))}>
               <Settings className="h-4 w-4" />
               Manage Quotas
             </button>
@@ -132,7 +133,7 @@ export function UserModulesContent({ user, currentUser }: UserModulesContentProp
       </div>
 
       {/* Module Usage History */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           Usage History

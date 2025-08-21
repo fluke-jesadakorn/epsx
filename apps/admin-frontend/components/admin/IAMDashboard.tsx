@@ -3,6 +3,7 @@
 import { Shield, Users, Key, FileText, Settings as _Settings, Plus } from 'lucide-react';
 import { IAMContent } from './IAMContent';
 import { StatsGrid } from '@/components/ui/StatsCard';
+import { adminButtonVariants, cn } from '@/design-system';
 
 // Define types directly in component since we don't have the types file
 interface UserWithPermissions {
@@ -85,7 +86,7 @@ export function IAMDashboard({ initialUsers, initialRoles, initialPolicies }: IA
             Manage users, roles, policies, and permissions
           </p>
         </div>
-        <button className="btn-primary flex items-center gap-2">
+        <button className={cn(adminButtonVariants({ variant: 'primary' }), 'flex items-center gap-2')}>
           <Plus className="h-4 w-4" />
           Create New
         </button>

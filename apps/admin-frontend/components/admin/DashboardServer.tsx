@@ -5,6 +5,7 @@
 
 import { Shield, Users, CheckCircle, Crown, Activity, Zap, Database, TrendingUp } from 'lucide-react'
 import type { DashboardStats, RecentUser, SystemMetrics } from '@/lib/data/dashboard'
+import { adminCardVariants, cn } from '@/design-system'
 // Session type compatible with Zustand auth system
 interface Session {
   user?: {
@@ -105,7 +106,7 @@ export function DashboardServer({ session, stats, recentUsers, systemMetrics }: 
   return (
     <div className="space-y-8 p-6">
       {/* Enhanced Header */}
-      <div className="flex items-center justify-between pancake-card pancake-card-hover p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }), 'flex items-center justify-between')}>
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-full bg-gradient-to-r from-orange-500 to-yellow-500">
             <Shield className="h-8 w-8 text-white" />
@@ -123,9 +124,9 @@ export function DashboardServer({ session, stats, recentUsers, systemMetrics }: 
         {/* System Health Indicator */}
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${
-            stats.systemHealth === 'good' ? 'bg-green-500' : 
-            stats.systemHealth === 'warning' ? 'bg-yellow-500' : 
-            'bg-red-500'
+            stats.systemHealth === 'good' ? 'bg-success-500' : 
+            stats.systemHealth === 'warning' ? 'bg-warning-500' : 
+            'bg-error-500'
           }`} />
           <span className="text-sm text-muted-foreground">
             System {stats.systemHealth}
@@ -151,7 +152,7 @@ export function DashboardServer({ session, stats, recentUsers, systemMetrics }: 
 
       {/* Quick Actions - Role-based */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="pancake-card pancake-card-hover p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Zap className="h-5 w-5" />
             Quick Actions
@@ -185,7 +186,7 @@ export function DashboardServer({ session, stats, recentUsers, systemMetrics }: 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Users */}
         <UserManagementOnly>
-          <div className="pancake-card pancake-card-hover p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -193,7 +194,7 @@ export function DashboardServer({ session, stats, recentUsers, systemMetrics }: 
               </h2>
               <Link 
                 href="/users" 
-                className="text-sm text-blue-500 hover:text-blue-600"
+                className="text-sm text-info-600 hover:text-info-700"
               >
                 View all
               </Link>

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDistanceToNow } from 'date-fns'
 import type { PermissionProfile } from '@/lib/types/permission-profiles'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
 
 interface PermissionProfileCardProps {
   profile: PermissionProfile
@@ -33,19 +34,19 @@ export function PermissionProfileCard({
 }: PermissionProfileCardProps) {
   const [showDetails, setShowDetails] = useState(false)
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      user: 'bg-blue-100 text-blue-800 border-blue-200',
-      moderator: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      admin: 'bg-red-100 text-red-800 border-red-200',
-      custom: 'bg-purple-100 text-purple-800 border-purple-200',
-      system: 'bg-gray-100 text-gray-800 border-gray-200',
-      business: 'bg-green-100 text-green-800 border-green-200',
-      technical: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      administrative: 'bg-orange-100 text-orange-800 border-orange-200',
-      compliance: 'bg-pink-100 text-pink-800 border-pink-200'
+  const getCategoryVariant = (category: string) => {
+    const variants = {
+      user: 'info' as const,
+      moderator: 'warning' as const,
+      admin: 'error' as const,
+      custom: 'default' as const,
+      system: 'default' as const,
+      business: 'success' as const,
+      technical: 'info' as const,
+      administrative: 'warning' as const,
+      compliance: 'default' as const
     }
-    return colors[category as keyof typeof colors] || colors.custom
+    return variants[category as keyof typeof variants] || 'default'
   }
 
   const getTierColor = (tier: string) => {
@@ -70,18 +71,15 @@ export function PermissionProfileCard({
   }
 
   return (
-    <div className="pancake-card p-6 hover:shadow-md transition-shadow">
+    <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <h3 className="font-semibold text-lg">{profile.name}</h3>
-            <Badge 
-              variant="outline" 
-              className={getCategoryColor(profile.category)}
-            >
+            <span className={cn(adminBadgeVariants({ variant: getCategoryVariant(profile.category), size: 'sm' }))}>
               {formatCategoryName(profile.category)}
-            </Badge>
+            </span>
           </div>
           
           <p className="text-sm text-muted-foreground line-clamp-2">

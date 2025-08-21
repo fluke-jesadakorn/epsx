@@ -7,6 +7,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { adminCardVariants, adminButtonVariants, cn } from '@/design-system'
 
 interface UserListPaginationProps {
   currentPage: number
@@ -69,7 +70,7 @@ export function UserListPagination({ currentPage, totalPages, total, limit }: Us
   const endItem = Math.min(currentPage * limit, total)
 
   return (
-    <div className="pancake-card p-4">
+    <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
       <div className="flex items-center justify-between">
         {/* Results info */}
         <div className="text-sm text-muted-foreground">

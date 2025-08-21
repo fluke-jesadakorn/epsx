@@ -1,4 +1,13 @@
+/**
+ * StatsCard Component - Modernized with Design System
+ * 
+ * Updated to use the new design system while maintaining backward compatibility.
+ * Uses adminCardVariants and semantic color system instead of hardcoded values.
+ */
+
 import { LucideIcon } from 'lucide-react';
+import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system';
+import type { AdminCardVariants } from '@/design-system';
 
 export interface StatsCardProps {
   title: string;
@@ -6,11 +15,15 @@ export interface StatsCardProps {
   description?: string;
   icon: LucideIcon;
   variant?: 'default' | 'enhanced' | 'simple' | 'inline';
+  // Legacy props for backward compatibility
   gradient?: string;
   textColor?: string;
   color?: string;
   className?: string;
-  change?: string; // Added for dashboard usage
+  change?: string;
+  // New design system props
+  cardVariant?: AdminCardVariants['variant'];
+  trend?: 'up' | 'down' | 'neutral';
 }
 
 export function StatsCard({
@@ -19,34 +32,90 @@ export function StatsCard({
   description,
   icon: Icon,
   variant = 'default',
+  // Legacy props for backward compatibility
   gradient,
   textColor,
   color,
   className = '',
-  change
+  change,
+  // New design system props
+  cardVariant,
+  trend,
 }: StatsCardProps) {
-  const baseClasses = 'relative overflow-hidden transition-all duration-200';
+  
+  // Map legacy variants to new design system variants
+  const getCardVariant = (): AdminCardVariants['variant'] => {
+    if (cardVariant) return cardVariant;
+    
+    // Legacy mapping
+    switch (variant) {
+      case 'enhanced': return 'pancake';
+      case 'simple': return 'default';
+      case 'inline': return 'default';
+      default: return 'default';
+    }
+  };
 
+  // Semantic color mapping
+  const getIconColors = () => {
+    const variantMap = {
+      enhanced: { bg: 'bg-primary-100', text: 'text-primary-600' },
+      simple: { bg: 'bg-blue-100', text: 'text-blue-600' },
+      inline: { bg: 'bg-neutral-100', text: 'text-neutral-600' },
+      default: { bg: 'bg-primary-100', text: 'text-primary-600' },
+    };
+    
+    return variantMap[variant] || variantMap.default;
+  };
+
+  // Use design system variants
+  const cardClasses = adminCardVariants({
+    variant: getCardVariant(),
+    hover: variant === 'enhanced' ? 'both' : 'lift',
+    padding: variant === 'inline' ? 'sm' : 'default',
+    interactive: false,
+  });
+
+  const iconColors = getIconColors();
+
+  // Enhanced variant with design system
   if (variant === 'enhanced') {
-    // AdminDashboard style - elaborate with gradients and animations
     return (
-      <div
-        className={`pancake-card pancake-card-hover p-6 ${baseClasses} group ${className}`}
-      >
-        <div className="absolute top-0 right-0 w-20 h-20 -mr-8 -mt-8 rounded-full bg-gradient-to-br from-white/5 to-white/10 group-hover:scale-110 transition-transform duration-500"></div>
+      <div className={cn(cardClasses, 'group', className)}>
+        <div className="absolute top-0 right-0 w-20 h-20 -mr-8 -mt-8 rounded-full bg-gradient-to-br from-primary-500/5 to-secondary-500/5 group-hover:scale-110 transition-transform duration-500" />
         <div className="relative">
           <div className="flex items-center justify-between mb-4">
-            <div className={`p-3 rounded-xl bg-gradient-to-r ${gradient || 'from-blue-500 to-purple-500'} text-white shadow-lg`}>
+            <div className={cn(
+              'p-3 rounded-xl shadow-sm transition-colors',
+              gradient ? `bg-gradient-to-r ${gradient}` : iconColors.bg,
+              gradient ? 'text-white' : iconColors.text
+            )}>
               <Icon className="h-6 w-6" />
             </div>
-            <div className={`text-right ${textColor || 'text-blue-500'}`}>
-              <div className="text-2xl font-bold leading-none">
+            <div className="text-right">
+              <div className={cn(
+                'text-2xl font-bold leading-none',
+                textColor || 'text-foreground'
+              )}>
                 {value}
               </div>
+              {trend && change && (
+                <div className="mt-1">
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-2 py-1 text-xs font-medium',
+                    adminBadgeVariants({ 
+                      variant: trend === 'up' ? 'success' : trend === 'down' ? 'error' : 'default',
+                      size: 'sm' 
+                    })
+                  )}>
+                    {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'} {change}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div>
-            <h3 className="font-semibold text-foreground mb-1">
+            <h3 className="font-semibold text-foreground mb-1 text-sm">
               {title}
             </h3>
             {description && (
@@ -54,7 +123,7 @@ export function StatsCard({
                 {description}
               </p>
             )}
-            {change && (
+            {change && !trend && (
               <p className="text-xs text-muted-foreground mt-1">
                 {change}
               </p>
@@ -65,59 +134,61 @@ export function StatsCard({
     );
   }
 
+  // Simple variant with design system
   if (variant === 'simple') {
-    // IAMDashboard style - simple with icon on the right
     return (
-      <div
-        className={`pancake-card p-6 ${baseClasses} ${className}`}
-      >
+      <div className={cn(cardClasses, className)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
             {description && (
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
             )}
           </div>
-          <div className={`p-3 rounded-full bg-gradient-to-r ${color || gradient || 'from-blue-500 to-blue-600'}`}>
-            <Icon className="h-6 w-6 text-white" />
+          <div className={cn(
+            'p-3 rounded-full shadow-sm',
+            gradient ? `bg-gradient-to-r ${gradient}` : iconColors.bg,
+            gradient ? 'text-white' : iconColors.text
+          )}>
+            <Icon className="h-6 w-6" />
           </div>
         </div>
       </div>
     );
   }
 
+  // Inline variant with design system
   if (variant === 'inline') {
-    // ModuleAnalyticsDashboard style - compact with inline icon
     return (
-      <div
-        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${baseClasses} ${className}`}
-      >
+      <div className={cn(cardClasses, className)}>
         <div className="flex items-center">
-          <Icon className={`w-5 h-5 text-${color || 'blue'}-600`} />
-          <span className="ml-2 text-sm font-medium text-gray-600 dark:text-gray-300">{title}</span>
+          <Icon className={cn('w-5 h-5', iconColors.text)} />
+          <span className="ml-2 text-sm font-medium text-muted-foreground">{title}</span>
         </div>
         <div className="mt-2">
-          <span className="text-2xl font-bold text-gray-900 dark:text-white">{value}</span>
+          <span className="text-2xl font-bold text-foreground">{value}</span>
         </div>
         {description && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
       </div>
     );
   }
 
-  // Default variant - balanced design
+  // Default variant with design system
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm ${baseClasses} hover:shadow-md ${className}`}
-    >
+    <div className={cn(cardClasses, className)}>
       <div className="flex items-center justify-between mb-3">
-        <div className={`p-2 rounded-lg ${gradient ? `bg-gradient-to-r ${gradient}` : `bg-${color || 'blue'}-100`}`}>
-          <Icon className={`h-5 w-5 ${gradient ? 'text-white' : `text-${color || 'blue'}-600`}`} />
+        <div className={cn(
+          'p-2 rounded-lg shadow-sm',
+          gradient ? `bg-gradient-to-r ${gradient}` : iconColors.bg,
+          gradient ? 'text-white' : iconColors.text
+        )}>
+          <Icon className="h-5 w-5" />
         </div>
         {textColor && (
-          <div className={`text-right ${textColor}`}>
+          <div className={cn('text-right', textColor)}>
             <div className="text-xl font-bold">
               {value}
             </div>
@@ -125,16 +196,16 @@ export function StatsCard({
         )}
       </div>
       <div>
-        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">
           {title}
         </h3>
         {!textColor && (
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="text-2xl font-bold text-foreground">
             {value}
           </div>
         )}
         {description && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {description}
           </p>
         )}

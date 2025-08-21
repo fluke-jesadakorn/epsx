@@ -3,33 +3,7 @@
 use askama::Template;
 use serde::{Deserialize, Serialize};
 use base64::Engine;
-use crate::config::env::get_env_var;
 
-/// Template for standard user login
-#[derive(Template)]
-#[template(path = "login.html")]
-pub struct LoginTemplate {
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub state: String,
-    pub scope: String,
-    pub error: String,
-    pub code_challenge: Option<String>,
-    pub code_challenge_method: Option<String>,
-}
-
-/// Template for admin login with enhanced security features
-#[derive(Template)]
-#[template(path = "admin_login.html")]
-pub struct AdminLoginTemplate {
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub state: String,
-    pub scope: String,
-    pub error: String,
-    pub code_challenge: Option<String>,
-    pub code_challenge_method: Option<String>,
-}
 
 /// Template for PancakeSwap-themed user login (OIDC)
 #[derive(Template)]
@@ -70,66 +44,38 @@ pub struct PancakeRegistrationTemplate {
     pub code_challenge_method: Option<String>,
 }
 
-/// Template for authentication errors
+/// Template for authentication errors (PancakeSwap themed)
 #[derive(Template)]
-#[template(path = "error.html")]
+#[template(path = "pancake/error.html")]
 pub struct ErrorTemplate {
     pub error_message: String,
     pub error_details: String,
 }
 
-/// Template for logout success page
+/// Template for logout success page (PancakeSwap themed)
 #[derive(Template)]
-#[template(path = "logout_success.html")]
+#[template(path = "pancake/error.html")]
 pub struct LogoutSuccessTemplate {
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub state: String,
+    pub error_message: String,
+    pub error_details: String,
 }
 
-/// Template for Firebase authentication page
+/// Template for password reset request page (PancakeSwap themed)
 #[derive(Template)]
-#[template(path = "firebase_auth.html")]
-pub struct FirebaseAuthTemplate {
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub state: String,
-    pub scope: String,
-    pub tenant_hint: Option<String>,
-    pub domain_hint: String,
-    pub firebase_config: FirebaseConfig,
+#[template(path = "pancake/reset-password.html")]
+pub struct PasswordResetTemplate {
+    pub error: String,
+    pub success: String,
 }
 
-/// Firebase configuration for the template
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FirebaseConfig {
-    pub api_key: String,
-    pub auth_domain: String,
-    pub project_id: String,
-    pub storage_bucket: String,
-    pub messaging_sender_id: String,
-    pub app_id: String,
+/// Template for password reset confirmation page (PancakeSwap themed)
+#[derive(Template)]
+#[template(path = "pancake/reset-confirm.html")]
+pub struct PasswordResetConfirmTemplate {
+    pub oob_code: String,
+    pub error: String,
 }
 
-impl FirebaseConfig {
-    /// Create Firebase config from environment variables
-    pub fn from_env() -> Self {
-        Self {
-            api_key: get_env_var("FIREBASE_API_KEY")
-                .unwrap_or_else(|_| "AIzaSyDtGcR8wF9f2M3VqQ7sN1xK9yP5tE8rU2wX".to_string()),
-            auth_domain: get_env_var("FIREBASE_AUTH_DOMAIN")
-                .unwrap_or_else(|_| "epsx-project.firebaseapp.com".to_string()),
-            project_id: get_env_var("FIREBASE_PROJECT_ID")
-                .unwrap_or_else(|_| "epsx-project".to_string()),
-            storage_bucket: get_env_var("FIREBASE_STORAGE_BUCKET")
-                .unwrap_or_else(|_| "epsx-project.appspot.com".to_string()),
-            messaging_sender_id: get_env_var("FIREBASE_MESSAGING_SENDER_ID")
-                .unwrap_or_else(|_| "123456789012".to_string()),
-            app_id: get_env_var("FIREBASE_APP_ID")
-                .unwrap_or_else(|_| "1:123456789012:web:abcdef123456789012345".to_string()),
-        }
-    }
-}
 
 /// Security features configuration for admin template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,85 +103,6 @@ impl Default for SecurityFeatures {
 pub struct TemplateFactory;
 
 impl TemplateFactory {
-    /// Create standard login template (without PKCE)
-    pub fn create_login_template(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
-        scope: String,
-        error: String,
-    ) -> LoginTemplate {
-        LoginTemplate {
-            client_id,
-            redirect_uri,
-            state,
-            scope,
-            error,
-            code_challenge: None,
-            code_challenge_method: None,
-        }
-    }
-
-    /// Create standard login template with PKCE parameters
-    pub fn create_login_template_with_pkce(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
-        scope: String,
-        code_challenge: Option<String>,
-        code_challenge_method: Option<String>,
-        error: String,
-    ) -> LoginTemplate {
-        LoginTemplate {
-            client_id,
-            redirect_uri,
-            state,
-            scope,
-            error,
-            code_challenge,
-            code_challenge_method,
-        }
-    }
-
-    /// Create admin login template (without PKCE)
-    pub fn create_admin_login_template(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
-        scope: String,
-        error: String,
-    ) -> AdminLoginTemplate {
-        AdminLoginTemplate {
-            client_id,
-            redirect_uri,
-            state,
-            scope,
-            error,
-            code_challenge: None,
-            code_challenge_method: None,
-        }
-    }
-
-    /// Create admin login template with PKCE parameters
-    pub fn create_admin_login_template_with_pkce(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
-        scope: String,
-        code_challenge: Option<String>,
-        code_challenge_method: Option<String>,
-        error: String,
-    ) -> AdminLoginTemplate {
-        AdminLoginTemplate {
-            client_id,
-            redirect_uri,
-            state,
-            scope,
-            error,
-            code_challenge,
-            code_challenge_method,
-        }
-    }
 
     /// Create PancakeSwap-themed user login template with PKCE parameters
     pub fn create_pancake_login_template_with_pkce(
@@ -313,43 +180,40 @@ impl TemplateFactory {
 
     /// Create logout success template
     pub fn create_logout_success_template(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
+        success_message: String,
+        success_details: String,
     ) -> LogoutSuccessTemplate {
         LogoutSuccessTemplate {
-            client_id,
-            redirect_uri,
-            state,
+            error_message: success_message,
+            error_details: success_details,
         }
     }
 
-    /// Create Firebase authentication template
-    pub fn create_firebase_auth_template(
-        client_id: String,
-        redirect_uri: String,
-        state: String,
-        scope: String,
-        tenant_hint: Option<String>,
-    ) -> FirebaseAuthTemplate {
-        let firebase_config = FirebaseConfig::from_env();
-        let domain_hint = get_env_var("FIREBASE_DOMAIN_HINT")
-            .unwrap_or_else(|_| "epsx.com".to_string());
-            
-        FirebaseAuthTemplate {
-            client_id,
-            redirect_uri,
-            state,
-            scope,
-            tenant_hint,
-            domain_hint,
-            firebase_config,
+    /// Create password reset template
+    pub fn create_password_reset_template(
+        error: String,
+    ) -> PasswordResetTemplate {
+        PasswordResetTemplate {
+            error,
+            success: "".to_string(),
         }
     }
+
+    /// Create password reset confirmation template
+    pub fn create_password_reset_confirm_template(
+        oob_code: String,
+        error: String,
+    ) -> PasswordResetConfirmTemplate {
+        PasswordResetConfirmTemplate {
+            oob_code,
+            error,
+        }
+    }
+
 
     /// Determine if admin template should be used based on scope
     pub fn should_use_admin_template(scope: &str) -> bool {
-        scope.contains("admin") || scope.contains("administrator")
+        scope.contains("admin") || scope.contains("administrator") || scope.contains("admin_modules")
     }
 
     /// Generate secure state parameter for templates

@@ -15,6 +15,7 @@ import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { assignUserRole, removeUserRole, addCustomPermission, removeCustomPermission } from '@/lib/actions/user-permissions-actions'
 import { PermissionAssignmentCard } from './PermissionAssignmentCard'
 import { RoleAssignmentCard } from './RoleAssignmentCard'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
 
 interface UserPermissionsClientProps {
   user: UnifiedUserData
@@ -112,7 +113,7 @@ export function UserPermissionsClient({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Role Assignments */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -179,7 +180,7 @@ export function UserPermissionsClient({
       </div>
 
       {/* Custom Permissions */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Key className="h-5 w-5" />

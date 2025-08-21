@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { BulkStockRankingAssignmentResult } from '@/types';
 import StockRankingPackageAssignment from './StockRankingPackageAssignment';
 import StockRankingAssignmentList from './StockRankingAssignmentList';
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
 
 export default function StockRankingPackageDashboard() {
   const [activeTab, setActiveTab] = useState<'assign' | 'manage'>('assign');
@@ -25,7 +26,7 @@ export default function StockRankingPackageDashboard() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="pancake-card pancake-card-hover p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-500">
             <div className="h-8 w-8 text-white font-bold flex items-center justify-center">
@@ -44,24 +45,27 @@ export default function StockRankingPackageDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="pancake-card">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="border-b border-border">
           <nav className="-mb-px flex">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as 'assign' | 'manage')}
-                className={`
-                  flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-all duration-150
-                  ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600'
-                  }
-                `}
+                className={cn(
+                  adminButtonVariants({ 
+                    variant: activeTab === tab.id ? 'primary' : 'ghost',
+                    size: 'default'
+                  }),
+                  'flex-1 border-b-2 rounded-none',
+                  activeTab === tab.id 
+                    ? 'border-primary-500' 
+                    : 'border-transparent hover:border-neutral-300'
+                )}
               >
                 {tab.label}
                 {tab.count && (
-                  <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-muted text-muted-foreground">
+                  <span className={cn(adminBadgeVariants({ variant: 'default', size: 'sm' }), 'ml-2')}>
                     {tab.count}
                   </span>
                 )}
@@ -87,7 +91,7 @@ export default function StockRankingPackageDashboard() {
       </div>
 
       {/* Quick Stats Card */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20">
             <div className="h-6 w-6 text-purple-500 font-bold flex items-center justify-center">
@@ -114,8 +118,22 @@ export default function StockRankingPackageDashboard() {
             { tier: 'ENTERPRISE', color: 'blue', rankings: '∞' }
           ].map((pkg) => (
             <div key={pkg.tier} className="text-center group">
-              <div className={`w-12 h-12 mx-auto rounded-full bg-${pkg.color}-100 dark:bg-${pkg.color}-900/30 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-200`}>
-                <span className={`text-${pkg.color}-600 dark:text-${pkg.color}-400 font-bold text-sm`}>
+              <div className={cn(
+                'w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-200',
+                pkg.color === 'gray' && 'bg-neutral-100 dark:bg-neutral-900/30',
+                pkg.color === 'orange' && 'bg-warning-100 dark:bg-warning-900/30',
+                pkg.color === 'yellow' && 'bg-warning-100 dark:bg-warning-900/30',
+                pkg.color === 'purple' && 'bg-info-100 dark:bg-info-900/30',
+                pkg.color === 'blue' && 'bg-primary-100 dark:bg-primary-900/30'
+              )}>
+                <span className={cn(
+                  'font-bold text-sm',
+                  pkg.color === 'gray' && 'text-neutral-600 dark:text-neutral-400',
+                  pkg.color === 'orange' && 'text-warning-600 dark:text-warning-400',
+                  pkg.color === 'yellow' && 'text-warning-600 dark:text-warning-400',
+                  pkg.color === 'purple' && 'text-info-600 dark:text-info-400',
+                  pkg.color === 'blue' && 'text-primary-600 dark:text-primary-400'
+                )}>
                   {pkg.rankings}
                 </span>
               </div>
@@ -127,7 +145,10 @@ export default function StockRankingPackageDashboard() {
       </div>
 
       {/* Help Section */}
-      <div className="pancake-card p-6 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200/50 dark:border-blue-800/50">
+      <div className={cn(
+        adminCardVariants({ variant: 'pancake' }),
+        'bg-gradient-to-r from-primary-50/50 to-info-50/50 dark:from-primary-900/10 dark:to-info-900/10 border border-primary-200/50 dark:border-primary-800/50'
+      )}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500/20 to-indigo-500/20">
             <div className="h-6 w-6 text-blue-500 font-bold flex items-center justify-center">

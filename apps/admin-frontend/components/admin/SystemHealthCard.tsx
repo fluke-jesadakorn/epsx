@@ -5,6 +5,7 @@
 
 import { Cpu, Database, Zap, Activity } from 'lucide-react'
 import type { SystemMetrics } from '@/lib/data/dashboard'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface SystemHealthCardProps {
   metrics: SystemMetrics
@@ -39,7 +40,7 @@ export function SystemHealthCard({ metrics }: SystemHealthCardProps) {
   ]
 
   return (
-    <div className="pancake-card pancake-card-hover p-6">
+    <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         <Activity className="h-5 w-5" />
         System Health
@@ -54,9 +55,9 @@ export function SystemHealthCard({ metrics }: SystemHealthCardProps) {
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{item.value}</span>
               <div className={`w-2 h-2 rounded-full ${
-                item.status === 'good' ? 'bg-green-500' :
-                item.status === 'warning' ? 'bg-yellow-500' :
-                'bg-red-500'
+                item.status === 'good' ? 'bg-success-500' :
+                item.status === 'warning' ? 'bg-warning-500' :
+                'bg-error-500'
               }`} />
             </div>
           </div>
@@ -67,9 +68,9 @@ export function SystemHealthCard({ metrics }: SystemHealthCardProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Error Rate</span>
             <span className={`text-sm font-medium ${
-              metrics.errorRate < 1 ? 'text-green-600' :
-              metrics.errorRate < 5 ? 'text-yellow-600' :
-              'text-red-600'
+              metrics.errorRate < 1 ? 'text-success-600' :
+              metrics.errorRate < 5 ? 'text-warning-600' :
+              'text-error-600'
             }`}>
               {metrics.errorRate}%
             </span>

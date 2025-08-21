@@ -5,6 +5,7 @@ import {
   StockRankingPackageAssignment,
 } from '@/types';
 import { useEffect, useState } from 'react';
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
 
 interface User {
   id: string;
@@ -296,25 +297,25 @@ export default function StockRankingAssignmentList({
 
       {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="text-2xl font-bold text-foreground">
             {assignments.length}
           </div>
           <div className="text-sm text-muted-foreground">Total Assignments</div>
         </div>
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
             {assignments.filter(a => a.status === 'active').length}
           </div>
           <div className="text-sm text-muted-foreground">Active</div>
         </div>
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {assignments.filter(a => isExpiringSoon(a)).length}
           </div>
           <div className="text-sm text-muted-foreground">Expiring Soon</div>
         </div>
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {assignments.filter(a => a.status === 'expired').length}
           </div>
@@ -323,7 +324,7 @@ export default function StockRankingAssignmentList({
       </div>
 
       {/* Assignments Table */}
-      <div className="pancake-card overflow-hidden">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), 'overflow-hidden')}>
         <ul className="divide-y divide-border">
           {sortedAssignments.length === 0 ? (
             <li className="px-6 py-8 text-center text-muted-foreground">

@@ -1,0 +1,195 @@
+/**
+ * Admin Frontend Critical CSS
+ * 
+ * Above-the-fold styles for optimal loading performance.
+ * Includes essential admin dashboard, navigation, and layout styles.
+ */
+
+@layer critical {
+  /* Essential layout containers */
+  .admin-layout-container {
+    @apply min-h-screen bg-[hsl(var(--background))];
+  }
+
+  .admin-sidebar {
+    @apply fixed inset-y-0 left-0 z-50 w-64 bg-[hsl(var(--card))] border-r border-[hsl(var(--border))];
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .admin-main-content {
+    @apply flex-1 min-w-0;
+    margin-left: 0;
+    transition: margin-left 0.3s ease-in-out;
+  }
+
+  @media (min-width: 1024px) {
+    .admin-sidebar {
+      position: relative;
+      transform: translateX(0);
+    }
+    
+    .admin-main-content {
+      margin-left: 16rem; /* w-64 */
+    }
+  }
+
+  /* Critical navigation styles */
+  .admin-nav-header {
+    @apply sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 bg-[hsl(var(--background))] border-b border-[hsl(var(--border))] px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8;
+  }
+
+  .admin-nav-item {
+    @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200;
+    @apply text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))];
+  }
+
+  .admin-nav-item.active {
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+  }
+
+  /* Critical card components */
+  .admin-stats-card {
+    @apply bg-[hsl(var(--card))] rounded-lg border border-[hsl(var(--border))] p-6 shadow-sm;
+    @apply hover:shadow-md transition-shadow duration-200;
+  }
+
+  .admin-dashboard-grid {
+    @apply grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Loading states for critical components */
+  .admin-loading-skeleton {
+    @apply animate-pulse bg-[hsl(var(--muted))] rounded;
+  }
+
+  .admin-loading-card {
+    @apply bg-[hsl(var(--card))] rounded-lg border border-[hsl(var(--border))] p-6 shadow-sm space-y-3;
+    @apply hover:shadow-md transition-shadow duration-200;
+  }
+
+  .admin-loading-card .skeleton-line {
+    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-4;
+  }
+
+  .admin-loading-card .skeleton-title {
+    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-6 w-3/4;
+  }
+
+  .admin-loading-card .skeleton-value {
+    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-8 w-1/2;
+  }
+
+  /* Critical button styles */
+  .admin-btn-primary {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors;
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90;
+    @apply h-10 px-4 py-2;
+  }
+
+  .admin-btn-secondary {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors;
+    @apply bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/90;
+    @apply h-10 px-4 py-2;
+  }
+
+  /* Critical form styles */
+  .admin-input {
+    @apply flex h-10 w-full rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm;
+    @apply ring-offset-[hsl(var(--background))] placeholder:text-[hsl(var(--muted-foreground))];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2;
+  }
+
+  .admin-select {
+    @apply flex h-10 w-full rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm pr-8 cursor-pointer;
+    @apply ring-offset-[hsl(var(--background))] placeholder:text-[hsl(var(--muted-foreground))];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2;
+  }
+
+  /* Critical table styles */
+  .admin-table {
+    @apply w-full border-collapse border-spacing-0;
+  }
+
+  .admin-table th {
+    @apply bg-[hsl(var(--muted))] px-4 py-3 text-left text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wider;
+    @apply border-b border-[hsl(var(--border))];
+  }
+
+  .admin-table td {
+    @apply px-4 py-3 text-sm text-[hsl(var(--foreground))] border-b border-[hsl(var(--border))];
+  }
+
+  .admin-table tr:hover {
+    @apply bg-[hsl(var(--muted))]/50;
+  }
+
+  /* Critical status indicators */
+  .admin-status-active {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply bg-[hsl(var(--admin-active))]/10 text-[hsl(var(--admin-active))];
+  }
+
+  .admin-status-inactive {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply bg-[hsl(var(--admin-inactive))]/10 text-[hsl(var(--admin-inactive))];
+  }
+
+  .admin-status-pending {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply bg-[hsl(var(--admin-pending))]/10 text-[hsl(var(--admin-pending))];
+  }
+
+  .admin-status-suspended {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply bg-[hsl(var(--admin-suspended))]/10 text-[hsl(var(--admin-suspended))];
+  }
+
+  /* Critical mobile improvements */
+  @media (max-width: 768px) {
+    .admin-dashboard-grid {
+      @apply grid-cols-1 gap-4;
+    }
+
+    .admin-nav-header {
+      @apply px-4;
+    }
+
+    .admin-stats-card {
+      @apply p-4;
+    }
+
+    /* Improved touch targets */
+    .admin-nav-item {
+      @apply min-h-[44px] px-4 py-3;
+    }
+
+    .admin-btn-primary,
+    .admin-btn-secondary {
+      @apply min-h-[44px] px-6;
+    }
+  }
+
+  /* Essential accessibility improvements */
+  .admin-focus-ring:focus-visible {
+    @apply outline-none ring-2 ring-[hsl(var(--ring))] ring-offset-2 ring-offset-[hsl(var(--background))];
+  }
+
+  .admin-sr-only {
+    @apply sr-only;
+  }
+
+  /* Critical animation optimizations */
+  @media (prefers-reduced-motion: reduce) {
+    .admin-sidebar,
+    .admin-main-content,
+    .admin-nav-item,
+    .admin-stats-card {
+      transition: none;
+    }
+  }
+}

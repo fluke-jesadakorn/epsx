@@ -1,0 +1,234 @@
+/**
+ * EPSX Platform Styles - Main Entry Point
+ * 
+ * This is the new main stylesheet that replaces the massive globals.css.
+ * It imports all the modular CSS files in the correct order for optimal
+ * performance and maintainability.
+ * 
+ * Loading Order:
+ * 1. Base styles (reset, variables, essential elements)
+ * 2. Critical styles (above-the-fold, immediate render)
+ * 3. Component styles (complex components)
+ * 4. Utility styles (custom utilities)
+ * 
+ * Benefits:
+ * - Modular and maintainable
+ * - Better performance (can code-split later)
+ * - Easier to find and modify styles
+ * - Clear separation of concerns
+ * - Reduced CSS bundle size
+ */
+
+/* ============================================================================
+   BASE STYLES - Essential foundations
+   ============================================================================ */
+@import './base.css';
+
+/* ============================================================================
+   CRITICAL STYLES - Above-the-fold performance
+   ============================================================================ */
+@import './critical.css';
+
+/* ============================================================================
+   COMPONENT STYLES - Complex component styling
+   ============================================================================ */
+@import './components.css';
+
+/* ============================================================================
+   UTILITY STYLES - Custom Tailwind extensions
+   ============================================================================ */
+@import './utilities.css';
+
+/* ============================================================================
+   LEGACY COMPATIBILITY - Temporary bridge
+   ============================================================================ */
+
+/*
+ * This section provides temporary compatibility with legacy CSS classes
+ * to ensure smooth migration. These will be removed in a future version.
+ */
+
+@layer utilities {
+  /* Legacy button classes - mapped to new design system */
+  .btn-pancake-primary {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
+    @apply bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold;
+    @apply shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
+    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-orange-500;
+  }
+  
+  .btn-pancake-secondary {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
+    @apply bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold;
+    @apply shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
+    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-blue-500;
+  }
+  
+  .btn-pancake-outline {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
+    @apply border-2 border-orange-500 bg-transparent text-orange-600 font-semibold;
+    @apply hover:bg-orange-50 dark:hover:bg-orange-950 hover:scale-105 active:scale-95;
+    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-orange-500;
+  }
+  
+  /* Legacy card classes */
+  .card-pancake {
+    @apply relative overflow-hidden rounded-2xl border p-6;
+    @apply bg-gradient-to-br from-white via-orange-50/20 to-yellow-50/30;
+    @apply dark:from-gray-900 dark:via-gray-800 dark:to-orange-900/20;
+    @apply border-orange-200/50 dark:border-orange-700/50;
+    @apply backdrop-blur-md transition-all duration-300;
+    @apply hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1;
+  }
+  
+  /* Legacy text gradient classes */
+  .pancake-gradient-text {
+    @apply bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600;
+    @apply bg-clip-text text-transparent bg-[length:200%_200%];
+    animation: gradient-x 3s ease infinite;
+  }
+  
+  .pancake-gradient-secondary-text {
+    @apply bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-500;
+    @apply bg-clip-text text-transparent bg-[length:200%_200%];
+    animation: gradient-x 3s ease infinite;
+  }
+  
+  /* Legacy shadow and glow classes */
+  .pancake-shadow {
+    @apply shadow-[0_4px_12px_hsl(255_133_27/0.15)];
+  }
+  
+  .dark .pancake-shadow {
+    @apply shadow-[0_4px_12px_hsl(255_133_27/0.25)];
+  }
+  
+  .pancake-glow {
+    @apply shadow-[0_0_20px_hsl(255_133_27/0.3)];
+  }
+  
+  .dark .pancake-glow {
+    @apply shadow-[0_0_25px_hsl(255_133_27/0.4)];
+  }
+  
+  /* Legacy animation classes */
+  .animate-bounce-gentle {
+    animation: bounce-gentle 2s ease-in-out infinite;
+  }
+  
+  .animate-float-gentle {
+    animation: float-gentle 4s ease-in-out infinite;
+  }
+  
+  .animate-pulse-pancake {
+    animation: pulse-pancake 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-wiggle {
+    animation: wiggle 1s ease-in-out infinite;
+  }
+  
+  .animate-shine {
+    animation: shine 2s linear infinite;
+  }
+  
+  .animate-gradient-x {
+    animation: gradient-x 3s ease infinite;
+  }
+}
+
+/* ============================================================================
+   DEVELOPMENT WARNINGS
+   ============================================================================ */
+
+/*
+ * This section includes development-only warnings for legacy class usage.
+ * These are stripped out in production builds.
+ */
+
+@media screen {
+  .btn-pancake-primary::after,
+  .btn-pancake-secondary::after,
+  .btn-pancake-outline::after,
+  .card-pancake::after,
+  .pancake-gradient-text::after,
+  .pancake-shadow::after,
+  .pancake-glow::after {
+    content: '⚠️ Legacy class detected. Migrate to design system variants.';
+    position: absolute;
+    top: -2rem;
+    left: 0;
+    background: orange;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 1000;
+  }
+  
+  /* Show warnings on hover in development */
+  body[data-env="development"] .btn-pancake-primary:hover::after,
+  body[data-env="development"] .btn-pancake-secondary:hover::after,
+  body[data-env="development"] .btn-pancake-outline:hover::after,
+  body[data-env="development"] .card-pancake:hover::after,
+  body[data-env="development"] .pancake-gradient-text:hover::after,
+  body[data-env="development"] .pancake-shadow:hover::after,
+  body[data-env="development"] .pancake-glow:hover::after {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   FEATURE FLAGS
+   ============================================================================ */
+
+/*
+ * This section includes feature-flagged styles that can be toggled
+ * for A/B testing or gradual rollouts.
+ */
+
+/* Enhanced animations - can be disabled for performance */
+body[data-enhance-animations="true"] .btn-pancake-primary:hover {
+  animation: pulse 0.5s ease-in-out;
+}
+
+body[data-enhance-animations="true"] .card-pancake:hover {
+  animation: float-gentle 2s ease-in-out infinite;
+}
+
+/* Reduced motion override */
+body[data-reduced-motion="true"] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* High performance mode - disable heavy effects */
+body[data-performance-mode="high"] .card-pancake {
+  backdrop-filter: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body[data-performance-mode="high"] .glass,
+body[data-performance-mode="high"] .glass-strong,
+body[data-performance-mode="high"] .glass-subtle {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ============================================================================
+   VERSION METADATA
+   ============================================================================ */
+
+/*
+ * Version information for debugging and maintenance
+ */
+:root {
+  --epsx-css-version: "2.0.0";
+  --epsx-css-migration-status: "phase-1-complete";
+  --epsx-css-last-updated: "2025-01-XX";
+}

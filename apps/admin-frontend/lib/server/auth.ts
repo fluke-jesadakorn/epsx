@@ -92,30 +92,50 @@ export async function getAuthorizationUrl() {
 }
 
 /**
- * Get server session (mock implementation for build)
+ * Get server session with JWT verification
  */
 export async function getServerSession() {
-  // TODO: Implement actual session retrieval
-  return null;
+  try {
+    const { getSessionFromJWT } = await import('./jwt');
+    const session = await getSessionFromJWT();
+    return session;
+  } catch (error) {
+    console.error('❌ Admin: Failed to get server session:', error);
+    return { isAuthenticated: false, user: null };
+  }
 }
 
 /**
- * Get auth user (mock implementation for build)
+ * Get authenticated admin user from JWT cookies
  */
 export async function getAuthUser() {
-  // TODO: Implement actual user retrieval
-  return null;
+  try {
+    const { verifyJWTFromCookies } = await import('./jwt');
+    const user = await verifyJWTFromCookies();
+    
+    // Validate admin permissions
+    if (user && !user.admin_modules && user.role !== 'admin' && user.role !== 'super_admin') {
+      console.warn('⚠️  Admin: User lacks admin permissions');
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('❌ Admin: Failed to get auth user:', error);
+    return null;
+  }
 }
 
 /**
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
-  // Use consolidated auth config
-  const { authConfig } = await import('../../config/env');
-  const apiUrl = authConfig.apiUrl;
+  // Use internal Docker network URL for server-side requests
+  const apiUrl = process.env.NODE_ENV === 'production' 
+    ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
+    : 'http://backend:8080';
   
-  console.log('🔄 Admin: Fetching user info from backend userinfo endpoint');
+  console.log('🔄 Admin: Fetching user info from backend userinfo endpoint:', apiUrl);
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -132,4 +152,98 @@ export async function getUserInfo(accessToken: string) {
   const userinfo = await response.json();
   console.log('✅ Admin: Successfully received user info');
   return userinfo;
+}
+
+// ============================================================================
+// Additional Auth Helper Functions for Admin Frontend
+// ============================================================================
+
+/**
+ * Require authentication - redirect to login if not authenticated
+ */
+export async function requireAuth(redirectPath?: string) {
+  const { redirect } = await import('next/navigation');
+  const user = await getAuthUser();
+  
+  if (!user) {
+    const loginUrl = `/login${redirectPath ? `?callbackUrl=${encodeURIComponent(redirectPath)}` : ''}`;
+    redirect(loginUrl);
+  }
+  
+  return user;
+}
+
+/**
+ * Clear admin session by removing JWT cookie
+ */
+export async function clearSession(): Promise<void> {
+  try {
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    cookieStore.delete('epsx_admin_jwt');
+    console.log('✅ Admin: User session cleared successfully');
+  } catch (error) {
+    console.error('❌ Admin: Failed to clear session:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if user has specific admin permission
+ */
+export async function hasAdminPermission(permission: string): Promise<boolean> {
+  try {
+    const user = await getAuthUser();
+    if (!user) return false;
+    
+    // Admin users have broader permissions
+    return user.permissions.includes(permission) || 
+           user.permissions.includes('admin:*') ||
+           user.permissions.includes('*');
+  } catch (error) {
+    console.error('❌ Admin: Failed to check permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user has access to specific admin module
+ */
+export async function hasAdminModule(module: string): Promise<boolean> {
+  try {
+    const user = await getAuthUser();
+    if (!user) return false;
+    
+    // Check admin_modules array
+    if (user.admin_modules && user.admin_modules.includes(module)) {
+      return true;
+    }
+    
+    // Super admin has access to all modules
+    if (user.role === 'super_admin') {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Admin: Failed to check module access:', error);
+    return false;
+  }
+}
+
+/**
+ * Require specific admin module access
+ */
+export async function requireAdminModule(module: string, redirectPath?: string) {
+  const { redirect } = await import('next/navigation');
+  const user = await requireAuth(redirectPath);
+  
+  const hasModule = await hasAdminModule(module);
+  
+  if (!hasModule) {
+    const accessDeniedUrl = `/access-denied?module=${encodeURIComponent(module)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
+    redirect(accessDeniedUrl);
+  }
+  
+  return user;
 }

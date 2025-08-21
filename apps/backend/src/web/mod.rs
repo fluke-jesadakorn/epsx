@@ -13,7 +13,6 @@ pub mod analytics;
 pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
-pub mod simplified_router;
 
 use axum::{
     routing::{get, post},
@@ -317,17 +316,24 @@ async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraF
 
 /// Create the main application router with analytics support
 pub async fn create_router(container: Arc<AppContainer>) -> Router {
-    // Create simplified routes that provide essential functionality
-    let simplified_routes = simplified_router::create_simplified_router(container.clone()).await;
+    // Create OIDC routes with full functionality including POST handlers
+    let app_state = container.create_app_state();
+    let oidc_routes = oidc::routes::oidc_routes().with_state(app_state);
     
     // Create analytics routes that use the container's InfraFactory
     let analytics_routes = create_standalone_analytics_routes(&container.infra).await;
+    
+    // Create core routes
+    let core_routes = Router::new()
+        .route("/health", get(health_handler))
+        .route("/cache", get(cache_handler));
     
     // Configure CORS for all routes
     let cors = configure_cors_for_frontend();
     
     // Merge routes with analytics support
-    simplified_routes
+    core_routes
+        .merge(oidc_routes)
         .merge(analytics_routes)
         .layer(cors)
 }

@@ -1,0 +1,510 @@
+/**
+ * Admin Frontend Component Styles
+ * 
+ * Complex component styling that can't be achieved with utilities alone.
+ * Includes enhanced admin cards, modals, dashboards, and interactive elements.
+ */
+
+@layer components {
+  /* ============================================================================
+     PANCAKE-STYLE CARD SYSTEM
+     ============================================================================ */
+
+  /* Enhanced card styling with PancakeSwap feel */
+  .pancake-card {
+    @apply border shadow-lg rounded-2xl backdrop-blur-sm;
+    background: linear-gradient(135deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--card)) 100%);
+    border-color: hsl(var(--border));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pancake-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+      transparent, 
+      hsl(var(--primary))/20, 
+      transparent);
+  }
+
+  .pancake-card-hover {
+    transition: all 0.3s ease;
+  }
+
+  .pancake-card-hover:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  .pancake-card-hover:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+  }
+
+  /* Admin-specific card variants */
+  .admin-card-dashboard {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    background: var(--gradient-admin);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .admin-card-dashboard:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .admin-card-user {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    padding: 1.5rem;
+    background: linear-gradient(135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--muted))/30 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .admin-card-permission {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    padding: 1rem;
+    background: linear-gradient(135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--accent))/20 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ============================================================================
+     ENHANCED BUTTONS
+     ============================================================================ */
+
+  /* PancakeSwap-inspired button styles */
+  .pancake-button {
+    background: linear-gradient(135deg, hsl(var(--pancake-primary)) 0%, hsl(var(--pancake-secondary)) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .pancake-button:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+  }
+
+  .pancake-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.6s;
+  }
+
+  .pancake-button:hover::before {
+    left: 100%;
+  }
+
+  .pancake-button-secondary {
+    background: linear-gradient(135deg, hsl(var(--pancake-info)) 0%, hsl(var(--pancake-purple)) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+  }
+  
+  .pancake-button-secondary:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+  }
+
+  /* Admin action buttons */
+  .admin-btn-assign {
+    background: linear-gradient(135deg, hsl(var(--admin-active)) 0%, hsl(var(--pancake-success)) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .admin-btn-assign:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+  }
+
+  .admin-btn-revoke {
+    background: linear-gradient(135deg, hsl(var(--admin-suspended)) 0%, hsl(var(--destructive)) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .admin-btn-revoke:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+  }
+
+  .admin-btn-pending {
+    background: linear-gradient(135deg, hsl(var(--admin-pending)) 0%, hsl(var(--pancake-warning)) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .admin-btn-pending:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+  }
+
+  /* ============================================================================
+     ENHANCED MODALS & DIALOGS
+     ============================================================================ */
+
+  /* Enhanced modal with blur effect */
+  .modal-overlay-pancake {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .modal-content-pancake {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    background: linear-gradient(135deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--card)) 100%);
+    position: relative;
+    overflow: auto;
+    max-width: 90vw;
+    max-height: 90vh;
+  }
+
+  .modal-enter-pancake {
+    animation: pancakeSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .modal-exit-pancake {
+    animation: pancakeSlideDown 0.2s ease-in;
+  }
+
+  /* ============================================================================
+     ADMIN DASHBOARD COMPONENTS
+     ============================================================================ */
+
+  /* Enhanced stats cards for admin dashboard */
+  .admin-stats-enhanced {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    background: var(--gradient-admin);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .admin-stats-enhanced:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .admin-stats-enhanced::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, hsl(var(--primary))/10 0%, transparent 70%);
+    transform: translate(25%, -25%);
+  }
+
+  /* Permission management components */
+  .permission-tree-node {
+    position: relative;
+    padding-left: 1.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-left: 2px solid hsl(var(--border));
+    transition: all 0.2s ease;
+  }
+
+  .permission-tree-node:hover {
+    border-left-color: hsl(var(--primary));
+    background-color: hsl(var(--accent) / 0.5);
+  }
+
+  .permission-tree-node.granted {
+    border-left-color: hsl(var(--permission-granted));
+  }
+
+  .permission-tree-node.denied {
+    border-left-color: hsl(var(--permission-denied));
+  }
+
+  .permission-tree-node.pending {
+    border-left-color: hsl(var(--permission-pending));
+  }
+
+  /* User management table enhancements */
+  .admin-user-row {
+    position: relative;
+    transition: background-color 0.2s ease;
+  }
+  
+  .admin-user-row:hover {
+    background-color: hsl(var(--muted) / 0.5);
+  }
+
+  .admin-user-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: transparent;
+    transition: background-color 0.2s ease;
+  }
+
+  .admin-user-row:hover::before {
+    background: hsl(var(--primary));
+  }
+
+  .admin-user-row.active::before {
+    background: hsl(var(--admin-active));
+  }
+
+  .admin-user-row.suspended::before {
+    background: hsl(var(--admin-suspended));
+  }
+
+  /* ============================================================================
+     INTERACTIVE ELEMENTS
+     ============================================================================ */
+
+  /* Enhanced submenu styles */
+  .submenu-item {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .submenu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+
+  .submenu-item:hover::before {
+    left: 100%;
+  }
+
+  /* Enhanced focus states for accessibility */
+  .submenu-item:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Custom scrollbar for admin components */
+  .admin-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .admin-scroll::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  .admin-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary))/60;
+    border-radius: 3px;
+  }
+
+  .admin-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary))/80;
+  }
+
+  /* ============================================================================
+     BILLING & ANALYTICS COMPONENTS
+     ============================================================================ */
+
+  /* Billing dashboard cards */
+  .billing-card {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    padding: 1.5rem;
+    background: linear-gradient(135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--pancake-success))/5 100%);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .billing-card:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .billing-card.overdue {
+    background: linear-gradient(135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--destructive))/5 100%);
+    border-color: hsl(var(--destructive))/20;
+  }
+
+  /* Analytics chart containers */
+  .analytics-chart-container {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    padding: 1rem;
+    background: var(--gradient-card);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .analytics-metric-card {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    backdrop-filter: blur(16px);
+    padding: 1.5rem;
+    background: linear-gradient(135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--pancake-info))/5 100%);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .analytics-metric-card:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  /* ============================================================================
+     RESPONSIVE ENHANCEMENTS
+     ============================================================================ */
+
+  /* Mobile-specific component adjustments */
+  @media (max-width: 768px) {
+    .pancake-card {
+      border-radius: 0.75rem;
+    }
+
+    .pancake-button,
+    .pancake-button-secondary {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+
+    .admin-stats-enhanced {
+      padding: 1rem;
+    }
+
+    .permission-tree-node {
+      padding-left: 1rem;
+      padding-top: 0.375rem;
+      padding-bottom: 0.375rem;
+    }
+
+    .modal-content-pancake {
+      margin: 1rem;
+      max-width: calc(100vw - 2rem);
+    }
+  }
+
+  /* Tablet adjustments */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .admin-card-dashboard {
+      padding: 1.25rem;
+    }
+  }
+
+  /* Reduce motion for accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    .pancake-card-hover,
+    .pancake-button,
+    .submenu-item,
+    .permission-tree-node,
+    .admin-user-row {
+      transition: none;
+    }
+
+    .pancake-card-hover:hover {
+      transform: none;
+    }
+
+    .pancake-button:hover {
+      transform: none;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .pancake-card {
+      border-width: 2px;
+    }
+
+    .permission-tree-node {
+      border-left-width: 3px;
+    }
+
+    .admin-user-row::before {
+      width: 6px;
+    }
+  }
+}

@@ -18,7 +18,9 @@
       "@/types/*": ["./types/*"],
       "@/context/*": ["./context/*"],
       "@/services/*": ["./services/*"],
-      "@/config/*": ["./config/*"]
+      "@/config/*": ["./config/*"],
+      "@/design-system": ["./design-system/index.ts"],
+      "@/design-system/*": ["./design-system/*"]
     },
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],

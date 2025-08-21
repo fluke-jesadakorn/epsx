@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/users'
 import { formatDistanceToNow, format } from 'date-fns'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
 
 interface PermissionHistoryCardProps {
   userId: string
@@ -23,16 +24,22 @@ const ACTION_ICONS = {
   modified: Key,
 }
 
-const ACTION_COLORS = {
-  granted: 'text-green-600',
-  revoked: 'text-red-600', 
-  modified: 'text-blue-600',
+const ACTION_VARIANTS = {
+  granted: 'success' as const,
+  revoked: 'error' as const, 
+  modified: 'info' as const,
 }
 
 const TYPE_ICONS = {
   role: Users,
   permission: Key,
   profile: Shield,
+}
+
+const ACTION_COLORS = {
+  granted: 'border-success-200 text-success-600',
+  revoked: 'border-error-200 text-error-600',
+  modified: 'border-info-200 text-info-600',
 }
 
 export function PermissionHistoryCard({ userId, className = '' }: PermissionHistoryCardProps) {
@@ -69,7 +76,7 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
 
   if (loading) {
     return (
-      <div className={`pancake-card p-6 ${className}`}>
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), className)}>
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -79,8 +86,8 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
 
   if (error) {
     return (
-      <div className={`pancake-card p-6 ${className}`}>
-        <div className="text-center text-red-600 py-4">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), className)}>
+        <div className="text-center text-error-600 py-4">
           <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
           <p>{error}</p>
           <Button 
@@ -97,7 +104,7 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
   }
 
   return (
-    <div className={`pancake-card p-6 ${className}`}>
+    <div className={cn(adminCardVariants({ variant: 'pancake' }), className)}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Clock className="h-5 w-5" />

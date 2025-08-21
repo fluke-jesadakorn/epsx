@@ -14,6 +14,7 @@ import { PermissionProfileCard } from './PermissionProfileCard'
 import { PermissionProfileModal } from './PermissionProfileModal'
 import { usePermissionProfiles } from '@/hooks/use-permission-profiles'
 import type { PermissionProfile } from '@/lib/types/permission-profiles'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
 
 export function PermissionProfileManager() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -139,7 +140,7 @@ export function PermissionProfileManager() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">{filteredProfiles.length}</p>
@@ -149,7 +150,7 @@ export function PermissionProfileManager() {
           </div>
         </div>
         
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">
@@ -161,7 +162,7 @@ export function PermissionProfileManager() {
           </div>
         </div>
 
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">
@@ -173,7 +174,7 @@ export function PermissionProfileManager() {
           </div>
         </div>
 
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">

@@ -7,6 +7,7 @@ import { Shield, Users, Key } from 'lucide-react'
 import { getServerSession } from '@/lib/auth'
 import { getUnifiedUserData } from '@/lib/actions/user-profile-actions'
 import { getPermissionHistory } from '@/lib/actions/user-permissions-actions'
+import { adminCardVariants, cn } from '@/design-system'
 // Session type compatible with Zustand auth system
 interface Session {
   user?: {
@@ -39,7 +40,7 @@ export async function UserPermissionsServer({ userId }: UserPermissionsServerPro
   // Handle authentication
   if (!session?.user) {
     return (
-      <div className="pancake-card p-6 text-center">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), 'text-center')}>
         <p className="text-muted-foreground">Authentication required</p>
       </div>
     )
@@ -48,8 +49,8 @@ export async function UserPermissionsServer({ userId }: UserPermissionsServerPro
   // Handle user data fetch error
   if (!userResult.success) {
     return (
-      <div className="pancake-card p-6 text-center">
-        <div className="text-red-500 mb-2">Failed to load user data</div>
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), 'text-center')}>
+        <div className="text-error-500 mb-2">Failed to load user data</div>
         <p className="text-sm text-muted-foreground">{userResult.error.message}</p>
       </div>
     )
@@ -87,7 +88,7 @@ export async function UserPermissionsServer({ userId }: UserPermissionsServerPro
 
       {/* Permission History - Server Component with Server Data */}
       {historyResult.success && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Shield className="h-5 w-5" />
             Permission History
@@ -130,12 +131,12 @@ function PermissionHistoryDisplay({
       {history.map((entry) => (
         <div 
           key={entry.id}
-          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+          className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
         >
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${
-                entry.granted ? 'bg-green-500' : 'bg-red-500'
+                entry.granted ? 'bg-success-500' : 'bg-error-500'
               }`} />
               <span className="font-medium">
                 {entry.granted ? 'Granted' : 'Revoked'} {entry.resource}:{entry.action}
@@ -150,7 +151,7 @@ function PermissionHistoryDisplay({
               )}
             </div>
             {entry.reason && (
-              <div className="text-sm text-gray-600 mt-1 italic">
+              <div className="text-sm text-neutral-600 mt-1 italic">
                 "{entry.reason}"
               </div>
             )}

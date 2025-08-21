@@ -1,13 +1,28 @@
 use axum::{
     routing::{get, post},
     Router,
-    response::Html,
 };
 
 use crate::web::auth::routes::AppState;
+use crate::infra::AppContainer;
+use std::sync::Arc;
 use super::discovery::*;
 use super::token::{oidc_token, oidc_userinfo};
-use super::authorization::{authorization_endpoint, handle_authorization_form};
+use super::authorization::{authorization_endpoint, handle_authorization_form, register_endpoint, handle_registration_form, password_reset_endpoint, handle_password_reset};
+
+/// Create OIDC routes with container
+pub fn create_oidc_routes(_container: Arc<AppContainer>) -> Router {
+    // Create simplified OIDC routes without complex state for now
+    Router::new()
+        // OIDC Discovery endpoints  
+        .route("/.well-known/openid-configuration", get(oidc_discovery))
+        .route("/oauth/jwks", get(jwks_endpoint))
+        
+        // OIDC Core Endpoints (Pure Authorization Code Flow) - using stateless handlers
+        .route("/oauth/authorize", get(authorization_endpoint))
+        .route("/oauth/register", get(register_endpoint))
+        .route("/oauth/reset-password", get(password_reset_endpoint))
+}
 
 /// Create OIDC routes
 pub fn oidc_routes() -> Router<AppState> {
@@ -22,8 +37,9 @@ pub fn oidc_routes() -> Router<AppState> {
         .route("/oauth/userinfo", get(oidc_userinfo))
         .route("/oauth/jwks", get(jwks_endpoint))
         
-        // Firebase authentication endpoint
-        .route("/firebase-auth", get(firebase_auth_handler))
+        // Registration and Password Reset Endpoints
+        .route("/oauth/register", get(register_endpoint).post(handle_registration_form))
+        .route("/oauth/reset-password", get(password_reset_endpoint).post(handle_password_reset))
         
         // Additional endpoints for completeness
         .route("/oauth/revoke", post(oidc_revoke))
@@ -31,44 +47,6 @@ pub fn oidc_routes() -> Router<AppState> {
         .route("/oauth/logout", post(oidc_logout))
 }
 
-/// Firebase Authentication Handler
-/// GET /firebase-auth
-async fn firebase_auth_handler(
-    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
-) -> Result<Html<String>, axum::http::StatusCode> {
-    tracing::info!("Firebase auth page requested");
-    
-    let client_id = params.get("client_id").cloned().unwrap_or_default();
-    let redirect_uri = params.get("redirect_uri").cloned().unwrap_or_default();
-    let state = params.get("state").cloned().unwrap_or_default();
-    let scope = params.get("scope").cloned().unwrap_or_default();
-    let tenant_hint = params.get("tenant_hint").cloned();
-    
-    tracing::info!(
-        client_id = %client_id,
-        redirect_uri = %redirect_uri,
-        state = %state,
-        scope = %scope,
-        tenant_hint = ?tenant_hint,
-        "Firebase auth template parameters"
-    );
-    
-    // Temporary: Return simple HTML until template rendering is fixed
-    let html = format!(r#"
-<!DOCTYPE html>
-<html>
-<head><title>Firebase Auth - EPSX</title></head>
-<body>
-    <h1>Firebase Authentication</h1>
-    <p>Client ID: {}</p>
-    <p>Redirect URI: {}</p>
-    <p>State: {}</p>
-    <p>Scope: {}</p>
-</body>
-</html>"#, client_id, redirect_uri, state, scope);
-    
-    Ok(Html(html))
-}
 
 /// Additional OIDC handlers for completeness
 

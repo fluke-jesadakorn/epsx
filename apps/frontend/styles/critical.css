@@ -1,0 +1,335 @@
+/**
+ * Critical CSS - Above-the-Fold Styles
+ * 
+ * This file contains styles that are critical for the initial render
+ * and should be inlined to improve First Contentful Paint (FCP).
+ * 
+ * These styles are loaded immediately and include:
+ * - Header/navigation styles
+ * - Hero section basics
+ * - Loading states
+ * - Critical layout components
+ */
+
+/* ============================================================================
+   CRITICAL LAYOUT UTILITIES
+   ============================================================================ */
+
+@layer utilities {
+  /* Essential container styles */
+  .container-responsive {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 80rem;
+  }
+  
+  .container-section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+  
+  /* Critical flexbox utilities */
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  /* Loading overlay (critical for initial load) */
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ============================================================================
+   CRITICAL COMPONENT STYLES
+   ============================================================================ */
+
+@layer utilities {
+  /* Basic card for critical components */
+  .card-critical {
+    background-color: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 1rem;
+    padding: 1.5rem;
+  }
+  
+  /* Critical button styles */
+  .btn-critical {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 300ms ease;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .btn-critical-primary {
+    background: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-critical-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Navigation critical styles */
+  .nav-critical {
+    background-color: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  
+  /* Hero section critical layout */
+  .hero-critical {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+}
+
+/* ============================================================================
+   CRITICAL LOADING STATES
+   ============================================================================ */
+
+@layer utilities {
+  /* Skeleton loading animation */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+  }
+  
+  /* Pulse loading animation */
+  .pulse-loading {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Simple spinner */
+  .spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid hsl(var(--muted));
+    border-top: 2px solid hsl(var(--primary));
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+}
+
+/* ============================================================================
+   CRITICAL RESPONSIVE DESIGN
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .container-responsive {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .container-section {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+  
+  .hero-critical {
+    min-height: 40vh;
+    padding: 1.5rem 1rem;
+  }
+  
+  /* Mobile-specific critical adjustments */
+  .card-critical {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+  
+  .btn-critical {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .container-responsive {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .container-section {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-responsive {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  
+  .container-section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+/* ============================================================================
+   CRITICAL KEYFRAMES
+   ============================================================================ */
+
+@keyframes loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+   CRITICAL ACCESSIBILITY
+   ============================================================================ */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card-critical {
+    border-color: hsl(var(--foreground));
+    border-width: 2px;
+  }
+  
+  .btn-critical-primary {
+    background: hsl(var(--primary));
+    border: 2px solid hsl(var(--foreground));
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .pulse-loading,
+  .spinner {
+    animation: none;
+  }
+  
+  .btn-critical-primary:hover {
+    transform: none;
+  }
+}
+
+/* ============================================================================
+   CRITICAL TEXT UTILITIES
+   ============================================================================ */
+
+@layer utilities {
+  /* Critical typography */
+  .text-critical-heading {
+    font-size: 2.25rem;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+  
+  .text-critical-subheading {
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground));
+  }
+  
+  /* Gradient text for hero */
+  .text-gradient-critical {
+    background: linear-gradient(
+      135deg,
+      hsl(31 100% 50%) 0%,
+      hsl(42 100% 70%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  /* Text balance for better typography */
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ============================================================================
+   DARK MODE ADJUSTMENTS
+   ============================================================================ */
+
+.dark {
+  .text-gradient-critical {
+    background: linear-gradient(
+      135deg,
+      hsl(31 100% 55%) 0%,
+      hsl(42 100% 75%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.2) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+  }
+}

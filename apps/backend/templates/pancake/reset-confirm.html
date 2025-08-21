@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🆕 Set New Password - EPSX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --golden-primary: #FFD700;
+            --golden-secondary: #FFA500;
+            --golden-dark: #B8860B;
+            --pancake-cream: #FFF8DC;
+            --golden-gradient: linear-gradient(135deg, var(--golden-primary) 0%, var(--golden-secondary) 100%);
+        }
+        
+        .pancake-theme { 
+            background: linear-gradient(135deg, #FFE4B5 0%, var(--pancake-cream) 100%);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .golden-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 
+                0 20px 60px rgba(255, 215, 0, 0.2),
+                0 10px 30px rgba(255, 165, 0, 0.1),
+                inset 0 1px 0 rgba(255, 215, 0, 0.3);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+        
+        .golden-button {
+            background: var(--golden-gradient);
+            border-radius: 16px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .golden-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(255, 215, 0, 0.6);
+        }
+        
+        .golden-input {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .golden-input:focus {
+            border-color: var(--golden-primary);
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+            outline: none;
+        }
+        
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .strength-weak { background: #ef4444; width: 25%; }
+        .strength-fair { background: #f59e0b; width: 50%; }
+        .strength-good { background: #10b981; width: 75%; }
+        .strength-strong { background: #059669; width: 100%; }
+    </style>
+</head>
+<body class="pancake-theme min-h-screen flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Set New Password Form -->
+        <div class="golden-card p-8">
+            <div class="text-center mb-8">
+                <div class="mx-auto w-20 h-20 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-lock text-white text-2xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">🆕 Set New Password</h2>
+                <p class="text-gray-600">Choose a strong password for your pancake stack</p>
+            </div>
+
+            {% if !error.is_empty() %}
+            <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-800">
+                            {% if error == "invalid_code" %}
+                                Invalid or expired reset code. Please request a new reset email.
+                            {% else if error == "weak_password" %}
+                                Password is too weak. Please choose a stronger password.
+                            {% else if error == "reset_failed" %}
+                                Failed to reset password. Please try again.
+                            {% else if error == "service_unavailable" %}
+                                Service temporarily unavailable. Please try again later.
+                            {% else %}
+                                {{ error }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/oauth/reset-password/confirm" class="space-y-6">
+                <input type="hidden" name="oobCode" value="{{ oob_code }}" />
+                
+                <div>
+                    <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                        🔒 New Password
+                    </label>
+                    <input
+                        type="password"
+                        id="newPassword"
+                        name="newPassword"
+                        required
+                        minlength="8"
+                        class="golden-input w-full px-4 py-3 bg-white text-gray-900 placeholder-gray-500"
+                        placeholder="Choose a strong password"
+                        onkeyup="checkPasswordStrength(this.value)"
+                    />
+                    
+                    <!-- Password Strength Indicator -->
+                    <div class="mt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-gray-500">Password Strength</span>
+                            <span id="strength-text" class="text-xs text-gray-500">Enter password</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1">
+                            <div id="strength-bar" class="password-strength bg-gray-300"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                        ✅ Confirm Password
+                    </label>
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        required
+                        class="golden-input w-full px-4 py-3 bg-white text-gray-900 placeholder-gray-500"
+                        placeholder="Confirm your new password"
+                        onkeyup="checkPasswordMatch()"
+                    />
+                    <div id="password-match" class="mt-1 text-xs"></div>
+                </div>
+
+                <button
+                    type="submit"
+                    id="submit-button"
+                    class="golden-button w-full py-3 px-6 text-lg font-semibold flex items-center justify-center opacity-50"
+                    disabled
+                >
+                    <i class="fas fa-shield-alt mr-2"></i>
+                    Update Password
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    <a href="/oauth/reset-password" class="font-medium text-orange-600 hover:text-orange-500">
+                        ← Request New Reset Email
+                    </a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Password Requirements -->
+        <div class="golden-card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">🛡️ Password Requirements</h3>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                    At least 8 characters long
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                    Mix of uppercase and lowercase letters
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                    At least one number
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                    At least one special character
+                </li>
+            </ul>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="text-center">
+            <p class="text-xs text-gray-500">
+                🔒 Your password is encrypted and secure
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function checkPasswordStrength(password) {
+            const strengthBar = document.getElementById('strength-bar');
+            const strengthText = document.getElementById('strength-text');
+            
+            let strength = 0;
+            let feedback = '';
+            
+            if (password.length >= 8) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/\d/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+            
+            switch (strength) {
+                case 0:
+                case 1:
+                    strengthBar.className = 'password-strength strength-weak';
+                    feedback = 'Weak';
+                    break;
+                case 2:
+                    strengthBar.className = 'password-strength strength-fair';
+                    feedback = 'Fair';
+                    break;
+                case 3:
+                    strengthBar.className = 'password-strength strength-good';
+                    feedback = 'Good';
+                    break;
+                case 4:
+                    strengthBar.className = 'password-strength strength-strong';
+                    feedback = 'Strong';
+                    break;
+            }
+            
+            strengthText.textContent = feedback;
+            checkPasswordMatch();
+        }
+        
+        function checkPasswordMatch() {
+            const password = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const matchDiv = document.getElementById('password-match');
+            const submitButton = document.getElementById('submit-button');
+            
+            if (confirmPassword.length === 0) {
+                matchDiv.textContent = '';
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-50');
+                return;
+            }
+            
+            if (password === confirmPassword && password.length >= 8) {
+                matchDiv.textContent = '✅ Passwords match';
+                matchDiv.className = 'mt-1 text-xs text-green-600';
+                submitButton.disabled = false;
+                submitButton.classList.remove('opacity-50');
+            } else {
+                matchDiv.textContent = '❌ Passwords do not match';
+                matchDiv.className = 'mt-1 text-xs text-red-600';
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-50');
+            }
+        }
+    </script>
+</body>
+</html>

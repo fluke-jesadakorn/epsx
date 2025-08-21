@@ -1,0 +1,273 @@
+/**
+ * Base Styles - Essential Foundations
+ * 
+ * This file contains only the most essential base styles that are needed
+ * immediately when the page loads. It includes:
+ * - CSS reset and normalization
+ * - Basic HTML element styling
+ * - Core CSS custom properties
+ * - Critical layout foundations
+ */
+
+@import 'tailwindcss';
+
+/* ============================================================================
+   CSS CUSTOM PROPERTIES (Theme Variables)
+   ============================================================================ */
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  :root {
+    /* Light theme - Core colors */
+    --background: 252 100% 99%;
+    --foreground: 223 84% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 223 84% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 223 84% 10%;
+    
+    /* Primary colors (PancakeSwap inspired) */
+    --primary: 31 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary colors */
+    --secondary: 42 100% 70%;
+    --secondary-foreground: 223 84% 10%;
+    
+    /* Utility colors */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 31 100% 95%;
+    --accent-foreground: 31 100% 40%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Interactive elements */
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 31 100% 50%;
+    
+    /* Border radius */
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* Dark theme - Core colors */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Primary colors (slightly brighter for dark mode) */
+    --primary: 31 100% 55%;
+    --primary-foreground: 240 10% 4%;
+    
+    /* Secondary colors */
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 95%;
+    
+    /* Utility colors */
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 95%;
+    
+    /* Interactive elements */
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 31 100% 55%;
+  }
+}
+
+/* ============================================================================
+   BASE ELEMENT STYLES
+   ============================================================================ */
+
+@layer base {
+  /* Global reset and base styles */
+  * {
+    @apply border-[hsl(var(--border))] ring-[hsl(var(--ring))]/50;
+  }
+  
+  /* Body styles */
+  body {
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+    @apply antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Interactive elements */
+  button,
+  a {
+    @apply cursor-pointer;
+  }
+  
+  /* Focus management */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-[hsl(var(--ring))] ring-offset-2;
+  }
+  
+  /* Disabled states */
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  /* Selection colors */
+  ::selection {
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-[hsl(var(--muted))];
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[hsl(var(--muted-foreground))]/30 rounded-md;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-[hsl(var(--muted-foreground))]/50;
+  }
+  
+  /* Ensure proper box-sizing */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  
+  /* Remove default margins */
+  h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+    margin: 0;
+  }
+  
+  /* Improve list styling */
+  ul[role='list'],
+  ol[role='list'] {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* Make images easier to work with */
+  img,
+  picture {
+    max-width: 100%;
+    display: block;
+  }
+  
+  /* Improve form styling */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+  
+  /* Remove animations for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ============================================================================
+   LAYOUT FOUNDATIONS
+   ============================================================================ */
+
+@layer base {
+  /* Main layout container */
+  .main-container {
+    @apply min-h-screen flex flex-col;
+  }
+  
+  /* Skip link for accessibility */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4;
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+    @apply px-4 py-2 rounded-md z-50;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  @page {
+    margin: 0.5cm;
+  }
+  
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}

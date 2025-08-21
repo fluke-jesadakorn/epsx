@@ -3,11 +3,13 @@
  * Loading placeholder for the enhanced user list
  */
 
+import { adminCardVariants, cn } from '@/design-system'
+
 export function UserListSkeleton() {
   return (
     <div className="space-y-6">
       {/* Search and Filters Skeleton */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <div className="h-6 w-32 bg-muted rounded animate-pulse" />
           <div className="h-9 w-24 bg-muted rounded animate-pulse" />
@@ -30,7 +32,7 @@ export function UserListSkeleton() {
       {/* User Cards Skeleton */}
       <div className="space-y-4">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="pancake-card p-6">
+          <div key={index} className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4 flex-1">
                 {/* Avatar skeleton */}
@@ -81,7 +83,7 @@ export function UserListSkeleton() {
       </div>
 
       {/* Pagination skeleton */}
-      <div className="pancake-card p-4">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between">
           <div className="h-4 w-48 bg-muted rounded animate-pulse" />
           <div className="flex items-center gap-1">

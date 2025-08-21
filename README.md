@@ -1,6 +1,6 @@
 # EPSX Trading Platform 📈
 
-A comprehensive trading platform monorepo built with modern technologies, featuring a Next.js frontend ecosystem with admin dashboard and a high-performance Rust backend.
+A comprehensive trading platform monorepo built with modern technologies, featuring a Next.js frontend ecosystem with admin dashboard and a high-performance Rust backend. Configured for local development with custom *.epsx.io domains for production-like environment simulation.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.4.2-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -16,17 +16,20 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 ### 🚀 Applications (`apps/`)
 
-- **Frontend** (`apps/frontend`) - Main trading platform interface (Port: 3000)
+- **Frontend** (`apps/frontend`) - Main trading platform interface
+  - **URL**: https://epsx.io (local development)
   - Trading interface, user dashboard, payment system, analytics
   - Next.js 15.4.2 with React 19.1.0 and TypeScript 5.8.3
   - Features: Real-time trading, payment processing, performance analytics
 
-- **Admin Frontend** (`apps/admin-frontend`) - Administrative dashboard (Port: 3001)
+- **Admin Frontend** (`apps/admin-frontend`) - Administrative dashboard
+  - **URL**: https://admin.epsx.io (local development)
   - User management, IAM, role assignment, system analytics
   - Next.js 15.4.2 with comprehensive admin controls
   - Features: User promotion tools, access control, system monitoring
 
 - **Backend** (`apps/backend`) - High-performance Rust API server
+  - **URL**: https://api.epsx.io (local development)
   - Axum framework with PostgreSQL and WebSocket support
   - Real-time data, authentication, trading logic, payment processing
   - Includes CLI tools for admin operations and user management
@@ -84,6 +87,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **Rust** (latest stable for backend development)
 - **PostgreSQL** (for database)
 - **Docker** (optional, for containerized development)
+- **Local DNS Configuration** (for *.epsx.io domains)
 
 ### Installation
 
@@ -95,6 +99,12 @@ cd epsx
 # Install dependencies
 pnpm install
 
+# Setup local DNS for *.epsx.io domains
+# Add to /etc/hosts (macOS/Linux) or C:\Windows\System32\drivers\etc\hosts (Windows):
+127.0.0.1 epsx.io
+127.0.0.1 admin.epsx.io
+127.0.0.1 api.epsx.io
+
 # Setup environment variables
 cp .env.example .env.development
 # Edit .env.development with your configuration
@@ -102,9 +112,76 @@ cp .env.example .env.development
 # Setup database (PostgreSQL required)
 # Configure your database connection in backend/.env
 
-# Start development servers
+# Start development servers (with HTTPS via Docker/Traefik)
+pnpm docker:dev
+# OR for local development without HTTPS
 pnpm dev
 ```
+
+---
+
+## 🌐 Local Domain Configuration
+
+EPSX is configured to use custom *.epsx.io domains for local development, providing a production-like environment with proper subdomain separation.
+
+### Domain Architecture
+
+- **Main Application**: https://epsx.io - Trading platform frontend
+- **Admin Dashboard**: https://admin.epsx.io - Administrative interface  
+- **API Server**: https://api.epsx.io - Backend API and authentication
+
+### Setting Up Local DNS
+
+#### Option 1: Manual /etc/hosts Configuration
+
+Add the following entries to your hosts file:
+
+**macOS/Linux**: `/etc/hosts`
+```bash
+# Add these lines to /etc/hosts
+127.0.0.1 epsx.io
+127.0.0.1 admin.epsx.io  
+127.0.0.1 api.epsx.io
+```
+
+**Windows**: `C:\Windows\System32\drivers\etc\hosts`
+```bash
+# Add these lines to hosts file
+127.0.0.1 epsx.io
+127.0.0.1 admin.epsx.io
+127.0.0.1 api.epsx.io
+```
+
+#### Option 2: Using Docker Development Environment
+
+The Docker development environment includes Traefik reverse proxy that automatically handles SSL certificates and domain routing:
+
+```bash
+# Start the complete development environment with HTTPS
+pnpm docker:dev
+
+# Access applications:
+# https://epsx.io - Frontend
+# https://admin.epsx.io - Admin  
+# https://api.epsx.io - Backend API
+```
+
+### Authentication Integration
+
+The authentication system is fully integrated across all domains:
+
+- **Single Sign-On**: Login once, access all applications
+- **Secure Sessions**: JWT tokens with secure cookie handling
+- **Cross-Domain Auth**: Session sharing between epsx.io and admin.epsx.io
+- **API Authentication**: Bearer tokens for api.epsx.io
+
+### Development Benefits
+
+- **Production Parity**: Mirrors production domain structure
+- **CORS Testing**: Proper cross-origin request testing
+- **SSL Development**: HTTPS in development environment
+- **Subdomain Testing**: Validate subdomain-specific features
+- **Authentication Flow**: Test complete OAuth/OIDC flows
 
 ---
 
@@ -327,9 +404,11 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/admin
+# API Configuration (Local *.epsx.io domains)
+NEXT_PUBLIC_API_URL=https://api.epsx.io
+NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
+NEXT_PUBLIC_APP_URL=https://epsx.io
+NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io
 
 # Google OAuth
 GOOGLE_CLIENT_ID=your_client_id
@@ -337,7 +416,10 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 
 # Authentication
 NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://epsx.io
+
+# For Admin Frontend
+NEXTAUTH_URL=https://admin.epsx.io
 ```
 
 ### Backend `.env`
@@ -351,6 +433,11 @@ REDIS_URL=redis://localhost:6379
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 JWT_SECRET=your_jwt_secret
+
+# Frontend URLs for CORS
+FRONTEND_URL=https://epsx.io
+ADMIN_FRONTEND_URL=https://admin.epsx.io
+OIDC_ISSUER=https://api.epsx.io
 
 # External APIs
 FIREBASE_SERVICE_ACCOUNT_KEY=path/to/service-account.json

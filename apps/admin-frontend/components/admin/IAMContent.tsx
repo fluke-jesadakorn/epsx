@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Shield, Users, FileText, Settings, Search, Filter } from 'lucide-react';
 import type { UserWithPermissions as ImportedUserWithPermissions, PackageTier } from '@/types/admin/iam';
+import { adminButtonVariants, adminCardVariants, adminBadgeVariants, cn } from '@/design-system';
 
 interface UserWithPermissions extends ImportedUserWithPermissions {
   uid: string;
@@ -53,7 +54,7 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
   return (
     <>
       {/* Navigation Tabs */}
-      <div className="pancake-card p-1">
+      <div className={cn(adminCardVariants({ variant: 'pancake', padding: 'sm' }))}>
         <div className="flex space-x-1">
           {[
             { id: 'users', label: 'Users', icon: Users },
@@ -64,11 +65,13 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={cn(
+                adminButtonVariants({ 
+                  variant: activeTab === tab.id ? 'primary' : 'ghost',
+                  size: 'sm'
+                }),
+                'flex items-center gap-2'
+              )}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -89,14 +92,14 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
             className="form-input pl-10"
           />
         </div>
-        <button className="btn-secondary flex items-center gap-2">
+        <button className={cn(adminButtonVariants({ variant: 'secondary' }), 'flex items-center gap-2')}>
           <Filter className="h-4 w-4" />
           Filters
         </button>
       </div>
 
       {/* Content */}
-      <div className="pancake-card">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         {activeTab === 'users' && (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -120,35 +123,41 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.packageTier === PackageTier.ENTERPRISE ? 'bg-purple-100 text-purple-800' :
-                        user.packageTier === PackageTier.PLATINUM ? 'bg-yellow-100 text-yellow-800' :
-                        user.packageTier === PackageTier.GOLD ? 'bg-orange-100 text-orange-800' :
-                        user.packageTier === PackageTier.SILVER ? 'bg-gray-100 text-gray-800' :
-                        user.packageTier === PackageTier.BRONZE ? 'bg-amber-100 text-amber-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
+                      <span className={cn(
+                        adminBadgeVariants({
+                          variant: user.packageTier === PackageTier.ENTERPRISE ? 'premium' :
+                                   user.packageTier === PackageTier.PLATINUM ? 'warning' :
+                                   user.packageTier === PackageTier.GOLD ? 'info' :
+                                   user.packageTier === PackageTier.SILVER ? 'default' :
+                                   user.packageTier === PackageTier.BRONZE ? 'warning' :
+                                   'success',
+                          size: 'sm'
+                        })
+                      )}>
                         {user.packageTier || PackageTier.FREE}
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.status === 'active' ? 'bg-green-100 text-green-800' :
-                        user.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={cn(
+                        adminBadgeVariants({
+                          variant: user.status === 'active' ? 'active' :
+                                   user.status === 'inactive' ? 'inactive' :
+                                   'suspended',
+                          size: 'sm'
+                        })
+                      )}>
                         {user.status || 'active'}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
                         {user.roles?.slice(0, 2).map((role) => (
-                          <span key={role} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                          <span key={role} className={cn(adminBadgeVariants({ variant: 'info', size: 'sm' }))}>
                             {role}
                           </span>
-                        )) || <span className="text-sm text-gray-500">No roles</span>}
+                        )) || <span className="text-sm text-neutral-600">No roles</span>}
                         {user.roles?.length > 2 && (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                          <span className={cn(adminBadgeVariants({ variant: 'default', size: 'sm' }))}>
                             +{user.roles.length - 2}
                           </span>
                         )}
@@ -194,9 +203,12 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
                       <span className="text-sm">{role.attachedPolicies?.length || 0} policies</span>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        role.id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={cn(
+                        adminBadgeVariants({
+                          variant: role.id ? 'active' : 'error',
+                          size: 'sm'
+                        })
+                      )}>
                         Yes
                       </span>
                     </td>
@@ -234,7 +246,7 @@ export function IAMContent({ users, roles, policies }: IAMContentProps) {
                       <div className="text-sm text-muted-foreground">{policy.description || 'No description'}</div>
                     </td>
                     <td className="p-4">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-medium">
+                      <span className={cn(adminBadgeVariants({ variant: 'info', size: 'sm' }))}>
                         Managed
                       </span>
                     </td>

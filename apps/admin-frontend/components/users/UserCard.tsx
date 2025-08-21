@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation'
 import { User, Calendar, Shield, Package, MoreHorizontal } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 import { UserStatusBadge } from './UserStatusBadge'
+import { adminCardVariants, cn } from '@/design-system'
 
 interface UserCardProps {
   user: UnifiedUserData
@@ -44,12 +45,12 @@ export function UserCard({ user }: UserCardProps) {
   }
 
   return (
-    <div className="pancake-card p-6 hover:shadow-md transition-shadow">
+    <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4 flex-1">
           {/* User Avatar */}
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="h-6 w-6 text-blue-600" />
+          <div className="w-12 h-12 bg-info-100 rounded-full flex items-center justify-center">
+            <User className="h-6 w-6 text-info-600" />
           </div>
 
           {/* User Info */}
@@ -57,13 +58,13 @@ export function UserCard({ user }: UserCardProps) {
             <div className="flex items-center gap-2 mb-1">
               <Link 
                 href={getUserLink()}
-                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="font-semibold text-info-600 hover:text-info-700 transition-colors"
               >
                 {user.displayName || user.email}
               </Link>
               <UserStatusBadge status={user.status} />
               {view && (
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                <span className="text-xs px-2 py-1 bg-info-100 text-info-700 rounded-full">
                   View {view}
                 </span>
               )}

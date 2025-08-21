@@ -4,6 +4,7 @@
  */
 
 import { Clock, User, Settings, AlertTriangle, CheckCircle } from 'lucide-react'
+import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system'
 
 interface ActivityItem {
   id: string
@@ -72,27 +73,46 @@ export function RecentActivity() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'success': return 'text-green-600'
-      case 'warning': return 'text-yellow-600'
-      case 'error': return 'text-red-600'
-      default: return 'text-muted-foreground'
+      case 'success': return 'success' as const
+      case 'warning': return 'warning' as const
+      case 'error': return 'error' as const
+      default: return 'default' as const
+    }
+  }
+
+  const getTypeVariant = (type: string) => {
+    switch (type) {
+      case 'user': return 'info' as const
+      case 'system': return 'default' as const
+      case 'security': return 'error' as const
+      case 'billing': return 'success' as const
+      default: return 'default' as const
     }
   }
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'user': return 'bg-blue-100 text-blue-800'
-      case 'system': return 'bg-purple-100 text-purple-800'
-      case 'security': return 'bg-red-100 text-red-800'
-      case 'billing': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'user': return 'bg-info-100 text-info-600'
+      case 'system': return 'bg-neutral-100 text-neutral-600'
+      case 'security': return 'bg-error-100 text-error-600'
+      case 'billing': return 'bg-success-100 text-success-600'
+      default: return 'bg-neutral-100 text-neutral-600'
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'text-success-500'
+      case 'warning': return 'text-warning-500'
+      case 'error': return 'text-error-500'
+      default: return 'text-neutral-500'
     }
   }
 
   return (
-    <div className="pancake-card pancake-card-hover p-6">
+    <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Clock className="h-5 w-5" />
@@ -128,7 +148,7 @@ export function RecentActivity() {
       </div>
       
       <div className="mt-4 pt-3 border-t border-muted">
-        <button className="text-sm text-blue-500 hover:text-blue-600">
+        <button className="text-sm text-info-600 hover:text-info-700">
           View all activity
         </button>
       </div>

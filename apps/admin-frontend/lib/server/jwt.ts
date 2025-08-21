@@ -2,7 +2,6 @@
  * Server-side JWT Cookie Utilities for Admin Frontend
  * Uses jose library for JWT verification and cookie management
  */
-import { cookies } from 'next/headers';
 import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
 
 /**
@@ -10,6 +9,7 @@ import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
  */
 export async function getJWTFromCookies(): Promise<string | null> {
   try {
+    const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     return cookieStore.get('epsx_admin_jwt')?.value || null;
   } catch (error) {

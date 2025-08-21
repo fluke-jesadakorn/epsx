@@ -9,6 +9,7 @@ import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { ActivityTimelineCard } from './ActivityTimelineCard'
 import { LoginHistoryCard } from './LoginHistoryCard'
 import { StatsCard } from '@/components/ui/StatsCard'
+import { adminCardVariants, adminButtonVariants, cn } from '@/design-system'
 
 interface UserActivityContentProps {
   user: UnifiedUserData
@@ -74,13 +75,13 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity Timeline */}
         <div className="lg:col-span-2">
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 Activity Timeline
               </h3>
-              <button className="inline-flex items-center gap-1 px-3 py-1 text-sm border border-muted-foreground rounded-md hover:bg-muted transition-colors">
+              <button className={cn(adminButtonVariants({ variant: 'outline', size: 'sm' }))}>
                 <Filter className="h-4 w-4" />
                 Filter
               </button>
@@ -107,7 +108,7 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
 
         {/* Login History */}
         <div>
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <LogIn className="h-5 w-5" />
               Login History
@@ -131,7 +132,7 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
 
             {user.loginHistory.length > 10 && (
               <div className="mt-4 text-center">
-                <button className="text-sm text-blue-600 hover:text-blue-700">
+                <button className="text-sm text-info-600 hover:text-info-700">
                   View all login history
                 </button>
               </div>
@@ -143,9 +144,9 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
       {/* Activity Categories */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Security Activities */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-6')}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Shield className="h-5 w-5 text-red-500" />
+            <Shield className="h-5 w-5 text-error-500" />
             Security Activities
           </h3>
           
@@ -179,9 +180,9 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
         </div>
 
         {/* Administrative Changes */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-6')}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Settings className="h-5 w-5 text-blue-500" />
+            <Settings className="h-5 w-5 text-info-500" />
             Administrative Changes
           </h3>
           
@@ -215,7 +216,7 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
       </div>
 
       {/* Usage Patterns */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-6')}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           Usage Patterns
@@ -223,24 +224,24 @@ export function UserActivityContent({ user, currentUser: _currentUser }: UserAct
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 bg-muted/30 rounded-lg text-center">
-            <div className="text-2xl font-bold text-blue-600">{user.usageMetrics.sessionsThisMonth || 0}</div>
+            <div className="text-2xl font-bold text-info-600">{user.usageMetrics.sessionsThisMonth || 0}</div>
             <div className="text-sm text-muted-foreground">Sessions This Month</div>
           </div>
           
           <div className="p-4 bg-muted/30 rounded-lg text-center">
-            <div className="text-2xl font-bold text-green-600">{user.usageMetrics.apiCallsThisMonth || 0}</div>
+            <div className="text-2xl font-bold text-success-600">{user.usageMetrics.apiCallsThisMonth || 0}</div>
             <div className="text-sm text-muted-foreground">API Calls This Month</div>
           </div>
           
           <div className="p-4 bg-muted/30 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-primary-600">
               {user.usageMetrics.avgSessionDuration ? `${Math.round(user.usageMetrics.avgSessionDuration)}m` : 'N/A'}
             </div>
             <div className="text-sm text-muted-foreground">Avg Session Duration</div>
           </div>
           
           <div className="p-4 bg-muted/30 rounded-lg text-center">
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-warning-600">
               {lastLogin ? new Date(lastLogin).toLocaleDateString() : 'Never'}
             </div>
             <div className="text-sm text-muted-foreground">Last Login</div>

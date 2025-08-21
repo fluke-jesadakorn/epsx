@@ -1018,7 +1018,7 @@ pub async fn oidc_userinfo(
     // TODO: Check JTI against revoked tokens list
     
     // Get additional user information based on the token claims
-    let admin_modules = if token_claims.scope.contains("admin") {
+    let admin_modules = if token_claims.scope.contains("admin") || token_claims.scope.contains("admin_modules") {
         get_user_admin_modules(&app_state, &token_claims.email).await
             .unwrap_or_else(|_| vec!["system_admin".to_string(), "user_management".to_string()])
     } else {

@@ -9,6 +9,7 @@ import { verifyJWT } from '@/lib/auth-utils';
 const publicRoutes = [
   '/login',
   '/api/auth/callback/epsx-backend',
+  '/api/auth/initiate',
   '/api/auth/login',
   '/api/auth/signin',
   '/api/auth/logout', 

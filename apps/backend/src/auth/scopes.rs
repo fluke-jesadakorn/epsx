@@ -171,6 +171,15 @@ impl ScopeService {
             permissions: vec!["billing:read", "billing:write", "subscription:read", "subscription:write"].iter().map(|s| s.to_string()).collect(),
             sensitive: true,
         });
+
+        self.register_scope(Scope {
+            name: "admin_modules".to_string(),
+            description: "Access to granular admin modules".to_string(),
+            category: ScopeCategory::Admin,
+            required_role: None,
+            permissions: vec!["admin_modules:read", "admin_modules:validate"].iter().map(|s| s.to_string()).collect(),
+            sensitive: true,
+        });
     }
 
     /// Register a new scope

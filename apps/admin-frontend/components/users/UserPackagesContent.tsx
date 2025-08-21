@@ -8,6 +8,7 @@ import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { StockRankingPackageCard } from './StockRankingPackageCard'
 import { StatsCard } from '@/components/ui/StatsCard'
+import { adminCardVariants, adminButtonVariants, cn } from '@/design-system'
 
 interface UserPackagesContentProps {
   user: UnifiedUserData
@@ -46,7 +47,7 @@ export function UserPackagesContent({ user, currentUser }: UserPackagesContentPr
       value: expiringSoon,
       description: 'Within 30 days',
       icon: Calendar,
-      color: expiringSoon > 0 ? 'orange' : 'gray'
+      color: expiringSoon > 0 ? 'warning' : 'neutral'
     }
   ]
 
@@ -72,14 +73,14 @@ export function UserPackagesContent({ user, currentUser }: UserPackagesContentPr
       </div>
 
       {/* Active Packages */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Star className="h-5 w-5 text-yellow-500" />
+            <Star className="h-5 w-5 text-warning-500" />
             Active Packages
           </h3>
           {canManagePackages && (
-            <button className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            <button className={cn(adminButtonVariants({ variant: 'primary', size: 'sm' }))}>
               <Plus className="h-4 w-4" />
               Add Package
             </button>
@@ -106,9 +107,9 @@ export function UserPackagesContent({ user, currentUser }: UserPackagesContentPr
 
       {/* Inactive Packages */}
       {inactivePackagesList.length > 0 && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Package className="h-5 w-5 text-gray-400" />
+            <Package className="h-5 w-5 text-neutral-400" />
             Inactive Packages
           </h3>
           
@@ -125,7 +126,7 @@ export function UserPackagesContent({ user, currentUser }: UserPackagesContentPr
       )}
 
       {/* Package Usage Analytics */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           Package Usage Analytics
@@ -140,7 +141,7 @@ export function UserPackagesContent({ user, currentUser }: UserPackagesContentPr
       </div>
 
       {/* Billing Integration */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
           Billing Summary

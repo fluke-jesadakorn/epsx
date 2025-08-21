@@ -18,6 +18,7 @@ import {
   Clock as _Clock,
   Settings
 } from 'lucide-react';
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
 
 // Types for permission profile system
 interface PermissionProfile {
@@ -205,7 +206,7 @@ export function PermissionProfileAssignmentDashboard() {
   return (
     <div className="space-y-8 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between pancake-card pancake-card-hover p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }), 'flex items-center justify-between')}>
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-full bg-gradient-to-r from-purple-500 to-blue-500">
             <User className="h-8 w-8 text-white" />
@@ -236,7 +237,7 @@ export function PermissionProfileAssignmentDashboard() {
 
       {/* Error Display */}
       {error && (
-        <div className="pancake-card pancake-card-hover p-4 border-l-4 border-red-500">
+        <div className={cn(adminCardVariants({ variant: 'error', hover: 'both' }), 'border-l-4 border-red-500')}>
           <div className="flex items-center gap-2 text-red-600">
             <AlertTriangle className="h-5 w-5" />
             <span className="font-semibold">Error: {error}</span>
@@ -246,7 +247,7 @@ export function PermissionProfileAssignmentDashboard() {
 
       {/* Assignment Result */}
       {assignmentResult && (
-        <div className="pancake-card pancake-card-hover p-6 border-l-4 border-green-500">
+        <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }), 'border-l-4 border-green-500')}>
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle className="h-6 w-6 text-green-600" />
             <h3 className="text-lg font-semibold text-green-600">Assignment Complete</h3>
@@ -279,7 +280,7 @@ export function PermissionProfileAssignmentDashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Permission Profile Selection */}
-        <div className="pancake-card">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -380,7 +381,7 @@ export function PermissionProfileAssignmentDashboard() {
         </div>
 
         {/* Assignment Configuration */}
-        <div className="pancake-card">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center gap-3">
               <UserPlus className="h-6 w-6 text-blue-500" />

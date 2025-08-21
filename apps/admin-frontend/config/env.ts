@@ -7,10 +7,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3001),
   NEXTAUTH_URL: z.string().url(),
-  BACKEND_URL: z.string().url(),
-  NEXT_PUBLIC_BACKEND_URL: z.string().url(),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url(),
-  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  BACKEND_URL: z.string().url().default('https://api.epsx.io'),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default('https://api.epsx.io'),
+  NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
+  NEXT_PUBLIC_APP_URL: z.string().url().default('https://epsx.io'),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
@@ -31,9 +31,9 @@ export const env = envSchema.parse(process.env);
 
 // Consolidated auth configuration - single source of truth
 export const authConfig = {
-  appUrl: env.NEXT_PUBLIC_APP_URL || env.NEXT_PUBLIC_ADMIN_URL,
+  appUrl: env.NEXT_PUBLIC_ADMIN_URL,
   apiUrl: env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_BACKEND_URL,
-  clientId: env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin-frontend',
+  clientId: env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
   callbackPath: '/api/auth/callback/epsx-backend',
   get callbackUrl() {
     return `${this.appUrl}${this.callbackPath}`;

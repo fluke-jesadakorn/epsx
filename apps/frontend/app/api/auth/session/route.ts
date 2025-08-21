@@ -88,12 +88,55 @@ export async function PUT() {
       }, { status: 401 });
     }
     
-    // For now, we'll implement token refresh later
-    // This is a placeholder for future refresh token functionality
-    return NextResponse.json({
-      message: 'Token refresh not yet implemented',
-      currentExp: payload.exp
-    });
+    // Check if token is close to expiring (less than 5 minutes left)
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = payload.exp - now;
+    
+    if (timeUntilExpiry > 300) { // More than 5 minutes left
+      return NextResponse.json({
+        message: 'Token still valid, no refresh needed',
+        expiresAt: payload.exp * 1000,
+        timeUntilExpiry: timeUntilExpiry
+      });
+    }
+    
+    // For simple refresh, we'll validate the current session with backend
+    // In a full implementation, this would use refresh tokens
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    
+    try {
+      // Make a simple userinfo request to validate the session is still active
+      const response = await fetch(`${backendUrl}/oauth/userinfo`, {
+        headers: {
+          'Authorization': `Bearer ${payload.sub}`, // Use user ID as simplified token
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        // Session is no longer valid on backend
+        return NextResponse.json({
+          error: 'Session expired on backend'
+        }, { status: 401 });
+      }
+      
+      // Session is still valid, return current token info
+      return NextResponse.json({
+        message: 'Session validated with backend',
+        expiresAt: payload.exp * 1000,
+        isValid: true
+      });
+      
+    } catch (fetchError) {
+      console.error('❌ Backend session validation failed:', fetchError);
+      
+      // Return current session info even if backend check failed
+      return NextResponse.json({
+        message: 'Backend validation failed, using cached session',
+        expiresAt: payload.exp * 1000,
+        warning: 'Backend unreachable'
+      });
+    }
     
   } catch (error) {
     console.error('❌ Session refresh error:', error);

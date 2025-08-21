@@ -45,11 +45,55 @@ export const useAuth = create<AuthState>((set, get) => ({
   error: null,
   expiresAt: null,
 
-  login: () => {
-    // Redirect to OAuth signin endpoint
-    const currentUrl = window.location.href
-    const callbackUrl = encodeURIComponent(currentUrl)
-    window.location.href = `/api/auth/signin/epsx-backend?callbackUrl=${callbackUrl}`
+  login: async () => {
+    try {
+      // Use PKCE initiation route for secure OAuth flow
+      const currentUrl = window.location.href
+      
+      console.log('🔄 Admin: Initiating OAuth login with PKCE...')
+      
+      const response = await fetch('/api/auth/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          redirectTo: currentUrl
+        }),
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        throw new Error(`OAuth initiation failed: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.message || 'OAuth initiation failed')
+      }
+      
+      console.log('✅ Admin: PKCE parameters set, redirecting to authorization...')
+      
+      // Redirect to authorization URL
+      window.location.href = data.authorizationUrl
+      
+    } catch (error) {
+      console.error('❌ Admin: Login initiation failed:', error)
+      // Fallback to direct redirect if PKCE initiation fails
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'
+      
+      const params = new URLSearchParams({
+        client_id: 'epsx-admin',
+        response_type: 'code',
+        scope: 'openid profile email admin_modules',
+        redirect_uri: `${adminUrl}/api/auth/callback/epsx-backend`,
+        state: Buffer.from(JSON.stringify({ redirectTo: window.location.href })).toString('base64url'),
+      })
+      
+      window.location.href = `${backendUrl}/oauth/authorize?${params.toString()}`
+    }
   },
 
   logout: async () => {
@@ -407,7 +451,54 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 // Sign in helper for components
-export function signIn(callbackUrl?: string) {
-  const redirectPath = callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''
-  window.location.href = `/api/auth/signin/epsx-backend${redirectPath}`
+export async function signIn(callbackUrl?: string) {
+  try {
+    // Use PKCE initiation route for secure OAuth flow
+    const redirectTo = callbackUrl || window.location.href
+    
+    console.log('🔄 Admin: Initiating OAuth login with PKCE...')
+    
+    const response = await fetch('/api/auth/initiate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        redirectTo
+      }),
+      credentials: 'include'
+    })
+    
+    if (!response.ok) {
+      throw new Error(`OAuth initiation failed: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    if (!data.success) {
+      throw new Error(data.message || 'OAuth initiation failed')
+    }
+    
+    console.log('✅ Admin: PKCE parameters set, redirecting to authorization...')
+    
+    // Redirect to authorization URL
+    window.location.href = data.authorizationUrl
+    
+  } catch (error) {
+    console.error('❌ Admin: SignIn initiation failed:', error)
+    // Fallback to direct redirect if PKCE initiation fails
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'
+    const redirectTo = callbackUrl || window.location.href
+    
+    const params = new URLSearchParams({
+      client_id: 'epsx-admin',
+      response_type: 'code',
+      scope: 'openid profile email admin_modules',
+      redirect_uri: `${adminUrl}/api/auth/callback/epsx-backend`,
+      state: Buffer.from(JSON.stringify({ redirectTo })).toString('base64url'),
+    })
+    
+    window.location.href = `${backendUrl}/oauth/authorize?${params.toString()}`
+  }
 }

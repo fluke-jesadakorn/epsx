@@ -53,19 +53,26 @@ impl AppContainerBuilder {
             .ok_or("Database pool is required")?;
         
         // Create repositories
+        tracing::info!("🔧 Creating repository layer...");
         let user_repo = Arc::new(PostgresUserRepo::new(database_pool.clone())) as Arc<dyn UserRepo>;
         let audit_repo = Arc::new(PostgresAuditRepo::new((*database_pool).clone())) as Arc<dyn AuditRepo>;
         let permission_profile_repo = Arc::new(PostgresPermissionProfileRepo::new((*database_pool).clone())) as Arc<dyn PermissionProfileRepo>;
         
         // Create external services
-        let firebase_admin = Arc::new(FirebaseAdmin::new().await?);
+        tracing::info!("🔧 Creating Firebase Admin service...");
+        let firebase_admin = Arc::new(FirebaseAdmin::new().await.map_err(|e| {
+            tracing::error!("❌ Firebase Admin creation failed: {}", e);
+            e
+        })?);
         
         // Create domain services with their dependencies
+        tracing::info!("🔧 Creating notification services...");
         let notification_service = Arc::new(InMemoryNotificationService::new());
         let notification_port: Arc<dyn NotificationPort> = Arc::new(
             NotificationPortAdapter::new(notification_service)
         );
         
+        tracing::info!("🔧 Creating feature expiration service...");
         let feature_expiration_service = {
             use crate::dom::services::feature_expiration::{FeatureExpirationServiceImpl, ExpirationConfig};
             Arc::new(FeatureExpirationServiceImpl::new(
@@ -75,13 +82,17 @@ impl AppContainerBuilder {
             )) as Arc<dyn FeatureExpirationService>
         };
         
+        tracing::info!("🔧 Creating admin module service...");
         let admin_module_service = Arc::new(AdminModuleService::new((*database_pool).clone()));
         
         // Create legacy infrastructure factory for backward compatibility
+        tracing::info!("🔧 Creating infrastructure factory...");
         let infra = crate::infra::InfraFactory {
             database_backend: crate::infra::DatabaseBackend::PostgreSQL,
             postgres_pool: database_pool.clone(),
         };
+        
+        tracing::info!("✅ AppContainer build completed successfully");
         
         Ok(AppContainer {
             database_pool,
@@ -97,11 +108,65 @@ impl AppContainerBuilder {
 }
 
 impl AppContainer {
+    /// Create AppState with all dependencies from this container
+    pub fn create_app_state(&self) -> crate::web::auth::AppState {
+        use crate::app::use_cases::{AuthUC, UserMgmtUC};
+        use crate::infra::db::{PostgresSessRepo, PostgresIamRepo, PostgresTemporaryPermissionRepo, PostgresModuleRepository, StubUsageRepo};
+        use crate::infra::events::SimpleEventDispatcher;
+        use crate::infra::db::level_history_repo::InMemoryLevelHistoryRepo;
+        
+        // Create additional repositories first
+        let session_repo = Arc::new(PostgresSessRepo::new(self.database_pool.clone())) as Arc<dyn crate::app::ports::repositories::SessRepo>;
+        let iam_repo = Arc::new(PostgresIamRepo::new((*self.database_pool).clone())) as Arc<dyn crate::app::ports::repositories::IamRepo>;
+        let temporary_permission_repo = Arc::new(PostgresTemporaryPermissionRepo::new((*self.database_pool).clone())) as Arc<dyn crate::app::ports::repositories::TemporaryPermissionRepo>;
+        let module_repo = Arc::new(PostgresModuleRepository::new((*self.database_pool).clone())) as Arc<dyn crate::app::ports::repositories::ModuleRepo>;
+        let usage_repo = Arc::new(StubUsageRepo::new()) as Arc<dyn crate::app::ports::repositories::UsageRepo>;
+        
+        // Create stub dependencies for use cases
+        let event_dispatcher = Arc::new(SimpleEventDispatcher::new()) as Arc<dyn crate::app::ports::events::EventDispatcher>;
+        let level_history_repo = Arc::new(InMemoryLevelHistoryRepo::new()) as Arc<dyn crate::app::ports::repositories::LevelHistoryRepo>;
+        
+        // Create use cases with dependencies
+        let auth_uc = Arc::new(AuthUC::new(
+            self.user_repo.clone(),
+            session_repo.clone(),
+            self.firebase_admin.clone(),
+        ));
+        let user_mgmt_uc = Arc::new(UserMgmtUC::new(
+            self.user_repo.clone(),
+            event_dispatcher,
+            level_history_repo,
+        ));
+        
+        crate::web::auth::AppState::new(
+            auth_uc,
+            user_mgmt_uc,
+            session_repo,
+            self.user_repo.clone(),
+            iam_repo,
+            self.audit_repo.clone(),
+            self.permission_profile_repo.clone(),
+            temporary_permission_repo,
+            module_repo,
+            usage_repo,
+            self.firebase_admin.clone(),
+            self.admin_module_service.clone(),
+            self.feature_expiration_service.clone(),
+        )
+    }
+
     /// Convenience constructor that creates a container with default configuration
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        tracing::info!("🔧 Creating database pool...");
         let database_pool = crate::infra::db::postgres::create_pool(
             crate::infra::db::postgres::DatabaseConfig::default()
-        ).await?;
+        ).await.map_err(|e| {
+            tracing::error!("❌ Database pool creation failed: {}", e);
+            e
+        })?;
+        
+        tracing::info!("✅ Database pool created successfully");
+        tracing::info!("🔧 Building AppContainer...");
         
         AppContainerBuilder::new()
             .with_database_pool(database_pool)

@@ -1,0 +1,329 @@
+/**
+ * Admin Frontend - Modular CSS Architecture
+ * 
+ * This file orchestrates the modular CSS structure for the admin frontend,
+ * mirroring the modern architecture implemented in the main frontend app.
+ * 
+ * Architecture:
+ * - base.css: Core themes, variables, and element resets
+ * - critical.css: Above-the-fold styles for optimal loading
+ * - components.css: Complex component styling 
+ * - utilities.css: Custom Tailwind extensions and admin utilities
+ * 
+ * Benefits:
+ * - Modular structure for better maintainability
+ * - Performance optimization through critical CSS
+ * - Consistent design system across admin interfaces
+ * - Enhanced admin-specific functionality
+ */
+
+/* ============================================================================
+   CORE FOUNDATION
+   ============================================================================ */
+
+/* Import Tailwind's base styles and our enhanced theme system */
+@import './base.css';
+
+/* ============================================================================
+   PERFORMANCE-CRITICAL STYLES
+   ============================================================================ */
+
+/* Above-the-fold styles for immediate rendering */
+@import './critical.css';
+
+/* ============================================================================
+   COMPONENT LIBRARY
+   ============================================================================ */
+
+/* Complex component styling that requires custom CSS */
+@import './components.css';
+
+/* ============================================================================
+   UTILITY EXTENSIONS
+   ============================================================================ */
+
+/* Custom Tailwind utilities and admin-specific helpers */
+@import './utilities.css';
+
+/* ============================================================================
+   KEYFRAME ANIMATIONS
+   ============================================================================ */
+
+/* Core animations used throughout the admin interface */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pancakeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pancakeSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes menuItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes submenuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes submenuSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+/* Mobile-responsive drawer animations */
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-to-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes slide-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-to-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* Admin-specific animations */
+@keyframes permissionGranted {
+  0% {
+    transform: scale(1);
+    background-color: hsl(var(--permission-granted) / 0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    background-color: hsl(var(--permission-granted) / 0.2);
+  }
+  100% {
+    transform: scale(1);
+    background-color: hsl(var(--permission-granted) / 0.1);
+  }
+}
+
+@keyframes permissionDenied {
+  0% {
+    transform: scale(1);
+    background-color: hsl(var(--permission-denied) / 0.1);
+  }
+  25% {
+    transform: translateX(-5px);
+    background-color: hsl(var(--permission-denied) / 0.15);
+  }
+  75% {
+    transform: translateX(5px);
+    background-color: hsl(var(--permission-denied) / 0.15);
+  }
+  100% {
+    transform: scale(1);
+    background-color: hsl(var(--permission-denied) / 0.1);
+  }
+}
+
+@keyframes dataRefresh {
+  0% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(180deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* Loading animations */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Gradient animations for enhanced visual appeal */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ============================================================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================================================ */
+
+/* GPU acceleration for smooth animations */
+.admin-gpu-accelerated,
+.submenu-item {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Optimize font rendering */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================================================ */
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .admin-btn-primary,
+  .admin-btn-secondary {
+    border: 2px solid hsl(var(--foreground));
+  }
+}
+
+/* ============================================================================
+   DARK MODE OPTIMIZATIONS
+   ============================================================================ */
+
+/* Enhanced dark mode performance */
+@media (prefers-color-scheme: dark) {
+  img {
+    opacity: 0.9;
+  }
+  
+  /* Reduce blue light for better readability */
+  .admin-card-dashboard {
+    color-scheme: dark;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+/* Optimize admin reports for printing */
+@media print {
+  .admin-btn-primary,
+  .admin-btn-secondary {
+    background: transparent !important;
+    color: #000 !important;
+    border: 1px solid #000 !important;
+  }
+}

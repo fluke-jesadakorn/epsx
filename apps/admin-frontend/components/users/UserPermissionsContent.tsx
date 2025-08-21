@@ -10,6 +10,7 @@ import { Shield, Users, Key, Settings, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
 import { PermissionAssignmentCard } from './PermissionAssignmentCard'
 import { RoleAssignmentCard } from './RoleAssignmentCard'
 import { PermissionProfileCard } from './PermissionProfileCard'
@@ -61,7 +62,7 @@ export function UserPermissionsContent({
     <div className="space-y-6">
       {/* Permission Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">{activeRoles}</p>
@@ -71,7 +72,7 @@ export function UserPermissionsContent({
           </div>
         </div>
         
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">{totalPermissions}</p>
@@ -81,7 +82,7 @@ export function UserPermissionsContent({
           </div>
         </div>
 
-        <div className="pancake-card p-4">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold">{activeProfiles}</p>
@@ -94,7 +95,7 @@ export function UserPermissionsContent({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Role Assignments */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Users className="h-5 w-5" />
             Role Assignments
@@ -126,7 +127,7 @@ export function UserPermissionsContent({
         </div>
 
         {/* Permission Profiles - Enhanced */}
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <PermissionProfileManager
             userId={user.id}
             currentProfiles={user.permissionProfiles}
@@ -137,7 +138,7 @@ export function UserPermissionsContent({
       </div>
 
       {/* Custom Permissions */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Key className="h-5 w-5" />
           Custom Permissions
@@ -175,12 +176,12 @@ export function UserPermissionsContent({
       {canManagePermissions && (
         <>
           {/* Temporary Permissions */}
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <TemporaryPermissionManager userId={user.id} />
           </div>
           
           {/* Bulk Management */}
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <BulkOperationsInterface
               selectedUserIds={[user.id]}
               onOperationComplete={handleRefreshData}
@@ -190,7 +191,7 @@ export function UserPermissionsContent({
       )}
       
       {/* Permission Impact Analysis */}
-      <div className="pancake-card p-6">
+      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="h-5 w-5" />
           Permission Impact
@@ -201,14 +202,14 @@ export function UserPermissionsContent({
       
       {/* Analytics Dashboard */}
       {canManagePermissions && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <PermissionAnalyticsDashboard />
         </div>
       )}
 
       {/* Smart Recommendations */}
       {canManagePermissions && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <PermissionRecommendations
             user={{
               id: user.id,
@@ -228,7 +229,7 @@ export function UserPermissionsContent({
 
       {/* Interactive Permission Tree */}
       {canManagePermissions && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <InteractivePermissionTreeView
             permissions={[
               {
@@ -323,7 +324,7 @@ export function UserPermissionsContent({
 
       {/* Drag & Drop Bulk Assignment */}
       {canManagePermissions && (
-        <div className="pancake-card p-6">
+        <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
           <DragDropBulkAssignment
             users={[
               { id: user.id, type: 'user', name: user.firstName + ' ' + user.lastName, email: user.email }
@@ -357,7 +358,7 @@ export function UserPermissionsContent({
       {canManagePermissions && (
         <>
           {/* Permission Validation & Conflict Resolution */}
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <PermissionConflictResolver
               userId={user.id}
               proposedChanges={{
@@ -374,7 +375,7 @@ export function UserPermissionsContent({
           </div>
           
           {/* Export/Import */}
-          <div className="pancake-card p-6">
+          <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Settings className="h-5 w-5" />
               Backup & Migration

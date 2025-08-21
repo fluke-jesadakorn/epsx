@@ -9,6 +9,7 @@ import type { UnifiedUserData } from '@/lib/types/unified-user'
 import type { EnhancedAuthUser } from '@/lib/auth/server-auth'
 import { UserStatusBadge } from './UserStatusBadge'
 import { QuickActions } from './QuickActions'
+import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system'
 
 interface UserProfileHeaderProps {
   user: UnifiedUserData
@@ -25,7 +26,7 @@ export function UserProfileHeader({ user, currentUser }: UserProfileHeaderProps)
   }
 
   return (
-    <div className="pancake-card pancake-card-hover p-6">
+    <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       <div className="flex items-start justify-between">
         {/* User Info */}
         <div className="flex items-start gap-4">
@@ -46,12 +47,13 @@ export function UserProfileHeader({ user, currentUser }: UserProfileHeaderProps)
             )}
             
             {/* Status Indicator */}
-            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${
-              user.status === 'active' ? 'bg-green-500' :
-              user.status === 'disabled' ? 'bg-red-500' :
-              user.status === 'suspended' ? 'bg-orange-500' :
-              'bg-gray-500'
-            }`} />
+            <div className={cn(
+              'absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white',
+              user.status === 'active' && 'bg-success-500',
+              user.status === 'disabled' && 'bg-error-500',
+              user.status === 'suspended' && 'bg-warning-500',
+              !['active', 'disabled', 'suspended'].includes(user.status) && 'bg-neutral-500'
+            )} />
           </div>
           
           {/* User Details */}
@@ -68,9 +70,9 @@ export function UserProfileHeader({ user, currentUser }: UserProfileHeaderProps)
                 <Mail className="h-4 w-4" />
                 <span>{user.email}</span>
                 {user.emailVerified ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-success-500" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
+                  <XCircle className="h-4 w-4 text-error-500" />
                 )}
               </div>
               
@@ -127,14 +129,14 @@ export function UserProfileHeader({ user, currentUser }: UserProfileHeaderProps)
         {/* Warning indicators */}
         <div className="flex items-center gap-2">
           {!user.emailVerified && (
-            <div className="flex items-center gap-1 text-yellow-600">
+            <div className="flex items-center gap-1 text-warning-600">
               <AlertTriangle className="h-4 w-4" />
               <span className="text-xs">Email not verified</span>
             </div>
           )}
           
           {user.status === 'disabled' && (
-            <div className="flex items-center gap-1 text-red-600">
+            <div className="flex items-center gap-1 text-error-600">
               <XCircle className="h-4 w-4" />
               <span className="text-xs">Account disabled</span>
             </div>
