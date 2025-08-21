@@ -1,19 +1,19 @@
--- EPSX Seed Data
--- Additional seed data for development and testing
+-- EPSX Production Seed Data
+-- Production seed data with admin user and sample analytics
 -- Run after the main schema migration 001_initial_schema.sql
 
 -- ============================================================================
--- DEVELOPMENT SEED DATA
+-- PRODUCTION SEED DATA
 -- ============================================================================
 
--- Insert test admin user (development only)
+-- Insert production admin user (production deployment)
 INSERT INTO users (firebase_uid, email, display_name, name, package_tier, permissions, is_active) VALUES
-('dev_admin_uid_12345', 'jesadakorn.kirtnu@gmail.com', 'Development Admin', 'Jesadakorn Kirtnu', 'PREMIUM', ARRAY['*'], true)
+('prod_admin_uid_epsx_2024', 'info@epsx.io', 'Production Admin', 'EPSX Administrator', 'PREMIUM', ARRAY['*'], true)
 ON CONFLICT (firebase_uid) DO NOTHING;
 
--- Grant system admin access to development admin
+-- Grant system admin access to production admin
 INSERT INTO user_admin_roles (firebase_uid, module_code, granted_by, granted_reason, is_active) VALUES
-('dev_admin_uid_12345', 'system_admin', 'dev_admin_uid_12345', 'Development system administrator', true)
+('prod_admin_uid_epsx_2024', 'system_admin', 'prod_admin_uid_epsx_2024', 'Production system administrator', true)
 ON CONFLICT (firebase_uid, module_code) DO NOTHING;
 
 -- Insert sample EPS analytics data for testing
@@ -34,7 +34,7 @@ SELECT
     'high',
     false
 FROM users u 
-WHERE u.email = 'jesadakorn.kirtnu@gmail.com'
+WHERE u.email = 'info@epsx.io'
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -92,16 +92,16 @@ INSERT INTO admin_module_permissions (module_code, api_endpoints, frontend_route
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
--- DEVELOPMENT NOTES
+-- PRODUCTION DEPLOYMENT NOTES
 -- ============================================================================
 
 -- This seed data file contains:
--- 1. Development admin user setup
--- 2. Sample analytics data for testing
--- 3. Extended module permissions
--- 4. Sample notifications
+-- 1. Production admin user setup (info@epsx.io)
+-- 2. Sample analytics data for initial content
+-- 3. Extended module permissions for admin system
+-- 4. Welcome notification for admin user
 --
--- For production deployment:
--- - Remove or modify the development admin user
--- - Adjust EPS analytics sample data
--- - Review permission assignments
+-- Production configuration:
+-- - Uses info@epsx.io as production admin
+-- - Firebase UID: prod_admin_uid_epsx_2024
+-- - Full system administrator privileges

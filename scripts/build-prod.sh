@@ -18,9 +18,13 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo -e "${BLUE}🚀 EPSX Production Build${NC}"
 
-# Load production environment
-source "$SCRIPT_DIR/env-manager.sh"
-load_environment "production" "" true
+# Load production environment (skip env-manager if not available)
+if [[ -f "$SCRIPT_DIR/env-manager.sh" ]]; then
+    source "$SCRIPT_DIR/env-manager.sh"
+    load_environment "production" "" true
+else
+    echo -e "${YELLOW}⚠️  env-manager.sh not found, using default environment${NC}"
+fi
 
 # Production build configuration
 export NODE_ENV=production
@@ -87,12 +91,13 @@ build_container_prod() {
         echo -e "  Using standard Dockerfile with production config: ${dockerfile}"
     fi
     
-    # Build with maximum optimization
+    # Build with maximum optimization (lowercase tags for Docker compatibility)
+    local lowercase_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]')
     $CONTAINER_CMD build \
         --platform linux/amd64 \
         --tag "$image_name" \
-        --tag "$app_name:production-latest" \
-        --tag "$app_name:latest" \
+        --tag "$lowercase_name:production-latest" \
+        --tag "$lowercase_name:latest" \
         --file "$dockerfile" \
         "${BUILD_ARGS[@]}" \
         --no-cache \
