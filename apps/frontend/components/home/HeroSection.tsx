@@ -40,16 +40,16 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
       className={`relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className || ''}`}
       style={style}
     >
-      {/* PancakeSwap-style floating elements */}
+      {/* Analytics-style floating elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
         <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
         <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse-gentle" />
         <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float-reverse" />
 
-        {/* Decorative pancake-like shapes with enhanced styling */}
+        {/* Decorative analytics shapes with enhanced styling */}
         <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-spin-slow">
-          🥞
+          📊
         </div>
         <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-20 animate-bounce-gentle">
           ✨
@@ -67,7 +67,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
 
       <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-10">
         <WithLoading loading={loading} className="space-y-8">
-          {/* Main heading with enhanced PancakeSwap-style typography */}
+          {/* Main heading with enhanced Analytics-style typography */}
           <div className="space-y-6">
             <div className="inline-block animate-slide-up">
               <div className="mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 backdrop-blur-sm">
@@ -85,19 +85,19 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
               </h1>
             </div>
 
-            {/* Enhanced subtitle with PancakeSwap vibes */}
+            {/* Enhanced subtitle with Analytics vibes */}
             <div className="animate-slide-up-delayed">
               <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
-                🚀 Discover the sweetest data insights with our comprehensive
+                🚀 Discover comprehensive data insights with our advanced
                 analytics platform!
-                <span className="block mt-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent font-bold">
+                <span className="block mt-2 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent font-bold">
                   Make informed decisions with real-time insights 📈
                 </span>
               </p>
             </div>
           </div>
 
-          {/* Enhanced CTA buttons with PancakeSwap styling */}
+          {/* Enhanced CTA buttons with Analytics styling */}
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center animate-slide-up-delayed-2">
             <Link href="/trading" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl hover:shadow-orange-300/50 hover:scale-105 transition-all duration-300 group">
@@ -115,7 +115,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
             </Button>
           </div>
 
-          {/* Stats grid with enhanced PancakeSwap styling */}
+          {/* Stats grid with enhanced Analytics styling */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16 animate-fade-in-delayed-3">
             {[
               {

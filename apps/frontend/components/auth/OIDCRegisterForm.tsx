@@ -69,57 +69,61 @@ function OIDCRegisterFormComponent({ redirectTo = '/dashboard' }: OIDCRegisterFo
           </div>
         )}
 
-        {/* Display Name field */}
-        <div className="space-y-2">
-          <Label htmlFor="display_name" className="text-sm font-medium">
-            👤 Display Name (Optional)
+        {/* Display Name field - Mobile optimized */}
+        <div className="space-y-3">
+          <Label htmlFor="display_name" className="text-sm sm:text-base font-medium flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" />
+            Display Name
+            <span className="text-xs text-muted-foreground">(Optional)</span>
           </Label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="display_name"
               name="display_name"
               type="text"
-              className="pl-10 h-12"
+              className="h-12 sm:h-14 text-base pl-4 pr-4 rounded-xl border-2 focus:border-primary transition-all duration-200"
               placeholder="Your full name"
               autoComplete="name"
             />
+            <div className="absolute inset-0 rounded-xl border-2 border-transparent bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
           </div>
         </div>
 
-        {/* Email field */}
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium">
-            📧 Email Address
+        {/* Email field - Mobile optimized */}
+        <div className="space-y-3">
+          <Label htmlFor="email" className="text-sm sm:text-base font-medium flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" />
+            Email Address
           </Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="email"
               name="email"
               type="email"
               required
-              className="pl-10 h-12"
+              className="h-12 sm:h-14 text-base pl-4 pr-4 rounded-xl border-2 focus:border-primary transition-all duration-200"
               placeholder="your.email@example.com"
               autoComplete="email"
+              inputMode="email"
             />
+            <div className="absolute inset-0 rounded-xl border-2 border-transparent bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
           </div>
         </div>
 
-        {/* Password field */}
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium">
-            🔒 Password
+        {/* Password field - Mobile optimized */}
+        <div className="space-y-3">
+          <Label htmlFor="password" className="text-sm sm:text-base font-medium flex items-center gap-2">
+            <Lock className="h-4 w-4 text-primary" />
+            Password
           </Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="password"
               name="password"
               type={showPassword ? 'text' : 'password'}
               required
               minLength={8}
-              className="pl-10 pr-10 h-12"
+              className="h-12 sm:h-14 text-base pl-4 pr-14 rounded-xl border-2 focus:border-primary transition-all duration-200"
               placeholder="Choose a strong password"
               autoComplete="new-password"
             />
@@ -127,36 +131,39 @@ function OIDCRegisterFormComponent({ redirectTo = '/dashboard' }: OIDCRegisterFo
               type="button"
               variant="ghost"
               size="sm"
-              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-lg hover:bg-muted transition-all duration-200 hover:scale-110 active:scale-95"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
-                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               ) : (
-                <Eye className="h-4 w-4 text-muted-foreground" />
+                <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               )}
             </Button>
+            {/* Visual focus indicator */}
+            <div className="absolute inset-0 rounded-xl border-2 border-transparent bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
           </div>
           <p className="text-xs text-muted-foreground">
             Password must be at least 8 characters long
           </p>
         </div>
 
-        {/* Submit button */}
+        {/* Submit button - Mobile optimized */}
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0 shadow-lg"
+          className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0 shadow-lg rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
         >
           {isLoading ? (
             <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Creating account...
+              <div className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>Creating account...</span>
             </>
           ) : (
-            <>
-              🚀 Create Account
-            </>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-lg sm:text-xl">🚀</span>
+              <span>Create Account</span>
+            </div>
           )}
         </Button>
       </form>

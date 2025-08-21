@@ -1,166 +1,262 @@
 'use client';
 
+import type {
+  CardStockProps,
+  StockCardProps,
+  SymbolCardData,
+} from '@/types/analytics';
+import {
+  EPSGrowthTrend,
+  formatPercentage,
+  getGrowthTrend,
+} from '@/types/analytics';
 import { memo } from 'react';
-import type { StockCardProps } from '@/types/analytics';
-import { getGrowthTrend, formatPercentage, EPSGrowthTrend } from '@/types/analytics';
 
-const StockCard = memo<StockCardProps>(({ ranking, rank }) => {
-  // Get the 2 most recent quarters from quarterly_data
-  const quarters = ranking.quarterly_data?.slice(0, 2) || [];
-  const latestQuarter = quarters[0];
-  const previousQuarter = quarters[1];
-  
-  // Use quarterly data if available, otherwise fall back to overall metrics
-  const primaryGrowth = latestQuarter?.eps_growth ?? ranking.qoq_growth ?? 0;
-  const growthTrend = getGrowthTrend(primaryGrowth);
-  const isPositiveGrowth = primaryGrowth >= 0;
-  
+// Support both old and new props interfaces
+type StockCardAllProps = CardStockProps | StockCardProps;
+
+const StockCard = memo<StockCardAllProps>(props => {
+  // Check if it's new card format or old ranking format
+  const isCardFormat = 'cardData' in props;
+
+  let cardData: SymbolCardData;
+  let quarters: any[];
+  let latestQuarter: any;
+  let previousQuarter: any;
+  let latestEPS: number;
+  let previousEPS: number;
+  let latestGrowth: number;
+  let previousGrowth: number;
+
+  if (isCardFormat) {
+    // New card format - switch display order for chronological flow
+    cardData = props.cardData;
+    quarters = cardData.quarterly_performance || [];
+    // Display order: older quarter (Q2) on left, newer quarter (Q3) on right
+    latestQuarter = quarters[0]; // Latest fiscal quarter (right side)
+    previousQuarter = quarters[1]; // Previous fiscal quarter (left side)
+    latestEPS = latestQuarter?.eps || 0;
+    previousEPS = previousQuarter?.eps || 0;
+    latestGrowth = latestQuarter?.eps_growth || 0;
+    previousGrowth = previousQuarter?.eps_growth || 0;
+  } else {
+    // Old ranking format - convert to card format
+    const { ranking, rank } = props;
+    quarters = ranking.quarterly_data?.slice(0, 2) || [];
+    latestQuarter = quarters[0];
+    previousQuarter = quarters[1];
+    latestEPS = latestQuarter?.eps || ranking.current_eps || 0;
+    previousEPS = previousQuarter?.eps || 0;
+    latestGrowth = latestQuarter?.eps_growth || ranking.qoq_growth || 0;
+    previousGrowth = previousQuarter?.eps_growth || 0;
+
+    // Convert to card format
+    cardData = {
+      rank: rank,
+      symbol: ranking.symbol,
+      latest_date: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+      value: ranking.price_current || 0,
+      active_status: ranking.active_status || 'Non Active',
+      quarterly_performance: quarters.map(q => ({
+        quarter: q.quarter || q.period || 'Q4',
+        date:
+          q.date ||
+          new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }),
+        price: q.price || ranking.price_current || 0,
+        eps: q.eps || ranking.current_eps || 0,
+        eps_growth: q.eps_growth || ranking.qoq_growth || 0,
+        price_growth: q.price_growth || 0,
+      })),
+    };
+  }
+
+  // Determine primary growth trend from latest quarter
+  const growthTrend = getGrowthTrend(latestGrowth);
+  const isPositiveGrowth = latestGrowth >= 0;
+
   const trendColors = {
-    [EPSGrowthTrend.Accelerating]: 'text-green-600 bg-green-50 border-green-200',
+    [EPSGrowthTrend.Accelerating]:
+      'text-green-600 bg-green-50 border-green-200',
     [EPSGrowthTrend.Steady]: 'text-blue-600 bg-blue-50 border-blue-200',
-    [EPSGrowthTrend.Decelerating]: 'text-orange-600 bg-orange-50 border-orange-200',
+    [EPSGrowthTrend.Decelerating]:
+      'text-orange-600 bg-orange-50 border-orange-200',
     [EPSGrowthTrend.Volatile]: 'text-red-600 bg-red-50 border-red-200',
     [EPSGrowthTrend.Unknown]: 'text-gray-600 bg-gray-50 border-gray-200',
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all duration-200 touch-manipulation">
-      {/* Header with rank and symbol */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-sm font-bold">#{rank}</span>
+    <div className="touch-manipulation rounded-xl border border-gray-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:shadow-lg hover:border-blue-200">
+      {/* Mobile-Responsive Header */}
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Responsive rank indicator */}
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 shadow-md">
+            <span className="text-xs sm:text-sm font-bold text-white">
+              #{cardData.rank}
+            </span>
           </div>
-          <div>
-            <h3 className="font-semibold text-lg text-gray-900">{ranking.symbol}</h3>
-            <p className="text-sm text-gray-600 truncate max-w-[150px]">{ranking.name}</p>
+          
+          {/* Symbol and date with mobile optimization */}
+          <div className="flex-1">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
+              {cardData.symbol}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-500">
+              {cardData.latest_date}
+            </p>
           </div>
         </div>
-        
-        {/* Growth indicator */}
-        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${trendColors[growthTrend]}`}>
-          {growthTrend}
+
+        {/* Mobile-optimized status indicator */}
+        <div
+          className={`self-start sm:self-auto rounded-full px-3 sm:px-4 py-1.5 sm:py-2 font-medium text-xs sm:text-sm shadow-sm ${
+            cardData.active_status === 'Active'
+              ? 'bg-green-100 text-green-700 border border-green-200'
+              : 'bg-red-100 text-red-700 border border-red-200'
+          }`}
+        >
+          {cardData.active_status}
         </div>
       </div>
 
-      {/* Quarter comparison - mobile optimized */}
+      {/* Quarter Comparison - Chronological Layout */}
       {quarters.length >= 2 ? (
-        <div className="space-y-3 mb-3">
-          {/* Quarter headers */}
-          <div className="grid grid-cols-2 gap-3 text-xs font-medium text-gray-600">
-            <div className="text-center">{latestQuarter.quarter}</div>
-            <div className="text-center">{previousQuarter.quarter}</div>
-          </div>
-          
-          {/* EPS Growth Comparison */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 mb-1">EPS Growth</p>
-              <p className={`font-semibold text-sm ${latestQuarter.eps_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPercentage(latestQuarter.eps_growth)}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">${latestQuarter.eps.toFixed(2)}</p>
+        <div className="mb-6 space-y-4">
+          {/* Quarter Headers - Previous (Left) to Latest (Right) */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 text-center">
+            <div className="text-sm font-semibold text-gray-700">
+              {previousQuarter?.quarter || 'Previous'}
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 mb-1">EPS Growth</p>
-              <p className={`font-semibold text-sm ${previousQuarter.eps_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPercentage(previousQuarter.eps_growth)}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">${previousQuarter.eps.toFixed(2)}</p>
+            <div className="text-sm font-semibold text-gray-700">
+              {latestQuarter?.quarter || 'Latest'}
             </div>
           </div>
-          
-          {/* Price Growth Comparison */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 mb-1">Price Growth</p>
-              <p className={`font-semibold text-sm ${latestQuarter.price_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPercentage(latestQuarter.price_growth)}
+
+          {/* EPS Growth Row - Mobile Optimized */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="text-center p-4 rounded-lg bg-gray-50 sm:bg-transparent sm:p-0">
+              <p className="mb-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
+                EPS Growth
               </p>
-              <p className="text-xs text-gray-600 mt-1">${latestQuarter.price.toFixed(2)}</p>
+              <p
+                className={`mb-1 text-2xl sm:text-3xl font-bold ${
+                  previousGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatPercentage(previousGrowth)}
+              </p>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{previousEPS.toFixed(2)}</span>
+                <span className="ml-1 text-gray-400">EPS</span>
+              </div>
             </div>
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 mb-1">Price Growth</p>
-              <p className={`font-semibold text-sm ${previousQuarter.price_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatPercentage(previousQuarter.price_growth)}
+
+            <div className="text-center p-4 rounded-lg bg-gray-50 sm:bg-transparent sm:p-0">
+              <p className="mb-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
+                EPS Growth
               </p>
-              <p className="text-xs text-gray-600 mt-1">${previousQuarter.price.toFixed(2)}</p>
+              <p
+                className={`mb-1 text-2xl sm:text-3xl font-bold ${
+                  latestGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatPercentage(latestGrowth)}
+              </p>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{latestEPS.toFixed(2)}</span>
+                <span className="ml-1 text-gray-400">EPS</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Price Growth Row - Mobile Optimized */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-4 border-t border-gray-100">
+            <div className="text-center p-3 rounded-lg bg-blue-50 sm:bg-transparent sm:p-0">
+              <p className="mb-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
+                Price Growth
+              </p>
+              <p
+                className={`mb-1 text-lg sm:text-xl font-bold ${
+                  (previousQuarter?.price_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatPercentage(previousQuarter?.price_growth || 0)}
+              </p>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">${(previousQuarter?.price || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="text-center p-3 rounded-lg bg-blue-50 sm:bg-transparent sm:p-0">
+              <p className="mb-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
+                Price Growth
+              </p>
+              <p
+                className={`mb-1 text-lg sm:text-xl font-bold ${
+                  (latestQuarter?.price_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatPercentage(latestQuarter?.price_growth || 0)}
+              </p>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">${(latestQuarter?.price || 0).toFixed(2)}</span>
+              </div>
             </div>
           </div>
         </div>
       ) : (
-        /* Fallback to original layout if less than 2 quarters */
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Price</p>
-            <p className="font-semibold text-gray-900">
-              ${ranking.price_current?.toFixed(2) ?? 'N/A'}
+        /* Fallback layout for single quarter data */
+        <div className="mb-6 rounded-lg bg-gray-50 p-4">
+          <div className="text-center">
+            <p className="mb-2 text-xs text-gray-500">Current Price</p>
+            <p className="text-2xl font-bold text-gray-900">
+              ${cardData.value.toFixed(2)}
             </p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">EPS Growth</p>
-            <p className={`font-semibold ${isPositiveGrowth ? 'text-green-600' : 'text-red-600'}`}>
-              {formatPercentage(ranking.qoq_growth)}
-            </p>
+            <p className="mt-1 text-xs text-gray-500">{cardData.latest_date}</p>
           </div>
         </div>
       )}
 
-      {/* Secondary metrics - stack on mobile */}
-      <div className="space-y-2 text-sm">
-        {quarters.length >= 2 ? (
-          <>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Current Price:</span>
-              <span className="font-medium">${ranking.price_current?.toFixed(2) ?? latestQuarter?.price.toFixed(2) ?? 'N/A'}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Status:</span>
-              <span className={`font-medium px-2 py-1 rounded-full text-xs ${
-                ranking.active_status === 'Active' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {ranking.active_status === 'Active' ? 'Active' : 'Non Active'}
-              </span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Current EPS:</span>
-              <span className="font-medium">${ranking.current_eps?.toFixed(2) ?? 'N/A'}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Status:</span>
-              <span className={`font-medium px-2 py-1 rounded-full text-xs ${
-                ranking.active_status === 'Active' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {ranking.active_status === 'Active' ? 'Active' : 'Non Active'}
-              </span>
-            </div>
-          </>
-        )}
-        
-        <div className="flex justify-between items-center">
-          <span className="text-gray-500">Sector:</span>
-          <span className="font-medium text-blue-600 truncate max-w-[120px]">{ranking.sector}</span>
+      {/* Simplified Footer */}
+      <div className="space-y-3 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Current Price:</span>
+          <span className="text-lg font-bold text-gray-900">
+            ${cardData.value.toFixed(2)}
+          </span>
         </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-gray-500">Country:</span>
-          <span className="font-medium">{ranking.country}</span>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Status:</span>
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${
+              cardData.active_status === 'Active'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {cardData.active_status}
+          </span>
         </div>
       </div>
 
-      {/* Action button - touch optimized */}
-      <button className="w-full mt-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-orange-600 hover:to-yellow-600 transition-all duration-200 min-h-[44px] touch-manipulation">
-        View Details
-      </button>
+      {/* Action button - enhanced accessibility */}
+      <a
+        href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-6 inline-flex items-center justify-center min-h-[48px] w-full touch-manipulation rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 py-3 px-4 text-center text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-blue-600 hover:to-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        📊 View EPS Analysis
+      </a>
     </div>
   );
 });

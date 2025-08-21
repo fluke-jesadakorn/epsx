@@ -40,8 +40,7 @@ export async function requireAuth(redirectPath?: string): Promise<EPSXJWTPayload
   const user = await getAuthUser();
   
   if (!user) {
-    const loginUrl = `/login${redirectPath ? `?callbackUrl=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(loginUrl);
+    redirectToBackendLogin(redirectPath);
   }
   
   return user;
@@ -161,6 +160,21 @@ export async function requireRole(requiredRole: string, redirectPath?: string): 
   }
   
   return user;
+}
+
+/**
+ * Redirect to backend Pancake login with callback URL
+ */
+export function redirectToBackendLogin(callbackUrl?: string): never {
+  const backendLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+  backendLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend');
+  backendLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`);
+  backendLoginUrl.searchParams.set('scope', 'openid profile email');
+  backendLoginUrl.searchParams.set('response_type', 'code');
+  if (callbackUrl) {
+    backendLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+  }
+  redirect(backendLoginUrl.toString());
 }
 
 // ============================================================================
@@ -297,28 +311,39 @@ export async function getUserInfo(accessToken: string) {
 // ============================================================================
 
 /**
- * Generate code verifier for PKCE using Node.js crypto
+ * Generate code verifier for PKCE using Web Crypto API (Edge Runtime compatible)
  */
 function generateCodeVerifier(): string {
-  // Server-side: use Node.js crypto
-  const crypto = require('crypto')
-  return crypto.randomBytes(32).toString('base64url')
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
 }
 
 /**
  * Generate code challenge from verifier using SHA-256
  */
 async function generateCodeChallenge(verifier: string): Promise<string> {
-  // Server-side: use Node.js crypto
-  const crypto = require('crypto')
-  return crypto.createHash('sha256').update(verifier).digest('base64url')
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(new Uint8Array(digest));
 }
 
 /**
  * Generate cryptographically secure random string
  */
 function generateRandomString(length: number): string {
-  // Server-side: use Node.js crypto
-  const crypto = require('crypto')
-  return crypto.randomBytes(length).toString('base64url')
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
+}
+
+/**
+ * Base64 URL encode (Edge Runtime compatible)
+ */
+function base64URLEncode(array: Uint8Array): string {
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }

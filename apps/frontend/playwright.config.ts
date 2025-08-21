@@ -35,10 +35,10 @@ export default defineConfig({
       testMatch: /global\.setup\.ts/,
     },
     
-    // PancakeSwap Complete Flow Tests - 100% Coverage
+    // Analytics Platform Complete Flow Tests - 100% Coverage
     {
-      name: 'pancake-complete',
-      testMatch: '**/pancake-auth-complete-flow.spec.ts',
+      name: 'analytics-complete',
+      testMatch: '**/analytics-auth-complete-flow.spec.ts',
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },

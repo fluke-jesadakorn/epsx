@@ -117,10 +117,10 @@ pub async fn authorization_endpoint(
     let is_registration = params.registration.unwrap_or(false);
     let error_message = params.error.clone().unwrap_or_else(|| "".to_string());
 
-    // Render PancakeSwap-themed templates based on client type and flow
+    // Render analytics-themed templates based on client type and flow
     let html = if is_admin_login {
-        // Chef's Kitchen Portal for admin users
-        let template = TemplateFactory::create_pancake_admin_login_template_with_pkce(
+        // Analytics Command Center for admin users
+        let template = TemplateFactory::create_analytics_command_center_template_with_pkce(
             params.client_id.clone(),
             params.redirect_uri.clone(),
             params.state.clone(),
@@ -136,8 +136,8 @@ pub async fn authorization_endpoint(
         })?
         
     } else if is_registration {
-        // Join the Pancake Family for new user registration
-        let template = TemplateFactory::create_pancake_registration_template_with_pkce(
+        // Data Insights Portal registration for new users
+        let template = TemplateFactory::create_analytics_registration_template_with_pkce(
             params.client_id.clone(),
             params.redirect_uri.clone(),
             params.state.clone(),
@@ -153,8 +153,8 @@ pub async fn authorization_endpoint(
         })?
         
     } else {
-        // Pancake Stack Login for regular users
-        let template = TemplateFactory::create_pancake_login_template_with_pkce(
+        // Data Insights Portal login for regular users
+        let template = TemplateFactory::create_analytics_portal_login_template_with_pkce(
             params.client_id.clone(),
             params.redirect_uri.clone(),
             params.state.clone(),
@@ -170,7 +170,7 @@ pub async fn authorization_endpoint(
         })?
     };
 
-    tracing::info!("Successfully rendered PancakeSwap-themed template for client: {}", params.client_id);
+    tracing::info!("Successfully rendered analytics-themed template for client: {}", params.client_id);
     Ok(Html(html))
 }
 
@@ -614,7 +614,7 @@ fn extract_user_role(firebase_user: &FirebaseUser) -> String {
     "user".to_string()
 }
 
-/// Serve error page for authorization errors using PancakeSwap theme
+/// Serve error page for authorization errors using analytics theme
 fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>, StatusCode> {
     let template = TemplateFactory::get_error_template_for_auth_error(error_code);
     
@@ -623,7 +623,7 @@ fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
-    tracing::info!("Served PancakeSwap-themed error page for: {}", error_code);
+    tracing::info!("Served analytics-themed error page for: {}", error_code);
     Ok(Html(html))
 }
 
@@ -785,7 +785,7 @@ pub async fn register_endpoint(
     let error_message = params.error.clone().unwrap_or_else(|| "".to_string());
 
     // Always render registration template
-    let template = TemplateFactory::create_pancake_registration_template_with_pkce(
+    let template = TemplateFactory::create_analytics_registration_template_with_pkce(
         params.client_id.clone(),
         params.redirect_uri.clone(),
         params.state.clone(),
@@ -800,7 +800,7 @@ pub async fn register_endpoint(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    tracing::info!("Successfully rendered PancakeSwap registration template");
+    tracing::info!("Successfully rendered analytics registration template");
     Ok(Html(html))
 }
 

@@ -1,16 +1,28 @@
-const CACHE_NAME = 'epsx-v1';
+const CACHE_NAME = 'epsx-v2-mobile';
 const STATIC_ASSETS = [
   '/',
   '/analytics',
   '/analytics/eps',
   '/analytics/pattern-recognition',
+  '/trading',
+  '/ranking',
+  '/dashboard',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
 ];
 
-const API_CACHE_NAME = 'epsx-api-v1';
+const API_CACHE_NAME = 'epsx-api-v2';
+const IMAGE_CACHE_NAME = 'epsx-images-v1';
+const FONT_CACHE_NAME = 'epsx-fonts-v1';
 const OFFLINE_PAGE = '/offline';
+
+// Mobile-specific cache limits
+const CACHE_LIMITS = {
+  images: 50,
+  api: 30,
+  static: 20
+};
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -38,9 +50,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const cacheNames = await caches.keys();
+      const currentCaches = [CACHE_NAME, API_CACHE_NAME, IMAGE_CACHE_NAME, FONT_CACHE_NAME];
       await Promise.all(
         cacheNames
-          .filter(cacheName => cacheName !== CACHE_NAME && cacheName !== API_CACHE_NAME)
+          .filter(cacheName => !currentCaches.includes(cacheName))
           .map(cacheName => caches.delete(cacheName))
       );
       console.log('[SW] Old caches cleaned');
@@ -50,7 +63,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - handle requests with caching strategies
+// Fetch event - handle requests with mobile-optimized caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -58,13 +71,19 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip external requests
-  if (url.origin !== self.location.origin) return;
+  // Skip external requests (except fonts)
+  if (url.origin !== self.location.origin && !url.hostname.includes('fonts.googleapis.com') && !url.hostname.includes('fonts.gstatic.com')) return;
 
-  // Handle different types of requests
+  // Handle different types of requests with mobile-optimized strategies
   if (url.pathname.startsWith('/api/')) {
-    // API requests - network first, cache as fallback
-    event.respondWith(networkFirstStrategy(request));
+    // API requests - network first, cache as fallback with cleanup
+    event.respondWith(networkFirstWithCleanup(request));
+  } else if (isImageRequest(url)) {
+    // Images - cache first with size limits for mobile
+    event.respondWith(imageStrategy(request));
+  } else if (isFontRequest(url)) {
+    // Fonts - cache first with long TTL
+    event.respondWith(fontStrategy(request));
   } else if (STATIC_ASSETS.includes(url.pathname) || url.pathname.includes('/icons/')) {
     // Static assets - cache first
     event.respondWith(cacheFirstStrategy(request));
@@ -74,14 +93,25 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Network first strategy for API calls
-async function networkFirstStrategy(request) {
+// Helper functions to identify request types
+function isImageRequest(url) {
+  return /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i.test(url.pathname);
+}
+
+function isFontRequest(url) {
+  return /\.(woff|woff2|ttf|otf)$/i.test(url.pathname) || url.hostname.includes('fonts.gstatic.com');
+}
+
+// Network first strategy for API calls with mobile cleanup
+async function networkFirstWithCleanup(request) {
   const cache = await caches.open(API_CACHE_NAME);
   
   try {
     const response = await fetch(request);
     
     if (response.ok) {
+      // Clean up cache before adding new entry
+      await limitCacheSize(API_CACHE_NAME, CACHE_LIMITS.api);
       cache.put(request, response.clone());
     }
     
@@ -146,6 +176,64 @@ async function staleWhileRevalidateStrategy(request) {
   });
   
   return cachedResponse || fetchPromise;
+}
+
+// Mobile-optimized image strategy with size limits
+async function imageStrategy(request) {
+  const cache = await caches.open(IMAGE_CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      // Check cache size and clean up if needed
+      await limitCacheSize(IMAGE_CACHE_NAME, CACHE_LIMITS.images);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.error('[SW] Failed to fetch image:', error);
+    throw error;
+  }
+}
+
+// Font strategy with long-term caching
+async function fontStrategy(request) {
+  const cache = await caches.open(FONT_CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      // Fonts are cached for a very long time
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.error('[SW] Failed to fetch font:', error);
+    throw error;
+  }
+}
+
+// Cache size limiter for mobile optimization
+async function limitCacheSize(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  
+  if (keys.length > maxItems) {
+    // Remove oldest entries (FIFO)
+    const itemsToDelete = keys.slice(0, keys.length - maxItems);
+    await Promise.all(itemsToDelete.map(key => cache.delete(key)));
+    console.log(`[SW] Cleaned ${itemsToDelete.length} items from ${cacheName}`);
+  }
 }
 
 // Background sync for analytics and notifications

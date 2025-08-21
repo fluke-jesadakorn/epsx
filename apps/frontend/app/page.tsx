@@ -123,9 +123,9 @@ export default async function HomePage() {
                   </p>
                   {/* Decorative elements */}
                   <div className="mt-6 flex items-center justify-center gap-4">
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-blue-400" />
                     <div
-                      className="h-3 w-3 animate-pulse rounded-full bg-yellow-400"
+                      className="h-3 w-3 animate-pulse rounded-full bg-purple-400"
                       style={{ animationDelay: '0.5s' }}
                     />
                     <div

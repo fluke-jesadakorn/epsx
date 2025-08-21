@@ -3,22 +3,22 @@
  */
 
 export const GRADIENTS = {
-  primary: 'from-orange-500 via-yellow-400 to-orange-600',
-  secondary: 'from-blue-500 via-cyan-400 to-teal-500',
-  pancake: 'from-orange-400 via-yellow-400 to-amber-500',
+  primary: 'from-blue-500 via-purple-400 to-blue-600',
+  secondary: 'from-indigo-500 via-blue-400 to-teal-500',
+  insight: 'from-blue-400 via-purple-400 to-indigo-500',
   background:
-    'from-orange-50/30 via-yellow-50/20 to-amber-50/30 dark:from-slate-950 dark:via-orange-950/20 dark:to-yellow-950/10',
-  card: 'from-white via-orange-50/20 to-yellow-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-orange-900/20',
+    'from-blue-50/30 via-purple-50/20 to-indigo-50/30 dark:from-slate-950 dark:via-blue-950/20 dark:to-purple-950/10',
+  card: 'from-white via-blue-50/20 to-purple-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-blue-900/20',
   cardHover:
-    'hover:from-white hover:via-orange-50/40 hover:to-yellow-100/50 dark:hover:from-slate-800 dark:hover:via-slate-700 dark:hover:to-orange-800/30',
-  badge: 'from-orange-500 to-yellow-500',
-  button: 'from-orange-500 to-yellow-500',
-  buttonHover: 'hover:from-yellow-500 hover:to-orange-500',
-  glow: 'from-orange-400/20 via-yellow-400/30 to-amber-400/20',
+    'hover:from-white hover:via-blue-50/40 hover:to-purple-100/50 dark:hover:from-slate-800 dark:hover:via-slate-700 dark:hover:to-blue-800/30',
+  badge: 'from-blue-500 to-purple-500',
+  button: 'from-blue-500 to-purple-500',
+  buttonHover: 'hover:from-purple-500 hover:to-blue-500',
+  glow: 'from-blue-400/20 via-purple-400/30 to-indigo-400/20',
   metric: {
     price:
-      'from-orange-50 to-yellow-100/50 dark:from-orange-900/20 dark:to-yellow-800/20',
-    eps: 'from-amber-50 to-orange-100/50 dark:from-amber-900/20 dark:to-orange-800/20',
+      'from-blue-50 to-purple-100/50 dark:from-blue-900/20 dark:to-purple-800/20',
+    eps: 'from-indigo-50 to-blue-100/50 dark:from-indigo-900/20 dark:to-blue-800/20',
     growth:
       'from-emerald-50 to-green-100/50 dark:from-emerald-900/20 dark:to-green-800/20',
   },
@@ -28,10 +28,10 @@ export const ANIMATIONS = {
   float: 'animate-float',
   floatReverse: 'animate-float-reverse',
   bounceGentle: 'animate-bounce-gentle',
-  pulsePancake: 'animate-pulse-pancake',
+  pulseInsight: 'animate-pulse-insight',
   spinSlow: 'animate-spin-slow',
   scaleHover: 'hover:scale-[1.02]',
-  scalePancake: 'hover:scale-[1.05]',
+  scaleInsight: 'hover:scale-[1.05]',
   scalePress: 'scale-[0.98]',
   fadeIn: 'animate-in slide-in-from-bottom-4 fade-in',
   slideInLeft: 'animate-in slide-in-from-left-8 fade-in',

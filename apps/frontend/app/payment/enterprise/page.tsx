@@ -15,7 +15,8 @@ export default async function EnterprisePaymentPage() {
   }
 
   if (!user) {
-    redirect('/login?callbackUrl=/payment/enterprise');
+    const { redirectToBackendLogin } = await import('@/lib/server/auth');
+    redirectToBackendLogin('/payment/enterprise');
   }
 
   return <EnterprisePaymentClient />;

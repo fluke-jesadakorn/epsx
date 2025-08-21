@@ -16,11 +16,11 @@
    ============================================================================ */
 
 @layer components {
-  /* Enhanced PancakeSwap-style card */
-  .card-pancake-enhanced {
+  /* Enhanced Analytics-style card */
+  .card-insight-enhanced {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 140, 0, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
@@ -29,32 +29,32 @@
     transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  .dark .card-pancake-enhanced {
+  .dark .card-insight-enhanced {
     background: rgba(30, 30, 30, 0.95);
-    border-color: rgba(255, 140, 0, 0.3);
+    border-color: rgba(59, 130, 246, 0.3);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
   
-  .card-pancake-enhanced::before {
+  .card-insight-enhanced::before {
     content: '';
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, #ff8c00, transparent);
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
     animation: shimmer 3s infinite;
   }
   
-  .card-pancake-enhanced:hover {
+  .card-insight-enhanced:hover {
     transform: translateY(-2px) scale(1.02);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 140, 0, 0.4);
+    border-color: rgba(59, 130, 246, 0.4);
   }
   
-  .dark .card-pancake-enhanced:hover {
+  .dark .card-insight-enhanced:hover {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    border-color: rgba(255, 140, 0, 0.5);
+    border-color: rgba(59, 130, 246, 0.5);
   }
 }
 
@@ -93,20 +93,20 @@
   
   /* Enhanced gradient button */
   .btn-gradient-enhanced {
-    background: linear-gradient(135deg, #ff8c00 0%, #ffd700 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     background-size: 200% 200%;
     border: none;
     color: white;
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     animation: gradientShift 3s ease-in-out infinite;
   }
   
   .btn-gradient-enhanced:hover {
     background-position: 100% 0;
-    box-shadow: 0 6px 16px rgba(255, 140, 0, 0.4);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
     transform: translateY(-2px) scale(1.05);
   }
   
@@ -149,7 +149,7 @@
     left: 50%;
     width: 0;
     height: 2px;
-    background: linear-gradient(90deg, #ff8c00, #ffd700);
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
     transform: translateX(-50%);
     transition: width 0.3s ease;
   }
@@ -494,7 +494,7 @@
     border-radius: 0.5rem;
   }
   
-  .card-pancake-enhanced {
+  .card-insight-enhanced {
     padding: 1rem;
     border-radius: 0.75rem;
   }

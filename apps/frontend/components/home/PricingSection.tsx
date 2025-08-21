@@ -94,13 +94,13 @@ const PricingSection = () => {
     return cards.map((card, index) => (
       <div
         key={index}
-        className={`card-pancake group relative transition-all duration-300 ${
+        className={`card-insight group relative transition-all duration-300 ${
           card.highlight
-            ? 'pancake-gradient-soft-highlight ring-2 ring-soft-orange scale-105 border-orange-200/40 dark:border-orange-400/30 shadow-xl shadow-orange-500/20'
-            : 'hover:pancake-shadow hover:scale-[1.02] hover:shadow-orange-300/20'
+            ? 'insight-gradient-soft-highlight ring-2 ring-soft-blue scale-105 border-blue-200/40 dark:border-blue-400/30 shadow-xl shadow-blue-500/20'
+            : 'hover:insight-shadow hover:scale-[1.02] hover:shadow-blue-300/20'
         }`}
       >
-        {/* PancakeSwap-style decorative elements */}
+        {/* Analytics-style decorative elements */}
         {card.highlight && (
           <>
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -111,28 +111,28 @@ const PricingSection = () => {
               </div>
             </div>
             <div className="absolute top-2 right-2 text-2xl opacity-20 animate-spin-slow">
-              🥞
+              📊
             </div>
           </>
         )}
 
         {/* Corner decorations for all cards */}
         <div className="absolute bottom-2 left-2 text-lg opacity-15 group-hover:opacity-30 transition-opacity duration-300 animate-pulse">
-          💰
+          📈
         </div>
         {/* Decorative elements */}
         <div
           className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
             card.highlight
               ? 'bg-orange-300/30 group-hover:bg-orange-400/40'
-              : 'bg-pancake-primary/20 group-hover:bg-pancake-primary/40'
+              : 'bg-insight-primary/20 group-hover:bg-insight-primary/40'
           }`}
         />
         <div
           className={`absolute -bottom-4 -right-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
             card.highlight
               ? 'bg-amber-300/30 group-hover:bg-amber-400/40'
-              : 'bg-pancake-secondary/20 group-hover:bg-pancake-secondary/40'
+              : 'bg-insight-secondary/20 group-hover:bg-insight-secondary/40'
           }`}
         />
 
@@ -143,14 +143,14 @@ const PricingSection = () => {
               {card.title}
             </h3>
             {card.highlight && (
-              <Sparkles className="h-5 w-5 text-pancake-primary animate-bounce-gentle" />
+              <Sparkles className="h-5 w-5 text-insight-primary animate-bounce-gentle" />
             )}
           </div>
 
           {/* Price with enhanced styling */}
           <div className="mt-4 sm:mt-6 mb-6 sm:mb-8">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-bold pancake-gradient-text">
+              <span className="text-4xl sm:text-5xl font-bold insight-gradient-text">
                 {card.price}
               </span>
             </div>
@@ -160,8 +160,8 @@ const PricingSection = () => {
           <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             {card.features.map((feature, idx) => (
               <li key={idx} className="flex items-start group/feature">
-                <div className="flex-shrink-0 p-1 rounded-full bg-pancake-primary/20 group-hover/feature:bg-pancake-primary/30 transition-colors duration-300">
-                  <Check className="h-4 w-4 text-pancake-primary" />
+                <div className="flex-shrink-0 p-1 rounded-full bg-insight-primary/20 group-hover/feature:bg-insight-primary/30 transition-colors duration-300">
+                  <Check className="h-4 w-4 text-insight-primary" />
                 </div>
                 <span className="ml-3 text-sm sm:text-base text-muted-foreground group-hover/feature:text-foreground transition-colors">
                   {feature.text}
@@ -174,10 +174,10 @@ const PricingSection = () => {
           <Button
             variant={
               card.highlight
-                ? 'pancake'
+                ? 'insight'
                 : card.buttonVariant === 'outline'
-                  ? 'pancake-outline'
-                  : 'pancake-secondary'
+                  ? 'insight-outline'
+                  : 'insight-secondary'
             }
             size="lg"
             className="w-full rounded-2xl font-semibold"
@@ -192,7 +192,7 @@ const PricingSection = () => {
 
   return (
     <div className="relative w-full py-16 sm:py-24 lg:py-32 overflow-hidden">
-      {/* PancakeSwap-style background decorations */}
+      {/* Analytics-style background decorations */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full animate-float" />
         <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full animate-bounce-gentle" />

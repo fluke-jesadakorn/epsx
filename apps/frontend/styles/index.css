@@ -50,65 +50,65 @@
 
 @layer utilities {
   /* Legacy button classes - mapped to new design system */
-  .btn-pancake-primary {
+  .btn-insight-primary {
     @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
-    @apply bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold;
-    @apply shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
-    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-orange-500;
-  }
-  
-  .btn-pancake-secondary {
-    @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
-    @apply bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold;
+    @apply bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold;
     @apply shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
     @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-blue-500;
   }
   
-  .btn-pancake-outline {
+  .btn-insight-secondary {
     @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
-    @apply border-2 border-orange-500 bg-transparent text-orange-600 font-semibold;
-    @apply hover:bg-orange-50 dark:hover:bg-orange-950 hover:scale-105 active:scale-95;
-    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-orange-500;
+    @apply bg-gradient-to-r from-slate-500 to-gray-500 text-white font-semibold;
+    @apply shadow-lg hover:shadow-xl hover:scale-105 active:scale-95;
+    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-slate-500;
+  }
+  
+  .btn-insight-outline {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2;
+    @apply border-2 border-blue-500 bg-transparent text-blue-600 font-semibold;
+    @apply hover:bg-blue-50 dark:hover:bg-blue-950 hover:scale-105 active:scale-95;
+    @apply transition-all duration-300 focus-visible:ring-2 focus-visible:ring-blue-500;
   }
   
   /* Legacy card classes */
-  .card-pancake {
+  .card-insight {
     @apply relative overflow-hidden rounded-2xl border p-6;
-    @apply bg-gradient-to-br from-white via-orange-50/20 to-yellow-50/30;
-    @apply dark:from-gray-900 dark:via-gray-800 dark:to-orange-900/20;
-    @apply border-orange-200/50 dark:border-orange-700/50;
+    @apply bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30;
+    @apply dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20;
+    @apply border-blue-200/50 dark:border-blue-700/50;
     @apply backdrop-blur-md transition-all duration-300;
     @apply hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1;
   }
   
   /* Legacy text gradient classes */
-  .pancake-gradient-text {
-    @apply bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600;
+  .insight-gradient-text {
+    @apply bg-gradient-to-r from-blue-500 via-indigo-400 to-blue-600;
     @apply bg-clip-text text-transparent bg-[length:200%_200%];
     animation: gradient-x 3s ease infinite;
   }
   
-  .pancake-gradient-secondary-text {
-    @apply bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-500;
+  .insight-gradient-secondary-text {
+    @apply bg-gradient-to-r from-slate-500 via-gray-400 to-slate-500;
     @apply bg-clip-text text-transparent bg-[length:200%_200%];
     animation: gradient-x 3s ease infinite;
   }
   
   /* Legacy shadow and glow classes */
-  .pancake-shadow {
-    @apply shadow-[0_4px_12px_hsl(255_133_27/0.15)];
+  .insight-shadow {
+    @apply shadow-[0_4px_12px_hsl(217_91_60/0.15)];
   }
   
-  .dark .pancake-shadow {
-    @apply shadow-[0_4px_12px_hsl(255_133_27/0.25)];
+  .dark .insight-shadow {
+    @apply shadow-[0_4px_12px_hsl(217_91_60/0.25)];
   }
   
-  .pancake-glow {
-    @apply shadow-[0_0_20px_hsl(255_133_27/0.3)];
+  .insight-glow {
+    @apply shadow-[0_0_20px_hsl(217_91_60/0.3)];
   }
   
-  .dark .pancake-glow {
-    @apply shadow-[0_0_25px_hsl(255_133_27/0.4)];
+  .dark .insight-glow {
+    @apply shadow-[0_0_25px_hsl(217_91_60/0.4)];
   }
   
   /* Legacy animation classes */
@@ -120,8 +120,8 @@
     animation: float-gentle 4s ease-in-out infinite;
   }
   
-  .animate-pulse-pancake {
-    animation: pulse-pancake 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  .animate-pulse-insight {
+    animation: pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
   
   .animate-wiggle {
@@ -147,13 +147,13 @@
  */
 
 @media screen {
-  .btn-pancake-primary::after,
-  .btn-pancake-secondary::after,
-  .btn-pancake-outline::after,
-  .card-pancake::after,
-  .pancake-gradient-text::after,
-  .pancake-shadow::after,
-  .pancake-glow::after {
+  .btn-insight-primary::after,
+  .btn-insight-secondary::after,
+  .btn-insight-outline::after,
+  .card-insight::after,
+  .insight-gradient-text::after,
+  .insight-shadow::after,
+  .insight-glow::after {
     content: '⚠️ Legacy class detected. Migrate to design system variants.';
     position: absolute;
     top: -2rem;
@@ -170,13 +170,13 @@
   }
   
   /* Show warnings on hover in development */
-  body[data-env="development"] .btn-pancake-primary:hover::after,
-  body[data-env="development"] .btn-pancake-secondary:hover::after,
-  body[data-env="development"] .btn-pancake-outline:hover::after,
-  body[data-env="development"] .card-pancake:hover::after,
-  body[data-env="development"] .pancake-gradient-text:hover::after,
-  body[data-env="development"] .pancake-shadow:hover::after,
-  body[data-env="development"] .pancake-glow:hover::after {
+  body[data-env="development"] .btn-insight-primary:hover::after,
+  body[data-env="development"] .btn-insight-secondary:hover::after,
+  body[data-env="development"] .btn-insight-outline:hover::after,
+  body[data-env="development"] .card-insight:hover::after,
+  body[data-env="development"] .insight-gradient-text:hover::after,
+  body[data-env="development"] .insight-shadow:hover::after,
+  body[data-env="development"] .insight-glow:hover::after {
     opacity: 1;
   }
 }
@@ -191,11 +191,11 @@
  */
 
 /* Enhanced animations - can be disabled for performance */
-body[data-enhance-animations="true"] .btn-pancake-primary:hover {
+body[data-enhance-animations="true"] .btn-insight-primary:hover {
   animation: pulse 0.5s ease-in-out;
 }
 
-body[data-enhance-animations="true"] .card-pancake:hover {
+body[data-enhance-animations="true"] .card-insight:hover {
   animation: float-gentle 2s ease-in-out infinite;
 }
 
@@ -208,7 +208,7 @@ body[data-reduced-motion="true"] * {
 }
 
 /* High performance mode - disable heavy effects */
-body[data-performance-mode="high"] .card-pancake {
+body[data-performance-mode="high"] .card-insight {
   backdrop-filter: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }

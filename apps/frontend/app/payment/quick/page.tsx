@@ -19,7 +19,8 @@ export default async function QuickPaymentPage({ searchParams }: QuickPaymentPag
   }
 
   if (!user) {
-    redirect('/login?callbackUrl=/payment/quick');
+    const { redirectToBackendLogin } = await import('@/lib/server/auth');
+    redirectToBackendLogin('/payment/quick');
   }
   
   // Extract parameters from search params

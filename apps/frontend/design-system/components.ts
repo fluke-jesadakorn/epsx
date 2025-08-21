@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 // ============================================================================
 
 /**
- * Button component variants - replaces btn-pancake-* classes
+ * Button component variants - replaces btn-insight-* classes
  */
 export const buttonVariants = cva(
   // Base styles for all buttons
@@ -34,14 +34,14 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Primary PancakeSwap-style button
+        // Primary Analytics-style button
         primary: [
-          'bg-gradient-to-r from-orange-500 to-yellow-500',
+          'bg-gradient-to-r from-blue-500 to-purple-500',
           'text-white shadow-lg',
-          'hover:from-orange-600 hover:to-yellow-600',
+          'hover:from-blue-600 hover:to-purple-600',
           'hover:shadow-xl hover:scale-105',
           'active:scale-95',
-          'focus-visible:ring-orange-500',
+          'focus-visible:ring-blue-500',
         ],
         
         // Secondary button
@@ -86,12 +86,12 @@ export const buttonVariants = cva(
         
         // Outline button
         outline: [
-          'border-2 border-orange-500 bg-transparent',
-          'text-orange-600 dark:text-orange-400',
-          'hover:bg-orange-50 dark:hover:bg-orange-950',
+          'border-2 border-blue-500 bg-transparent',
+          'text-blue-600 dark:text-blue-400',
+          'hover:bg-blue-50 dark:hover:bg-blue-950',
           'hover:scale-105',
           'active:scale-95',
-          'focus-visible:ring-orange-500',
+          'focus-visible:ring-blue-500',
         ],
         
         // Ghost button
@@ -105,11 +105,11 @@ export const buttonVariants = cva(
         
         // Link style button
         link: [
-          'bg-transparent text-orange-600 dark:text-orange-400',
+          'bg-transparent text-blue-600 dark:text-blue-400',
           'underline-offset-4 hover:underline',
           'hover:scale-105',
           'active:scale-95',
-          'focus-visible:ring-orange-500',
+          'focus-visible:ring-blue-500',
         ],
       },
       
@@ -146,7 +146,7 @@ export const buttonVariants = cva(
       {
         variant: 'primary',
         glow: true,
-        class: 'shadow-orange-500/25',
+        class: 'shadow-blue-500/25',
       },
       // Glowing effect for secondary buttons
       {
@@ -165,7 +165,7 @@ export type ButtonVariants = VariantProps<typeof buttonVariants>;
 // ============================================================================
 
 /**
- * Card component variants - replaces card-pancake-* classes
+ * Card component variants - replaces card-insight-* classes
  */
 export const cardVariants = cva(
   // Base styles for all cards
@@ -181,16 +181,16 @@ export const cardVariants = cva(
         default: [
           'border-gray-200/50 dark:border-gray-700/50',
           'hover:shadow-lg hover:scale-[1.02]',
-          'hover:border-orange-200/50 dark:hover:border-orange-700/50',
+          'hover:border-blue-200/50 dark:hover:border-blue-700/50',
         ],
         
-        // Enhanced PancakeSwap-style card
-        pancake: [
-          'border-orange-200/50 dark:border-orange-700/50',
-          'bg-gradient-to-br from-white via-orange-50/20 to-yellow-50/30',
-          'dark:from-gray-900 dark:via-gray-800 dark:to-orange-900/20',
+        // Enhanced Analytics-style card
+        insight: [
+          'border-blue-200/50 dark:border-blue-700/50',
+          'bg-gradient-to-br from-white via-blue-50/20 to-purple-50/30',
+          'dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20',
           'hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1',
-          'hover:border-orange-300/50 dark:hover:border-orange-600/50',
+          'hover:border-blue-300/50 dark:hover:border-blue-600/50',
         ],
         
         // Glassmorphism card
@@ -213,7 +213,7 @@ export const cardVariants = cva(
         flat: [
           'border-gray-200 dark:border-gray-700',
           'bg-white dark:bg-gray-900',
-          'hover:border-orange-200 dark:hover:border-orange-700',
+          'hover:border-blue-200 dark:hover:border-blue-700',
         ],
       },
       
@@ -226,7 +226,7 @@ export const cardVariants = cva(
       },
       
       glow: {
-        true: 'shadow-2xl shadow-orange-500/10',
+        true: 'shadow-2xl shadow-blue-500/10',
         false: '',
       },
       
@@ -244,17 +244,17 @@ export const cardVariants = cva(
     },
     
     compoundVariants: [
-      // Interactive + Pancake variant
+      // Interactive + Insight variant
       {
-        variant: 'pancake',
+        variant: 'insight',
         interactive: true,
-        class: 'hover:shadow-orange-500/20',
+        class: 'hover:shadow-blue-500/20',
       },
-      // Glow + Pancake variant
+      // Glow + Insight variant
       {
-        variant: 'pancake',
+        variant: 'insight',
         glow: true,
-        class: 'shadow-orange-500/15',
+        class: 'shadow-blue-500/15',
       },
     ],
   }
@@ -279,7 +279,7 @@ export const badgeVariants = cva(
     variants: {
       variant: {
         primary: [
-          'border-transparent bg-gradient-to-r from-orange-500 to-yellow-500',
+          'border-transparent bg-gradient-to-r from-blue-500 to-purple-500',
           'text-white shadow-sm',
         ],
         secondary: [
@@ -325,7 +325,7 @@ export type BadgeVariants = VariantProps<typeof badgeVariants>;
 // ============================================================================
 
 /**
- * Gradient text variants - replaces pancake-gradient-text classes
+ * Gradient text variants - replaces insight-gradient-text classes
  */
 export const gradientTextVariants = cva(
   [
@@ -335,11 +335,11 @@ export const gradientTextVariants = cva(
   {
     variants: {
       gradient: {
-        primary: 'bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600',
+        primary: 'bg-gradient-to-r from-blue-500 via-purple-400 to-blue-600',
         secondary: 'bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-500',
         success: 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-600',
         rainbow: 'bg-gradient-to-r from-purple-500 via-pink-500 to-red-500',
-        sunset: 'bg-gradient-to-r from-orange-400 via-red-500 to-pink-500',
+        sunset: 'bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500',
       },
       
       animation: {
@@ -393,7 +393,7 @@ export const animationVariants = cva('', {
       none: '',
       hover: 'hover:scale-105',
       press: 'active:scale-95',
-      pancake: 'hover:scale-105 active:scale-95',
+      insight: 'hover:scale-105 active:scale-95',
     },
     
     spin: {

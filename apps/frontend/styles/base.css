@@ -27,8 +27,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 223 84% 10%;
     
-    /* Primary colors (PancakeSwap inspired) */
-    --primary: 31 100% 50%;
+    /* Primary colors (Analytics platform inspired) */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     
     /* Secondary colors */
@@ -38,15 +38,15 @@
     /* Utility colors */
     --muted: 240 5% 96%;
     --muted-foreground: 240 4% 46%;
-    --accent: 31 100% 95%;
-    --accent-foreground: 31 100% 40%;
+    --accent: 217 32% 95%;
+    --accent-foreground: 217 91% 40%;
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
     
     /* Interactive elements */
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 31 100% 50%;
+    --ring: 217 91% 60%;
     
     /* Border radius */
     --radius: 1rem;
@@ -62,8 +62,8 @@
     --popover-foreground: 0 0% 95%;
     
     /* Primary colors (slightly brighter for dark mode) */
-    --primary: 31 100% 55%;
-    --primary-foreground: 240 10% 4%;
+    --primary: 217 91% 65%;
+    --primary-foreground: 0 0% 100%;
     
     /* Secondary colors */
     --secondary: 240 4% 16%;
@@ -80,7 +80,7 @@
     /* Interactive elements */
     --border: 240 4% 16%;
     --input: 240 4% 16%;
-    --ring: 31 100% 55%;
+    --ring: 217 91% 65%;
   }
 }
 

@@ -10,7 +10,8 @@ export default async function DashboardPage() {
   const session = await getSessionFromJWT();
   
   if (!session?.isAuthenticated || !session.user) {
-    redirect('/login');
+    const { redirectToBackendLogin } = await import('@/lib/server/auth');
+    redirectToBackendLogin('/dashboard');
   }
 
   // Transform custom session data to the expected format

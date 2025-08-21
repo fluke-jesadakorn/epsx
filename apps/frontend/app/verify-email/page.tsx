@@ -14,7 +14,8 @@ export default async function VerifyEmailPage() {
     console.error('VerifyEmailPage: Failed to get user:', error);
   }
   if (!user) {
-    redirect('/login');
+    const { redirectToBackendLogin } = await import('@/lib/server/auth');
+    redirectToBackendLogin('/verify-email');
   }
   if (user.emailVerified) {
     redirect('/dashboard');

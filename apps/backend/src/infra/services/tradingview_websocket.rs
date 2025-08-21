@@ -466,8 +466,11 @@ impl TradingViewWebSocketService {
           info!("📊 WebSocket EPS data - Symbol: {}, Quarter: {}, EPS: {}", 
                 symbol, fiscal_period, eps_value);
           
+          // Extract fiscal quarter number from timestamp for meaningful quarter numbering
+          let fiscal_quarter_number = self.extract_fiscal_quarter_number(earnings_timestamp);
+          
           quarterly_data.push(QuarterlyEPSData {
-            quarter_number: index + 1,
+            quarter_number: fiscal_quarter_number,
             period: fiscal_period.clone(),
             actual_eps: eps_value,
             timestamp: earnings_timestamp,
@@ -801,6 +804,23 @@ impl TradingViewWebSocketService {
     };
     
     format!("{}-Q{}", fiscal_year, quarter)
+  }
+  
+  /// Extract fiscal quarter number (1-4) from timestamp for meaningful quarter identification
+  fn extract_fiscal_quarter_number(&self, timestamp: i64) -> usize {
+    use chrono::{Utc, TimeZone};
+    
+    let dt = Utc.timestamp_opt(timestamp, 0).single().unwrap_or_default();
+    let month = dt.month();
+    
+    // Map to fiscal quarters (same logic as timestamp_to_fiscal_period)
+    match month {
+      1..=3 => 1,     // Q1 
+      4..=6 => 2,     // Q2
+      7..=9 => 3,     // Q3 
+      10..=12 => 4,   // Q4
+      _ => 1,
+    }
   }
   
   /// Parse TradingView message format (ported from Node.js devtools)

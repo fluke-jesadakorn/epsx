@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Analytics Command Center - EPSX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --command-primary: #1E40AF;
+            --command-secondary: #1E3A8A;
+            --command-accent: #3B82F6;
+            --command-success: #059669;
+            --command-warning: #D97706;
+            --command-surface: #F8FAFC;
+            --command-dark: #0F172A;
+            --command-text: #1E293B;
+            --command-gradient: linear-gradient(135deg, var(--command-primary) 0%, var(--command-secondary) 100%);
+            --command-bg-gradient: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        }
+        
+        .command-theme { 
+            background: var(--command-bg-gradient);
+            font-family: 'Inter', sans-serif;
+            color: #F1F5F9;
+        }
+        
+        .command-card {
+            background: rgba(248, 250, 252, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 
+                0 25px 70px rgba(0, 0, 0, 0.3),
+                0 15px 40px rgba(30, 64, 175, 0.2),
+                inset 0 1px 0 rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: var(--command-text);
+        }
+        
+        .command-logo {
+            background: var(--command-gradient);
+            border-radius: 20px;
+            width: 96px;
+            height: 96px;
+            box-shadow: 
+                0 12px 35px rgba(30, 64, 175, 0.4),
+                inset 0 2px 8px rgba(59, 130, 246, 0.2);
+            animation: command-pulse 4s ease-in-out infinite;
+            position: relative;
+        }
+        
+        .command-logo::after {
+            content: '⚡';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: 24px;
+            animation: power-blink 2s ease-in-out infinite;
+        }
+        
+        @keyframes command-pulse {
+            0%, 100% { 
+                box-shadow: 0 12px 35px rgba(30, 64, 175, 0.4), inset 0 2px 8px rgba(59, 130, 246, 0.2);
+            }
+            50% { 
+                box-shadow: 0 16px 45px rgba(30, 64, 175, 0.6), inset 0 2px 8px rgba(59, 130, 246, 0.4);
+            }
+        }
+        
+        @keyframes power-blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .control-input {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(30, 64, 175, 0.2);
+            border-radius: 12px;
+            padding: 18px 24px 18px 56px;
+            transition: all 0.3s ease;
+            color: var(--command-text);
+            font-weight: 500;
+        }
+        
+        .control-input:focus {
+            outline: none;
+            border-color: var(--command-accent);
+            background: white;
+            box-shadow: 
+                0 8px 25px rgba(59, 130, 246, 0.15),
+                0 0 0 4px rgba(59, 130, 246, 0.05);
+            transform: translateY(-2px);
+        }
+        
+        .command-button {
+            background: var(--command-gradient);
+            border-radius: 12px;
+            padding: 18px 36px;
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 8px 25px rgba(30, 64, 175, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .command-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(30, 64, 175, 0.4);
+        }
+        
+        .command-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s;
+        }
+        
+        .command-button:hover::before {
+            left: 100%;
+        }
+        
+        .status-alert {
+            background: linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(30, 58, 138, 0.9) 100%);
+            border-radius: 16px;
+            padding: 20px 24px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .security-badge {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 20px;
+            padding: 8px 16px;
+            color: #60A5FA;
+            backdrop-filter: blur(10px);
+        }
+        
+        .system-spinner {
+            width: 48px;
+            height: 48px;
+            background: var(--command-gradient);
+            border-radius: 50%;
+            animation: system-scan 2s linear infinite;
+            position: relative;
+        }
+        
+        .system-spinner::after {
+            content: '🎯';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+        
+        @keyframes system-scan {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-display {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            border-radius: 12px;
+            padding: 16px 24px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.25);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-online { background: #059669; animation: status-pulse 2s infinite; }
+        .status-secure { background: #3B82F6; animation: status-pulse 2s infinite 0.5s; }
+        .status-monitored { background: #D97706; animation: status-pulse 2s infinite 1s; }
+        
+        @keyframes status-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .progress-bar {
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 4px;
+            height: 6px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, var(--command-accent) 0%, var(--command-success) 100%);
+            height: 100%;
+            width: 87%;
+            border-radius: 4px;
+            animation: progress-scan 3s ease-in-out infinite;
+        }
+        
+        @keyframes progress-scan {
+            0%, 100% { width: 87%; }
+            50% { width: 95%; }
+        }
+    </style>
+</head>
+<body class="command-theme min-h-screen flex items-center justify-center py-12 px-4">
+    <div class="max-w-lg w-full space-y-8">
+        <!-- Command Center Header -->
+        <div class="text-center">
+            <div class="command-logo mx-auto flex items-center justify-center">
+                <i class="fas fa-crosshairs text-white text-3xl"></i>
+            </div>
+            <h1 class="mt-6 text-4xl font-bold text-blue-100">
+                🎯 Analytics Command Center
+            </h1>
+            <p class="mt-3 text-lg text-blue-200">
+                Advanced Operations Access
+            </p>
+            
+            <!-- System Status Indicators -->
+            <div class="mt-6 flex justify-center space-x-6 text-sm">
+                <div class="security-badge flex items-center gap-2">
+                    <span class="status-indicator status-online"></span>
+                    <span>Systems Online</span>
+                </div>
+                <div class="security-badge flex items-center gap-2">
+                    <span class="status-indicator status-monitored"></span>
+                    <span>Activity Monitored</span>
+                </div>
+                <div class="security-badge flex items-center gap-2">
+                    <span class="status-indicator status-secure"></span>
+                    <span>Secure Channel</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status Alert -->
+        <div class="status-alert">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <span class="text-2xl">🛡️</span>
+                </div>
+                <div class="ml-4 flex-1">
+                    <h3 class="text-base font-bold text-white">Command Center Access Control</h3>
+                    <p class="text-sm text-blue-100 mt-1">
+                        This is the administrative command center. All access attempts are logged and monitored by security systems.
+                    </p>
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between text-xs text-blue-200 mb-1">
+                            <span>System Integrity</span>
+                            <span>Optimal ⚡</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        {% if !error.is_empty() %}
+        <div class="error-display">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <span class="text-2xl">🚨</span>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">Access Denied</p>
+                    <p class="text-xs opacity-90 mt-1">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Loading State -->
+        <div id="loading" class="loading text-center p-8" style="display: none;">
+            <div class="system-spinner mx-auto mb-4"></div>
+            <p class="text-blue-200 font-medium">Authenticating command access...</p>
+        </div>
+
+        <!-- Command Access Form -->
+        <div class="command-card">
+            <form class="space-y-6" method="POST" action="/oauth/authorize" id="command-form">
+                <!-- Hidden OAuth Fields -->
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                <input type="hidden" name="state" value="{{ state }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="response_type" value="code">
+                {% if code_challenge.is_some() %}
+                <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
+                {% endif %}
+                {% if code_challenge_method.is_some() %}
+                <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
+                {% endif %}
+
+                <div class="space-y-5">
+                    <!-- Admin Email -->
+                    <div>
+                        <label for="email" class="block text-base font-semibold text-slate-800 mb-2">
+                            🔑 Administrator Email
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                autocomplete="email"
+                                required
+                                class="control-input block w-full placeholder-slate-400"
+                                placeholder="admin@command.center"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-user-shield text-blue-600 text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Credentials -->
+                    <div>
+                        <label for="password" class="block text-base font-semibold text-slate-800 mb-2">
+                            🔐 Security Credentials
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autocomplete="current-password"
+                                required
+                                class="control-input block w-full placeholder-slate-400 pr-12"
+                                placeholder="Command center access key"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-blue-600 text-lg"></i>
+                            </div>
+                            <button
+                                type="button"
+                                onclick="togglePassword()"
+                                class="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                                <i id="password-toggle" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Command Access Button -->
+                <div>
+                    <button
+                        type="submit"
+                        id="login-button"
+                        class="command-button w-full flex justify-center items-center text-lg font-bold"
+                    >
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
+                            <i class="fas fa-terminal text-xl"></i>
+                        </span>
+                        🎯 Access Command Center
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Command Footer -->
+        <div class="text-center space-y-3">
+            <div class="flex justify-center items-center gap-4 text-sm text-blue-300">
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Military-grade encryption</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-satellite"></i>
+                    <span>Real-time monitoring</span>
+                </div>
+            </div>
+            <p class="text-xs text-blue-400">
+                🛡️ Protected by advanced security protocols • All sessions are encrypted and audited
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.getElementById('password-toggle');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        // Show loading when form is submitted
+        document.getElementById('command-form').addEventListener('submit', function() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('login-button').style.opacity = '0.6';
+            document.getElementById('login-button').disabled = true;
+        });
+
+        // Auto-focus email field
+        document.getElementById('email').focus();
+
+        // Command center access animation
+        function activateCommandCenter() {
+            const logo = document.querySelector('.command-logo');
+            logo.style.animation = 'system-scan 1s ease-in-out';
+            setTimeout(() => {
+                logo.style.animation = 'command-pulse 4s ease-in-out infinite';
+            }, 1000);
+        }
+        
+        // Accessibility: Reduced motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.documentElement.style.setProperty('--animation-duration', '0s');
+        }
+
+        // System status updates
+        setInterval(() => {
+            const indicators = document.querySelectorAll('.status-indicator');
+            indicators.forEach((indicator, index) => {
+                indicator.style.animationDelay = `${index * 0.5}s`;
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

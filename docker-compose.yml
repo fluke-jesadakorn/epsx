@@ -93,7 +93,7 @@ services:
       - NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io
       - NEXT_PUBLIC_APP_URL=https://admin.epsx.io
       - NEXT_PUBLIC_API_URL=https://api.epsx.io
-      - NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin-frontend
+      - NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
       - NODE_TLS_REJECT_UNAUTHORIZED=0  # Accept self-signed certificates in development
     networks:
       - epsx-network

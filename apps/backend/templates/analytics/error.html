@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚠️ System Error - EPSX Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --error-primary: #DC2626;
+            --error-secondary: #B91C1C;
+            --error-accent: #F87171;
+            --system-blue: #1E40AF;
+            --system-dark: #0F172A;
+            --system-surface: #F8FAFC;
+            --error-gradient: linear-gradient(135deg, var(--error-primary) 0%, var(--error-secondary) 100%);
+            --system-bg-gradient: linear-gradient(135deg, var(--system-dark) 0%, #1E293B 100%);
+            --warning-gradient: linear-gradient(135deg, #DC2626 0%, #7F1D1D 100%);
+        }
+        
+        .error-theme { 
+            background: var(--system-bg-gradient);
+            font-family: 'Inter', sans-serif;
+            color: #F1F5F9;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .circuit-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(30, 64, 175, 0.1) 0%, transparent 50%);
+            animation: system-pulse 8s ease-in-out infinite;
+        }
+        
+        @keyframes system-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.8; }
+        }
+        
+        .error-card {
+            background: rgba(248, 250, 252, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 48px;
+            box-shadow: 
+                0 30px 80px rgba(0, 0, 0, 0.3),
+                0 20px 40px rgba(220, 38, 38, 0.2),
+                inset 0 2px 0 rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: var(--system-dark);
+            position: relative;
+        }
+        
+        .error-card::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            background: var(--error-gradient);
+            border-radius: 21px;
+            z-index: -1;
+            opacity: 0.1;
+            animation: error-pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes error-pulse {
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.2; }
+        }
+        
+        .error-logo {
+            background: var(--error-gradient);
+            border-radius: 20px;
+            width: 120px;
+            height: 120px;
+            box-shadow: 
+                0 20px 50px rgba(220, 38, 38, 0.3),
+                inset 0 4px 8px rgba(185, 28, 28, 0.2);
+            animation: system-alert 4s ease-in-out infinite;
+            position: relative;
+        }
+        
+        .error-logo::after {
+            content: '⚡';
+            position: absolute;
+            top: -15px;
+            right: -10px;
+            font-size: 32px;
+            animation: lightning-flash 2s ease-in-out infinite;
+        }
+        
+        @keyframes system-alert {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.02); }
+            50% { transform: scale(1.01); }
+            75% { transform: scale(1.03); }
+        }
+        
+        @keyframes lightning-flash {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
+        }
+        
+        .retry-button {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            border-radius: 12px;
+            padding: 18px 36px;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            box-shadow: 
+                0 8px 25px rgba(5, 150, 105, 0.3),
+                inset 0 2px 4px rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 12px 35px rgba(5, 150, 105, 0.4),
+                inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        
+        .retry-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .retry-button:hover::before {
+            left: 100%;
+        }
+        
+        .home-button {
+            background: linear-gradient(135deg, var(--system-blue) 0%, #1E3A8A 100%);
+            border-radius: 12px;
+            padding: 18px 36px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 
+                0 6px 20px rgba(30, 64, 175, 0.3),
+                inset 0 2px 4px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        
+        .home-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 10px 30px rgba(30, 64, 175, 0.4),
+                inset 0 2px 4px rgba(255, 255, 255, 0.2);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        
+        .error-alert {
+            background: var(--warning-gradient);
+            border-radius: 16px;
+            padding: 24px;
+            color: white;
+            box-shadow: 0 12px 35px rgba(220, 38, 38, 0.3);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .error-alert::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: diagnostic-sweep 3s linear infinite;
+        }
+        
+        @keyframes diagnostic-sweep {
+            0% { left: -50%; }
+            100% { left: 100%; }
+        }
+        
+        .status-indicator {
+            background: linear-gradient(90deg, 
+                #DC2626 0%,
+                #B91C1C 25%,
+                #991B1B 50%,
+                #7F1D1D 75%,
+                #450A0A 100%
+            );
+            height: 12px;
+            border-radius: 6px;
+            animation: system-diagnostic 2s ease-in-out infinite;
+            position: relative;
+        }
+        
+        @keyframes system-diagnostic {
+            0%, 100% { box-shadow: 0 0 5px rgba(220, 38, 38, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.8); }
+        }
+        
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        
+        .system-metric {
+            background: rgba(30, 64, 175, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .status-online { color: #059669; }
+        .status-warning { color: #D97706; }
+        .status-error { color: #DC2626; }
+    </style>
+</head>
+<body class="error-theme min-h-screen flex items-center justify-center py-12 px-4">
+    <div class="circuit-effect"></div>
+    
+    <div class="max-w-4xl w-full space-y-8 relative z-10">
+        <!-- System Error Header -->
+        <div class="text-center">
+            <div class="error-logo mx-auto flex items-center justify-center mb-8">
+                <i class="fas fa-exclamation-triangle text-white text-4xl"></i>
+            </div>
+            <h1 class="text-5xl font-bold text-red-400 mb-4">
+                ⚠️ System Error Detected
+            </h1>
+            <p class="text-2xl text-blue-300 mb-6">
+                Analytics system encountered an unexpected condition
+            </p>
+        </div>
+
+        <!-- System Status -->
+        <div class="text-center mb-8">
+            <div class="bg-gray-900 bg-opacity-60 rounded-2xl p-6">
+                <div class="flex items-center justify-between text-sm mb-2">
+                    <span class="text-blue-300">System Status</span>
+                    <span class="text-red-400 font-bold">🚨 ERROR STATE</span>
+                </div>
+                <div class="status-indicator"></div>
+                <p class="text-blue-200 text-xs mt-2">Diagnostic systems are analyzing the issue</p>
+            </div>
+        </div>
+
+        <!-- Error Details -->
+        <div class="error-alert">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <span class="text-5xl">🔍</span>
+                </div>
+                <div class="ml-6 flex-1">
+                    <h2 class="text-2xl font-bold mb-3">Error Analysis</h2>
+                    <p class="text-lg opacity-95 mb-4">{{ error_message }}</p>
+                    
+                    <div class="bg-black bg-opacity-30 rounded-xl p-4">
+                        <h3 class="text-base font-semibold mb-2">📊 Technical Details:</h3>
+                        <p class="text-sm opacity-90 font-mono">{{ error_details }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Recovery Options -->
+        <div class="error-card">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-red-600 mb-3">🔧 Recovery Options</h2>
+                <p class="text-lg text-slate-600">System recovery protocols are available to restore functionality</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- Retry Operation -->
+                <div class="text-center">
+                    <div class="mb-4 text-4xl">🔄</div>
+                    <h3 class="text-lg font-bold text-green-600 mb-2">Retry Operation</h3>
+                    <p class="text-sm text-gray-600 mb-4">Attempt to process the request again</p>
+                    <button
+                        onclick="history.back()"
+                        class="retry-button w-full flex justify-center items-center"
+                    >
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
+                            <i class="fas fa-redo text-xl"></i>
+                        </span>
+                        🔄 Retry Process
+                    </button>
+                </div>
+
+                <!-- Return to Dashboard -->
+                <div class="text-center">
+                    <div class="mb-4 text-4xl">📊</div>
+                    <h3 class="text-lg font-bold text-blue-600 mb-2">Analytics Dashboard</h3>
+                    <p class="text-sm text-gray-600 mb-4">Return to the main analytics interface</p>
+                    <a
+                        href="/"
+                        class="home-button w-full flex justify-center items-center inline-block"
+                    >
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </span>
+                        📊 Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- System Metrics -->
+            <div class="bg-slate-50 rounded-2xl p-6 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 text-center">🖥️ System Health Metrics</h3>
+                <div class="diagnostic-grid">
+                    <div class="system-metric">
+                        <div class="metric-value status-online">98%</div>
+                        <div class="text-sm text-slate-600">Uptime</div>
+                    </div>
+                    <div class="system-metric">
+                        <div class="metric-value status-warning">76%</div>
+                        <div class="text-sm text-slate-600">Performance</div>
+                    </div>
+                    <div class="system-metric">
+                        <div class="metric-value status-error">⚠️</div>
+                        <div class="text-sm text-slate-600">Current Status</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Support Contact -->
+            <div class="bg-blue-50 rounded-2xl p-6 border-2 border-blue-200">
+                <div class="text-center">
+                    <h3 class="text-lg font-bold text-blue-800 mb-3">🆘 Technical Support</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="flex items-center justify-center gap-2 text-blue-700">
+                            <i class="fas fa-headset"></i>
+                            <span>24/7 Support</span>
+                        </div>
+                        <div class="flex items-center justify-center gap-2 text-blue-700">
+                            <i class="fas fa-envelope"></i>
+                            <span>support@epsx.io</span>
+                        </div>
+                        <div class="flex items-center justify-center gap-2 text-blue-700">
+                            <i class="fas fa-bug"></i>
+                            <span>Report Issue</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="text-center bg-gray-900 bg-opacity-60 rounded-3xl p-6">
+            <h3 class="text-xl font-bold text-blue-300 mb-4">🔧 System Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-200">
+                <div>
+                    <div class="text-2xl mb-2">🛡️</div>
+                    <div class="font-semibold">Security</div>
+                    <div>All data remains secure</div>
+                </div>
+                <div>
+                    <div class="text-2xl mb-2">🔄</div>
+                    <div class="font-semibold">Recovery</div>
+                    <div>Automatic retry available</div>
+                </div>
+                <div>
+                    <div class="text-2xl mb-2">📞</div>
+                    <div class="font-semibold">Support</div>
+                    <div>Expert help available</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // System diagnostic simulation
+        let diagnosticCount = 0;
+        const maxDiagnostics = 5;
+        
+        function runSystemDiagnostic() {
+            if (diagnosticCount < maxDiagnostics) {
+                setTimeout(() => {
+                    console.log('🔧 Running system diagnostic...');
+                    const statusBar = document.querySelector('.status-indicator');
+                    if (statusBar) {
+                        statusBar.style.background = 'linear-gradient(90deg, #059669 0%, #047857 100%)';
+                        setTimeout(() => {
+                            statusBar.style.background = 'linear-gradient(90deg, #DC2626 0%, #B91C1C 25%, #991B1B 50%, #7F1D1D 75%, #450A0A 100%)';
+                        }, 2000);
+                    }
+                }, 3000);
+                diagnosticCount++;
+            }
+        }
+        
+        // Run initial diagnostic
+        runSystemDiagnostic();
+        
+        // Update system metrics periodically
+        function updateMetrics() {
+            const metrics = document.querySelectorAll('.metric-value');
+            metrics.forEach((metric, index) => {
+                if (index === 1) { // Performance metric
+                    const values = ['76%', '78%', '74%', '79%'];
+                    metric.textContent = values[Math.floor(Math.random() * values.length)];
+                }
+            });
+        }
+        
+        setInterval(updateMetrics, 5000);
+        
+        // Accessibility: Reduced motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.documentElement.style.setProperty('--animation-duration', '0s');
+        }
+        
+        // Log error for debugging
+        console.error('System Error:', {
+            message: '{{ error_message }}',
+            details: '{{ error_details }}',
+            timestamp: new Date().toISOString()
+        });
+    </script>
+</body>
+</html>

@@ -21,7 +21,8 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   }
 
   if (!user) {
-    redirect('/login?callbackUrl=/payment');
+    const { redirectToBackendLogin } = await import('@/lib/server/auth');
+    redirectToBackendLogin('/payment');
   }
   
   // Extract package parameter from search params

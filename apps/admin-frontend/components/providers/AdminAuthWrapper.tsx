@@ -46,7 +46,8 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   const sessionData = await getSessionFromJWT();
   
   if (!sessionData?.isAuthenticated || !sessionData?.user) {
-    redirect('/login');
+    const { redirectToBackendAdminLogin } = await import('@/lib/server/auth');
+    redirectToBackendAdminLogin();
   }
   
   // Check if user has admin access

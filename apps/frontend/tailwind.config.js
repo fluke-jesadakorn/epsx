@@ -33,30 +33,30 @@ module.exports = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "hsl(31 100% 95%)",
-          100: "hsl(31 90% 90%)",
-          200: "hsl(31 95% 85%)",
-          300: "hsl(31 95% 75%)",
-          400: "hsl(31 95% 65%)",
-          500: "hsl(31 100% 50%)",
-          600: "hsl(31 95% 45%)",
-          700: "hsl(31 90% 40%)",
-          800: "hsl(31 85% 35%)",
-          900: "hsl(31 80% 30%)",
+          50: "hsl(217 100% 95%)",
+          100: "hsl(217 90% 90%)",
+          200: "hsl(217 95% 85%)",
+          300: "hsl(217 95% 75%)",
+          400: "hsl(217 95% 65%)",
+          500: "hsl(217 91% 60%)",
+          600: "hsl(217 95% 45%)",
+          700: "hsl(217 90% 40%)",
+          800: "hsl(217 85% 35%)",
+          900: "hsl(217 80% 30%)",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
-          50: "hsl(42 100% 95%)",
-          100: "hsl(42 95% 88%)",
-          200: "hsl(42 90% 80%)",
-          300: "hsl(42 95% 75%)",
-          400: "hsl(42 100% 70%)",
-          500: "hsl(42 100% 70%)",
-          600: "hsl(42 95% 65%)",
-          700: "hsl(42 90% 60%)",
-          800: "hsl(42 85% 55%)",
-          900: "hsl(42 80% 50%)",
+          50: "hsl(262 100% 95%)",
+          100: "hsl(262 95% 88%)",
+          200: "hsl(262 90% 80%)",
+          300: "hsl(262 95% 75%)",
+          400: "hsl(262 100% 70%)",
+          500: "hsl(262 83% 58%)",
+          600: "hsl(262 95% 65%)",
+          700: "hsl(262 90% 60%)",
+          800: "hsl(262 85% 55%)",
+          900: "hsl(262 80% 50%)",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -79,14 +79,14 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         
-        // PancakeSwap-inspired color extensions
-        pancake: {
-          primary: "hsl(31 100% 50%)",
-          secondary: "hsl(42 100% 70%)",
+        // Analytics-inspired color extensions
+        insight: {
+          primary: "hsl(217 91% 60%)",
+          secondary: "hsl(262 83% 58%)",
           success: "hsl(142 71% 45%)",
           warning: "hsl(45 93% 47%)",
           error: "hsl(0 85% 60%)",
-          info: "hsl(217 91% 60%)",
+          info: "hsl(184 93% 47%)",
         },
         
         // Extended status colors
@@ -200,7 +200,7 @@ module.exports = {
           "0%, 100%": { opacity: "0.4" },
           "50%": { opacity: "0.8" },
         },
-        "pulse-pancake": {
+        "pulse-insight": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
@@ -307,7 +307,7 @@ module.exports = {
         // Pulse animations
         "pulse-gentle": "pulse-gentle 3s ease-in-out infinite",
         "pulse-slow": "pulse-slow 4s ease-in-out infinite",
-        "pulse-pancake": "pulse-pancake 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-insight": "pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         
         // Scale animations
         "scale-pulse": "scale-pulse 3s ease-in-out infinite",

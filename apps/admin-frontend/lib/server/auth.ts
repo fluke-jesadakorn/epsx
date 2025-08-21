@@ -127,6 +127,55 @@ export async function getAuthUser() {
 }
 
 /**
+ * Exchange authorization code for tokens (proper OAuth flow)
+ */
+export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
+  try {
+    console.log('🔄 Admin: Exchanging authorization code for access token...')
+    
+    // Use internal Docker network URL for server-side requests
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
+      : 'http://backend:8080'
+    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin'
+    const redirectUri = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`
+    
+    const response = await fetch(`${apiUrl}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        code_verifier: codeVerifier,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
+      throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const tokens = await response.json()
+    console.log('✅ Admin: Successfully received tokens from backend')
+    
+    return {
+      accessToken: tokens.access_token,
+      idToken: tokens.id_token,
+      refreshToken: tokens.refresh_token,
+    }
+  } catch (error) {
+    console.error('❌ Admin: Token exchange error:', error)
+    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+/**
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
@@ -154,6 +203,21 @@ export async function getUserInfo(accessToken: string) {
   return userinfo;
 }
 
+/**
+ * Redirect to backend Chef Kitchen login with callback URL
+ */
+export function redirectToBackendAdminLogin(callbackUrl?: string): never {
+  const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+  backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
+  backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+  backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+  backendAdminLoginUrl.searchParams.set('response_type', 'code');
+  if (callbackUrl) {
+    backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+  }
+  redirect(backendAdminLoginUrl.toString());
+}
+
 // ============================================================================
 // Additional Auth Helper Functions for Admin Frontend
 // ============================================================================
@@ -162,12 +226,10 @@ export async function getUserInfo(accessToken: string) {
  * Require authentication - redirect to login if not authenticated
  */
 export async function requireAuth(redirectPath?: string) {
-  const { redirect } = await import('next/navigation');
   const user = await getAuthUser();
   
   if (!user) {
-    const loginUrl = `/login${redirectPath ? `?callbackUrl=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(loginUrl);
+    redirectToBackendAdminLogin(redirectPath);
   }
   
   return user;

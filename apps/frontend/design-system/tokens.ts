@@ -142,14 +142,14 @@ export const colors = {
   
   // Gradient definitions
   gradients: {
-    primary: 'linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%)',
-    primaryDark: 'linear-gradient(135deg, hsl(31 100% 55%) 0%, hsl(42 100% 75%) 100%)',
+    primary: 'linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%)',
+    primaryDark: 'linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%)',
     secondary: 'linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(184 93% 47%) 100%)',
     secondaryDark: 'linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(184 93% 52%) 100%)',
-    accent: 'linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(31 100% 50%) 100%)',
-    accentDark: 'linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(31 100% 55%) 100%)',
-    softHighlight: 'linear-gradient(135deg, hsl(31 80% 92%) 0%, hsl(42 90% 88%) 100%)',
-    softHighlightDark: 'linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%)',
+    accent: 'linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(217 91% 60%) 100%)',
+    accentDark: 'linear-gradient(135deg, hsl(142 71% 50%) 0%, hsl(217 91% 65%) 100%)',
+    softHighlight: 'linear-gradient(135deg, hsl(217 80% 92%) 0%, hsl(262 90% 88%) 100%)',
+    softHighlightDark: 'linear-gradient(135deg, hsl(217 50% 20%) 0%, hsl(262 60% 18%) 100%)',
   },
 } as const;
 
@@ -210,7 +210,7 @@ export const typography = {
   fonts: {
     sans: ['var(--font-kanit)', 'system-ui', 'sans-serif'],
     mono: ['ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
-    pancake: ['Kanit', 'Baloo 2', 'Comic Sans MS', 'Comic Sans', 'cursive', 'sans-serif'],
+    insight: ['Inter', 'system-ui', 'sans-serif'],
   },
   
   // Font sizes

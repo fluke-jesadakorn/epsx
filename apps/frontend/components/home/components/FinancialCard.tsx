@@ -47,14 +47,14 @@ export function FinancialCard({
     <Card
       className={`
         group w-full transition-all duration-300 ease-out 
-        ${ANIMATIONS.scalePancake} 
-        hover:shadow-2xl hover:shadow-orange-500/20 dark:hover:shadow-yellow-900/30 
+        ${ANIMATIONS.scaleInsight} 
+        hover:shadow-2xl hover:shadow-blue-500/20 dark:hover:shadow-blue-900/30 
         border-0 
         bg-gradient-to-br ${GRADIENTS.card}
         rounded-2xl shadow-lg 
         ${GRADIENTS.cardHover}
         overflow-hidden backdrop-blur-sm cursor-pointer 
-        focus:outline-none focus:ring-4 focus:ring-orange-500/20 
+        focus:outline-none focus:ring-4 focus:ring-blue-500/20 
         ${isPressed ? `${ANIMATIONS.scalePress} opacity-90` : ''}
         relative min-h-0 max-w-full
       `}
@@ -71,20 +71,20 @@ export function FinancialCard({
       onBlur={() => setIsHovered(false)}
     >
       {/* Animated Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-yellow-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* PancakeSwap-style decorative elements */}
+      {/* Analytics-style decorative elements */}
       <div className="absolute top-2 right-2 text-xl sm:text-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-300 animate-bounce-gentle">
-        🥞
+        📊
       </div>
       <div className="absolute bottom-2 left-2 text-base sm:text-lg opacity-15 group-hover:opacity-30 transition-opacity duration-300 animate-pulse">
-        💰
+        📈
       </div>
 
       {/* Rank Badge */}
-      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-30 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-orange-400/60 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-orange-500/80">
+      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-30 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-blue-400/60 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-blue-500/80">
         {/* Decorative background */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-200/70 via-yellow-100/60 to-amber-100/50 dark:from-orange-900/40 dark:via-yellow-900/30 dark:to-amber-900/30 blur-[2px] z-[-1]" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-200/70 via-purple-100/60 to-indigo-100/50 dark:from-blue-900/40 dark:via-purple-900/30 dark:to-indigo-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1 text-xs sm:text-sm">
             #{!isNaN(index) ? index + 1 : (data as any)?.rank || '?'}
@@ -95,13 +95,13 @@ export function FinancialCard({
         </AnimatedBadge>
       </div>
 
-      {/* Performance Indicator with PancakeSwap glow */}
+      {/* Performance Indicator with Analytics glow */}
       {avgGrowth && avgGrowth > 0 && (
-        <div className="absolute top-0 right-0 w-16 sm:w-20 h-16 sm:h-20 bg-gradient-to-br from-orange-400/20 via-yellow-400/30 to-amber-400/20 rounded-full blur-xl opacity-50 group-hover:opacity-75 transition-opacity duration-300" />
+        <div className="absolute top-0 right-0 w-16 sm:w-20 h-16 sm:h-20 bg-gradient-to-br from-blue-400/20 via-purple-400/30 to-indigo-400/20 rounded-full blur-xl opacity-50 group-hover:opacity-75 transition-opacity duration-300" />
       )}
 
       {/* Animated Border */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/20 via-yellow-500/20 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />
 
       {/* Content */}
       <CardContent className="relative p-3 sm:p-4 md:p-6 z-10 w-full overflow-hidden">
@@ -237,8 +237,8 @@ export function FinancialCard({
               text-white font-semibold shadow-md 
               ${GRADIENTS.buttonHover}
               transition-all duration-200 
-              focus:outline-none focus:ring-2 focus:ring-orange-400/60 focus:ring-offset-2 
-              dark:focus:ring-orange-700/60 hover:shadow-lg ${ANIMATIONS.scalePancake}
+              focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:ring-offset-2 
+              dark:focus:ring-blue-700/60 hover:shadow-lg ${ANIMATIONS.scaleInsight}
               group text-sm sm:text-base
             `}
           >
@@ -270,7 +270,7 @@ export function FinancialCard({
         {/* Quarterly Performance */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 sm:gap-3 pb-2 border-b border-slate-200/70 dark:border-slate-700/70">
-            <div className="w-5 sm:w-6 h-5 sm:h-6 rounded-lg bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center">
+            <div className="w-5 sm:w-6 h-5 sm:h-6 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
               <span className="text-white text-xs font-bold">📊</span>
             </div>
             <h3
@@ -284,7 +284,7 @@ export function FinancialCard({
             </h3>
             <div className="ml-auto">
               <span
-                className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-orange-500 to-yellow-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
+                className={`${TYPOGRAPHY.caption} bg-gradient-to-r from-blue-500 to-purple-600 text-white px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1`}
               >
                 <span className="text-xs">⏰</span>
                 {/* Show displayed quarters count dynamically */}

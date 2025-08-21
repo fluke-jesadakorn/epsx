@@ -10,7 +10,7 @@
 
 @layer base {
   :root {
-    /* Light theme - PancakeSwap inspired with admin enhancements */
+    /* Light theme - Analytics platform with admin enhancements */
     --background: 251 100% 98%; /* Softer white */
     --foreground: 220 26% 14%; /* Dark blue-gray */
 
@@ -20,7 +20,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 26% 14%;
 
-    --primary: 31 100% 50%; /* PancakeSwap orange */
+    --primary: 217 91% 60%; /* Analytics blue */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 42 100% 70%; /* Light golden */
@@ -41,14 +41,14 @@
 
     --radius: 1rem;
 
-    /* PancakeSwap specific colors */
-    --pancake-primary: 31 100% 50%; /* Orange */
-    --pancake-secondary: 42 100% 70%; /* Yellow */
-    --pancake-success: 142 71% 45%; /* Green */
-    --pancake-warning: 45 93% 47%; /* Amber */
-    --pancake-error: 0 85% 60%; /* Red */
-    --pancake-info: 217 91% 60%; /* Blue */
-    --pancake-purple: 250 84% 54%; /* Purple accent */
+    /* Analytics platform specific colors */
+    --insight-primary: 217 91% 60%; /* Analytics blue */
+    --insight-secondary: 213 94% 68%; /* Light blue */
+    --insight-success: 142 71% 45%; /* Green */
+    --insight-warning: 45 93% 47%; /* Amber */
+    --insight-error: 0 85% 60%; /* Red */
+    --insight-info: 197 71% 52%; /* Data blue */
+    --insight-accent: 250 84% 54%; /* Command purple */
 
     /* Admin-specific status colors */
     --admin-active: 142 71% 45%; /* Green for active users */
@@ -66,18 +66,18 @@
     /* Enhanced gradient colors */
     --gradient-primary: linear-gradient(
       135deg,
-      hsl(31 100% 50%) 0%,
-      hsl(42 100% 70%) 100%
+      hsl(217 91% 60%) 0%,
+      hsl(213 94% 68%) 100%
     );
     --gradient-secondary: linear-gradient(
       135deg,
       hsl(250 84% 54%) 0%,
-      hsl(217 91% 60%) 100%
+      hsl(197 71% 52%) 100%
     );
     --gradient-card: linear-gradient(
       135deg,
-      hsla(31 100% 50% / 0.05) 0%,
-      hsla(42 100% 70% / 0.05) 100%
+      hsla(217 91% 60% / 0.05) 0%,
+      hsla(213 94% 68% / 0.05) 100%
     );
     --gradient-admin: linear-gradient(
       135deg,
@@ -87,7 +87,7 @@
   }
 
   .dark {
-    /* Dark theme - PancakeSwap inspired with admin enhancements */
+    /* Dark theme - Analytics platform with admin enhancements */
     --background: 220 26% 8%; /* Deep dark blue-gray */
     --foreground: 210 40% 95%; /* Higher contrast light blue-gray */
 
@@ -118,14 +118,14 @@
 
     --radius: 1rem;
 
-    /* PancakeSwap specific colors - adjusted for dark mode */
-    --pancake-primary: 31 100% 50%; /* Orange */
-    --pancake-secondary: 42 100% 70%; /* Yellow */
-    --pancake-success: 142 71% 45%; /* Green */
-    --pancake-warning: 45 93% 47%; /* Amber */
-    --pancake-error: 0 85% 55%; /* Red */
-    --pancake-info: 217 91% 65%; /* Blue */
-    --pancake-purple: 250 84% 60%; /* Purple accent */
+    /* Analytics platform specific colors - adjusted for dark mode */
+    --insight-primary: 217 91% 65%; /* Analytics blue */
+    --insight-secondary: 213 94% 73%; /* Light blue */
+    --insight-success: 142 71% 50%; /* Green */
+    --insight-warning: 45 93% 52%; /* Amber */
+    --insight-error: 0 85% 58%; /* Red */
+    --insight-info: 197 71% 57%; /* Data blue */
+    --insight-accent: 250 84% 65%; /* Command purple */
 
     /* Admin-specific status colors - dark mode */
     --admin-active: 142 71% 50%; /* Slightly brighter green */
@@ -143,23 +143,23 @@
     /* Enhanced gradient colors for dark mode */
     --gradient-primary: linear-gradient(
       135deg,
-      hsl(31 100% 50%) 0%,
-      hsl(42 100% 70%) 100%
+      hsl(217 91% 65%) 0%,
+      hsl(213 94% 73%) 100%
     );
     --gradient-secondary: linear-gradient(
       135deg,
-      hsl(250 84% 60%) 0%,
-      hsl(217 91% 65%) 100%
+      hsl(250 84% 65%) 0%,
+      hsl(197 71% 57%) 100%
     );
     --gradient-card: linear-gradient(
       135deg,
-      hsla(31 100% 50% / 0.1) 0%,
-      hsla(42 100% 70% / 0.1) 100%
+      hsla(217 91% 65% / 0.1) 0%,
+      hsla(213 94% 73% / 0.1) 100%
     );
     --gradient-admin: linear-gradient(
       135deg,
       hsla(217 91% 65% / 0.12) 0%,
-      hsla(250 84% 60% / 0.12) 100%
+      hsla(250 84% 65% / 0.12) 100%
     );
   }
 }

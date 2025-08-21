@@ -7,6 +7,8 @@ import {
   FinancialDataLoading,
   FinancialDataHeader,
 } from './components/LayoutComponents';
+import { EnhancedTouchWrapper } from '@/components/touch';
+import { Heart, Share2, Bookmark, TrendingUp, ExternalLink } from 'lucide-react';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface FinancialDataTableProps {
@@ -26,13 +28,65 @@ function FinancialDataTable({
   // Ensure data is always an array to prevent runtime errors
   const safeData = Array.isArray(data) ? data : [];
 
+  // Enhanced touch interaction handlers
+  const handleRefresh = async () => {
+    // Simulate data refresh
+    console.log('Refreshing financial data...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log('Financial data refreshed!');
+  };
+
+  const stockQuickActions = [
+    {
+      id: 'favorite',
+      icon: <Heart className="h-5 w-5" />,
+      label: 'Favorite',
+      color: 'bg-red-500',
+      action: () => console.log('Added to favorites')
+    },
+    {
+      id: 'share',
+      icon: <Share2 className="h-5 w-5" />,
+      label: 'Share',
+      color: 'bg-blue-500',
+      action: () => console.log('Shared stock')
+    },
+    {
+      id: 'watchlist',
+      icon: <Bookmark className="h-5 w-5" />,
+      label: 'Watch',
+      color: 'bg-green-500',
+      action: () => console.log('Added to watchlist')
+    },
+    {
+      id: 'analyze',
+      icon: <TrendingUp className="h-5 w-5" />,
+      label: 'Analyze',
+      color: 'bg-purple-500',
+      action: () => console.log('Opening analysis')
+    },
+    {
+      id: 'tradingview',
+      icon: <ExternalLink className="h-5 w-5" />,
+      label: 'TradingView',
+      color: 'bg-orange-500',
+      action: () => console.log('Opening TradingView')
+    }
+  ];
+
   // Show loading state when no data
   if (!safeData.length) {
     return <FinancialDataLoading />;
   }
 
   return (
-    <div
+    <EnhancedTouchWrapper
+      enablePullToRefresh={true}
+      onRefresh={handleRefresh}
+      enableLongPress={true}
+      enableQuickActions={true}
+      quickActions={stockQuickActions}
+      enablePinchZoom={true}
       className={`
         w-full min-h-screen 
         bg-gradient-to-br ${GRADIENTS.background}
@@ -88,37 +142,97 @@ function FinancialDataTable({
             </p>
           </div>
 
-          {/* Responsive Cards Grid */}
-          <div
-            className="
-              grid 
-              grid-cols-1 
-              sm:grid-cols-1 
-              md:grid-cols-2 
-              xl:grid-cols-3 
-              gap-4 sm:gap-6
-              auto-rows-max
-              w-full
-              max-w-full
-            "
-          >
-            {safeData.map((item, index) => (
-              <div
-                key={`${item.symbol}-${index}`}
-                className="relative w-full max-w-full overflow-hidden"
-                style={{
-                  animationDelay: `${index * 150}ms`,
-                  animationDuration: '600ms',
-                  animationFillMode: 'both',
-                }}
-              >
-                <FinancialCard data={item} index={index} />
+          {/* Mobile View Toggle Buttons */}
+          <div className="flex flex-wrap gap-2 mb-6 md:hidden">
+            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              Card View
+            </button>
+            <button className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+              Table View
+            </button>
+          </div>
+
+          {/* Mobile/Tablet: Horizontal Scrolling Cards */}
+          <div className="block md:hidden">
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 w-max">
+                {safeData.map((item, index) => (
+                  <div
+                    key={`mobile-${item.symbol}-${index}`}
+                    className="w-72 flex-shrink-0"
+                    style={{
+                      animationDelay: `${index * 150}ms`,
+                      animationDuration: '600ms',
+                      animationFillMode: 'both',
+                    }}
+                  >
+                    <FinancialCard data={item} index={index} />
+                  </div>
+                ))}
               </div>
-            ))}
+              {/* Scroll indicator */}
+              <div className="flex justify-center mt-4">
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, safeData.length) }).map((_, i) => (
+                    <div key={i} className="w-2 h-2 bg-primary/30 rounded-full" />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground ml-3 self-center">
+                  Swipe to see more →
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop: Responsive Grid */}
+          <div className="hidden md:block">
+            <div
+              className="
+                grid 
+                grid-cols-1 
+                md:grid-cols-2 
+                lg:grid-cols-2
+                xl:grid-cols-3 
+                2xl:grid-cols-4
+                gap-4 lg:gap-6
+                auto-rows-max
+                w-full
+                max-w-full
+              "
+            >
+              {safeData.map((item, index) => (
+                <div
+                  key={`desktop-${item.symbol}-${index}`}
+                  className="relative w-full max-w-full overflow-hidden"
+                  style={{
+                    animationDelay: `${index * 150}ms`,
+                    animationDuration: '600ms',
+                    animationFillMode: 'both',
+                  }}
+                >
+                  <FinancialCard data={item} index={index} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Load More Button - Mobile Optimized */}
+          <div className="mt-8 text-center">
+            <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 w-full sm:w-auto">
+              <span className="flex items-center justify-center gap-2">
+                <span>📈 Load More Data</span>
+                <span className="text-sm opacity-80">(+{Math.min(20, safeData.length)} more)</span>
+              </span>
+            </button>
+            
+            {/* Mobile hint */}
+            <p className="text-xs text-muted-foreground mt-3 block sm:hidden">
+              Tap to load more financial data
+            </p>
           </div>
         </div>
       </div>
-    </div>
+    </EnhancedTouchWrapper>
   );
 }
 

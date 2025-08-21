@@ -127,3 +127,43 @@ export const formatPercentage = (value: number | null): string => {
   if (value === null) return 'N/A';
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
+
+// Card Dashboard Types - matching backend CardDashboardResponse
+export interface CardDashboardResponse {
+  success: boolean;
+  data: SymbolCardData[];
+  pagination: EPSPagination;
+  metadata: CardDashboardMetadata;
+  message?: string;
+  processing_time_ms: number;
+}
+
+export interface SymbolCardData {
+  rank: number;
+  symbol: string;
+  latest_date: string;
+  value: number; // Current price
+  active_status: string; // "Active" or "Non Active"
+  quarterly_performance: QuarterlyPerformanceData[];
+}
+
+export interface QuarterlyPerformanceData {
+  quarter: string; // "Q1", "Q0", etc.
+  date: string; // "Aug 8, 2025"
+  price: number;
+  eps: number;
+  eps_growth: number; // EPS % growth
+  price_growth: number; // Price % growth
+}
+
+export interface CardDashboardMetadata {
+  available_countries: string[];
+  available_sectors: string[];
+  request_timestamp: string;
+  data_source: string;
+}
+
+// Updated StockCardProps for new card format
+export interface CardStockProps {
+  cardData: SymbolCardData;
+}

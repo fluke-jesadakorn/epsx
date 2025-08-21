@@ -35,10 +35,10 @@ export default defineConfig({
       testMatch: /admin\.setup\.ts/,
     },
     
-    // PancakeSwap Admin Complete Flow Tests - 100% Coverage
+    // Analytics Command Center Admin Complete Flow Tests - 100% Coverage
     {
-      name: 'pancake-admin-complete',
-      testMatch: '**/pancake-admin-complete-flow.spec.ts',
+      name: 'analytics-admin-complete',
+      testMatch: '**/analytics-admin-complete-flow.spec.ts',
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['admin-setup'],
     },

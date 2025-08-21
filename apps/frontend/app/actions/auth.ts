@@ -73,7 +73,7 @@ export async function forgotPassword(email: string) {
     // Redirect to backend password reset with email pre-filled
     const params = new URLSearchParams({
       email: email,
-      redirect_to: `${serverConfig.siteUrl}/login`
+      redirect_to: `${serverConfig.siteUrl}/`
     });
     
     const resetUrl = `${backendUrl}/oauth/reset-password?${params.toString()}`;
@@ -95,7 +95,7 @@ export async function resetPassword(token: string, password: string) {
     // Redirect to backend password reset confirmation with token
     const params = new URLSearchParams({
       token: token,
-      redirect_to: `${serverConfig.siteUrl}/login`
+      redirect_to: `${serverConfig.siteUrl}/`
     });
     
     const resetUrl = `${backendUrl}/oauth/reset-password/confirm?${params.toString()}`;

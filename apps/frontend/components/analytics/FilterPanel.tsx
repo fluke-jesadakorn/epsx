@@ -34,7 +34,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
       sector: undefined,
       min_eps: undefined,
       min_growth: undefined,
-      sort_by: 'qoq_growth',
+      sort_by: 'ranking_position',
       page: 1,
     });
   };

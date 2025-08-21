@@ -27,8 +27,9 @@ export async function ServerAuthProvider({
     const session = await getServerSession();
     
     if (!session?.user) {
-      console.log('🔐 Server auth: User not authenticated, redirecting to login');
-      redirect('/login');
+      console.log('🔐 Server auth: User not authenticated, redirecting to backend Chef Kitchen login');
+      const { redirectToBackendAdminLogin } = await import('@/lib/server/auth');
+      redirectToBackendAdminLogin();
     }
 
     if (requireAdmin) {

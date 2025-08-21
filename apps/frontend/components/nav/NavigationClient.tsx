@@ -112,16 +112,59 @@ export function NavigationClient({ user }: NavigationClientProps) {
               EPSX
             </span>
           </Link>
+          {/* Tablet Navigation Pills (md breakpoint) */}
+          <nav className="hidden md:flex lg:hidden gap-1 bg-muted/50 rounded-full p-1">
+            {navItems.slice(0, 4).map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`
+                  relative flex items-center justify-center w-10 h-10 rounded-full
+                  transition-all duration-200 hover:scale-110 active:scale-95
+                  ${pathname === item.href
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                  }
+                `}
+                title={item.label}
+              >
+                {iconMap[item.key as keyof typeof iconMap]}
+                {/* Active indicator */}
+                {pathname === item.href && (
+                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                )}
+              </Link>
+            ))}
+            
+            {/* More items indicator for tablet */}
+            {navItems.length > 4 && (
+              <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted text-muted-foreground">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="1"/>
+                  <circle cx="19" cy="12" r="1"/>
+                  <circle cx="5" cy="12" r="1"/>
+                </svg>
+              </button>
+            )}
+          </nav>
+
+          {/* Desktop Navigation (lg+ breakpoint) */}
           <nav className="hidden lg:flex gap-2">
             {navItems.map((item) => (
               <Link
                 key={item.key}
                 href={item.href}
-                className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${
-                  pathname === item.href
+                className={`
+                  flex items-center justify-center gap-2 rounded-lg px-4 py-2 
+                  text-sm font-medium transition-all duration-200 
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+                  hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] 
+                  disabled:pointer-events-none disabled:opacity-50 
+                  ${pathname === item.href
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:text-primary'
-                }`}
+                  }
+                `}
               >
                 <span className="flex items-center justify-center">
                   {iconMap[item.key as keyof typeof iconMap]}
@@ -135,12 +178,13 @@ export function NavigationClient({ user }: NavigationClientProps) {
           </NavigationMenu>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+          {/* Theme Toggle - Responsive */}
           <div className="hidden sm:block">
             <ThemeToggle />
           </div>
 
-          {/* User Level Display */}
+          {/* User Level Display - Enhanced for Tablet */}
           {user && (
             <TooltipProvider>
               <Tooltip>
@@ -148,9 +192,14 @@ export function NavigationClient({ user }: NavigationClientProps) {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="secondary"
-                      className={`${getLevelColor(userLevel)} border-current bg-current/10 text-current font-bold text-xs px-2 py-1`}
+                      className={`
+                        ${getLevelColor(userLevel)} border-current bg-current/10 text-current 
+                        font-bold text-xs px-2 py-1 md:px-3 md:py-1.5
+                        transition-all duration-200 hover:scale-105
+                      `}
                     >
                       <Crown className="h-3 w-3 mr-1" />
+                      <span className="hidden md:inline">Level </span>
                       {formatLevelAsNumber(userLevel)}
                     </Badge>
                   </div>
@@ -162,37 +211,51 @@ export function NavigationClient({ user }: NavigationClientProps) {
             </TooltipProvider>
           )}
 
+          {/* User Avatar & Settings - Tablet Enhanced */}
           {user?.email && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Link href="/settings" className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                  <Link 
+                    href="/settings" 
+                    className="flex items-center gap-2 hover:bg-muted/50 rounded-lg p-1 md:p-2 transition-all duration-200 hover:scale-105"
+                  >
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10 border-2 border-primary/20">
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        <User className="h-4 w-4 md:h-5 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden lg:inline text-muted-foreground hover:text-primary text-sm">
-                      Settings
-                    </span>
+                    {/* Desktop: Full email, Tablet: Shortened, Mobile: Hidden */}
+                    <div className="hidden lg:block">
+                      <div className="text-sm font-medium text-foreground">{userEmail}</div>
+                      <div className="text-xs text-muted-foreground">Settings</div>
+                    </div>
+                    <div className="hidden md:block lg:hidden">
+                      <div className="text-sm font-medium text-foreground">
+                        {userEmail.split('@')[0]}
+                      </div>
+                    </div>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{userEmail}</p>
+                  <div className="text-center">
+                    <p className="font-medium">{userEmail}</p>
+                    <p className="text-xs text-muted-foreground">Click to open settings</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
 
-          {/* Mobile Menu */}
+          {/* Mobile/Tablet Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild className="lg:hidden">
+            <SheetTrigger asChild className="md:hidden">
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-background shadow-md h-8 w-8 sm:h-10 sm:w-10"
+                className="bg-background shadow-md h-8 w-8 sm:h-10 sm:w-10 hover:scale-110 active:scale-95 transition-all"
               >
-                <Menu className="h-4 w-4" />
+                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[280px] sm:w-[400px]">
@@ -261,17 +324,18 @@ export function NavigationClient({ user }: NavigationClientProps) {
             </SheetContent>
           </Sheet>
 
+          {/* Desktop/Large Tablet Login/Logout */}
           <div className="hidden lg:block">
             {user ? (
               <LogoutForm 
-                className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+                className="flex items-center justify-center gap-2 rounded-lg px-3 lg:px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
                 variant="ghost"
               />
             ) : (
               <Link href="/login">
                 <Button
                   variant="ghost"
-                  className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
+                  className="flex items-center justify-center gap-2 rounded-lg px-3 lg:px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-primary"
                 >
                   <LogIn className="h-4 w-4" />
                   <span className="hidden xl:block">Login</span>

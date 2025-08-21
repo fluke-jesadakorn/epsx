@@ -400,8 +400,8 @@ impl TradingViewApiService {
         
         // Map sort_by parameter to TradingView field names
         let (sort_field, sort_order) = match sort_by.as_deref() {
-            Some("eps_growth") => ("earnings_per_share_diluted_yoy_growth_ttm", "desc"),
-            Some("current_eps") => ("earnings_per_share_diluted_ttm", "desc"), 
+            Some("eps_growth") => ("earnings_per_share_diluted_qoq_growth_fq", "desc"),
+            Some("current_eps") => ("earnings_per_share_fq", "desc"), 
             Some("market_cap") => ("market_cap_basic", "desc"),
             Some("volume") => ("volume", "desc"),
             Some("price") => ("close", "desc"),
@@ -822,7 +822,9 @@ impl TradingViewApiService {
         let ttm_eps = get_number(&stock.d, 19, 0.0); // earnings_per_share_diluted_ttm
         let basic_ttm = get_number(&stock.d, 18, 0.0); // earnings_per_share_basic_ttm
         
-        let qoq_growth = get_number(&stock.d, 20, 0.0); // earnings_per_share_diluted_yoy_growth_ttm (shifted by +1)
+        // QoQ growth should be calculated from quarterly progression, not TTM YoY growth
+        // Using None here - will be calculated from WebSocket quarterly data in enhanced mode
+        let qoq_growth = None; // Remove TTM-based YoY growth calculation
         let sector = get_string(&stock.d, 24, "Unknown"); // sector.tr (shifted by +3)
         let country = get_string(&stock.d, 25, "unknown"); // market (shifted by +3)
         
@@ -889,14 +891,14 @@ impl TradingViewApiService {
         let current_eps = quarterly_eps;
 
         // Calculate ranking score based on EPS, growth, and market cap
-        let ranking_score = self.calculate_ranking_score(current_eps, qoq_growth, market_cap as f64, price_current);
+        let ranking_score = self.calculate_ranking_score(current_eps, qoq_growth.unwrap_or(0.0), market_cap as f64, price_current);
 
         FrontendEPSData {
             id: Uuid::new_v4().to_string(),
             symbol,
             company_name,
             current_eps,
-            qoq_growth,
+            qoq_growth: qoq_growth.unwrap_or(0.0), // Default to 0.0 if no QoQ growth calculated
             market_cap,
             price_current,
             volume,

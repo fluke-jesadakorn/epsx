@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { signJWT, createJWTClaims } from '@/lib/auth-utils';
-import { getUserInfo } from '@/lib/server/auth';
+import { getUserInfo, exchangeCodeForTokens } from '@/lib/server/auth';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -93,15 +93,15 @@ export async function GET(request: NextRequest) {
       console.log('🔍 Skipping state validation (no stored state available)');
     }
 
-    console.log('🔄 Admin: Backend simplified flow - code IS the access token');
+    console.log('🔄 Admin: Performing proper OAuth token exchange...');
 
-    // In the simplified backend flow, the 'code' parameter is actually the access token
-    const accessToken = code;
-    console.log('✅ Admin: Using authorization code as access token (simplified flow)');
+    // Exchange authorization code for access token (proper OAuth flow)
+    const tokens = await exchangeCodeForTokens(code, storedCodeVerifier || '', state);
+    console.log('✅ Admin: Successfully exchanged authorization code for access token');
 
-    // Get user information from userinfo endpoint
+    // Get user information from userinfo endpoint using access token
     console.log('🔄 Admin: Fetching user information from EPSX backend');
-    const userinfo = await getUserInfo(accessToken);
+    const userinfo = await getUserInfo(tokens.accessToken);
 
     console.log('✅ Successfully received user info from EPSX backend:', {
       email: userinfo.email,
@@ -176,8 +176,8 @@ export async function GET(request: NextRequest) {
     // Enhanced error logging
     console.error('❌ Full error object:', JSON.stringify(error, null, 2));
 
-    // Redirect to login page with error
-    const loginUrl = new URL('/login', request.url);
+    // Redirect to login page with error (using proper admin domain)
+    const loginUrl = new URL('/login', 'https://admin.epsx.io');
     loginUrl.searchParams.set('error', 'callback_error');
     loginUrl.searchParams.set('error_details', encodeURIComponent(error instanceof Error ? error.message : 'Unknown error'));
     

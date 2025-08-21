@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Data Insights Portal - EPSX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Data Analytics Theme Styles */
+        :root {
+            --insight-primary: #2563EB;
+            --insight-secondary: #1D4ED8;
+            --insight-accent: #3B82F6;
+            --insight-success: #059669;
+            --insight-background: #F8FAFC;
+            --insight-surface: #FFFFFF;
+            --insight-text: #1E293B;
+            --insight-text-secondary: #475569;
+            --chart-gradient: linear-gradient(135deg, var(--insight-primary) 0%, var(--insight-secondary) 100%);
+            --surface-gradient: linear-gradient(135deg, var(--insight-background) 0%, #F1F5F9 100%);
+        }
+        
+        .analytics-theme { 
+            background: var(--surface-gradient);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .insight-card {
+            background: var(--insight-surface);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(37, 99, 235, 0.08), 0 10px 30px rgba(37, 99, 235, 0.04);
+            border: 1px solid rgba(37, 99, 235, 0.1);
+        }
+        
+        .data-logo {
+            background: var(--chart-gradient);
+            border-radius: 16px;
+            width: 80px;
+            height: 80px;
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.25);
+            animation: data-pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes data-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .analytics-input {
+            background: var(--insight-surface);
+            border: 2px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px 20px 16px 50px;
+            transition: all 0.3s ease;
+            color: var(--insight-text);
+        }
+        
+        .analytics-input:focus {
+            outline: none;
+            border-color: var(--insight-primary);
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.15), 0 0 0 4px rgba(37, 99, 235, 0.05);
+            transform: translateY(-1px);
+        }
+        
+        .insight-button {
+            background: var(--chart-gradient);
+            border-radius: 12px;
+            padding: 16px 32px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .insight-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.35);
+        }
+        
+        .insight-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .insight-button:hover::before {
+            left: 100%;
+        }
+        
+        .error-alert {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            border-radius: 12px;
+            padding: 16px 24px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.25);
+        }
+        
+        .data-spinner {
+            width: 48px;
+            height: 48px;
+            background: var(--chart-gradient);
+            border-radius: 50%;
+            animation: chart-rotate 1.5s linear infinite;
+            position: relative;
+        }
+        
+        .data-spinner::after {
+            content: '📊';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+        
+        @keyframes chart-rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .chart-shadow {
+            filter: drop-shadow(0 4px 8px rgba(37, 99, 235, 0.15));
+        }
+    </style>
+</head>
+<body class="analytics-theme min-h-screen flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Data Insights Header -->
+        <div class="text-center">
+            <div class="data-logo mx-auto flex items-center justify-center">
+                <i class="fas fa-chart-line text-white text-2xl chart-shadow"></i>
+            </div>
+            <h2 class="mt-6 text-4xl font-bold text-slate-800">
+                📊 Data Insights Portal
+            </h2>
+            <p class="mt-2 text-lg text-slate-600">
+                Access advanced analytics and market intelligence
+            </p>
+            
+            <!-- Security Badge -->
+            <div class="mt-4 flex justify-center">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+                    <i class="fas fa-shield-alt"></i>
+                    Enterprise Security
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        {% if !error.is_empty() %}
+        <div class="error-alert">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <span class="text-2xl">⚠️</span>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">Authentication Error</p>
+                    <p class="text-xs opacity-90 mt-1">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Loading State -->
+        <div id="loading" class="loading text-center p-8" style="display: none;">
+            <div class="data-spinner mx-auto mb-4"></div>
+            <p class="text-slate-600 font-medium">Processing analytics credentials...</p>
+        </div>
+
+        <!-- Login Form -->
+        <div class="insight-card">
+            <form class="space-y-6" method="POST" action="/oauth/authorize" id="analytics-form">
+                <!-- Hidden OAuth Fields -->
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                <input type="hidden" name="state" value="{{ state }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="response_type" value="code">
+                {% if code_challenge.is_some() %}
+                <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
+                {% endif %}
+                {% if code_challenge_method.is_some() %}
+                <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
+                {% endif %}
+
+                <div class="space-y-5">
+                    <!-- Email Field -->
+                    <div>
+                        <label for="email" class="block text-base font-semibold text-slate-800 mb-2">
+                            📧 Email Address
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                autocomplete="email"
+                                required
+                                class="analytics-input block w-full placeholder-slate-400"
+                                placeholder="analyst@company.com"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-blue-500 text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password Field -->
+                    <div>
+                        <label for="password" class="block text-base font-semibold text-slate-800 mb-2">
+                            🔐 Access Credentials
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autocomplete="current-password"
+                                required
+                                class="analytics-input block w-full placeholder-slate-400 pr-12"
+                                placeholder="Your secure password"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-key text-blue-500 text-lg"></i>
+                            </div>
+                            <button
+                                type="button"
+                                onclick="togglePassword()"
+                                class="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-500 hover:text-blue-700 transition-colors"
+                            >
+                                <i id="password-toggle" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Access Button -->
+                <div>
+                    <button
+                        type="submit"
+                        id="login-button"
+                        class="insight-button w-full flex justify-center items-center text-lg font-semibold"
+                    >
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </span>
+                        📊 Access Analytics Portal
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center space-y-3">
+            <div class="flex justify-center items-center gap-4 text-sm text-slate-600">
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Enterprise security</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-eye"></i>
+                    <span>Activity monitoring</span>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500">
+                🔒 Secured with advanced encryption • Real-time threat detection enabled
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.getElementById('password-toggle');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        // Show loading when form is submitted
+        document.getElementById('analytics-form').addEventListener('submit', function() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('login-button').style.opacity = '0.6';
+            document.getElementById('login-button').disabled = true;
+        });
+
+        // Auto-focus email field
+        document.getElementById('email').focus();
+
+        // Add success animation
+        function celebrateDataAccess() {
+            const logo = document.querySelector('.data-logo');
+            logo.style.animation = 'chart-rotate 1s ease-in-out';
+            setTimeout(() => {
+                logo.style.animation = 'data-pulse 3s ease-in-out infinite';
+            }, 1000);
+        }
+        
+        // Accessibility: Reduced motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.documentElement.style.setProperty('--animation-duration', '0s');
+        }
+    </script>
+</body>
+</html>

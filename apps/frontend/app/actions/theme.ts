@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { COOKIE_NAMES, COOKIE_CONFIG } from '@/lib/cookies';
 
-export type ThemeVariant = 'default' | 'pancake' | 'trading';
+export type ThemeVariant = 'default' | 'insight' | 'trading';
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 /**
@@ -33,7 +33,7 @@ export async function getThemeSettings(): Promise<{
 }
 
 /**
- * Set theme variant (default, pancake, trading)
+ * Set theme variant (default, insight, trading)
  */
 export async function setThemeVariant(variant: ThemeVariant): Promise<void> {
   const cookieStore = await cookies();

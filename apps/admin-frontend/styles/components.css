@@ -7,11 +7,11 @@
 
 @layer components {
   /* ============================================================================
-     PANCAKE-STYLE CARD SYSTEM
+     ANALYTICS-STYLE CARD SYSTEM
      ============================================================================ */
 
-  /* Enhanced card styling with PancakeSwap feel */
-  .pancake-card {
+  /* Enhanced card styling with Analytics platform feel */
+  .insight-card {
     @apply border shadow-lg rounded-2xl backdrop-blur-sm;
     background: linear-gradient(135deg, 
       hsl(var(--card)) 0%, 
@@ -21,7 +21,7 @@
     overflow: hidden;
   }
 
-  .pancake-card::before {
+  .insight-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -34,15 +34,15 @@
       transparent);
   }
 
-  .pancake-card-hover {
+  .insight-card-hover {
     transition: all 0.3s ease;
   }
 
-  .pancake-card-hover:hover {
+  .insight-card-hover:hover {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
-  .pancake-card-hover:hover {
+  .insight-card-hover:hover {
     transform: translateY(-2px) scale(1.02);
     box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
   }
@@ -94,9 +94,9 @@
      ENHANCED BUTTONS
      ============================================================================ */
 
-  /* PancakeSwap-inspired button styles */
-  .pancake-button {
-    background: linear-gradient(135deg, hsl(var(--pancake-primary)) 0%, hsl(var(--pancake-secondary)) 100%);
+  /* Analytics-inspired button styles */
+  .insight-button {
+    background: linear-gradient(135deg, hsl(var(--insight-primary)) 0%, hsl(var(--insight-secondary)) 100%);
     color: white;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -106,12 +106,12 @@
     overflow: hidden;
   }
   
-  .pancake-button:hover {
+  .insight-button:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transform: scale(1.05);
   }
 
-  .pancake-button::before {
+  .insight-button::before {
     content: '';
     position: absolute;
     top: 0;
@@ -122,12 +122,12 @@
     transition: left 0.6s;
   }
 
-  .pancake-button:hover::before {
+  .insight-button:hover::before {
     left: 100%;
   }
 
-  .pancake-button-secondary {
-    background: linear-gradient(135deg, hsl(var(--pancake-info)) 0%, hsl(var(--pancake-purple)) 100%);
+  .insight-button-secondary {
+    background: linear-gradient(135deg, hsl(var(--insight-info)) 0%, hsl(var(--insight-accent)) 100%);
     color: white;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -135,14 +135,14 @@
     transition: all 0.3s ease;
   }
   
-  .pancake-button-secondary:hover {
+  .insight-button-secondary:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transform: scale(1.05);
   }
 
   /* Admin action buttons */
   .admin-btn-assign {
-    background: linear-gradient(135deg, hsl(var(--admin-active)) 0%, hsl(var(--pancake-success)) 100%);
+    background: linear-gradient(135deg, hsl(var(--admin-active)) 0%, hsl(var(--insight-success)) 100%);
     color: white;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -174,7 +174,7 @@
   }
 
   .admin-btn-pending {
-    background: linear-gradient(135deg, hsl(var(--admin-pending)) 0%, hsl(var(--pancake-warning)) 100%);
+    background: linear-gradient(135deg, hsl(var(--admin-pending)) 0%, hsl(var(--insight-warning)) 100%);
     color: white;
     font-weight: 600;
     padding: 0.75rem 1.5rem;
@@ -194,13 +194,13 @@
      ============================================================================ */
 
   /* Enhanced modal with blur effect */
-  .modal-overlay-pancake {
+  .modal-overlay-insight {
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
 
-  .modal-content-pancake {
+  .modal-content-insight {
     border: 1px solid hsl(var(--border));
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border-radius: 1rem;
@@ -214,12 +214,12 @@
     max-height: 90vh;
   }
 
-  .modal-enter-pancake {
-    animation: pancakeSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  .modal-enter-insight {
+    animation: insightSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .modal-exit-pancake {
-    animation: pancakeSlideDown 0.2s ease-in;
+  .modal-exit-insight {
+    animation: insightSlideDown 0.2s ease-in;
   }
 
   /* ============================================================================
@@ -385,7 +385,7 @@
     padding: 1.5rem;
     background: linear-gradient(135deg,
       hsl(var(--card)) 0%,
-      hsl(var(--pancake-success))/5 100%);
+      hsl(var(--insight-success))/5 100%);
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
@@ -423,7 +423,7 @@
     padding: 1.5rem;
     background: linear-gradient(135deg,
       hsl(var(--card)) 0%,
-      hsl(var(--pancake-info))/5 100%);
+      hsl(var(--insight-info))/5 100%);
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
@@ -440,12 +440,12 @@
 
   /* Mobile-specific component adjustments */
   @media (max-width: 768px) {
-    .pancake-card {
+    .insight-card {
       border-radius: 0.75rem;
     }
 
-    .pancake-button,
-    .pancake-button-secondary {
+    .insight-button,
+    .insight-button-secondary {
       padding: 0.5rem 1rem;
       font-size: 0.875rem;
       line-height: 1.25rem;
@@ -461,7 +461,7 @@
       padding-bottom: 0.375rem;
     }
 
-    .modal-content-pancake {
+    .modal-content-insight {
       margin: 1rem;
       max-width: calc(100vw - 2rem);
     }
@@ -476,26 +476,26 @@
 
   /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
-    .pancake-card-hover,
-    .pancake-button,
+    .insight-card-hover,
+    .insight-button,
     .submenu-item,
     .permission-tree-node,
     .admin-user-row {
       transition: none;
     }
 
-    .pancake-card-hover:hover {
+    .insight-card-hover:hover {
       transform: none;
     }
 
-    .pancake-button:hover {
+    .insight-button:hover {
       transform: none;
     }
   }
 
   /* High contrast mode support */
   @media (prefers-contrast: high) {
-    .pancake-card {
+    .insight-card {
       border-width: 2px;
     }
 

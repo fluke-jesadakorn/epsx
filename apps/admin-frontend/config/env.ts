@@ -33,7 +33,7 @@ export const env = envSchema.parse(process.env);
 export const authConfig = {
   appUrl: env.NEXT_PUBLIC_ADMIN_URL,
   apiUrl: env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_BACKEND_URL,
-  clientId: env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
+  clientId: 'epsx-admin', // Fixed to correct client ID registered in backend
   callbackPath: '/api/auth/callback/epsx-backend',
   get callbackUrl() {
     return `${this.appUrl}${this.callbackPath}`;

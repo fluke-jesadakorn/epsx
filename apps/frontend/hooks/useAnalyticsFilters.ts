@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { AnalyticsFilters, FilterOptions } from '@/types/analytics';
 
 const DEFAULT_FILTERS: AnalyticsFilters = {
-  sort_by: 'qoq_growth',
+  sort_by: 'ranking_position',
   page: 1,
   limit: 20,
 };

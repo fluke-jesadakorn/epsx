@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use base64::Engine;
 
 
-/// Template for PancakeSwap-themed user login (OIDC)
+/// Template for Data Insights Portal user login (OIDC)
 #[derive(Template)]
-#[template(path = "pancake/login.html")]
-pub struct PancakeLoginTemplate {
+#[template(path = "analytics/login.html")]
+pub struct AnalyticsPortalLoginTemplate {
     pub client_id: String,
     pub redirect_uri: String,
     pub state: String,
@@ -18,10 +18,10 @@ pub struct PancakeLoginTemplate {
     pub code_challenge_method: Option<String>,
 }
 
-/// Template for PancakeSwap-themed admin login (OIDC)
+/// Template for Analytics Command Center admin login (OIDC)
 #[derive(Template)]
-#[template(path = "pancake/admin_login.html")]
-pub struct PancakeAdminLoginTemplate {
+#[template(path = "analytics/admin_login.html")]
+pub struct AnalyticsCommandCenterTemplate {
     pub client_id: String,
     pub redirect_uri: String,
     pub state: String,
@@ -31,10 +31,10 @@ pub struct PancakeAdminLoginTemplate {
     pub code_challenge_method: Option<String>,
 }
 
-/// Template for PancakeSwap-themed user registration (OIDC)
+/// Template for Data Insights Portal user registration (OIDC)
 #[derive(Template)]
-#[template(path = "pancake/register.html")]
-pub struct PancakeRegistrationTemplate {
+#[template(path = "analytics/register.html")]
+pub struct AnalyticsRegistrationTemplate {
     pub client_id: String,
     pub redirect_uri: String,
     pub state: String,
@@ -44,33 +44,33 @@ pub struct PancakeRegistrationTemplate {
     pub code_challenge_method: Option<String>,
 }
 
-/// Template for authentication errors (PancakeSwap themed)
+/// Template for authentication errors (Analytics themed)
 #[derive(Template)]
-#[template(path = "pancake/error.html")]
+#[template(path = "analytics/error.html")]
 pub struct ErrorTemplate {
     pub error_message: String,
     pub error_details: String,
 }
 
-/// Template for logout success page (PancakeSwap themed)
+/// Template for logout success page (Analytics themed)
 #[derive(Template)]
-#[template(path = "pancake/error.html")]
+#[template(path = "analytics/error.html")]
 pub struct LogoutSuccessTemplate {
     pub error_message: String,
     pub error_details: String,
 }
 
-/// Template for password reset request page (PancakeSwap themed)
+/// Template for password reset request page (Analytics themed)
 #[derive(Template)]
-#[template(path = "pancake/reset-password.html")]
+#[template(path = "analytics/reset-password.html")]
 pub struct PasswordResetTemplate {
     pub error: String,
     pub success: String,
 }
 
-/// Template for password reset confirmation page (PancakeSwap themed)
+/// Template for password reset confirmation page (Analytics themed)
 #[derive(Template)]
-#[template(path = "pancake/reset-confirm.html")]
+#[template(path = "analytics/reset-confirm.html")]
 pub struct PasswordResetConfirmTemplate {
     pub oob_code: String,
     pub error: String,
@@ -104,8 +104,8 @@ pub struct TemplateFactory;
 
 impl TemplateFactory {
 
-    /// Create PancakeSwap-themed user login template with PKCE parameters
-    pub fn create_pancake_login_template_with_pkce(
+    /// Create Data Insights Portal user login template with PKCE parameters
+    pub fn create_analytics_portal_login_template_with_pkce(
         client_id: String,
         redirect_uri: String,
         state: String,
@@ -113,8 +113,8 @@ impl TemplateFactory {
         code_challenge: Option<String>,
         code_challenge_method: Option<String>,
         error: String,
-    ) -> PancakeLoginTemplate {
-        PancakeLoginTemplate {
+    ) -> AnalyticsPortalLoginTemplate {
+        AnalyticsPortalLoginTemplate {
             client_id,
             redirect_uri,
             state,
@@ -125,8 +125,8 @@ impl TemplateFactory {
         }
     }
 
-    /// Create PancakeSwap-themed admin login template with PKCE parameters
-    pub fn create_pancake_admin_login_template_with_pkce(
+    /// Create Analytics Command Center admin login template with PKCE parameters
+    pub fn create_analytics_command_center_template_with_pkce(
         client_id: String,
         redirect_uri: String,
         state: String,
@@ -134,8 +134,8 @@ impl TemplateFactory {
         code_challenge: Option<String>,
         code_challenge_method: Option<String>,
         error: String,
-    ) -> PancakeAdminLoginTemplate {
-        PancakeAdminLoginTemplate {
+    ) -> AnalyticsCommandCenterTemplate {
+        AnalyticsCommandCenterTemplate {
             client_id,
             redirect_uri,
             state,
@@ -146,8 +146,8 @@ impl TemplateFactory {
         }
     }
 
-    /// Create PancakeSwap-themed user registration template with PKCE parameters
-    pub fn create_pancake_registration_template_with_pkce(
+    /// Create Data Insights Portal user registration template with PKCE parameters
+    pub fn create_analytics_registration_template_with_pkce(
         client_id: String,
         redirect_uri: String,
         state: String,
@@ -155,8 +155,8 @@ impl TemplateFactory {
         code_challenge: Option<String>,
         code_challenge_method: Option<String>,
         error: String,
-    ) -> PancakeRegistrationTemplate {
-        PancakeRegistrationTemplate {
+    ) -> AnalyticsRegistrationTemplate {
+        AnalyticsRegistrationTemplate {
             client_id,
             redirect_uri,
             state,

@@ -1,13 +1,13 @@
 /**
  * Enhanced JWT Middleware for Admin Frontend
- * Uses JWT cookie verification with admin module checking and security headers
+ * Uses JWT cookie verification with direct OAuth redirect and admin module checking
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJWT } from '@/lib/auth-utils';
+import { getAuthorizationUrl } from '@/lib/server/auth';
 
 // Public routes that don't require authentication
 const publicRoutes = [
-  '/login',
   '/api/auth/callback/epsx-backend',
   '/api/auth/initiate',
   '/api/auth/login',
@@ -66,20 +66,137 @@ export async function middleware(request: NextRequest) {
     const jwtToken = request.cookies.get('epsx_admin_jwt')?.value;
     
     if (!jwtToken) {
-      console.log('🔓 Admin middleware: No JWT token found, redirecting to login');
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
-      return NextResponse.redirect(loginUrl);
+      console.log('🔓 Admin middleware: No JWT token found, redirecting to backend Chef Kitchen login');
+      
+      try {
+        // Generate authorization URL with PKCE parameters for admin
+        const callbackUrl = pathname + request.nextUrl.search;
+        const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
+        
+        console.log('✅ Admin middleware: PKCE parameters generated, redirecting to backend Chef Kitchen login');
+        
+        // Redirect to backend Chef Kitchen login page for admin users
+        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
+        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+        backendAdminLoginUrl.searchParams.set('response_type', 'code');
+        backendAdminLoginUrl.searchParams.set('state', state);
+        backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
+        backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
+        
+        // Create redirect response to backend Chef Kitchen login
+        const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
+        
+        // Set PKCE parameters in httpOnly cookies for callback processing
+        chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        chefRedirect.cookies.set('oauth_state', state, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login');
+        return chefRedirect;
+        
+      } catch (error) {
+        console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login:', error);
+        // Fallback to backend admin login page directly
+        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
+        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+        backendAdminLoginUrl.searchParams.set('response_type', 'code');
+        backendAdminLoginUrl.searchParams.set('error', 'oauth_generation_failed');
+        return NextResponse.redirect(backendAdminLoginUrl.toString());
+      }
     }
     
     // Verify JWT token
     const payload = await verifyJWT(jwtToken);
     
     if (!payload) {
-      console.log('🔓 Admin middleware: Invalid JWT token, redirecting to login');
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
-      return NextResponse.redirect(loginUrl);
+      console.log('🔓 Admin middleware: Invalid JWT token, redirecting to backend Chef Kitchen login');
+      
+      try {
+        // Generate authorization URL with PKCE parameters for admin
+        const callbackUrl = pathname + request.nextUrl.search;
+        const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
+        
+        console.log('✅ Admin middleware: PKCE parameters generated for invalid token, redirecting to backend Chef Kitchen login');
+        
+        // Redirect to backend Chef Kitchen login page for admin users
+        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
+        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+        backendAdminLoginUrl.searchParams.set('response_type', 'code');
+        backendAdminLoginUrl.searchParams.set('state', state);
+        backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
+        backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
+        
+        // Create redirect response to backend Chef Kitchen login
+        const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
+        
+        // Set PKCE parameters in httpOnly cookies
+        chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        chefRedirect.cookies.set('oauth_state', state, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 60, // 10 minutes
+          path: '/'
+        });
+        
+        // Clear invalid JWT token
+        chefRedirect.cookies.delete('epsx_admin_jwt');
+        
+        console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login for invalid token with cleaned cookies');
+        return chefRedirect;
+        
+      } catch (error) {
+        console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login for invalid token:', error);
+        // Fallback to backend admin login page directly
+        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
+        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+        backendAdminLoginUrl.searchParams.set('response_type', 'code');
+        backendAdminLoginUrl.searchParams.set('error', 'invalid_token');
+        return NextResponse.redirect(backendAdminLoginUrl.toString());
+      }
     }
     
     // Ensure user has at least moderator role for admin access
@@ -122,9 +239,69 @@ export async function middleware(request: NextRequest) {
     
   } catch (error) {
     console.error('❌ Admin middleware JWT verification failed:', error);
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
+    
+    try {
+      // Redirect to backend Chef Kitchen login on JWT verification error
+      const callbackUrl = pathname + request.nextUrl.search;
+      const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
+      
+      console.log('✅ Admin middleware: PKCE parameters generated for JWT error, redirecting to backend Chef Kitchen login');
+      
+      // Redirect to backend Chef Kitchen login page for admin users
+      const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+      backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
+      backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+      backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+      backendAdminLoginUrl.searchParams.set('response_type', 'code');
+      backendAdminLoginUrl.searchParams.set('state', state);
+      backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
+      backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
+      
+      // Create redirect response to backend Chef Kitchen login
+      const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
+      
+      // Set PKCE parameters in httpOnly cookies
+      chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 10 * 60, // 10 minutes
+        path: '/'
+      });
+      
+      chefRedirect.cookies.set('oauth_state', state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 10 * 60, // 10 minutes
+        path: '/'
+      });
+      
+      chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 10 * 60, // 10 minutes
+        path: '/'
+      });
+      
+      // Clear any corrupted JWT token
+      chefRedirect.cookies.delete('epsx_admin_jwt');
+      
+      console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login for JWT error with cleaned cookies');
+      return chefRedirect;
+      
+    } catch (oauthError) {
+      console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login during error handling:', oauthError);
+      // Ultimate fallback to backend admin login page
+      const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+      backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
+      backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+      backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+      backendAdminLoginUrl.searchParams.set('response_type', 'code');
+      backendAdminLoginUrl.searchParams.set('error', 'authentication_error');
+      return NextResponse.redirect(backendAdminLoginUrl.toString());
+    }
   }
 }
 
