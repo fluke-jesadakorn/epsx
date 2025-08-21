@@ -71,10 +71,14 @@ deploy_service() {
     echo -e "${BLUE}🚀 Deploying $display_name...${NC}"
     
     # Prepare environment variables
-    local env_args=""
+    local env_vars_str=""
     for env_var in "${env_vars[@]}"; do
         if [[ -n "$env_var" ]]; then
-            env_args+="--set-env-vars $env_var "
+            if [[ -z "$env_vars_str" ]]; then
+                env_vars_str="$env_var"
+            else
+                env_vars_str="$env_vars_str,$env_var"
+            fi
         fi
     done
     
@@ -94,8 +98,8 @@ deploy_service() {
         --execution-environment=gen2"
     
     # Add environment variables if provided
-    if [[ -n "$env_args" ]]; then
-        deploy_cmd+=" $env_args"
+    if [[ -n "$env_vars_str" ]]; then
+        deploy_cmd+=" --set-env-vars \"$env_vars_str\""
     fi
     
     # Execute deployment
@@ -116,10 +120,17 @@ deploy_service() {
 # Deploy Backend first (other services depend on it)
 echo -e "${YELLOW}📦 Step 1: Deploying Backend API...${NC}"
 BACKEND_ENV_VARS=(
-    "PORT=8080"
     "NODE_ENV=production"
     "RUST_ENV=production"
     "ENV=production"
+    "DATABASE_URL=postgresql://neondb_owner:npg_UYc6GMDJfPk8@ep-sweet-wave-a1fnijbf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    "NEXTAUTH_SECRET=prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"
+    "FIREBASE_PROJECT_ID=epsx-449804"
+    "DATABASE_STATEMENT_LOGGING=false"
+    "DATABASE_MAX_CONNECTIONS=20"
+    "DATABASE_MIN_CONNECTIONS=2"
+    "DATABASE_ACQUIRE_TIMEOUT=15"
+    "RUST_LOG=info"
 )
 
 deploy_service "$BACKEND_SERVICE" "$BACKEND_IMAGE" "8080" "1Gi" "1" "1" "10" "Backend API" "${BACKEND_ENV_VARS[@]}"
@@ -130,7 +141,6 @@ BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" --region="$REGION"
 # Deploy Frontend
 echo -e "${YELLOW}📦 Step 2: Deploying Frontend...${NC}"
 FRONTEND_ENV_VARS=(
-    "PORT=3000"
     "NODE_ENV=production"
     "NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL"
     "NEXT_TELEMETRY_DISABLED=1"
@@ -141,7 +151,6 @@ deploy_service "$FRONTEND_SERVICE" "$FRONTEND_IMAGE" "3000" "512Mi" "1" "1" "10"
 # Deploy Admin Frontend
 echo -e "${YELLOW}📦 Step 3: Deploying Admin Frontend...${NC}"
 ADMIN_ENV_VARS=(
-    "PORT=3000"
     "NODE_ENV=production"
     "NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL"
     "NEXT_TELEMETRY_DISABLED=1"

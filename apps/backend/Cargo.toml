@@ -70,6 +70,14 @@ cli-tools = ["dep:clap"]
 production = ["database", "cache", "auth", "tls-rustls", "http-client"]
 minimal = ["database", "jwt", "tls-rustls", "http-client"]
 
+# Ultra-minimal for containers (maximum size optimization)
+container-minimal = ["postgres", "jwt", "tls-rustls"]
+container-full = ["database", "cache", "auth", "websockets", "tls-rustls", "http-client"]
+
+# Memory allocator optimizations
+jemalloc = ["dep:jemallocator"]
+size-analysis = ["dep:cargo-bloat"]
+
 [dependencies]
 # Core server dependencies (always required)
 axum = { version = "0.7", features = ["ws", "macros"] }
@@ -143,6 +151,12 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], opt
 # Optional database dependencies  
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "rust_decimal", "migrate"], optional = true }
 
+# Size-optimized allocator for containers (optional)
+jemallocator = { version = "0.6", optional = true }
+
+# Build-time size analysis tools (optional)
+cargo-bloat = { version = "0.12", optional = true }
+
 
 [dev-dependencies]
 mockall = "0.12"
@@ -195,13 +209,16 @@ codegen-units = 1
 overflow-checks = false
 
 [profile.release-small]
-# Optimized for minimal binary size
+# Ultra-optimized for minimal binary size (production containers)
 inherits = "release"
-opt-level = "z"          # Optimize for size
-lto = "fat"             # Full link-time optimization
-panic = "abort"         # Remove panic unwinding code
-strip = "symbols"       # Remove debug symbols
-codegen-units = 1       # Single compilation unit
+opt-level = "z"          # Optimize for size over speed
+lto = "fat"             # Full link-time optimization (aggressive)
+panic = "abort"         # Remove panic unwinding code (saves ~10-20%)
+strip = "symbols"       # Remove all debug symbols
+codegen-units = 1       # Single compilation unit for best optimization
+overflow-checks = false # Disable runtime overflow checks
+incremental = false     # Disable incremental compilation for size
+rpath = false          # Don't include rpath (container-friendly)
 
 [profile.release-fast]
 # Optimized for maximum performance

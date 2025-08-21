@@ -60,13 +60,13 @@ impl Default for DatabaseConfig {
         let is_dev = is_development_mode();
         let is_prod = is_production_mode();
         
-        // Environment-aware connection pool sizing
+        // Environment-aware connection pool sizing optimized for Cloud Run
         let (default_max_conn, default_min_conn) = if is_prod {
-            (50, 10) // Production: higher capacity
+            (20, 2) // Production: Cloud Run optimized for fast startup
         } else if is_dev {
             (10, 2)  // Development: lower overhead
         } else {
-            (25, 5)  // Staging/other: balanced
+            (15, 2)  // Staging/other: balanced
         };
         
         Self {
@@ -193,10 +193,14 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
                     .await?;
                 
                 if logging_enabled {
-                    // Enable statement logging for debugging
-                    sqlx::query("SET log_statement = 'all'")
+                    // Try to enable statement logging for debugging
+                    // Skip if permission denied (managed databases like Neon don't allow this)
+                    if let Err(e) = sqlx::query("SET log_statement = 'all'")
                         .execute(&mut *conn)
-                        .await?;
+                        .await 
+                    {
+                        tracing::warn!("Failed to set log_statement (managed database): {}", e);
+                    }
                 }
                 
                 Ok(())
@@ -230,10 +234,27 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, sqlx::E
 
 /// Ensure database exists by connecting to postgres and creating it if needed
 async fn ensure_database_exists(database_url: &str) -> Result<(), sqlx::Error> {
+    tracing::info!("Checking if database exists...");
+    tracing::info!("Database URL: {}", database_url);
+    
+    // Skip database existence check for managed cloud providers (Neon, Railway, etc.)
+    // These services provide databases that already exist
+    if database_url.contains("neon.tech") || 
+       database_url.contains("railway.app") || 
+       database_url.contains("vercel.app") ||
+       database_url.contains("supabase.co") {
+        tracing::info!("✅ Using managed cloud database ({}), skipping existence check", 
+            if database_url.contains("neon.tech") { "Neon" } 
+            else if database_url.contains("railway.app") { "Railway" }
+            else if database_url.contains("vercel.app") { "Vercel" }
+            else { "Supabase" });
+        return Ok(());
+    }
+    
+    tracing::info!("Not a managed cloud database, proceeding with existence check");
+    
     use sqlx::postgres::{PgPoolOptions, PgConnectOptions};
     use std::str::FromStr;
-    
-    tracing::info!("Checking if database exists...");
     
     // Parse the database URL to get connection details
     let opts = PgConnectOptions::from_str(database_url)?;

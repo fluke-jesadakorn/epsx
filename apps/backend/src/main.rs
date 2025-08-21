@@ -30,9 +30,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create router with all routes
     let app = create_router(container.clone()).await;
     
-    // Default server configuration
-    let host = "0.0.0.0";
-    let port = 8080;
+    // Server configuration with environment variable support
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .unwrap_or(8080);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     
     info!("🚀 Server starting on {}:{}", host, port);

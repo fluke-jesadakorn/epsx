@@ -1,5 +1,5 @@
 # Stage 1: Base with optimized Node.js (Frontend Standalone)
-FROM --platform=$BUILDPLATFORM node:22-alpine AS base
+FROM --platform=linux/amd64 node:22-alpine AS base
 
 WORKDIR /app
 
@@ -27,6 +27,13 @@ RUN pnpm install --no-frozen-lockfile
 # Stage 3: Builder (optimized build process)
 FROM base AS builder
 
+# Build arguments for production
+ARG NEXTAUTH_URL
+ARG NEXTAUTH_SECRET
+ARG OIDC_CLIENT_ID
+ARG OIDC_CLIENT_SECRET
+ARG BACKEND_URL
+
 # Copy cached dependencies
 COPY --from=deps /app/node_modules ./node_modules
 
@@ -38,36 +45,35 @@ ENV NODE_OPTIONS="--max-old-space-size=4096 --experimental-specifier-resolution=
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_BUILD_MODE=production
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+ENV OIDC_CLIENT_ID=$OIDC_CLIENT_ID
+ENV OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET
+ENV BACKEND_URL=$BACKEND_URL
 
 # Optimized build with standalone output
 RUN pnpm build
 
-# Stage 4: Runtime (ultra-minimal for Cloud Run)
-FROM --platform=$TARGETPLATFORM node:22-alpine AS runner
+# Stage 4: Runtime (ultra-minimal distroless for Cloud Run)
+FROM --platform=linux/amd64 gcr.io/distroless/nodejs22-debian12:latest AS runner
 
 WORKDIR /app
 
-# Install only runtime essentials
-RUN apk add --no-cache dumb-init \
-    && addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+# No package installation needed - distroless is pre-configured
+# Users are already configured in distroless (nonroot:nonroot)
 
 # Production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=512"
 
-# Copy optimized Next.js standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Copy optimized Next.js standalone output (distroless uses nonroot user)
+COPY --from=builder --chown=nonroot:nonroot /app/.next/standalone ./
+COPY --from=builder --chown=nonroot:nonroot /app/.next/static ./.next/static
+COPY --from=builder --chown=nonroot:nonroot /app/public ./public
 
-# Health check for Cloud Run
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
-
-# Security and performance
-USER nextjs
+# Health check removed - Cloud Run handles health checks automatically
+# Security: distroless already runs as nonroot user (no USER directive needed)
 
 # Network configuration
 EXPOSE 3000
@@ -79,5 +85,5 @@ ENV HOSTNAME="0.0.0.0"
 # Graceful shutdown support
 STOPSIGNAL SIGTERM
 
-# Use dumb-init for proper signal handling
-CMD ["dumb-init", "node", "server.js"]
+# Distroless Node.js handles signals properly (no dumb-init needed)
+CMD ["server.js"]
