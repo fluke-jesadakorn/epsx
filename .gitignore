@@ -314,4 +314,4 @@ sandbox/
 local.*
 *.local
 .env.override
-docker-compose.local.yml
+docker-compose.local.yml.devtools/*.json
