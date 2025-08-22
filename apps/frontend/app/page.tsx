@@ -1,7 +1,3 @@
-import {
-  fetchEpsCardData,
-  fetchPublicRankingData,
-} from '@/app/actions/publicRanking';
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 import ChatSection from '@/components/home/ChatSection';
 import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
@@ -14,11 +10,31 @@ import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 export const revalidate = 300;
 
 export default async function HomePage() {
-  // Server-side data fetching for better SSR performance - Public ranks 101-105
-  const [initialData, epsCardData] = await Promise.all([
-    fetchPublicRankingData(1, 5), // For PublicRankingPreview - ranks 101-105
-    fetchEpsCardData(1, 3), // For ClientEpsCardSection - ranks 101-103
-  ]);
+  // Server-side data fetching via API routes - no hydration issues
+  const fetchData = async () => {
+    try {
+      const [previewResponse, cardsResponse] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=5&type=preview`, {
+          next: { revalidate: 300 }
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=3&type=cards`, {
+          next: { revalidate: 300 }
+        })
+      ]);
+
+      const [initialData, epsCardData] = await Promise.all([
+        previewResponse.ok ? previewResponse.json() : [],
+        cardsResponse.ok ? cardsResponse.json() : []
+      ]);
+
+      return { initialData, epsCardData };
+    } catch (error) {
+      console.error('Failed to fetch homepage data:', error);
+      return { initialData: [], epsCardData: [] };
+    }
+  };
+
+  const { initialData, epsCardData } = await fetchData();
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}

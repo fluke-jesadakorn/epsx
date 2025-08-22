@@ -1,4 +1,3 @@
-import { getCurrentUser } from '@/lib/server-actions';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,14 +18,26 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function TradingPage() {
-  // Server-side auth check with automatic redirect if not authenticated
-  let user = null;
-  try {
-    const result = await getCurrentUser({});
-    user = result?.success ? result.data : null;
-  } catch (error) {
-    console.error('TradingPage: Failed to get user:', error);
-  }
+  // Server-side auth check via API route - prevents hydration errors
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/current-user`, {
+        next: { revalidate: 0 } // No cache for auth checks
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const result = await response.json();
+      return result?.success ? result.data : null;
+    } catch (error) {
+      console.error('TradingPage: Failed to get user:', error);
+      return null;
+    }
+  };
+
+  const user = await fetchCurrentUser();
 
   if (!user) {
     const { redirectToBackendLogin } = await import('@/lib/server/auth');
