@@ -201,7 +201,7 @@ lazy_static::lazy_static! {
         });
 
         // Authentication & JWT Configuration
-        schema.insert("NEXTAUTH_SECRET", EnvVarDefinition {
+        schema.insert("JWT_SECRET", EnvVarDefinition {
             objective: "JWT token signing secret (shared with frontend applications)",
             required: true,
             var_type: EnvVarType::JwtSecret,
@@ -879,7 +879,7 @@ pub struct DatabaseConfig {
 
 #[derive(Debug, Clone)]
 pub struct AuthConfig {
-    pub nextauth_secret: String,
+    pub jwt_secret_main: String,
     pub jwt_secret: String,
     pub cookie_signing_key: Option<String>,
     pub cookie_encryption_key: Option<String>,
@@ -1018,18 +1018,18 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
     };
 
     let auth_config = AuthConfig {
-        nextauth_secret: get_env_var("NEXTAUTH_SECRET")
+        jwt_secret_main: get_env_var("JWT_SECRET")
             .map_err(|e| vec![ValidationError {
-                variable: "NEXTAUTH_SECRET".to_string(),
+                variable: "JWT_SECRET".to_string(),
                 objective: "JWT token signing secret (shared with frontend applications)".to_string(),
                 reason: e,
                 category: EnvCategory::Authentication,
-                suggestion: "Add NEXTAUTH_SECRET=epsx-shared-jwt-secret-2024-cross-app-authentication to your .env file".to_string(),
+                suggestion: "Add JWT_SECRET=epsx-shared-jwt-secret-2024-cross-app-authentication to your .env file".to_string(),
                 example: "epsx-shared-jwt-secret-2024-cross-app-authentication".to_string(),
                 severity: ErrorSeverity::Error,
             }])?,
         jwt_secret: get_env_var("JWT_SECRET")
-            .unwrap_or_else(|_| get_env_var("NEXTAUTH_SECRET").unwrap_or_else(|_| "default-jwt-secret".to_string())),
+            .unwrap_or_else(|_| "default-jwt-secret".to_string()),
         cookie_signing_key: get_env_var("COOKIE_SIGNING_KEY").ok(),
         cookie_encryption_key: get_env_var("COOKIE_ENCRYPTION_KEY").ok(),
         firebase_project_id: get_env_var("FIREBASE_PROJECT_ID").ok(),

@@ -37,7 +37,7 @@ pub struct OIDCTokenClaims {
 
 /// OIDC provider configuration
 pub struct OIDCProviderConfig {
-    /// JWT signing secret (should be same as NEXTAUTH_SECRET)
+    /// JWT signing secret (should be same as JWT_SECRET)
     pub jwt_secret: String,
     /// Expected issuer URL
     pub issuer_url: String,
@@ -50,7 +50,7 @@ pub struct OIDCProviderConfig {
 impl Default for OIDCProviderConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: get_env_var("NEXTAUTH_SECRET")
+            jwt_secret: get_env_var("JWT_SECRET")
                 .or_else(|_| get_env_var("AUTH_SECRET"))
                 .unwrap_or_else(|_| "default-secret".to_string()),
             issuer_url: get_env_var("BACKEND_URL")

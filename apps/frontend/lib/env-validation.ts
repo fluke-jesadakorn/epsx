@@ -18,8 +18,8 @@ export function validateOIDCEnvironment(): ValidationResult {
 
   // Required variables
   const required = {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    JWT_SECRET: process.env.JWT_SECRET,
+    APP_URL: process.env.APP_URL,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   };
@@ -45,8 +45,8 @@ export function validateOIDCEnvironment(): ValidationResult {
   });
 
   // Validate URL formats
-  if (required.NEXTAUTH_URL && !isValidUrl(required.NEXTAUTH_URL)) {
-    errors.push('NEXTAUTH_URL must be a valid URL');
+  if (required.APP_URL && !isValidUrl(required.APP_URL)) {
+    errors.push('APP_URL must be a valid URL');
   }
 
   if (required.NEXT_PUBLIC_BACKEND_URL && !isValidUrl(required.NEXT_PUBLIC_BACKEND_URL)) {
@@ -78,8 +78,8 @@ export function validateAdminEnvironment(): ValidationResult {
 
   // Required variables for admin
   const required = {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    JWT_SECRET: process.env.JWT_SECRET,
+    APP_URL: process.env.APP_URL,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,
   };
@@ -155,7 +155,7 @@ export function validateDevelopmentEnvironment(): void {
     console.warn('⚠️ Development: NEXT_PUBLIC_BACKEND_URL should point to localhost for local development');
   }
 
-  if (!process.env.NEXTAUTH_URL?.includes('localhost')) {
-    console.warn('⚠️ Development: NEXTAUTH_URL should point to localhost for local development');
+  if (!process.env.APP_URL?.includes('localhost')) {
+    console.warn('⚠️ Development: APP_URL should point to localhost for local development');
   }
 }

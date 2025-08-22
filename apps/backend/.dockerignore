@@ -1,20 +1,85 @@
 # Temporary files
 **/*.rs.bk
 **/*.swp
+**/*~
 
-# Target directory, except release binary
+# Target directory optimization (exclude everything except what we need)
 target/*
-!target/release/
-target/release/*
-!target/release/epsx
+!target/release-small/
+target/release-small/*
+!target/release-small/epsx
 
-# Git directory
+# Git and documentation
 .git/
+.gitignore
+.gitattributes
+README.md
+CHANGELOG.md
+LICENSE*
+*.md
+docs/
+documentation/
 
-# Environment files
+# Environment files (keep example)
 .env*
 !.env.example
+secrets/
+*.key
+*.pem
 
-# Editor directories
+# Editor and IDE files (comprehensive)
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+*.code-workspace
+
+# Development and testing
+tests/
+test-data/
+benchmarks/
+examples/
+scripts/
+.cargo/registry/
+.cargo/git/
+
+# CI/CD and deployment files
+.github/
+.gitlab-ci.yml
+Dockerfile*
+docker-compose*
+.dockerignore
+kubernetes/
+k8s/
+helm/
+.terraform/
+infrastructure/
+
+# Rust development files
+Cargo.lock.bak
+.rustfmt.toml
+clippy.toml
+rustfmt.toml
+
+# Build artifacts and caches
+.cache/
+.ccache/
+dist/
+
+# MacOS and Windows
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and temporary
+*.log
+logs/
+tmp/
+temp/

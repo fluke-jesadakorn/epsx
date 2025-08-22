@@ -410,7 +410,7 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
                     url: "postgresql://localhost/epsx".to_string(),
                 },
                 auth: crate::config::AuthConfig {
-                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret_main: "default-jwt-secret".to_string(),
                     jwt_secret: "default-jwt-secret".to_string(),
                     cookie_signing_key: None,
                     cookie_encryption_key: None,
@@ -560,7 +560,7 @@ pub async fn get_unified_analytics_rankings_cached(
                     url: "postgresql://localhost/epsx".to_string(),
                 },
                 auth: crate::config::AuthConfig {
-                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret_main: "default-jwt-secret".to_string(),
                     jwt_secret: "default-jwt-secret".to_string(),
                     cookie_signing_key: None,
                     cookie_encryption_key: None,

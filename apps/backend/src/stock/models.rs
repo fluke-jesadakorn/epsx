@@ -1,10 +1,9 @@
 // Stock screening and financial models
 use serde::{Deserialize, Serialize};
 use chrono::{TimeZone, Utc};
-use utoipa::ToSchema;
 
 /// Table data metrics for stock screening results
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TableDataMetrics {
     pub symbol: String,
     pub name: String,
@@ -32,14 +31,14 @@ pub struct TableDataMetrics {
 }
 
 /// Phase information for stock analysis
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PhaseInfo {
     pub date: String,
     pub active: bool,
 }
 
 /// Phase status information
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PhaseStatus {
     pub date: String,
     #[serde(rename = "type")]
@@ -48,20 +47,20 @@ pub struct PhaseStatus {
 }
 
 /// Phase type enumeration
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum PhaseType {
     Monitor,
 }
 
 /// Action status
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ActionStatus {
     pub active: bool,
 }
 
 /// Action type information
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ActionType {
     #[serde(rename = "type")]
     pub action_type: String,
@@ -164,7 +163,7 @@ pub enum StockDataField {
 }
 
 /// EPS growth ranking query parameters
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 pub struct EpsGrowthRankingParams {
     pub limit: Option<i32>,
     pub skip: Option<i32>,

@@ -13,7 +13,7 @@ A standalone Next.js 15 application for EPSX platform administration, featuring 
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.4.6 with App Router
+- **Framework**: Next.js 15.5.0 with App Router
 - **Runtime**: React 19.1.0 with Server Components
 - **Styling**: Tailwind CSS 4.0.15 with Radix UI components
 - **Authentication**: Firebase Auth + JWT tokens

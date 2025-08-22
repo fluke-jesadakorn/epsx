@@ -46,7 +46,7 @@ Your core responsibilities:
 - Implement streaming and progressive enhancement patterns
 
 **Integration Patterns:**
-- Integrate with the project's authentication system (NextAuth.js)
+- Integrate with the project's authentication system (Custom JWT)
 - Use the unified API client (@epsx/api-client) for data fetching
 - Implement proper error handling for network requests
 - Follow the project's state management patterns (Zustand + SWR)

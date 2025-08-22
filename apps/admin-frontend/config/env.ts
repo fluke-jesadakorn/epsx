@@ -6,14 +6,14 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3001),
-  NEXTAUTH_URL: z.string().url(),
+  ADMIN_URL: z.string().url(),
   BACKEND_URL: z.string().url().default('https://api.epsx.io'),
   NEXT_PUBLIC_BACKEND_URL: z.string().url().default('https://api.epsx.io'),
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
   NEXT_PUBLIC_APP_URL: z.string().url().default('https://epsx.io'),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
-  NEXTAUTH_SECRET: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
   OIDC_CLIENT_ID: z.string().min(1),
   OIDC_CLIENT_SECRET: z.string().min(1),
   

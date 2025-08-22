@@ -18,8 +18,8 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
 
   // Required variables for admin
   const required = {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    JWT_SECRET: process.env.JWT_SECRET,
+    ADMIN_URL: process.env.ADMIN_URL,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,
   };
@@ -45,8 +45,8 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
   });
 
   // Validate URL formats
-  if (required.NEXTAUTH_URL && !isValidUrl(required.NEXTAUTH_URL)) {
-    errors.push('NEXTAUTH_URL must be a valid URL');
+  if (required.ADMIN_URL && !isValidUrl(required.ADMIN_URL)) {
+    errors.push('ADMIN_URL must be a valid URL');
   }
 
   if (required.NEXT_PUBLIC_BACKEND_URL && !isValidUrl(required.NEXT_PUBLIC_BACKEND_URL)) {
@@ -57,9 +57,9 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
     errors.push('NEXT_PUBLIC_ADMIN_URL must be a valid URL');
   }
 
-  // Check NEXTAUTH_SECRET length
-  if (required.NEXTAUTH_SECRET && required.NEXTAUTH_SECRET.length < 32) {
-    warnings.push('NEXTAUTH_SECRET should be at least 32 characters for security');
+  // Check JWT_SECRET length
+  if (required.JWT_SECRET && required.JWT_SECRET.length < 32) {
+    warnings.push('JWT_SECRET should be at least 32 characters for security');
   }
 
   // Admin-specific validations
@@ -129,12 +129,12 @@ export function validateAdminDevelopmentEnvironment(): void {
     console.warn('⚠️ Admin Development: NEXT_PUBLIC_BACKEND_URL should point to localhost for local development');
   }
 
-  if (!process.env.NEXTAUTH_URL?.includes('localhost')) {
-    console.warn('⚠️ Admin Development: NEXTAUTH_URL should point to localhost for local development');
+  if (!process.env.ADMIN_URL?.includes('localhost')) {
+    console.warn('⚠️ Admin Development: ADMIN_URL should point to localhost for local development');
   }
 
   // Check that admin port is different from frontend port
-  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || process.env.NEXTAUTH_URL;
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || process.env.ADMIN_URL;
   if (adminUrl && !adminUrl.includes(':3001')) {
     console.warn('⚠️ Admin Development: Admin should typically run on port 3001');
   }
@@ -158,13 +158,13 @@ export function validateAdminProductionEnvironment(): ValidationResult {
       results.errors.push('NEXT_PUBLIC_ADMIN_URL must use HTTPS in production');
     }
     
-    if (process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.startsWith('https://')) {
-      results.errors.push('NEXTAUTH_URL must use HTTPS in production');
+    if (process.env.ADMIN_URL && !process.env.ADMIN_URL.startsWith('https://')) {
+      results.errors.push('ADMIN_URL must use HTTPS in production');
     }
 
     // Ensure secure cookie settings
-    if (!process.env.NEXTAUTH_SECRET || process.env.NEXTAUTH_SECRET.length < 64) {
-      results.errors.push('NEXTAUTH_SECRET must be at least 64 characters in production');
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 64) {
+      results.errors.push('JWT_SECRET must be at least 64 characters in production');
     }
   }
   

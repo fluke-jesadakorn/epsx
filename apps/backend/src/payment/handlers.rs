@@ -1,55 +1,22 @@
 use axum::{extract::{State, Path}, Json};
 use std::sync::Arc;
-use utoipa::{OpenApi, ToSchema};
 use serde::Serialize;
 use crate::auth::UserClaims;
 use crate::config::Config;
 use super::service::{PaymentService, PaymentError, CreatePaymentRequest, PaymentResponse};
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct ValidationResponse {
     pub is_valid: bool,
     pub expires_in_days: i64,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        crate::payment::handlers::create_payment,
-        crate::payment::handlers::get_payment,
-        crate::payment::handlers::validate_payment,
-        crate::payment::handlers::get_qrcode
-    ),
-    components(
-        schemas(CreatePaymentRequest, PaymentResponse, PaymentError, ValidationResponse)
-    ),
-    tags(
-        (name = "Payments", description = "Payment processing endpoints")
-    )
-)]
-#[allow(dead_code)]
-struct PaymentApi;
 
-#[utoipa::path(
-    post,
-    path = "/payment",
-    request_body = CreatePaymentRequest,
-    security(
-        ("bearer" = [])
-    ),
-    responses(
-        (status = 200, description = "Payment created successfully", body = PaymentResponse),
-        (status = 400, description = "Invalid request parameters", body = PaymentError),
-        (status = 402, description = "Payment failed", body = PaymentError),
-        (status = 500, description = "Internal server error", body = PaymentError)
-    ),
-    tag = "Payments"
-)]
 pub async fn get_payment(
     State(payment_service): State<Arc<PaymentService>>,
     Path(_payment_id): Path<String>,
@@ -65,16 +32,6 @@ pub async fn get_payment(
     Ok(Json(response))
 }
 
-#[utoipa::path(
-    get,
-    path = "/payment/validate/{payment_id}",
-    responses(
-        (status = 200, description = "Payment validated successfully", body = ValidationResponse),
-        (status = 400, description = "Invalid payment ID", body = PaymentError),
-        (status = 500, description = "Internal server error", body = PaymentError)
-    ),
-    tag = "Payments"
-)]
 pub async fn validate_payment(
     State(_payment_service): State<Arc<PaymentService>>,
     Path(_payment_id): Path<String>,
@@ -87,16 +44,6 @@ pub async fn validate_payment(
     Ok(Json(response))
 }
 
-#[utoipa::path(
-    get,
-    path = "/payment/qrcode/{payment_id}",
-    responses(
-        (status = 200, description = "QR code URL generated successfully", body = String),
-        (status = 400, description = "Invalid payment ID", body = PaymentError),
-        (status = 500, description = "Internal server error", body = PaymentError)
-    ),
-    tag = "Payments"
-)]
 pub async fn get_qrcode(
     State(payment_service): State<Arc<PaymentService>>,
     State(config): State<Arc<Config>>,
@@ -112,21 +59,6 @@ pub async fn get_qrcode(
     Ok(Json(qr_code))
 }
 
-#[utoipa::path(
-    post,
-    path = "/payment",
-    request_body = CreatePaymentRequest,
-    security(
-        ("bearer" = [])
-    ),
-    responses(
-        (status = 200, description = "Payment created successfully", body = PaymentResponse),
-        (status = 400, description = "Invalid request parameters", body = PaymentError),
-        (status = 402, description = "Payment failed", body = PaymentError),
-        (status = 500, description = "Internal server error", body = PaymentError)
-    ),
-    tag = "Payments"
-)]
 pub async fn create_payment(
     State(payment_service): State<Arc<PaymentService>>,
     _claims: axum::Extension<UserClaims>,

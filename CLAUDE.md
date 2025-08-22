@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EPSX is a production-ready trading platform monorepo built with modern technologies featuring an analytics-focused theme and enhanced mobile performance. The architecture consists of:
+EPSX is a production-ready trading platform built with modern technologies, featuring analytics-focused design and mobile-first performance. The architecture consists of:
 
-- **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 trading platform with comprehensive analytics
-- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management and analytics administration
-- **Backend** (Port 8080): High-performance Rust API server with Axum framework and analytics engine
-- **Unified Architecture**: Streamlined monorepo structure optimized for development velocity
+- **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 with comprehensive analytics
+- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management
+- **Backend** (Port 8080): High-performance Rust API server with Axum + analytics engine
+- **Unified Monorepo**: Streamlined structure optimized for development velocity
 
 ## Architecture & Technology Stack
 
@@ -44,15 +44,15 @@ EPSX is a production-ready trading platform monorepo built with modern technolog
 # Install dependencies
 pnpm install
 
-# Start all development servers
-pnpm dev  # Frontend + Admin (excludes backend)
-pnpm dev:all  # All applications including backend
-
-# Start individual applications
-pnpm dev:frontend    # Port 3000
-pnpm dev:admin       # Port 3001  
-pnpm dev:backend     # Port 8080
+# Start development (choose one)
+pnpm dev             # Frontend + Admin only
 pnpm dev:all         # All applications including backend
+pnpm docker:dev      # Full environment with HTTPS
+
+# Individual applications
+pnpm dev:frontend    # Trading platform (3000)
+pnpm dev:admin       # Admin dashboard (3001)
+pnpm dev:backend     # Rust API server (8080)
 ```
 
 ### Build Commands
@@ -91,55 +91,56 @@ pnpm type-check      # TypeScript compilation check
 pnpm format          # Prettier formatting
 ```
 
-## Test-Driven Development (TDD) Process
+## Test-Driven Development (TDD)
 
-### TDD Workflow
-1. **Red**: Write a failing test first
-2. **Green**: Write minimal code to make the test pass
-3. **Refactor**: Improve code while keeping tests passing
+### 🔄 TDD Workflow
 
-### Testing Strategy by Layer
+1. **🔴 Red**: Write a failing test first
+2. **🟢 Green**: Write minimal code to make test pass
+3. **🟡 Refactor**: Improve code while keeping tests passing
 
-#### Frontend Components (Jest + React Testing Library)
+### 🧪 Testing Commands by Layer
+
+#### Frontend (Jest + React Testing Library)
 ```bash
-# Create test file alongside component
-# Example: components/Button.tsx → components/Button.test.tsx
-
-# TDD commands
-pnpm test:watch      # Immediate feedback during development
-pnpm test:unit       # Run unit tests only
+pnpm test:watch      # TDD watch mode
+pnpm test:unit       # All unit tests
+pnpm test:coverage   # Coverage report
 ```
 
-#### E2E Testing (Playwright) 
+#### E2E (Playwright)
 ```bash
-# Test critical user flows
-pnpm test:e2e        # Full E2E test suite
-pnpm test:e2e:ui     # Interactive test runner
+pnpm test:e2e        # Full E2E suite
+pnpm test:e2e:ui     # Interactive mode
+pnpm test:e2e:debug  # Debug mode
 ```
 
-#### Backend Testing (Rust)
+#### Backend (Rust)
 ```bash
 # From apps/backend/
-cargo test --watch   # Watch mode for TDD
-cargo test unit_tests -- --nocapture  # Detailed output
+cargo test --watch           # TDD watch mode
+cargo test -- --nocapture    # Detailed output
+cargo test integration       # Integration tests
 ```
 
-### TDD Best Practices
-- **Write tests BEFORE implementation**
-- **Test behavior, not implementation details**
-- **Keep tests focused and independent** 
-- **Use descriptive test names** that explain the expected behavior
-- **Mock external dependencies** (APIs, databases, services)
-- **Maintain test coverage** above 80% for critical paths
+### ✅ TDD Best Practices
 
-### Testing Patterns
+| Practice | Description |
+|----------|-------------|
+| **Test First** | Always write tests before implementation |
+| **Behavior Focus** | Test what the code does, not how |
+| **Independence** | Tests should not depend on each other |
+| **Descriptive Names** | Test names should explain expected behavior |
+| **Mock Dependencies** | Isolate units under test |
+| **Coverage Goals** | Maintain >80% coverage for critical paths |
 
-#### Component Testing
+### 📝 Testing Patterns
+
+#### React Component Testing
 ```typescript
-// Always test user interactions and state changes
+// Pattern: Test user interactions and state
 describe('LoginForm', () => {
-  it('should show validation error when email is invalid', () => {
-    // Red: Test expected behavior first
+  it('should show validation error for invalid email', () => {
     render(<LoginForm />);
     fireEvent.blur(screen.getByLabelText('Email'));
     expect(screen.getByText('Invalid email')).toBeInTheDocument();
@@ -147,21 +148,21 @@ describe('LoginForm', () => {
 });
 ```
 
-#### API Integration Testing  
+#### Rust API Testing
 ```rust
-// Test domain logic thoroughly
-#[tokio::test] 
-async fn test_user_creation_with_valid_data() {
-    // Red: Define expected behavior
+// Pattern: Test domain logic with clear scenarios
+#[tokio::test]
+async fn should_create_user_with_valid_data() {
     let result = create_user(valid_user_data()).await;
     assert!(result.is_ok());
+    assert_eq!(result.unwrap().email, "test@example.com");
 }
 ```
 
 ## Authentication Architecture
 
 ### Authentication Flow
-1. **NextAuth.js** handles OAuth (Google) and credential login
+1. **Custom JWT System** handles OAuth (Google) and credential login
 2. **Frontend** receives session tokens and user data
 3. **Backend** validates JWT tokens for API requests
 4. **IAM System** determines user permissions based on profiles
@@ -173,7 +174,7 @@ async fn test_user_creation_with_valid_data() {
 - `admin-full-004`: Full system access
 
 ### Session Management
-- **Frontend Sessions**: NextAuth.js handles session state
+- **Frontend Sessions**: Custom JWT system handles session state
 - **API Authentication**: JWT tokens in Authorization headers
 - **Cross-App Auth**: Shared session validation via backend
 
@@ -247,92 +248,141 @@ sqlx migrate run  # Apply migrations
 - **Conventional Commits**: Follow commit message standards
 - **Quality Gates**: All tests must pass before merging
 
-### Container Environment (Apple Silicon Optimized)
-- **Primary Engine**: OrbStack (recommended for 15x performance improvement)
-- **Alternative**: Podman (enterprise-grade, daemonless)
-- **Legacy**: Docker Desktop (migrate to OrbStack for better performance)
-- **Build Target**: AMD64 containers for Google Cloud Run deployment
-- **Performance**: Native ARM64 builds + cross-compilation optimization
+### 📦 Container Environment (Apple Silicon Optimized)
 
-### Container Management Commands
+| Engine | Performance | Use Case |
+|--------|-------------|----------|
+| **OrbStack** | 15x faster | Recommended for development |
+| **Podman** | Enterprise | Daemonless, security-focused |
+| **Docker Desktop** | Standard | Legacy support |
+
+### 🚀 Container Commands
+
 ```bash
-# Check current container engine and performance
-./scripts/check-container-engine.sh
+# Environment management
+pnpm docker:dev              # Start development environment
+pnpm docker:dev:down         # Stop development
+pnpm docker:dev:logs         # View logs
 
-# Build optimized containers (OrbStack/Podman/Docker compatible)
-./scripts/build.sh
+# Performance optimization
+./scripts/check-container-engine.sh    # Check current engine
+./scripts/benchmark-builds.sh          # Performance analysis
+./scripts/orbstack-migration-guide.md  # Migration guide
 
-# Benchmark build performance
-./scripts/benchmark-builds.sh
-
-# Analyze performance trends
-./scripts/analyze-performance.sh
-
-# Deploy to Google Cloud Run
-./scripts/deploy-cloudrun.sh
-
-# Clean build artifacts
-./scripts/clean.sh
+# Deployment
+./scripts/build.sh           # Build optimized containers
+./scripts/deploy-cloudrun.sh # Deploy to Google Cloud Run
+./scripts/clean.sh           # Clean build artifacts
 ```
 
-### Environment Management
-- **Environment Files**: Separate configs for dev/test/prod
-- **Container Engines**: OrbStack/Podman/Docker Desktop support
-- **Migration Guide**: `./scripts/orbstack-migration-guide.md`
-- **Admin Tools**: CLI tools for user management and IAM assignment
+## 🔧 Troubleshooting Guide
 
-## Troubleshooting Common Issues
+### 🛠️ Build Issues
 
-### Build Issues
-- **Build Dependencies**: Run `pnpm build:apps` before starting development
-- **Type Errors**: Check `tsconfig.json` path mappings
-- **Cache Issues**: Clear with `pnpm clean` and `pnpm clean:cache`
+| Problem | Solution |
+|---------|----------|
+| **Dependencies** | `pnpm build:apps` before development |
+| **Type Errors** | Check `tsconfig.json` path mappings |
+| **Cache Issues** | `pnpm clean && pnpm clean:cache` |
+| **Module Resolution** | Verify `package.json` workspace configs |
 
-### Authentication Issues  
-- **Session Persistence**: Check NextAuth.js configuration
-- **JWT Validation**: Verify backend token validation
-- **CORS Issues**: Check backend CORS settings for frontend domains
+### 🔐 Authentication Issues
 
-### Development Workflow Issues
-- **Port Conflicts**: Frontend (3000), Admin (3001), Backend (8080)
-- **Database Connection**: Ensure PostgreSQL is running and configured
-- **Environment Variables**: Check `.env` files are properly configured
+| Problem | Solution |
+|---------|----------|
+| **Session Loss** | Check custom JWT configuration |
+| **JWT Validation** | Verify backend token validation |
+| **CORS Errors** | Check backend CORS for frontend domains |
+| **Redirect Loops** | Verify `APP_URL`/`ADMIN_URL` in env files |
 
-### Container Performance Issues
-- **Slow Container Startup**: Check engine with `./scripts/check-container-engine.sh`
-- **Build Performance**: Run `./scripts/benchmark-builds.sh` to identify bottlenecks
-- **OrbStack Migration**: Follow `./scripts/orbstack-migration-guide.md` for 15x improvement
-- **Cache Issues**: Clear build cache with `rm -rf /tmp/.buildx-cache-orbstack`
-- **Platform Issues**: Ensure AMD64 builds for Cloud Run compatibility
+### 🌐 Development Environment
 
-### Performance Optimization Workflow
-1. **Baseline**: Run `./scripts/benchmark-builds.sh` to establish current performance
-2. **Migrate**: Install OrbStack following the migration guide
-3. **Verify**: Re-run benchmarks to confirm improvements
-4. **Monitor**: Use `./scripts/analyze-performance.sh` for ongoing optimization
+| Problem | Solution |
+|---------|----------|
+| **Port Conflicts** | Frontend (3000), Admin (3001), Backend (8080) |
+| **Database Connection** | Ensure PostgreSQL running & configured |
+| **Environment Variables** | Check `.env` files are properly set |
+| **Domain Resolution** | Verify `/etc/hosts` has `*.epsx.io` entries |
 
-## Analytics Development Patterns
+### 📦 Container Performance
 
-### Component Structure for Analytics
+| Issue | Command | Expected Result |
+|-------|---------|----------------|
+| **Slow Startup** | `./scripts/check-container-engine.sh` | Engine status & recommendations |
+| **Build Performance** | `./scripts/benchmark-builds.sh` | Performance metrics |
+| **OrbStack Migration** | Follow `./scripts/orbstack-migration-guide.md` | 15x performance improvement |
+| **Cache Cleanup** | `rm -rf /tmp/.buildx-cache-orbstack` | Fresh build cache |
+
+### 🚀 Performance Optimization Workflow
+
+1. **Baseline**: `./scripts/benchmark-builds.sh`
+2. **Migrate**: Install OrbStack (see migration guide)
+3. **Verify**: Re-run benchmarks
+4. **Monitor**: `./scripts/analyze-performance.sh`
+
+## 📊 Analytics Development Patterns
+
+### 📊 Component Architecture
+
 ```typescript
-// Follow this pattern for analytics components
+// Pattern: Analytics-focused component structure
 // components/analytics/AnalyticsCard.tsx
-export function AnalyticsCard({ data, onFilter, mobile = false }) {
-  // Mobile-first responsive design
-  // Real-time data integration
-  // Touch-optimized interactions
+export function AnalyticsCard({ 
+  data, 
+  onFilter, 
+  mobile = false,
+  realTime = true 
+}) {
+  // 1. Mobile-first responsive design
+  // 2. Real-time data integration
+  // 3. Touch-optimized interactions
+  // 4. Accessibility compliance
 }
 ```
 
-### Mobile Performance Best Practices
-- **Touch Interactions**: Use enhanced touch wrappers for mobile optimization
-- **Responsive Design**: All components must work on mobile/tablet/desktop
-- **Performance**: Leverage React 19 concurrent features for smooth scrolling
-- **Data Loading**: Use SWR for efficient data fetching with proper loading states
+### 📱 Mobile Performance Best Practices
 
-### Real-time Data Integration
-- **WebSocket**: Use established patterns for real-time market data
-- **State Management**: Zustand for analytics state with proper selectors
-- **Error Handling**: Graceful fallbacks for network issues
+| Practice | Implementation |
+|----------|----------------|
+| **Touch Interactions** | Enhanced touch wrappers for mobile optimization |
+| **Responsive Design** | Mobile/tablet/desktop compatibility |
+| **React 19 Features** | Concurrent features for smooth scrolling |
+| **Data Loading** | SWR with proper loading states |
+| **Image Optimization** | Next.js Image with AVIF/WebP |
+| **Code Splitting** | Dynamic imports for analytics modules |
 
-When working on this codebase, always follow the TDD process, understand the analytics-focused architecture, prioritize mobile performance, and use OrbStack for optimal development performance on Apple Silicon.
+### 📈 Real-time Data Integration
+
+```typescript
+// Pattern: Real-time analytics data flow
+const useAnalyticsData = (symbol: string) => {
+  const { data, error } = useSWR(
+    `/api/analytics/${symbol}`,
+    fetcher,
+    { refreshInterval: 1000 } // Real-time updates
+  );
+  
+  // WebSocket for live market data
+  useWebSocket(`/ws/market/${symbol}`, {
+    onMessage: (event) => {
+      // Update analytics state
+    }
+  });
+};
+```
+
+### 🎨 Analytics Theme Integration
+
+- **Color System**: Use analytics-focused color palette
+- **Typography**: Optimized for data readability
+- **Charts**: Recharts with custom analytics themes
+- **Icons**: Lucide icons for consistency
+- **Animations**: Framer Motion for smooth transitions
+
+### 🚀 Development Workflow
+
+1. **TDD First**: Write tests before analytics components
+2. **Mobile-First**: Design for mobile, enhance for desktop
+3. **Real-time Ready**: Build with WebSocket integration in mind
+4. **Performance**: Use OrbStack for 15x faster development
+5. **Analytics Focus**: Every component should support analytics integration

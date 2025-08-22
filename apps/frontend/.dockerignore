@@ -1,30 +1,54 @@
-# Dependencies
+# Dependencies (keep node_modules excluded but allow pnpm-lock.yaml)
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+.pnpm-debug.log*
 
-# Testing
+# Testing and Development
 coverage
 *.tgz
 *.tar.gz
+test-results/
+playwright-report/
+jest.coverage/
+cypress/
+__tests__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
 
-# Next.js
+# Build outputs
 .next
 out
 build
 dist
+.turbo
+.vercel
 
-# Misc
-.DS_Store
+# Environment and secrets (but keep .env.example)
+.env*
+!.env.example
+secrets/
+*.key
 *.pem
+
+# Development files
 *.log
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Debug
 logs
@@ -106,7 +130,78 @@ test-results/
 playwright-report/
 jest.coverage/
 
-# Git
+# Git and documentation (exclude everything except essential files)
 .git
 .gitignore
+.gitattributes
 README.md
+CHANGELOG.md
+LICENSE*
+*.md
+docs/
+documentation/
+
+# IDE and editor files (comprehensive)
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+*.code-workspace
+
+# TypeScript and ESLint configs (not needed in runtime)
+tsconfig.json
+tsconfig.*.json
+.eslintrc*
+.prettierrc*
+.editorconfig
+jest.config.*
+playwright.config.*
+tailwind.config.*
+postcss.config.*
+
+# Package manager files (keep only what's needed for pnpm)
+.npmrc
+.yarnrc*
+.pnpm-store
+
+# Additional development folders
+scripts/
+tools/
+storybook-static/
+.storybook/
+.devtools/
+benchmarks/
+examples/
+demos/
+
+# Temporary and cache files
+tmp/
+temp/
+.cache/
+.parcel-cache/
+.webpack/
+.rollup.cache/
+.rts2_cache_*/
+
+# Source maps and debug files
+*.map
+*.d.ts.map
+
+# Performance and analysis files
+.lighthouseci/
+lighthouse-report.*
+bundle-analyzer/
+webpack-bundle-analyzer/
+
+# Container and deployment specific
+Dockerfile*
+docker-compose*
+.dockerignore
+kubernetes/
+k8s/
+helm/
+.terraform/
+infrastructure/

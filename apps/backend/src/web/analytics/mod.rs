@@ -49,7 +49,7 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
                     url: "postgresql://localhost/epsx".to_string(),
                 },
                 auth: crate::config::AuthConfig {
-                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret_main: "default-jwt-secret".to_string(),
                     jwt_secret: "default-jwt-secret".to_string(),
                     cookie_signing_key: None,
                     cookie_encryption_key: None,

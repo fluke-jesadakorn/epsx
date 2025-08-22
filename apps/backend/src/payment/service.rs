@@ -2,16 +2,8 @@ use std::sync::Arc;
 use crate::config::Config;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[schema(example = json!({
-    "amount": 1000,
-    "currency": "USD",
-    "description": "Payment for subscription",
-    "payment_method": "card",
-    "metadata": {"user_id": "123"}
-}))]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CreatePaymentRequest {
     pub amount: u64,
     pub currency: String,
@@ -20,7 +12,7 @@ pub struct CreatePaymentRequest {
     pub metadata: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PaymentResponse {
     pub id: String,
     pub amount: u64,
@@ -37,7 +29,7 @@ pub struct PaymentResponse {
     pub error_message: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PaymentStatus {
     Pending,
@@ -49,7 +41,7 @@ pub enum PaymentStatus {
     RequiresAction,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum UserLevel {
     Basic,
@@ -58,7 +50,7 @@ pub enum UserLevel {
     Enterprise,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PaymentStatusUpdate {
     pub payment_id: String,
     pub status: PaymentStatus,
@@ -66,14 +58,13 @@ pub struct PaymentStatusUpdate {
     pub metadata: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PaymentRetryRequest {
     pub payment_id: String,
     pub retry_reason: Option<String>,
 }
 
-#[derive(Debug, thiserror::Error, ToSchema)]
-#[schema(example = json!({"error": "Invalid request: Amount must be greater than 0"}))]
+#[derive(Debug, thiserror::Error)]
 #[allow(dead_code)]
 pub enum PaymentError {
     #[error("Invalid request: {0}")]

@@ -1,5 +1,5 @@
 /**
- * NextAuth.js ModuleGuard - Server Component for conditional rendering based on admin modules
+ * JWT ModuleGuard - Server Component for conditional rendering based on admin modules
  * Modern replacement for legacy role-based authentication
  */
 
@@ -31,7 +31,7 @@ interface ModuleGuardProps {
 }
 
 /**
- * NextAuth.js Server Component that conditionally renders content based on admin modules
+ * Custom JWT Server Component that conditionally renders content based on admin modules
  * Only renders children if user meets the specified requirements
  */
 export default async function ModuleGuard({
@@ -61,7 +61,7 @@ export default async function ModuleGuard({
     const userPermissions = (session.user as any).permissions as string[] || []
     const userAdminModules = (session.user as any).admin_modules as string[] || []
     
-    // Helper functions using NextAuth session
+    // Helper functions using custom JWT session
     const hasPermission = (perm: string) => userPermissions.includes(perm)
     const hasAdminModule = (module: string) => userAdminModules.includes(module)
     const canManageUsers = () => hasAdminModule('user_operations')

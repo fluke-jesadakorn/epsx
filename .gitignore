@@ -51,7 +51,7 @@ playwright-report/
 .env.development
 .env.test
 .env.production
-.env.staging
+.env.shared
 *.env
 !.env.example
 !**/.env.example

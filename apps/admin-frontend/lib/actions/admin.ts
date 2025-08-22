@@ -8,7 +8,7 @@ import { getServerSession } from '@/lib/server/auth';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 
-// Get bearer token from NextAuth session  
+// Get bearer token from custom JWT session
 export const getBearerToken = async () => {
   const session = await getServerSession();
   return (session as any)?.accessToken || null;

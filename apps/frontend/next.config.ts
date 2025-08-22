@@ -15,6 +15,17 @@ const nextConfig: NextConfig = {
   generateBuildId: () => 'build',
   trailingSlash: false,
   
+  // Ultra-minimal bundle optimizations
+  productionBrowserSourceMaps: false,
+  modularizeImports: {
+    '@radix-ui/react-icons': {
+      transform: '@radix-ui/react-icons/dist/{{member}}.js',
+    },
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    },
+  },
+  
   // Mobile performance optimizations
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -25,7 +36,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   
-  // PWA and caching optimizations
+  // Caching optimizations
   headers: async () => [
     {
       source: '/:path*',
@@ -68,11 +79,26 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-toast',
       '@radix-ui/react-tooltip',
       'lucide-react',
+      'react',
+      'react-dom',
     ],
-    // Mobile-specific optimizations
+    // Container-specific optimizations
     optimizeCss: true,
     scrollRestoration: true,
     gzipSize: true,
+  },
+  
+  // Ultra-minimal standalone bundle
+  outputFileTracingExcludes: {
+    '*': [
+      './node_modules/@swc/core*/**/*',
+      './node_modules/esbuild/**/*',
+      './node_modules/webpack/**/*',
+      './node_modules/@babel/**/*',
+      './node_modules/typescript/**/*',
+      './node_modules/eslint/**/*',
+      './node_modules/@types/**/*',
+    ],
   },
   
   // Compression and optimization

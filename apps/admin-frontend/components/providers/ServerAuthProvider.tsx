@@ -1,6 +1,6 @@
 /**
- * NextAuth.js Server-Side Authentication Provider
- * Simplified server-side auth validation using NextAuth
+ * JWT Server-Side Authentication Provider
+ * Simplified server-side auth validation using custom JWT
  */
 
 import { ReactNode } from 'react';
@@ -14,7 +14,7 @@ interface ServerAuthProviderProps {
 }
 
 /**
- * NextAuth.js server-side authentication wrapper
+ * Custom JWT server-side authentication wrapper
  * This component runs on the server and validates authentication before rendering
  */
 export async function ServerAuthProvider({
@@ -52,7 +52,7 @@ export async function ServerAuthProvider({
     }
   }
 
-  // Children are rendered - client components will use NextAuth useSession
+  // Children are rendered - client components will use custom auth hooks
   return <>{children}</>;
 }
 

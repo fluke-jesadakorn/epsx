@@ -1,6 +1,5 @@
-'use server';
-
-import type { EPSRankingsResponse, AnalyticsFilters, FilterOptions, EPSRanking } from '@/types/analytics';
+import { NextRequest, NextResponse } from 'next/server';
+import type { EPSRankingsResponse, AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import type { CardDashboardResponse } from '@/types/financialChartData';
 
 // Country name mapping for normalization - maps display names to API values
@@ -92,8 +91,35 @@ function normalizeCountryName(country: string): string {
   return country?.toLowerCase() || '';
 }
 
-export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRankingsResponse | null> {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    
+    // Extract filters from search params
+    const filters: AnalyticsFilters = {
+      page: parseInt(searchParams.get('page') || '1'),
+      limit: parseInt(searchParams.get('limit') || '20'),
+      sort_by: (searchParams.get('sort_by') as any) || 'eps_growth',
+      country: searchParams.get('country') || undefined,
+      sector: searchParams.get('sector') || undefined,
+      min_eps: searchParams.get('min_eps') ? parseFloat(searchParams.get('min_eps')!) : undefined,
+      max_eps: searchParams.get('max_eps') ? parseFloat(searchParams.get('max_eps')!) : undefined,
+      min_growth: searchParams.get('min_growth') ? parseFloat(searchParams.get('min_growth')!) : undefined,
+      max_growth: searchParams.get('max_growth') ? parseFloat(searchParams.get('max_growth')!) : undefined,
+      min_market_cap: searchParams.get('min_market_cap') ? parseFloat(searchParams.get('min_market_cap')!) : undefined,
+      max_market_cap: searchParams.get('max_market_cap') ? parseFloat(searchParams.get('max_market_cap')!) : undefined,
+      min_volume: searchParams.get('min_volume') ? parseFloat(searchParams.get('min_volume')!) : undefined,
+      max_volume: searchParams.get('max_volume') ? parseFloat(searchParams.get('max_volume')!) : undefined,
+      min_price: searchParams.get('min_price') ? parseFloat(searchParams.get('min_price')!) : undefined,
+      max_price: searchParams.get('max_price') ? parseFloat(searchParams.get('max_price')!) : undefined,
+      min_pe_ratio: searchParams.get('min_pe_ratio') ? parseFloat(searchParams.get('min_pe_ratio')!) : undefined,
+      max_pe_ratio: searchParams.get('max_pe_ratio') ? parseFloat(searchParams.get('max_pe_ratio')!) : undefined,
+      min_dividend_yield: searchParams.get('min_dividend_yield') ? parseFloat(searchParams.get('min_dividend_yield')!) : undefined,
+      max_dividend_yield: searchParams.get('max_dividend_yield') ? parseFloat(searchParams.get('max_dividend_yield')!) : undefined,
+      exchange: searchParams.get('exchange') || undefined,
+      stock_type: (searchParams.get('stock_type') as any) || undefined,
+    };
+
     const apiUrl = 'https://api.epsx.io';
     
     // Build query parameters
@@ -127,8 +153,6 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
     if (filters.stock_type) params.append('stock_type', filters.stock_type);
 
     const url = `${apiUrl}/api/v1/analytics/rankings?${params.toString()}`;
-    
-    console.log('Fetching EPS rankings from:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -141,7 +165,7 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
 
     if (!response.ok) {
       console.error(`Failed to fetch EPS rankings: ${response.status} ${response.statusText}`);
-      return null;
+      return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: response.status });
     }
 
     const apiResponse: CardDashboardResponse = await response.json();
@@ -149,7 +173,7 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
     // Validate response structure
     if (!apiResponse.success || !apiResponse.data || !Array.isArray(apiResponse.data)) {
       console.error('Invalid API response structure:', apiResponse);
-      return null;
+      return NextResponse.json({ error: 'Invalid API response' }, { status: 500 });
     }
 
     // Transform CardDashboardResponse to EPSRankingsResponse format
@@ -195,125 +219,9 @@ export async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRa
       },
     };
 
-    return epsResponse;
+    return NextResponse.json(epsResponse);
   } catch (error) {
     console.error('Error fetching EPS rankings:', error);
-    return null;
-  }
-}
-
-// Interface for backend country data
-interface CountryData {
-  value: string;  // API value (lowercase)
-  label: string;  // Display name
-}
-
-export async function fetchFilterOptions(): Promise<FilterOptions> {
-  try {
-    const apiUrl = 'https://api.epsx.io';
-    
-    // Fetch countries, sectors, exchanges, and stock types in parallel
-    const [countriesResponse, sectorsResponse, exchangesResponse, stockTypesResponse] = await Promise.all([
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/countries`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/sectors`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/exchanges`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/stock-types`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-    ]);
-
-    let countries: string[] = [];
-    let sectors: string[] = [];
-    let exchanges: string[] = [];
-    let stock_types: string[] = [];
-
-    if (countriesResponse.ok) {
-      const countriesData = await countriesResponse.json();
-      if (Array.isArray(countriesData.countries)) {
-        // Handle new format with value/label objects
-        if (countriesData.countries.length > 0 && typeof countriesData.countries[0] === 'object') {
-          countries = (countriesData.countries as CountryData[]).map((c: CountryData) => c.label);
-        } else {
-          // Fallback for old format (just strings)
-          countries = countriesData.countries;
-        }
-      }
-    }
-
-    if (sectorsResponse.ok) {
-      const sectorsData = await sectorsResponse.json();
-      sectors = Array.isArray(sectorsData.sectors) ? sectorsData.sectors : [];
-    }
-
-    if (exchangesResponse.ok) {
-      const exchangesData = await exchangesResponse.json();
-      exchanges = Array.isArray(exchangesData.exchanges) ? exchangesData.exchanges : [];
-    }
-
-    if (stockTypesResponse.ok) {
-      const stockTypesData = await stockTypesResponse.json();
-      stock_types = Array.isArray(stockTypesData.stock_types) ? stockTypesData.stock_types : [];
-    }
-
-    // Fallback data if API calls fail
-    if (countries.length === 0) {
-      countries = ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Japan', 'Australia'];
-    }
-
-    if (sectors.length === 0) {
-      sectors = [
-        'Technology',
-        'Healthcare',
-        'Financial Services',
-        'Consumer Discretionary',
-        'Industrials',
-        'Energy',
-        'Telecommunications',
-        'Real Estate',
-      ];
-    }
-
-    if (exchanges.length === 0) {
-      exchanges = ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'];
-    }
-
-    if (stock_types.length === 0) {
-      stock_types = ['common', 'preferred', 'reit', 'etf'];
-    }
-
-    return { countries, sectors, exchanges, stock_types };
-  } catch (error) {
-    console.error('Error fetching filter options:', error);
-    
-    // Return fallback data with proper display names
-    return {
-      countries: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Japan', 'Australia'],
-      sectors: [
-        'Technology',
-        'Healthcare', 
-        'Financial Services',
-        'Consumer Discretionary',
-        'Industrials',
-        'Energy',
-        'Telecommunications',
-        'Real Estate',
-      ],
-      exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
-      stock_types: ['common', 'preferred', 'reit', 'etf'],
-    };
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

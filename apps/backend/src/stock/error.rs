@@ -1,7 +1,6 @@
 use axum::{response::Response, http::StatusCode};
 use axum::response::IntoResponse;
-#[derive(Debug, thiserror::Error, utoipa::ToSchema)]
-#[schema(example = json!({"error": "TradingView API error: Connection failed"}))]
+#[derive(Debug, thiserror::Error)]
 pub enum StockServiceError {
     #[error("TradingView API error: {0}")]
     TradingViewError(String),

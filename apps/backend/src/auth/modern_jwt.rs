@@ -62,7 +62,7 @@ impl JWTService {
             
         // Support legacy HMAC tokens during transition
         let legacy_secret = get_env_var("JWT_SECRET")
-            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
+            .or_else(|_| get_env_var("JWT_SECRET"))
             .ok();
             
         if legacy_secret.is_some() {

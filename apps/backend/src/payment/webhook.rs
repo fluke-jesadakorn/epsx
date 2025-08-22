@@ -5,10 +5,9 @@ use crate::dom::services::auto_assignment::AutoAssignmentEngine;
 use crate::dom::entities::permission_profile::PermissionProfileId;
 use crate::dom::values::UserId;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use sha2::{Sha256, Digest};
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct WebhookPayload {
     pub payment_id: String,
     pub status: String,
@@ -24,7 +23,7 @@ pub struct WebhookPayload {
     pub metadata: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct WebhookResponse {
     pub success: bool,
     pub message: String,
@@ -35,7 +34,7 @@ pub struct WebhookResponse {
     pub assignment_details: Option<AssignmentDetails>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AssignmentDetails {
     pub permission_profile_id: String,
     pub permission_profile_name: String,
@@ -352,7 +351,8 @@ mod tests {
         // Test implementation
         let config = Arc::new(Config::from_env());
         let payment_service = Arc::new(PaymentService::new(config.clone()));
-        let handler = WebhookHandler::new(payment_service, config);
+        let auto_assignment_engine = Arc::new(AutoAssignmentEngine::new());
+        let handler = WebhookHandler::new(payment_service, auto_assignment_engine, config);
 
         let payload = WebhookPayload {
             payment_id: "test_payment_id".to_string(),
@@ -363,6 +363,9 @@ mod tests {
             currency: Some("USD".to_string()),
             timestamp: chrono::Utc::now().to_rfc3339(),
             signature: "invalid_signature".to_string(),
+            user_id: None,
+            permission_profile_id: None,
+            metadata: None,
         };
 
         let result = handler.handle_payment_webhook(payload).await;

@@ -17,7 +17,7 @@ interface UserData {
 
 /**
  * Server component that provides user data to child components
- * Uses NextAuth.js session for server-side user data access
+ * Uses custom JWT session for server-side user data access
  */
 export async function UserProvider({ children }: UserProviderProps) {
   const session = await auth();

@@ -6,24 +6,6 @@ use axum::{
     Router,
     Json,
 };
-use utoipa::OpenApi;
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        stock_screener,
-        eps_growth_ranking,
-        ws_handler
-    ),
-    components(
-        schemas(EpsGrowthRankingParams, TableDataMetrics)
-    ),
-    tags(
-        (name = "Stock Screener", description = "Stock screening and ranking endpoints")
-    )
-)]
-#[allow(dead_code)]
-struct ScreenerApi;
 use serde::Deserialize;
 use tracing::error;
 
@@ -50,15 +32,6 @@ pub fn screener_router_legacy(tradingview_service: Arc<dyn TradingViewService>) 
 
 
 /// Get stock screener data for all tracked symbols
-#[utoipa::path(
-    get,
-    path = "/screener",
-    responses(
-        (status = 200, description = "Successfully retrieved screener data", body = Vec<TableDataMetrics>),
-        (status = 500, description = "Internal server error", body = StockServiceError)
-    ),
-    tag = "Stock Screener"
-)]
 async fn stock_screener(
     State(tradingview_service): State<Arc<dyn TradingViewService>>,
 ) -> Result<Json<Vec<TableDataMetrics>>, StockServiceError> {
@@ -67,15 +40,6 @@ async fn stock_screener(
 }
 
 /// WebSocket endpoint for real-time screener updates
-#[utoipa::path(
-    get,
-    path = "/ws",
-    responses(
-        (status = 101, description = "WebSocket connection upgraded successfully"),
-        (status = 400, description = "Invalid WebSocket request"),
-    ),
-    tag = "Stock Screener"
-)]
 async fn ws_handler(
     ws: WebSocketUpgrade,
     State(tradingview_service): State<Arc<dyn TradingViewService>>,
@@ -88,22 +52,6 @@ async fn ws_handler(
 }
 
 /// Get EPS growth ranking for stocks
-#[utoipa::path(
-    get,
-    path = "/eps-growth-ranking",
-    params(
-        ("limit" = Option<i32>, Query, description = "Maximum number of results to return"),
-        ("skip" = Option<i32>, Query, description = "Number of results to skip (for pagination)"),
-        ("sort_by" = Option<String>, Query, description = "Field to sort results by"),
-        ("country" = Option<String>, Query, description = "Filter by country (e.g., 'america', 'thailand')"),
-        ("sector" = Option<String>, Query, description = "Filter by sector (e.g., 'Technology', 'Healthcare')")
-    ),
-    responses(
-        (status = 200, description = "Successfully retrieved EPS growth ranking", body = Vec<TableDataMetrics>),
-        (status = 500, description = "Internal server error", body = StockServiceError)
-    ),
-    tag = "Stock Screener"
-)]
 async fn eps_growth_ranking(
     State(tradingview_service): State<Arc<dyn TradingViewService>>,
     Query(params): Query<EpsGrowthRankingParams>,

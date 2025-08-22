@@ -1,6 +1,6 @@
 # EPSX Trading Platform 📈
 
-A comprehensive trading platform monorepo built with modern technologies, featuring an analytics-focused theme with enhanced mobile performance. The Next.js frontend ecosystem includes comprehensive analytics dashboards and high-performance Rust backend. Configured for local development with custom *.epsx.io domains for production-like environment simulation.
+A production-ready trading platform built with modern technologies, featuring analytics-focused design and mobile-first performance. Built with Next.js 15, React 19, and high-performance Rust backend, configured for seamless local development with production-like *.epsx.io domain simulation.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.0-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -44,38 +44,46 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Technology Stack
 
-### Frontend Technologies
+### 🎨 Frontend Stack
 
-- **Framework:** Next.js 15.5.0 with App Router
-- **Language:** TypeScript 5.8.3
-- **UI Components:** Radix UI + Tailwind CSS 4.0.15
-- **State Management:** Zustand + SWR for data fetching
-- **Forms:** React Hook Form with Zod validation
-- **Authentication:** Multi-provider authentication (Firebase, OIDC)
-- **Charts:** Recharts for data visualization
-- **Testing:** Jest (unit), Playwright (E2E), Lighthouse (performance)
+| Technology | Version | Purpose |
+|------------|---------|----------|
+| **Next.js** | 15.5.0 | React framework with App Router |
+| **React** | 19.1.0 | UI library with Server Components |
+| **TypeScript** | 5.8.3 | Type-safe development |
+| **Tailwind CSS** | 4.0.15 | Utility-first styling |
+| **Radix UI** | Latest | Accessible component primitives |
+| **Zustand** | Latest | State management |
+| **SWR** | Latest | Data fetching & caching |
+| **React Hook Form** | Latest | Form handling |
+| **Zod** | Latest | Schema validation |
 
-### Backend Technologies
+### ⚙️ Backend Stack
 
-- **Language:** Rust (Edition 2021)
-- **Web Framework:** Axum 0.7 with WebSocket support
-- **Database:** PostgreSQL with SQLx ORM and comprehensive migrations
-- **Authentication:** Multi-provider JWT with RBAC, OIDC, and Firebase integration
-- **Analytics Engine:** High-performance stock analysis and market data processing
-- **Real-time:** WebSocket and Server-Sent Events for live market updates
-- **Job Scheduling:** tokio-cron-scheduler for automated analytics processing
-- **Testing:** Unit, integration, and API tests with comprehensive E2E coverage
+| Technology | Version | Purpose |
+|------------|---------|----------|
+| **Rust** | 2021 | High-performance systems language |
+| **Axum** | 0.7 | Web framework with WebSocket support |
+| **PostgreSQL** | Latest | Primary database |
+| **SQLx** | Latest | Async SQL toolkit |
+| **Redis** | Latest | Caching & sessions |
+| **JWT** | Latest | Authentication tokens |
+| **Tokio** | Latest | Async runtime |
 
-### Development Tools
+### 🛠️ Development Tools
 
-- **Monorepo:** Turborepo 2.5.5 for build orchestration
-- **Package Manager:** pnpm 10.14.0 with workspaces
-- **Node.js:** >=18.0.0 requirement
-- **Code Quality:** ESLint 9.23.0 + Prettier 3.6.2
-- **Git Hooks:** Husky 9.1.7 with Commitlint
-- **Containerization:** Docker with multi-platform support
+| Tool | Version | Purpose |
+|------|---------|----------|
+| **Turborepo** | 2.5.5 | Monorepo build system |
+| **pnpm** | 10.14.0 | Package manager |
+| **ESLint** | 9.23.0 | Code linting |
+| **Prettier** | 3.6.2 | Code formatting |
+| **Husky** | 9.1.7 | Git hooks |
+| **Jest** | Latest | Unit testing |
+| **Playwright** | Latest | E2E testing |
+| **Docker** | Latest | Containerization |
 
 ---
 
@@ -84,178 +92,125 @@ This production-ready monorepo is organized with clean separation of concerns:
 ### Prerequisites
 
 - **Node.js** >= 18.0.0
-- **pnpm** >= 10.13.1
-- **Rust** (latest stable for backend development)
-- **PostgreSQL** (for database)
-- **Docker** (optional, for containerized development)
-- **Local DNS Configuration** (for *.epsx.io domains)
+- **pnpm** >= 10.14.0
+- **Rust** (latest stable)
+- **PostgreSQL** (database)
+- **Docker** (recommended for full environment)
 
-### Installation
+### Installation & Setup
 
 ```bash
-# Clone the repository
+# 1. Clone and install dependencies
 git clone https://github.com/fluke-jesadakorn/epsx.git
 cd epsx
-
-# Install dependencies
 pnpm install
 
-# Setup local DNS for *.epsx.io domains
-# Add to /etc/hosts (macOS/Linux) or C:\Windows\System32\drivers\etc\hosts (Windows):
-127.0.0.1 epsx.io
-127.0.0.1 admin.epsx.io
-127.0.0.1 api.epsx.io
+# 2. Configure local domains (add to /etc/hosts)
+echo "127.0.0.1 epsx.io admin.epsx.io api.epsx.io" >> /etc/hosts
 
-# Setup environment variables
+# 3. Setup environment
 cp .env.example .env.development
-# Edit .env.development with your configuration
+# Edit .env.development with your database and API keys
 
-# Setup database (PostgreSQL required)
-# Configure your database connection in backend/.env
-
-# Start development servers (with HTTPS via Docker/Traefik)
-pnpm docker:dev
-# OR for local development without HTTPS
-pnpm dev
+# 4. Start development (choose one)
+pnpm docker:dev     # Full environment with HTTPS
+pnpm dev           # Frontend + Admin only
+pnpm dev:all       # All applications including backend
 ```
+
+### Access Points
+
+- **Frontend**: https://epsx.io (or http://localhost:3000)
+- **Admin**: https://admin.epsx.io (or http://localhost:3001)
+- **API**: https://api.epsx.io (or http://localhost:8080)
 
 ---
 
-## 🌐 Local Domain Configuration
+## 🌐 Development Environment
 
-EPSX is configured to use custom *.epsx.io domains for local development, providing a production-like environment with proper subdomain separation.
+### Local Domain Setup
 
-### Domain Architecture
+EPSX uses custom *.epsx.io domains for production-like development:
 
-- **Main Application**: https://epsx.io - Trading platform frontend
-- **Admin Dashboard**: https://admin.epsx.io - Administrative interface  
-- **API Server**: https://api.epsx.io - Backend API and authentication
+- **Frontend**: https://epsx.io (trading platform)
+- **Admin**: https://admin.epsx.io (dashboard)
+- **API**: https://api.epsx.io (backend)
 
-### Setting Up Local DNS
-
-#### Option 1: Manual /etc/hosts Configuration
-
-Add the following entries to your hosts file:
-
-**macOS/Linux**: `/etc/hosts`
+**Quick Setup:**
 ```bash
-# Add these lines to /etc/hosts
-127.0.0.1 epsx.io
-127.0.0.1 admin.epsx.io  
-127.0.0.1 api.epsx.io
-```
+# Add domains to hosts file
+echo "127.0.0.1 epsx.io admin.epsx.io api.epsx.io" >> /etc/hosts
 
-**Windows**: `C:\Windows\System32\drivers\etc\hosts`
-```bash
-# Add these lines to hosts file
-127.0.0.1 epsx.io
-127.0.0.1 admin.epsx.io
-127.0.0.1 api.epsx.io
-```
-
-#### Option 2: Using Docker Development Environment
-
-The Docker development environment includes Traefik reverse proxy that automatically handles SSL certificates and domain routing:
-
-```bash
-# Start the complete development environment with HTTPS
+# Start with HTTPS (recommended)
 pnpm docker:dev
 
-# Access applications:
-# https://epsx.io - Frontend
-# https://admin.epsx.io - Admin  
-# https://api.epsx.io - Backend API
-```
-
-### Authentication Integration
-
-The authentication system is fully integrated across all domains:
-
-- **Single Sign-On**: Login once, access all applications
-- **Secure Sessions**: JWT tokens with secure cookie handling
-- **Cross-Domain Auth**: Session sharing between epsx.io and admin.epsx.io
-- **API Authentication**: Bearer tokens for api.epsx.io
-
-### Development Benefits
-
-- **Production Parity**: Mirrors production domain structure
-- **CORS Testing**: Proper cross-origin request testing
-- **SSL Development**: HTTPS in development environment
-- **Subdomain Testing**: Validate subdomain-specific features
-- **Authentication Flow**: Test complete OAuth/OIDC flows
-
----
-
-## 📜 Available Scripts
-
-### Development
-
-```bash
-# Start all development servers (frontend + admin)
-pnpm dev
-
-# Start specific applications
-pnpm dev:frontend      # Frontend only (port 3000)
-pnpm dev:admin         # Admin only (port 3001)
-pnpm dev:backend       # Backend only
-pnpm dev:all          # All applications including backend
-
-# Start all including backend
+# Or start without HTTPS
 pnpm dev:all
 ```
 
-### Building
+### Authentication Features
+
+- **Single Sign-On**: Seamless cross-application authentication
+- **JWT Security**: Secure token-based API access
+- **Multi-Provider**: Google OAuth, Firebase, OIDC support
+- **Role-Based Access**: IAM profiles with granular permissions
+
+---
+
+## 📜 Development Commands
+
+### 🚀 Development Servers
 
 ```bash
-# Build everything
-pnpm build
+# Quick start options
+pnpm dev               # Frontend + Admin (ports 3000, 3001)
+pnpm dev:all           # All applications including backend
+pnpm docker:dev        # Full environment with HTTPS
 
-# Build specific targets  
-pnpm build:apps        # Build all applications
-pnpm build:frontend    # Build frontend app
-pnpm build:admin       # Build admin app
-pnpm build:backend     # Build Rust backend
+# Individual applications
+pnpm dev:frontend      # Trading platform (port 3000)
+pnpm dev:admin         # Admin dashboard (port 3001)
+pnpm dev:backend       # Rust API server (port 8080)
 ```
 
-### Quality Assurance
+### 🛠️ Build & Quality
 
 ```bash
-# Linting
-pnpm lint              # Check all projects
-pnpm lint:fix          # Fix auto-fixable issues
+# Building
+pnpm build             # Build all applications
+pnpm build:frontend    # Frontend only
+pnpm build:admin       # Admin only
+pnpm build:backend     # Rust backend only
 
-# Type checking
-pnpm type-check        # Check all projects
+# Quality checks
+pnpm lint              # ESLint all projects
+pnpm lint:fix          # Auto-fix issues
+pnpm type-check        # TypeScript validation
+pnpm format            # Prettier formatting
 
 # Testing
-pnpm test              # Run all tests
-pnpm test:unit         # Unit tests only
-pnpm test:e2e          # E2E tests with Playwright
-pnpm test:e2e:ui       # E2E tests with UI mode
-
-# Formatting
-pnpm format            # Format all files
-pnpm format:check      # Check formatting
+pnpm test              # All tests
+pnpm test:unit         # Jest unit tests
+pnpm test:e2e          # Playwright E2E
+pnpm test:e2e:ui       # E2E with UI mode
 ```
 
-### Admin & Management
+### 👥 Admin & Management
 
 ```bash
 # User management
-pnpm promote-admin     # Promote user to admin role
-pnpm assign-iam        # Assign IAM profile to user
-pnpm list-profiles     # List available IAM profiles
+pnpm promote-admin     # Promote user to admin
+pnpm assign-iam        # Assign IAM profile
+pnpm list-profiles     # List IAM profiles
 
-# Docker operations
-pnpm docker:dev        # Start development environment
-pnpm docker:test       # Start test environment
-pnpm docker:prod       # Start production environment
-pnpm docker:dev:down   # Stop development environment
-pnpm docker:dev:logs   # View development logs
+# Environment management
+pnpm docker:dev        # Start development
+pnpm docker:dev:down   # Stop development
+pnpm docker:dev:logs   # View logs
 
-# Performance & Analysis
-pnpm lighthouse        # Run Lighthouse performance tests
-pnpm analyze          # Analyze bundle sizes (frontend)
+# Performance analysis
+pnpm lighthouse        # Performance tests
+pnpm analyze          # Bundle analysis
 ```
 
 ---
@@ -290,158 +245,57 @@ make docker-push          # Push to registry
 ```
 epsx/
 ├── apps/
-│   ├── frontend/          # Main trading platform (Port: 3000)
-│   │   ├── app/           # Next.js App Router with analytics pages
-│   │   ├── components/    # React components including analytics dashboard
-│   │   │   ├── analytics/ # Advanced analytics and market data components
-│   │   │   ├── auth/      # Multi-provider authentication components
-│   │   │   ├── touch/     # Mobile-optimized touch interaction components
-│   │   │   └── ui/        # Shared UI components (Radix + Tailwind)
-│   │   ├── hooks/         # Custom hooks for analytics and mobile performance
-│   │   ├── lib/           # Utilities, API clients, and authentication helpers
-│   │   └── styles/        # Analytics theme CSS and mobile optimizations
-│   ├── admin-frontend/    # Admin dashboard (Port: 3001)
-│   │   ├── app/           # Admin pages including analytics management
-│   │   ├── components/    # Admin components with analytics administration
-│   │   │   ├── admin/     # Core admin management components
-│   │   │   ├── analytics/ # Analytics administration interface
-│   │   │   └── auth/      # Enhanced authentication with role management
-│   │   ├── lib/           # Admin utilities and API integration
-│   │   └── types/         # Admin-specific TypeScript definitions
-│   └── backend/           # High-performance Rust API server
-│       ├── src/           # Rust source code with analytics engine
-│       │   ├── web/analytics/ # Analytics API handlers and data processing
-│       │   ├── auth/      # Multi-provider authentication system
-│       │   └── stock/     # Market data and financial calculations
-│       ├── migrations/    # Database migrations for analytics data
-│       ├── templates/analytics/ # Analytics theme HTML templates
-│       └── tests/         # Comprehensive testing including analytics
-├── scripts/               # Deployment and development scripts
+│   ├── frontend/          # Trading platform (Next.js 15 + React 19)
+│   │   ├── app/           # App Router pages & layouts
+│   │   ├── components/    # React components (analytics, auth, touch, ui)
+│   │   ├── hooks/         # Custom hooks
+│   │   └── lib/           # Utilities & API clients
+│   ├── admin-frontend/    # Admin dashboard (Next.js 15)
+│   │   ├── app/           # Admin pages
+│   │   ├── components/    # Admin components (admin, analytics, auth)
+│   │   └── lib/           # Admin utilities
+│   └── backend/           # Rust API server (Axum + PostgreSQL)
+│       ├── src/           # Rust source (web, auth, analytics)
+│       ├── migrations/    # Database migrations
+│       └── tests/         # Rust tests
+├── scripts/               # Development & deployment scripts
 ├── types/                 # Shared TypeScript definitions
-├── Makefile              # Build and Docker commands
-└── turbo.json            # Turborepo configuration
+└── turbo.json            # Monorepo configuration
 ```
+
 
 ---
 
-## 🔧 Development Workflow
+## 🏷️ Environment Configuration
 
-### 1. Initial Setup
+### Quick Setup
 
 ```bash
-# Install dependencies and setup environment
-make install
+# Copy environment template
 cp .env.example .env.development
-# Configure your environment variables
+
+# Configure key variables
+echo "DATABASE_URL=postgresql://username:password@localhost:5432/epsx_dev" >> .env.development
+echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 ```
 
-### 2. Analytics Development
+### Required Variables
 
-The platform features an analytics-focused theme with mobile optimizations:
+| Application | Variable | Purpose |
+|-------------|----------|----------|
+| **Database** | `DATABASE_URL` | PostgreSQL connection |
+| **Frontend** | `NEXT_PUBLIC_API_URL` | Backend API endpoint |
+| **Auth** | `JWT_SECRET` | JWT signing secret |
+| **Firebase** | `NEXT_PUBLIC_FIREBASE_*` | Firebase configuration |
+| **OAuth** | `GOOGLE_CLIENT_ID/SECRET` | Google authentication |
 
-```bash
-# Start analytics development environment
-pnpm dev:frontend    # Frontend with comprehensive analytics dashboard
-pnpm dev:admin       # Admin with analytics administration
+### Environment Files
 
-# Mobile-optimized development with touch interactions
-pnpm dev             # All applications with enhanced mobile performance
-```
-
-### 3. Application Development
-
-```bash
-# Start individual applications
-pnpm dev:frontend    # Trading platform (Port: 3000)
-pnpm dev:admin       # Admin dashboard (Port: 3001)
-pnpm dev:backend     # Rust API server
-
-# Start all frontend applications
-pnpm dev             # Frontend + Admin
-
-# Full stack development
-pnpm dev:all         # All apps including backend
-```
-
-### 4. Administration & User Management
-
-```bash
-# Promote user to admin role
-pnpm promote-admin
-
-# Assign IAM profile to user
-pnpm assign-iam
-
-# View available IAM profiles
-pnpm list-profiles
-```
-
----
-
-## 🏷️ Environment Variables
-
-### Available Environment Files
-
-- `.env.example` - Template for all environments
-- `.env.development` - Development configuration
+- `.env.development` - Local development
 - `.env.prod.example` - Production template
-
-### Root `.env.development`
-
-```env
-NODE_ENV=development
-DATABASE_URL=postgresql://username:password@localhost:5432/epsx_dev
-```
-
-### Frontend/Admin `.env.local`
-
-```env
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-# API Configuration (Local *.epsx.io domains)
-NEXT_PUBLIC_API_URL=https://api.epsx.io
-NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
-NEXT_PUBLIC_APP_URL=https://epsx.io
-NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io
-
-# Google OAuth
-GOOGLE_CLIENT_ID=your_client_id
-GOOGLE_CLIENT_SECRET=your_client_secret
-
-# Authentication
-NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=https://epsx.io
-
-# For Admin Frontend
-NEXTAUTH_URL=https://admin.epsx.io
-```
-
-### Backend `.env`
-
-```env
-# Database
-DATABASE_URL=postgresql://username:password@localhost:5432/epsx_dev
-REDIS_URL=redis://localhost:6379
-
-# Server Configuration
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-JWT_SECRET=your_jwt_secret
-
-# Frontend URLs for CORS
-FRONTEND_URL=https://epsx.io
-ADMIN_FRONTEND_URL=https://admin.epsx.io
-OIDC_ISSUER=https://api.epsx.io
-
-# External APIs
-FIREBASE_SERVICE_ACCOUNT_KEY=path/to/service-account.json
-```
+- `apps/frontend/.env.local` - Frontend-specific
+- `apps/admin-frontend/.env.local` - Admin-specific
+- `apps/backend/.env` - Backend configuration
 
 ---
 

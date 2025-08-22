@@ -63,7 +63,7 @@ pub struct TokenBrokerConfig {
 impl Default for TokenBrokerConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: get_env_var("NEXTAUTH_SECRET")
+            jwt_secret: get_env_var("JWT_SECRET")
                 .or_else(|_| get_env_var("AUTH_SECRET"))
                 .unwrap_or_else(|_| "default-broker-secret".to_string()),
             issuer_url: get_env_var("BACKEND_URL")

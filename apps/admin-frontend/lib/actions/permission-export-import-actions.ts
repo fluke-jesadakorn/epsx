@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getServerSession } from '@/lib/auth';
 import { env } from '@/config/env';
 
-// Get bearer token from NextAuth session
+// Get bearer token from custom JWT session
 const getBearerToken = async () => {
   const session = await getServerSession();
   return (session as any)?.accessToken || null;

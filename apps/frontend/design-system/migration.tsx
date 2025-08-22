@@ -11,6 +11,7 @@
  * - Type-safe migration helpers
  */
 
+import React from 'react';
 import { 
   buttonVariants, 
   cardVariants, 

@@ -71,7 +71,7 @@ impl Service {
             .map_err(|e| Error::Invalid(format!("Failed to initialize KeyManager: {}", e)))?);
             
         let legacy_secret = get_env_var("JWT_SECRET")
-            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
+            .or_else(|_| get_env_var("JWT_SECRET"))
             .ok();
             
         let issuer = get_env_var("OIDC_ISSUER")

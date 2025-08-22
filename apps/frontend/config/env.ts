@@ -8,7 +8,7 @@ const envSchema = z.object({
   // Core App Configuration
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3000),
-  NEXTAUTH_URL: z.string().url(),
+  APP_URL: z.string().url(),
   SITE_URL: z.string().url().optional(),
 
   // Server-Only API URLs (never exposed to client)
@@ -22,7 +22,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
 
   // Server-Only Authentication Secrets (never exposed)
-  NEXTAUTH_SECRET: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
   OIDC_CLIENT_ID: z.string().min(1),
   OIDC_CLIENT_SECRET: z.string().min(1),
   JWT_SECRET: z.string().optional(),
@@ -85,17 +85,17 @@ export const serverConfig = {
   apiUrl: env.API_URL || env.BACKEND_URL,
   
   // App URLs for server operations
-  siteUrl: env.SITE_URL || env.NEXTAUTH_URL,
+  siteUrl: env.SITE_URL || env.APP_URL,
   adminUrl: env.ADMIN_FRONTEND_URL || 'http://localhost:3001',
   frontendUrl: env.FRONTEND_URL || 'http://localhost:3000',
   appUrl: env.APP_URL,
   
   // Authentication secrets
   auth: {
-    secret: env.NEXTAUTH_SECRET,
+    secret: env.JWT_SECRET,
     oidcClientId: env.OIDC_CLIENT_ID,
     oidcSecret: env.OIDC_CLIENT_SECRET,
-    jwtSecret: env.JWT_SECRET || env.NEXTAUTH_SECRET,
+    jwtSecret: env.JWT_SECRET,
   },
   
   // Payment configuration (secrets protected)

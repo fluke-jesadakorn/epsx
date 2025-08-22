@@ -39,7 +39,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=development
-      - NEXTAUTH_URL=https://epsx.io
+      - APP_URL=https://epsx.io
       - BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_APP_URL=https://epsx.io
@@ -87,7 +87,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=development
-      - NEXTAUTH_URL=https://admin.epsx.io
+      - ADMIN_URL=https://admin.epsx.io
       - BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io

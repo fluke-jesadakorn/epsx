@@ -13,16 +13,37 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // No transpile packages needed for standalone app
+  
+  // Ultra-minimal bundle optimizations
+  productionBrowserSourceMaps: false,
+  modularizeImports: {
+    '@radix-ui/react-icons': {
+      transform: '@radix-ui/react-icons/dist/{{member}}.js',
+    },
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    },
+  },
+  
+  // Admin-specific optimizations
   experimental: {
     serverActions: {
       allowedOrigins: ['*'],
     },
-    optimizePackageImports: ['@radix-ui/react-*', 'lucide-react'],
+    optimizePackageImports: [
+      '@radix-ui/react-*', 
+      'lucide-react',
+      'react',
+      'react-dom'
+    ],
     useCache: true,
     staleTimes: {
       dynamic: 180, // 3 minutes for admin dynamic content
       static: 1800, // 30 minutes for admin static content
+    },
+    // Container-specific optimizations
+    turbotrace: {
+      logLevel: 'error',
     },
   },
   
@@ -88,6 +109,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  
+  // Ultra-minimal standalone bundle
+  outputFileTracingExcludes: {
+    '*': [
+      './node_modules/@swc/core*/**/*',
+      './node_modules/esbuild/**/*',
+      './node_modules/webpack/**/*',
+      './node_modules/@babel/**/*',
+      './node_modules/typescript/**/*',
+      './node_modules/eslint/**/*',
+      './node_modules/@types/**/*',
+    ],
+  },
+  
   serverExternalPackages: ['firebase-admin'],
   poweredByHeader: false,
   generateEtags: true,

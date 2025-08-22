@@ -1,82 +1,48 @@
-# Dependencies
+# Dependencies (optimized)
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+.pnpm-debug.log*
 
-# Testing
+# Testing and Development (comprehensive)
 coverage
 *.tgz
 *.tar.gz
+test-results/
+playwright-report/
+jest.coverage/
+cypress/
+__tests__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
+.nyc_output
 
-# Next.js
+# Build outputs
 .next
 out
 build
 dist
+.turbo
+.vercel
 
-# Misc
-.DS_Store
+# Environment and secrets
+.env*
+!.env.example
+secrets/
+*.key
 *.pem
+
+# Development files and logs
 *.log
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Debug
-logs
-debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage
-
-# nyc test coverage
-.nyc_output
-
-# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
-.grunt
-
-# Bower dependency directory (https://bower.io/)
-bower_components
-
-# node-waf configuration
-.lock-wscript
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# IDEs and editors
-.idea
-.vscode
-*.swp
-*.swo
-*~
-
-# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -84,29 +50,92 @@ bower_components
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Temporary folders
-tmp/
-temp/
-
-# Runtime data
+logs
+debug
 pids
 *.pid
 *.seed
 *.pid.lock
 
-# Development files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Package manager caches
+.npm
+.eslintcache
+.node_repl_history
+.yarn-integrity
+.grunt
+bower_components
+.lock-wscript
+.pnpm-store
 
-# Testing
-test-results/
-playwright-report/
-jest.coverage/
-
-# Git
+# Git and documentation
 .git
 .gitignore
+.gitattributes
 README.md
+CHANGELOG.md
+LICENSE*
+*.md
+docs/
+documentation/
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+*.code-workspace
+
+# Config files not needed at runtime
+tsconfig.json
+tsconfig.*.json
+.eslintrc*
+.prettierrc*
+.editorconfig
+jest.config.*
+playwright.config.*
+tailwind.config.*
+postcss.config.*
+.npmrc
+.yarnrc*
+
+# Development folders
+scripts/
+tools/
+storybook-static/
+.storybook/
+.devtools/
+benchmarks/
+examples/
+demos/
+
+# Temporary and cache files
+tmp/
+temp/
+.cache/
+.parcel-cache/
+.webpack/
+.rollup.cache/
+.rts2_cache_*/
+
+# Source maps and debug files
+*.map
+*.d.ts.map
+
+# Performance analysis
+.lighthouseci/
+lighthouse-report.*
+bundle-analyzer/
+webpack-bundle-analyzer/
+
+# Container and deployment files
+Dockerfile*
+docker-compose*
+.dockerignore
+kubernetes/
+k8s/
+helm/
+.terraform/
+infrastructure/

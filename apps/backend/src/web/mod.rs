@@ -166,19 +166,33 @@ fn configure_cors_for_frontend() -> CorsLayer {
             }
         }
         
-        // Add Vercel deployment domains
-        let vercel_domains = vec![
-            "https://epsx.com",
-            "https://www.epsx.com", 
-            "https://admin.epsx.com",
-            "https://api.epsx.com",
-            // Add preview deployment patterns
+        // Allow any *.run.app domain for Cloud Run deployments
+        if get_env_var("RUST_ENV").unwrap_or_default() == "production" {
+            // Note: This is handled by the dynamic domains list below
+            // Could add more dynamic handling here if needed
+        }
+        
+        // Add production deployment domains
+        let production_domains = vec![
+            "https://epsx.io",
+            "https://www.epsx.io", 
+            "https://admin.epsx.io",
+            "https://api.epsx.io",
+            // Google Cloud Run domains
+            "https://epsx-frontend-epsx-service-run.app",
+            "https://epsx-admin-epsx-service-run.app", 
+            "https://epsx-backend-epsx-service-run.app",
+            // Generic Cloud Run patterns for us-central1
+            "https://epsx-frontend-1234567890-uc.a.run.app",
+            "https://epsx-admin-1234567890-uc.a.run.app",
+            "https://epsx-backend-1234567890-uc.a.run.app",
+            // Vercel deployment domains (legacy)
             "https://epsx-frontend.vercel.app",
             "https://epsx-admin.vercel.app",
             "https://epsx-backend.vercel.app"
         ];
         
-        for domain in vercel_domains {
+        for domain in production_domains {
             if let Ok(origin) = domain.parse() {
                 allowed_origins.push(origin);
             }
@@ -226,7 +240,7 @@ async fn create_standalone_analytics_routes(infra_factory: &crate::infra::InfraF
                     url: "postgresql://localhost/epsx".to_string(),
                 },
                 auth: crate::config::AuthConfig {
-                    nextauth_secret: "default-nextauth-secret".to_string(),
+                    jwt_secret_main: "default-jwt-secret".to_string(),
                     jwt_secret: "default-jwt-secret".to_string(),
                     cookie_signing_key: None,
                     cookie_encryption_key: None,

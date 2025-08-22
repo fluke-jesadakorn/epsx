@@ -1,12 +1,94 @@
 'use client';
 
-import { fetchEPSRankings, fetchFilterOptions } from '@/app/actions/analytics';
+// Removed server action imports - using API routes instead
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
-import type { EPSRankingsResponse, FilterOptions } from '@/types/analytics';
+import type { EPSRankingsResponse, FilterOptions, AnalyticsFilters } from '@/types/analytics';
 import { useEffect, useState } from 'react';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 import StockCard from './StockCard';
+
+// API helper functions
+async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRankingsResponse | null> {
+  try {
+    const params = new URLSearchParams({
+      page: filters.page.toString(),
+      limit: filters.limit.toString(),
+      sort_by: filters.sort_by,
+    });
+
+    if (filters.country) params.append('country', filters.country);
+    if (filters.sector) params.append('sector', filters.sector);
+    if (filters.min_eps) params.append('min_eps', filters.min_eps.toString());
+    if (filters.max_eps) params.append('max_eps', filters.max_eps.toString());
+    if (filters.min_growth) params.append('min_growth', filters.min_growth.toString());
+    if (filters.max_growth) params.append('max_growth', filters.max_growth.toString());
+    if (filters.min_market_cap) params.append('min_market_cap', filters.min_market_cap.toString());
+    if (filters.max_market_cap) params.append('max_market_cap', filters.max_market_cap.toString());
+    if (filters.min_volume) params.append('min_volume', filters.min_volume.toString());
+    if (filters.max_volume) params.append('max_volume', filters.max_volume.toString());
+    if (filters.min_price) params.append('min_price', filters.min_price.toString());
+    if (filters.max_price) params.append('max_price', filters.max_price.toString());
+    if (filters.min_pe_ratio) params.append('min_pe_ratio', filters.min_pe_ratio.toString());
+    if (filters.max_pe_ratio) params.append('max_pe_ratio', filters.max_pe_ratio.toString());
+    if (filters.min_dividend_yield) params.append('min_dividend_yield', filters.min_dividend_yield.toString());
+    if (filters.max_dividend_yield) params.append('max_dividend_yield', filters.max_dividend_yield.toString());
+    if (filters.exchange) params.append('exchange', filters.exchange);
+    if (filters.stock_type) params.append('stock_type', filters.stock_type);
+
+    const response = await fetch(`/api/analytics/rankings?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch EPS rankings: ${response.status}`);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching EPS rankings:', error);
+    return null;
+  }
+}
+
+async function fetchFilterOptions(): Promise<FilterOptions> {
+  try {
+    const response = await fetch('/api/analytics/filter-options', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch filter options: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching filter options:', error);
+    
+    // Return fallback data
+    return {
+      countries: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Japan', 'Australia'],
+      sectors: [
+        'Technology',
+        'Healthcare', 
+        'Financial Services',
+        'Consumer Discretionary',
+        'Industrials',
+        'Energy',
+        'Telecommunications',
+        'Real Estate',
+      ],
+      exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
+      stock_types: ['common', 'preferred', 'reit', 'etf'],
+    };
+  }
+}
 
 export default function AnalyticsDashboard() {
   const {

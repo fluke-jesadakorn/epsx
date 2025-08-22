@@ -21,18 +21,20 @@ FROM base AS deps
 # Copy package files for dependency caching
 COPY apps/frontend/package.json pnpm-lock.yaml ./
 
-# Install dependencies (allow lockfile updates for standalone apps)
-RUN pnpm install --no-frozen-lockfile
+# Install dependencies with BuildKit cache mounts
+RUN --mount=type=cache,target=/root/.pnpm-store \
+    pnpm install --no-frozen-lockfile
 
 # Stage 3: Builder (optimized build process)
 FROM base AS builder
 
 # Build arguments for production
-ARG NEXTAUTH_URL
-ARG NEXTAUTH_SECRET
+ARG APP_URL
+ARG JWT_SECRET
 ARG OIDC_CLIENT_ID
 ARG OIDC_CLIENT_SECRET
 ARG BACKEND_URL
+ARG NEXT_PUBLIC_BACKEND_URL
 
 # Copy cached dependencies
 COPY --from=deps /app/node_modules ./node_modules
@@ -45,14 +47,17 @@ ENV NODE_OPTIONS="--max-old-space-size=4096 --experimental-specifier-resolution=
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_BUILD_MODE=production
-ENV NEXTAUTH_URL=$NEXTAUTH_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+ENV APP_URL=$APP_URL
+ENV JWT_SECRET=$JWT_SECRET
 ENV OIDC_CLIENT_ID=$OIDC_CLIENT_ID
 ENV OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET
 ENV BACKEND_URL=$BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
-# Optimized build with standalone output
-RUN pnpm build
+# Optimized build with cache mounts for faster rebuilds
+RUN --mount=type=cache,target=/app/.next/cache \
+    --mount=type=cache,target=/root/.pnpm-store \
+    pnpm build
 
 # Stage 4: Runtime (ultra-minimal distroless for Cloud Run)
 FROM --platform=linux/amd64 gcr.io/distroless/nodejs22-debian12:latest AS runner
