@@ -33,7 +33,7 @@ pub struct ErrorResponseFormat {
 pub async fn error_handling_middleware(
     mut req: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let start_time = Instant::now();
     let correlation_id = Uuid::new_v4().to_string();
     let request_path = req.uri().path().to_string();
@@ -190,7 +190,7 @@ pub fn extract_error_context_from_request(headers: &HeaderMap, operation: &str, 
 pub async fn error_recovery_middleware(
     req: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let response = next.run(req).await;
     
     // For now, just pass through - could implement retry logic for transient failures

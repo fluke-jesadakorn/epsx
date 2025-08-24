@@ -70,6 +70,24 @@ impl Payment {
     pub fn tx_hash(&self) -> Option<&str> { self.tx_hash.as_deref() }
     pub fn created_at(&self) -> DateTime<Utc> { self.created_at }
     pub fn updated_at(&self) -> DateTime<Utc> { self.updated_at }
+
+    // Compatibility aliases for mapper layer
+    pub fn user_id(&self) -> &UserId { &self.uid }
+    pub fn amount(&self) -> Decimal { self.amt }
+    pub fn currency(&self) -> &Currency { &self.curr }
+    pub fn status(&self) -> &PayStatus { &self.stat }
+    pub fn payment_id(&self) -> &PayId { &self.id }
+    pub fn payment_method(&self) -> Option<&str> { 
+        // For now, return None - this field doesn't exist in current entity
+        // TODO: Add payment_method field if needed
+        None 
+    }
+    pub fn transaction_id(&self) -> Option<&str> { self.tx_hash.as_deref() }
+    pub fn description(&self) -> Option<&str> { 
+        // For now, return None - this field doesn't exist in current entity
+        // TODO: Add description field if needed
+        None 
+    }
     
     // Business methods
     pub fn set_addr(&mut self, addr: String) {

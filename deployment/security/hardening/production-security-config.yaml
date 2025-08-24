@@ -1,0 +1,279 @@
+# EPSX Production Security Hardening Configuration
+# Comprehensive security settings for production deployment
+
+security:
+  # Network Security
+  network:
+    # HTTPS/TLS Configuration
+    tls:
+      min_version: "1.2"
+      cipher_suites:
+        - "ECDHE-RSA-AES256-GCM-SHA384"
+        - "ECDHE-RSA-AES128-GCM-SHA256"
+        - "ECDHE-RSA-AES256-SHA384"
+        - "ECDHE-RSA-AES128-SHA256"
+      hsts:
+        max_age: 31536000
+        include_subdomains: true
+        preload: true
+    
+    # CORS Configuration
+    cors:
+      allowed_origins:
+        - "https://epsx.io"
+        - "https://admin.epsx.io"
+      allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+      expose_headers: ["X-Total-Count", "X-Rate-Limit-Remaining"]
+      credentials: true
+      max_age: 86400
+    
+    # Rate Limiting
+    rate_limiting:
+      global:
+        requests_per_minute: 1000
+        burst: 100
+      per_ip:
+        requests_per_minute: 60
+        burst: 20
+      per_user:
+        requests_per_minute: 120
+        burst: 30
+      auth_endpoints:
+        requests_per_minute: 10
+        burst: 5
+        lockout_duration: 900  # 15 minutes
+    
+    # IP Filtering
+    ip_filtering:
+      enable_geo_blocking: true
+      blocked_countries: ["CN", "RU", "KP"]  # Configurable based on compliance
+      allowed_networks:
+        - "0.0.0.0/0"  # Production allows all, can be restricted
+      blocked_networks: []
+    
+    # DDoS Protection
+    ddos_protection:
+      enable_cloudflare: true
+      challenge_threshold: 100
+      block_threshold: 500
+      monitoring_window: 300  # 5 minutes
+
+  # Application Security
+  application:
+    # Session Management
+    session:
+      secure_cookies: true
+      http_only_cookies: true
+      same_site: "Strict"
+      session_timeout: 3600  # 1 hour
+      idle_timeout: 1800     # 30 minutes
+      rotation_interval: 900  # 15 minutes
+      max_concurrent_sessions: 5
+    
+    # JWT Configuration
+    jwt:
+      algorithm: "RS256"
+      issuer: "https://api.epsx.io"
+      audience: ["epsx-frontend", "epsx-admin"]
+      expiration: 3600      # 1 hour
+      refresh_expiration: 86400  # 24 hours
+      key_rotation_interval: 2592000  # 30 days
+    
+    # Content Security Policy
+    csp:
+      default_src: "'self'"
+      script_src: "'self' 'unsafe-inline' https://www.googletagmanager.com"
+      style_src: "'self' 'unsafe-inline' https://fonts.googleapis.com"
+      img_src: "'self' data: https:"
+      font_src: "'self' https://fonts.gstatic.com"
+      connect_src: "'self' https://api.epsx.io wss://api.epsx.io"
+      frame_ancestors: "'none'"
+      base_uri: "'self'"
+      form_action: "'self'"
+    
+    # Security Headers
+    headers:
+      x_frame_options: "DENY"
+      x_content_type_options: "nosniff"
+      x_xss_protection: "1; mode=block"
+      referrer_policy: "strict-origin-when-cross-origin"
+      permissions_policy: "camera=(), microphone=(), geolocation=()"
+
+  # Authentication & Authorization
+  auth:
+    # Password Policy
+    password_policy:
+      min_length: 12
+      require_uppercase: true
+      require_lowercase: true
+      require_numbers: true
+      require_special_chars: true
+      max_age_days: 90
+      history_count: 12
+      lockout_attempts: 5
+      lockout_duration: 900  # 15 minutes
+    
+    # Multi-Factor Authentication
+    mfa:
+      enforce_for_admins: true
+      enforce_for_users: false  # Optional for users
+      allowed_methods: ["totp", "sms", "email"]
+      backup_codes_count: 10
+      session_remember_duration: 2592000  # 30 days
+    
+    # OAuth/OIDC Security
+    oauth:
+      state_parameter_required: true
+      pkce_required: true
+      nonce_required: true
+      max_auth_age: 3600
+      force_consent: false
+      
+  # Brute Force Protection
+  brute_force:
+    # Login Protection
+    login:
+      max_attempts: 5
+      window_minutes: 15
+      lockout_duration: 900  # 15 minutes
+      progressive_delays: [1, 2, 5, 10, 30]  # seconds
+    
+    # API Protection
+    api:
+      max_requests_per_minute: 60
+      burst_threshold: 20
+      penalty_duration: 300  # 5 minutes
+    
+    # Account Protection
+    account:
+      suspicious_activity_threshold: 10
+      monitoring_window: 3600  # 1 hour
+      auto_lock_enabled: true
+      notification_enabled: true
+
+  # Data Protection
+  data:
+    # Encryption
+    encryption:
+      algorithm: "AES-256-GCM"
+      key_rotation_interval: 2592000  # 30 days
+      at_rest: true
+      in_transit: true
+      database_encryption: true
+    
+    # Data Classification
+    classification:
+      pii_detection: true
+      financial_data_protection: true
+      audit_sensitive_operations: true
+      data_masking_enabled: true
+    
+    # Backup Security
+    backup:
+      encryption_enabled: true
+      retention_period: 2555200  # 30 days
+      geographic_distribution: true
+      access_logging: true
+
+  # Monitoring & Logging
+  monitoring:
+    # Security Event Logging
+    logging:
+      level: "INFO"
+      audit_all_access: true
+      retain_logs_days: 365
+      real_time_alerts: true
+      log_correlation: true
+    
+    # Threat Detection
+    threat_detection:
+      anomaly_detection: true
+      ml_based_analysis: true
+      threat_intelligence: true
+      automated_response: true
+    
+    # Performance Monitoring
+    performance:
+      latency_threshold_ms: 10
+      error_rate_threshold: 0.01  # 1%
+      availability_threshold: 0.999  # 99.9%
+      alert_on_threshold_breach: true
+
+  # Compliance
+  compliance:
+    # Regulatory Requirements
+    regulations:
+      sox_compliance: true
+      pci_dss_compliance: true
+      gdpr_compliance: true
+      ccpa_compliance: true
+    
+    # Audit Requirements
+    audit:
+      log_all_admin_actions: true
+      log_all_user_actions: true
+      log_all_api_calls: true
+      immutable_audit_trail: true
+      regular_compliance_checks: true
+    
+    # Data Retention
+    retention:
+      user_data_retention_days: 2555200  # 7 years (SOX)
+      log_retention_days: 365
+      backup_retention_days: 2555200
+      secure_deletion: true
+
+# Environment-Specific Overrides
+environments:
+  production:
+    security:
+      network:
+        rate_limiting:
+          global:
+            requests_per_minute: 2000  # Higher for production
+      application:
+        session:
+          secure_cookies: true
+          session_timeout: 1800  # Shorter for production
+      monitoring:
+        logging:
+          level: "WARN"  # Less verbose in production
+  
+  staging:
+    security:
+      network:
+        rate_limiting:
+          global:
+            requests_per_minute: 500
+      application:
+        session:
+          session_timeout: 7200  # Longer for testing
+      monitoring:
+        logging:
+          level: "DEBUG"
+
+# Security Validation Rules
+validation:
+  required_headers:
+    - "X-Frame-Options"
+    - "X-Content-Type-Options" 
+    - "Strict-Transport-Security"
+    - "Content-Security-Policy"
+  
+  required_protocols:
+    - "TLS 1.2+"
+    - "HTTPS"
+  
+  blocked_vulnerabilities:
+    - "SQL Injection"
+    - "XSS"
+    - "CSRF"
+    - "Directory Traversal"
+    - "Command Injection"
+  
+  security_tests:
+    - "OWASP Top 10"
+    - "Penetration Testing"
+    - "Vulnerability Scanning"
+    - "Security Code Review"

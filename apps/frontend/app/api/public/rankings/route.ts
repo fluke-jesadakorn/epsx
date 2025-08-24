@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '5');
     const type = searchParams.get('type') || 'preview'; // 'preview' or 'cards'
     
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     
     // Start from rank 101 (page calculation to get public ranks 101-105)
     const publicPage = Math.floor(100 / limit) + page;

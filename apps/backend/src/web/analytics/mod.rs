@@ -61,6 +61,9 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
                     musepay_partner_id: None,
                     musepay_private_key: None,
                     webhook_url: None,
+                    supported_currencies: vec!["USD".to_string()],
+                    default_currency: "USD".to_string(),
+                    default_checkout_url_template: "https://localhost:3000/checkout/{}".to_string(),
                 },
                 email: crate::config::EmailConfig {
                     from_email: "noreply@localhost".to_string(),
@@ -81,6 +84,13 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
                         http_timeout_seconds: 30,
                     },
                     sendgrid_api_key: None,
+                    qr_code: crate::config::QrCodeConfig {
+                        enabled: false,
+                        base_url: "".to_string(),
+                        logo_url: None,
+                        api_base_url: "".to_string(),
+                        default_size: 256,
+                    },
                 },
                 rate_limiting: crate::config::RateLimitingConfig {
                     default_per_minute: 60,

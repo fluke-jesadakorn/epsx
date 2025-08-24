@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-use crate::dom::values::{UserId, Role, PayId};
+use crate::dom::values::{UserId, PayId};
 
 pub trait DomainEvent: Send + Sync {
     fn event_id(&self) -> &Uuid;
@@ -13,12 +13,14 @@ pub trait DomainEvent: Send + Sync {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserRoleChangedEvent {
+pub struct UserPermissionChangedEvent {
     event_id: Uuid,
     occurred_at: DateTime<Utc>,
     user_id: UserId,
-    old_role: Role,
-    new_role: Role,
+    admin_modules_added: Vec<String>,
+    admin_modules_removed: Vec<String>,
+    old_package_tier: String,
+    new_package_tier: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,26 +76,36 @@ pub struct UserDeletedEvent {
     reason: Option<String>,
 }
 
-impl UserRoleChangedEvent {
-    pub fn new(user_id: UserId, old_role: Role, new_role: Role) -> Self {
+impl UserPermissionChangedEvent {
+    pub fn new(
+        user_id: UserId, 
+        admin_modules_added: Vec<String>,
+        admin_modules_removed: Vec<String>,
+        old_package_tier: String, 
+        new_package_tier: String
+    ) -> Self {
         Self {
             event_id: Uuid::new_v4(),
             occurred_at: Utc::now(),
             user_id,
-            old_role,
-            new_role,
+            admin_modules_added,
+            admin_modules_removed,
+            old_package_tier,
+            new_package_tier,
         }
     }
     
     pub fn user_id(&self) -> &UserId { &self.user_id }
-    pub fn old_role(&self) -> &Role { &self.old_role }
-    pub fn new_role(&self) -> &Role { &self.new_role }
+    pub fn admin_modules_added(&self) -> &[String] { &self.admin_modules_added }
+    pub fn admin_modules_removed(&self) -> &[String] { &self.admin_modules_removed }
+    pub fn old_package_tier(&self) -> &str { &self.old_package_tier }
+    pub fn new_package_tier(&self) -> &str { &self.new_package_tier }
 }
 
-impl DomainEvent for UserRoleChangedEvent {
+impl DomainEvent for UserPermissionChangedEvent {
     fn event_id(&self) -> &Uuid { &self.event_id }
     fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "UserRoleChanged" }
+    fn event_type(&self) -> &'static str { "UserPermissionChanged" }
 }
 
 impl PaymentCompletedEvent {
@@ -213,21 +225,25 @@ impl DomainEvent for UserDeletedEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::values::{UserId, Role};
+    use crate::dom::values::UserId;
     
     #[test]
-    fn should_create_user_role_changed_event() {
+    fn should_create_user_permission_changed_event() {
         let user_id = UserId::generate();
-        let event = UserRoleChangedEvent::new(
+        let event = UserPermissionChangedEvent::new(
             user_id.clone(),
-            Role::User,
-            Role::Premium
+            vec!["user-management".to_string()],
+            vec![],
+            "FREE".to_string(),
+            "BRONZE".to_string()
         );
         
         assert_eq!(event.user_id(), &user_id);
-        assert_eq!(event.old_role(), &Role::User);
-        assert_eq!(event.new_role(), &Role::Premium);
-        assert_eq!(event.event_type(), "UserRoleChanged");
+        assert_eq!(event.admin_modules_added(), &["user-management"]);
+        assert_eq!(event.admin_modules_removed().len(), 0);
+        assert_eq!(event.old_package_tier(), "FREE");
+        assert_eq!(event.new_package_tier(), "BRONZE");
+        assert_eq!(event.event_type(), "UserPermissionChanged");
     }
     
     #[test]

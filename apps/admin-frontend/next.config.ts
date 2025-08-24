@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Ultra-minimal bundle optimizations
   productionBrowserSourceMaps: false,
   modularizeImports: {
@@ -24,33 +24,29 @@ const nextConfig: NextConfig = {
       transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
     },
   },
-  
+
   // Admin-specific optimizations
   experimental: {
     serverActions: {
       allowedOrigins: ['*'],
     },
     optimizePackageImports: [
-      '@radix-ui/react-*', 
+      '@radix-ui/react-*',
       'lucide-react',
       'react',
-      'react-dom'
+      'react-dom',
     ],
     useCache: true,
     staleTimes: {
       dynamic: 180, // 3 minutes for admin dynamic content
       static: 1800, // 30 minutes for admin static content
     },
-    // Container-specific optimizations
-    turbotrace: {
-      logLevel: 'error',
-    },
   },
-  
+
   // Admin-specific caching and security headers
   async headers() {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api-4nrslhaei-info-epsxs-projects.vercel.app';
-    
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://epsx.io';
+
     return [
       {
         source: '/api/:path*',
@@ -87,7 +83,9 @@ const nextConfig: NextConfig = {
               base-uri 'self';
               form-action 'self';
               frame-ancestors 'none';
-            `.replace(/\s+/g, ' ').trim(),
+            `
+              .replace(/\s+/g, ' ')
+              .trim(),
           },
           {
             key: 'X-Frame-Options',
@@ -109,7 +107,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Ultra-minimal standalone bundle
   outputFileTracingExcludes: {
     '*': [
@@ -122,7 +120,7 @@ const nextConfig: NextConfig = {
       './node_modules/@types/**/*',
     ],
   },
-  
+
   serverExternalPackages: ['firebase-admin'],
   poweredByHeader: false,
   generateEtags: true,

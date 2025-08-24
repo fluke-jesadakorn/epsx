@@ -218,7 +218,6 @@ fn create_access_token(
         id: firebase_user.uid.clone(),
         email: firebase_user.email.clone().unwrap_or_default(),
         name: firebase_user.display_name.clone(),
-        role: Some(get_role(&firebase_user.custom_claims)),
         permissions: Some(permissions),
         admin_modules: Some(get_admin_modules(&firebase_user.custom_claims)),
         package_tier: Some(get_tier(&firebase_user.custom_claims)),
@@ -394,7 +393,7 @@ pub async fn userinfo(
         "email": user.email,
         "email_verified": true,
         "name": user.name,
-        "role": user.role,
+        "role": if !user.admin_modules.is_empty() { "admin" } else { "user" },
         "permissions": user.permissions,
         "package_tier": user.package_tier,
         "admin_modules": user.admin_modules
@@ -464,7 +463,7 @@ fn get_issuer() -> String {
 }
 
 fn get_jwt_secret() -> String {
-    get_env_var("JWT_SECRET")
+    get_env_var("NEXTAUTH_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
 }
 

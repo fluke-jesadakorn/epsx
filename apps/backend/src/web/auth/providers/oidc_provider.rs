@@ -8,7 +8,8 @@ use chrono::DateTime;
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
-use crate::dom::values::{UserId, Email, Role};
+use crate::dom::values::{UserId, Email};
+use crate::dom::entities::iam::PackageTier;
 
 /// OIDC JWT claims structure for our backend-issued tokens
 #[derive(Debug, Serialize, Deserialize)]
@@ -21,8 +22,10 @@ pub struct OIDCTokenClaims {
     pub aud: String,
     /// Email
     pub email: String,
-    /// User role
-    pub role: String,
+    /// User package tier
+    pub package_tier: String,
+    /// User admin modules
+    pub admin_modules: Vec<String>,
     /// Permissions array
     pub permissions: Vec<String>,
     /// Issued at
@@ -37,7 +40,7 @@ pub struct OIDCTokenClaims {
 
 /// OIDC provider configuration
 pub struct OIDCProviderConfig {
-    /// JWT signing secret (should be same as JWT_SECRET)
+    /// JWT signing secret (should be same as NEXTAUTH_SECRET)
     pub jwt_secret: String,
     /// Expected issuer URL
     pub issuer_url: String,
@@ -50,7 +53,7 @@ pub struct OIDCProviderConfig {
 impl Default for OIDCProviderConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: get_env_var("JWT_SECRET")
+            jwt_secret: get_env_var("NEXTAUTH_SECRET")
                 .or_else(|_| get_env_var("AUTH_SECRET"))
                 .unwrap_or_else(|_| "default-secret".to_string()),
             issuer_url: get_env_var("BACKEND_URL")
@@ -118,9 +121,9 @@ impl AuthProvider for OIDCProvider {
         let email = Email::new(claims.email.clone())
             .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid email: {}", e)))?;
         
-        // Parse role
-        let role = Role::from_str(&claims.role)
-            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid role: {}", e)))?;
+        // Parse package tier
+        let package_tier = claims.package_tier.parse::<PackageTier>()
+            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid package tier: {}", e)))?;
         
         // Convert timestamp to DateTime
         let expires_at = DateTime::from_timestamp(claims.exp, 0)
@@ -129,7 +132,8 @@ impl AuthProvider for OIDCProvider {
         let user_claims = UserClaims::new(
             user_id,
             email,
-            role,
+            package_tier,
+            claims.admin_modules,
             claims.permissions,
             claims.sub, // provider_user_id is same as backend user_id for OIDC
             ProviderType::OIDC,

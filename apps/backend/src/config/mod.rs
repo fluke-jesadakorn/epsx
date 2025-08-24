@@ -17,6 +17,7 @@ pub use env::{
     EmailConfig,
     BrandingConfig,
     ExternalServicesConfig,
+    QrCodeConfig,
     TradingViewConfig,
     RateLimitingConfig,
     EndpointRateLimit,

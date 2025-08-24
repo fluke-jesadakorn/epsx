@@ -272,7 +272,7 @@ async fn handle_user_login(
             ]));
             
             FirebaseUser {
-                uid: "test-admin-uid".to_string(),
+                uid: "test_user_info_epsx_io".to_string(), // Match the database firebase_uid
                 email: Some(test_email),
                 email_verified: true,
                 display_name: Some("Test Admin User".to_string()),
@@ -324,7 +324,7 @@ async fn handle_authenticated_user_flow(
     // Validate admin access if required
     if form_data.scope.contains("admin") || form_data.scope.contains("admin_modules") {
         // For test user, skip Firebase admin validation and use granular admin modules
-        if firebase_user.uid == "test-admin-uid" {
+        if firebase_user.uid == "test_user_info_epsx_io" {
             tracing::info!("Development mode: checking granular admin modules for test user");
             
             // Check granular admin modules
@@ -429,7 +429,7 @@ async fn handle_authenticated_user_flow(
     tracing::info!("Authentication successful for user: {} ({})", firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()), firebase_user.uid);
 
     // Audit log the authentication (skip for test users to avoid FK constraint issues)
-    if firebase_user.uid != "test-admin-uid" {
+    if firebase_user.uid != "test_user_info_epsx_io" {
         tokio::spawn({
             let app_state = app_state.clone();
             let email = form_data.email.clone();
@@ -471,16 +471,24 @@ async fn store_authorization_code(
     auth_data: &AuthorizationCodeData,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::auth::Session;
-    use crate::dom::values::{SessId, UserId};
+    use crate::dom::values::SessId;
     use chrono::{Utc, Duration};
+    
+    // First, look up the user by firebase_uid to get their actual UUID
+    let user = app_state.user_repo.find_by_firebase_uid(&auth_data.firebase_user.uid).await?;
+    let user_id = match user {
+        Some(user) => user.id().clone(),
+        None => {
+            tracing::error!("User not found for firebase_uid: {}", auth_data.firebase_user.uid);
+            return Err("User not found in database".into());
+        }
+    };
     
     // Create a temporary session for the authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
-    let user_id = UserId::new(auth_data.firebase_user.uid.clone());
     
-    tracing::error!("🔍 AUTH.JS DEBUG: Storing auth code: {}", code);
-    tracing::error!("🔍 AUTH.JS DEBUG: Session ID: {}", session_id);
-    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id.value());
+    tracing::debug!("Storing auth code: {} for user: {}", code, user_id);
+    tracing::debug!("Session ID: {}", session_id);
     
     // Serialize auth data and store in access_token field temporarily
     let auth_data_json = serde_json::to_string(auth_data)?;
@@ -597,7 +605,7 @@ fn extract_user_role(firebase_user: &FirebaseUser) -> String {
     }
     
     // Fallback logic for determining role
-    if firebase_user.uid == "test-admin-uid" {
+    if firebase_user.uid == "test_user_info_epsx_io" {
         // Test admin user gets admin role
         return "admin".to_string();
     }
@@ -692,19 +700,20 @@ async fn create_database_user(
     role: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::User;
-    use crate::dom::values::{Email, Role};
+    use crate::dom::values::Email;
+    use crate::dom::entities::iam::PackageTier;
     
     let email = Email::new(firebase_user.email.as_ref().unwrap_or(&"unknown@example.com".to_string()).clone())
         .map_err(|e| format!("Invalid email format: {}", e))?;
     
-    let user_role = role.parse::<Role>()
-        .map_err(|e| format!("Invalid role: {}", e))?;
+    let package_tier = role.parse::<PackageTier>()
+        .map_err(|e| format!("Invalid package tier: {}", e))?;
     
     // Create user entity with real Firebase UID
     let user = User::new(
         firebase_user.uid.clone(),
         email,
-        user_role
+        package_tier.to_string()
     );
     
     // Save to database

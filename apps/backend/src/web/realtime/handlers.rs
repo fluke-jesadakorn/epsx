@@ -259,7 +259,7 @@ pub async fn send_user_notification_handler(
 
 
 /// Verify admin access
-async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(), StatusCode> {
+async fn verify_admin_access(app_state: &AppState, _user_id: &UserId) -> Result<(), StatusCode> {
     let user = app_state.user_repo.get(user_id).await
         .map_err(|e| {
             error!("Failed to get user for admin check: {:?}", e);

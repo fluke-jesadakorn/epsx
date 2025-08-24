@@ -10,7 +10,7 @@ import {
   AppState,
   CacheState,
   NotificationState,
-  TradingState,
+  AnalyticsState,
   UIState,
   UserState,
 } from '@/lib/state/types';
@@ -47,12 +47,11 @@ const initialUserState: UserState = {
       notifications: {
         email: true,
         push: true,
-        tradingAlerts: true,
+        analyticsAlerts: true,
         priceAlerts: true,
       },
-      trading: {
-        defaultView: 'grid',
-        riskTolerance: 'medium',
+      analytics: {
+        defaultView: 'table',
         autoRefresh: true,
         refreshInterval: 30000,
       },
@@ -64,14 +63,13 @@ const initialUserState: UserState = {
   optimisticUpdates: [],
 };
 
-const initialTradingState: TradingState = {
+const initialAnalyticsState: AnalyticsState = {
   ...createAsyncState(),
   data: {
-    watchlist: [],
-    portfolio: [],
     rankings: [],
-    alerts: [],
+    filters: {},
     recentSearches: [],
+    bookmarks: [],
   },
   optimisticUpdates: [],
   realtime: {
@@ -90,7 +88,7 @@ const initialNotificationState: NotificationState = {
       email: true,
       push: true,
       inApp: true,
-      tradingAlerts: true,
+      analyticsAlerts: true,
       systemUpdates: true,
     },
   },
@@ -109,7 +107,7 @@ const initialCacheState: CacheState = {
 const initialAppState: AppState = {
   ui: initialUIState,
   user: initialUserState,
-  trading: initialTradingState,
+  analytics: initialAnalyticsState,
   notifications: initialNotificationState,
   cache: initialCacheState,
 };
@@ -138,15 +136,11 @@ interface AppStateContextType {
       updatePermissions: (permissions: string[]) => void;
       setPackageTier: (tier: string) => void;
     };
-    trading: {
-      setWatchlist: (watchlist: any[]) => void;
-      addToWatchlist: (item: any) => void;
-      removeFromWatchlist: (symbol: string) => void;
-      updateStockPrice: (symbol: string, price: number, change: number) => void;
-      setPortfolio: (portfolio: any[]) => void;
+    analytics: {
       setRankings: (rankings: any[]) => void;
-      addPriceAlert: (alert: any) => void;
-      removePriceAlert: (id: string) => void;
+      setFilters: (filters: any) => void;
+      addBookmark: (symbol: string) => void;
+      removeBookmark: (symbol: string) => void;
       addRecentSearch: (symbol: string) => void;
       setRealtimeStatus: (status: {
         connected: boolean;
@@ -319,48 +313,94 @@ function appStateReducer(state: AppState, action: any): AppState {
         },
       };
 
-    // Trading Actions
-    case 'SET_WATCHLIST':
+    // Analytics Actions
+    case 'SET_RANKINGS':
       return {
         ...state,
-        trading: {
-          ...state.trading,
-          data: state.trading.data
+        analytics: {
+          ...state.analytics,
+          data: state.analytics.data
             ? {
-                ...state.trading.data,
-                watchlist: action.payload,
+                ...state.analytics.data,
+                rankings: action.payload,
               }
             : null,
         },
       };
 
-    case 'ADD_TO_WATCHLIST':
+    case 'SET_FILTERS':
       return {
         ...state,
-        trading: {
-          ...state.trading,
-          data: state.trading.data
+        analytics: {
+          ...state.analytics,
+          data: state.analytics.data
             ? {
-                ...state.trading.data,
-                watchlist: [...state.trading.data.watchlist, action.payload],
+                ...state.analytics.data,
+                filters: action.payload,
               }
             : null,
         },
       };
 
-    case 'REMOVE_FROM_WATCHLIST':
+    case 'ADD_BOOKMARK':
       return {
         ...state,
-        trading: {
-          ...state.trading,
-          data: state.trading.data
+        analytics: {
+          ...state.analytics,
+          data: state.analytics.data
             ? {
-                ...state.trading.data,
-                watchlist: state.trading.data.watchlist.filter(
-                  item => item.symbol !== action.payload
+                ...state.analytics.data,
+                bookmarks: [...state.analytics.data.bookmarks, action.payload],
+              }
+            : null,
+        },
+      };
+
+    case 'REMOVE_BOOKMARK':
+      return {
+        ...state,
+        analytics: {
+          ...state.analytics,
+          data: state.analytics.data
+            ? {
+                ...state.analytics.data,
+                bookmarks: state.analytics.data.bookmarks.filter(
+                  symbol => symbol !== action.payload
                 ),
               }
             : null,
+        },
+      };
+
+    case 'ADD_RECENT_SEARCH':
+      return {
+        ...state,
+        analytics: {
+          ...state.analytics,
+          data: state.analytics.data
+            ? {
+                ...state.analytics.data,
+                recentSearches: [
+                  action.payload,
+                  ...state.analytics.data.recentSearches.filter(
+                    search => search !== action.payload
+                  ).slice(0, 9)
+                ],
+              }
+            : null,
+        },
+      };
+
+    case 'SET_ANALYTICS_REALTIME_STATUS':
+      return {
+        ...state,
+        analytics: {
+          ...state.analytics,
+          realtime: {
+            ...state.analytics.realtime,
+            ...action.payload,
+            lastHeartbeat: action.payload.connected ? Date.now() : null,
+          },
         },
       };
 
@@ -584,85 +624,45 @@ export function AppStateProvider({
     [dispatch]
   );
 
-  // Trading Actions
-  const tradingActions = useMemo(
+  // Analytics Actions
+  const analyticsActions = useMemo(
     () => ({
-      setWatchlist: (watchlist: any[]) =>
-        dispatch(
-          {
-            type: 'SET_WATCHLIST',
-            payload: watchlist,
-            meta: { timestamp: Date.now(), source: 'trading' },
-          },
-          appStateReducer
-        ),
-
-      addToWatchlist: (item: any) =>
-        dispatch(
-          {
-            type: 'ADD_TO_WATCHLIST',
-            payload: item,
-            meta: { timestamp: Date.now(), source: 'trading' },
-          },
-          appStateReducer
-        ),
-
-      removeFromWatchlist: (symbol: string) =>
-        dispatch(
-          {
-            type: 'REMOVE_FROM_WATCHLIST',
-            payload: symbol,
-            meta: { timestamp: Date.now(), source: 'trading' },
-          },
-          appStateReducer
-        ),
-
-      updateStockPrice: (symbol: string, price: number, change: number) =>
-        dispatch(
-          {
-            type: 'UPDATE_STOCK_PRICE',
-            payload: { symbol, price, change },
-            meta: { timestamp: Date.now(), source: 'trading' },
-          },
-          appStateReducer
-        ),
-
-      setPortfolio: (portfolio: any[]) =>
-        dispatch(
-          {
-            type: 'SET_PORTFOLIO',
-            payload: portfolio,
-            meta: { timestamp: Date.now(), source: 'trading' },
-          },
-          appStateReducer
-        ),
-
       setRankings: (rankings: any[]) =>
         dispatch(
           {
             type: 'SET_RANKINGS',
             payload: rankings,
-            meta: { timestamp: Date.now(), source: 'trading' },
+            meta: { timestamp: Date.now(), source: 'analytics' },
           },
           appStateReducer
         ),
 
-      addPriceAlert: (alert: any) =>
+      setFilters: (filters: any) =>
         dispatch(
           {
-            type: 'ADD_PRICE_ALERT',
-            payload: alert,
-            meta: { timestamp: Date.now(), source: 'trading' },
+            type: 'SET_FILTERS',
+            payload: filters,
+            meta: { timestamp: Date.now(), source: 'analytics' },
           },
           appStateReducer
         ),
 
-      removePriceAlert: (id: string) =>
+      addBookmark: (symbol: string) =>
         dispatch(
           {
-            type: 'REMOVE_PRICE_ALERT',
-            payload: id,
-            meta: { timestamp: Date.now(), source: 'trading' },
+            type: 'ADD_BOOKMARK',
+            payload: symbol,
+            meta: { timestamp: Date.now(), source: 'analytics' },
+          },
+          appStateReducer
+        ),
+
+      removeBookmark: (symbol: string) =>
+        dispatch(
+          {
+            type: 'REMOVE_BOOKMARK',
+            payload: symbol,
+            meta: { timestamp: Date.now(), source: 'analytics' },
           },
           appStateReducer
         ),
@@ -672,7 +672,7 @@ export function AppStateProvider({
           {
             type: 'ADD_RECENT_SEARCH',
             payload: symbol,
-            meta: { timestamp: Date.now(), source: 'trading' },
+            meta: { timestamp: Date.now(), source: 'analytics' },
           },
           appStateReducer
         ),
@@ -683,9 +683,9 @@ export function AppStateProvider({
       }) =>
         dispatch(
           {
-            type: 'SET_TRADING_REALTIME_STATUS',
+            type: 'SET_ANALYTICS_REALTIME_STATUS',
             payload: status,
-            meta: { timestamp: Date.now(), source: 'trading' },
+            meta: { timestamp: Date.now(), source: 'analytics' },
           },
           appStateReducer
         ),
@@ -818,11 +818,11 @@ export function AppStateProvider({
     () => ({
       ui: uiActions,
       user: userActions,
-      trading: tradingActions,
+      analytics: analyticsActions,
       notifications: notificationActions,
       cache: cacheActions,
     }),
-    [uiActions, userActions, tradingActions, notificationActions, cacheActions]
+    [uiActions, userActions, analyticsActions, notificationActions, cacheActions]
   );
 
   const contextValue = useMemo(
@@ -860,9 +860,9 @@ export function useUserState() {
   return state.user;
 }
 
-export function useTradingState() {
+export function useAnalyticsState() {
   const { state } = useAppState();
-  return state.trading;
+  return state.analytics;
 }
 
 export function useNotificationState() {

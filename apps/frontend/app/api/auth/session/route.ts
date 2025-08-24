@@ -102,7 +102,7 @@ export async function PUT() {
     
     // For simple refresh, we'll validate the current session with backend
     // In a full implementation, this would use refresh tokens
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     
     try {
       // Make a simple userinfo request to validate the session is still active

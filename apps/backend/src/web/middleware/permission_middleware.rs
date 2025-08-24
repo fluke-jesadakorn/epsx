@@ -4,7 +4,7 @@ use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::Response,
+    response::{Response, IntoResponse},
 };
 use crate::web::auth::AppState;
 
@@ -13,13 +13,13 @@ pub async fn permission_middleware(
     State(app_state): State<AppState>,
     request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     // Step 1: Extract user from request
     let user_id = match extract_user_from_request(&app_state, &request).await {
         Ok(user_id) => user_id,
         Err(status) => {
             tracing::warn!("Permission middleware: user extraction failed");
-            return Err(status);
+            return Err(status.into_response());
         }
     };
 
@@ -41,7 +41,7 @@ pub async fn permission_middleware(
         Ok(next.run(request).await)
     } else {
         tracing::warn!("Permission denied for user {} on {}/{}", user_id, resource, action);
-        Err(StatusCode::FORBIDDEN)
+        Err(StatusCode::FORBIDDEN.into_response())
     }
 }
 
@@ -101,7 +101,7 @@ fn extract_resource_action(request: &Request) -> Result<(String, String), Status
     let path = request.uri().path();
     let method = request.method().as_str();
     
-    // Map REST endpoints to resources and actions for EPSX trading platform
+    // Map REST endpoints to resources and actions for EPSX analytics platform
     let (resource, action) = match (method, path) {
         // User management endpoints
         ("GET", path) if path.starts_with("/api/v1/users") => ("/api/v1/users", "GET"),
@@ -117,9 +117,6 @@ fn extract_resource_action(request: &Request) -> Result<(String, String), Status
         
         // IAM endpoints removed - replaced with permission-based system
         
-        // Trading endpoints
-        ("GET", path) if path.starts_with("/api/v1/trading") => ("/api/v1/trading", "GET"),
-        ("POST", path) if path.starts_with("/api/v1/trading") => ("/api/v1/trading", "POST"),
         
         // Analytics endpoints
         ("GET", path) if path.starts_with("/api/v1/analytics") => ("/api/v1/analytics", "GET"),

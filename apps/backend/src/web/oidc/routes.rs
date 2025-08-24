@@ -186,7 +186,7 @@ async fn oidc_introspect(
                     "sub": claims.sub,
                     "email": claims.email,
                     "name": claims.name,
-                    "role": claims.role,
+                    "role": claims.package_tier,
                     "permissions": claims.permissions,
                     "package_tier": claims.package_tier,
                     "admin_modules": claims.admin_modules,

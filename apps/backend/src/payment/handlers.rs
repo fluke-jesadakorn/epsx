@@ -1,8 +1,7 @@
 use axum::{extract::{State, Path}, Json};
 use std::sync::Arc;
 use serde::Serialize;
-use crate::auth::UserClaims;
-use crate::config::Config;
+use crate::web::auth::providers::UserClaims;
 use super::service::{PaymentService, PaymentError, CreatePaymentRequest, PaymentResponse};
 
 #[derive(Debug, Serialize)]
@@ -46,9 +45,9 @@ pub async fn validate_payment(
 
 pub async fn get_qrcode(
     State(payment_service): State<Arc<PaymentService>>,
-    State(config): State<Arc<Config>>,
     Path(payment_id): Path<String>,
 ) -> Result<Json<String>, PaymentError> {
+    let config = payment_service.get_config();
     let qr_code = format!(
         "{}?size={}&data={}",
         config.external_services.qr_code.api_base_url,

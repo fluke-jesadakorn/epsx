@@ -59,9 +59,11 @@ pub struct RateLimitService {
 }
 
 impl RateLimitService {
-    pub fn new(config: Arc<crate::config::Config>) -> Self {
+    pub async fn new(config: Arc<crate::config::Config>) -> Self {
+        use crate::infra::cache::CacheFactory;
+        let cache = CacheFactory::with_fallback().await;
         Self {
-            rate_limiter: Arc::new(crate::web::middleware::rate_limiter::UnifiedRateLimiter::with_config(config)),
+            rate_limiter: Arc::new(crate::web::middleware::rate_limiter::UnifiedRateLimiter::with_config(cache, config)),
         }
     }
 

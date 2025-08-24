@@ -2,7 +2,7 @@
 export const config = {
   // Backend API URL - only available server-side
   getBackendUrl(): string {
-    const url = process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+    const url = process.env.BACKEND_URL || 'http://localhost:8080';
     return url;
   },
 

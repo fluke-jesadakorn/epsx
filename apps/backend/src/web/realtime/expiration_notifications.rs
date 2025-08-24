@@ -27,7 +27,7 @@ impl ExpirationNotificationService {
     }
 
     /// Check and notify about expiring features for a specific user
-    pub async fn check_and_notify_user_expirations(&self, user_id: &UserId) -> Result<u32, ExpirationNotificationError> {
+    pub async fn check_and_notify_user_expirations(&self, _user_id: &UserId) -> Result<u32, ExpirationNotificationError> {
         let expiring_features = self.feature_expiration_service
             .get_expiring_features(user_id)
             .await
@@ -254,10 +254,10 @@ mod tests {
         #[async_trait::async_trait]
         impl FeatureExpirationService for FeatureExpirationServiceMock {
             async fn check_feature_expirations(&self) -> Result<crate::dom::services::feature_expiration::ExpirationCheckResult, crate::dom::services::feature_expiration::ExpirationError>;
-            async fn get_expiring_features(&self, user_id: &UserId) -> Result<Vec<FeatureExpiration>, crate::dom::services::feature_expiration::ExpirationError>;
-            async fn extend_feature_expiration(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId, extension_days: u32) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
-            async fn send_renewal_notification(&self, user_id: &UserId, expiration: &FeatureExpiration, days_until_expiry: u32) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
-            async fn deactivate_expired_features(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
+            async fn get_expiring_features(&self, _user_id: &UserId) -> Result<Vec<FeatureExpiration>, crate::dom::services::feature_expiration::ExpirationError>;
+            async fn extend_feature_expiration(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId, extension_days: u32) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
+            async fn send_renewal_notification(&self, _user_id: &UserId, expiration: &FeatureExpiration, days_until_expiry: u32) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
+            async fn deactivate_expired_features(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId) -> Result<(), crate::dom::services::feature_expiration::ExpirationError>;
         }
     }
 

@@ -1,7 +1,7 @@
 // Authentication DTOs
 
 use serde::{Serialize, Deserialize};
-use crate::dom::values::{UserId, Role};
+use crate::dom::values::UserId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
@@ -12,7 +12,8 @@ pub struct LoginRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginResponse {
     pub user_id: UserId,
-    pub role: Role,
+    pub package_tier: String,
+    pub admin_modules: Vec<String>,
     pub access_token: String,
     pub expires_in: i64,
     pub sess_id: String,
@@ -26,7 +27,8 @@ pub struct RefreshTokenRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserSession {
     pub user_id: UserId,
-    pub role: Role,
+    pub package_tier: String,
+    pub admin_modules: Vec<String>,
     pub permissions: Vec<String>,
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }

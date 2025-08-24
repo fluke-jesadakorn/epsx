@@ -89,4 +89,69 @@ impl Session {
     pub fn refresh_token(&self) -> Option<String> {
         self.refresh_token.clone()
     }
+
+    pub fn access_token(&self) -> &str {
+        &self.access_token
+    }
+
+    pub fn expires_at(&self) -> chrono::DateTime<chrono::Utc> {
+        self.expires_at
+    }
+
+    pub fn created_at(&self) -> chrono::DateTime<chrono::Utc> {
+        self.created_at
+    }
+
+    pub fn ip_address(&self) -> Option<&str> {
+        // Session entity doesn't have IP address - return None for now
+        // This might need to be added to the Session struct if needed
+        None
+    }
+
+    pub fn provider(&self) -> &str {
+        // Default provider for sessions - could be added as a field if needed
+        "firebase"
+    }
+
+    pub fn provider_account_id(&self) -> Option<&str> {
+        // Not implemented in current Session entity
+        None
+    }
+
+    pub fn session_token(&self) -> Option<&str> {
+        // Session token is the access token in our current implementation
+        Some(&self.access_token)
+    }
+
+    pub fn jwt_token(&self) -> Option<&str> {
+        // JWT token is the access token in our current implementation
+        Some(&self.access_token)
+    }
+
+    pub fn user_agent(&self) -> Option<&str> {
+        // User agent not stored in current Session entity
+        None
+    }
+
+    /// Reconstruct session from complete database data (for compatibility with mappers)
+    pub fn reconstruct(
+        id: SessId,
+        user_id: UserId,
+        access_token: String,
+        refresh_token: Option<String>,
+        expires_at: chrono::DateTime<chrono::Utc>,
+        created_at: chrono::DateTime<chrono::Utc>,
+        is_active: bool,
+        _ip_address: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            user_id,
+            access_token,
+            refresh_token,
+            expires_at,
+            created_at,
+            is_active,
+        }
+    }
 }

@@ -39,7 +39,7 @@ echo
 
 # Production environment variables
 DATABASE_URL="postgresql://neondb_owner:npg_UYc6GMDJfPk8@ep-sweet-wave-a1fnijbf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-JWT_SECRET="prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"
+NEXTAUTH_SECRET="prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"
 FIREBASE_PROJECT_ID="epsx-449804"
 
 # Deploy to Cloud Run
@@ -54,7 +54,7 @@ if gcloud run deploy "$SERVICE_NAME" \
     --cpu=4 \
     --timeout=3600s \
     --set-env-vars="DATABASE_URL=$DATABASE_URL" \
-    --set-env-vars="JWT_SECRET=$JWT_SECRET" \
+    --set-env-vars="NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
     --set-env-vars="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
     --set-env-vars="RUST_ENV=production" \
     --set-env-vars="ENV=production" \

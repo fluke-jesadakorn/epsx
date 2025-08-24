@@ -350,19 +350,14 @@ pub async fn update_user_profile_handler(
         tracing::warn!("Email update not implemented - requires domain logic changes");
     }
     
-    if let Some(role_str) = req.role {
-        let new_role = crate::dom::values::Role::from_string(&role_str)
-            .unwrap_or(crate::dom::values::Role::User);
-        
-        // Use upgrade_role which is available in the domain
-        match user.upgrade_role(new_role) {
-            Ok(_event) => {
-                tracing::info!("Successfully upgraded user role to: {}", role_str);
-            },
-            Err(e) => {
-                tracing::error!("Failed to upgrade user role: {:?}", e);
-                return Err(StatusCode::BAD_REQUEST);
-            }
+    if let Some(tier_str) = req.role {
+        // Basic validation for package tier
+        if ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&tier_str.to_lowercase().as_str()) {
+            user.update_package_tier(tier_str.clone());
+            tracing::info!("Successfully updated user package tier to: {}", tier_str);
+        } else {
+            tracing::error!("Invalid package tier: {}", tier_str);
+            return Err(StatusCode::BAD_REQUEST);
         }
     }
     
@@ -398,11 +393,12 @@ pub async fn update_user_roles_handler(
     
     tracing::info!("Updating user roles for user_id: {} with roles: {:?}", user_id, req.roles);
     
-    // For now, just update the primary role (first in the array)
-    // Role management implementation using existing domain methods
-    let primary_role = req.roles.first()
-        .map(|r| crate::dom::values::Role::from_string(r).unwrap_or(crate::dom::values::Role::User))
-        .unwrap_or(crate::dom::values::Role::User);
+    // For now, just update the primary package tier (first in the array)
+    // Package tier management implementation using existing domain methods
+    let primary_tier = req.roles.first()
+        .filter(|r| ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&r.to_lowercase().as_str()))
+        .cloned()
+        .unwrap_or("free".to_string());
     
     let user_id_typed = match crate::dom::values::identifiers::UserId::from_str(&user_id) {
         Ok(id) => id,
@@ -414,17 +410,10 @@ pub async fn update_user_roles_handler(
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
     
-    // Use upgrade_role which is available in the domain
-    let role_for_logging = primary_role.clone();
-    match user.upgrade_role(primary_role) {
-        Ok(_event) => {
-            tracing::info!("Successfully upgraded user role to: {:?}", role_for_logging);
-        },
-        Err(e) => {
-            tracing::error!("Failed to upgrade user role: {:?}", e);
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    }
+    // Use update_package_tier which is available in the domain
+    let tier_for_logging = primary_tier.clone();
+    user.update_package_tier(primary_tier);
+    tracing::info!("Successfully updated user package tier to: {}", tier_for_logging);
     
     if let Err(_) = app_state.user_repo.save(&user).await {
         return Err(StatusCode::INTERNAL_SERVER_ERROR);

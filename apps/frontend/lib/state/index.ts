@@ -1,5 +1,5 @@
 // State Management System - Main Export File
-// Provides a comprehensive state management solution for the EPSX trading platform
+// Provides a comprehensive state management solution for the EPSX analytics platform
 
 // Core types and utilities
 export * from './types';
@@ -10,7 +10,6 @@ export * from './ssr';
 // Context providers
 export { AppStateProvider, useAppState } from '@/context/app-state';
 export { UIProvider, useUI } from '@/context/ui-context';
-export { TradingProvider, useTrading } from '@/context/trading-context';
 export { NotificationProvider, useNotifications } from '@/context/notification-context';
 
 // Enhanced state hooks
@@ -46,11 +45,10 @@ export const StateManagementGuide = {
     }
     
     // 2. Use specialized hooks in components
-    import { useUI, useTrading, useNotifications } from '@/lib/state';
+    import { useUI, useNotifications } from '@/lib/state';
     
-    function TradingDashboard() {
+    function AnalyticsDashboard() {
       const { addToast } = useUI();
-      const { watchlist, addToWatchlist } = useTrading();
       const { notifications, markRead } = useNotifications();
       
       // Your component logic here
@@ -61,11 +59,11 @@ export const StateManagementGuide = {
     // Using optimistic updates for better UX
     import { useOptimisticList } from '@/lib/state';
     
-    function WatchlistComponent() {
-      const { list, add, remove } = useOptimisticList(initialWatchlist);
+    function AnalyticsListComponent() {
+      const { list, add, remove } = useOptimisticList(initialAnalytics);
       
-      const handleAddStock = async (stock) => {
-        await add(stock, () => api.addToWatchlist(stock.symbol));
+      const handleAddAnalytics = async (item) => {
+        await add(item, () => api.addToAnalytics(item.id));
       };
     }
   `,
@@ -86,11 +84,11 @@ export const StateManagementGuide = {
   
   selectors: `
     // Performance-optimized selectors
-    import { useWatchlistSelector, usePortfolioTotalSelector } from '@/lib/state';
+    import { useAnalyticsSelector, useMetricsSelector } from '@/lib/state';
     
-    function PortfolioSummary() {
-      const watchlist = useWatchlistSelector();
-      const totalValue = usePortfolioTotalSelector();
+    function AnalyticsSummary() {
+      const analytics = useAnalyticsSelector();
+      const metrics = useMetricsSelector();
       
       // Component only re-renders when these specific values change
     }
@@ -152,11 +150,11 @@ export const createActions = {
       dispatch({ type: 'OPEN_MODAL', payload: { key, data } })
   }),
   
-  trading: (dispatch: any) => ({
-    addToWatchlist: (stock: any) => 
-      dispatch({ type: 'ADD_TO_WATCHLIST', payload: stock }),
-    updateStockPrice: (symbol: string, price: number) => 
-      dispatch({ type: 'UPDATE_STOCK_PRICE', payload: { symbol, price } })
+  analytics: (dispatch: any) => ({
+    addToAnalytics: (item: any) => 
+      dispatch({ type: 'ADD_TO_ANALYTICS', payload: item }),
+    updateMetrics: (id: string, data: any) => 
+      dispatch({ type: 'UPDATE_METRICS', payload: { id, data } })
   }),
   
   notifications: (dispatch: any) => ({
@@ -183,12 +181,12 @@ export const validateState = {
            Array.isArray(state.optimisticUpdates);
   },
   
-  trading: (state: any) => {
+  analytics: (state: any) => {
     return state &&
            state.data &&
-           Array.isArray(state.data.watchlist) &&
-           Array.isArray(state.data.portfolio) &&
-           typeof state.realtime === 'object';
+           Array.isArray(state.data.rankings) &&
+           Array.isArray(state.data.metrics) &&
+           typeof state.filters === 'object';
   }
 };
 
@@ -197,7 +195,6 @@ export default {
   StateProvider: StateProvider,
   useAppState: useAppState,
   useUI: useUI,
-  useTrading: useTrading,
   useNotifications: useNotifications,
   withStateProvider,
   AppLayout: AppLayout,

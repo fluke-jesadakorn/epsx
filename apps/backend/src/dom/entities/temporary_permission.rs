@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemporaryPermission {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -32,16 +31,11 @@ pub struct TemporaryPermission {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TemporaryPermissionStatus {
-    #[sqlx(rename = "active")]
     Active,
-    #[sqlx(rename = "expired")]
     Expired,
-    #[sqlx(rename = "revoked")]
     Revoked,
-    #[sqlx(rename = "suspended")]
     Suspended,
 }
 

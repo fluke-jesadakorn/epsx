@@ -99,7 +99,7 @@ export async function PUT() {
     }
     
     // For simple refresh, validate the current session with backend
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     
     try {
       // Make a userinfo request to validate the admin session

@@ -32,12 +32,13 @@ required-features = ["cli-tools"]
 
 # Feature flags for selective compilation and optimization
 [features]
-default = ["database", "cache", "auth", "websockets", "templates", "tls-rustls", "http-client"]
+default = ["database", "database-sqlx", "cache", "auth", "websockets", "templates", "tls-rustls", "http-client"]
 
 # Core features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
-database = ["dep:sqlx"]
-postgres = ["database", "sqlx/postgres"]
+database = ["dep:diesel", "dep:diesel-async"]
+database-sqlx = ["dep:sqlx"]
+postgres = ["database", "diesel/postgres", "diesel-async/postgres"]
 cache = ["dep:redis"]
 auth = ["jwt", "crypto"]
 jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
@@ -47,7 +48,7 @@ templates = ["dep:askama", "dep:askama_axum"]
 cli-tools = ["dep:clap"]
 
 # TLS implementation (rustls by default)
-tls-rustls = ["reqwest?/rustls-tls", "sqlx?/runtime-tokio-rustls"]
+tls-rustls = ["reqwest?/rustls-tls"]
 tls-native = ["tokio-tungstenite?/native-tls", "reqwest?/native-tls"]
 
 # Build configurations
@@ -77,7 +78,7 @@ thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit"] }
 tower-service = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -89,6 +90,7 @@ regex = "1.10"
 ipnetwork = "0.20"
 once_cell = "1.19"
 rand = "0.8"
+num_cpus = "1.16"
 
 # Optional WebSocket support
 futures-util = { version = "0.3", optional = true }
@@ -117,6 +119,9 @@ clap = { version = "4.4", features = ["derive"], optional = true }
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
 
+# System monitoring
+sysinfo = "0.30"
+
 # Optional template engine
 askama = { version = "0.12", optional = true }
 askama_axum = { version = "0.4", optional = true }
@@ -124,8 +129,13 @@ askama_axum = { version = "0.4", optional = true }
 # Optional Redis cache
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
-# Optional database dependencies  
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "rust_decimal", "migrate"], optional = true }
+# Database ORM dependencies
+diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric"], optional = true }
+diesel-async = { version = "0.5", features = ["postgres", "bb8"], optional = true }
+diesel_migrations = { version = "2.2", features = ["postgres"] }
+sqlx = { version = "0.7", features = ["postgres", "uuid", "chrono", "json", "runtime-tokio-rustls"], optional = true }
+bb8 = "0.8"
+bb8-diesel = "0.2"
 
 # Removed unused dependencies: jemallocator, cargo-bloat
 
@@ -134,6 +144,9 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid"
 mockall = "0.12"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 axum-test = "15.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio-test = "0.4"
+tempfile = "3.8"
 
 # Clean Architecture Test Configuration
 # Tests are organized by architectural layers for optimal caching
@@ -157,6 +170,8 @@ path = "tests/infrastructure/mod.rs"
 [[test]]
 name = "presentation_tests"
 path = "tests/presentation/mod.rs"
+
+# Performance Benchmark Tests
 
 # Profile configurations for binary size optimization
 [profile.dev]
@@ -200,13 +215,4 @@ lto = "thin"
 panic = "abort"
 codegen-units = 1
 
-[profile.bench]
-# Benchmarking profile
-opt-level = 3
-debug = false
-rpath = false
-lto = true
-debug-assertions = false
-codegen-units = 1
-panic = "abort"
 

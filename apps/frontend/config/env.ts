@@ -13,7 +13,6 @@ const envSchema = z.object({
 
   // Server-Only API URLs (never exposed to client)
   BACKEND_URL: z.string().url().default('https://api.epsx.io'),
-  API_URL: z.string().url().optional(),
 
   // Client-Safe API URLs (NEXT_PUBLIC_ - exposed to browser)
   NEXT_PUBLIC_BACKEND_URL: z.string().url().default('https://api.epsx.io'),
@@ -22,10 +21,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
 
   // Server-Only Authentication Secrets (never exposed)
-  JWT_SECRET: z.string().min(1),
+  NEXTAUTH_SECRET: z.string().min(1),
   OIDC_CLIENT_ID: z.string().min(1),
   OIDC_CLIENT_SECRET: z.string().min(1),
-  JWT_SECRET: z.string().optional(),
 
   // Client-Safe Authentication (NEXT_PUBLIC_ - exposed to browser)
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
@@ -82,7 +80,7 @@ export const env = envSchema.parse(process.env);
 export const serverConfig = {
   // API endpoints for server-side communication
   backendUrl: env.BACKEND_URL,
-  apiUrl: env.API_URL || env.BACKEND_URL,
+  apiUrl: env.BACKEND_URL,
   
   // App URLs for server operations
   siteUrl: env.SITE_URL || env.APP_URL,
@@ -92,10 +90,10 @@ export const serverConfig = {
   
   // Authentication secrets
   auth: {
-    secret: env.JWT_SECRET,
+    secret: env.NEXTAUTH_SECRET,
     oidcClientId: env.OIDC_CLIENT_ID,
     oidcSecret: env.OIDC_CLIENT_SECRET,
-    jwtSecret: env.JWT_SECRET,
+    jwtSecret: env.NEXTAUTH_SECRET,
   },
   
   // Payment configuration (secrets protected)
@@ -143,7 +141,7 @@ export const serverConfig = {
 export const clientConfig = {
   // API endpoints accessible from client
   backendUrl: env.NEXT_PUBLIC_BACKEND_URL,
-  apiUrl: env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_BACKEND_URL,
+  apiUrl: env.NEXT_PUBLIC_BACKEND_URL,
   
   // App URLs for client navigation
   appUrl: env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : ''),
@@ -225,7 +223,7 @@ export const apiConfig = {
 
 // Runtime validation for client/server context misuse (development only)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  const serverOnlyVars = ['BACKEND_URL', 'JWT_SECRET', 'OIDC_CLIENT_SECRET', 'NEXTAUTH_SECRET'];
+  const serverOnlyVars = ['BACKEND_URL', 'NEXTAUTH_SECRET', 'OIDC_CLIENT_SECRET'];
   serverOnlyVars.forEach(varName => {
     if (process.env[varName]) {
       console.error(`🚨 Security Warning: Server-only variable ${varName} accessed on client!`);

@@ -71,6 +71,9 @@ pub enum AssignmentTrigger {
     Region(String),
     Country(String),
     
+    // Payment triggers
+    PaymentComplete(String),
+    
     // Always applies (default assignment)
     Always,
 }
@@ -446,6 +449,78 @@ impl AutoAssignmentEngine {
         }
         
         Ok(substituted)
+    }
+
+    /// Process payment completion and apply associated permission profiles
+    pub async fn process_payment_completion(
+        &self,
+        payment_id: &str,
+        user_id: &UserId,
+        permission_profile_id: &PermissionProfileId,
+        context: &RegistrationContext,
+    ) -> Result<AssignmentResults, AutoAssignmentError> {
+        tracing::info!(
+            "Processing payment completion for user {} with payment {} and profile {}",
+            user_id, payment_id, permission_profile_id.value()
+        );
+
+        // For payment completion, we directly assign the specified permission profile
+        // since it's already determined by the payment/package selection
+        let assignment_rule = AutoAssignmentRule {
+            permission_profile_id: permission_profile_id.clone(),
+            package_tiers: vec![context.package_tier.clone()],
+            triggers: vec![AssignmentTrigger::PaymentComplete(payment_id.to_string())],
+            priority: 1,
+            expires_after_days: None, // Payment-based assignments don't expire automatically
+            requires_payment: true,
+            variables: serde_json::json!({
+                "payment_id": payment_id,
+                "package_tier": format!("{:?}", context.package_tier),
+                "source": "payment_completion"
+            }),
+        };
+
+        // Apply the assignment
+        match self.assign_permission_profile_to_user(user_id, &assignment_rule, context).await {
+            Ok(result) => {
+                tracing::info!(
+                    "Successfully assigned permission profile {} to user {} via payment completion",
+                    permission_profile_id.value(), user_id
+                );
+                Ok(AssignmentResults {
+                    assignments: vec![result],
+                    total_assigned: 1,
+                    total_failed: 0,
+                })
+            },
+            Err(AutoAssignmentError::AlreadyExists) => {
+                tracing::info!(
+                    "Permission profile {} already assigned to user {} - payment completion processed",
+                    permission_profile_id.value(), user_id
+                );
+                // Return success even if already assigned
+                Ok(AssignmentResults {
+                    assignments: vec![],
+                    total_assigned: 0,
+                    total_failed: 0,
+                })
+            },
+            Err(e) => {
+                tracing::error!("Failed to assign permission profile via payment completion: {}", e);
+                Ok(AssignmentResults {
+                    assignments: vec![AssignmentResult {
+                        permission_profile_id: permission_profile_id.clone(),
+                        feature_id: "payment_completion".to_string(),
+                        success: false,
+                        reason: e.to_string(),
+                        variables_applied: assignment_rule.variables,
+                        expires_at: None,
+                    }],
+                    total_assigned: 0,
+                    total_failed: 1,
+                })
+            }
+        }
     }
 }
 

@@ -6,16 +6,15 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3001),
-  ADMIN_URL: z.string().url(),
-  BACKEND_URL: z.string().url().default('https://api.epsx.io'),
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default('https://api.epsx.io'),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
-  NEXT_PUBLIC_APP_URL: z.string().url().default('https://epsx.io'),
-  NEXT_PUBLIC_API_URL: z.string().url().optional(),
+  ADMIN_URL: z.string().url().default('http://localhost:3001'),
+  BACKEND_URL: z.string().url().default('http://localhost:8080'),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default('http://localhost:8080'),
+  NEXT_PUBLIC_ADMIN_URL: z.string().url().default('http://localhost:3001'),
+  NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
-  JWT_SECRET: z.string().min(1),
-  OIDC_CLIENT_ID: z.string().min(1),
-  OIDC_CLIENT_SECRET: z.string().min(1),
+  NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),
+  OIDC_CLIENT_ID: z.string().min(1).default('epsx-admin'),
+  OIDC_CLIENT_SECRET: z.string().min(1).default('dev-client-secret'),
   
   // Feature flags
   NEXT_PUBLIC_ENABLE_UNIFIED_USERS: z.string().optional(),
@@ -32,7 +31,7 @@ export const env = envSchema.parse(process.env);
 // Consolidated auth configuration - single source of truth
 export const authConfig = {
   appUrl: env.NEXT_PUBLIC_ADMIN_URL,
-  apiUrl: env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_BACKEND_URL,
+  apiUrl: env.NEXT_PUBLIC_BACKEND_URL,
   clientId: 'epsx-admin', // Fixed to correct client ID registered in backend
   callbackPath: '/api/auth/callback/epsx-backend',
   get callbackUrl() {

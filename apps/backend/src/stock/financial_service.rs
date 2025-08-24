@@ -8,8 +8,10 @@ use tokio_retry::{
 };
 use tracing::{debug, error, info};
 use uuid::Uuid;
+use chrono::Utc;
 
 use crate::config::Config;
+use crate::infra::cache::{Cache, CacheExt};
 use crate::stock::common::{StockServiceError, TradingViewResponse, TradingViewStock, StockDataField, NumberFormatter, WebSocketClient};
 use super::models::{TableDataMetrics, QuoteSessionCreate};
 
@@ -17,10 +19,11 @@ pub struct ScreenerService {
     client: Client,
     ws_client: WebSocketClient,
     config: Arc<Config>,
+    cache: Arc<dyn Cache>,
 }
 
 impl ScreenerService {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Arc<Config>, cache: Arc<dyn Cache>) -> Self {
         let timeout_duration = Duration::from_secs(config.external_services.tradingview.http_timeout_seconds);
         let client = ClientBuilder::new()
             .timeout(timeout_duration)
@@ -37,6 +40,7 @@ impl ScreenerService {
             client,
             ws_client,
             config,
+            cache,
         }
     }
 
@@ -68,15 +72,76 @@ impl ScreenerService {
     }
 
     async fn get_todays_data(&self) -> Result<Option<Vec<TableDataMetrics>>, StockServiceError> {
-        // TODO: Implement PostgreSQL-based caching
-        // For now, always fetch fresh data
-        Ok(None)
+        let today_key = format!("stock:screener:data:{}", chrono::Utc::now().format("%Y-%m-%d"));
+        
+        match self.cache.get::<Vec<TableDataMetrics>>(&today_key).await {
+            Ok(data) => {
+                if data.is_some() {
+                    debug!("Retrieved today's stock data from cache");
+                } else {
+                    debug!("No cached data found for today");
+                }
+                Ok(data)
+            }
+            Err(e) => {
+                debug!("Cache error when retrieving today's data: {}", e);
+                Ok(None) // Continue without cache on error
+            }
+        }
     }
 
-    async fn save_stock_data(&self, _stocks: Vec<TableDataMetrics>) -> Result<(), StockServiceError> {
-        // TODO: Implement PostgreSQL-based caching
-        // For now, skip caching
+    async fn save_stock_data(&self, stocks: Vec<TableDataMetrics>) -> Result<(), StockServiceError> {
+        let today_key = format!("stock:screener:data:{}", Utc::now().format("%Y-%m-%d"));
+        let cache_ttl = 300; // 5 minutes for real-time data
+        
+        match self.cache.set(&today_key, &stocks, Some(cache_ttl)).await {
+            Ok(_) => {
+                debug!("Successfully cached {} stock records with TTL {}s", stocks.len(), cache_ttl);
+            }
+            Err(e) => {
+                // Don't fail the operation if caching fails
+                debug!("Failed to cache stock data (operation continues): {}", e);
+            }
+        }
+        
         Ok(())
+    }
+
+    /// Cache individual stock data by symbol
+    async fn cache_stock_by_symbol(&self, stock: &TableDataMetrics) -> Result<(), StockServiceError> {
+        let symbol_key = format!("stock:screener:symbol:{}", stock.symbol);
+        let cache_ttl = 300; // 5 minutes for real-time data
+
+        match self.cache.set(&symbol_key, stock, Some(cache_ttl)).await {
+            Ok(_) => {
+                debug!("Cached stock data for symbol: {}", stock.symbol);
+            }
+            Err(e) => {
+                debug!("Failed to cache stock data for symbol {} (operation continues): {}", stock.symbol, e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get cached stock data by symbol
+    async fn get_cached_stock_by_symbol(&self, symbol: &str) -> Option<TableDataMetrics> {
+        let symbol_key = format!("stock:screener:symbol:{}", symbol);
+        
+        match self.cache.get::<TableDataMetrics>(&symbol_key).await {
+            Ok(data) => {
+                if data.is_some() {
+                    debug!("Retrieved cached data for symbol: {}", symbol);
+                } else {
+                    debug!("No cached data found for symbol: {}", symbol);
+                }
+                data
+            }
+            Err(e) => {
+                debug!("Cache error when retrieving data for symbol {}: {}", symbol, e);
+                None
+            }
+        }
     }
 
     fn get_request_headers(&self) -> reqwest::header::HeaderMap {
@@ -151,8 +216,13 @@ impl ScreenerService {
 
         let stocks = self.process_trading_view_response(result);
 
-        // Save the fetched data to database
+        // Save the fetched data to cache (both daily data and individual symbols)
         self.save_stock_data(stocks.clone()).await?;
+        
+        // Cache individual stock data by symbol for faster lookups
+        for stock in &stocks {
+            let _ = self.cache_stock_by_symbol(stock).await; // Don't fail if individual caching fails
+        }
         
         Ok(stocks)
     }

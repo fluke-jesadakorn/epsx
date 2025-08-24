@@ -12,7 +12,7 @@ pub mod tradingview_websocket;
 pub use email::{SendGridEmailService, MockEmailService, SentEmail};
 pub use notification::{
     Notification, NotificationType, NotificationPriority, NotificationService,
-    InMemoryNotificationService, DatabaseNotificationService, NotificationPortAdapter
+    InMemoryNotificationService, NotificationPortAdapter
 };
 pub use payment::{
     PaymentGatewayConfig, NetworkConfig, MultiGatewayPaymentService,

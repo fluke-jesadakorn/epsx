@@ -201,7 +201,7 @@ lazy_static::lazy_static! {
         });
 
         // Authentication & JWT Configuration
-        schema.insert("JWT_SECRET", EnvVarDefinition {
+        schema.insert("NEXTAUTH_SECRET", EnvVarDefinition {
             objective: "JWT token signing secret (shared with frontend applications)",
             required: true,
             var_type: EnvVarType::JwtSecret,
@@ -210,7 +210,7 @@ lazy_static::lazy_static! {
             default_value: None,
         });
 
-        schema.insert("JWT_SECRET", EnvVarDefinition {
+        schema.insert("NEXTAUTH_SECRET", EnvVarDefinition {
             objective: "Legacy JWT secret for backward compatibility with existing tokens",
             required: false,
             var_type: EnvVarType::JwtSecret,
@@ -651,6 +651,88 @@ lazy_static::lazy_static! {
             default_value: Some("false"),
         });
 
+        // Middleware Security Caching Configuration
+        schema.insert("SECURITY_EVENT_CACHE_TTL", EnvVarDefinition {
+            objective: "TTL for security event caching in Redis (seconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "86400",
+            default_value: Some("86400"),
+        });
+
+        schema.insert("SESSION_VALIDATION_CACHE_TTL", EnvVarDefinition {
+            objective: "TTL for session validation results in Redis (seconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "3600",
+            default_value: Some("3600"),
+        });
+
+        schema.insert("PERMISSION_CACHE_TTL", EnvVarDefinition {
+            objective: "TTL for user permission caching in Redis (seconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "300",
+            default_value: Some("300"),
+        });
+
+        schema.insert("ADMIN_MODULE_CACHE_TTL", EnvVarDefinition {
+            objective: "TTL for admin module assignment caching (seconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "1800",
+            default_value: Some("1800"),
+        });
+
+        schema.insert("BRUTE_FORCE_WINDOW_SECONDS", EnvVarDefinition {
+            objective: "Time window for brute force attack detection (seconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "300",
+            default_value: Some("300"),
+        });
+
+        schema.insert("BRUTE_FORCE_MAX_ATTEMPTS", EnvVarDefinition {
+            objective: "Maximum failed attempts before triggering brute force protection",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Security,
+            example: "5",
+            default_value: Some("5"),
+        });
+
+        schema.insert("SECURITY_ALERT_WEBHOOK_URL", EnvVarDefinition {
+            objective: "Webhook URL for critical security event notifications",
+            required: false,
+            var_type: EnvVarType::Url,
+            category: EnvCategory::Security,
+            example: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+            default_value: None,
+        });
+
+        schema.insert("PERFORMANCE_MONITORING_ENABLED", EnvVarDefinition {
+            objective: "Enable performance monitoring for middleware operations",
+            required: false,
+            var_type: EnvVarType::Boolean,
+            category: EnvCategory::Infrastructure,
+            example: "true",
+            default_value: Some("true"),
+        });
+
+        schema.insert("MIDDLEWARE_EXECUTION_TIMEOUT_MS", EnvVarDefinition {
+            objective: "Maximum execution time for middleware operations (milliseconds)",
+            required: false,
+            var_type: EnvVarType::Number,
+            category: EnvCategory::Infrastructure,
+            example: "10000",
+            default_value: Some("10000"),
+        });
+
         // Rate Limiting Configuration
         schema.insert("RATE_LIMIT_DEFAULT_PER_MINUTE", EnvVarDefinition {
             objective: "Default rate limit per minute for API endpoints",
@@ -893,6 +975,9 @@ pub struct PaymentConfig {
     pub musepay_partner_id: Option<String>,
     pub musepay_private_key: Option<String>,
     pub webhook_url: Option<String>,
+    pub supported_currencies: Vec<String>,
+    pub default_currency: String,
+    pub default_checkout_url_template: String,
 }
 
 #[derive(Debug, Clone)]
@@ -914,6 +999,16 @@ pub struct BrandingConfig {
 pub struct ExternalServicesConfig {
     pub tradingview: TradingViewConfig,
     pub sendgrid_api_key: Option<String>,
+    pub qr_code: QrCodeConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct QrCodeConfig {
+    pub enabled: bool,
+    pub base_url: String,
+    pub logo_url: Option<String>,
+    pub api_base_url: String,
+    pub default_size: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -943,6 +1038,19 @@ pub struct CacheConfig {
     pub default_ttl_seconds: i64,
     pub max_entries: Option<usize>,
     pub enable_compression: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct SecurityConfig {
+    pub security_event_cache_ttl: i64,
+    pub session_validation_cache_ttl: i64,
+    pub permission_cache_ttl: i64,
+    pub admin_module_cache_ttl: i64,
+    pub brute_force_window_seconds: i64,
+    pub brute_force_max_attempts: u32,
+    pub security_alert_webhook_url: Option<String>,
+    pub performance_monitoring_enabled: bool,
+    pub middleware_execution_timeout_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -979,6 +1087,7 @@ pub struct ValidatedConfig {
     pub external_services: ExternalServicesConfig,
     pub rate_limiting: RateLimitingConfig,
     pub cache: CacheConfig,
+    pub security: SecurityConfig,
     pub firebase: FirebaseExtendedConfig,
 }
 
@@ -1018,17 +1127,17 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
     };
 
     let auth_config = AuthConfig {
-        jwt_secret_main: get_env_var("JWT_SECRET")
+        jwt_secret_main: get_env_var("NEXTAUTH_SECRET")
             .map_err(|e| vec![ValidationError {
-                variable: "JWT_SECRET".to_string(),
+                variable: "NEXTAUTH_SECRET".to_string(),
                 objective: "JWT token signing secret (shared with frontend applications)".to_string(),
                 reason: e,
                 category: EnvCategory::Authentication,
-                suggestion: "Add JWT_SECRET=epsx-shared-jwt-secret-2024-cross-app-authentication to your .env file".to_string(),
+                suggestion: "Add NEXTAUTH_SECRET=epsx-shared-jwt-secret-2024-cross-app-authentication to your .env file".to_string(),
                 example: "epsx-shared-jwt-secret-2024-cross-app-authentication".to_string(),
                 severity: ErrorSeverity::Error,
             }])?,
-        jwt_secret: get_env_var("JWT_SECRET")
+        jwt_secret: get_env_var("NEXTAUTH_SECRET")
             .unwrap_or_else(|_| "default-jwt-secret".to_string()),
         cookie_signing_key: get_env_var("COOKIE_SIGNING_KEY").ok(),
         cookie_encryption_key: get_env_var("COOKIE_ENCRYPTION_KEY").ok(),
@@ -1041,6 +1150,9 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         musepay_partner_id: get_env_var("MUSEPAY_PARTNER_ID").ok(),
         musepay_private_key: get_env_var("MUSEPAY_PRIVATE_KEY").ok(),
         webhook_url: get_env_var("PAYMENT_WEBHOOK_URL").ok(),
+        supported_currencies: vec!["USD".to_string(), "EUR".to_string(), "THB".to_string()],
+        default_currency: "USD".to_string(),
+        default_checkout_url_template: get_env_var("CHECKOUT_URL_TEMPLATE").unwrap_or_else(|_| "https://checkout.epsx.com/{}/pay".to_string()),
     };
 
     let email_config = EmailConfig {
@@ -1063,9 +1175,18 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         http_timeout_seconds: get_env_var("TRADINGVIEW_HTTP_TIMEOUT_SECONDS").unwrap_or_else(|_| "30".to_string()).parse().unwrap_or(30),
     };
 
+    let qr_code_config = QrCodeConfig {
+        enabled: get_env_var("QR_CODE_ENABLED").unwrap_or_else(|_| "true".to_string()) == "true",
+        base_url: get_env_var("QR_CODE_BASE_URL").unwrap_or_else(|_| "https://api.qrserver.com/v1/create-qr-code/".to_string()),
+        logo_url: get_env_var("QR_CODE_LOGO_URL").ok(),
+        api_base_url: get_env_var("QR_CODE_API_BASE_URL").unwrap_or_else(|_| "https://api.qrserver.com".to_string()),
+        default_size: get_env_var("QR_CODE_DEFAULT_SIZE").unwrap_or_else(|_| "256".to_string()).parse().unwrap_or(256),
+    };
+
     let external_services_config = ExternalServicesConfig {
         tradingview: tradingview_config,
         sendgrid_api_key: get_env_var("SENDGRID_API_KEY").ok(),
+        qr_code: qr_code_config,
     };
 
     let rate_limiting_config = RateLimitingConfig {
@@ -1079,6 +1200,18 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         default_ttl_seconds: get_env_var("CACHE_TTL_SECONDS").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
         max_entries: get_env_var("CACHE_MAX_ENTRIES").ok().and_then(|s| s.parse().ok()),
         enable_compression: get_env_var("CACHE_ENABLE_COMPRESSION").unwrap_or_else(|_| "false".to_string()).parse().unwrap_or(false),
+    };
+
+    let security_config = SecurityConfig {
+        security_event_cache_ttl: get_env_var("SECURITY_EVENT_CACHE_TTL").unwrap_or_else(|_| "86400".to_string()).parse().unwrap_or(86400),
+        session_validation_cache_ttl: get_env_var("SESSION_VALIDATION_CACHE_TTL").unwrap_or_else(|_| "3600".to_string()).parse().unwrap_or(3600),
+        permission_cache_ttl: get_env_var("PERMISSION_CACHE_TTL").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
+        admin_module_cache_ttl: get_env_var("ADMIN_MODULE_CACHE_TTL").unwrap_or_else(|_| "1800".to_string()).parse().unwrap_or(1800),
+        brute_force_window_seconds: get_env_var("BRUTE_FORCE_WINDOW_SECONDS").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
+        brute_force_max_attempts: get_env_var("BRUTE_FORCE_MAX_ATTEMPTS").unwrap_or_else(|_| "5".to_string()).parse().unwrap_or(5),
+        security_alert_webhook_url: get_env_var("SECURITY_ALERT_WEBHOOK_URL").ok(),
+        performance_monitoring_enabled: get_env_var("PERFORMANCE_MONITORING_ENABLED").unwrap_or_else(|_| "true".to_string()).parse().unwrap_or(true),
+        middleware_execution_timeout_ms: get_env_var("MIDDLEWARE_EXECUTION_TIMEOUT_MS").unwrap_or_else(|_| "10000".to_string()).parse().unwrap_or(10000),
     };
 
     let firebase_config = FirebaseExtendedConfig {
@@ -1113,6 +1246,7 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         external_services: external_services_config,
         rate_limiting: rate_limiting_config,
         cache: cache_config,
+        security: security_config,
         firebase: firebase_config,
     })
 }

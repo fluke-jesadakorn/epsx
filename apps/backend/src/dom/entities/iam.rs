@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 
-use crate::dom::values::{UserId, Role as UserRole};
+use crate::dom::values::UserId;
 
 /// Unique identifier for IAM roles
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -488,17 +488,7 @@ impl PackageTier {
         self.hierarchy_level() >= required_tier.hierarchy_level()
     }
     
-    pub fn from_user_role(role: &UserRole) -> Self {
-        match role {
-            UserRole::Free => PackageTier::Free,
-            UserRole::User => PackageTier::Free,
-            UserRole::Premium => PackageTier::Bronze,
-            UserRole::Moderator => PackageTier::Silver,
-            UserRole::Admin => PackageTier::Admin,
-            UserRole::SuperAdmin => PackageTier::SuperAdmin,
-            UserRole::ApiClient => PackageTier::Free, // API clients get free tier by default
-        }
-    }
+    // Legacy role conversion removed - use permission-based system instead
 }
 
 impl std::fmt::Display for PackageTier {

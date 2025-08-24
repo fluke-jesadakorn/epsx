@@ -13,7 +13,7 @@ pub async fn module_casbin_middleware(
     State(_app_state): State<AppState>,
     request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     // For now, during migration, allow all requests through
     // TODO: Integrate with Casbin service from app_state
     

@@ -1,0 +1,194 @@
+# Artillery.js Load Testing Configuration for EPSX Middleware Stack
+config:
+  target: 'http://localhost:8080'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm-up"
+    # Normal load
+    - duration: 300
+      arrivalRate: 100
+      name: "Normal Load (100 RPS)"
+    # High load
+    - duration: 300
+      arrivalRate: 500
+      name: "High Load (500 RPS)"
+    # Peak load
+    - duration: 300
+      arrivalRate: 1000
+      name: "Peak Load (1000 RPS)"
+    # Burst load
+    - duration: 120
+      arrivalRate: 2000
+      name: "Burst Load (2000 RPS)"
+    # Stress test
+    - duration: 180
+      arrivalRate: 3000
+      name: "Stress Test (3000 RPS)"
+    # Cool down
+    - duration: 60
+      arrivalRate: 10
+      name: "Cool-down"
+      
+  plugins:
+    metrics-by-endpoint: {}
+    
+  processor: "./load-test-processor.js"
+  
+  variables:
+    # Test user credentials and tokens
+    adminToken: "{{ $processEnvironment.ADMIN_TEST_TOKEN }}"
+    userToken: "{{ $processEnvironment.USER_TEST_TOKEN }}"
+    
+  defaults:
+    headers:
+      'Content-Type': 'application/json'
+      'User-Agent': 'Artillery Load Test'
+      
+# Performance SLA validation
+expect:
+  # P95 latency targets
+  - statusCode: 200
+  - hasProperty: 'response.body'
+  - contentType: json
+    
+# Main test scenarios
+scenarios:
+  - name: "Middleware Chain Performance"
+    weight: 40
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - hasProperty: 'response.headers.x-request-id'
+            - hasProperty: 'response.headers.x-content-type-options'
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+          
+  - name: "Session Validation Performance" 
+    weight: 30
+    flow:
+      - get:
+          url: "/api/v1/profile"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          expect:
+            - statusCode: [200, 401]
+          ifTrue:
+            - get:
+                url: "/api/v1/profile/permissions"
+                headers:
+                  Authorization: "Bearer {{ userToken }}"
+                expect:
+                  - statusCode: [200, 401, 403]
+                  
+  - name: "Permission Validation Performance"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/v1/admin/users/search"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          json:
+            query: "test"
+            limit: 10
+          expect:
+            - statusCode: [200, 401, 403]
+            
+      - get:
+          url: "/api/v1/admin/analytics"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          expect:
+            - statusCode: [200, 401, 403]
+            
+  - name: "Rate Limiting Performance"
+    weight: 10
+    flow:
+      # Rapid fire requests to test rate limiting
+      - loop:
+          - get:
+              url: "/api/v1/public/health"
+          count: 20
+          
+# Specific middleware component tests
+  - name: "Security Headers Test"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/v1/public/health" 
+          expect:
+            - statusCode: 200
+            - hasProperty: 'response.headers.x-frame-options'
+            - hasProperty: 'response.headers.x-content-type-options'
+            - hasProperty: 'response.headers.strict-transport-security'
+            - hasProperty: 'response.headers.content-security-policy'
+            
+  - name: "Concurrent User Sessions"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/v1/auth/session/validate"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          expect:
+            - statusCode: [200, 401]
+            
+      - get:
+          url: "/api/v1/user/permissions"
+          headers:
+            Authorization: "Bearer {{ userToken }}" 
+          expect:
+            - statusCode: [200, 401, 403]
+            
+      - get:
+          url: "/api/v1/user/profile"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          expect:
+            - statusCode: [200, 401]
+
+# Database and cache stress patterns            
+  - name: "Database Connection Pool Stress"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/v1/admin/users"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          qs:
+            limit: 50
+            offset: "{{ $randomInt(0, 1000) }}"
+          expect:
+            - statusCode: [200, 401, 403]
+            
+      - get:
+          url: "/api/v1/admin/audit-logs"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          qs:
+            limit: 25
+            start_date: "2024-01-01"
+            end_date: "2024-12-31"
+          expect:
+            - statusCode: [200, 401, 403]
+            
+# Memory allocation stress patterns
+  - name: "Large Payload Processing"
+    weight: 5
+    flow:
+      - post:
+          url: "/api/v1/analytics/bulk-analysis"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          json:
+            symbols: "{{ generateLargeSymbolList() }}"
+            analysis_type: "comprehensive"
+            date_range: 
+              start: "2024-01-01"
+              end: "2024-12-31"
+          expect:
+            - statusCode: [200, 401, 403, 413]

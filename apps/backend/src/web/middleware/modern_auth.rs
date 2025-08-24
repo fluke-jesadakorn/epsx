@@ -2,7 +2,7 @@ use axum::{
     extract::Request,
     http::{header::AUTHORIZATION, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{Response, IntoResponse},
 };
 // use tower::Service; // Not needed for simple middleware
 use tracing::{info, warn, error};
@@ -16,7 +16,7 @@ use crate::auth::{JWT, User, JWTError};
 pub async fn modern_jwt_auth_middleware(
     mut request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let path = request.uri().path().to_string();
     
     // Skip auth for public endpoints
@@ -41,7 +41,7 @@ pub async fn modern_jwt_auth_middleware(
         Some(token) => token,
         None => {
             warn!("No authorization header found for protected endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
         }
     };
 
@@ -50,19 +50,19 @@ pub async fn modern_jwt_auth_middleware(
         Ok(user) => user,
         Err(JWTError::Expired) => {
             warn!("Expired token for endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
         }
         Err(JWTError::Invalid(msg)) => {
             warn!("Invalid token for endpoint {}: {}", path, msg);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
         }
         Err(JWTError::InvalidSignature) => {
             error!("Invalid token signature for endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
         }
         Err(err) => {
             error!("JWT validation error for endpoint {}: {}", path, err);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response());
         }
     };
 
@@ -73,7 +73,7 @@ pub async fn modern_jwt_auth_middleware(
                 "Admin access denied for user {} to endpoint: {}", 
                 user.email, path
             );
-            return Err(StatusCode::FORBIDDEN);
+            return Err(StatusCode::FORBIDDEN.into_response());
         }
         
         info!(
@@ -89,7 +89,7 @@ pub async fn modern_jwt_auth_middleware(
                 "Permission '{}' denied for user {} to endpoint: {}", 
                 required_permission, user.email, path
             );
-            return Err(StatusCode::FORBIDDEN);
+            return Err(StatusCode::FORBIDDEN.into_response());
         }
     }
 
@@ -100,7 +100,7 @@ pub async fn modern_jwt_auth_middleware(
                 "Package tier '{}' required for user {} to access endpoint: {}", 
                 required_tier, user.email, path
             );
-            return Err(StatusCode::FORBIDDEN);
+            return Err(StatusCode::FORBIDDEN.into_response());
         }
     }
 
@@ -195,7 +195,7 @@ fn get_required_package_tier(path: &str) -> Option<String> {
 pub async fn cors_middleware(
     request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let mut response = next.run(request).await;
 
     // Add CORS headers for Auth.js frontend integration
@@ -220,7 +220,7 @@ pub async fn cors_middleware(
 pub async fn request_logging_middleware(
     request: Request,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
     let user_email = request

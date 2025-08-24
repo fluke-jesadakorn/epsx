@@ -624,7 +624,7 @@ pub trait AuditStoreTrait: Send + Sync {
         filters: AuditQueryFilters,
     ) -> Result<Vec<AuditEvent>, AppError>;
     async fn verify_integrity(&self, event_id: &str) -> Result<bool, AppError>;
-    async fn archive_events(&self, before: DateTime<Utc>) -> Result<u64, AppError>;
+    async fn archive_events(&self, _before: DateTime<Utc>) -> Result<u64, AppError>;
 }
 
 /// GDPR processor trait

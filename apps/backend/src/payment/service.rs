@@ -29,7 +29,7 @@ pub struct PaymentResponse {
     pub error_message: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PaymentStatus {
     Pending,
@@ -81,9 +81,14 @@ pub struct PaymentService {
     config: Arc<Config>,
 }
 
+
 impl PaymentService {
     pub fn new(config: Arc<Config>) -> Self {
         Self { config }
+    }
+
+    pub fn get_config(&self) -> &Arc<Config> {
+        &self.config
     }
 
     pub async fn create_payment(
@@ -119,7 +124,7 @@ impl PaymentService {
 
         // Generate checkout URL for card payments using configuration
         let checkout_url = if payment_method == "card" {
-            Some(self.config.network.default_checkout_url_template.replace("{}", &payment_id))
+            Some(self.config.payment.default_checkout_url_template.replace("{}", &payment_id))
         } else {
             None
         };
@@ -127,10 +132,10 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id,
             amount: request.amount,
-            currency: if self.config.business.supported_currencies.contains(&request.currency) {
+            currency: if self.config.payment.supported_currencies.contains(&request.currency) {
                 request.currency
             } else {
-                self.config.business.default_currency.clone()
+                self.config.payment.default_currency.clone()
             },
             status: PaymentStatus::Pending,
             created_at: now.to_rfc3339(),
@@ -155,7 +160,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id.to_string(),
             amount: 1000,
-            currency: self.config.business.default_currency.clone(),
+            currency: self.config.payment.default_currency.clone(),
             status: PaymentStatus::Processing,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
@@ -179,7 +184,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: request.payment_id,
             amount: 1000,
-            currency: self.config.business.default_currency.clone(),
+            currency: self.config.payment.default_currency.clone(),
             status: PaymentStatus::Processing,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
@@ -203,7 +208,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: update.payment_id,
             amount: 1000,
-            currency: self.config.business.default_currency.clone(),
+            currency: self.config.payment.default_currency.clone(),
             status: update.status,
             created_at: now.to_rfc3339(),
             updated_at: update.updated_at,
@@ -227,7 +232,7 @@ impl PaymentService {
         Ok(PaymentResponse {
             id: payment_id.to_string(),
             amount: 1000,
-            currency: self.config.business.default_currency.clone(),
+            currency: self.config.payment.default_currency.clone(),
             status: PaymentStatus::Cancelled,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),

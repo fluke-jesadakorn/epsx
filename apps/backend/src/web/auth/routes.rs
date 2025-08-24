@@ -4,8 +4,9 @@ use std::sync::Arc;
 use axum::{
     routing::{get, post},
     Router,
+    middleware,
 };
-use sqlx::PgPool;
+use crate::infra::db::diesel::DbPool;
 
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
@@ -16,6 +17,8 @@ use crate::app::ports::repositories::{
 use crate::infra::firebase_admin::FirebaseAdmin;
 use crate::dom::services::admin_module_service::AdminModuleService;
 use crate::infra::AppContainer;
+use crate::infra::cache::{SecurityCache, Cache};
+use crate::security::brute_force_integration::{BruteForceIntegrationService, brute_force_protection_middleware};
 
 use super::handlers::{
     // Core Authentication
@@ -52,6 +55,10 @@ pub struct AppState {
     pub firebase_admin: Arc<FirebaseAdmin>,
     pub admin_module_service: Arc<AdminModuleService>,
     pub feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
+    pub db_pool: Arc<DbPool>,
+    pub cache: Arc<dyn Cache>,
+    pub security_cache: Option<Arc<SecurityCache>>,
+    pub brute_force_service: Option<BruteForceIntegrationService>,
 }
 
 impl AppState {
@@ -69,6 +76,10 @@ impl AppState {
         firebase_admin: Arc<FirebaseAdmin>,
         admin_module_service: Arc<AdminModuleService>,
         feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
+        db_pool: Arc<DbPool>,
+        cache: Arc<dyn Cache>,
+        security_cache: Option<Arc<SecurityCache>>,
+        brute_force_service: Option<BruteForceIntegrationService>,
     ) -> Self {
         Self {
             auth_uc,
@@ -84,32 +95,52 @@ impl AppState {
             firebase_admin,
             admin_module_service,
             feature_expiration_service,
+            db_pool,
+            cache,
+            security_cache,
+            brute_force_service,
         }
     }
 }
 
 /// Create authentication routes with clean structure
 pub fn create_auth_routes(app_state: AppState) -> Router {
-    Router::new()
-        // === CORE AUTHENTICATION ROUTES ===
+    // Public routes (no authentication required)
+    let public_routes = Router::new()
         .route("/login", post(login_handler))
-        .route("/logout", post(logout_handler))
-        .route("/refresh", post(refresh_handler))
-        .route("/me", get(me_handler))
+        .route("/register", post(register_user))
+        .route("/check-email", post(check_email_availability))
+        .route("/check-password", post(check_password_strength));
         
-        // === SESSION MANAGEMENT ===
+    // Protected routes (require valid session)
+    let protected_routes = Router::new()
+        .route("/logout", post(logout_handler))
+        .route("/me", get(me_handler))
+        .route("/refresh", post(refresh_handler))
         .route("/session/validate", post(validate_session_handler))
         .route("/session/rotate", post(rotate_session_handler))
-        
-        // === PERMISSION SYSTEM ===
         .route("/permissions/route", post(validate_route_access_handler))
         .route("/permissions/bulk", post(validate_bulk_routes_handler))
         .route("/permissions/check", post(check_permission_handler))
         .route("/permissions/single", get(single_permission_handler))
         .route("/permissions/navigation", get(navigation_handler))
         .route("/permissions/features", get(user_features_handler))
-        
-        .with_state(app_state)
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            crate::web::middleware::session_validation_middleware
+        ));
+    
+    let router = Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
+        .with_state(app_state.clone());
+
+    // Apply brute force protection middleware to authentication routes
+    if app_state.brute_force_service.is_some() {
+        router.layer(middleware::from_fn_with_state(app_state, brute_force_protection_middleware))
+    } else {
+        router
+    }
 }
 
 /// Create registration routes with AppContainer state
@@ -122,7 +153,7 @@ pub fn create_registration_routes(container: Arc<AppContainer>) -> Router {
 }
 
 /// Create Auth.js integration routes with PostgreSQL pool
-pub fn create_authjs_routes(pool: PgPool) -> Router {
+pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
     Router::new()
         .route("/claims", post(get_user_claims))
         .route("/upsert", post(upsert_user))
@@ -133,11 +164,11 @@ pub fn create_authjs_routes(pool: PgPool) -> Router {
 pub fn create_combined_auth_routes(
     app_state: AppState,
     container: Arc<AppContainer>,
-    pool: PgPool,
+    pool: crate::infra::db::diesel::DbPool,
 ) -> Router {
     Router::new()
         .nest("/api/auth", create_auth_routes(app_state))
-        .nest("/api/authjs", create_authjs_routes(pool))
+        .nest("/api/authjs", create_authjs_routes(Arc::new(pool)))
         .merge(create_registration_routes(container))
 }
 

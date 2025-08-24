@@ -637,7 +637,7 @@ impl DefaultPermissionProfiles {
         profile.add_tag("gold".to_string());
         profile.add_tag("user".to_string());
         profile.add_tag("premium".to_string());
-        profile.add_tag("trading".to_string());
+        profile.add_tag("analytics".to_string());
         
         profile.update_metadata(
             PermissionProfileMetadata::empty()

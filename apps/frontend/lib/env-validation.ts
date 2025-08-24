@@ -18,7 +18,7 @@ export function validateOIDCEnvironment(): ValidationResult {
 
   // Required variables
   const required = {
-    JWT_SECRET: process.env.JWT_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     APP_URL: process.env.APP_URL,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
@@ -34,7 +34,7 @@ export function validateOIDCEnvironment(): ValidationResult {
   // Optional but recommended variables
   const recommended = {
     OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
-    JWT_SECRET: process.env.JWT_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID,
   };
 
@@ -57,9 +57,9 @@ export function validateOIDCEnvironment(): ValidationResult {
     errors.push('NEXT_PUBLIC_APP_URL must be a valid URL');
   }
 
-  // Check JWT_SECRET length if provided
-  if (recommended.JWT_SECRET && recommended.JWT_SECRET.length < 32) {
-    warnings.push('JWT_SECRET should be at least 32 characters for security');
+  // Check NEXTAUTH_SECRET length if provided
+  if (recommended.NEXTAUTH_SECRET && recommended.NEXTAUTH_SECRET.length < 32) {
+    warnings.push('NEXTAUTH_SECRET should be at least 32 characters for security');
   }
 
   return {
@@ -78,7 +78,7 @@ export function validateAdminEnvironment(): ValidationResult {
 
   // Required variables for admin
   const required = {
-    JWT_SECRET: process.env.JWT_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     APP_URL: process.env.APP_URL,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,

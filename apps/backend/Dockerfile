@@ -68,7 +68,7 @@ COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificat
 
 # Accept build arguments for production environment
 ARG DATABASE_URL
-ARG JWT_SECRET  
+ARG NEXTAUTH_SECRET  
 ARG FIREBASE_PROJECT_ID
 ARG PORT=8080
 
@@ -89,7 +89,7 @@ ENV DATABASE_IDLE_TIMEOUT=600
 
 # Production database configuration (will be overridden by Cloud Run env vars)
 ENV DATABASE_URL="postgresql://neondb_owner:npg_UYc6GMDJfPk8@ep-sweet-wave-a1fnijbf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-ENV JWT_SECRET="prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"  
+ENV NEXTAUTH_SECRET="prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"  
 ENV FIREBASE_PROJECT_ID="epsx-449804"
 
 # Health check for Cloud Run - remove since Cloud Run has its own health checks

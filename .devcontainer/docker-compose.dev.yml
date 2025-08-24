@@ -58,7 +58,6 @@ services:
       - APP_URL=https://epsx.io
       - BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
-      - API_URL=https://api.epsx.io
       - NEXT_PUBLIC_API_URL=https://api.epsx.io
     networks:
       - epsx-dev

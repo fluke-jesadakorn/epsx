@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Frontend: State parameter generated successfully');
     
     // Use environment-aware URLs
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
     
     // Build authorization URL for frontend (different client_id and scope)

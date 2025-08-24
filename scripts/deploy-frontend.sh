@@ -74,7 +74,7 @@ gcloud run deploy "$FRONTEND_SERVICE" \
     --execution-environment=gen2 \
     --set-env-vars="NODE_ENV=production" \
     --set-env-vars="APP_URL=$FRONTEND_URL" \
-    --set-env-vars="JWT_SECRET=prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum" \
+    --set-env-vars="NEXTAUTH_SECRET=prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum" \
     --set-env-vars="OIDC_CLIENT_ID=epsx-frontend" \
     --set-env-vars="OIDC_CLIENT_SECRET=epsx-frontend-secret-2024" \
     --set-env-vars="BACKEND_URL=$BACKEND_URL" \

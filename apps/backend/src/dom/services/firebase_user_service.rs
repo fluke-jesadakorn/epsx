@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::sync::Arc;
 use crate::config::env::get_env_var;
 
 use crate::infra::firebase_admin::{FirebaseAdmin, FirebaseUser};
@@ -99,7 +100,7 @@ impl FirebaseUserService {
     }
     
     /// Create service with database role service
-    pub async fn with_database_roles(db_pool: sqlx::PgPool) -> Result<Self, UserServiceError> {
+    pub async fn with_database_roles(db_pool: Arc<crate::infra::db::diesel::DbPool>) -> Result<Self, UserServiceError> {
         let firebase_admin = FirebaseAdmin::new()
             .await
             .map_err(|e| UserServiceError::InternalError(format!("Failed to initialize Firebase Admin: {}", e)))?;

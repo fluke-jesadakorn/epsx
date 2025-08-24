@@ -10,7 +10,7 @@ pub mod ports;
 
 // Selective re-exports to prevent namespace pollution
 pub use entities::{AggregateRoot, UnitOfWork};
-pub use values::{UserId, SessId, PayId, Email, Role, PermissionSet, SubscriptionTier, Subscription, Currency, PayStatus, Network};  // Explicit re-exports
+pub use values::{UserId, SessId, PayId, Email, SubscriptionTier, Subscription, Currency, PayStatus, Network};  // Explicit re-exports
 
 pub use services::{DatabaseRoleService, AutoAssignmentEngine, AuditService, EPSCacheService, AdminModuleService, FirebaseSessionService, FirebaseUserService};  // Explicit re-exports
 pub use events::*;

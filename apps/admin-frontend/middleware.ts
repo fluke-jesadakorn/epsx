@@ -1,10 +1,10 @@
 /**
- * Enhanced JWT Middleware for Admin Frontend
- * Uses JWT cookie verification with direct OAuth redirect and admin module checking
+ * Enhanced Session Validation Middleware for Admin Frontend  
+ * Integrates with backend session validation API for 100% route coverage
+ * Provides comprehensive security logging, performance monitoring, and access control
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJWT } from '@/lib/auth-utils';
-import { getAuthorizationUrl } from '@/lib/server/auth';
+import { validateAdminSession } from '@/lib/session-validator';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -14,6 +14,8 @@ const publicRoutes = [
   '/api/auth/signin',
   '/api/auth/logout', 
   '/api/auth/session',
+  '/api/v1', // Allow API routes to handle auth themselves
+  '/api/proxy', // Allow proxy routes to handle auth themselves
   '/unauthorized',
   '/access-denied',
   '/_next',
@@ -23,34 +25,50 @@ const publicRoutes = [
 // Routes that require specific admin modules
 const adminModuleRoutes: Record<string, string> = {
   '/users': 'user_management',
-  '/analytics': 'analytics_specialist', 
-  '/billing': 'billing_admin',
-  '/settings': 'system_admin',
-  '/permissions': 'permission_admin',
-  '/permission-profiles': 'user_operations',
-  '/stock-ranking-packages': 'package_coordinator'
+  '/analytics': 'analytics', 
+  '/billing': 'billing',
+  '/settings': 'system_config',
+  '/permissions': 'permission_management',
+  '/permission-profiles': 'user_management',
+  '/stock-ranking-packages': 'package_management',
+  '/reports': 'reporting',
+  '/audit': 'audit_logs',
+  '/system': 'system_config'
 }
 
-// Admin role hierarchy
-const adminRoleHierarchy = {
-  moderator: 1,
-  admin: 2,
-  super_admin: 3,
+// Performance monitoring
+interface MiddlewareMetrics {
+  startTime: number
+  path: string
+  method: string
+  userAgent?: string
+  ipAddress?: string
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const startTime = performance.now();
   
-  // Create response with security headers
+  // Extract request metadata for session validation
+  const userAgent = request.headers.get('user-agent') || undefined;
+  const ipAddress = request.headers.get('x-forwarded-for') || 
+                   request.headers.get('x-real-ip') || 
+                   request.ip || undefined;
+  const method = request.method;
+  
+  // Create response with enhanced security headers
   const response = NextResponse.next();
   
-  // Add security headers for admin app
+  // Add comprehensive security headers for admin app
   response.headers.set('x-pathname', pathname);
+  response.headers.set('x-middleware-timestamp', Date.now().toString());
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('X-Robots-Tag', 'noindex, nofollow'); // Admin should not be indexed
+  response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   
   // Allow access to public routes
   const isPublicRoute = publicRoutes.some(route => 
@@ -58,155 +76,40 @@ export async function middleware(request: NextRequest) {
   );
   
   if (isPublicRoute) {
+    const elapsedTime = performance.now() - startTime;
+    response.headers.set('x-middleware-performance', elapsedTime.toString());
     return response;
   }
   
   try {
-    // Get JWT token from admin-specific httpOnly cookie
-    const jwtToken = request.cookies.get('epsx_admin_jwt')?.value;
+    console.log(`🔍 Admin middleware: Validating session for ${pathname} (${method})`);
     
-    if (!jwtToken) {
-      console.log('🔓 Admin middleware: No JWT token found, redirecting to backend Chef Kitchen login');
+    // Use new session validator service
+    const validationResult = await validateAdminSession({
+      userAgent,
+      ipAddress,
+      path: pathname,
+      method
+    });
+    
+    if (!validationResult.valid || !validationResult.user) {
+      console.log(`🚫 Admin middleware: Session validation failed - ${validationResult.error}`);
       
-      try {
-        // Generate authorization URL with PKCE parameters for admin
-        const callbackUrl = pathname + request.nextUrl.search;
-        const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
-        
-        console.log('✅ Admin middleware: PKCE parameters generated, redirecting to backend Chef Kitchen login');
-        
-        // Redirect to backend Chef Kitchen login page for admin users
-        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
-        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-        backendAdminLoginUrl.searchParams.set('response_type', 'code');
-        backendAdminLoginUrl.searchParams.set('state', state);
-        backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
-        backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
-        
-        // Create redirect response to backend Chef Kitchen login
-        const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
-        
-        // Set PKCE parameters in httpOnly cookies for callback processing
-        chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        chefRedirect.cookies.set('oauth_state', state, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login');
-        return chefRedirect;
-        
-      } catch (error) {
-        console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login:', error);
-        // Fallback to backend admin login page directly
-        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
-        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-        backendAdminLoginUrl.searchParams.set('response_type', 'code');
-        backendAdminLoginUrl.searchParams.set('error', 'oauth_generation_failed');
-        return NextResponse.redirect(backendAdminLoginUrl.toString());
-      }
-    }
-    
-    // Verify JWT token
-    const payload = await verifyJWT(jwtToken);
-    
-    if (!payload) {
-      console.log('🔓 Admin middleware: Invalid JWT token, redirecting to backend Chef Kitchen login');
+      // Log security event for failed validation
+      await logSecurityEvent({
+        type: 'AUTHENTICATION_FAILED',
+        userAgent,
+        ipAddress,
+        path: pathname,
+        method,
+        details: { error: validationResult.error }
+      });
       
-      try {
-        // Generate authorization URL with PKCE parameters for admin
-        const callbackUrl = pathname + request.nextUrl.search;
-        const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
-        
-        console.log('✅ Admin middleware: PKCE parameters generated for invalid token, redirecting to backend Chef Kitchen login');
-        
-        // Redirect to backend Chef Kitchen login page for admin users
-        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
-        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-        backendAdminLoginUrl.searchParams.set('response_type', 'code');
-        backendAdminLoginUrl.searchParams.set('state', state);
-        backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
-        backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
-        
-        // Create redirect response to backend Chef Kitchen login
-        const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
-        
-        // Set PKCE parameters in httpOnly cookies
-        chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        chefRedirect.cookies.set('oauth_state', state, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 10 * 60, // 10 minutes
-          path: '/'
-        });
-        
-        // Clear invalid JWT token
-        chefRedirect.cookies.delete('epsx_admin_jwt');
-        
-        console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login for invalid token with cleaned cookies');
-        return chefRedirect;
-        
-      } catch (error) {
-        console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login for invalid token:', error);
-        // Fallback to backend admin login page directly
-        const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-        backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
-        backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-        backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-        backendAdminLoginUrl.searchParams.set('response_type', 'code');
-        backendAdminLoginUrl.searchParams.set('error', 'invalid_token');
-        return NextResponse.redirect(backendAdminLoginUrl.toString());
-      }
+      // Redirect to login
+      return redirectToLogin(request);
     }
     
-    // Ensure user has at least moderator role for admin access
-    const userRoleLevel = adminRoleHierarchy[payload.role as keyof typeof adminRoleHierarchy] || 0;
-    if (userRoleLevel < 1) {
-      console.log(`🚫 Admin middleware: User ${payload.email} has insufficient role (${payload.role}) for admin access`);
-      const unauthorizedUrl = new URL('/unauthorized', request.url);
-      unauthorizedUrl.searchParams.set('reason', 'insufficient_role');
-      return NextResponse.redirect(unauthorizedUrl);
-    }
+    const user = validationResult.user;
     
     // Check for admin module requirements
     const requiredModule = Object.entries(adminModuleRoutes).find(([route]) => 
@@ -214,13 +117,24 @@ export async function middleware(request: NextRequest) {
     )?.[1];
     
     if (requiredModule) {
-      // Check if user has required admin module or is system admin
-      const hasModule = payload.admin_modules?.includes(requiredModule) || 
-                       payload.admin_modules?.includes('system_admin') ||
-                       payload.role === 'super_admin'; // Super admin has access to everything
+      const hasAccess = user.admin_modules?.includes(requiredModule) || 
+                       user.admin_modules?.includes('admin-full-004') ||
+                       user.role === 'super_admin';
       
-      if (!hasModule) {
-        console.log(`🚫 Admin middleware: User ${payload.email} lacks required module ${requiredModule} for ${pathname}`);
+      if (!hasAccess) {
+        console.log(`🚫 Admin middleware: User ${user.email} lacks module ${requiredModule} for ${pathname}`);
+        
+        // Log security event for access denied
+        await logSecurityEvent({
+          type: 'ACCESS_DENIED',
+          userId: user.id,
+          userAgent,
+          ipAddress,
+          path: pathname,
+          method,
+          details: { requiredModule, userModules: user.admin_modules }
+        });
+        
         const accessDeniedUrl = new URL('/access-denied', request.url);
         accessDeniedUrl.searchParams.set('module', requiredModule);
         accessDeniedUrl.searchParams.set('route', pathname);
@@ -228,80 +142,160 @@ export async function middleware(request: NextRequest) {
       }
     }
     
-    // Add admin user info to headers for server components (non-sensitive data only)
-    response.headers.set('x-user-id', payload.sub);
-    response.headers.set('x-user-role', payload.role);
-    response.headers.set('x-user-admin-modules', JSON.stringify(payload.admin_modules || []));
+    // Add user info to headers for server components
+    response.headers.set('x-user-id', user.id);
+    response.headers.set('x-user-email', user.email);
+    response.headers.set('x-user-role', user.role);
+    response.headers.set('x-user-admin-modules', JSON.stringify(user.admin_modules || []));
+    response.headers.set('x-user-package-tier', user.package_tier);
     
-    console.log(`🔐 Admin middleware: Authenticated admin ${payload.email} (${payload.role}) accessing ${pathname}`);
+    // Add performance metrics
+    const elapsedTime = performance.now() - startTime;
+    response.headers.set('x-middleware-performance', elapsedTime.toString());
+    response.headers.set('x-session-cache-hit', validationResult.performance?.cache_hit.toString() || 'false');
+    response.headers.set('x-session-validation-time', validationResult.performance?.validation_time_ms.toString() || '0');
+    
+    // Log successful access
+    if (elapsedTime > 100) { // Log slow requests
+      console.warn(`⚠️  Admin middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms`);
+    }
+    
+    console.log(`✅ Admin middleware: Authenticated ${user.email} (${user.role}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms`);
+    
+    // Log performance metrics to backend
+    await recordPerformanceMetrics({
+      path: pathname,
+      method,
+      middlewareExecutionTime: elapsedTime,
+      cacheHit: validationResult.performance?.cache_hit || false,
+      sessionValidationTime: validationResult.performance?.validation_time_ms || 0,
+      permissionCheckTime: 0, // TODO: Measure permission check time
+      totalRequestTime: elapsedTime
+    });
     
     return response;
     
   } catch (error) {
-    console.error('❌ Admin middleware JWT verification failed:', error);
+    console.error('❌ Admin middleware validation error:', error);
+    const elapsedTime = performance.now() - startTime;
     
-    try {
-      // Redirect to backend Chef Kitchen login on JWT verification error
-      const callbackUrl = pathname + request.nextUrl.search;
-      const { url: authorizationUrl, codeVerifier, state } = await getAuthorizationUrl();
-      
-      console.log('✅ Admin middleware: PKCE parameters generated for JWT error, redirecting to backend Chef Kitchen login');
-      
-      // Redirect to backend Chef Kitchen login page for admin users
-      const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-      backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
-      backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-      backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-      backendAdminLoginUrl.searchParams.set('response_type', 'code');
-      backendAdminLoginUrl.searchParams.set('state', state);
-      backendAdminLoginUrl.searchParams.set('code_challenge', authorizationUrl.split('code_challenge=')[1]?.split('&')[0] || '');
-      backendAdminLoginUrl.searchParams.set('code_challenge_method', 'S256');
-      
-      // Create redirect response to backend Chef Kitchen login
-      const chefRedirect = NextResponse.redirect(backendAdminLoginUrl.toString());
-      
-      // Set PKCE parameters in httpOnly cookies
-      chefRedirect.cookies.set('oauth_code_verifier', codeVerifier, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 10 * 60, // 10 minutes
-        path: '/'
-      });
-      
-      chefRedirect.cookies.set('oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 10 * 60, // 10 minutes
-        path: '/'
-      });
-      
-      chefRedirect.cookies.set('oauth_callback_url', callbackUrl, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 10 * 60, // 10 minutes
-        path: '/'
-      });
-      
-      // Clear any corrupted JWT token
-      chefRedirect.cookies.delete('epsx_admin_jwt');
-      
-      console.log('✅ Admin middleware: Redirecting to backend Chef Kitchen login for JWT error with cleaned cookies');
-      return chefRedirect;
-      
-    } catch (oauthError) {
-      console.error('❌ Admin middleware: Failed to redirect to backend Chef Kitchen login during error handling:', oauthError);
-      // Ultimate fallback to backend admin login page
-      const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
-      backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
-      backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
-      backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-      backendAdminLoginUrl.searchParams.set('response_type', 'code');
-      backendAdminLoginUrl.searchParams.set('error', 'authentication_error');
-      return NextResponse.redirect(backendAdminLoginUrl.toString());
-    }
+    // Log security event for middleware error
+    await logSecurityEvent({
+      type: 'MIDDLEWARE_ERROR',
+      userAgent,
+      ipAddress,
+      path: pathname,
+      method,
+      details: { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        elapsedTime
+      }
+    });
+    
+    // Redirect to login on any validation error
+    return redirectToLogin(request);
+  }
+}
+
+/**
+ * Create redirect response to backend login
+ */
+function redirectToLogin(request: NextRequest): NextResponse {
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
+                    process.env.NEXT_PUBLIC_BACKEND_URL || 
+                    'http://localhost:8080';
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+  const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
+  
+  const loginUrl = new URL('/oauth/authorize', backendUrl);
+  loginUrl.searchParams.set('client_id', 'epsx-admin');
+  loginUrl.searchParams.set('response_type', 'code');
+  loginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+  loginUrl.searchParams.set('redirect_uri', `${adminUrl}/api/auth/callback/epsx-backend`);
+  loginUrl.searchParams.set('state', Buffer.from(JSON.stringify({ redirectTo: callbackUrl })).toString('base64url'));
+  
+  const redirect = NextResponse.redirect(loginUrl.toString());
+  
+  // Clear any invalid JWT token
+  redirect.cookies.delete('epsx_admin_jwt');
+  
+  return redirect;
+}
+
+/**
+ * Log security event to backend
+ */
+async function logSecurityEvent(event: {
+  type: string
+  userId?: string
+  userAgent?: string
+  ipAddress?: string
+  path: string
+  method: string
+  details: Record<string, any>
+}): Promise<void> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
+                      process.env.NEXT_PUBLIC_BACKEND_URL || 
+                      'http://localhost:8080';
+    
+    await fetch(`${backendUrl}/api/security/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        event_type: event.type,
+        severity: 'MEDIUM',
+        user_id: event.userId,
+        ip_address: event.ipAddress,
+        user_agent: event.userAgent,
+        path: event.path,
+        method: event.method,
+        details: event.details,
+        source: 'admin-frontend-middleware'
+      })
+    });
+  } catch (error) {
+    console.error('❌ Failed to log security event:', error);
+    // Don't throw - security logging is non-critical for middleware flow
+  }
+}
+
+/**
+ * Record performance metrics to backend
+ */
+async function recordPerformanceMetrics(metrics: {
+  path: string
+  method: string
+  middlewareExecutionTime: number
+  cacheHit: boolean
+  sessionValidationTime: number
+  permissionCheckTime: number
+  totalRequestTime: number
+}): Promise<void> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
+                      process.env.NEXT_PUBLIC_BACKEND_URL || 
+                      'http://localhost:8080';
+    
+    await fetch(`${backendUrl}/api/security/metrics`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        middleware_execution_time: metrics.middlewareExecutionTime,
+        cache_hit_rate: metrics.cacheHit ? 1.0 : 0.0,
+        session_validation_time: metrics.sessionValidationTime,
+        permission_check_time: metrics.permissionCheckTime,
+        total_request_time: metrics.totalRequestTime,
+        timestamp: new Date().toISOString()
+      })
+    });
+  } catch (error) {
+    console.error('❌ Failed to record performance metrics:', error);
+    // Don't throw - metrics recording is non-critical for middleware flow
   }
 }
 

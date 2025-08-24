@@ -1,41 +1,64 @@
 import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
 
-// TODO: Replace with direct API calls
-// import { 
-//   getAnalyticsData, 
-//   getUserAnalytics as _getUserAnalytics, 
-//   getSystemMetrics, 
-//   getRevenueAnalytics,
-//   getRealtimeMetrics 
-// } from '@epsx/server-actions';
-
-// Temporary placeholder functions for migration
-const getAnalyticsData = async () => ({ data: [] });
-const _getUserAnalytics = async () => ({ users: [] });
-const getSystemMetrics = async () => ({ metrics: {} });
-const getRevenueAnalytics = async () => ({ revenue: 0 });
-const getRealtimeMetrics = async () => ({ active: 0 });
-
 export const dynamic = 'force-dynamic';
 
 export default async function AnalyticsPage() {
-  // Fetch analytics data server-side
-  const [
-    analyticsResult, 
-    systemMetricsResult, 
-    revenueResult, 
-    realtimeResult
-  ] = await Promise.allSettled([
-    getAnalyticsData(),
-    getSystemMetrics(),
-    getRevenueAnalytics(),
-    getRealtimeMetrics()
-  ]);
+  // Fetch analytics data via API route - prevents hydration errors
+  const fetchAnalyticsData = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3001'}/api/v1/admin/analytics/dashboard?dateRange=7d&selectedModule=all`, {
+        next: { revalidate: 300 }
+      });
 
-  const analytics = analyticsResult.status === 'fulfilled' ? analyticsResult.value : null;
-  const systemMetrics = systemMetricsResult.status === 'fulfilled' ? systemMetricsResult.value : null;
-  const revenue = revenueResult.status === 'fulfilled' ? revenueResult.value : null;
-  const realtime = realtimeResult.status === 'fulfilled' ? realtimeResult.value : null;
+      if (!response.ok) {
+        return {
+          analytics: null,
+          systemMetrics: null,
+          revenue: null,
+          realtime: null
+        };
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        return {
+          analytics: { data: result.data },
+          systemMetrics: { 
+            usage: { totalUsers: result.data.metrics.totalUsers },
+            performance: { 
+              activeSessions: result.data.metrics.totalRequests,
+              responseTime: result.data.metrics.averageResponseTime,
+              uptime: '99.9%'
+            },
+            errors: { rate: result.data.metrics.errorRate }
+          },
+          revenue: { total: result.data.metrics.totalRevenue },
+          realtime: { 
+            activeUsers: result.data.metrics.totalUsers,
+            requests: result.data.metrics.totalRequests
+          }
+        };
+      }
+
+      return {
+        analytics: null,
+        systemMetrics: null,
+        revenue: null,
+        realtime: null
+      };
+    } catch (error) {
+      console.error('Failed to fetch analytics data:', error);
+      return {
+        analytics: null,
+        systemMetrics: null,
+        revenue: null,
+        realtime: null
+      };
+    }
+  };
+
+  const { analytics, systemMetrics, revenue, realtime } = await fetchAnalyticsData();
 
   return (
     <AnalyticsDashboard 

@@ -8,16 +8,21 @@ use crate::config::env::get_env_var;
 
 pub mod memory_cache;
 pub mod redis_cache;
+pub mod security_cache;
+pub mod unified_cache;
 
 // Re-export implementations
 pub use memory_cache::InMemoryCache;
 pub use redis_cache::RedisCache;
+pub use unified_cache::UnifiedCache;
+pub use security_cache::{SecurityCache, SecurityCacheFactory, SecurityCacheKeys, CachedAdminSession, CachedUserSession, SecurityEvent, PerformanceMetrics};
 
 /// Cache backend configuration
 #[derive(Debug, Clone)]
 pub enum CacheBackend {
     InMemory,
     Redis { url: String, pool_size: u32 },
+    Unified { redis_url: String, pool_size: u32 },
 }
 
 impl Default for CacheBackend {
@@ -85,6 +90,18 @@ pub trait Cache: Send + Sync {
 
     /// Set expiration time for existing key
     async fn expire(&self, key: &str, ttl_seconds: i64) -> Result<bool, CacheError>;
+
+    /// Add value to set
+    async fn set_add(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<bool, CacheError>;
+
+    /// Get cardinality of set  
+    async fn set_card(&self, key: &str) -> Result<u64, CacheError>;
+
+    /// Push value to list (object-safe version)
+    async fn list_push(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<u64, CacheError>;
+
+    /// Get range from list (object-safe version)
+    async fn list_range(&self, key: &str, start: i64, stop: i64) -> Result<Vec<String>, CacheError>;
 }
 
 /// Cache extension trait providing convenience methods for typed operations
@@ -113,6 +130,33 @@ pub trait CacheExt: Cache {
         let raw_value = serde_json::to_string(value)
             .map_err(|e| CacheError::SerializationError(e.to_string()))?;
         self.set_raw(key, &raw_value, ttl_seconds).await
+    }
+
+    /// Push typed value to list with serialization
+    async fn list_push_typed<T>(&self, key: &str, value: &T, ttl_seconds: Option<i64>) -> Result<u64, CacheError>
+    where
+        T: Serialize + Send + Sync,
+    {
+        let raw_value = serde_json::to_string(value)
+            .map_err(|e| CacheError::SerializationError(e.to_string()))?;
+        self.list_push(key, &raw_value, ttl_seconds).await
+    }
+
+    /// Get typed range from list with deserialization
+    async fn list_range_typed<T>(&self, key: &str, start: i64, stop: i64) -> Result<Vec<T>, CacheError>
+    where
+        T: for<'de> Deserialize<'de> + Send + 'static,
+    {
+        let raw_values = self.list_range(key, start, stop).await?;
+        let mut typed_values = Vec::new();
+        
+        for raw_value in raw_values {
+            let value: T = serde_json::from_str(&raw_value)
+                .map_err(|e| CacheError::DeserializationError(e.to_string()))?;
+            typed_values.push(value);
+        }
+        
+        Ok(typed_values)
     }
 }
 
@@ -172,10 +216,13 @@ impl CacheFactory {
             CacheBackend::Redis { url, pool_size } => {
                 Ok(Arc::new(RedisCache::new(url, pool_size, config).await?))
             },
+            CacheBackend::Unified { redis_url, pool_size } => {
+                Ok(Arc::new(UnifiedCache::new(redis_url, pool_size, config).await))
+            },
         }
     }
 
-    /// Create cache from environment variables
+    /// Create cache from environment variables with automatic fallback
     pub async fn from_env() -> Result<Arc<dyn Cache>, CacheError> {
         let backend = if let Ok(redis_url) = get_env_var("REDIS_URL") {
             let pool_size = get_env_var("REDIS_POOL_SIZE")
@@ -183,7 +230,8 @@ impl CacheFactory {
                 .parse()
                 .unwrap_or(10);
             
-            CacheBackend::Redis { url: redis_url, pool_size }
+            // Use Unified cache for automatic Redis + in-memory fallback
+            CacheBackend::Unified { redis_url, pool_size }
         } else {
             CacheBackend::InMemory
         };
@@ -208,6 +256,17 @@ impl CacheFactory {
         };
 
         Self::create(config).await
+    }
+
+    /// Create cache with smart fallback - attempts Redis, falls back to in-memory
+    pub async fn with_fallback() -> Arc<dyn Cache> {
+        match Self::from_env().await {
+            Ok(cache) => cache,
+            Err(e) => {
+                tracing::warn!("Failed to create cache from env, using in-memory fallback: {}", e);
+                Arc::new(InMemoryCache::new(CacheConfig::default()))
+            }
+        }
     }
 }
 

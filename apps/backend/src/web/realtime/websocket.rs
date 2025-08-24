@@ -81,7 +81,7 @@ impl ConnectionManager {
     }
     
     /// Send event to specific user
-    pub async fn send_to_user(&self, user_id: &UserId, event: EventMessage) {
+    pub async fn send_to_user(&self, _user_id: &UserId, event: EventMessage) {
         let connections = self.connections.read().await;
         let user_connections: Vec<_> = connections
             .values()

@@ -31,7 +31,7 @@ export async function getCurrentUser(params?: any): Promise<{ success: boolean; 
       return params ? { success: false, error: 'No authentication token found' } : null;
     }
 
-    const secret = process.env.JWT_SECRET || 'default-secret';
+    const secret = process.env.NEXTAUTH_SECRET || 'default-secret';
     const payload = await verifyJWT(token, secret);
     
     if (!payload) {

@@ -68,6 +68,9 @@ use super::analytics_handlers::{
     get_performance_metrics_handler,
     get_security_risk_analysis_handler,
 };
+use super::search_handlers::{
+    search_users_handler,
+};
 use super::firebase_user_management::{
     create_user as firebase_create_user,
     get_user as firebase_get_user,
@@ -99,15 +102,47 @@ use super::admin_role_management::{
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
+    // Basic admin routes (require user-management module)
+    let user_mgmt_routes = Router::new()
+        .route("/analytics/user-statistics", get(get_user_stats_handler))
+        .route("/users", get(list_users_handler))
+        .route("/users", post(create_user_handler))
+        .route("/users/:user_id", get(get_user_handler))
+        .route("/users/:user_id", put(update_user_handler))
+        .route("/users/:user_id", delete(delete_user_handler))
+        .route("/users/search", get(search_users_handler))
+        .layer(axum::middleware::from_fn(
+            crate::web::middleware::require_admin_module_middleware
+        ));
+        
+    // System administration routes (require system-configuration module)
+    let system_config_routes = Router::new()
+        .route("/api-keys", get(list_api_keys_handler))
+        .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
+        .layer(axum::middleware::from_fn(
+            crate::web::middleware::require_admin_module_middleware
+        ));
+        
+    // Security management routes (require security-management module)
+    let security_mgmt_routes = Router::new()
+        .route("/admin-modules", get(get_all_admin_modules))
+        .route("/admin-modules/users/:firebase_uid", get(get_user_admin_modules))
+        .route("/admin-modules/assign", post(assign_admin_modules))
+        .route("/admin-modules/revoke", post(revoke_admin_modules))
+        .layer(axum::middleware::from_fn(
+            crate::web::middleware::require_admin_module_middleware
+        ));
+        
     Router::new()
-        // Authentication routes for admin (these will be protected by the parent router)
+        // Public admin auth routes
         .route("/auth/logout", post(super::super::auth::handlers::logout_handler))
         .route("/auth/profile", get(super::super::auth::handlers::me_handler))
+        // Merge protected routes
+        .merge(user_mgmt_routes)
+        .merge(system_config_routes)
+        .merge(security_mgmt_routes)
         
-        // Analytics routes
-        .route("/analytics/user-statistics", get(get_user_stats_handler))
-        
-        // Firebase User management routes (Firebase-native)
+        // Firebase User management routes (require user-management module)
         .route("/firebase/users", get(firebase_list_users))
         .route("/firebase/users", post(firebase_create_user))
         .route("/firebase/users/:uid", get(firebase_get_user))
@@ -115,39 +150,27 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/firebase/users/:uid", delete(firebase_delete_user))
         .route("/firebase/users/:uid/role", post(firebase_set_user_role))
         
-        // Database Role management routes (roles/permissions stored in database)
+        // Database Role management routes
         .route("/roles/users/:firebase_uid", get(db_get_user_role))
         .route("/roles/users/:firebase_uid/assign", post(db_assign_user_role))
         .route("/roles/users/:firebase_uid/permissions", put(db_update_user_permissions))
         .route("/roles/users/:firebase_uid", delete(db_revoke_user_role))
         .route("/roles/users-by-role", get(db_list_users_by_role))
         .route("/roles/users/:firebase_uid/history", get(db_get_role_assignment_history))
-        .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
         
-        // Admin Role Management routes (granular admin modules system)
-        .route("/admin-modules", get(get_all_admin_modules))
-        .route("/admin-modules/users/:firebase_uid", get(get_user_admin_modules))
+        // Admin module details routes
         .route("/admin-modules/users/:firebase_uid/details", get(get_user_admin_module_details))
-        .route("/admin-modules/assign", post(assign_admin_modules))
-        .route("/admin-modules/revoke", post(revoke_admin_modules))
         .route("/admin-modules/users/:firebase_uid/assign-all", post(assign_all_admin_modules))
         .route("/admin-modules/users/:firebase_uid/audit", get(get_admin_role_audit))
         .route("/admin-modules/users/:firebase_uid/access/:module_code", get(check_admin_module_access))
-        
-        // Current user admin modules routes
         .route("/modules/user", get(get_current_user_admin_modules))
         
-        // User management routes (legacy - for backward compatibility)
-        .route("/users", get(list_users_handler))
-        .route("/users", post(create_user_handler))
-        .route("/users/:user_id", get(get_user_handler))
-        .route("/users/:user_id", put(update_user_handler))
-        .route("/users/:user_id", delete(delete_user_handler))
+        // Bulk operations (require user-management module)
         .route("/users/bulk-update", post(bulk_update_users_handler))
         .route("/users/bulk/assign-modules", post(bulk_assign_modules_handler))
         .route("/users/level-history", get(get_level_history_handler))
         
-        // Unified User Management routes (new refactored interface)
+        // Unified User Management routes (require user-management module)
         .route("/users/:user_id/unified", get(get_unified_user_data_handler))
         .route("/users/:user_id/profile", put(update_user_profile_handler))
         .route("/users/:user_id/roles", put(update_user_roles_handler))
@@ -155,7 +178,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/billing", put(update_user_billing_handler))
         .route("/users/:user_id/activity", get(get_user_activity_handler))
         
-        // Permission profile management routes (Full CRUD)
+        // Permission profile management routes (require security-management module)
         .route("/permission-profiles", get(list_permission_profiles_handler))
         .route("/permission-profiles", post(create_permission_profile_handler))
         .route("/permission-profiles/:id", get(get_permission_profile_handler))
@@ -168,7 +191,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/permission-profiles/categories", get(get_permission_profile_categories_handler))
         .route("/permission-profiles/tiers", get(get_permission_profile_tiers_handler))
         
-        // Temporary permissions routes
+        // Temporary permissions routes (require security-management module)
         .route("/temporary-permissions", post(create_temporary_permission_handler))
         .route("/temporary-permissions", get(list_temporary_permissions_handler))
         .route("/temporary-permissions/:id", get(get_temporary_permission_handler))
@@ -178,12 +201,12 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/temporary-permissions", get(get_user_temporary_permissions_handler))
         .route("/temporary-permissions/cleanup-expired", post(cleanup_expired_permissions_handler))
         
-        // Temporary permissions bulk operations
+        // Temporary permissions bulk operations (require security-management module)
         .route("/temporary-permissions/bulk-create", post(bulk_create_temporary_permissions_handler))
         .route("/temporary-permissions/bulk-revoke", post(bulk_revoke_temporary_permissions_handler))
         .route("/temporary-permissions/bulk-update", post(bulk_update_temporary_permissions_handler))
         
-        // Permission export/import routes
+        // Permission export/import routes (require audit-logs module)
         .route("/users/:user_id/permissions/export", get(export_user_permissions_handler))
         .route("/users/:user_id/permissions/validate-import", post(validate_permission_import_handler))
         .route("/users/:user_id/permissions/import", post(import_user_permissions_handler))
@@ -192,13 +215,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/permissions/system-backup", post(create_system_backup_handler))
         .route("/permissions/system-backup/:backup_id/restore", post(restore_system_backup_handler))
         
-        // Modern JWT-based permission management routes (replaces Casbin)
-        // TODO: Implement modern permission management endpoints
-        
-        // API Keys management routes
-        .route("/api-keys", get(list_api_keys_handler))
-        
-        // Analytics routes
+        // Analytics routes (require analytics-access module)
         .route("/analytics/permissions", get(get_permission_analytics_handler))
         .route("/analytics/recommendations", get(get_permission_recommendations_handler))
         .route("/analytics/performance", get(get_performance_metrics_handler))

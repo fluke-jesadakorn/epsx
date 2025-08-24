@@ -62,6 +62,17 @@ export default defineConfig({
       dependencies: ['admin-setup'],
     },
     
+    // Enhanced user management tests (new advanced features)
+    {
+      name: 'enhanced-user-management',
+      testMatch: '**/enhanced-user-management.spec.ts',
+      use: { 
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+      dependencies: ['admin-setup'],
+    },
+    
     // User management module tests
     {
       name: 'user-management',
@@ -125,6 +136,17 @@ export default defineConfig({
       name: 'admin-mobile-safari',
       testMatch: '**/complete-admin-coverage.spec.ts',
       use: { ...devices['iPhone 12'] },
+      dependencies: ['admin-setup'],
+    },
+    
+    // Enhanced user management mobile testing
+    {
+      name: 'enhanced-user-management-mobile',
+      testMatch: '**/enhanced-user-management.spec.ts',
+      use: { 
+        ...devices['Pixel 5'],
+        testIdAttribute: 'data-testid',
+      },
       dependencies: ['admin-setup'],
     },
   ],

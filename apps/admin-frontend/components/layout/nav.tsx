@@ -3,7 +3,7 @@
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAuth } from '@/lib/auth';
-import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database } from 'lucide-react';
+import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database, ShieldCheck, AlertTriangle, Lock, Bell, Gauge, Zap } from 'lucide-react';
 import _Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -86,6 +86,13 @@ const navItems: NavItem[] = [
     icon: Database,
     requiredModules: ['module_coordinator', 'system_admin'],
     description: 'Monitor system health and performance'
+  },
+  { 
+    href: '/security', 
+    label: 'Security', 
+    icon: ShieldCheck,
+    requiredModules: ['security_management', 'audit_logs'],
+    description: 'Security monitoring and threat detection'
   },
 ];
 

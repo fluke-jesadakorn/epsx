@@ -3,7 +3,6 @@
 import React, { Suspense, useMemo } from 'react';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
-import { TradingProvider } from '@/context/trading-context';
 import { NotificationProvider } from '@/context/notification-context';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -13,7 +12,6 @@ interface StateProviderProps {
   initialState?: {
     ui?: any;
     user?: any;
-    trading?: any;
     notifications?: any;
   };
   // SSR compatibility
@@ -38,13 +36,11 @@ function ProviderStack({ children, initialState }: {
   return (
     <AppStateProvider initialState={memoizedInitialState}>
       <UIProvider>
-        <TradingProvider>
-          <NotificationProvider>
-            <ProviderWrapper>
-              {children}
-            </ProviderWrapper>
-          </NotificationProvider>
-        </TradingProvider>
+        <NotificationProvider>
+          <ProviderWrapper>
+            {children}
+          </ProviderWrapper>
+        </NotificationProvider>
       </UIProvider>
     </AppStateProvider>
   );
@@ -239,7 +235,7 @@ export function StateInspector() {
             >
               <option value="ui">UI State</option>
               <option value="user">User State</option>
-              <option value="trading">Trading State</option>
+              <option value="analytics">Analytics State</option>
               <option value="notifications">Notifications State</option>
               <option value="cache">Cache State</option>
             </select>

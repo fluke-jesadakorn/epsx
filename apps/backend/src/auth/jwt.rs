@@ -22,7 +22,6 @@ pub struct Claims {
     pub name: Option<String>,
     
     // Authorization
-    pub role: String,
     pub permissions: Vec<String>,
     pub admin_modules: Vec<String>,
     pub package_tier: String,
@@ -36,7 +35,6 @@ pub struct User {
     pub id: String,
     pub email: String,
     pub name: Option<String>,
-    pub role: String,
     pub permissions: Vec<String>,
     pub admin_modules: Vec<String>,
     pub package_tier: String,
@@ -70,8 +68,8 @@ impl Service {
         let key_manager = Arc::new(KeyManager::from_env_or_generate()
             .map_err(|e| Error::Invalid(format!("Failed to initialize KeyManager: {}", e)))?);
             
-        let legacy_secret = get_env_var("JWT_SECRET")
-            .or_else(|_| get_env_var("JWT_SECRET"))
+        let legacy_secret = get_env_var("NEXTAUTH_SECRET")
+            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
             .ok();
             
         let issuer = get_env_var("OIDC_ISSUER")
@@ -107,7 +105,6 @@ impl Service {
             name: user_data.name,
             
             // Authorization
-            role: user_data.role.unwrap_or_else(|| "user".to_string()),
             permissions: user_data.permissions.unwrap_or_default(),
             admin_modules: user_data.admin_modules.unwrap_or_default(),
             package_tier: user_data.package_tier.unwrap_or_else(|| "FREE".to_string()),
@@ -198,7 +195,6 @@ impl Service {
             id: claims.sub,
             email: claims.email,
             name: claims.name,
-            role: claims.role,
             permissions: claims.permissions,
             admin_modules: claims.admin_modules,
             package_tier: claims.package_tier,
@@ -226,20 +222,18 @@ impl Service {
         false
     }
 
-    /// Check if user has role
+    /// Check if user has role (deprecated - use has_module or has_tier instead)
+    #[deprecated(note = "Use has_module() or has_tier() instead")]
     pub fn has_role(&self, user: &User, required_role: &str) -> bool {
-        let role_hierarchy = [
-            ("user", 1),
-            ("premium", 2),
-            ("moderator", 3),
-            ("admin", 4),
-            ("super_admin", 5),
-        ].iter().cloned().collect::<std::collections::HashMap<_, _>>();
-
-        let user_level = role_hierarchy.get(user.role.to_lowercase().as_str()).unwrap_or(&0);
-        let required_level = role_hierarchy.get(required_role.to_lowercase().as_str()).unwrap_or(&1);
-
-        user_level >= required_level
+        // Backwards compatibility mapping
+        match required_role.to_lowercase().as_str() {
+            "admin" => !user.admin_modules.is_empty(),
+            "super_admin" => user.admin_modules.contains(&"system_admin".to_string()),
+            "moderator" => user.admin_modules.contains(&"user_operations".to_string()) || user.admin_modules.contains(&"support_specialist".to_string()),
+            "premium" => self.has_tier(user, "SILVER"),
+            "user" => self.has_tier(user, "BRONZE"),
+            _ => false,
+        }
     }
 
     /// Check if user has module access
@@ -278,9 +272,14 @@ impl Service {
     
     /// Validate admin endpoint access
     pub fn validate_admin_endpoint(&self, user: &User, path: &str) -> bool {
-        // Check if user has admin role or full admin modules
-        if self.has_role(user, "admin") {
-            return true;
+        // Check if user has any admin modules
+        if !user.admin_modules.is_empty() {
+            // System admin has access to everything
+            if user.admin_modules.contains(&"system_admin".to_string()) {
+                return true;
+            }
+        } else {
+            return false; // No admin access if no modules
         }
         
         // Check if user has admin-full-004 profile
@@ -324,7 +323,6 @@ pub struct UserData {
     pub id: String,
     pub email: String,
     pub name: Option<String>,
-    pub role: Option<String>,
     pub permissions: Option<Vec<String>>,
     pub admin_modules: Option<Vec<String>>,
     pub package_tier: Option<String>,
@@ -356,7 +354,6 @@ mod tests {
             id: "user123".to_string(),
             email: "test@example.com".to_string(),
             name: Some("Test User".to_string()),
-            role: Some("user".to_string()),
             permissions: Some(vec!["read".to_string()]),
             admin_modules: Some(vec![]),
             package_tier: Some("FREE".to_string()),
@@ -380,7 +377,6 @@ mod tests {
             id: "user123".to_string(),
             email: "test@example.com".to_string(),
             name: None,
-            role: "admin".to_string(),
             permissions: vec!["admin:*".to_string()],
             admin_modules: vec!["user_management".to_string()],
             package_tier: "GOLD".to_string(),

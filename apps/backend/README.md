@@ -207,7 +207,7 @@ REDIS_URL=redis://localhost:6379
 PORT=8080
 HOST=0.0.0.0
 FRONTEND_URL=http://localhost:3000
-JWT_SECRET=your_jwt_secret_here
+NEXTAUTH_SECRET=your_jwt_secret_here
 ```
 
 ### Build and Run

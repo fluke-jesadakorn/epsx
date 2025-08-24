@@ -10,6 +10,38 @@ use crate::dom::values::UserId;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuditLogId(String);
 
+impl AuditLogId {
+    pub fn new(id: String) -> Self {
+        Self(id)
+    }
+    
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+    
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl std::fmt::Display for AuditLogId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for AuditLogId {
+    fn from(id: String) -> Self {
+        Self(id)
+    }
+}
+
+impl From<AuditLogId> for String {
+    fn from(id: AuditLogId) -> Self {
+        id.0
+    }
+}
+
 /// Audit log entry for tracking all IAM and security operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditLogEntry {
@@ -192,16 +224,16 @@ pub struct AuditStatistics {
 // Implementations
 
 impl AuditLogId {
-    pub fn new(id: String) -> Self {
-        Self(id)
-    }
-    
     pub fn value(&self) -> &str {
         &self.0
     }
     
     pub fn generate() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn from_str(id: &str) -> Result<Self, String> {
+        Ok(Self(id.to_string()))
     }
 }
 
@@ -258,6 +290,10 @@ impl AuditLogEntry {
     pub fn actor_id(&self) -> &UserId {
         &self.actor_id
     }
+
+    pub fn user_id(&self) -> &UserId {
+        &self.actor_id
+    }
     
     pub fn action(&self) -> &AuditAction {
         &self.action
@@ -282,8 +318,16 @@ impl AuditLogEntry {
     pub fn timestamp(&self) -> &DateTime<Utc> {
         &self.timestamp
     }
+
+    pub fn created_at(&self) -> &DateTime<Utc> {
+        &self.timestamp
+    }
     
     pub fn client_ip(&self) -> Option<&str> {
+        self.client_ip.as_deref()
+    }
+
+    pub fn ip_address(&self) -> Option<&str> {
         self.client_ip.as_deref()
     }
     
@@ -293,6 +337,35 @@ impl AuditLogEntry {
     
     pub fn session_id(&self) -> Option<&str> {
         self.session_id.as_deref()
+    }
+
+    /// Reconstruct audit log entry from database data (for compatibility with mappers)
+    pub fn reconstruct(
+        id: AuditLogId,
+        actor_id: UserId,
+        action: AuditAction,
+        resource_type: ResourceType,
+        resource_id: String,
+        result: AuditResult,
+        metadata: AuditMetadata,
+        timestamp: DateTime<Utc>,
+        client_ip: Option<String>,
+        user_agent: Option<String>,
+        session_id: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            actor_id,
+            action,
+            resource_type,
+            resource_id,
+            result,
+            metadata,
+            timestamp,
+            client_ip,
+            user_agent,
+            session_id,
+        }
     }
 }
 
@@ -515,6 +588,9 @@ pub enum AuditError {
     
     #[error("Database error: {0}")]
     DatabaseError(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
     
     #[error("Permission denied for audit operation")]
     PermissionDenied,

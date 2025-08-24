@@ -53,7 +53,7 @@ export function getJWTTimeToExpiry(token: string): number {
  */
 export async function verifyJWT(token: string, secret?: string): Promise<EPSXJWTPayload | null> {
   try {
-    const jwtSecret = secret || process.env.JWT_SECRET || 'your-default-secret-key';
+    const jwtSecret = secret || process.env.NEXTAUTH_SECRET || 'your-default-secret-key';
     const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
     return payload as EPSXJWTPayload;
   } catch {
@@ -95,7 +95,7 @@ export function createJWTClaims(user: {
  * Sign JWT token with payload
  */
 export async function signJWT(payload: EPSXJWTPayload, secret?: string, expiresIn = '24h'): Promise<string> {
-  const jwtSecret = secret || process.env.JWT_SECRET || 'your-default-secret-key';
+  const jwtSecret = secret || process.env.NEXTAUTH_SECRET || 'your-default-secret-key';
   const jwt = new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

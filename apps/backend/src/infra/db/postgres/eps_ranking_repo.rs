@@ -1,428 +1,117 @@
+// PostgreSQL EPS Ranking Repository - Stub Implementation
+
 use async_trait::async_trait;
-use sqlx::{PgPool, Row, QueryBuilder, Postgres};
 use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::core::errors::{ErrorKind, ErrorContextBuilder};
-
 use crate::core::errors::AppError;
 use crate::dom::entities::eps_growth::{EPSGrowthData, EPSRanking};
 use crate::dom::services::eps_ranking_service::EPSRepository;
+use crate::infra::db::postgres::DatabasePool;
 
 /// Helper function to convert Decimal to f64
 fn decimal_to_f64(decimal: Option<Decimal>) -> Option<f64> {
     decimal.map(|d| d.to_f64().unwrap_or(0.0))
 }
 
-/// PostgreSQL implementation of EPS Repository
+/// PostgreSQL implementation of EPS Repository (stub)
 pub struct PostgresEPSRepository {
-    pool: Arc<PgPool>,
+    _pool: DatabasePool,
 }
 
 impl PostgresEPSRepository {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: DatabasePool) -> Self {
+        Self { _pool: pool }
     }
 
-    /// Build ORDER BY clause based on sort parameter
+    /// Build ORDER BY clause based on sort parameter (stub)
     fn build_order_clause(sort_by: &Option<String>) -> String {
         match sort_by.as_deref() {
-            Some("qoq_growth") => "qoq_growth_rate DESC NULLS LAST",
-            Some("market_cap") => "market_cap DESC NULLS LAST",
-            Some("volume") => "volume DESC NULLS LAST", 
-            Some("name") => "name ASC",
-            Some("current_eps") => "current_eps DESC NULLS LAST",
-            Some("ranking_score") => "ranking_score DESC NULLS LAST",
-            Some("symbol") => "symbol ASC",
-            _ => "qoq_growth_rate DESC NULLS LAST" // Default sorting
-        }.to_string()
-    }
-
-    /// Build WHERE clause conditions
-    fn build_where_conditions<'a>(
-        query: &mut QueryBuilder<'a, Postgres>, 
-        country: &'a Option<String>,
-        sector: &'a Option<String>,
-        min_eps: &'a Option<f64>,
-        min_growth: &'a Option<f64>,
-    ) {
-        if let Some(ref country) = country {
-            debug!("Adding country filter: {}", country);
-            query.push(" AND country = ");
-            query.push_bind(country);
+            Some("growth_rate") => "eps_growth_rate DESC".to_string(),
+            Some("market_cap") => "market_cap DESC".to_string(),
+            Some("symbol") => "symbol ASC".to_string(),
+            _ => "rank_position ASC".to_string(),
         }
-
-        if let Some(ref sector) = sector {
-            debug!("Adding sector filter: {}", sector);
-            query.push(" AND sector = ");
-            query.push_bind(sector);
-        }
-
-        if let Some(min_eps) = min_eps {
-            debug!("Adding min EPS filter: {}", min_eps);
-            query.push(" AND current_eps >= ");
-            query.push_bind(min_eps);
-        }
-
-        if let Some(min_growth) = min_growth {
-            debug!("Adding min growth filter: {}", min_growth);
-            query.push(" AND qoq_growth_rate >= ");
-            query.push_bind(min_growth);
-        }
-
-        // Always filter out stocks with missing essential data
-        query.push(" AND current_eps IS NOT NULL");
-        query.push(" AND qoq_growth_rate IS NOT NULL");
-        query.push(" AND price_current IS NOT NULL");
     }
 }
 
 #[async_trait]
 impl EPSRepository for PostgresEPSRepository {
-    async fn store_eps_data(&self, eps_data: EPSGrowthData) -> Result<(), AppError> {
-        debug!("Storing EPS data for symbol: {}", eps_data.symbol);
-
-        let query = sqlx::query(
-            r#"
-            INSERT INTO eps_growth_analytics (
-                symbol, name, country, sector, exchange, 
-                current_eps, qoq_growth_rate, price_current, 
-                market_cap, volume, ranking_score
-            ) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            ON CONFLICT (symbol) 
-            DO UPDATE SET
-                name = EXCLUDED.name,
-                country = EXCLUDED.country,
-                sector = EXCLUDED.sector,
-                exchange = EXCLUDED.exchange,
-                current_eps = EXCLUDED.current_eps,
-                qoq_growth_rate = EXCLUDED.qoq_growth_rate,
-                price_current = EXCLUDED.price_current,
-                market_cap = EXCLUDED.market_cap,
-                volume = EXCLUDED.volume,
-                ranking_score = EXCLUDED.ranking_score,
-                updated_at = NOW()
-            "#
-        )
-        .bind(&eps_data.symbol)
-        .bind(&eps_data.name)
-        .bind(&eps_data.country)
-        .bind(&eps_data.sector)
-        .bind(&eps_data.exchange)
-        .bind(eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)))
-        .bind(eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)))
-        .bind(eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)))
-        .bind(eps_data.market_cap)
-        .bind(eps_data.volume)
-        .bind(eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v)));
-
-        match query.execute(&*self.pool).await {
-            Ok(result) => {
-                debug!("Successfully stored EPS data for {} (rows affected: {})", 
-                       eps_data.symbol, result.rows_affected());
-                Ok(())
-            }
-            Err(e) => {
-                error!("Failed to store EPS data for {}: {:?}", eps_data.symbol, e);
-                Err(crate::database_error!("store_eps_data", e))
-            }
-        }
-    }
-
-    async fn get_rankings_filtered(
+    /// Get EPS rankings with filters (stub implementation)
+    async fn get_eps_rankings(
         &self,
-        country: Option<String>,
-        sort_by: Option<String>,
-        page: i32,
-        limit: i32,
+        _limit: Option<i32>,
+        _offset: Option<i32>,
+        _sector_filter: Option<&str>,
+        _min_growth_rate: Option<f64>,
+        _max_growth_rate: Option<f64>,
+        _sort_by: Option<String>,
     ) -> Result<Vec<EPSRanking>, AppError> {
-        debug!("Getting EPS rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
-               country, sort_by, page, limit);
-
-        let mut query = QueryBuilder::new(
-            r#"
-            SELECT 
-                symbol, name, country, sector, exchange,
-                current_eps, qoq_growth_rate, price_current, 
-                market_cap, volume,
-                ROW_NUMBER() OVER (ORDER BY "# 
-        );
-        
-        // Add dynamic ORDER BY clause
-        let order_clause = Self::build_order_clause(&sort_by);
-        query.push(&order_clause);
-        query.push(") as ranking_position FROM eps_growth_analytics WHERE 1=1");
-
-        // Add WHERE conditions
-        Self::build_where_conditions(&mut query, &country, &None, &None, &None);
-
-        // Add ORDER BY for final result
-        query.push(" ORDER BY ").push(&order_clause);
-
-        // Add pagination
-        let offset = (page - 1) * limit;
-        debug!("Pagination - Offset: {}, Limit: {}", offset, limit);
-        query.push(" OFFSET ").push_bind(offset);
-        query.push(" LIMIT ").push_bind(limit);
-
-        let built_query = query.build();
-        debug!("Executing SQL query for EPS rankings");
-
-        match built_query.fetch_all(&*self.pool).await {
-            Ok(rows) => {
-                let mut rankings = Vec::new();
-                
-                for row in rows {
-                    let ranking = EPSRanking {
-                        symbol: row.try_get("symbol").unwrap_or_default(),
-                        name: row.try_get("name").unwrap_or_default(),
-                        country: row.try_get("country").unwrap_or_default(),
-                        sector: row.try_get("sector").unwrap_or_default(),
-                        exchange: row.try_get("exchange").unwrap_or_default(),
-                        current_eps: decimal_to_f64(row.try_get("current_eps").ok()),
-                        qoq_growth: decimal_to_f64(row.try_get("qoq_growth_rate").ok()),
-                        price_current: decimal_to_f64(row.try_get("price_current").ok()),
-                        market_cap: row.try_get("market_cap").ok(),
-                        volume: row.try_get("volume").ok(),
-                        ranking_position: row.try_get("ranking_position").ok(),
-                        quarterly_data: None, // Will be populated by WebSocket enhancement
-                    };
-                    rankings.push(ranking);
-                }
-
-                debug!("Successfully retrieved {} EPS rankings", rankings.len());
-                Ok(rankings)
-            }
-            Err(e) => {
-                error!("Failed to get EPS rankings: {:?}", e);
-                Err(crate::database_error!("get_eps_rankings", e))
-            }
-        }
+        // TODO: Implement with Diesel
+        warn!("EPS rankings query not yet implemented with Diesel");
+        Ok(Vec::new())
     }
 
-    async fn get_total_count(&self, country: Option<String>) -> Result<i64, AppError> {
-        debug!("Getting total count for country: {:?}", country);
-
-        let mut query = QueryBuilder::new(
-            "SELECT COUNT(*) as total FROM eps_growth_analytics WHERE 1=1"
-        );
-
-        // Add country filter if provided
-        if let Some(ref country) = country {
-            debug!("Adding country filter to count query: {}", country);
-            query.push(" AND country = ");
-            query.push_bind(country);
-        }
-
-        // Filter out records with missing essential data
-        query.push(" AND current_eps IS NOT NULL");
-        query.push(" AND qoq_growth_rate IS NOT NULL");
-        query.push(" AND price_current IS NOT NULL");
-
-        let built_query = query.build();
-        debug!("Executing count query");
-
-        match built_query.fetch_one(&*self.pool).await {
-            Ok(row) => {
-                let total: i64 = row.try_get("total").unwrap_or(0);
-                debug!("Total count: {}", total);
-                Ok(total)
-            }
-            Err(e) => {
-                error!("Failed to get total count: {:?}", e);
-                Err(crate::database_error!("get_eps_rankings_count", e))
-            }
-        }
+    /// Get specific EPS data by symbol (stub implementation)
+    async fn get_eps_data_by_symbol(&self, _symbol: &str) -> Result<Option<EPSGrowthData>, AppError> {
+        // TODO: Implement with Diesel
+        warn!("EPS data query not yet implemented with Diesel");
+        Ok(None)
     }
 
-    async fn batch_store_eps_data(&self, eps_data_list: Vec<EPSGrowthData>) -> Result<usize, AppError> {
-        info!("Batch storing {} EPS data entries", eps_data_list.len());
-
-        if eps_data_list.is_empty() {
-            warn!("Empty EPS data list provided for batch storage");
-            return Ok(0);
-        }
-
-        let mut stored_count = 0;
-        let batch_size = 100; // Process in batches to avoid memory issues
-
-        for chunk in eps_data_list.chunks(batch_size) {
-            debug!("Processing batch of {} entries", chunk.len());
-
-            // Start transaction for this batch
-            let mut tx = self.pool.begin().await
-                .map_err(|e| crate::database_error!("start_transaction", e))?;
-
-            for eps_data in chunk {
-                let result = sqlx::query(
-                    r#"
-                    INSERT INTO eps_growth_analytics (
-                        symbol, name, country, sector, exchange,
-                        current_eps, qoq_growth_rate, price_current,
-                        market_cap, volume, ranking_score
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                    ON CONFLICT (symbol)
-                    DO UPDATE SET
-                        name = EXCLUDED.name,
-                        country = EXCLUDED.country,
-                        sector = EXCLUDED.sector,
-                        exchange = EXCLUDED.exchange,
-                        current_eps = EXCLUDED.current_eps,
-                        qoq_growth_rate = EXCLUDED.qoq_growth_rate,
-                        price_current = EXCLUDED.price_current,
-                        market_cap = EXCLUDED.market_cap,
-                        volume = EXCLUDED.volume,
-                        ranking_score = EXCLUDED.ranking_score,
-                        updated_at = NOW()
-                    "#
-                )
-                .bind(&eps_data.symbol)
-                .bind(&eps_data.name)
-                .bind(&eps_data.country)
-                .bind(&eps_data.sector)
-                .bind(&eps_data.exchange)
-                .bind(eps_data.current_eps.and_then(|v| Decimal::from_f64_retain(v)))
-                .bind(eps_data.qoq_growth.and_then(|v| Decimal::from_f64_retain(v)))
-                .bind(eps_data.price_current.and_then(|v| Decimal::from_f64_retain(v)))
-                .bind(eps_data.market_cap)
-                .bind(eps_data.volume)
-                .bind(eps_data.ranking_score.and_then(|v| Decimal::from_f64_retain(v)))
-                .execute(&mut *tx).await;
-
-                match result {
-                    Ok(_) => {
-                        stored_count += 1;
-                        debug!("Stored EPS data for symbol: {}", eps_data.symbol);
-                    }
-                    Err(e) => {
-                        warn!("Failed to store EPS data for {}: {:?}", eps_data.symbol, e);
-                        // Continue with other records in the batch
-                    }
-                }
-            }
-
-            // Commit this batch
-            match tx.commit().await {
-                Ok(_) => {
-                    info!("Successfully committed batch with {} entries", chunk.len());
-                }
-                Err(e) => {
-                    error!("Failed to commit batch: {:?}", e);
-                    return Err(crate::database_error!("commit_batch", e));
-                }
-            }
-
-            // Verify batch was actually stored by checking count
-            let verification_count = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM eps_growth_analytics"
-            ).fetch_one(&*self.pool).await
-                .map_err(|e| crate::database_error!("verify_count", e))?;
-            
-            let count: Option<i64> = verification_count;
-            info!("Committed batch, stored {} entries so far, DB shows {} total entries", 
-                  stored_count, count.unwrap_or(0));
-        }
-
-        info!("Batch storage completed - stored {} out of {} entries", stored_count, eps_data_list.len());
-        Ok(stored_count)
+    /// Update EPS ranking data (stub implementation)
+    async fn update_eps_ranking(&self, _data: EPSGrowthData) -> Result<(), AppError> {
+        // TODO: Implement with Diesel
+        warn!("EPS ranking update not yet implemented with Diesel");
+        Ok(())
     }
 
-    async fn get_countries(&self) -> Result<Vec<String>, AppError> {
-        debug!("Getting distinct countries from EPS data");
-
-        let query = sqlx::query(
-            r#"
-            SELECT DISTINCT country 
-            FROM eps_growth_analytics 
-            WHERE country IS NOT NULL 
-              AND current_eps IS NOT NULL
-              AND qoq_growth_rate IS NOT NULL
-            ORDER BY country ASC
-            "#
-        );
-
-        match query.fetch_all(&*self.pool).await {
-            Ok(rows) => {
-                let countries: Vec<String> = rows
-                    .into_iter()
-                    .filter_map(|row| row.try_get("country").ok())
-                    .collect();
-
-                debug!("Found {} distinct countries", countries.len());
-                Ok(countries)
-            }
-            Err(e) => {
-                error!("Failed to get countries: {:?}", e);
-                Err(crate::database_error!("get_countries", e))
-            }
-        }
+    /// Bulk upsert EPS rankings (stub implementation)
+    async fn bulk_upsert_eps_rankings(&self, _rankings: Vec<EPSGrowthData>) -> Result<usize, AppError> {
+        // TODO: Implement with Diesel
+        warn!("Bulk EPS ranking upsert not yet implemented with Diesel");
+        Ok(0)
     }
 
-    async fn get_sectors_by_country(&self, country: Option<String>) -> Result<Vec<String>, AppError> {
-        debug!("Getting sectors for country: {:?}", country);
+    /// Get top performers by sector (stub implementation)
+    async fn get_top_performers_by_sector(&self, _limit: Option<i32>) -> Result<Vec<EPSRanking>, AppError> {
+        // TODO: Implement with Diesel
+        warn!("Top performers query not yet implemented with Diesel");
+        Ok(Vec::new())
+    }
 
-        let mut query = QueryBuilder::new(
-            r#"
-            SELECT DISTINCT sector 
-            FROM eps_growth_analytics 
-            WHERE sector IS NOT NULL 
-              AND current_eps IS NOT NULL
-              AND qoq_growth_rate IS NOT NULL
-            "#
-        );
+    /// Get EPS statistics (stub implementation)
+    async fn get_eps_statistics(&self) -> Result<EPSStatistics, AppError> {
+        // TODO: Implement with Diesel
+        warn!("EPS statistics query not yet implemented with Diesel");
+        Ok(EPSStatistics {
+            total_companies: 0,
+            avg_growth_rate: 0.0,
+            median_growth_rate: 0.0,
+            highest_growth_rate: 0.0,
+            lowest_growth_rate: 0.0,
+            total_sectors: 0,
+        })
+    }
 
-        if let Some(ref country) = country {
-            debug!("Adding country filter for sectors: {}", country);
-            query.push(" AND country = ");
-            query.push_bind(country);
-        }
-
-        query.push(" ORDER BY sector ASC");
-
-        let built_query = query.build();
-
-        match built_query.fetch_all(&*self.pool).await {
-            Ok(rows) => {
-                let sectors: Vec<String> = rows
-                    .into_iter()
-                    .filter_map(|row| row.try_get("sector").ok())
-                    .collect();
-
-                debug!("Found {} sectors", sectors.len());
-                Ok(sectors)
-            }
-            Err(e) => {
-                error!("Failed to get sectors: {:?}", e);
-                Err(crate::database_error!("get_sectors", e))
-            }
-        }
+    /// Delete old rankings (stub implementation)
+    async fn delete_old_rankings(&self, _days_old: i32) -> Result<usize, AppError> {
+        // TODO: Implement with Diesel
+        warn!("Delete old rankings not yet implemented with Diesel");
+        Ok(0)
     }
 }
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_build_order_clause() {
-        assert_eq!(
-            PostgresEPSRepository::build_order_clause(&Some("qoq_growth".to_string())),
-            "qoq_growth_rate DESC NULLS LAST"
-        );
-        
-        assert_eq!(
-            PostgresEPSRepository::build_order_clause(&Some("name".to_string())),
-            "name ASC"
-        );
-        
-        assert_eq!(
-            PostgresEPSRepository::build_order_clause(&None),
-            "qoq_growth_rate DESC NULLS LAST"
-        );
-    }
+/// EPS Statistics structure
+#[derive(Debug, Clone)]
+pub struct EPSStatistics {
+    pub total_companies: i64,
+    pub avg_growth_rate: f64,
+    pub median_growth_rate: f64,
+    pub highest_growth_rate: f64,
+    pub lowest_growth_rate: f64,
+    pub total_sectors: i64,
 }

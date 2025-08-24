@@ -20,7 +20,7 @@ pub trait EmailSvc: Send + Sync {
 
 #[async_trait]
 pub trait PayGw: Send + Sync {
-    async fn create_payment_address(&self, currency: &Currency, user_id: &UserId) -> Result<PaymentAddress, PaymentServiceError>;
+    async fn create_payment_address(&self, currency: &Currency, _user_id: &UserId) -> Result<PaymentAddress, PaymentServiceError>;
     async fn verify_transaction(&self, tx_hash: &str, expected_amount: Decimal, currency: &Currency) -> Result<TransactionDetails, PaymentServiceError>;
     async fn get_exchange_rate(&self, from: &Currency, to: &Currency) -> Result<Decimal, PaymentServiceError>;
     async fn estimate_fees(&self, currency: &Currency, network: &str) -> Result<Decimal, PaymentServiceError>;
@@ -36,7 +36,7 @@ pub trait StockDataSvc: Send + Sync {
 
 #[async_trait]
 pub trait WebSocketSvc: Send + Sync {
-    async fn broadcast_to_user(&self, user_id: &UserId, message: &str) -> Result<(), WebSocketError>;
+    async fn broadcast_to_user(&self, _user_id: &UserId, message: &str) -> Result<(), WebSocketError>;
     async fn broadcast_to_role(&self, role: &str, message: &str) -> Result<(), WebSocketError>;
     async fn broadcast_stock_update(&self, symbol: &Symbol, price: Decimal) -> Result<(), WebSocketError>;
     async fn get_connected_users(&self) -> Result<Vec<UserId>, WebSocketError>;

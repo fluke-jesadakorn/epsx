@@ -4,4 +4,4 @@ mod routes;
 pub mod webhook;
 
 pub use service::PaymentService;
-pub use routes::router as payment_router;
+pub use routes::router_v1 as payment_router;

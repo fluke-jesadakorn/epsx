@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 
 use crate::dom::entities::iam::{Permission, PackageTier};
-use crate::dom::entities::permission_profile::PermissionProfile;
 use crate::dom::values::UserId;
 
 /// Security violation types
@@ -237,7 +236,7 @@ impl PermissionSecurityService {
     /// Check if requesting user has authority to make permission changes
     async fn has_authority_for_change(
         &self,
-        _requesting_user_id: &UserId,
+        _requestinguser_id: &UserId,
         requesting_user_tier: &PackageTier,
         new_permissions: &[Permission],
     ) -> bool {

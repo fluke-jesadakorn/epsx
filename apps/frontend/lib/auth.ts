@@ -77,7 +77,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('❌ Frontend: Login initiation failed:', error)
       // Fallback to direct redirect if PKCE initiation fails
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
       const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       
       const params = new URLSearchParams({
@@ -398,7 +398,7 @@ export async function signIn(callbackUrl?: string) {
   } catch (error) {
     console.error('❌ Frontend: SignIn initiation failed:', error)
     // Fallback to direct redirect if PKCE initiation fails
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const redirectTo = callbackUrl || window.location.href
     

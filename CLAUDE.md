@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EPSX is a production-ready trading platform built with modern technologies, featuring analytics-focused design and mobile-first performance. The architecture consists of:
+EPSX is a production-ready analytics platform built with modern technologies, featuring enterprise-grade security and mobile-first performance. The architecture consists of:
 
-- **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 with comprehensive analytics
-- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management
-- **Backend** (Port 8080): High-performance Rust API server with Axum + analytics engine
-- **Unified Monorepo**: Streamlined structure optimized for development velocity
+- **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 with EPS analytics dashboard
+- **Admin Frontend** (Port 3001): Administrative dashboard for user/IAM management and system monitoring
+- **Backend** (Port 8080): High-performance Rust API server with EPS analytics engine, TradingView integration, and enterprise security
+- **Unified Monorepo**: Streamlined structure optimized for analytics performance and development velocity
 
 ## Architecture & Technology Stack
 
@@ -34,8 +34,9 @@ EPSX is a production-ready trading platform built with modern technologies, feat
 - **Database**: PostgreSQL with SQLx ORM and migrations for analytics data
 - **Cache**: Redis for session/performance data and analytics caching
 - **Auth**: Multi-provider JWT with role-based access control
-- **Analytics Engine**: High-performance market data processing and analysis
-- **Architecture**: Domain-driven design with clean architecture patterns
+- **EPS Analytics Engine**: Production-ready stock analysis with TradingView data integration and real-time caching
+- **Enterprise Security**: Complete GDPR/SOX/HIPAA compliance, brute force detection, and audit systems
+- **Architecture**: Domain-driven design with clean architecture patterns and comprehensive security framework
 
 ## Essential Development Commands
 
@@ -168,10 +169,10 @@ async fn should_create_user_with_valid_data() {
 4. **IAM System** determines user permissions based on profiles
 
 ### IAM Profiles & Permissions
-- `user-basic-001`: Basic trading features
-- `user-premium-002`: Premium features + advanced analytics  
-- `moderator-standard-003`: User management capabilities
-- `admin-full-004`: Full system access
+- `user-basic-001`: Basic EPS analytics access with standard filtering
+- `user-premium-002`: Premium analytics features with advanced filtering and export capabilities
+- `moderator-standard-003`: User management and content moderation capabilities
+- `admin-full-004`: Full system access including security monitoring and compliance management
 
 ### Session Management
 - **Frontend Sessions**: Custom JWT system handles session state
@@ -227,11 +228,12 @@ sqlx migrate run  # Apply migrations
 - **TypeScript**: Comprehensive type definitions for analytics data
 - **Real-time Updates**: WebSocket integration for live market data
 
-### Key Features
-- **Analytics Dashboard**: Advanced stock analysis with filtering and visualization
-- **Mobile Performance**: Touch gestures, responsive layouts, and performance optimizations
-- **Real-time Data**: Live market updates and streaming analytics
-- **Authentication**: Multi-provider OIDC with Firebase integration
+### Core Implemented Features
+- **EPS Growth Analytics**: Complete stock ranking system with multi-dimensional filtering and TradingView data
+- **Enterprise Security**: ML-powered brute force detection, security alerting, and comprehensive compliance framework
+- **Real-time Performance**: Advanced caching, WebSocket support, and optimized database queries
+- **Production Authentication**: Multi-provider OIDC, IAM profiles, and secure session management
+- **Admin Dashboard**: User management, security monitoring, and system analytics
 
 ## Development Best Practices
 
@@ -320,23 +322,23 @@ pnpm docker:dev:logs         # View logs
 3. **Verify**: Re-run benchmarks
 4. **Monitor**: `./scripts/analyze-performance.sh`
 
-## 📊 Analytics Development Patterns
+## 📊 EPS Analytics Development Patterns
 
 ### 📊 Component Architecture
 
 ```typescript
-// Pattern: Analytics-focused component structure
-// components/analytics/AnalyticsCard.tsx
-export function AnalyticsCard({ 
-  data, 
+// Pattern: EPS Analytics component structure  
+// components/analytics/EPSAnalyticsCard.tsx
+export function EPSAnalyticsCard({ 
+  epsData, 
   onFilter, 
   mobile = false,
   realTime = true 
 }) {
-  // 1. Mobile-first responsive design
-  // 2. Real-time data integration
-  // 3. Touch-optimized interactions
-  // 4. Accessibility compliance
+  // 1. EPS-focused data visualization
+  // 2. Real-time TradingView data integration
+  // 3. Advanced filtering capabilities
+  // 4. Mobile-optimized performance
 }
 ```
 
@@ -351,38 +353,38 @@ export function AnalyticsCard({
 | **Image Optimization** | Next.js Image with AVIF/WebP |
 | **Code Splitting** | Dynamic imports for analytics modules |
 
-### 📈 Real-time Data Integration
+### 📈 Real-time EPS Data Integration
 
 ```typescript
-// Pattern: Real-time analytics data flow
-const useAnalyticsData = (symbol: string) => {
+// Pattern: Real-time EPS analytics data flow
+const useEPSAnalyticsData = (filters: EPSFilters) => {
   const { data, error } = useSWR(
-    `/api/analytics/${symbol}`,
+    `/api/v1/analytics/eps-rankings`,
     fetcher,
-    { refreshInterval: 1000 } // Real-time updates
+    { refreshInterval: 30000 } // 30-second updates for EPS data
   );
   
-  // WebSocket for live market data
-  useWebSocket(`/ws/market/${symbol}`, {
+  // WebSocket for live EPS updates
+  useWebSocket(`/ws/eps-updates`, {
     onMessage: (event) => {
-      // Update analytics state
+      // Update EPS ranking state with TradingView data
     }
   });
 };
 ```
 
-### 🎨 Analytics Theme Integration
+### 🎨 EPS Analytics Theme Integration
 
-- **Color System**: Use analytics-focused color palette
-- **Typography**: Optimized for data readability
-- **Charts**: Recharts with custom analytics themes
-- **Icons**: Lucide icons for consistency
-- **Animations**: Framer Motion for smooth transitions
+- **Color System**: EPS growth-focused color palette (green for growth, red for decline)
+- **Typography**: Optimized for financial data readability and number formatting
+- **Charts**: Recharts with custom EPS visualization themes and TradingView styling
+- **Icons**: Lucide icons for financial metrics and filtering controls
+- **Animations**: Smooth transitions for ranking updates and data loading states
 
-### 🚀 Development Workflow
+### 🚀 Production Development Workflow
 
-1. **TDD First**: Write tests before analytics components
-2. **Mobile-First**: Design for mobile, enhance for desktop
-3. **Real-time Ready**: Build with WebSocket integration in mind
-4. **Performance**: Use OrbStack for 15x faster development
-5. **Analytics Focus**: Every component should support analytics integration
+1. **Security First**: All components include proper authentication and audit logging
+2. **EPS-Focused**: Components designed specifically for stock earnings analysis
+3. **Real-time Ready**: Built with TradingView WebSocket integration and caching
+4. **Performance**: Optimized for large datasets with pagination and virtualization
+5. **Compliance**: GDPR/SOX/HIPAA compliance built into data handling and user interactions

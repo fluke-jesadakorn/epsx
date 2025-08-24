@@ -1,6 +1,6 @@
-# EPSX Trading Platform 📈
+# EPSX Analytics Platform 📊
 
-A production-ready trading platform built with modern technologies, featuring analytics-focused design and mobile-first performance. Built with Next.js 15, React 19, and high-performance Rust backend, configured for seamless local development with production-like *.epsx.io domain simulation.
+A production-ready stock analytics platform built with modern technologies, featuring comprehensive EPS growth analysis and mobile-first performance. Built with Next.js 15, React 19, and high-performance Rust backend, configured for seamless local development with production-like *.epsx.io domain simulation.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.0-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -16,11 +16,11 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 ### 🚀 Applications (`apps/`)
 
-- **Frontend** (`apps/frontend`) - Main trading platform interface
+- **Frontend** (`apps/frontend`) - Main analytics platform interface
   - **URL**: https://epsx.io (local development)
-  - Analytics dashboard, trading interface, user dashboard, payment system
+  - Analytics dashboard, EPS rankings, user dashboard, subscription system
   - Next.js 15.5.0 with React 19.1.0 and TypeScript 5.8.3
-  - Features: Advanced analytics, mobile-optimized trading, payment processing, real-time market data
+  - Features: Advanced analytics, mobile-optimized data visualization, subscription management, real-time market data
 
 - **Admin Frontend** (`apps/admin-frontend`) - Administrative dashboard
   - **URL**: https://admin.epsx.io (local development)
@@ -31,16 +31,18 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **Backend** (`apps/backend`) - High-performance Rust API server
   - **URL**: https://api.epsx.io (local development)
   - Axum framework with PostgreSQL and WebSocket support
-  - Analytics processing, real-time market data, authentication, trading logic, payment processing
+  - **Core Features**: EPS ranking analytics engine, TradingView integration, authentication/IAM, payment processing, security monitoring
+  - **Enterprise Security**: Brute force detection, GDPR/SOX/HIPAA compliance, audit logging, webhook system
   - Includes CLI tools for admin operations and user management
 
-### 🎨 Analytics Theme & Features
+### 📊 Core Analytics Features
 
-- **Analytics Dashboard** - Comprehensive stock analysis and market insights with advanced filtering
-- **Mobile-First Design** - Touch-optimized interface with enhanced mobile performance optimizations
-- **Real-time Data Streaming** - Live market data with WebSocket integration and data visualization
-- **Responsive Components** - Adaptive layouts optimized for all device sizes and touch interactions
-- **Advanced Charts** - Interactive financial data visualization with Recharts and custom chart components
+- **EPS Growth Analytics** - Production-ready EPS ranking system with TradingView data integration
+- **Real-time Market Data** - Live stock data streaming with WebSocket support and advanced caching
+- **Advanced Filtering** - Multi-dimensional filtering by country, sector, growth metrics, and custom criteria
+- **Mobile-Optimized** - Touch-friendly interface with responsive design for all device sizes
+- **Enterprise Security** - Complete compliance system (GDPR, SOX, HIPAA) with audit logging
+- **High Performance** - Redis caching, connection pooling, and optimized database queries
 
 ---
 
@@ -168,7 +170,7 @@ pnpm dev:all           # All applications including backend
 pnpm docker:dev        # Full environment with HTTPS
 
 # Individual applications
-pnpm dev:frontend      # Trading platform (port 3000)
+pnpm dev:frontend      # Analytics platform (port 3000)
 pnpm dev:admin         # Admin dashboard (port 3001)
 pnpm dev:backend       # Rust API server (port 8080)
 ```
@@ -245,7 +247,7 @@ make docker-push          # Push to registry
 ```
 epsx/
 ├── apps/
-│   ├── frontend/          # Trading platform (Next.js 15 + React 19)
+│   ├── frontend/          # Analytics platform (Next.js 15 + React 19)
 │   │   ├── app/           # App Router pages & layouts
 │   │   ├── components/    # React components (analytics, auth, touch, ui)
 │   │   ├── hooks/         # Custom hooks
@@ -285,7 +287,7 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 |-------------|----------|----------|
 | **Database** | `DATABASE_URL` | PostgreSQL connection |
 | **Frontend** | `NEXT_PUBLIC_API_URL` | Backend API endpoint |
-| **Auth** | `JWT_SECRET` | JWT signing secret |
+| **Auth** | `NEXTAUTH_SECRET` | JWT signing secret |
 | **Firebase** | `NEXT_PUBLIC_FIREBASE_*` | Firebase configuration |
 | **OAuth** | `GOOGLE_CLIENT_ID/SECRET` | Google authentication |
 
@@ -299,35 +301,29 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 ---
 
-## 🛡️ Security Features
+## 🛡️ Enterprise Security & Compliance
 
-### Authentication & Authorization
+### Production-Grade Security Systems
 
-- **Multi-Provider Authentication**: Comprehensive OIDC and Firebase integration
-- **Multi-tier Role System**: Basic, Premium, Moderator, Admin roles with database role management
-- **IAM Profiles**: 
-  - `user-basic-001` - Basic user permissions
-  - `user-premium-002` - Premium user features
-  - `moderator-standard-003` - Moderation capabilities
-  - `admin-full-004` - Full system access
-- **Advanced Security Features**:
-  - JWT token management with secure rotation
-  - Threat protection and rate limiting
-  - WebAuthn security integration
-  - Cross-app session synchronization
-  - CSRF protection and security headers
-- **Enterprise Features**:
-  - SCIM protocol support for user provisioning
-  - Audit events and compliance logging
-  - Tenant resolution and session federation
-  - Casbin-based authorization engine
+- **Advanced Threat Detection**: ML-powered brute force detection with pattern analysis and automated response
+- **Compliance Framework**: Complete GDPR, SOX, HIPAA implementation with automated audit trails and data retention policies
+- **Multi-Provider Authentication**: OIDC, Firebase, and JWT with secure token rotation and session management
+- **IAM System**: Role-based access control with granular permission profiles and database-backed authorization
+  - `user-basic-001` - Basic analytics access
+  - `user-premium-002` - Premium analytics features
+  - `moderator-standard-003` - User management capabilities
+  - `admin-full-004` - Full system administration
+- **Security Monitoring**: Real-time security event correlation, alerting system, and comprehensive audit logging
+- **Data Protection**: Encryption at rest and in transit, automated data classification, and retention management
 
-### Real-time Features
+### Production-Ready Systems
 
-- **WebSocket Support**: Live trading data and notifications
-- **Server-Sent Events**: Real-time updates for admin dashboard
-- **Payment Tracking**: Real-time payment status monitoring
-- **Live Data Streaming**: Market data and user activity streams
+- **EPS Analytics Engine**: Complete stock analysis with TradingView integration and real-time data
+- **Enterprise Security**: Brute force detection, security alerts, threat monitoring with ML-based analysis
+- **Compliance Framework**: Full GDPR, SOX, HIPAA compliance with automated audit trails
+- **Performance Monitoring**: Advanced caching, connection pooling, and system health monitoring
+- **WebSocket Support**: Real-time data streaming for analytics and admin notifications
+- **Payment Integration**: Complete subscription management with webhook processing
 
 ## 🧪 Testing Strategy
 
@@ -338,12 +334,11 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - **SSR Testing**: Server-side rendering validation
 
 ### Backend Testing
-- **Unit Tests**: Rust native testing framework
-- **Integration Tests**: Comprehensive authentication flow testing, database and API endpoint testing
-- **Firebase Integration Tests**: End-to-end authentication provider testing
-- **OIDC Comprehensive Tests**: Multi-provider authentication validation
-- **Load Testing**: Performance and stress testing
-- **Security Testing**: Advanced authentication, authorization, and compliance validation
+- **Unit Tests**: Rust native testing framework for core business logic
+- **Integration Tests**: EPS analytics, authentication flows, and database operations
+- **Security Testing**: Brute force detection, compliance validation, and threat monitoring
+- **Performance Testing**: Load testing for analytics endpoints and caching systems
+- **API Testing**: Comprehensive endpoint validation for analytics, auth, and admin functions
 
 ## 🤝 Contributing
 

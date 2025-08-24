@@ -166,4 +166,50 @@ impl Cache for RedisCache {
             .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
         Ok(result)
     }
+
+    async fn set_add(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<bool, CacheError> {
+        let mut conn = self.connection_manager.clone();
+        let result: bool = conn.sadd(key, value).await
+            .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+        
+        // Set TTL if specified
+        if let Some(ttl) = ttl_seconds {
+            if ttl > 0 {
+                let _: bool = conn.expire(key, ttl as usize).await
+                    .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+            }
+        }
+        
+        Ok(result)
+    }
+
+    async fn set_card(&self, key: &str) -> Result<u64, CacheError> {
+        let mut conn = self.connection_manager.clone();
+        let result: u64 = conn.scard(key).await
+            .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+        Ok(result)
+    }
+
+    async fn list_push(&self, key: &str, value: &str, ttl_seconds: Option<i64>) -> Result<u64, CacheError> {
+        let mut conn = self.connection_manager.clone();
+        let result: u64 = conn.rpush(key, value).await
+            .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+        
+        // Set TTL if specified
+        if let Some(ttl) = ttl_seconds {
+            if ttl > 0 {
+                let _: bool = conn.expire(key, ttl as usize).await
+                    .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+            }
+        }
+        
+        Ok(result)
+    }
+
+    async fn list_range(&self, key: &str, start: i64, stop: i64) -> Result<Vec<String>, CacheError> {
+        let mut conn = self.connection_manager.clone();
+        let result: Vec<String> = conn.lrange(key, start as isize, stop as isize).await
+            .map_err(|e: RedisError| CacheError::ConnectionError(e.to_string()))?;
+        Ok(result)
+    }
 }

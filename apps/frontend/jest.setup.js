@@ -6,7 +6,6 @@ function setupTestEnv() {
   // Set test environment variables directly for Jest
   if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';
   if (!process.env.BACKEND_URL) process.env.BACKEND_URL = 'http://localhost:8080';
-  if (!process.env.API_URL) process.env.API_URL = 'http://localhost:8080';
 }
 
 // Initialize test environment

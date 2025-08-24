@@ -72,15 +72,15 @@ impl AccessTier {
         self.hierarchy_level() >= required_tier.hierarchy_level()
     }
     
-    pub fn from_user_role(role: &crate::dom::values::Role) -> Self {
-        match role {
-            crate::dom::values::Role::Free => AccessTier::Free,
-            crate::dom::values::Role::User => AccessTier::Bronze,
-            crate::dom::values::Role::Premium => AccessTier::Silver,
-            crate::dom::values::Role::Moderator => AccessTier::Gold,
-            crate::dom::values::Role::Admin => AccessTier::Admin,
-            crate::dom::values::Role::SuperAdmin => AccessTier::SuperAdmin,
-            crate::dom::values::Role::ApiClient => AccessTier::Bronze,
+    pub fn from_package_tier(package_tier: &crate::dom::entities::iam::PackageTier) -> Self {
+        match package_tier {
+            crate::dom::entities::iam::PackageTier::Free => AccessTier::Free,
+            crate::dom::entities::iam::PackageTier::Bronze => AccessTier::Bronze,
+            crate::dom::entities::iam::PackageTier::Silver => AccessTier::Silver,
+            crate::dom::entities::iam::PackageTier::Gold => AccessTier::Gold,
+            crate::dom::entities::iam::PackageTier::Platinum => AccessTier::Platinum,
+            crate::dom::entities::iam::PackageTier::Admin => AccessTier::Admin,
+            crate::dom::entities::iam::PackageTier::SuperAdmin => AccessTier::SuperAdmin,
         }
     }
 }
@@ -99,23 +99,32 @@ impl std::fmt::Display for AccessTier {
     }
 }
 
-/// Role to permission mapping for easy permission derivation
-pub fn get_role_permissions(role: &crate::dom::values::Role) -> Vec<&'static str> {
-    match role {
-        crate::dom::values::Role::Free => vec![
+/// Package tier to permission mapping for easy permission derivation
+pub fn get_package_tier_permissions(package_tier: &crate::dom::entities::iam::PackageTier) -> Vec<&'static str> {
+    match package_tier {
+        crate::dom::entities::iam::PackageTier::Free => vec![
             permissions::USERS_READ_OWN,
             permissions::USERS_WRITE_OWN,
             permissions::DASHBOARD_VIEW_BASIC,
             permissions::MARKET_DATA_BASIC,
         ],
-        crate::dom::values::Role::User => vec![
+        crate::dom::entities::iam::PackageTier::Bronze => vec![
             permissions::USERS_READ_OWN,
             permissions::USERS_WRITE_OWN,
             permissions::DASHBOARD_VIEW_BASIC,
             permissions::MARKET_DATA_BASIC,
             permissions::ANALYTICS_VIEW_BASIC,
         ],
-        crate::dom::values::Role::Premium => vec![
+        crate::dom::entities::iam::PackageTier::Silver => vec![
+            permissions::USERS_READ_OWN,
+            permissions::USERS_WRITE_OWN,
+            permissions::DASHBOARD_VIEW_BASIC,
+            permissions::MARKET_DATA_BASIC,
+            permissions::MARKET_DATA_REALTIME,
+            permissions::ANALYTICS_VIEW_BASIC,
+            permissions::RANKINGS_BASIC,
+        ],
+        crate::dom::entities::iam::PackageTier::Gold => vec![
             permissions::USERS_READ_OWN,
             permissions::USERS_WRITE_OWN,
             permissions::DASHBOARD_VIEW_PREMIUM,
@@ -125,9 +134,9 @@ pub fn get_role_permissions(role: &crate::dom::values::Role) -> Vec<&'static str
             permissions::RANKINGS_BASIC,
             permissions::RANKINGS_TECHNICAL,
         ],
-        crate::dom::values::Role::Moderator => vec![
-            permissions::USERS_READ_ALL,
-            permissions::USERS_WRITE_ALL,
+        crate::dom::entities::iam::PackageTier::Platinum => vec![
+            permissions::USERS_READ_OWN,
+            permissions::USERS_WRITE_OWN,
             permissions::DASHBOARD_VIEW_PREMIUM,
             permissions::MARKET_DATA_BASIC,
             permissions::MARKET_DATA_REALTIME,
@@ -136,7 +145,7 @@ pub fn get_role_permissions(role: &crate::dom::values::Role) -> Vec<&'static str
             permissions::RANKINGS_TECHNICAL,
             permissions::RANKINGS_AI_INSIGHTS,
         ],
-        crate::dom::values::Role::Admin => vec![
+        crate::dom::entities::iam::PackageTier::Admin => vec![
             permissions::ADMIN_ACCESS,
             permissions::ADMIN_USERS_MANAGE,
             permissions::USERS_MANAGE,
@@ -146,12 +155,8 @@ pub fn get_role_permissions(role: &crate::dom::values::Role) -> Vec<&'static str
             permissions::RANKINGS_CUSTOM,
             permissions::ADMIN_WILDCARD,
         ],
-        crate::dom::values::Role::SuperAdmin => vec![
+        crate::dom::entities::iam::PackageTier::SuperAdmin => vec![
             permissions::ALL_PERMISSIONS,
-        ],
-        crate::dom::values::Role::ApiClient => vec![
-            permissions::MARKET_DATA_BASIC,
-            permissions::ANALYTICS_VIEW_BASIC,
         ],
     }
 }
@@ -200,12 +205,12 @@ mod tests {
     }
     
     #[test]
-    fn test_role_permissions() {
-        let admin_perms = get_role_permissions(&crate::dom::values::Role::Admin);
+    fn test_package_tier_permissions() {
+        let admin_perms = get_package_tier_permissions(&crate::dom::entities::iam::PackageTier::Admin);
         assert!(admin_perms.contains(&permissions::ADMIN_ACCESS));
         assert!(admin_perms.contains(&permissions::USERS_MANAGE));
         
-        let user_perms = get_role_permissions(&crate::dom::values::Role::User);
+        let user_perms = get_package_tier_permissions(&crate::dom::entities::iam::PackageTier::Free);
         assert!(user_perms.contains(&permissions::USERS_READ_OWN));
         assert!(!user_perms.contains(&permissions::ADMIN_ACCESS));
     }

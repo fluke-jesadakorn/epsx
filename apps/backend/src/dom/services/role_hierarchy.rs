@@ -1,5 +1,9 @@
-// Role hierarchy domain service
+// Legacy role hierarchy domain service - replaced by permission-based system
+// This file is deprecated and should not be used in new code
+// All functionality has been moved to the unified permission system
 
+// Legacy code commented out to prevent compilation errors:
+/*
 use crate::dom::values::Role;
 
 pub struct RoleHierarchy;
@@ -83,3 +87,4 @@ mod tests {
         assert_eq!(RoleHierarchy::get_next_role(&Role::SuperAdmin), None);
     }
 }
+*/

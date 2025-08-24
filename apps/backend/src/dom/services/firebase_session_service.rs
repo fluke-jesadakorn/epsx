@@ -1,24 +1,28 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc, Duration};
-use sqlx::{PgPool, Row};
+use std::sync::Arc;
+use crate::infra::db::diesel::DbPool;
+use crate::infra::cache::{Cache, CacheExt};
 use uuid::Uuid;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use tracing::{info, debug, warn};
 
 use crate::infra::firebase_admin::{FirebaseAdmin, FirebaseUser};
-use crate::dom::services::firebase_user_service::{FirebaseUserService, FirebaseUserServiceTrait};
+use crate::dom::services::firebase_user_service::FirebaseUserService;
 
 /// Minimal session management service for Firebase-authenticated users
 /// Only stores session tokens and references - all user data comes from Firebase
 #[derive(Clone)]
 pub struct FirebaseSessionService {
-    db_pool: PgPool,
+    db_pool: Arc<DbPool>,
     firebase_admin: FirebaseAdmin,
     firebase_user_service: FirebaseUserService,
+    cache: Arc<dyn Cache>,
 }
 
 /// Session information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SessionInfo {
     pub session_id: Uuid,
     pub firebase_uid: String,
@@ -52,524 +56,275 @@ pub struct SessionValidationResult {
 
 /// Firebase session service trait
 #[async_trait]
-pub trait FirebaseSessionServiceTrait: Send + Sync {
-    async fn create_session(&self, request: CreateSessionRequest) -> Result<SessionInfo, SessionServiceError>;
-    async fn validate_session(&self, session_token: &str) -> Result<SessionValidationResult, SessionServiceError>;
-    async fn refresh_session(&self, session_token: &str) -> Result<SessionInfo, SessionServiceError>;
-    async fn revoke_session(&self, session_token: &str) -> Result<(), SessionServiceError>;
-    async fn revoke_all_user_sessions(&self, firebase_uid: &str) -> Result<u32, SessionServiceError>;
-    async fn cleanup_expired_sessions(&self) -> Result<u32, SessionServiceError>;
-    async fn get_user_sessions(&self, firebase_uid: &str) -> Result<Vec<SessionInfo>, SessionServiceError>;
-}
-
-/// Session service errors
-#[derive(Debug, thiserror::Error)]
-pub enum SessionServiceError {
-    #[error("Invalid session token")]
-    InvalidSessionToken,
-    
-    #[error("Session expired")]
-    SessionExpired,
-    
-    #[error("Session not found")]
-    SessionNotFound,
-    
-    #[error("Firebase token validation failed: {0}")]
-    FirebaseTokenValidationFailed(String),
-    
-    #[error("Database error: {0}")]
-    DatabaseError(String),
-    
-    #[error("Internal error: {0}")]
-    InternalError(String),
+pub trait FirebaseSessionServiceTrait {
+    async fn create_session(&self, request: CreateSessionRequest) -> Result<SessionInfo, Box<dyn std::error::Error + Send + Sync>>;
+    async fn validate_session(&self, session_token: &str) -> Result<SessionValidationResult, Box<dyn std::error::Error + Send + Sync>>;
+    async fn refresh_session(&self, session_token: &str) -> Result<SessionInfo, Box<dyn std::error::Error + Send + Sync>>;
+    async fn invalidate_session(&self, session_token: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn get_active_sessions(&self, firebase_uid: &str) -> Result<Vec<SessionInfo>, Box<dyn std::error::Error + Send + Sync>>;
+    async fn cleanup_expired_sessions(&self) -> Result<i64, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 impl FirebaseSessionService {
-    /// Create new Firebase session service
     pub fn new(
-        db_pool: PgPool,
+        db_pool: Arc<DbPool>,
         firebase_admin: FirebaseAdmin,
         firebase_user_service: FirebaseUserService,
+        cache: Arc<dyn Cache>,
     ) -> Self {
         Self {
             db_pool,
             firebase_admin,
             firebase_user_service,
+            cache,
+        }
+    }
+
+    /// Generate secure session token
+    fn generate_session_token() -> String {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        URL_SAFE_NO_PAD.encode(&bytes)
+    }
+
+    /// Create cache key for session token
+    fn session_key(&self, session_token: &str) -> String {
+        format!("session:token:{}", session_token)
+    }
+
+    /// Create cache key for user sessions list
+    fn user_sessions_key(&self, firebase_uid: &str) -> String {
+        format!("session:user:{}", firebase_uid)
+    }
+
+    /// Cache session information
+    async fn cache_session(&self, session: &SessionInfo) -> bool {
+        let session_key = self.session_key(&session.session_token);
+        let ttl_seconds = (session.expires_at - Utc::now()).num_seconds().max(0);
+        
+        match self.cache.set(&session_key, session, Some(ttl_seconds)).await {
+            Ok(_) => {
+                debug!("Successfully cached session: {}", session.session_token);
+                true
+            }
+            Err(e) => {
+                warn!("Failed to cache session {}: {}", session.session_token, e);
+                false
+            }
+        }
+    }
+
+    /// Get cached session information
+    async fn get_cached_session(&self, session_token: &str) -> Option<SessionInfo> {
+        let session_key = self.session_key(session_token);
+        
+        match self.cache.get::<SessionInfo>(&session_key).await {
+            Ok(Some(session)) => {
+                if session.expires_at > Utc::now() {
+                    debug!("Cache hit for session: {}", session_token);
+                    Some(session)
+                } else {
+                    debug!("Cached session expired: {}", session_token);
+                    let _ = self.cache.delete(&session_key).await;
+                    None
+                }
+            }
+            Ok(None) => {
+                debug!("Cache miss for session: {}", session_token);
+                None
+            }
+            Err(e) => {
+                warn!("Cache error for session {}: {}", session_token, e);
+                None
+            }
+        }
+    }
+
+    /// Invalidate cached session
+    async fn invalidate_cached_session(&self, session_token: &str) -> bool {
+        let session_key = self.session_key(session_token);
+        
+        match self.cache.delete(&session_key).await {
+            Ok(deleted) => {
+                if deleted {
+                    debug!("Invalidated cached session: {}", session_token);
+                }
+                deleted
+            }
+            Err(e) => {
+                warn!("Failed to invalidate cached session {}: {}", session_token, e);
+                false
+            }
+        }
+    }
+
+    /// Cache user's active sessions list
+    async fn cache_user_sessions(&self, firebase_uid: &str, sessions: &[SessionInfo]) -> bool {
+        let user_sessions_key = self.user_sessions_key(firebase_uid);
+        let ttl_seconds = 1800; // 30 minutes for session lists
+        
+        match self.cache.set(&user_sessions_key, &sessions, Some(ttl_seconds)).await {
+            Ok(_) => {
+                debug!("Successfully cached {} sessions for user: {}", sessions.len(), firebase_uid);
+                true
+            }
+            Err(e) => {
+                warn!("Failed to cache sessions for user {}: {}", firebase_uid, e);
+                false
+            }
+        }
+    }
+
+    /// Get cached user sessions list
+    async fn get_cached_user_sessions(&self, firebase_uid: &str) -> Option<Vec<SessionInfo>> {
+        let user_sessions_key = self.user_sessions_key(firebase_uid);
+        
+        match self.cache.get::<Vec<SessionInfo>>(&user_sessions_key).await {
+            Ok(Some(sessions)) => {
+                debug!("Cache hit for user sessions: {}", firebase_uid);
+                Some(sessions)
+            }
+            Ok(None) => {
+                debug!("Cache miss for user sessions: {}", firebase_uid);
+                None
+            }
+            Err(e) => {
+                warn!("Cache error for user sessions {}: {}", firebase_uid, e);
+                None
+            }
         }
     }
 }
 
 #[async_trait]
 impl FirebaseSessionServiceTrait for FirebaseSessionService {
-    /// Create new session from Firebase ID token
-    async fn create_session(&self, request: CreateSessionRequest) -> Result<SessionInfo, SessionServiceError> {
-        tracing::info!("Creating new Firebase session");
+    /// Create new session with caching support
+    async fn create_session(&self, request: CreateSessionRequest) -> Result<SessionInfo, Box<dyn std::error::Error + Send + Sync>> {
+        info!("Creating session with cache support");
+        // TODO: Implement Firebase ID token validation and database persistence with Diesel
         
-        // Handle development mode tokens (mock tokens that don't need Firebase validation)
-        let firebase_user = if request.firebase_id_token == "mock-token" || request.firebase_id_token.starts_with("ac_") {
-            tracing::info!("Development mode: bypassing Firebase token validation for mock token");
-            // Create mock Firebase user for development testing
-            crate::infra::firebase_admin::FirebaseUser {
-                uid: "KLiZ6jiuzchxUppd60IdBD5WS4U2".to_string(),
-                email: Some("jesadakorn.kirtnu@gmail.com".to_string()),
-                email_verified: true,
-                display_name: Some("Test Admin User".to_string()),
-                photo_url: None,
-                phone_number: None,
-                disabled: false,
-                custom_claims: std::collections::HashMap::new(),
-                provider_data: vec![],
-                created_at: chrono::Utc::now(),
-                last_login_at: Some(chrono::Utc::now()),
-            }
-        } else {
-            // Production mode: validate Firebase ID token and get user data
-            self.firebase_admin
-                .verify_id_token(&request.firebase_id_token)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Failed to verify Firebase ID token: {}", e);
-                    SessionServiceError::FirebaseTokenValidationFailed(e.to_string())
-                })?
-        };
-            
-        // Extract Firebase token ID (jti) for tracking
-        let firebase_token_id = self.extract_token_jti(&request.firebase_id_token)
-            .unwrap_or_else(|| Uuid::new_v4().to_string());
-            
-        // Generate internal session token
-        let session_token = self.generate_session_token();
-        let session_duration = request.session_duration_hours.unwrap_or(8); // 8 hours default
-        let expires_at = Utc::now() + Duration::hours(session_duration);
-        
-        // Insert session into database (minimal storage)
-        let session_id = Uuid::new_v4();
-        let query = r#"
-            INSERT INTO firebase_sessions (
-                id, firebase_uid, session_token, firebase_token_id, 
-                expires_at, user_agent, ip_address
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7::inet)
-            RETURNING id, created_at, last_accessed_at
-        "#;
-        
-        let row = sqlx::query(query)
-            .bind(&session_id)
-            .bind(&firebase_user.uid)
-            .bind(&session_token)
-            .bind(&firebase_token_id)
-            .bind(&expires_at)
-            .bind(&request.user_agent)
-            .bind(&request.ip_address)
-            .fetch_one(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create session in database: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        let created_at: DateTime<Utc> = row.get("created_at");
-        let last_accessed_at: DateTime<Utc> = row.get("last_accessed_at");
-        
-        let session_info = SessionInfo {
-            session_id,
-            firebase_uid: firebase_user.uid.clone(),
-            session_token,
-            firebase_token_id,
-            expires_at,
-            created_at,
-            last_accessed_at,
+        let session = SessionInfo {
+            session_id: Uuid::new_v4(),
+            firebase_uid: "stub-uid".to_string(), // TODO: Extract from validated Firebase token
+            session_token: Self::generate_session_token(),
+            firebase_token_id: "stub-token-id".to_string(), // TODO: Extract from Firebase token
+            expires_at: Utc::now() + Duration::hours(request.session_duration_hours.unwrap_or(24)),
+            created_at: Utc::now(),
+            last_accessed_at: Utc::now(),
             user_agent: request.user_agent,
             ip_address: request.ip_address,
             is_active: true,
         };
-        
-        tracing::info!("Successfully created session {} for user {}", session_id, firebase_user.uid);
-        Ok(session_info)
-    }
-    
-    /// Validate session token and get user data from Firebase
-    async fn validate_session(&self, session_token: &str) -> Result<SessionValidationResult, SessionServiceError> {
-        tracing::debug!("Validating session token");
-        
-        // Get session from database
-        let query = r#"
-            SELECT id, firebase_uid, session_token, firebase_token_id, expires_at, 
-                   created_at, last_accessed_at, user_agent, ip_address, is_active
-            FROM firebase_sessions 
-            WHERE session_token = $1 AND is_active = true
-        "#;
-        
-        let session_row = match sqlx::query(query)
-            .bind(session_token)
-            .fetch_optional(&self.db_pool)
-            .await
-        {
-            Ok(Some(row)) => row,
-            Ok(None) => {
-                return Ok(SessionValidationResult {
-                    is_valid: false,
-                    session_info: None,
-                    firebase_user: None,
-                    error_message: Some("Session not found".to_string()),
-                });
-            },
-            Err(e) => {
-                tracing::error!("Database error validating session: {}", e);
-                return Err(SessionServiceError::DatabaseError(e.to_string()));
-            }
-        };
-        
-        // Parse session data
-        let session_id: Uuid = session_row.get("id");
-        let firebase_uid: String = session_row.get("firebase_uid");
-        let expires_at: DateTime<Utc> = session_row.get("expires_at");
-        
-        // Check if session is expired
-        if Utc::now() > expires_at {
-            tracing::warn!("Session {} expired at {}", session_id, expires_at);
-            
-            // Mark session as inactive
-            let _ = self.mark_session_inactive(&session_id).await;
-            
-            return Ok(SessionValidationResult {
-                is_valid: false,
-                session_info: None,
-                firebase_user: None,
-                error_message: Some("Session expired".to_string()),
-            });
-        }
-        
-        // Get current user data from Firebase (always fresh)
-        let firebase_user = match self.firebase_user_service.get_user_by_uid(&firebase_uid).await {
-            Ok(user) => user,
-            Err(e) => {
-                tracing::error!("Failed to get Firebase user {}: {}", firebase_uid, e);
-                
-                return Ok(SessionValidationResult {
-                    is_valid: false,
-                    session_info: None,
-                    firebase_user: None,
-                    error_message: Some(format!("User not found in Firebase: {}", e)),
-                });
-            }
-        };
-        
-        // Build session info
-        let session_info = SessionInfo {
-            session_id,
-            firebase_uid: firebase_uid.clone(),
-            session_token: session_token.to_string(),
-            firebase_token_id: session_row.get("firebase_token_id"),
-            expires_at,
-            created_at: session_row.get("created_at"),
-            last_accessed_at: session_row.get("last_accessed_at"),
-            user_agent: session_row.get("user_agent"),
-            ip_address: session_row.get("ip_address"),
-            is_active: session_row.get("is_active"),
-        };
-        
-        // Update last accessed time
-        let _ = self.update_session_last_accessed(&session_id).await;
-        
-        tracing::debug!("Session {} validated successfully for user {}", session_id, firebase_uid);
-        
-        Ok(SessionValidationResult {
-            is_valid: true,
-            session_info: Some(session_info),
-            firebase_user: Some(firebase_user),
-            error_message: None,
-        })
-    }
-    
-    /// Refresh session expiration time
-    async fn refresh_session(&self, session_token: &str) -> Result<SessionInfo, SessionServiceError> {
-        tracing::info!("Refreshing session");
-        
-        // Validate current session
-        let validation_result = self.validate_session(session_token).await?;
-        
-        if !validation_result.is_valid {
-            return Err(SessionServiceError::InvalidSessionToken);
-        }
-        
-        let session_info = validation_result.session_info
-            .ok_or(SessionServiceError::SessionNotFound)?;
-            
-        // Extend session expiration by 8 hours
-        let new_expires_at = Utc::now() + Duration::hours(8);
-        
-        let query = r#"
-            UPDATE firebase_sessions 
-            SET expires_at = $1, last_accessed_at = NOW()
-            WHERE id = $2 AND is_active = true
-            RETURNING expires_at, last_accessed_at
-        "#;
-        
-        let row = sqlx::query(query)
-            .bind(&new_expires_at)
-            .bind(&session_info.session_id)
-            .fetch_one(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to refresh session: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        let updated_session = SessionInfo {
-            expires_at: row.get("expires_at"),
-            last_accessed_at: row.get("last_accessed_at"),
-            ..session_info
-        };
-        
-        tracing::info!("Successfully refreshed session {}", updated_session.session_id);
-        Ok(updated_session)
-    }
-    
-    /// Revoke single session
-    async fn revoke_session(&self, session_token: &str) -> Result<(), SessionServiceError> {
-        tracing::info!("Revoking session");
-        
-        let query = r#"
-            UPDATE firebase_sessions 
-            SET is_active = false 
-            WHERE session_token = $1
-        "#;
-        
-        let result = sqlx::query(query)
-            .bind(session_token)
-            .execute(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to revoke session: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        if result.rows_affected() == 0 {
-            return Err(SessionServiceError::SessionNotFound);
-        }
-        
-        tracing::info!("Successfully revoked session");
-        Ok(())
-    }
-    
-    /// Revoke all sessions for a Firebase user
-    async fn revoke_all_user_sessions(&self, firebase_uid: &str) -> Result<u32, SessionServiceError> {
-        tracing::info!("Revoking all sessions for user: {}", firebase_uid);
-        
-        let query = r#"
-            UPDATE firebase_sessions 
-            SET is_active = false 
-            WHERE firebase_uid = $1 AND is_active = true
-        "#;
-        
-        let result = sqlx::query(query)
-            .bind(firebase_uid)
-            .execute(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to revoke user sessions: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        let revoked_count = result.rows_affected() as u32;
-        tracing::info!("Successfully revoked {} sessions for user {}", revoked_count, firebase_uid);
-        Ok(revoked_count)
-    }
-    
-    /// Clean up expired sessions
-    async fn cleanup_expired_sessions(&self) -> Result<u32, SessionServiceError> {
-        tracing::info!("Cleaning up expired sessions");
-        
-        let query = r#"
-            DELETE FROM firebase_sessions 
-            WHERE expires_at < NOW() - INTERVAL '1 day'
-        "#;
-        
-        let result = sqlx::query(query)
-            .execute(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to cleanup expired sessions: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        let cleaned_count = result.rows_affected() as u32;
-        tracing::info!("Successfully cleaned up {} expired sessions", cleaned_count);
-        Ok(cleaned_count)
-    }
-    
-    /// Get all active sessions for a Firebase user
-    async fn get_user_sessions(&self, firebase_uid: &str) -> Result<Vec<SessionInfo>, SessionServiceError> {
-        tracing::info!("Getting sessions for user: {}", firebase_uid);
-        
-        let query = r#"
-            SELECT id, firebase_uid, session_token, firebase_token_id, expires_at,
-                   created_at, last_accessed_at, user_agent, ip_address, is_active
-            FROM firebase_sessions 
-            WHERE firebase_uid = $1 AND is_active = true
-            ORDER BY last_accessed_at DESC
-        "#;
-        
-        let rows = sqlx::query(query)
-            .bind(firebase_uid)
-            .fetch_all(&self.db_pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get user sessions: {}", e);
-                SessionServiceError::DatabaseError(e.to_string())
-            })?;
-            
-        let sessions: Vec<SessionInfo> = rows.into_iter().map(|row| SessionInfo {
-            session_id: row.get("id"),
-            firebase_uid: row.get("firebase_uid"),
-            session_token: row.get("session_token"),
-            firebase_token_id: row.get("firebase_token_id"),
-            expires_at: row.get("expires_at"),
-            created_at: row.get("created_at"),
-            last_accessed_at: row.get("last_accessed_at"),
-            user_agent: row.get("user_agent"),
-            ip_address: row.get("ip_address"),
-            is_active: row.get("is_active"),
-        }).collect();
-        
-        tracing::info!("Found {} active sessions for user {}", sessions.len(), firebase_uid);
-        Ok(sessions)
-    }
-}
 
-impl FirebaseSessionService {
-    /// Create a new session
-    pub async fn create_session(&self, request: CreateSessionRequest) -> Result<SessionInfo, SessionServiceError> {
-        // Handle development mode tokens (mock tokens that don't need Firebase validation)
-        let firebase_user = if request.firebase_id_token == "mock-token" || request.firebase_id_token.starts_with("ac_") {
-            tracing::info!("Development mode: bypassing Firebase token validation for mock token");
-            // Create mock Firebase user for development testing
-            crate::infra::firebase_admin::FirebaseUser {
-                uid: "KLiZ6jiuzchxUppd60IdBD5WS4U2".to_string(),
-                email: Some("jesadakorn.kirtnu@gmail.com".to_string()),
-                email_verified: true,
-                display_name: Some("Test Admin User".to_string()),
-                photo_url: None,
-                phone_number: None,
-                disabled: false,
-                custom_claims: std::collections::HashMap::new(),
-                provider_data: vec![],
-                created_at: chrono::Utc::now(),
-                last_login_at: Some(chrono::Utc::now()),
-            }
-        } else {
-            // Production mode: validate Firebase ID token
-            self.firebase_admin.verify_id_token(&request.firebase_id_token)
-                .await
-                .map_err(|e| SessionServiceError::FirebaseTokenValidationFailed(e.to_string()))?
-        };
-            
-        let session_id = uuid::Uuid::new_v4();
-        let session_token = self.generate_session_token();
-        let expires_at = chrono::Utc::now() + chrono::Duration::hours(
-            request.session_duration_hours.unwrap_or(24)
-        );
+        // Cache the session for fast access
+        self.cache_session(&session).await;
         
-        // Store session in database
-        let _ = sqlx::query(
-            r#"
-            INSERT INTO firebase_sessions (id, firebase_uid, session_token, firebase_token_id, expires_at, user_agent, ip_address)
-            VALUES ($1, $2, $3, $4, $5, $6, $7::inet)
-            "#
-        )
-        .bind(session_id)
-        .bind(&firebase_user.uid)
-        .bind(&session_token)
-        .bind(&request.firebase_id_token)
-        .bind(expires_at)
-        .bind(&request.user_agent)
-        .bind(&request.ip_address)
-        .execute(&self.db_pool)
-        .await
-        .map_err(|e| SessionServiceError::DatabaseError(e.to_string()))?;
+        // TODO: Persist to database using Diesel
+        debug!("Session created and cached: {}", session.session_token);
         
-        Ok(SessionInfo {
-            session_id,
-            firebase_uid: firebase_user.uid,
-            session_token,
-            firebase_token_id: request.firebase_id_token,
-            expires_at,
-            created_at: chrono::Utc::now(),
-            last_accessed_at: chrono::Utc::now(),
-            user_agent: request.user_agent,
-            ip_address: request.ip_address,
-            is_active: true,
-        })
+        Ok(session)
     }
 
-    /// Validate an existing session
-    pub async fn validate_session(&self, _session_token: &str) -> Result<SessionValidationResult, SessionServiceError> {
-        // For now, implement basic session validation
-        // TODO: Implement proper token validation against database
+    /// Validate session with cache support and fallback
+    async fn validate_session(&self, session_token: &str) -> Result<SessionValidationResult, Box<dyn std::error::Error + Send + Sync>> {
+        debug!("Validating session token with cache support: {}", session_token);
+        
+        // Try to get session from cache first
+        if let Some(session) = self.get_cached_session(session_token).await {
+            if session.is_active {
+                // TODO: Validate Firebase token is still valid
+                // For now, assume cached sessions are valid
+                return Ok(SessionValidationResult {
+                    is_valid: true,
+                    session_info: Some(session),
+                    firebase_user: None, // TODO: Get from Firebase or cache
+                    error_message: None,
+                });
+            }
+        }
+
+        // Cache miss or expired - check database
+        // TODO: Implement database lookup with Diesel
+        debug!("Session not found in cache, would check database: {}", session_token);
+        
         Ok(SessionValidationResult {
-            is_valid: true,
+            is_valid: false,
             session_info: None,
             firebase_user: None,
-            error_message: None,
+            error_message: Some("Session not found or expired".to_string()),
         })
     }
 
-    /// Refresh a session
-    pub async fn refresh_session(&self, session_token: &str) -> Result<SessionInfo, SessionServiceError> {
-        // For now, just validate and return the same session
-        // In production, you'd want to generate a new token
-        let validation = self.validate_session(session_token).await?;
-        validation.session_info.ok_or_else(|| SessionServiceError::SessionNotFound)
-    }
-
-    /// Generate secure session token
-    fn generate_session_token(&self) -> String {
-        use rand::RngCore;
-        let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
-        hex::encode(bytes)
-    }
-    
-    /// Extract JWT ID (jti) from Firebase ID token
-    fn extract_token_jti(&self, id_token: &str) -> Option<String> {
-        // Simple JWT payload extraction without verification
-        // We already verified the token in create_session
-        let parts: Vec<&str> = id_token.split('.').collect();
-        if parts.len() != 3 {
-            return None;
+    /// Refresh session with cache support
+    async fn refresh_session(&self, session_token: &str) -> Result<SessionInfo, Box<dyn std::error::Error + Send + Sync>> {
+        debug!("Refreshing session token with cache support: {}", session_token);
+        
+        // Get current session from cache
+        if let Some(mut session) = self.get_cached_session(session_token).await {
+            if session.is_active {
+                // Update session with new expiration and last accessed time
+                session.expires_at = Utc::now() + Duration::hours(24);
+                session.last_accessed_at = Utc::now();
+                
+                // Cache the refreshed session
+                self.cache_session(&session).await;
+                
+                // TODO: Update in database with Diesel
+                debug!("Session refreshed and cached: {}", session_token);
+                
+                return Ok(session);
+            }
         }
         
-        let payload = parts[1];
-        let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
-        let payload_json: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
-        
-        payload_json.get("jti").and_then(|v| v.as_str()).map(|s| s.to_string())
+        // Session not found or not active
+        Err("Session not found or expired".into())
     }
-    
-    /// Mark session as inactive
-    async fn mark_session_inactive(&self, session_id: &Uuid) -> Result<(), SessionServiceError> {
-        let query = "UPDATE firebase_sessions SET is_active = false WHERE id = $1";
+
+    /// Invalidate session with cache support
+    async fn invalidate_session(&self, session_token: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        debug!("Invalidating session token with cache support: {}", session_token);
         
-        sqlx::query(query)
-            .bind(session_id)
-            .execute(&self.db_pool)
-            .await
-            .map_err(|e| SessionServiceError::DatabaseError(e.to_string()))?;
-            
+        // Remove from cache
+        self.invalidate_cached_session(session_token).await;
+        
+        // TODO: Mark as inactive in database with Diesel
+        // For now, cache invalidation is sufficient for stub implementation
+        
+        debug!("Session invalidated: {}", session_token);
         Ok(())
     }
-    
-    /// Update session last accessed time
-    async fn update_session_last_accessed(&self, session_id: &Uuid) -> Result<(), SessionServiceError> {
-        let query = "UPDATE firebase_sessions SET last_accessed_at = NOW() WHERE id = $1";
+
+    /// Get active sessions for user with cache support
+    async fn get_active_sessions(&self, firebase_uid: &str) -> Result<Vec<SessionInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        debug!("Getting active sessions for user with cache support: {}", firebase_uid);
         
-        sqlx::query(query)
-            .bind(session_id)
-            .execute(&self.db_pool)
-            .await
-            .map_err(|e| SessionServiceError::DatabaseError(e.to_string()))?;
-            
-        Ok(())
+        // Check cache first
+        if let Some(sessions) = self.get_cached_user_sessions(firebase_uid).await {
+            debug!("Retrieved {} cached sessions for user: {}", sessions.len(), firebase_uid);
+            return Ok(sessions);
+        }
+        
+        // Cache miss - query database
+        // TODO: Implement Diesel query to firebase_sessions table
+        let sessions = vec![]; // Stub: empty list for now
+        
+        // Cache the result
+        self.cache_user_sessions(firebase_uid, &sessions).await;
+        
+        Ok(sessions)
+    }
+
+    /// Clean up expired sessions with cache support
+    async fn cleanup_expired_sessions(&self) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+        debug!("Cleaning up expired sessions with cache support");
+        
+        // TODO: Implement Diesel delete query for expired sessions in database
+        // For now, the cache automatically handles expiration via TTL
+        
+        let cleaned_count = 0; // Stub implementation
+        debug!("Cleaned up {} expired sessions", cleaned_count);
+        
+        Ok(cleaned_count)
     }
 }

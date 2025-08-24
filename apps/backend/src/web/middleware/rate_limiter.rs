@@ -1,13 +1,14 @@
-// Rate limiting implementation for API endpoint access control
+// Rate limiting implementation for API endpoint access control with Redis + in-memory fallback
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
 use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
 use serde_json::json;
+use serde::{Serialize, Deserialize};
+use tracing::{debug, warn};
 use crate::dom::values::UserId;
 use crate::config::Config;
+use crate::infra::cache::{Cache, CacheExt};
 
 /// Time window for rate limiting
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +69,7 @@ impl Default for RateLimitConfig {
 }
 
 /// Rate limiting entry tracking request counts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct RateLimitEntry {
     minute_count: u32,
     hour_count: u32,
@@ -185,31 +186,36 @@ pub struct RateLimitResult {
     pub limit: u32,
 }
 
-/// Unified rate limiter supporting both user and IP-based rate limiting
+/// Unified rate limiter with Redis + in-memory fallback supporting both user and IP-based rate limiting
 pub struct UnifiedRateLimiter {
-    entries: Arc<RwLock<HashMap<String, RateLimitEntry>>>,
+    cache: Arc<dyn Cache>,
     config: Arc<Config>,
 }
 
-/// In-memory rate limiter (in production, use Redis for distributed rate limiting)
-pub type InMemoryRateLimiter = UnifiedRateLimiter;
+/// Distributed rate limiter with automatic fallback
+pub type DistributedRateLimiter = UnifiedRateLimiter;
 
 impl UnifiedRateLimiter {
-    pub fn new() -> Self {
+    pub fn new(cache: Arc<dyn Cache>) -> Self {
         Self {
-            entries: Arc::new(RwLock::new(HashMap::new())),
+            cache,
             config: Arc::new(Config::from_env().expect("Failed to load config")),
         }
     }
     
-    pub fn with_config(config: Arc<Config>) -> Self {
+    pub fn with_config(cache: Arc<dyn Cache>, config: Arc<Config>) -> Self {
         Self {
-            entries: Arc::new(RwLock::new(HashMap::new())),
+            cache,
             config,
         }
     }
+
+    /// Generate cache key for rate limit entry
+    fn rate_limit_key(&self, client_id: &ClientId, endpoint: &str, method: &str) -> String {
+        format!("rate_limit:{}:{}:{}", client_id, method, endpoint)
+    }
     
-    /// Check and update rate limits for any client type (user, IP, API key)
+    /// Check and update rate limits for any client type (user, IP, API key) with cache support
     pub async fn check_client_rate_limit(
         &self,
         client_id: &ClientId,
@@ -222,13 +228,23 @@ impl UnifiedRateLimiter {
             .map_err(|e| RateLimitError::SystemTimeError(e.to_string()))?
             .as_secs();
         
-        let key = format!("{}:{}:{}", client_id, method, endpoint);
+        let cache_key = self.rate_limit_key(client_id, endpoint, method);
         
-        let mut entries = self.entries.write().await;
-        
-        let entry = entries.entry(key.clone()).or_insert_with(|| {
-            RateLimitEntry::new(now)
-        });
+        // Get or create rate limit entry
+        let mut entry = match self.cache.get::<RateLimitEntry>(&cache_key).await {
+            Ok(Some(existing_entry)) => {
+                debug!("Rate limit cache hit for key: {}", cache_key);
+                existing_entry
+            }
+            Ok(None) => {
+                debug!("Rate limit cache miss for key: {}", cache_key);
+                RateLimitEntry::new(now)
+            }
+            Err(e) => {
+                warn!("Rate limit cache error for key {}: {}, using new entry", cache_key, e);
+                RateLimitEntry::new(now)
+            }
+        };
         
         // Update the entry with current timestamp
         entry.update(now);
@@ -236,14 +252,25 @@ impl UnifiedRateLimiter {
         // Check limits
         let result = entry.check_limits(config);
         
-        // Clean up old entries periodically
-        if entries.len() > 1000 {
-            self.cleanup_old_entries(&mut entries, now).await;
+        // Save updated entry to cache with appropriate TTL
+        let cache_ttl = std::cmp::max(
+            TimeWindow::Day.duration_seconds() as i64,
+            86400 // 24 hours minimum
+        );
+        
+        match self.cache.set(&cache_key, &entry, Some(cache_ttl)).await {
+            Ok(_) => {
+                debug!("Successfully cached updated rate limit entry: {}", cache_key);
+            }
+            Err(e) => {
+                warn!("Failed to cache rate limit entry {}: {}", cache_key, e);
+                // Continue operation even if caching fails
+            }
         }
         
-        tracing::debug!(
+        debug!(
             "Rate limit check for {}: {} - {}/{}",
-            key,
+            cache_key,
             if result.allowed { "ALLOWED" } else { "DENIED" },
             result.current_count,
             result.limit
@@ -316,22 +343,34 @@ impl UnifiedRateLimiter {
         self.check_client_rate_limit(&client_id, endpoint, method, config).await
     }
     
-    /// Get current rate limit status for any client type
+    /// Get current rate limit status for any client type from cache
     pub async fn get_client_status(
         &self,
         client_id: &ClientId,
         endpoint: &str,
         method: &str,
     ) -> Option<RateLimitStatus> {
-        let key = format!("{}:{}:{}", client_id, method, endpoint);
-        let entries = self.entries.read().await;
+        let cache_key = self.rate_limit_key(client_id, endpoint, method);
         
-        entries.get(&key).map(|entry| RateLimitStatus {
-            minute_count: entry.minute_count,
-            hour_count: entry.hour_count,
-            day_count: entry.day_count,
-            last_updated: entry.last_updated,
-        })
+        match self.cache.get::<RateLimitEntry>(&cache_key).await {
+            Ok(Some(entry)) => {
+                debug!("Retrieved rate limit status from cache: {}", cache_key);
+                Some(RateLimitStatus {
+                    minute_count: entry.minute_count,
+                    hour_count: entry.hour_count,
+                    day_count: entry.day_count,
+                    last_updated: entry.last_updated,
+                })
+            }
+            Ok(None) => {
+                debug!("No rate limit status found in cache: {}", cache_key);
+                None
+            }
+            Err(e) => {
+                warn!("Failed to get rate limit status from cache {}: {}", cache_key, e);
+                None
+            }
+        }
     }
     
     /// Get current rate limit status for a user-endpoint combination (backward compatibility)
@@ -345,24 +384,23 @@ impl UnifiedRateLimiter {
         self.get_client_status(&client_id, endpoint, method).await
     }
     
-    /// Reset rate limits for any client type (admin function)
+    /// Reset rate limits for any client type (admin function) with cache support
     pub async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
-        let mut entries = self.entries.write().await;
-        let prefix = format!("{}:", client_id);
+        // With cache-based implementation, we need to delete specific keys
+        // This is a simplified implementation - in production, you might want
+        // to track all keys for a client or use pattern-based deletion
         
-        let keys_to_remove: Vec<String> = entries
-            .keys()
-            .filter(|key| key.starts_with(&prefix))
-            .cloned()
-            .collect();
-        
-        let count = keys_to_remove.len() as u32;
-        for key in keys_to_remove {
-            entries.remove(&key);
+        let pattern = format!("rate_limit:{}:*", client_id);
+        match self.cache.delete_many(&[pattern]).await {
+            Ok(deleted_count) => {
+                debug!("Reset {} rate limit entries for client {}", deleted_count, client_id);
+                Ok(deleted_count as u32)
+            }
+            Err(e) => {
+                warn!("Failed to reset rate limit entries for client {}: {}", client_id, e);
+                Err(RateLimitError::CacheError(e.to_string()))
+            }
         }
-        
-        tracing::info!("Reset {} rate limit entries for client {}", count, client_id);
-        Ok(count)
     }
     
     /// Reset rate limits for a user (backward compatibility)
@@ -371,55 +409,25 @@ impl UnifiedRateLimiter {
         self.reset_client_limits(&client_id).await
     }
     
-    /// Clean up entries older than 24 hours
-    async fn cleanup_old_entries(&self, entries: &mut HashMap<String, RateLimitEntry>, now: u64) {
-        let cutoff = now - 86400; // 24 hours ago
+    /// Get statistics about rate limiter usage from cache
+    pub async fn get_stats(&self) -> std::collections::HashMap<String, u32> {
+        let mut stats = std::collections::HashMap::new();
         
-        let keys_to_remove: Vec<String> = entries
-            .iter()
-            .filter(|(_, entry)| entry.last_updated < cutoff)
-            .map(|(key, _)| key.clone())
-            .collect();
-        
-        let count = keys_to_remove.len();
-        for key in keys_to_remove {
-            entries.remove(&key);
+        // Get cache statistics
+        match self.cache.stats().await {
+            Ok(cache_stats) => {
+                stats.insert("total_entries".to_string(), cache_stats.active_entries as u32);
+                stats.insert("cache_hits".to_string(), cache_stats.hit_count.unwrap_or(0) as u32);
+                stats.insert("cache_misses".to_string(), cache_stats.miss_count.unwrap_or(0) as u32);
+                stats.insert("memory_usage_bytes".to_string(), cache_stats.memory_usage_bytes.unwrap_or(0) as u32);
+                
+                debug!("Retrieved rate limiter cache stats: {:?}", stats);
+            }
+            Err(e) => {
+                warn!("Failed to get rate limiter cache stats: {}", e);
+                stats.insert("error".to_string(), 1);
+            }
         }
-        
-        if count > 0 {
-            tracing::info!("Cleaned up {} old rate limit entries", count);
-        }
-    }
-    
-    /// Clean up expired entries (public method)
-    pub async fn cleanup_expired_entries(&self) {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-            
-        let mut entries = self.entries.write().await;
-        self.cleanup_old_entries(&mut entries, now).await;
-    }
-    
-    /// Get statistics about rate limiter usage
-    pub async fn get_stats(&self) -> HashMap<String, u32> {
-        let entries = self.entries.read().await;
-        let mut stats = HashMap::new();
-        
-        stats.insert("total_entries".to_string(), entries.len() as u32);
-        
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-            
-        let active_entries = entries
-            .values()
-            .filter(|entry| now - entry.last_updated < 300) // 5 minutes
-            .count();
-            
-        stats.insert("active_entries".to_string(), active_entries as u32);
         
         stats
     }
@@ -445,6 +453,9 @@ pub enum RateLimitError {
     
     #[error("Internal error: {0}")]
     InternalError(String),
+
+    #[error("Cache error: {0}")]
+    CacheError(String),
     
     #[error("Rate limit exceeded: {message}")]
     RateLimitExceeded {
@@ -568,12 +579,12 @@ impl RateLimiter for UnifiedRateLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
-    use tokio::time::sleep;
+    use crate::infra::cache::CacheFactory;
     
     #[tokio::test]
-    async fn test_rate_limiting_per_minute() {
-        let limiter = UnifiedRateLimiter::new();
+    async fn test_rate_limiting_per_minute_with_cache() {
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(2),
@@ -599,8 +610,9 @@ mod tests {
     }
     
     #[tokio::test]
-    async fn test_ip_based_rate_limiting() {
-        let limiter = UnifiedRateLimiter::new();
+    async fn test_ip_based_rate_limiting_with_cache() {
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
         let client_id = ClientId::IpAddress("192.168.1.100".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(3),
@@ -623,7 +635,8 @@ mod tests {
     
     #[tokio::test]
     async fn test_different_endpoints_have_separate_limits() {
-        let limiter = UnifiedRateLimiter::new();
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
@@ -650,7 +663,8 @@ mod tests {
     
     #[tokio::test]
     async fn test_rate_limit_reset() {
-        let limiter = UnifiedRateLimiter::new();
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
         let user_id = UserId::new("test_user".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
@@ -676,7 +690,8 @@ mod tests {
     
     #[tokio::test]
     async fn test_different_client_types() {
-        let limiter = UnifiedRateLimiter::new();
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
         let user_id = ClientId::User(UserId::new("test_user".to_string()));
         let ip_id = ClientId::IpAddress("192.168.1.100".to_string());
         let api_key_id = ClientId::ApiKey("ak_test123".to_string());
@@ -706,6 +721,45 @@ mod tests {
         
         let result6 = limiter.check_client_rate_limit(&api_key_id, "/api/test", "GET", &config).await.unwrap();
         assert!(!result6.allowed);
+    }
+    
+    #[tokio::test]
+    async fn test_cache_fallback_behavior() {
+        let cache = CacheFactory::with_fallback().await;
+        let limiter = UnifiedRateLimiter::new(cache);
+        let user_id = UserId::new("fallback_test_user".to_string());
+        let config = RateLimitConfig {
+            requests_per_minute: Some(2),
+            requests_per_hour: Some(10),
+            requests_per_day: Some(100),
+        };
+        
+        // Test that rate limiting works even with cache issues
+        // (The UnifiedCache should handle Redis failures gracefully)
+        
+        let result1 = limiter.check_rate_limit(&user_id, "/api/fallback", "GET", &config).await.unwrap();
+        assert!(result1.allowed, "First request should be allowed");
+        assert_eq!(result1.current_count, 1);
+        
+        let result2 = limiter.check_rate_limit(&user_id, "/api/fallback", "GET", &config).await.unwrap();
+        assert!(result2.allowed, "Second request should be allowed");
+        assert_eq!(result2.current_count, 2);
+        
+        let result3 = limiter.check_rate_limit(&user_id, "/api/fallback", "GET", &config).await.unwrap();
+        assert!(!result3.allowed, "Third request should be denied");
+        assert_eq!(result3.current_count, 3);
+        
+        // Test status retrieval
+        let status = limiter.get_status(&user_id, "/api/fallback", "GET").await;
+        assert!(status.is_some(), "Status should be retrievable");
+        
+        if let Some(s) = status {
+            assert_eq!(s.minute_count, 3);
+        }
+        
+        // Test stats
+        let stats = limiter.get_stats().await;
+        assert!(stats.len() > 0, "Stats should be available");
     }
     
     #[test]

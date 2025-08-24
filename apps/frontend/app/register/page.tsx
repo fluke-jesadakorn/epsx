@@ -13,7 +13,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   const redirectTo = awaitedSearchParams.redirect || awaitedSearchParams.callbackUrl || '/dashboard';
   
   // Get backend URL from environment
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
   
   // Build OAuth register URL with proper parameters
   const params = new URLSearchParams({

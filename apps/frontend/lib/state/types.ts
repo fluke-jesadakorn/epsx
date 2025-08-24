@@ -47,7 +47,7 @@ export interface OptimisticUpdate<T = any> {
 export interface AppState {
   ui: UIState;
   user: UserState;
-  trading: TradingState;
+  analytics: AnalyticsState;
   notifications: NotificationState;
   cache: CacheState;
 }
@@ -134,14 +134,13 @@ export interface UserSubscription {
   features: string[];
 }
 
-// Trading State
-export interface TradingState extends AsyncState {
+// Analytics State
+export interface AnalyticsState extends AsyncState {
   data: {
-    watchlist: StockItem[];
-    portfolio: PortfolioItem[];
     rankings: StockRanking[];
-    alerts: PriceAlert[];
+    filters: any;
     recentSearches: string[];
+    bookmarks: string[];
   } | null;
   optimisticUpdates: OptimisticUpdate[];
   realtime: {

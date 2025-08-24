@@ -111,15 +111,15 @@ impl WebhookHandler {
         // Update payment status
         let update = PaymentStatusUpdate {
             payment_id: payload.payment_id.clone(),
-            status,
+            status: status.clone(),
             updated_at: chrono::Utc::now().to_rfc3339(),
             metadata: Some({
                 let mut metadata = std::collections::HashMap::new();
-                if let Some(tx_hash) = payload.transaction_hash {
-                    metadata.insert("transaction_hash".to_string(), tx_hash);
+                if let Some(ref tx_hash) = payload.transaction_hash {
+                    metadata.insert("transaction_hash".to_string(), tx_hash.clone());
                 }
-                if let Some(network) = payload.network {
-                    metadata.insert("network".to_string(), network);
+                if let Some(ref network) = payload.network {
+                    metadata.insert("network".to_string(), network.clone());
                 }
                 // Add payment metadata if provided
                 if let Some(ref payload_metadata) = payload.metadata {
@@ -210,7 +210,8 @@ impl WebhookHandler {
         payload: &WebhookPayload,
     ) -> Result<AssignmentDetails, String> {
         // Create assignment context from payment data
-        let context = self.create_payment_assignment_context(payload);
+        let payment_context = self.create_payment_assignment_context(payload);
+        let registration_context = self.convert_payment_to_registration_context(&payment_context);
 
         // Use auto-assignment engine to process the assignment
         let assignment_result = self.auto_assignment_engine
@@ -218,7 +219,7 @@ impl WebhookHandler {
                 &payload.payment_id,
                 user_id,
                 permission_profile_id,
-                &context,
+                &registration_context,
             )
             .await
             .map_err(|e| format!("Assignment failed: {}", e))?;
@@ -228,8 +229,8 @@ impl WebhookHandler {
 
         Ok(AssignmentDetails {
             permission_profile_id: permission_profile_id.value().to_string(),
-            permission_profile_name: assignment_result.permission_profile_name.unwrap_or_else(|| "Unknown".to_string()),
-            features_unlocked: assignment_result.features_unlocked,
+            permission_profile_name: "Premium Package".to_string(), // Default name for now
+            features_unlocked: assignment_result.assignments.iter().map(|a| a.feature_id.clone()).collect(),
             expires_at: expires_at.map(|dt| dt.to_rfc3339()),
             activated_at: chrono::Utc::now().to_rfc3339(),
         })
@@ -245,6 +246,46 @@ impl WebhookHandler {
             transaction_hash: payload.transaction_hash.clone(),
             metadata: payload.metadata.clone().unwrap_or_default(),
             processed_at: chrono::Utc::now(),
+        }
+    }
+
+    /// Convert PaymentAssignmentContext to RegistrationContext for auto-assignment compatibility
+    fn convert_payment_to_registration_context(&self, payment_context: &PaymentAssignmentContext) -> crate::dom::services::auto_assignment::RegistrationContext {
+        use crate::dom::services::auto_assignment::{RegistrationContext, PackageTier};
+        
+        // Extract package tier from payment metadata or amount
+        let package_tier = payment_context.metadata.get("package_tier")
+            .map(|tier| PackageTier::from(tier.as_str()))
+            .or_else(|| {
+                // Infer from amount if available
+                payment_context.amount.map(|amount| {
+                    if amount >= 100.0 {
+                        PackageTier::Platinum
+                    } else if amount >= 50.0 {
+                        PackageTier::Gold
+                    } else if amount >= 25.0 {
+                        PackageTier::Silver
+                    } else {
+                        PackageTier::Bronze
+                    }
+                })
+            })
+            .unwrap_or(PackageTier::Bronze);
+
+        RegistrationContext {
+            email: payment_context.metadata.get("user_email")
+                .unwrap_or(&"unknown@payment.system".to_string()).clone(),
+            package_tier,
+            referral_code: payment_context.metadata.get("referral_code").cloned(),
+            source: "payment_completion".to_string(),
+            region: payment_context.metadata.get("region").cloned(),
+            email_domain: payment_context.metadata.get("user_email")
+                .and_then(|email| email.split('@').nth(1))
+                .unwrap_or("payment.system")
+                .to_string(),
+            user_agent: payment_context.metadata.get("user_agent").cloned(),
+            utm_source: payment_context.metadata.get("utm_source").cloned(),
+            utm_campaign: payment_context.metadata.get("utm_campaign").cloned(),
         }
     }
 
@@ -331,6 +372,9 @@ impl WebhookHandler {
                 success: true,
                 message: format!("Payment confirmation updated: {}/{} confirmations", confirmations, required_confirmations),
                 processed_at: chrono::Utc::now().to_rfc3339(),
+                features_activated: None, // No feature activation in confirmation update
+                permission_profile_assigned: None, // No profile assignment in confirmation update
+                assignment_details: None, // No assignment details in confirmation update
             }),
             Err(e) => Err(WebhookError::ProcessingFailed(e.to_string())),
         }

@@ -1,0 +1,22 @@
+# Diesel Configuration File for EPSX Backend
+
+[print_schema]
+# Generate schema in the appropriate location
+file = "src/infra/db/diesel/schema.rs"
+
+# Custom type derivations for generated types
+custom_type_derives = ["diesel::query_builder::QueryId", "Clone", "Debug", "PartialEq", "Eq"]
+
+# Import necessary types for the generated schema
+import_types = [
+    "diesel::sql_types::*",
+    "diesel::pg::sql_types::*"
+]
+
+# Generate with specific Postgres types
+with_docs = true
+patch_file = "src/infra/db/diesel/schema_patches.rs"
+
+[migrations_directory]
+# Directory for Diesel migrations
+dir = "diesel_migrations"

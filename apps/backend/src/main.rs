@@ -9,7 +9,10 @@ use epsx::{
 
 /// Main server entry point
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+    
     // Initialize basic tracing
     tracing_subscriber::fmt::init();
     
@@ -28,7 +31,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     
     // Create router with all routes
-    let app = create_router(container.clone()).await;
+    let app = match create_router(container.clone()).await {
+        Ok(router) => {
+            info!("✅ Router created successfully");
+            router
+        }
+        Err(e) => {
+            error!("❌ Failed to create router: {}", e);
+            return Err(e);
+        }
+    };
     
     // Server configuration with environment variable support
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());

@@ -43,7 +43,6 @@ services:
       - BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
       - NEXT_PUBLIC_APP_URL=https://epsx.io
-      - API_URL=https://api.epsx.io
       - NEXT_PUBLIC_API_URL=https://api.epsx.io
       - NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend
       - NODE_TLS_REJECT_UNAUTHORIZED=0  # Accept self-signed certificates in development

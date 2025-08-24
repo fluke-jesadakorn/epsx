@@ -17,7 +17,7 @@ pub mod database_role_service;
 pub mod admin_module_service;
 
 // Temporary glob re-exports - to be refined in next phase
-pub use role_hierarchy::*;
+// pub use role_hierarchy::*;
 pub use audit_service::*;
 pub use auto_assignment::*;
 pub use feature_expiration::*;

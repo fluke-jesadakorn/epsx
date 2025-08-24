@@ -149,7 +149,7 @@ fn create_sse_event(event_msg: EventMessage) -> Result<Event, serde_json::Error>
 /// Determine if an SSE event should be sent to a user
 fn should_send_sse_event(
     event: &EventMessage,
-    user_id: &UserId,
+    _user_id: &UserId,
     subscribed_events: &[String],
     subscribed_symbols: &[String],
 ) -> bool {

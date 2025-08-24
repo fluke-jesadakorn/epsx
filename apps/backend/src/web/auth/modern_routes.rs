@@ -2,7 +2,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use sqlx::PgPool;
+use crate::infra::db::diesel::DbPool;
+use std::sync::Arc;
 
 use super::handlers::{get_user_claims, upsert_user};
 
@@ -10,7 +11,7 @@ use super::handlers::{get_user_claims, upsert_user};
  * Modern Auth.js v5 routes
  * Provides endpoints needed for Auth.js frontend integration
  */
-pub fn create_modern_auth_routes() -> Router<PgPool> {
+pub fn create_modern_auth_routes() -> Router<Arc<DbPool>> {
     Router::new()
         // User claims endpoint for JWT token generation
         .route("/user-claims", post(get_user_claims))
@@ -19,7 +20,7 @@ pub fn create_modern_auth_routes() -> Router<PgPool> {
         .route("/upsert-user", post(upsert_user))
         
         // Health check endpoint (public)
-        .route("/health", get(auth_health_check))
+        .route("/auth/health", get(auth_health_check))
 }
 
 /**
@@ -32,7 +33,7 @@ async fn auth_health_check() -> &'static str {
 /**
  * Create Auth.js integration routes for main router
  */
-pub fn create_auth_integration_routes() -> Router<PgPool> {
+pub fn create_auth_integration_routes() -> Router<Arc<DbPool>> {
     Router::new()
         .nest("/api/v1/auth", create_modern_auth_routes())
         .nest("/api/auth", create_modern_auth_routes()) // Alternative path

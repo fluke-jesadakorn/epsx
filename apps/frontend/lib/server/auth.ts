@@ -245,7 +245,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
     // Use internal Docker network URL for server-side requests
     const apiUrl = process.env.NODE_ENV === 'production' 
       ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
-      : 'http://backend:8080'
+      : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`
     
@@ -291,7 +291,7 @@ export async function getUserInfo(accessToken: string) {
   // Use internal Docker network URL for server-side requests
   const apiUrl = process.env.NODE_ENV === 'production' 
     ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
-    : 'http://backend:8080'
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,

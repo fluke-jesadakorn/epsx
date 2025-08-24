@@ -703,7 +703,7 @@ fn get_issuer_url() -> String {
 }
 
 fn get_jwt_secret() -> String {
-    get_env_var("JWT_SECRET")
+    get_env_var("NEXTAUTH_SECRET")
         .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
 }
 
@@ -737,7 +737,7 @@ async fn get_user_admin_modules(
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     // Use the admin module service to get user's admin modules
     match app_state.admin_module_service.get_user_admin_modules(email).await {
-        Ok(modules) => Ok(modules),
+        Ok(modules) => Ok(modules.iter().map(|um| um.module_code.clone()).collect()),
         Err(e) => {
             tracing::warn!("Failed to get admin modules for user {}: {}", email, e);
             // Return default empty modules on error
@@ -779,7 +779,7 @@ async fn get_user_database_info(
             };
             
             // Get user permissions from the domain entity
-            let user_permissions: Vec<String> = user.permissions().permissions().iter().cloned().collect();
+            let user_permissions: Vec<String> = user.permissions();
             
             tracing::debug!("Retrieved user data for {}: tier={}, {} permissions", firebase_uid, tier, user_permissions.len());
             (tier, user_permissions)
@@ -805,7 +805,7 @@ async fn get_user_database_info(
         ]);
         
         // Add system admin permissions for system_admin module
-        if admin_modules.contains(&"system_admin".to_string()) {
+        if admin_modules.iter().any(|am| am.module_code == "system_admin") {
             perms.extend(vec![
                 "api:admin:*".to_string(),
                 "route:*".to_string(),
@@ -823,7 +823,7 @@ async fn get_user_database_info(
     tracing::info!("User database info for {}: {} admin modules, {} tier, {} permissions", 
                   firebase_uid, admin_modules.len(), package_tier, enhanced_permissions.len());
     
-    (admin_modules, package_tier, enhanced_permissions)
+    (admin_modules.iter().map(|am| am.module_code.clone()).collect(), package_tier, enhanced_permissions)
 }
 
 /// Get user package tier from the database (legacy function - use get_user_database_info instead)
@@ -1019,7 +1019,7 @@ pub async fn oidc_userinfo(
     
     // Get additional user information based on the token claims
     let admin_modules = if token_claims.scope.contains("admin") || token_claims.scope.contains("admin_modules") {
-        get_user_admin_modules(&app_state, &token_claims.email).await
+        get_user_admin_modules(&app_state, &token_claims.sub).await
             .unwrap_or_else(|_| vec!["system_admin".to_string(), "user_management".to_string()])
     } else {
         vec![]
@@ -1034,7 +1034,7 @@ pub async fn oidc_userinfo(
         "email": token_claims.email,
         "email_verified": true, // This should come from the user data
         "name": token_claims.email.split('@').next().unwrap_or("User"),
-        "role": token_claims.role,
+        "role": token_claims.package_tier,
         "permissions": token_claims.permissions,
         "package_tier": package_tier,
         "admin_modules": admin_modules

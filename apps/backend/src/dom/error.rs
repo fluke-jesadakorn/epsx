@@ -1,13 +1,13 @@
 // Domain error types with enhanced context
 
 use thiserror::Error;
-use crate::dom::values::Role;
+// Removed Role import as roles are no longer used
 use crate::core::errors::{AppError, ErrorKind, ErrorContextBuilder};
 
 #[derive(Debug, Error)]
 pub enum DomainError {
-    #[error("Cannot upgrade from {current:?} to {target:?}")]
-    RoleUpgradeNotAllowed { current: Role, target: Role },
+    #[error("Cannot upgrade from {current} to {target}")]
+    PackageTierUpgradeNotAllowed { current: String, target: String },
     
     #[error("Invalid email: {0}")]
     InvalidEmail(String),
@@ -37,12 +37,12 @@ pub enum DomainError {
 impl From<DomainError> for AppError {
     fn from(err: DomainError) -> Self {
         let (kind, message, context) = match &err {
-            DomainError::RoleUpgradeNotAllowed { current, target } => (
+            DomainError::PackageTierUpgradeNotAllowed { current, target } => (
                 ErrorKind::BusinessRuleViolation,
-                format!("Cannot upgrade from {:?} to {:?}", current, target),
-                ErrorContextBuilder::new("role_upgrade", "domain")
-                    .metadata("current_role", format!("{:?}", current))
-                    .metadata("target_role", format!("{:?}", target))
+                format!("Cannot upgrade from {} to {}", current, target),
+                ErrorContextBuilder::new("package_tier_upgrade", "domain")
+                    .metadata("current_tier", current.clone())
+                    .metadata("target_tier", target.clone())
                     .build()
             ),
             DomainError::InvalidEmail(email) => (

@@ -10,12 +10,31 @@ use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditSt
 use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, ApplyPermissionProfileResult, PermissionProfileError};
 use crate::dom::entities::temporary_permission::{TemporaryPermission, TemporaryPermissionStatus};
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
-use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, Role, PayStatus, Market};
+use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, PayStatus, Market};
 use crate::dom::error::DomainError;
 use crate::app::dtos::LevelChangeRecord;
 use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+// Search filter structures for advanced user search
+#[derive(Debug, Clone)]
+pub struct UserSearchFilters {
+    pub search: Option<String>,
+    pub email: Option<String>,
+    pub package_tier: Option<String>,
+    pub status: Option<String>,
+    pub tier: Option<String>,
+    pub last_login_after: Option<DateTime<Utc>>,
+    pub last_login_before: Option<DateTime<Utc>>,
+    pub created_after: Option<DateTime<Utc>>,
+    pub created_before: Option<DateTime<Utc>>,
+    pub has_module: Option<String>,
+    pub permission_profile: Option<String>,
+    pub email_verified: Option<bool>,
+    pub two_factor_enabled: Option<bool>,
+    pub has_api_keys: Option<bool>,
+}
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
@@ -28,7 +47,8 @@ pub trait UserRepo: Send + Sync {
     async fn delete(&self, id: &UserId) -> Result<(), RepoError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepoError>;
     async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError>;
-    async fn find_by_role(&self, role: &Role) -> Result<Vec<User>, RepoError>;
+    async fn find_by_admin_module(&self, admin_module: &str) -> Result<Vec<User>, RepoError>;
+    async fn find_by_package_tier(&self, package_tier: &str) -> Result<Vec<User>, RepoError>;
     async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>, RepoError>;
     async fn count(&self) -> Result<u64, RepoError>;
     
@@ -42,9 +62,20 @@ pub trait UserRepo: Send + Sync {
     // Job system requirements
     async fn find_users_for_auto_assignment(&self) -> Result<Vec<User>, RepoError>;
     async fn count_total_users(&self) -> Result<i64, RepoError>;
-    async fn is_user_active_since(&self, user_id: &UserId, since: DateTime<Utc>) -> Result<bool, RepoError>;
-    async fn has_good_payment_history(&self, user_id: &UserId, days: i64) -> Result<bool, RepoError>;
+    async fn is_user_active_since(&self, _user_id: &UserId, since: DateTime<Utc>) -> Result<bool, RepoError>;
+    async fn has_good_payment_history(&self, _user_id: &UserId, days: i64) -> Result<bool, RepoError>;
     async fn health_check(&self) -> Result<(), RepoError>;
+    
+    // Advanced search functionality
+    async fn search_users(
+        &self, 
+        filters: &UserSearchFilters, 
+        offset: u32, 
+        limit: u32, 
+        sort_by: &str, 
+        sort_order: &str
+    ) -> Result<Vec<User>, RepoError>;
+    async fn count_search_users(&self, filters: &UserSearchFilters) -> Result<u64, RepoError>;
 }
 
 #[async_trait]
@@ -52,16 +83,16 @@ pub trait UserRepo: Send + Sync {
 pub trait IamRepo: Send + Sync {
     // Role operations
     async fn create_role(&self, role: IamRole) -> Result<IamRole, IamError>;
-    async fn get_role(&self, id: &RoleId) -> Result<IamRole, IamError>;
+    async fn get_role(&self, _id: &RoleId) -> Result<IamRole, IamError>;
     async fn update_role(&self, role: IamRole) -> Result<IamRole, IamError>;
-    async fn delete_role(&self, id: &RoleId) -> Result<(), IamError>;
+    async fn delete_role(&self, _id: &RoleId) -> Result<(), IamError>;
     async fn list_roles(&self) -> Result<Vec<IamRole>, IamError>;
     
     // Policy operations
     async fn create_policy(&self, policy: IamPolicy) -> Result<IamPolicy, IamError>;
-    async fn get_policy(&self, id: &PolicyId) -> Result<IamPolicy, IamError>;
+    async fn get_policy(&self, _id: &PolicyId) -> Result<IamPolicy, IamError>;
     async fn update_policy(&self, policy: IamPolicy) -> Result<IamPolicy, IamError>;
-    async fn delete_policy(&self, id: &PolicyId) -> Result<(), IamError>;
+    async fn delete_policy(&self, _id: &PolicyId) -> Result<(), IamError>;
     async fn list_policies(&self) -> Result<Vec<IamPolicy>, IamError>;
     
     // Group operations
@@ -72,14 +103,14 @@ pub trait IamRepo: Send + Sync {
     async fn list_groups(&self) -> Result<Vec<IamGroup>, IamError>;
     
     // User-role relationships
-    async fn get_user_roles(&self, user_id: &UserId) -> Result<Vec<IamRole>, IamError>;
-    async fn assign_role_to_user(&self, user_id: &UserId, role_id: &RoleId) -> Result<(), IamError>;
-    async fn remove_role_from_user(&self, user_id: &UserId, role_id: &RoleId) -> Result<(), IamError>;
+    async fn get_user_roles(&self, _user_id: &UserId) -> Result<Vec<IamRole>, IamError>;
+    async fn assign_role_to_user(&self, _user_id: &UserId, role_id: &RoleId) -> Result<(), IamError>;
+    async fn remove_role_from_user(&self, _user_id: &UserId, role_id: &RoleId) -> Result<(), IamError>;
     
     // User permission overrides
-    async fn get_user_overrides(&self, user_id: &UserId) -> Result<UserPermissionOverride, IamError>;
+    async fn get_user_overrides(&self, _user_id: &UserId) -> Result<UserPermissionOverride, IamError>;
     async fn set_user_overrides(&self, overrides: UserPermissionOverride) -> Result<(), IamError>;
-    async fn delete_user_overrides(&self, user_id: &UserId) -> Result<(), IamError>;
+    async fn delete_user_overrides(&self, _user_id: &UserId) -> Result<(), IamError>;
 }
 
 #[async_trait]
@@ -121,10 +152,10 @@ pub trait StockRepo: Send + Sync {
     
     // Real-time data
     async fn save_price_history(&self, symbol: &Symbol, prices: &[PricePoint]) -> Result<(), RepoError>;
-    async fn get_price_history(&self, symbol: &Symbol, duration: chrono::Duration) -> Result<Vec<PricePoint>, RepoError>;
+    async fn get_price_history(&self, symbol: &Symbol, _duration: chrono::Duration) -> Result<Vec<PricePoint>, RepoError>;
     
     // Batch operations
-    async fn save_batch(&self, stocks: &[Stock]) -> Result<(), RepoError>;
+    async fn save_batch(&self, _stocks: &[Stock]) -> Result<(), RepoError>;
 }
 
 #[async_trait]
@@ -133,11 +164,11 @@ pub trait LevelHistoryRepo: Send + Sync {
     async fn save_level_change(&self, record: &LevelChangeRecord) -> Result<(), RepoError>;
     async fn get_user_level_history(
         &self, 
-        user_id: &UserId, 
+        _user_id: &UserId, 
         limit: u32, 
         offset: u32
     ) -> Result<Vec<LevelChangeRecord>, RepoError>;
-    async fn count_user_level_changes(&self, user_id: &UserId) -> Result<u64, RepoError>;
+    async fn count_user_level_changes(&self, _user_id: &UserId) -> Result<u64, RepoError>;
     async fn get_recent_level_changes(&self, limit: u32) -> Result<Vec<LevelChangeRecord>, RepoError>;
 }
 
@@ -170,8 +201,8 @@ pub trait AuditRepo: Send + Sync {
     
     // Job system requirements
     async fn cleanup_old_logs(&self, days: i64) -> Result<i64, AuditError>;
-    async fn log_permission_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId, assigned_by: &str, reason: &str) -> Result<(), AuditError>;
-    async fn log_permission_revocation(&self, user_id: &UserId, profile_id: &PermissionProfileId, revoked_by: &str, reason: &str) -> Result<(), AuditError>;
+    async fn log_permission_assignment(&self, _user_id: &UserId, _profile_id: &PermissionProfileId, assigned_by: &str, reason: &str) -> Result<(), AuditError>;
+    async fn log_permission_revocation(&self, _user_id: &UserId, _profile_id: &PermissionProfileId, revoked_by: &str, reason: &str) -> Result<(), AuditError>;
     async fn log_system_event(&self, event_type: &str, details: &str) -> Result<(), AuditError>;
     async fn log_notification_sent(&self, recipient: &str, subject: &str, notification_type: &str, message_id: Option<&str>) -> Result<(), AuditError>;
     async fn log_notification_failed(&self, recipient: &str, subject: &str, notification_type: &str, error: &str) -> Result<(), AuditError>;
@@ -193,13 +224,13 @@ pub trait PermissionProfileRepo: Send + Sync {
     async fn create(&self, profile: PermissionProfile) -> Result<PermissionProfile, PermissionProfileError>;
     
     /// Get a permission profile by ID
-    async fn get(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
+    async fn get(&self, _id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
     
     /// Update an existing permission profile
     async fn update(&self, profile: PermissionProfile) -> Result<PermissionProfile, PermissionProfileError>;
     
     /// Delete a permission profile (soft delete - mark as inactive)
-    async fn delete(&self, id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
+    async fn delete(&self, _id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
     
     /// Search permission profiles with filters and pagination
     async fn search(&self, query: &PermissionProfileQuery) -> Result<Vec<PermissionProfile>, PermissionProfileError>;
@@ -214,26 +245,26 @@ pub trait PermissionProfileRepo: Send + Sync {
     async fn apply_permission_profile(&self, request: &ApplyPermissionProfileRequest) -> Result<ApplyPermissionProfileResult, PermissionProfileError>;
     
     /// Get permission profile application history
-    async fn get_application_history(&self, profile_id: &PermissionProfileId, limit: u32) -> Result<Vec<ApplyPermissionProfileResult>, PermissionProfileError>;
+    async fn get_application_history(&self, _profile_id: &PermissionProfileId, limit: u32) -> Result<Vec<ApplyPermissionProfileResult>, PermissionProfileError>;
     
     /// Check if permission profile can be applied to user (validates prerequisites)
-    async fn can_apply_to_user(&self, profile_id: &PermissionProfileId, user_id: &UserId) -> Result<bool, PermissionProfileError>;
+    async fn can_apply_to_user(&self, _profile_id: &PermissionProfileId, _user_id: &UserId) -> Result<bool, PermissionProfileError>;
     
     /// Get active assignment count for a permission profile
-    async fn get_assignment_count(&self, profile_id: &PermissionProfileId) -> Result<u32, PermissionProfileError>;
+    async fn get_assignment_count(&self, _profile_id: &PermissionProfileId) -> Result<u32, PermissionProfileError>;
     
     /// Initialize default permission profiles (call once on startup)
     async fn initialize_defaults(&self, admin_user_id: &UserId) -> Result<Vec<PermissionProfile>, PermissionProfileError>;
     
     // Job system requirements
-    async fn find_assignments_expiring_before(&self, cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
-    async fn revoke_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
+    async fn find_assignments_expiring_before(&self, _cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
+    async fn revoke_assignment(&self, _user_id: &UserId, _profile_id: &PermissionProfileId) -> Result<(), PermissionProfileError>;
     async fn cleanup_expired_assignments(&self) -> Result<i64, PermissionProfileError>;
     async fn count_active_profiles(&self) -> Result<i64, PermissionProfileError>;
     async fn count_total_assignments(&self) -> Result<i64, PermissionProfileError>;
-    async fn find_user_assignments_with_expiration(&self, user_id: &UserId) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
-    async fn extend_assignment_expiration(&self, user_id: &UserId, profile_id: &PermissionProfileId, new_expiration: DateTime<Utc>) -> Result<(), PermissionProfileError>;
-    async fn find_by_id(&self, id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
+    async fn find_user_assignments_with_expiration(&self, _user_id: &UserId) -> Result<Vec<PermissionAssignment>, PermissionProfileError>;
+    async fn extend_assignment_expiration(&self, _user_id: &UserId, _profile_id: &PermissionProfileId, _new_expiration: DateTime<Utc>) -> Result<(), PermissionProfileError>;
+    async fn find_by_id(&self, _id: &PermissionProfileId) -> Result<Option<PermissionProfile>, PermissionProfileError>;
     async fn health_check(&self) -> Result<(), PermissionProfileError>;
 }
 
@@ -253,9 +284,9 @@ pub trait ModuleRepo: Send + Sync {
     async fn update_assignment(&self, assignment: &UserSubModuleAssignment) -> Result<(), DomainError>;
     async fn delete_assignment(&self, assignment_id: &Uuid) -> Result<(), DomainError>;
     async fn get_assignment(&self, assignment_id: &Uuid) -> Result<Option<UserSubModuleAssignment>, DomainError>;
-    async fn get_user_module_assignments(&self, user_id: &UserId) -> Result<Vec<UserModuleAccess>, DomainError>;
-    async fn has_user_module_access(&self, user_id: &UserId, module_name: &str) -> Result<bool, DomainError>;
-    async fn get_user_access_level(&self, user_id: &UserId, module_name: &str) -> Result<Option<String>, DomainError>;
+    async fn get_user_module_assignments(&self, _user_id: &UserId) -> Result<Vec<UserModuleAccess>, DomainError>;
+    async fn has_user_module_access(&self, _user_id: &UserId, module_name: &str) -> Result<bool, DomainError>;
+    async fn get_user_access_level(&self, _user_id: &UserId, module_name: &str) -> Result<Option<String>, DomainError>;
 
     // API key management
     async fn create_api_key(&self, api_key: &ApiKey) -> Result<(), DomainError>;
@@ -267,17 +298,17 @@ pub trait ModuleRepo: Send + Sync {
 
     // Usage logging
     async fn log_usage(&self, usage_log: &ModuleUsageLog) -> Result<(), DomainError>;
-    async fn get_current_usage(&self, user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
-    async fn get_quota_limits(&self, user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
-    async fn check_quota_availability(&self, user_id: &UserId, module_name: &str, quota_type: &str, amount: i32) -> Result<bool, DomainError>;
+    async fn get_current_usage(&self, _user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
+    async fn get_quota_limits(&self, _user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
+    async fn check_quota_availability(&self, _user_id: &UserId, module_name: &str, quota_type: &str, amount: i32) -> Result<bool, DomainError>;
 }
 
 #[async_trait]
 #[cfg_attr(test, automock)]
 pub trait UsageRepo: Send + Sync {
     async fn log_usage(&self, usage_log: ModuleUsageLog) -> Result<(), DomainError>;
-    async fn get_usage_stats(&self, user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
-    async fn get_current_usage(&self, user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
+    async fn get_usage_stats(&self, _user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
+    async fn get_current_usage(&self, _user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
 }
 
 /// Query parameters for searching temporary permissions
@@ -324,25 +355,25 @@ pub trait TemporaryPermissionRepo: Send + Sync {
     async fn find_by_id(&self, id: &Uuid) -> Result<Option<TemporaryPermission>, RepoError>;
     
     /// Search temporary permissions with filters and pagination
-    async fn find_by_query(&self, query: &TemporaryPermissionQuery) -> Result<Vec<TemporaryPermission>, RepoError>;
+    async fn find_by_query(&self, _query: &TemporaryPermissionQuery) -> Result<Vec<TemporaryPermission>, RepoError>;
     
     /// Get active temporary permissions for a user
-    async fn find_active_for_user(&self, user_id: &UserId) -> Result<Vec<TemporaryPermission>, RepoError>;
+    async fn find_active_for_user(&self, _user_id: &UserId) -> Result<Vec<TemporaryPermission>, RepoError>;
     
     /// Update an existing temporary permission
     async fn update(&self, permission: &TemporaryPermission) -> Result<TemporaryPermission, RepoError>;
     
     /// Delete a temporary permission
-    async fn delete(&self, id: &Uuid) -> Result<bool, RepoError>;
+    async fn delete(&self, _id: &Uuid) -> Result<bool, RepoError>;
     
     /// Expire permissions that have passed their expiry time
-    async fn expire_permissions(&self, before: DateTime<Utc>) -> Result<u64, RepoError>;
+    async fn expire_permissions(&self, _before: DateTime<Utc>) -> Result<u64, RepoError>;
     
     /// Clean up expired permissions (convenience method)
     async fn cleanup_expired(&self) -> Result<u64, RepoError>;
     
     /// Count temporary permissions matching query
-    async fn count_by_query(&self, query: &TemporaryPermissionQuery) -> Result<i64, RepoError>;
+    async fn count_by_query(&self, _query: &TemporaryPermissionQuery) -> Result<i64, RepoError>;
 }
 
 // Supporting types
@@ -362,26 +393,26 @@ pub struct PermissionAssignment {
 #[cfg_attr(test, automock)]
 pub trait PermissionAssignmentRepo: Send + Sync {
     /// Get all assignments for a user
-    async fn get_user_assignments(&self, user_id: &UserId) -> Result<Vec<PermissionAssignment>, RepoError>;
+    async fn get_user_assignments(&self, _user_id: &UserId) -> Result<Vec<PermissionAssignment>, RepoError>;
     
     /// Assign permission profile to user
     async fn assign_permission_profile(
         &self,
-        user_id: &UserId,
-        permission_profile_id: &PermissionProfileId,
+        _user_id: &UserId,
+        permission__profile_id: &PermissionProfileId,
         assigned_by: &UserId,
         expires_at: Option<DateTime<Utc>>,
         reason: Option<String>,
     ) -> Result<(), RepoError>;
     
     /// Revoke permission assignment
-    async fn revoke_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<(), RepoError>;
+    async fn revoke_assignment(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId) -> Result<(), RepoError>;
     
     /// Check if user has active assignment for permission profile
-    async fn has_active_assignment(&self, user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<bool, RepoError>;
+    async fn has_active_assignment(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId) -> Result<bool, RepoError>;
     
     /// Get assignments expiring before a date
-    async fn get_assignments_expiring_before(&self, cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, RepoError>;
+    async fn get_assignments_expiring_before(&self, _cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, RepoError>;
     
     /// Clean up expired assignments
     async fn cleanup_expired_assignments(&self) -> Result<i64, RepoError>;

@@ -61,8 +61,8 @@ impl JWTService {
             .map_err(|e| JWTError::InvalidToken(format!("Failed to initialize KeyManager: {}", e)))?); 
             
         // Support legacy HMAC tokens during transition
-        let legacy_secret = get_env_var("JWT_SECRET")
-            .or_else(|_| get_env_var("JWT_SECRET"))
+        let legacy_secret = get_env_var("NEXTAUTH_SECRET")
+            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
             .ok();
             
         if legacy_secret.is_some() {
@@ -200,22 +200,18 @@ impl JWTService {
         user_level >= required_level
     }
 
-    /**
-     * Check role hierarchy
-     */
+    // Legacy method - deprecated in favor of permission-based validation
+    #[deprecated(note = "Use has_permission() or has_package_tier() instead")]
     pub fn has_role(&self, user: &AuthenticatedUser, required_role: &str) -> bool {
-        let role_hierarchy = [
-            ("user", 1),
-            ("premium", 2),
-            ("moderator", 3),
-            ("admin", 4),
-            ("super_admin", 5),
-        ].iter().cloned().collect::<std::collections::HashMap<_, _>>();
-
-        let user_level = role_hierarchy.get(user.role.to_lowercase().as_str()).unwrap_or(&0);
-        let required_level = role_hierarchy.get(required_role.to_lowercase().as_str()).unwrap_or(&1);
-
-        user_level >= required_level
+        // Backwards compatibility mapping
+        match required_role.to_lowercase().as_str() {
+            "admin" => self.is_admin(user),
+            "super_admin" => self.is_system_admin(user),
+            "moderator" => self.has_admin_module(user, "user_operations") || self.has_admin_module(user, "support_specialist"),
+            "premium" => self.has_package_tier(user, "SILVER"),
+            "user" => self.has_package_tier(user, "BRONZE"),
+            _ => false,
+        }
     }
 
     /**
@@ -229,7 +225,7 @@ impl JWTService {
      * Check if user is system admin
      */
     pub fn is_system_admin(&self, user: &AuthenticatedUser) -> bool {
-        self.has_admin_module(user, "system_admin") || user.role == "super_admin"
+        self.has_admin_module(user, "system_admin")
     }
 
     /**
@@ -285,14 +281,42 @@ impl JWTService {
     pub fn create_user_claims(&self, user_data: UserClaimsInput) -> EPSXClaims {
         let now = chrono::Utc::now().timestamp() as usize;
         
+        // Generate permissions from admin modules and package tier
+        let mut permissions = Vec::new();
+        
+        // Add admin module permissions
+        if let Some(ref modules) = user_data.admin_modules {
+            permissions.extend(crate::core::permission_constants::get_permissions_for_modules(modules));
+        }
+        
+        // Add package tier permissions
+        let tier = user_data.package_tier.as_deref().unwrap_or("FREE");
+        match tier {
+            "FREE" => permissions.push("read:basic".to_string()),
+            "BRONZE" => {
+                permissions.extend(["read:basic", "read:own", "write:own"].iter().map(|s| s.to_string()));
+            },
+            "SILVER" | "GOLD" | "PLATINUM" | "ENTERPRISE" => {
+                permissions.extend(["read:basic", "read:own", "write:own", "read:premium"].iter().map(|s| s.to_string()));
+            },
+            _ => permissions.push("read:basic".to_string()),
+        }
+        
+        // Remove duplicates
+        permissions.sort();
+        permissions.dedup();
+        
+        // Override with explicit permissions if provided
+        let final_permissions = user_data.permissions.unwrap_or(permissions);
+        
         EPSXClaims {
             sub: user_data.user_id,
             email: user_data.email,
             name: user_data.name,
             admin_modules: user_data.admin_modules.unwrap_or_default(),
-            permissions: user_data.permissions.unwrap_or_else(|| vec!["user:read".to_string()]),
-            package_tier: user_data.package_tier.unwrap_or_else(|| "FREE".to_string()),
-            role: user_data.role.unwrap_or_else(|| "user".to_string()),
+            permissions: final_permissions,
+            package_tier: tier.to_string(),
+            role: "user".to_string(), // Legacy field - always "user" for new system
             firebase_uid: user_data.firebase_uid,
             exp: now + 7200, // 2 hours
             iat: now,

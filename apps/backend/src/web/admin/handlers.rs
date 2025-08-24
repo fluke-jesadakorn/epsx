@@ -216,14 +216,14 @@ pub async fn create_user_handler(
         }
     }
     
-    // Parse role
-    let role = crate::dom::values::Role::from_string(&req.role).unwrap_or(crate::dom::values::Role::User);
+    // Parse package tier
+    let package_tier = req.role.clone(); // Convert role string to package tier string
     
     // Generate Firebase UID (in a real system, this would come from Firebase)
     let firebase_uid = req.fb_token.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     
     // Create new user
-    let user = crate::dom::entities::User::new(firebase_uid, email, role);
+    let user = crate::dom::entities::User::new(firebase_uid, email, package_tier);
     
     // Save user to database
     if let Err(e) = app_state.user_repo.save(&user).await {
@@ -327,32 +327,20 @@ pub async fn update_user_handler(
     };
     
     let mut changes_made = Vec::new();
-    let old_role = user.role().clone();
+    let old_package_tier = user.package_tier().to_string();
     
-    // Handle role update
-    if let Some(new_role_str) = req.role {
-        let new_role = match crate::dom::values::Role::from_string(&new_role_str) {
-            Ok(role) => role,
-            Err(_) => {
-                tracing::warn!("Invalid role provided: {}", new_role_str);
-                return Err(StatusCode::BAD_REQUEST);
-            }
-        };
+    // Handle package tier update
+    if let Some(new_tier_str) = req.role {
+        // Validate package tier (basic validation)
+        if !["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&new_tier_str.to_lowercase().as_str()) {
+            tracing::warn!("Invalid package tier provided: {}", new_tier_str);
+            return Err(StatusCode::BAD_REQUEST);
+        }
         
-        if new_role != old_role {
-            match user.upgrade_role(new_role.clone()) {
-                Ok(_event) => {
-                    changes_made.push(format!("role: {} -> {}", old_role, new_role));
-                    
-                    // Role updates handled by modern JWT-based auth system
-                    // TODO: Implement modern role update logic
-                    tracing::info!("Role updated from {} to {} for user {}", old_role, new_role, user_id);
-                },
-                Err(e) => {
-                    tracing::warn!("Role upgrade failed for user {}: {:?}", user_id, e);
-                    return Err(StatusCode::BAD_REQUEST);
-                }
-            }
+        if new_tier_str != old_package_tier {
+            user.update_package_tier(new_tier_str.clone());
+            changes_made.push(format!("package_tier: {} -> {}", old_package_tier, new_tier_str));
+            tracing::info!("Package tier updated from {} to {} for user {}", old_package_tier, new_tier_str, user_id);
         }
     }
     
@@ -574,15 +562,14 @@ pub async fn bulk_update_users_handler(
         return Err(StatusCode::BAD_REQUEST);
     }
     
-    // Validate new role if provided
-    let new_role = if let Some(role_str) = &req.new_role {
-        match crate::dom::values::Role::from_string(role_str) {
-            Ok(role) => Some(role),
-            Err(_) => {
-                tracing::warn!("Invalid role provided for bulk update: {}", role_str);
-                return Err(StatusCode::BAD_REQUEST);
-            }
+    // Validate new package tier if provided
+    let new_package_tier = if let Some(tier_str) = &req.new_role {
+        // Basic validation for package tier
+        if !["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&tier_str.to_lowercase().as_str()) {
+            tracing::warn!("Invalid package tier provided for bulk update: {}", tier_str);
+            return Err(StatusCode::BAD_REQUEST);
         }
+        Some(tier_str.clone())
     } else {
         None
     };
@@ -628,66 +615,37 @@ pub async fn bulk_update_users_handler(
         };
         
         let mut changes_made = Vec::new();
-        let old_role = user.role().clone();
+        let old_package_tier = user.package_tier().to_string();
         
-        // Handle role update
-        if let Some(ref new_role) = new_role {
-            if *new_role != old_role {
-                match user.upgrade_role(new_role.clone()) {
-                    Ok(_event) => {
-                        changes_made.push(format!("role: {} -> {}", old_role, new_role));
-                        
-                        // Role updates handled by modern JWT-based auth system
-                        // TODO: Implement modern bulk role update logic
-                        tracing::info!("Bulk role update: {} -> {} for user {}", old_role, new_role, user_id);
-                    },
-                    Err(e) => {
-                        tracing::warn!("Role upgrade failed for user {} in bulk update: {:?}", user_id, e);
-                        failed_updates.push(json!({
-                            "user_id": user_id,
-                            "error": format!("Role upgrade failed: {:?}", e)
-                        }));
-                        continue;
-                    }
-                }
+        // Handle package tier update
+        if let Some(ref new_tier) = new_package_tier {
+            if *new_tier != old_package_tier {
+                user.update_package_tier(new_tier.clone());
+                changes_made.push(format!("package_tier: {} -> {}", old_package_tier, new_tier));
+                tracing::info!("Bulk package tier update: {} -> {} for user {}", old_package_tier, new_tier, user_id);
             }
         }
         
-        // Handle level update (treat as synonym for role for now)
+        // Handle level update (treat as synonym for package tier for now)
         if let Some(ref level_str) = req.new_level {
-            if req.new_role.is_none() {  // Only process if role wasn't already updated
-                match crate::dom::values::Role::from_string(level_str) {
-                    Ok(level_role) if level_role != old_role => {
-                        match user.upgrade_role(level_role.clone()) {
-                            Ok(_event) => {
-                                changes_made.push(format!("level: {} -> {}", old_role, level_role));
-                                
-                                // Level role updates handled by modern JWT-based auth system
-                                // TODO: Implement modern level role update logic
-                                tracing::info!("Level role update: {} -> {} for user {}", old_role, level_role, user_id);
-                            },
-                            Err(e) => {
-                                tracing::warn!("Level upgrade failed for user {} in bulk update: {:?}", user_id, e);
-                                failed_updates.push(json!({
-                                    "user_id": user_id,
-                                    "error": format!("Level upgrade failed: {:?}", e)
-                                }));
-                                continue;
-                            }
-                        }
-                    },
-                    Ok(_) => {
+            if req.new_role.is_none() {  // Only process if package tier wasn't already updated
+                // Basic validation for level as package tier
+                if ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&level_str.to_lowercase().as_str()) {
+                    if *level_str != old_package_tier {
+                        user.update_package_tier(level_str.clone());
+                        changes_made.push(format!("level: {} -> {}", old_package_tier, level_str));
+                        tracing::info!("Level package tier update: {} -> {} for user {}", old_package_tier, level_str, user_id);
+                    } else {
                         // Same level, no change needed
                         changes_made.push("level: no change needed".to_string());
                     }
-                    Err(_) => {
-                        tracing::warn!("Invalid level provided for user {} in bulk update: {}", user_id, level_str);
-                        failed_updates.push(json!({
-                            "user_id": user_id,
-                            "error": "Invalid level provided"
-                        }));
-                        continue;
-                    }
+                } else {
+                    tracing::warn!("Invalid level provided for user {} in bulk update: {}", user_id, level_str);
+                    failed_updates.push(json!({
+                        "user_id": user_id,
+                        "error": "Invalid level provided"
+                    }));
+                    continue;
                 }
             }
         }
@@ -1095,10 +1053,10 @@ fn extract_user_id_from_context() -> Result<String, StatusCode> {
 /// NOTE: This is a placeholder handler for frontend compatibility
 /// Stock ranking modules are temporarily disabled during Casbin migration
 pub async fn bulk_assign_modules_handler(
-    State(_state): State<AppState>,
-    Json(request): Json<BulkModuleAssignmentRequest>
+    State(_app_state): State<AppState>,
+    Json(_request): Json<BulkModuleAssignmentRequest>
 ) -> Result<Json<Value>, StatusCode> {
-    tracing::info!("Bulk module assignment request received for {} users", request.user_ids.len());
+    tracing::info!("Bulk module assignment request received for {} users", _request.user_ids.len());
     
     // Placeholder response - actual implementation would:
     // 1. Validate user IDs exist
@@ -1110,8 +1068,8 @@ pub async fn bulk_assign_modules_handler(
     Ok(Json(json!({
         "message": "Module assignment functionality temporarily unavailable",
         "status": "placeholder",
-        "requested_users": request.user_ids.len(),
-        "requested_modules": request.assignments.len(),
+        "requested_users": _request.user_ids.len(),
+        "requested_modules": _request.assignments.len(),
         "reason": "Stock ranking modules disabled during Casbin migration",
         "timestamp": Utc::now()
     })))

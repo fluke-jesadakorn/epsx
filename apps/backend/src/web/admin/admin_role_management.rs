@@ -7,7 +7,7 @@ use tracing::{info, warn};
 
 use crate::{
     core::errors::AppError,
-    dom::services::admin_module_service::ModuleAssignmentRequest,
+    dom::services::admin_module_service::AdminModuleAssignRequest,
     web::auth::AppState,
 };
 
@@ -122,7 +122,7 @@ pub async fn get_user_admin_modules(
     // Filter to only user's assigned modules
     let module_details: Vec<AdminModuleResponse> = all_modules
         .into_iter()
-        .filter(|module| user_modules.contains(&module.module_code))
+        .filter(|module| user_modules.iter().any(|um| um.module_code == module.module_code))
         .map(|module| AdminModuleResponse {
             code: module.module_code,
             name: module.module_name,
@@ -139,7 +139,7 @@ pub async fn get_user_admin_modules(
 
     let response = UserAdminModulesResponse {
         firebase_uid: firebase_uid.clone(),
-        modules: user_modules.clone(),
+        modules: user_modules.iter().map(|um| um.module_code.clone()).collect(),
         module_details,
         is_admin,
         total_modules: user_modules.len(),
@@ -162,23 +162,24 @@ pub async fn assign_admin_modules(
     let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
     
     // Check if admin has 'user_operations' or 'permission_admin' module
-    let can_assign = admin_modules.contains(&"user_operations".to_string()) ||
-                     admin_modules.contains(&"permission_admin".to_string()) ||
-                     admin_modules.contains(&"system_admin".to_string());
+    let can_assign = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
+                     admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
+                     admin_modules.iter().any(|am| am.module_code == "system_admin");
     
     if !can_assign {
         warn!("Admin {} attempted to assign modules without proper permissions", claims.user_id);
         return Err(AppError::unauthorized("Insufficient permissions to assign admin modules"));
     }
 
-    let assignment_request = ModuleAssignmentRequest {
+    let assignment_request = AdminModuleAssignRequest {
         firebase_uid: request.firebase_uid.clone(),
-        module_codes: request.module_codes.clone(),
+        module_code: request.module_codes.first().unwrap_or(&String::new()).clone(),
         granted_by: claims.user_id,
-        granted_reason: request.granted_reason.unwrap_or_else(|| 
-            format!("Module assignment by admin via API")
+        reason: request.granted_reason.or_else(|| 
+            Some(format!("Module assignment by admin via API"))
         ),
         expires_at: request.expires_at,
+        metadata: None,
     };
 
     let assigned_modules = admin_module_service.assign_admin_modules(&assignment_request).await?;
@@ -207,9 +208,9 @@ pub async fn revoke_admin_modules(
     // Ensure the admin has permission to revoke these modules
     let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
     
-    let can_revoke = admin_modules.contains(&"user_operations".to_string()) ||
-                     admin_modules.contains(&"permission_admin".to_string()) ||
-                     admin_modules.contains(&"system_admin".to_string());
+    let can_revoke = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
+                     admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
+                     admin_modules.iter().any(|am| am.module_code == "system_admin");
     
     if !can_revoke {
         warn!("Admin {} attempted to revoke modules without proper permissions", claims.user_id);
@@ -226,7 +227,7 @@ pub async fn revoke_admin_modules(
         &request.firebase_uid,
         request.module_codes.clone(),
         &claims.user_id,
-        &request.reason.unwrap_or_else(|| "Module revocation by admin via API".to_string()),
+        request.reason.as_deref(),
     ).await?;
 
     let firebase_uid = request.firebase_uid.clone();
@@ -253,7 +254,7 @@ pub async fn assign_all_admin_modules(
     // Only allow users with 'system_admin' module to create super admins
     let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
     
-    if !admin_modules.contains(&"system_admin".to_string()) {
+    if !admin_modules.iter().any(|am| am.module_code == "system_admin") {
         warn!("User {} attempted to create super admin without system_admin module", claims.user_id);
         return Err(AppError::unauthorized("Only system administrators can assign all admin modules"));
     }
@@ -288,16 +289,16 @@ pub async fn get_admin_role_audit(
     // Ensure the admin has permission to view audit trails
     let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
     
-    let can_view_audit = admin_modules.contains(&"compliance_audit".to_string()) ||
-                         admin_modules.contains(&"system_admin".to_string());
+    let can_view_audit = admin_modules.iter().any(|am| am.module_code == "compliance_audit") ||
+                         admin_modules.iter().any(|am| am.module_code == "system_admin");
     
     if !can_view_audit {
         warn!("Admin {} attempted to view audit trail without proper permissions", claims.user_id);
         return Err(AppError::unauthorized("Insufficient permissions to view admin role audit"));
     }
 
-    let limit = params.limit.or(Some(50)).map(|l| l.min(500)); // Max 500 records
-    let audit_records = admin_module_service.get_admin_role_audit(&firebase_uid, limit).await?;
+    let _limit = params.limit.or(Some(50)).map(|l| l.min(500)); // Max 500 records
+    let audit_records = admin_module_service.get_admin_role_audit(&firebase_uid).await?;
 
     info!("Retrieved {} audit records for user: {}", audit_records.len(), firebase_uid);
     Ok(Json(audit_records))
@@ -335,16 +336,16 @@ pub async fn get_user_admin_module_details(
     // Ensure the admin can view detailed assignments
     let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
     
-    let can_view_details = admin_modules.contains(&"user_operations".to_string()) ||
-                           admin_modules.contains(&"permission_admin".to_string()) ||
-                           admin_modules.contains(&"system_admin".to_string());
+    let can_view_details = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
+                           admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
+                           admin_modules.iter().any(|am| am.module_code == "system_admin");
     
     if !can_view_details {
         warn!("Admin {} attempted to view detailed assignments without proper permissions", claims.user_id);
         return Err(AppError::unauthorized("Insufficient permissions to view detailed admin module assignments"));
     }
 
-    let assignments = admin_module_service.get_user_admin_module_details(&firebase_uid).await?;
+    let assignments = admin_module_service.get_user_admin_modules(&firebase_uid).await?;
 
     let response: Vec<serde_json::Value> = assignments
         .into_iter()
@@ -384,7 +385,7 @@ pub async fn get_current_user_admin_modules(
     // Filter to only user's assigned modules
     let module_details: Vec<AdminModuleResponse> = all_modules
         .into_iter()
-        .filter(|module| user_modules.contains(&module.module_code))
+        .filter(|module| user_modules.iter().any(|um| um.module_code == module.module_code))
         .map(|module| AdminModuleResponse {
             code: module.module_code,
             name: module.module_name,
@@ -401,7 +402,7 @@ pub async fn get_current_user_admin_modules(
 
     let response = UserAdminModulesResponse {
         firebase_uid: firebase_uid.clone(),
-        modules: user_modules.clone(),
+        modules: user_modules.iter().map(|um| um.module_code.clone()).collect(),
         module_details,
         is_admin,
         total_modules: user_modules.len(),

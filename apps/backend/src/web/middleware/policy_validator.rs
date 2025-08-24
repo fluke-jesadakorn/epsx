@@ -108,12 +108,11 @@ pub struct PolicyValidator {
 
 impl PolicyValidator {
     pub fn new() -> Self {
-        // Define valid resources and actions for EPSX trading platform
+        // Define valid resources and actions for EPSX analytics platform
         let valid_resources = vec![
             "/api/v1/users".to_string(),
             "/api/v1/admin".to_string(),
             "/api/v1/iam".to_string(),
-            "/api/v1/trading".to_string(),
             "/api/v1/analytics".to_string(),
             "/api/v1/premium".to_string(),
             "/api/v1/system".to_string(),
@@ -452,7 +451,6 @@ mod tests {
         let policies = vec![
             PolicyRule::new("user1".to_string(), "/api/v1/users".to_string(), "GET".to_string()),
             PolicyRule::new("user1".to_string(), "/api/v1/admin".to_string(), "GET".to_string()),
-            PolicyRule::new("user1".to_string(), "/api/v1/trading".to_string(), "GET".to_string()),
             PolicyRule::new("user1".to_string(), "/api/v1/analytics".to_string(), "GET".to_string()),
         ];
         

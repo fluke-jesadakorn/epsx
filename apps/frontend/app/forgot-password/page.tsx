@@ -12,7 +12,7 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
   const awaitedSearchParams = await searchParams;
   
   // Get backend URL from environment
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
   
   // Build reset password URL
   const params = new URLSearchParams({
