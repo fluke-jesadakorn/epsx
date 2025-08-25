@@ -1,0 +1,18 @@
+[
+  {
+    "id": "admin-user",
+    "name": "EPSX Admin",
+    "email": "admin@epsx.io",
+    "avatar": "/images/avatars/admin.jpg",
+    "bio": "EPSX Market Analysis Team",
+    "role": "admin"
+  },
+  {
+    "id": "market-analyst",
+    "name": "Market Analyst",
+    "email": "analyst@epsx.io", 
+    "avatar": "/images/avatars/analyst.jpg",
+    "bio": "Expert in EPS growth and market analysis",
+    "role": "analyst"
+  }
+]

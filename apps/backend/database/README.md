@@ -1,0 +1,130 @@
+# EPSX Database Schema
+
+This directory contains the consolidated database schema for the EPSX trading platform.
+
+## Overview
+
+EPSX uses a comprehensive Diesel migration that contains the complete database structure. This approach provides:
+
+- **Single Source of Truth**: One migration contains the entire database schema
+- **Simplified Deployment**: Clean Diesel migration system
+- **Better Performance**: Optimized table creation and indexing
+- **Clean Architecture**: Production-ready schema without historical baggage
+
+## Files
+
+- `schema.sql` - Reference schema file (for documentation)
+- `../diesel_migrations/` - Diesel migration files
+
+## Usage
+
+### Initialize Database
+
+To set up a fresh database:
+
+```bash
+# Set your database URL
+export DATABASE_URL="postgresql://username:password@localhost/epsx"
+
+# Initialize with Diesel migrations
+cargo run --bin migrate init --features cli-tools
+```
+
+### Check Database Status
+
+To verify the database setup:
+
+```bash
+cargo run --bin migrate status --features cli-tools
+```
+
+### Reset Database (Destructive)
+
+To completely reset the database:
+
+```bash
+cargo run --bin migrate reset --features cli-tools
+```
+
+## Schema Components
+
+### Core Tables
+- `users` - User management with Firebase authentication
+- `sessions` - JWT-based session management  
+- `firebase_sessions` - Firebase authentication sessions
+
+### Permission System
+- `admin_modules` - Granular admin functional modules
+- `user_admin_roles` - User to module assignments
+- `admin_module_permissions` - Module permission definitions
+- `permissions` - Unified permission system
+- `user_permission_profiles` - Combined user permissions
+- `temporary_permissions` - Time-bound permissions
+
+### Security Infrastructure
+- `security_events` - Security middleware event logging
+- `attack_attempts` - Brute force and attack tracking
+- `ip_blacklist` - IP-based security blocking
+- `security_alert_rules` - Automated security alerting
+
+### Analytics & Features
+- `eps_growth_analytics` - Stock EPS ranking data
+- `notifications` - User notification system
+- `audit_logs` - Comprehensive audit logging
+
+### Performance Features
+- 50+ optimized indexes for query performance
+- Materialized views for complex queries
+- Helper functions for JWT and permission validation
+
+## Admin Modules
+
+The system includes 10 granular admin modules:
+
+1. **User Operations Manager** - User CRUD and profile management
+2. **Permission Administrator** - Permission profiles and assignments
+3. **Role & Policy Manager** - Casbin roles and access control
+4. **Analytics Specialist** - Reporting and data analysis
+5. **Billing Administrator** - Payment and subscription management
+6. **System Administrator** - Database and system configuration
+7. **Developer Relations** - API keys and developer tools
+8. **Module Coordinator** - Feature module assignments
+9. **Compliance & Audit Officer** - Security and compliance management
+10. **Support Specialist** - User support and troubleshooting
+
+## Development
+
+### Adding New Tables
+
+When adding new tables:
+
+1. Add the table definition to `schema.sql`
+2. Add appropriate indexes
+3. Update the status check in `migrate.rs` if needed
+4. Test with `cargo run --bin migrate reset && cargo run --bin migrate init`
+
+### Schema Updates
+
+For schema changes:
+
+1. Modify `schema.sql` directly
+2. Use `migrate reset` and `migrate init` for development
+3. For production, create a separate migration script if needed
+
+## Production Deployment
+
+For production deployment:
+
+1. Ensure `DATABASE_URL` is set
+2. Run `cargo run --bin migrate init` on fresh database
+3. Verify with `cargo run --bin migrate status`
+
+## Migration from Legacy System
+
+This schema replaces 14+ incremental migration files:
+
+- `001_initial_schema.sql` → Core tables now in schema.sql
+- `002_seed_data.sql` → Seed data now in schema.sql
+- `003-014_*.sql` → All features consolidated
+
+The new system provides the same functionality with improved organization and performance.

@@ -1,0 +1,283 @@
+// Health Checks and Debug Endpoints
+// Focused module handling EPS service health monitoring and debugging
+
+use axum::{
+    extract::Extension,
+    response::Json,
+};
+use std::sync::Arc;
+use tracing::{debug, info, error};
+
+use crate::core::errors::{AppError, ErrorKind};
+use crate::dom::services::eps_cache_service::EPSCacheService;
+use crate::dom::services::eps_ranking_service::EPSRankingService;
+use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
+use crate::infra::InfraFactory;
+use super::dto::EPSHealthResponse;
+
+/// GET /api/analytics/eps-rankings/health
+/// Health check endpoint for EPS analytics service
+pub async fn eps_health_check(
+    Extension(service): Extension<Arc<EPSRankingService>>,
+) -> Result<Json<EPSHealthResponse>, AppError> {
+    debug!("EPS service health check requested");
+
+    // Try to get available countries as a health indicator
+    match service.get_available_countries().await {
+        Ok(countries) => {
+            let response = EPSHealthResponse {
+                status: "healthy".to_string(),
+                message: "EPS analytics service is operational".to_string(),
+                available_countries: countries.len(),
+            };
+            info!("EPS service health check passed - {} countries available", countries.len());
+            Ok(Json(response))
+        }
+        Err(e) => {
+            error!("EPS service health check failed: {:?}", e);
+            let response = EPSHealthResponse {
+                status: "unhealthy".to_string(),
+                message: format!("EPS analytics service error: {}", e),
+                available_countries: 0,
+            };
+            Ok(Json(response))
+        }
+    }
+}
+
+/// POST /api/analytics/eps-rankings/debug-eps-raw
+/// Debug raw quarterly EPS values (no correction applied)
+pub async fn debug_eps_correction() -> Result<Json<serde_json::Value>, AppError> {
+    info!("Raw EPS debug test triggered");
+    
+    let test_cases = vec![
+        ("2330", "taiwan", 0.526),   // TSMC quarterly
+        ("LLY", "america", 6.31),    // LLY quarterly
+        ("NVDA", "america", 2.5),    // NVDA quarterly
+        ("AAPL", "america", 1.5),    // AAPL quarterly
+    ];
+    
+    let mut results = Vec::new();
+    
+    for (symbol, country, raw_eps) in test_cases {
+        results.push(serde_json::json!({
+            "symbol": symbol,
+            "country": country,
+            "quarterly_eps": raw_eps,
+            "note": "Using raw quarterly EPS directly - no TTM fallback or correction"
+        }));
+        
+        info!("Raw quarterly EPS: {} ({}) = {}", symbol, country, raw_eps);
+    }
+    
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Raw EPS debug test completed - simplified system using quarterly EPS only",
+        "test_cases": results
+    })))
+}
+
+/// POST /api/analytics/eps-rankings/debug-ranking-data
+/// Debug actual ranking data structure for specific symbols
+pub async fn debug_ranking_data(
+    Extension(service): Extension<Arc<EPSCacheService>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    info!("Ranking data debug test triggered");
+    
+    // Get actual ranking data for TSMC and LLY
+    match service.get_eps_rankings(crate::dom::services::eps_cache_service::EPSCacheParams {
+        page: 1,
+        limit: 5,
+        country: Some("taiwan".to_string()),
+        sector: None,
+        sort_by: None,
+        min_eps: None,
+        min_growth: None,
+        force_refresh: false,
+    }).await {
+        Ok(rankings_response) => {
+            let mut results = Vec::new();
+            
+            for ranking in &rankings_response.rankings {
+                if ranking.symbol == "2330" || ranking.symbol == "LLY" {
+                    results.push(serde_json::json!({
+                        "symbol": ranking.symbol,
+                        "country_field": ranking.country,
+                        "current_eps": ranking.current_eps,
+                        "has_quarterly_data": ranking.quarterly_data.is_some(),
+                        "quarterly_data_count": ranking.quarterly_data.as_ref().map(|q| q.len()).unwrap_or(0),
+                        "first_quarter_eps": ranking.quarterly_data.as_ref()
+                            .and_then(|q| q.first())
+                            .map(|quarter| quarter.eps)
+                    }));
+                    
+                    info!("🔍 Ranking debug - Symbol: {}, Country: '{}', Current EPS: {:.3}, Has Quarterly: {}", 
+                          ranking.symbol, ranking.country, 
+                          ranking.current_eps.unwrap_or(0.0),
+                          ranking.quarterly_data.is_some());
+                }
+            }
+            
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Ranking data debug completed",
+                "rankings_found": results
+            })))
+        },
+        Err(e) => {
+            error!("Failed to get ranking data: {:?}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "message": format!("Failed to get ranking data: {}", e),
+                "rankings_found": []
+            })))
+        }
+    }
+}
+
+/// POST /api/analytics/eps-rankings/websocket-test
+/// Test WebSocket EPS data extraction
+pub async fn debug_websocket_eps() -> Result<Json<serde_json::Value>, AppError> {
+    info!("WebSocket EPS test triggered");
+    
+    // Create WebSocket service
+    let mut ws_service = TradingViewWebSocketService::new();
+    
+    info!("Starting WebSocket connection for NVDA EPS data...");
+    
+    // Connect and fetch EPS data for NVDA
+    let symbols = vec!["AAPL".to_string()]; // Use any symbol for testing
+    match ws_service.connect_and_fetch_eps_data(symbols).await {
+        Ok(eps_data) => {
+            info!("WebSocket data collection completed - {} entries", eps_data.len());
+            
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "WebSocket EPS test completed successfully",
+                "data": {
+                    "eps_entries_collected": eps_data.len(),
+                    "eps_data_sample": eps_data.into_iter().take(3).map(|eps| {
+                        serde_json::json!({
+                            "symbol": eps.symbol,
+                            "current_eps": eps.current_eps,
+                            "quarterly_data_points": eps.quarterly_data.len(),
+                            "historical_eps_count": eps.historical_eps.len()
+                        })
+                    }).collect::<Vec<_>>()
+                }
+            })))
+        }
+        Err(e) => {
+            error!("WebSocket EPS test failed: {:?}", e);
+            Err(AppError::new(ErrorKind::ExternalServiceError, format!("WebSocket test failed: {}", e)))
+        }
+    }
+}
+
+/// POST /api/analytics/eps-rankings/sync
+/// Manually trigger EPS data synchronization from TradingView
+pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
+    info!("Manual EPS sync triggered");
+    
+    // Create TradingView service and processor  
+    use crate::config::Config;
+    use crate::infra::services::tradingview::TradingViewApiService;
+    
+    let config = match Config::from_env() {
+        Ok(config) => std::sync::Arc::new(config),
+        Err(e) => {
+            tracing::warn!("Failed to load config, using fallback: {:?}", e);
+            std::sync::Arc::new(get_default_config())
+        }
+    };
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
+    
+    // Create infrastructure factory
+    let infra_factory = InfraFactory::from_env()
+        .map_err(|e| AppError::new(ErrorKind::ConfigurationError, format!("Failed to create infra factory: {}", e)))?;
+    let _eps_service = infra_factory.create_eps_ranking_service();
+    
+    info!("Starting manual EPS data processing...");
+    // TODO: Implement EPSDataProcessor module
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "EPS processor not yet implemented"
+    })))
+}
+
+/// Get default configuration for fallback
+fn get_default_config() -> crate::config::Config {
+    crate::config::Config {
+        server: crate::config::ServerConfig {
+            port: 8080,
+            host: "127.0.0.1".to_string(),
+            bind_address: "0.0.0.0".to_string(),
+            frontend_url: "http://localhost:3000".to_string(),
+            admin_frontend_url: "http://localhost:3001".to_string(),
+            environment: "development".to_string(),
+        },
+        database: crate::config::DatabaseConfig {
+            url: "postgresql://localhost/epsx".to_string(),
+        },
+        auth: crate::config::AuthConfig {
+            jwt_secret_main: "default-jwt-secret".to_string(),
+            jwt_secret: "default-jwt-secret".to_string(),
+            cookie_signing_key: None,
+            cookie_encryption_key: None,
+            firebase_project_id: None,
+            backend_url: "http://localhost:8080".to_string(),
+            oidc_issuer: "http://localhost:8080".to_string(),
+        },
+        payment: crate::config::PaymentConfig {
+            musepay_partner_id: None,
+            musepay_private_key: None,
+            webhook_url: None,
+            supported_currencies: vec!["USD".to_string(), "EUR".to_string()],
+            default_currency: "USD".to_string(),
+            default_checkout_url_template: "https://localhost:3000/checkout/{}".to_string(),
+        },
+        email: crate::config::EmailConfig {
+            from_email: "noreply@localhost".to_string(),
+            from_name: "EPSX".to_string(),
+            sendgrid_api_key: "".to_string(),
+        },
+        branding: crate::config::BrandingConfig {
+            platform_name: "EPSX".to_string(),
+            welcome_message_template: "Welcome to EPSX".to_string(),
+            dashboard_url: "http://localhost:3000".to_string(),
+            support_email: "support@localhost".to_string(),
+        },
+        external_services: crate::config::ExternalServicesConfig {
+            tradingview: crate::config::TradingViewConfig {
+                websocket_url: "wss://data.tradingview.com".to_string(),
+                api_base_url: "https://scanner.tradingview.com".to_string(),
+                timeout_seconds: 30,
+                http_timeout_seconds: 30,
+            },
+            sendgrid_api_key: None,
+            qr_code: crate::config::QrCodeConfig {
+                enabled: false,
+                base_url: "http://localhost:8080".to_string(),
+                logo_url: None,
+                api_base_url: "http://localhost:8080".to_string(),
+                default_size: 256,
+            },
+        },
+        rate_limiting: crate::config::RateLimitingConfig {
+            default_per_minute: 60,
+            endpoint_specific: std::collections::HashMap::new(),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = get_default_config();
+        assert_eq!(config.server.port, 8080);
+        assert_eq!(config.database.url, "postgresql://localhost/epsx");
+    }
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "market-analysis",
+    "name": "Market Analysis",
+    "slug": "market-analysis",
+    "description": "In-depth market analysis and insights",
+    "color": "#3b82f6"
+  },
+  {
+    "id": "earnings-reports", 
+    "name": "Earnings Reports",
+    "slug": "earnings-reports",
+    "description": "Company earnings analysis and forecasts",
+    "color": "#10b981"
+  },
+  {
+    "id": "eps-insights",
+    "name": "EPS Insights",
+    "slug": "eps-insights",
+    "description": "Earnings per share growth analysis",
+    "color": "#f59e0b"
+  },
+  {
+    "id": "platform-updates",
+    "name": "Platform Updates",
+    "slug": "platform-updates", 
+    "description": "EPSX platform news and feature updates",
+    "color": "#8b5cf6"
+  }
+]

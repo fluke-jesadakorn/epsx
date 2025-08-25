@@ -20,7 +20,6 @@ use crate::infra::AppContainer;
 use crate::infra::cache::{SecurityCache, Cache};
 use crate::security::brute_force_integration::{BruteForceIntegrationService, brute_force_protection_middleware};
 use crate::infra::services::notification::NotificationService;
-use crate::web::middleware::add_deprecation_headers;
 
 use super::handlers::{
     // Core Authentication
@@ -145,31 +144,13 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
             crate::web::middleware::session_validation_middleware
         ));
 
-    // Legacy routes for backward compatibility (with deprecation headers)
-    let legacy_routes = Router::new()
-        .route("/login", post(login_handler))
-        .route("/register", post(register_user))
-        .route("/check-email", post(check_email_availability))
-        .route("/check-password", post(check_password_strength))
-        .route("/logout", post(logout_handler))
-        .route("/me", get(me_handler))
-        .route("/refresh", post(refresh_handler))
-        .route("/session/validate", post(validate_session_handler))
-        .route("/session/rotate", post(rotate_session_handler))
-        .route("/permissions/route", post(validate_route_access_handler))
-        .route("/permissions/bulk", post(validate_bulk_routes_handler))
-        .route("/permissions/check", post(check_permission_handler))
-        .route("/permissions/single", get(single_permission_handler))
-        .route("/permissions/navigation", get(navigation_handler))
-        .route("/permissions/features", get(user_features_handler))
-        .layer(middleware::from_fn(add_deprecation_headers));
+    // Legacy routes removed - use RESTful /api/v1/ endpoints only
     
     let router = Router::new()
         .merge(validation_routes)
         .merge(public_auth_routes)
         .merge(protected_auth_routes)
         .merge(permission_routes)
-        .merge(legacy_routes)
         .with_state(app_state.clone());
 
     // Apply brute force protection middleware to authentication routes
@@ -186,24 +167,14 @@ pub fn create_registration_routes(container: Arc<AppContainer>) -> Router {
         .route("/api/v1/auth/users", post(register_user))
         .route("/api/v1/validations/emails", post(check_email_availability))
         .route("/api/v1/validations/passwords", post(check_password_strength))
-        // Legacy routes for backward compatibility
-        .route("/register", post(register_user))
-        .route("/check-email", post(check_email_availability))
-        .route("/check-password", post(check_password_strength))
-        .layer(middleware::from_fn(add_deprecation_headers))
         .with_state(container)
 }
 
 /// Create Auth.js integration routes with PostgreSQL pool
 pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
     Router::new()
-        // New versioned routes
         .route("/api/v1/authjs/claims", post(get_user_claims))
         .route("/api/v1/authjs/upsert", post(upsert_user))
-        // Legacy routes for backward compatibility
-        .route("/claims", post(get_user_claims))
-        .route("/upsert", post(upsert_user))
-        .layer(middleware::from_fn(add_deprecation_headers))
         .with_state(pool)
 }
 
@@ -214,28 +185,9 @@ pub fn create_combined_auth_routes(
     pool: crate::infra::db::diesel::DbPool,
 ) -> Router {
     Router::new()
-        // New structure: routes are directly included, not nested under /api/auth
         .merge(create_auth_routes(app_state))
         .merge(create_authjs_routes(Arc::new(pool)))
         .merge(create_registration_routes(container))
-        // Legacy nesting for backward compatibility
-        .nest("/api/auth", Router::new()
-            .route("/login", post(login_handler))
-            .route("/register", post(register_user))
-            .route("/check-email", post(check_email_availability))
-            .route("/check-password", post(check_password_strength))
-            .route("/logout", post(logout_handler))
-            .route("/me", get(me_handler))
-            .route("/refresh", post(refresh_handler))
-            .route("/session/validate", post(validate_session_handler))
-            .route("/session/rotate", post(rotate_session_handler))
-            .route("/permissions/route", post(validate_route_access_handler))
-            .route("/permissions/bulk", post(validate_bulk_routes_handler))
-            .route("/permissions/check", post(check_permission_handler))
-            .route("/permissions/single", get(single_permission_handler))
-            .route("/permissions/navigation", get(navigation_handler))
-            .route("/permissions/features", get(user_features_handler))
-            .layer(middleware::from_fn(add_deprecation_headers)))
 }
 
 #[cfg(test)]
