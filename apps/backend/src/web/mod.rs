@@ -15,8 +15,9 @@ pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
 pub mod security;
-pub mod performance;
 pub mod alerts;
+pub mod notifications;
+pub mod realtime;
 
 use axum::{ routing::{ get, post }, Router, response::Json, http::Method };
 use serde_json::{ json, Value };
@@ -58,72 +59,6 @@ pub async fn premium_rankings_handler() -> Json<Value> {
   )
 }
 
-/// Placeholder handlers for payment endpoints
-#[allow(dead_code)]
-async fn placeholder_crypto_deposit() -> Json<Value> {
-  Json(
-    json!({
-        "message": "Crypto deposit address endpoint - implementation pending",
-        "address": null
-    })
-  )
-}
-
-#[allow(dead_code)]
-async fn placeholder_musepay_create() -> Json<Value> {
-  Json(
-    json!({
-        "message": "MusePay create payment endpoint - implementation pending",
-        "payment_id": null
-    })
-  )
-}
-
-#[allow(dead_code)]
-async fn placeholder_musepay_webhook() -> Json<Value> {
-  Json(
-    json!({
-        "message": "MusePay webhook processed",
-        "status": "received"
-    })
-  )
-}
-
-/// Placeholder handler for notification endpoints
-#[allow(dead_code)]
-async fn placeholder_notification_handler() -> Json<Value> {
-  Json(
-    json!({
-        "message": "Notification endpoint not yet implemented",
-        "status": "placeholder",
-        "timestamp": chrono::Utc::now()
-    })
-  )
-}
-
-/// Placeholder handler for monitoring endpoints
-#[allow(dead_code)]
-async fn placeholder_monitoring_handler() -> Json<Value> {
-  Json(
-    json!({
-        "message": "Monitoring endpoint not yet implemented",
-        "status": "placeholder",
-        "timestamp": chrono::Utc::now()
-    })
-  )
-}
-
-/// Placeholder handler for stream endpoints
-#[allow(dead_code)]
-async fn placeholder_stream_handler() -> Json<Value> {
-  Json(
-    json!({
-        "message": "Stream endpoint not yet implemented",
-        "status": "placeholder",
-        "timestamp": chrono::Utc::now()
-    })
-  )
-}
 
 /// Configure CORS for frontend applications
 fn configure_cors_for_frontend() -> CorsLayer {
@@ -425,6 +360,18 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Create unified permission validation API routes
   let permission_routes = permissions::routes::create_complete_permission_api(&container);
 
+  // Create notification routes (user and admin)
+  let notification_routes = notifications::routes::create_notification_routes().with_state(app_state.clone());
+  let admin_notification_routes = notifications::routes::create_admin_notification_routes().with_state(app_state.clone());
+  let legacy_notification_routes = notifications::routes::create_legacy_notification_routes().with_state(app_state.clone());
+
+  // Create admin routes (core admin functionality)
+  let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
+  let admin_public_routes = admin::routes::create_admin_public_routes().with_state(app_state.clone());
+
+  // Create realtime routes for SSE
+  let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
+
   // Create analytics routes that use the container's InfraFactory
   let analytics_routes = create_standalone_analytics_routes(
     &container.infra
@@ -439,13 +386,19 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with analytics, security, alerts, and permissions support
+  // Merge routes with analytics, security, alerts, notifications, admin, and permissions support
   Ok(core_routes
     .merge(oidc_routes)
     .merge(security_routes)
     .merge(alert_routes)
     .merge(permission_routes)
+    .merge(notification_routes)
+    .merge(admin_notification_routes)
+    .merge(legacy_notification_routes)
+    .merge(realtime_routes)
     .merge(analytics_routes)
+    .nest("/api/v1/admin", admin_routes)
+    .merge(admin_public_routes)
     // Add comprehensive security middleware stack
     // TODO: Fix middleware state type compatibility
     // .layer(axum_middleware::from_fn_with_state(

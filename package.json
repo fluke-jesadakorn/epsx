@@ -140,8 +140,11 @@
     "apps/*"
   ],
   "dependencies": {
+    "@tinacms/auth": "^1.1.0",
+    "@tinacms/cli": "^1.10.2",
     "dotenv": "^17.2.1",
-    "react-icons": "^5.5.0"
+    "react-icons": "^5.5.0",
+    "tinacms": "^2.8.2"
   },
   "main": "oauth-test-server.js",
   "directories": {

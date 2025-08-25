@@ -19,6 +19,7 @@ export {
   SelectScrollDownButton,
 } from './select';
 export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 
 // Form components
 export {

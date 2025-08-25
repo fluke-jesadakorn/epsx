@@ -45,10 +45,15 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(
         get_env_var("OIDC_FRONTEND_CLIENT_SECRET"),
       )
     {
+      let frontend_url = get_env_var("FRONTEND_URL").unwrap_or_else(|_| "https://epsx.io".to_string());
       let mut redirect_uris = vec![
-        "https://epsx.io/api/auth/callback/epsx-backend".to_string(),
-        "https://app.epsx.com/api/auth/callback/epsx-backend".to_string()
+        format!("{}/api/auth/callback/epsx-backend", frontend_url),
       ];
+      
+      // Add additional production domains if configured
+      if let Ok(app_url) = get_env_var("APP_URL") {
+        redirect_uris.push(format!("{}/api/auth/callback/epsx-backend", app_url));
+      }
 
       // Add localhost only in development mode
       if is_development {
@@ -77,10 +82,15 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(
         get_env_var("OIDC_ADMIN_CLIENT_SECRET"),
       )
     {
+      let admin_url = get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "https://admin.epsx.io".to_string());
       let mut redirect_uris = vec![
-        "https://admin.epsx.io/api/auth/callback/epsx-backend".to_string(),
-        "https://admin.epsx.com/api/auth/callback/epsx-backend".to_string()
+        format!("{}/api/auth/callback/epsx-backend", admin_url),
       ];
+      
+      // Add additional admin domains if configured
+      if let Ok(admin_alt_url) = get_env_var("ADMIN_URL") {
+        redirect_uris.push(format!("{}/api/auth/callback/epsx-backend", admin_alt_url));
+      }
 
       // Add localhost only in development mode
       if is_development {

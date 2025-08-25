@@ -30,32 +30,27 @@ path = "src/bin/assign_iam.rs"
 required-features = ["cli-tools"]
 
 
-# Feature flags for selective compilation and optimization
+# Feature flags optimized for production
 [features]
-default = ["database", "database-sqlx", "cache", "auth", "websockets", "templates", "tls-rustls", "http-client"]
+default = ["production"]
 
-# Core features
+# Core component features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
 database = ["dep:diesel", "dep:diesel-async"]
-database-sqlx = ["dep:sqlx"]
 postgres = ["database", "diesel/postgres", "diesel-async/postgres"]
 cache = ["dep:redis"]
 auth = ["jwt", "crypto"]
 jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
 crypto = ["dep:argon2", "dep:aes-gcm", "dep:ring"]
-http-client = ["dep:reqwest"]
+http-client = ["dep:reqwest", "tls-rustls"]
 templates = ["dep:askama", "dep:askama_axum"]
-cli-tools = ["dep:clap"]
 
-# TLS implementation (rustls by default)
+# TLS implementation (rustls only for production)
 tls-rustls = ["reqwest?/rustls-tls"]
-tls-native = ["tokio-tungstenite?/native-tls", "reqwest?/native-tls"]
 
 # Build configurations
-production = ["postgres", "cache", "auth", "websockets", "tls-rustls", "http-client"]
-minimal = ["postgres", "cache", "jwt", "crypto", "websockets", "templates", "tls-rustls", "http-client"]
-container-minimal = ["postgres", "cache", "jwt", "crypto", "websockets", "templates", "tls-rustls", "http-client"]
-container-full = ["postgres", "cache", "auth", "websockets", "templates", "tls-rustls", "http-client"]
+production = ["postgres", "cache", "auth", "websockets", "templates", "http-client"]
+cli-tools = ["dep:clap", "database"]
 
 [dependencies]
 # Core server dependencies (always required)
@@ -67,7 +62,7 @@ dotenv = "0.15"
 futures = "0.3"
 hex = "0.4"
 http = "1.0"
-hyper = "1.1"
+# hyper = "1.1" # Removed - axum handles HTTP functionality
 lazy_static = "1.4"
 base64 = "0.22"
 rust_decimal = { version = "1.33", features = ["serde-with-str"] }
@@ -79,7 +74,7 @@ tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit"] }
-tower-service = "0.3"
+# tower-service = "0.3" # Removed - tower provides needed functionality
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"
@@ -113,14 +108,14 @@ reqwest = { version = "0.11", features = ["json"], optional = true, default-feat
 
 # Optional CLI tools
 clap = { version = "4.4", features = ["derive"], optional = true }
+# tokio-postgres = { version = "0.7", optional = true } # Moved to dev-dependencies for CLI tools only
 
 # Optional API documentation (removed)
 
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
 
-# System monitoring
-sysinfo = "0.30"
+# System monitoring - removed unused dependency
 
 # Optional template engine
 askama = { version = "0.12", optional = true }
@@ -133,9 +128,9 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], opt
 diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric"], optional = true }
 diesel-async = { version = "0.5", features = ["postgres", "bb8"], optional = true }
 diesel_migrations = { version = "2.2", features = ["postgres"] }
-sqlx = { version = "0.7", features = ["postgres", "uuid", "chrono", "json", "runtime-tokio-rustls"], optional = true }
+# Database ORM - using Diesel for all database operations
 bb8 = "0.8"
-bb8-diesel = "0.2"
+# bb8-diesel = "0.2" # Removed - duplicate dependency, bb8 is sufficient
 
 # Removed unused dependencies: jemallocator, cargo-bloat
 
@@ -147,6 +142,7 @@ axum-test = "15.0"
 criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
 tempfile = "3.8"
+tokio-postgres = "0.7"  # Only needed for CLI migration tools
 
 # Clean Architecture Test Configuration
 # Tests are organized by architectural layers for optimal caching
@@ -189,11 +185,12 @@ codegen-units = 256
 # Production build (balanced optimization)
 opt-level = 3
 debug = false
-strip = "symbols"
-lto = "thin"
+strip = true
+lto = "fat"
 panic = "abort"
 codegen-units = 1
 overflow-checks = false
+incremental = false
 
 [profile.release-small]
 # Ultra-optimized for minimal binary size (production containers)

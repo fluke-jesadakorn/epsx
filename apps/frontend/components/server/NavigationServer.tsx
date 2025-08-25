@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { LineChart, BarChart, File, Settings, Database, Crown } from 'lucide-react';
+import { LineChart, BarChart, File, Settings, Database, Crown, Newspaper } from 'lucide-react';
 import { auth } from '@/lib/auth';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
+  news: <Newspaper className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
@@ -13,6 +14,7 @@ const iconMap = {
 
 const publicMenuItems = [
   { key: 'docs', href: '/docs', label: 'Docs' },
+  { key: 'news', href: '/news', label: 'News' },
   { key: 'ranking', href: '/ranking', label: 'Ranking' },
   { key: 'analytics', href: '/analytics', label: 'Analytics' },
 ];

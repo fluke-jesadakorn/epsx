@@ -11,6 +11,7 @@ use axum::{
 };
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 use chrono::Utc;
 use std::time::Instant;
@@ -51,11 +52,11 @@ pub async fn validate_permissions(
         }))).into_response());
     }
     
-    // Create permission context
+    // Create permission context (move values instead of cloning)
     let context = PermissionContext {
-        user_id: request.user_id.clone(),
-        permission: request.permission.clone(),
-        resource: request.resource.clone().unwrap_or_else(|| "*".to_string()),
+        user_id: request.user_id,
+        permission: request.permission,
+        resource: request.resource.unwrap_or_else(|| "*".to_string()),
         context_data: request.context
             .and_then(|c| c.additional_claims)
             .map(|claims| claims.into_iter().map(|(k, v)| (k, v.to_string())).collect())
@@ -81,14 +82,19 @@ pub async fn validate_permissions(
         Ok(result) => {
             let validation_time = start_time.elapsed().as_millis() as f64;
             
+            // Store values for response before context is used in audit
+            let user_id_for_response = context.user_id.clone();
+            let permission_for_response = context.permission.clone();
+            let resource_for_response = context.resource.clone();
+            
             // Log validation for audit
             if let Ok(audit_system) = _container.get_audit_system() {
                 let audit_entry = PermissionAuditEntry {
                     id: Uuid::new_v4(),
                     event_type: AuditEventType::PermissionCheck,
-                    user_id: request.user_id.clone(),
-                    permission: request.permission.clone(),
-                    resource: request.resource.clone(),
+                    user_id: user_id_for_response.clone(),
+                    permission: permission_for_response.clone(),
+                    resource: Some(resource_for_response.clone()),
                     action: "validate".to_string(),
                     result: result.allowed(),
                     timestamp: Utc::now(),
@@ -113,9 +119,9 @@ pub async fn validate_permissions(
             
             let response = ValidatePermissionResponse {
                 allowed: result.allowed(),
-                permission: request.permission,
-                resource: request.resource,
-                user_id: request.user_id,
+                permission: permission_for_response,
+                resource: Some(resource_for_response),
+                user_id: user_id_for_response,
                 validation_time_ms: validation_time,
                 cached: false, // TODO: Implement caching status from PermissionDecision
                 source: result.source().unwrap_or_else(|| "unknown".to_string()),
@@ -165,22 +171,33 @@ pub async fn validate_permissions_batch(
     let mut cache_hits = 0;
     let mut total_validations = 0;
     
+    // Extract common values to avoid repeated cloning
+    let user_id = Arc::new(request.user_id);
+    let context_data = Arc::new(request.context
+        .as_ref()
+        .and_then(|c| c.additional_claims.as_ref())
+        .map(|claims| claims.iter().map(|(k, v)| (k.clone(), v.to_string())).collect::<HashMap<String, String>>())
+        .unwrap_or_default());
+    let ip_address = request.context.as_ref().and_then(|c| c.ip_address.as_ref());
+    let user_agent = request.context.as_ref().and_then(|c| c.user_agent.as_ref());
+    let session_id = request.context.as_ref().and_then(|c| c.session_id.as_ref());
+    
     for perm_request in request.permissions {
         let perm_start_time = Instant::now();
         
+        // Clone values before moving them
+        let permission = perm_request.permission.clone();
+        let resource = perm_request.resource.clone().unwrap_or_else(|| "*".to_string());
+        
         let context = PermissionContext {
-            user_id: request.user_id.clone(),
-            permission: perm_request.permission.clone(),
-            resource: perm_request.resource.clone().unwrap_or_else(|| "*".to_string()),
-            context_data: request.context
-                .as_ref()
-                .and_then(|c| c.additional_claims.clone())
-                .map(|claims| claims.into_iter().map(|(k, v)| (k, v.to_string())).collect())
-                .unwrap_or_default(),
+            user_id: (*user_id).clone(),
+            permission: permission.clone(),
+            resource: resource.clone(),
+            context_data: (*context_data).clone(),
             timestamp: Utc::now(),
-            ip_address: request.context.as_ref().and_then(|c| c.ip_address.clone()),
-            user_agent: request.context.as_ref().and_then(|c| c.user_agent.clone()),
-            session_id: request.context.as_ref().and_then(|c| c.session_id.clone()),
+            ip_address: ip_address.cloned(),
+            user_agent: user_agent.cloned(),
+            session_id: session_id.cloned(),
         };
         
         match permission_system.validate_permission(&context).await {
@@ -193,8 +210,8 @@ pub async fn validate_permissions_batch(
                 let validation_time = perm_start_time.elapsed().as_millis() as f64;
                 
                 results.push(BatchPermissionResultDto {
-                    permission: perm_request.permission,
-                    resource: perm_request.resource,
+                    permission: permission.clone(),
+                    resource: Some(resource.clone()),
                     allowed: result.allowed(),
                     source: result.source().unwrap_or_else(|| "unknown".to_string()),
                     validation_time_ms: validation_time,
@@ -206,8 +223,8 @@ pub async fn validate_permissions_batch(
                               perm_request.permission, error);
                 
                 results.push(BatchPermissionResultDto {
-                    permission: perm_request.permission,
-                    resource: perm_request.resource,
+                    permission: permission.clone(),
+                    resource: Some(resource.clone()),
                     allowed: false,
                     source: "error".to_string(),
                     validation_time_ms: perm_start_time.elapsed().as_millis() as f64,
@@ -230,7 +247,7 @@ pub async fn validate_permissions_batch(
         let audit_entry = PermissionAuditEntry {
             id: audit_id,
             event_type: AuditEventType::PermissionCheck,
-            user_id: request.user_id.clone(),
+            user_id: (*user_id).clone(),
             permission: format!("batch:{}", results.len()),
             resource: None,
             action: "validate_batch".to_string(),
@@ -260,7 +277,7 @@ pub async fn validate_permissions_batch(
     }
     
     let response = ValidateBatchPermissionsResponse {
-        user_id: request.user_id,
+        user_id: (*user_id).clone(),
         results,
         total_validation_time_ms: total_time,
         cache_hit_rate,
@@ -434,9 +451,9 @@ pub async fn grant_user_permission(
         let audit_entry = PermissionAuditEntry {
             id: Uuid::new_v4(),
             event_type: AuditEventType::PermissionGrant,
-            user_id: request.user_id.clone(),
-            permission: request.permission.clone(),
-            resource: request.resource.clone(),
+            user_id: request.user_id,
+            permission: request.permission,
+            resource: request.resource,
             action: "grant".to_string(),
             result: true, // Grant succeeded
             timestamp: Utc::now(),
@@ -462,8 +479,7 @@ pub async fn grant_user_permission(
     Ok(Json(json!({
         "success": true,
         "message": "Permission granted successfully",
-        "user_id": request.user_id,
-        "permission": request.permission,
+        "user_id": user_id,
         "granted_by": request.granted_by,
         "expires_at": request.expires_at
     })))

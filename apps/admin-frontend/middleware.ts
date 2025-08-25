@@ -8,6 +8,7 @@ import { validateAdminSession } from '@/lib/session-validator';
 
 // Public routes that don't require authentication
 const publicRoutes = [
+  '/login', // Allow access to login page for PKCE initiation
   '/api/auth/callback/epsx-backend',
   '/api/auth/initiate',
   '/api/auth/login',
@@ -26,7 +27,6 @@ const publicRoutes = [
 const adminModuleRoutes: Record<string, string> = {
   '/users': 'user_management',
   '/analytics': 'analytics', 
-  '/billing': 'billing',
   '/settings': 'system_config',
   '/permissions': 'permission_management',
   '/permission-profiles': 'user_management',
@@ -198,21 +198,15 @@ export async function middleware(request: NextRequest) {
 }
 
 /**
- * Create redirect response to backend login
+ * Create redirect response to login page (which will initiate PKCE OAuth)
  */
 function redirectToLogin(request: NextRequest): NextResponse {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                    process.env.NEXT_PUBLIC_BACKEND_URL || 
-                    'http://localhost:8080';
   const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
   const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
   
-  const loginUrl = new URL('/oauth/authorize', backendUrl);
-  loginUrl.searchParams.set('client_id', 'epsx-admin');
-  loginUrl.searchParams.set('response_type', 'code');
-  loginUrl.searchParams.set('scope', 'openid profile email admin_modules');
-  loginUrl.searchParams.set('redirect_uri', `${adminUrl}/api/auth/callback/epsx-backend`);
-  loginUrl.searchParams.set('state', Buffer.from(JSON.stringify({ redirectTo: callbackUrl })).toString('base64url'));
+  // Redirect to our login page which will initiate PKCE OAuth
+  const loginUrl = new URL('/login', adminUrl);
+  loginUrl.searchParams.set('redirectTo', callbackUrl);
   
   const redirect = NextResponse.redirect(loginUrl.toString());
   
@@ -239,7 +233,7 @@ async function logSecurityEvent(event: {
                       process.env.NEXT_PUBLIC_BACKEND_URL || 
                       'http://localhost:8080';
     
-    await fetch(`${backendUrl}/api/security/events`, {
+    await fetch(`${backendUrl}/api/v1/security/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -279,7 +273,7 @@ async function recordPerformanceMetrics(metrics: {
                       process.env.NEXT_PUBLIC_BACKEND_URL || 
                       'http://localhost:8080';
     
-    await fetch(`${backendUrl}/api/security/metrics`, {
+    await fetch(`${backendUrl}/api/v1/security/metrics`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NavigationMenu } from '@/components/ui/navigation-menu';
+import { NotificationBell, NotificationDropdown } from '@/components/notifications';
 import {
   Sheet,
   SheetContent,
@@ -172,6 +173,15 @@ export function NavigationClient({ user }: NavigationClientProps) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+          {/* Notifications - Only for authenticated users */}
+          {user && (
+            <div className="relative">
+              <NotificationDropdown>
+                <NotificationBell showBadge={true} />
+              </NotificationDropdown>
+            </div>
+          )}
+          
           {/* Theme Toggle - Responsive */}
           <div className="hidden sm:block">
             <ThemeToggle />
@@ -235,6 +245,18 @@ export function NavigationClient({ user }: NavigationClientProps) {
                 <SheetTitle className="text-left">Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-4">
+                {/* Notifications - Mobile */}
+                {user && (
+                  <Link
+                    href="/notifications"
+                    onClick={() => setIsOpen(false)}
+                    className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors"
+                  >
+                    <span className="text-sm font-medium">Notifications</span>
+                    <NotificationBell showBadge={true} />
+                  </Link>
+                )}
+                
                 {/* Theme Toggle - Mobile */}
                 <div className="bg-primary/5 flex items-center justify-between rounded-lg p-3">
                   <span className="text-sm font-medium">Theme</span>

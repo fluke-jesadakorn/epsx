@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const storedCodeVerifier = cookieStore.get('oauth_code_verifier')?.value;
     const storedState = cookieStore.get('oauth_state')?.value;
-    const storedCallbackUrl = cookieStore.get('oauth_callback_url')?.value;
+    const storedCallbackUrl = cookieStore.get('oauth_redirect_to')?.value;
 
     // Debug cookie values
     console.log('🔍 Cookie debug info:');
@@ -143,8 +143,8 @@ export async function GET(request: NextRequest) {
       console.log('✅ Cleaned oauth_state cookie');
     }
     if (storedCallbackUrl) {
-      response.cookies.delete('oauth_callback_url');
-      console.log('✅ Cleaned oauth_callback_url cookie');
+      response.cookies.delete('oauth_redirect_to');
+      console.log('✅ Cleaned oauth_redirect_to cookie');
     }
     
     // Set JWT cookie (AFTER cleanup)

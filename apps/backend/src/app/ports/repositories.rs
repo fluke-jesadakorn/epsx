@@ -4,13 +4,14 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
-use crate::dom::entities::{User, Session, Payment, Stock};
+use crate::dom::entities::{User, Session, Stock};
 use crate::dom::entities::iam::{IamRole, IamPolicy, IamGroup, UserPermissionOverride, RoleId, PolicyId, GroupId, IamError};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
 use crate::dom::entities::permission_profile::{PermissionProfile, PermissionProfileId, PermissionProfileQuery, ApplyPermissionProfileRequest, ApplyPermissionProfileResult, PermissionProfileError};
 use crate::dom::entities::temporary_permission::{TemporaryPermission, TemporaryPermissionStatus};
+use crate::dom::ports::notification::{DomainNotification, NotificationError};
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
-use crate::dom::values::{UserId, SessId, PayId, Symbol, Email, PayStatus, Market};
+use crate::dom::values::{UserId, SessId, Symbol, Email, Market};
 use crate::dom::error::DomainError;
 use crate::app::dtos::LevelChangeRecord;
 use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
@@ -127,19 +128,6 @@ pub trait SessRepo: Send + Sync {
     async fn find_by_id(&self, id: &SessId) -> Result<Session, RepoError>;
 }
 
-#[async_trait]
-#[cfg_attr(test, automock)]
-pub trait PayRepo: Send + Sync {
-    async fn get(&self, id: &PayId) -> Result<Option<Payment>, RepoError>;
-    async fn save(&self, payment: &Payment) -> Result<(), RepoError>;
-    async fn find_by_user(&self, uid: &UserId) -> Result<Vec<Payment>, RepoError>;
-    async fn find_by_status(&self, status: &PayStatus) -> Result<Vec<Payment>, RepoError>;
-    async fn find_by_date_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Payment>, RepoError>;
-    
-    // Analytics queries
-    async fn total_revenue(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Decimal, RepoError>;
-    async fn payment_stats(&self) -> Result<PaymentStats, RepoError>;
-}
 
 #[async_trait]
 #[cfg_attr(test, automock)]
@@ -347,6 +335,25 @@ impl Default for TemporaryPermissionQuery {
 
 #[async_trait]
 #[cfg_attr(test, automock)]
+pub trait NotificationRepo: Send + Sync {
+    /// Send a notification to a user
+    async fn send_notification(&self, user_id: &UserId, notification: &DomainNotification) -> Result<(), NotificationError>;
+    
+    /// Get notifications for a user
+    async fn get_user_notifications(&self, user_id: &UserId, offset: u32, limit: u32) -> Result<Vec<DomainNotification>, NotificationError>;
+    
+    /// Mark notification as read
+    async fn mark_as_read(&self, notification_id: &str) -> Result<(), NotificationError>;
+    
+    /// Get notification count for user
+    async fn count_user_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
+    
+    /// Get unread notification count for user
+    async fn count_unread_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
+}
+
+#[async_trait]
+#[cfg_attr(test, automock)]
 pub trait TemporaryPermissionRepo: Send + Sync {
     /// Create a new temporary permission
     async fn create(&self, permission: &TemporaryPermission) -> Result<TemporaryPermission, RepoError>;
@@ -399,17 +406,17 @@ pub trait PermissionAssignmentRepo: Send + Sync {
     async fn assign_permission_profile(
         &self,
         _user_id: &UserId,
-        permission__profile_id: &PermissionProfileId,
+        permission_profile_id: &PermissionProfileId,
         assigned_by: &UserId,
         expires_at: Option<DateTime<Utc>>,
         reason: Option<String>,
     ) -> Result<(), RepoError>;
     
     /// Revoke permission assignment
-    async fn revoke_assignment(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId) -> Result<(), RepoError>;
+    async fn revoke_assignment(&self, _user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<(), RepoError>;
     
     /// Check if user has active assignment for permission profile
-    async fn has_active_assignment(&self, _user_id: &UserId, permission__profile_id: &PermissionProfileId) -> Result<bool, RepoError>;
+    async fn has_active_assignment(&self, _user_id: &UserId, permission_profile_id: &PermissionProfileId) -> Result<bool, RepoError>;
     
     /// Get assignments expiring before a date
     async fn get_assignments_expiring_before(&self, _cutoff_date: DateTime<Utc>) -> Result<Vec<PermissionAssignment>, RepoError>;
@@ -418,14 +425,6 @@ pub trait PermissionAssignmentRepo: Send + Sync {
     async fn cleanup_expired_assignments(&self) -> Result<i64, RepoError>;
 }
 
-#[derive(Debug, Clone)]
-pub struct PaymentStats {
-    pub total_payments: u64,
-    pub total_revenue: Decimal,
-    pub pending_payments: u64,
-    pub completed_payments: u64,
-    pub failed_payments: u64,
-}
 
 #[derive(Debug, Clone)]
 pub struct PricePoint {

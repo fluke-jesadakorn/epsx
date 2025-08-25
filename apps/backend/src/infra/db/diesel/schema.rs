@@ -276,6 +276,132 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    firebase_sessions (id) {
+        id -> Uuid,
+        firebase_uid -> Varchar,
+        session_token -> Text,
+        firebase_token_id -> Nullable<Text>,
+        expires_at -> Timestamptz,
+        user_agent -> Nullable<Text>,
+        ip_address -> Nullable<Inet>,
+        is_active -> Nullable<Bool>,
+        created_at -> Nullable<Timestamptz>,
+        last_accessed_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    notifications (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        user_firebase_uid -> Nullable<Varchar>,
+        title -> Varchar,
+        message -> Text,
+        notification_type -> Varchar,
+        priority -> Varchar,
+        is_read -> Bool,
+        delivery_status -> Nullable<Varchar>,
+        delivered_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+        metadata -> Nullable<Jsonb>,
+    }
+}
+
+diesel::table! {
+    security_events (id) {
+        id -> Uuid,
+        event_type -> Varchar,
+        severity -> Varchar,
+        source -> Varchar,
+        user_id -> Nullable<Varchar>,
+        ip_address -> Nullable<Inet>,
+        user_agent -> Nullable<Text>,
+        request_path -> Nullable<Text>,
+        request_method -> Nullable<Varchar>,
+        request_headers -> Nullable<Jsonb>,
+        response_status -> Nullable<Int4>,
+        event_data -> Nullable<Jsonb>,
+        risk_score -> Nullable<Int4>,
+        country_code -> Nullable<Varchar>,
+        device_fingerprint -> Nullable<Text>,
+        correlation_id -> Nullable<Uuid>,
+        alert_triggered -> Nullable<Bool>,
+        blocked -> Nullable<Bool>,
+        timestamp -> Timestamptz,
+        processed -> Nullable<Bool>,
+    }
+}
+
+diesel::table! {
+    security_alert_rules (id) {
+        id -> Uuid,
+        rule_name -> Varchar,
+        description -> Nullable<Text>,
+        event_pattern -> Jsonb,
+        severity -> Varchar,
+        threshold_count -> Nullable<Int4>,
+        time_window_seconds -> Nullable<Int4>,
+        enabled -> Nullable<Bool>,
+        notification_channels -> Nullable<Array<Text>>,
+        auto_block -> Nullable<Bool>,
+        block_duration_seconds -> Nullable<Int4>,
+        created_at -> Nullable<Timestamptz>,
+        updated_at -> Nullable<Timestamptz>,
+        last_triggered -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    attack_attempts (id) {
+        id -> Uuid,
+        ip_address -> Inet,
+        attack_type -> Varchar,
+        target_user -> Nullable<Varchar>,
+        request_path -> Nullable<Text>,
+        user_agent -> Nullable<Text>,
+        severity -> Nullable<Varchar>,
+        success -> Nullable<Bool>,
+        blocked -> Nullable<Bool>,
+        metadata -> Nullable<Jsonb>,
+        detection_method -> Nullable<Varchar>,
+        risk_score -> Nullable<Int4>,
+        geolocation -> Nullable<Jsonb>,
+        timestamp -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    ip_blacklist (id) {
+        id -> Uuid,
+        ip_address -> Inet,
+        reason -> Varchar,
+        blocked_by -> Nullable<Varchar>,
+        auto_generated -> Nullable<Bool>,
+        expires_at -> Nullable<Timestamptz>,
+        metadata -> Nullable<Jsonb>,
+        created_at -> Nullable<Timestamptz>,
+        last_hit -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    alert_notifications (id) {
+        id -> Uuid,
+        rule_id -> Uuid,
+        event_id -> Uuid,
+        channel -> Varchar,
+        recipient -> Varchar,
+        message -> Text,
+        sent_at -> Nullable<Timestamptz>,
+        delivery_status -> Nullable<Varchar>,
+        attempts -> Nullable<Int4>,
+        error_message -> Nullable<Text>,
+        created_at -> Nullable<Timestamptz>,
+    }
+}
+
 // Note: These joinable macros should match foreign key relationships in the database
 // Commenting out problematic joins that need schema review
 // diesel::joinable!(admin_module_permissions -> admin_modules (module_code));
@@ -293,14 +419,21 @@ diesel::allow_tables_to_appear_in_same_query!(
     admin_module_permissions,
     admin_modules,
     admin_role_audit,
+    alert_notifications,
+    attack_attempts,
     audit_logs,
     eps_growth_rankings,
+    firebase_sessions,
     iam_groups,
     iam_policies,
     iam_roles,
+    ip_blacklist,
     level_history,
+    notifications,
     payments,
     permission_profiles,
+    security_alert_rules,
+    security_events,
     sessions,
     stocks,
     sub_modules,

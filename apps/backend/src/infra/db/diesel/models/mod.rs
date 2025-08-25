@@ -6,6 +6,8 @@ pub mod payment;
 pub mod stock;
 pub mod permission;
 pub mod module;
+pub mod notification;
+pub mod security;
 
 // Re-export all models for convenience
 pub use user::*;
@@ -16,3 +18,5 @@ pub use payment::*;
 pub use stock::*;
 pub use permission::*;
 pub use module::*;
+pub use notification::*;
+pub use security::*;

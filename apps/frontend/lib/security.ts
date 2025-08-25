@@ -382,7 +382,7 @@ export interface SecurityEvent {
 async function storeAuditLogInDatabase(auditLog: AuditLog): Promise<void> {
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/v1/audit/logs`, {
+    const response = await fetch(`${backendUrl}/api/v1/security/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

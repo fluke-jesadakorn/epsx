@@ -2,7 +2,7 @@
 // Bridges domain-level expiration events with WebSocket real-time events
 
 use std::sync::Arc;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{Utc, Duration};
 use tracing::{info, error};
 
 use crate::dom::services::feature_expiration::{FeatureExpiration, FeatureExpirationService};
@@ -27,7 +27,7 @@ impl ExpirationNotificationService {
     }
 
     /// Check and notify about expiring features for a specific user
-    pub async fn check_and_notify_user_expirations(&self, _user_id: &UserId) -> Result<u32, ExpirationNotificationError> {
+    pub async fn check_and_notify_user_expirations(&self, user_id: &UserId) -> Result<u32, ExpirationNotificationError> {
         let expiring_features = self.feature_expiration_service
             .get_expiring_features(user_id)
             .await

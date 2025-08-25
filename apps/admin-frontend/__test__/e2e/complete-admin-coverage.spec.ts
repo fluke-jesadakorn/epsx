@@ -299,7 +299,6 @@ test.describe('📊 Complete Analytics and Reporting Coverage', () => {
 
     const analyticsPages = [
       { path: '/analytics', name: 'Analytics Dashboard' },
-      { path: '/billing', name: 'Billing Analytics' },
     ];
 
     for (const analyticsPage of analyticsPages) {
@@ -312,7 +311,7 @@ test.describe('📊 Complete Analytics and Reporting Coverage', () => {
       
       // Check for analytics elements
       const analyticsElements = [
-        page.locator('h1, h2').filter({ hasText: /analytics|billing|dashboard|metrics/i }),
+        page.locator('h1, h2').filter({ hasText: /analytics|dashboard|metrics/i }),
         page.locator('chart, [data-testid*="chart"]').first(),
         page.locator('table').first(),
         page.locator('[data-testid*="metric"], .metric').first(),
@@ -372,7 +371,6 @@ test.describe('🛠️ Complete System Administration Coverage', () => {
 
     const systemPages = [
       { path: '/settings', name: 'System Settings' },
-      { path: '/database', name: 'Database Management' },
       { path: '/developer-portal', name: 'Developer Portal' },
       { path: '/docs/api', name: 'API Documentation' },
       { path: '/modules', name: 'Module Management' },
@@ -390,7 +388,7 @@ test.describe('🛠️ Complete System Administration Coverage', () => {
       
       // Check for system admin elements
       const systemElements = [
-        page.locator('h1, h2').filter({ hasText: /settings|database|api|modules|packages/i }),
+        page.locator('h1, h2').filter({ hasText: /settings|api|modules|packages/i }),
         page.locator('form').first(),
         page.locator('table').first(),
         page.locator('button').filter({ hasText: /save|update|configure|manage/i }),
@@ -614,7 +612,7 @@ test.describe('⚡ Complete Admin Performance Coverage', () => {
 
     const allAdminPages = [
       '/', '/users', '/users/create', '/permission-profiles', '/analytics',
-      '/settings', '/database', '/modules', '/billing', '/iam'
+      '/settings', '/modules', '/iam'
     ];
 
     const performanceResults = [];
@@ -698,7 +696,6 @@ test.describe('🔄 Complete Admin User Journey Coverage', () => {
     const privilegedPages = [
       '/users/create',
       '/permission-profiles/assign',
-      '/database',
       '/settings',
       '/iam',
     ];

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     
     // Use environment-aware URLs
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
     
     // Build authorization URL
     const authorizationEndpoint = `${backendUrl}/oauth/authorize`;

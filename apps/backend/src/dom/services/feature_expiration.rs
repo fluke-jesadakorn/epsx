@@ -77,7 +77,7 @@ pub trait FeatureExpirationService: Send + Sync {
   async fn extend_feature_expiration(
     &self,
     _user_id: &UserId,
-    permission__profile_id: &PermissionProfileId,
+    permission_profile_id: &PermissionProfileId,
     extension_days: u32
   ) -> Result<(), ExpirationError>;
   async fn send_renewal_notification(
@@ -89,7 +89,7 @@ pub trait FeatureExpirationService: Send + Sync {
   async fn deactivate_expired_features(
     &self,
     _user_id: &UserId,
-    permission__profile_id: &PermissionProfileId
+    permission_profile_id: &PermissionProfileId
   ) -> Result<(), ExpirationError>;
 }
 

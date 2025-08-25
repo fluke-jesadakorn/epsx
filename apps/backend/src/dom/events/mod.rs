@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use crate::dom::values::{UserId, PayId};
 
+pub mod notification_events;
+
 pub trait DomainEvent: Send + Sync {
     fn event_id(&self) -> &Uuid;
     fn occurred_at(&self) -> DateTime<Utc>;

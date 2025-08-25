@@ -190,6 +190,9 @@ pub enum CacheError {
 /// Audit logging errors
 #[derive(Debug, Error)]
 pub enum AuditError {
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+    
     #[error("Audit log write failed: {reason}")]
     WriteFailed { reason: String },
     

@@ -10,11 +10,11 @@ echo "============================="
 echo ""
 
 # Configuration
-TEST_EMAIL="jesadakorn.kirtnu@gmail.com"
+TEST_EMAIL="${TEST_EMAIL:-test-admin@example.com}"
 ADMIN_FRONTEND_PORT="3001"
 BACKEND_PORT="8080"
 
-echo "📧 Test User: $TEST_EMAIL"
+echo "📧 Test User: $TEST_EMAIL (set TEST_EMAIL env var to override)"
 echo "🖥️ Admin Frontend: http://localhost:$ADMIN_FRONTEND_PORT"
 echo "⚙️ Backend: http://localhost:$BACKEND_PORT"
 echo ""
@@ -40,11 +40,10 @@ fi
 
 echo ""
 echo "🔧 Step 1: Assigning test user permissions..."
-if ./assign-permissions.sh; then
-  echo "✅ Permission assignment completed"
-else
-  echo "⚠️ Permission assignment had issues, but continuing with tests"
-fi
+echo "💡 Using new admin management system. To assign permissions to test user, run:"
+echo "   ./scripts/promote-admin.sh $TEST_EMAIL"
+echo ""
+echo "⏭️  Skipping automatic permission assignment - please run the command above manually"
 
 echo ""
 echo "⏳ Waiting for permissions to propagate..."

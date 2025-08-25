@@ -125,7 +125,7 @@ export class AdminSessionValidator {
         method: request.method || 'GET'
       }
       
-      const response = await fetch(`${backendUrl}/api/auth/validate-session`, {
+      const response = await fetch(`${backendUrl}/api/v1/auth/sessions/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -400,10 +400,6 @@ export function canAccessAdminPath(user: UserProfile, path: string): boolean {
   
   if (path.includes('/admin/audit') || path.includes('/audit')) {
     return hasAdminModule(user, 'audit_logs')
-  }
-  
-  if (path.includes('/admin/billing') || path.includes('/billing')) {
-    return hasAdminModule(user, 'billing')
   }
   
   if (path.includes('/admin/config') || path.includes('/system')) {

@@ -1,5 +1,14 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { env } from '@/config/env';
+import type {
+  Notification,
+  NotificationListParams,
+  NotificationListResponse,
+  NotificationCreateRequest,
+  NotificationUpdateRequest,
+  NotificationPreferences,
+  NotificationStats
+} from '@/types';
 
 export interface ApiError {
   message: string;
@@ -126,6 +135,63 @@ export class ApiClient {
 
   removeAuthToken() {
     delete this.instance.defaults.headers.Authorization;
+  }
+
+  // Notification API methods
+  async getNotifications(params?: NotificationListParams): Promise<ApiResponse<NotificationListResponse>> {
+    return this.get('/api/v1/notifications', { params });
+  }
+
+  async getNotification(id: string): Promise<ApiResponse<Notification>> {
+    return this.get(`/api/v1/notifications/${id}`);
+  }
+
+  async createNotification(data: NotificationCreateRequest): Promise<ApiResponse<Notification>> {
+    return this.post('/api/v1/notifications', data);
+  }
+
+  async updateNotification(id: string, data: NotificationUpdateRequest): Promise<ApiResponse<Notification>> {
+    return this.put(`/api/v1/notifications/${id}`, data);
+  }
+
+  async deleteNotification(id: string): Promise<ApiResponse<void>> {
+    return this.delete(`/api/v1/notifications/${id}`);
+  }
+
+  async markNotificationRead(id: string): Promise<ApiResponse<Notification>> {
+    return this.put(`/api/v1/notifications/${id}/read`);
+  }
+
+  async markNotificationUnread(id: string): Promise<ApiResponse<Notification>> {
+    return this.put(`/api/v1/notifications/${id}/unread`);
+  }
+
+  async markAllNotificationsRead(userId?: string): Promise<ApiResponse<{ updatedCount: number }>> {
+    return this.post('/api/v1/notifications/mark-all-read', userId ? { userId } : {});
+  }
+
+  async getNotificationStats(userId?: string): Promise<ApiResponse<NotificationStats>> {
+    return this.get('/api/v1/notifications/stats', { params: userId ? { userId } : {} });
+  }
+
+  async getNotificationPreferences(userId?: string): Promise<ApiResponse<NotificationPreferences>> {
+    return this.get('/api/v1/notifications/preferences', { params: userId ? { userId } : {} });
+  }
+
+  async updateNotificationPreferences(preferences: Partial<NotificationPreferences>, userId?: string): Promise<ApiResponse<NotificationPreferences>> {
+    return this.put('/api/v1/notifications/preferences', { ...preferences, ...(userId ? { userId } : {}) });
+  }
+
+  async broadcastNotification(data: Omit<NotificationCreateRequest, 'userId'> & { userIds?: string[]; allUsers?: boolean }): Promise<ApiResponse<{ notificationIds: string[]; userCount: number }>> {
+    return this.post('/api/v1/notifications/broadcast', data);
+  }
+
+  async deleteNotifications(ids: string[]): Promise<ApiResponse<{ deletedCount: number }>> {
+    return this.post('/api/v1/notifications/bulk-delete', { ids });
+  }
+
+  async markNotificationsRead(ids: string[]): Promise<ApiResponse<{ updatedCount: number }>> {
+    return this.post('/api/v1/notifications/bulk-mark-read', { ids });
   }
 }
 

@@ -16,29 +16,58 @@ use super::handlers::{
     record_performance_metrics_handler,
 };
 use crate::web::auth::AppState;
+use crate::web::middleware::add_deprecation_headers;
 
-/// Create security routes for internal API use (backend to frontend communication)
+/// Create security routes with proper versioning and no conflicts
 pub fn create_security_routes() -> Router<AppState> {
-    Router::new()
-        // Security event CRUD operations
+    // Versioned routes
+    let v1_routes = Router::new()
+        // Security event CRUD operations (avoid conflict with realtime /events)
+        .route("/api/v1/security/events", post(create_security_event_handler))
+        .route("/api/v1/security/events", get(get_security_events_handler))
+        .route("/api/v1/security/events/:event_id/resolve", put(resolve_security_event_handler))
+        .route("/api/v1/security/events/bulk", post(bulk_security_events_handler))
+        
+        // Statistics and monitoring
+        .route("/api/v1/security/stats", get(get_security_stats_handler))
+        .route("/api/v1/security/health", get(get_security_system_health_handler))
+        .route("/api/v1/security/metrics", post(record_performance_metrics_handler))
+        
+        // Admin security endpoints
+        .route("/api/v1/admin/security/events", get(get_security_events_handler))
+        .route("/api/v1/admin/security/stats", get(get_security_stats_handler))
+        .route("/api/v1/admin/security/health", get(get_security_system_health_handler))
+        .route("/api/v1/admin/security/events/:event_id/resolve", put(resolve_security_event_handler))
+        .route("/api/v1/admin/security/events/bulk", post(bulk_security_events_handler));
+
+    // Legacy routes for backward compatibility
+    let legacy_routes = Router::new()
         .route("/events", post(create_security_event_handler))
         .route("/events", get(get_security_events_handler))
         .route("/events/:event_id/resolve", put(resolve_security_event_handler))
         .route("/events/bulk", post(bulk_security_events_handler))
-        
-        // Statistics and monitoring
         .route("/stats", get(get_security_stats_handler))
         .route("/security/health", get(get_security_system_health_handler))
         .route("/metrics", post(record_performance_metrics_handler))
+        .route("/security/events", get(get_security_events_handler))
+        .route("/security/stats", get(get_security_stats_handler))
+        .route("/security/events/:event_id/resolve", put(resolve_security_event_handler))
+        .route("/security/events/bulk", post(bulk_security_events_handler))
+        .layer(axum::middleware::from_fn(add_deprecation_headers));
+
+    Router::new()
+        .merge(v1_routes)
+        .merge(legacy_routes)
 }
 
-/// Create admin security routes (for admin dashboard)
+/// Create admin security routes (deprecated - use create_security_routes instead)
 pub fn create_admin_security_routes() -> Router<AppState> {
     Router::new()
-        // Security monitoring for admins
+        // Legacy admin security routes (deprecated)
         .route("/security/events", get(get_security_events_handler))
         .route("/security/stats", get(get_security_stats_handler))
         .route("/security/health", get(get_security_system_health_handler))
         .route("/security/events/:event_id/resolve", put(resolve_security_event_handler))
         .route("/security/events/bulk", post(bulk_security_events_handler))
+        .layer(axum::middleware::from_fn(add_deprecation_headers))
 }

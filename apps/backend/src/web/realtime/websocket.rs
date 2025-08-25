@@ -81,7 +81,7 @@ impl ConnectionManager {
     }
     
     /// Send event to specific user
-    pub async fn send_to_user(&self, _user_id: &UserId, event: EventMessage) {
+    pub async fn send_to_user(&self, user_id: &UserId, event: EventMessage) {
         let connections = self.connections.read().await;
         let user_connections: Vec<_> = connections
             .values()
@@ -296,6 +296,10 @@ fn should_send_event(event: &EventMessage, connection_info: &ConnectionInfo) -> 
         RealtimeEvent::SubscriptionUpgraded { .. } |
         RealtimeEvent::SubscriptionExpired { .. } => "subscription",
         RealtimeEvent::HealthAlert { .. } => "health",
+        RealtimeEvent::FeatureExpirationWarning { .. } => "feature_expiration_warning",
+        RealtimeEvent::FeatureExpired { .. } => "feature_expired",
+        RealtimeEvent::GracePeriodStarted { .. } => "grace_period_started",
+        RealtimeEvent::GracePeriodEnding { .. } => "grace_period_ending",
     };
     
     if !connection_info.subscribed_events.contains(&event_type.to_string()) {

@@ -4,7 +4,7 @@ This guide covers the complete end-to-end testing setup for all admin modules wi
 
 ## 📋 Overview
 
-The E2E testing suite provides comprehensive coverage for all admin modules with the test user `jesadakorn.kirtnu@gmail.com`. It includes automatic permission assignment to ensure the user has access to all required admin functions.
+The E2E testing suite provides comprehensive coverage for all admin modules. You can specify a test user via environment variable, and use the new admin management system to assign permissions.
 
 ## 🏗️ Test Structure
 
@@ -14,9 +14,7 @@ The E2E testing suite provides comprehensive coverage for all admin modules with
 - `complete-admin-coverage.spec.ts` - Existing comprehensive coverage tests
 
 ### Scripts
-- `assign-test-permissions.ts` - TypeScript permission assignment utility
-- `assign-permissions.sh` - Shell script for quick permission assignment
-- `run-comprehensive-e2e.sh` - Complete test runner with permission setup
+- `run-comprehensive-e2e.sh` - Complete test runner (updated to use new admin system)
 
 ## 🎯 Test Coverage
 
@@ -45,29 +43,28 @@ The E2E testing suite provides comprehensive coverage for all admin modules with
 1. Backend server running on port 8080
 2. Admin frontend running on port 3001
 3. Database accessible (PostgreSQL)
-4. Test user credentials: `jesadakorn.kirtnu@gmail.com` / `Aa_1234567`
+4. Test user created and assigned admin permissions
 
-### Option 1: Run Everything (Recommended)
+### Step 1: Create and Assign Admin User
 ```bash
-cd apps/admin-frontend/__test__/scripts
-./run-comprehensive-e2e.sh
+# Set your test user email
+export TEST_EMAIL="your-test-user@example.com"
+
+# Promote to full admin
+./scripts/promote-admin.sh $TEST_EMAIL
 ```
 
-### Option 2: Manual Steps
+### Step 2: Run E2E Tests
 ```bash
-# 1. Assign permissions
 cd apps/admin-frontend/__test__/scripts
-./assign-permissions.sh
+TEST_EMAIL="your-test-user@example.com" ./run-comprehensive-e2e.sh
+```
 
-# 2. Run tests
-cd ../
+### Alternative: Manual Test Execution
+```bash
+# After assigning permissions, run tests directly
+cd apps/admin-frontend
 npx playwright test all-modules-comprehensive.spec.ts
-```
-
-### Option 3: TypeScript Permission Assignment
-```bash
-cd apps/admin-frontend/__test__/scripts
-npx ts-node assign-test-permissions.ts
 ```
 
 ## 🔧 Configuration
@@ -80,9 +77,8 @@ export BACKEND_URL="http://localhost:8080"
 # Database URL (default: postgresql://localhost/epsx)
 export DATABASE_URL="postgresql://localhost/epsx"
 
-# Test user credentials (configured in test files)
-TEST_EMAIL="jesadakorn.kirtnu@gmail.com"
-TEST_PASSWORD="Aa_1234567"
+# Test user (set via environment variable)
+TEST_EMAIL="your-test-user@example.com"
 ```
 
 ### Required Permissions

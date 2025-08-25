@@ -1,13 +1,15 @@
 use axum::{
-    extract::Request,
-    http::{header::AUTHORIZATION, StatusCode},
+    async_trait,
+    extract::{FromRequestParts, Request},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     middleware::Next,
     response::{Response, IntoResponse},
 };
 // use tower::Service; // Not needed for simple middleware
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
-use crate::auth::{JWT, User, JWTError};
+use crate::auth::{JWT, User, jwt};
+use crate::dom::values::UserId;
 
 /**
  * Modern Auth.js v5 JWT middleware
@@ -48,21 +50,29 @@ pub async fn modern_jwt_auth_middleware(
     // Validate JWT and extract user
     let user = match JWT.extract_user(token) {
         Ok(user) => user,
-        Err(JWTError::Expired) => {
+        Err(jwt::Error::Expired) => {
             warn!("Expired token for endpoint: {}", path);
             return Err(StatusCode::UNAUTHORIZED.into_response());
         }
-        Err(JWTError::Invalid(msg)) => {
+        Err(jwt::Error::Invalid(msg)) => {
             warn!("Invalid token for endpoint {}: {}", path, msg);
             return Err(StatusCode::UNAUTHORIZED.into_response());
         }
-        Err(JWTError::InvalidSignature) => {
-            error!("Invalid token signature for endpoint: {}", path);
+        Err(jwt::Error::MissingClaims(msg)) => {
+            warn!("Missing claims in token for endpoint {}: {}", path, msg);
             return Err(StatusCode::UNAUTHORIZED.into_response());
         }
-        Err(err) => {
-            error!("JWT validation error for endpoint {}: {}", path, err);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        Err(jwt::Error::InvalidSignature) => {
+            warn!("Invalid signature in token for endpoint: {}", path);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
+        }
+        Err(jwt::Error::PermissionDenied) => {
+            warn!("Permission denied for endpoint: {}", path);
+            return Err(StatusCode::FORBIDDEN.into_response());
+        }
+        Err(jwt::Error::NotYetValid) => {
+            warn!("Token not yet valid for endpoint: {}", path);
+            return Err(StatusCode::UNAUTHORIZED.into_response());
         }
     };
 
@@ -243,4 +253,86 @@ pub async fn request_logging_middleware(
     );
 
     Ok(response)
+}
+
+/// Simple authentication context for realtime handlers
+#[derive(Debug, Clone)]
+pub struct AuthCtx {
+    pub user_id: UserId,
+    pub email: String,
+    pub package_tier: String,
+    pub permissions: Vec<String>,
+    pub admin_modules: Vec<String>,
+}
+
+impl From<User> for AuthCtx {
+    fn from(user: User) -> Self {
+        Self {
+            user_id: UserId::from(user.id),
+            email: user.email,
+            package_tier: user.package_tier,
+            permissions: user.permissions,
+            admin_modules: user.admin_modules,
+        }
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthCtx
+where
+    S: Send + Sync,
+{
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Extract JWT token from Authorization header
+        let auth_header = parts
+            .headers
+            .get(AUTHORIZATION)
+            .and_then(|header| header.to_str().ok())
+            .and_then(|header| {
+                if header.starts_with("Bearer ") {
+                    Some(&header[7..])
+                } else {
+                    None
+                }
+            });
+
+        let token = match auth_header {
+            Some(token) => token,
+            None => {
+                warn!("No authorization header found for AuthCtx extraction");
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        };
+
+        // Validate JWT and extract user
+        match JWT.extract_user(token) {
+            Ok(user) => Ok(AuthCtx::from(user)),
+            Err(jwt::Error::Expired) => {
+                warn!("Expired token for AuthCtx extraction");
+                Err(StatusCode::UNAUTHORIZED)
+            }
+            Err(jwt::Error::Invalid(msg)) => {
+                warn!("Invalid token for AuthCtx extraction: {}", msg);
+                Err(StatusCode::UNAUTHORIZED)
+            }
+            Err(jwt::Error::MissingClaims(msg)) => {
+                warn!("Missing claims in token for AuthCtx extraction: {}", msg);
+                Err(StatusCode::UNAUTHORIZED)
+            }
+            Err(jwt::Error::InvalidSignature) => {
+                warn!("Invalid signature in token for AuthCtx extraction");
+                Err(StatusCode::UNAUTHORIZED)
+            }
+            Err(jwt::Error::PermissionDenied) => {
+                warn!("Permission denied for AuthCtx extraction");
+                Err(StatusCode::FORBIDDEN)
+            }
+            Err(jwt::Error::NotYetValid) => {
+                warn!("Token not yet valid for AuthCtx extraction");
+                Err(StatusCode::UNAUTHORIZED)
+            }
+        }
+    }
 }

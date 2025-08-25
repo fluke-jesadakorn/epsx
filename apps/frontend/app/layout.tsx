@@ -2,7 +2,14 @@ import { NavigationClient } from '@/components/nav/NavigationClient';
 import { getAuthUser } from '@/lib/server/auth';
 import { Kanit } from 'next/font/google';
 import { type EPSXJWTPayload } from '@/lib/auth-utils';
+import { NotificationProvider } from '@/context/notification-context';
+import { NotificationToastProvider } from '@/components/notifications';
+import { Toaster } from 'sonner';
+import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 import './globals.css';
+
+export const dynamic = 'force-dynamic';
 
 // Convert EPSXJWTPayload to AuthUser format
 function mapToAuthUser(payload: EPSXJWTPayload | null) {
@@ -29,17 +36,6 @@ export const metadata = {
   description: 'Advanced stock trading and analytics platform',
   keywords: ['stock trading', 'analytics', 'EPSX', 'financial data'],
   authors: [{ name: 'EPSX Team' }],
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: 'cover',
-  },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
-  ],
   robots: {
     index: true,
     follow: true,
@@ -59,12 +55,32 @@ export const metadata = {
   },
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
+};
+
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const jwtPayload = await getAuthUser();
+  let jwtPayload: EPSXJWTPayload | null = null;
+  
+  try {
+    jwtPayload = await getAuthUser();
+  } catch (error) {
+    // Gracefully handle auth failures for static generation
+    console.warn('Failed to get auth user in layout:', error);
+  }
+  
   const user = mapToAuthUser(jwtPayload);
   
   return (
@@ -88,14 +104,34 @@ export default async function RootLayout({
         <meta name="MobileOptimized" content="width" />
       </head>
       <body className={`${kanit.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
-        {/* Mobile navigation optimized for touch */}
-        <NavigationClient user={user} />
-        
-        {/* Main content with mobile scroll optimization */}
-        <main className="relative min-h-screen">
-          {children}
-        </main>
-        
+        <ClientProviders>
+          <NotificationProvider>
+            <NotificationToastProvider>
+              {/* Service Worker Registration */}
+              <ServiceWorkerInitializer />
+              
+              {/* Mobile navigation optimized for touch */}
+              <NavigationClient user={user} />
+              
+              {/* Main content with mobile scroll optimization */}
+              <main className="relative min-h-screen">
+                {children}
+              </main>
+              
+              {/* Toast notifications */}
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border))',
+                  },
+                }}
+              />
+            </NotificationToastProvider>
+          </NotificationProvider>
+        </ClientProviders>
       </body>
     </html>
   );

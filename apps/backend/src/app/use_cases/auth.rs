@@ -134,7 +134,7 @@ impl AuthUC {
 
     async fn get_user_permissions(&self, package_tier: &PackageTier, admin_modules: &[String]) -> Vec<String> {
         let mut perms: Vec<String> = match package_tier {
-            PackageTier::SuperAdmin => PermissionGroups::super_admin().into_iter().map(|s| s.to_string()).collect(),
+            PackageTier::SuperAdmin => PermissionGroups::admin().into_iter().map(|s| s.to_string()).collect(),
             PackageTier::Admin => PermissionGroups::admin().into_iter().map(|s| s.to_string()).collect(),
             PackageTier::Platinum => PermissionGroups::premium_tier().into_iter().map(|s| s.to_string()).collect(),
             PackageTier::Gold => PermissionGroups::premium_tier().into_iter().map(|s| s.to_string()).collect(),

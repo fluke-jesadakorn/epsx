@@ -2,36 +2,12 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json;
 use crate::config::env::get_env_var;
-use crate::infra::db::diesel::{DbPool, DbConnection, create_pool as create_diesel_pool};
+use crate::infra::db::diesel::{DbPool, create_pool as create_diesel_pool};
 
-pub mod user_repo;
-// pub mod user_repo_soft_delete;
-pub mod session_repo;
-pub mod payment_repo;
-pub mod stock_repo;
-pub mod iam_repo;
-pub mod audit_repo;
-pub mod permission_profile_repo;
-pub mod assign_repo;
-pub mod eps_ranking_repo;
-pub mod module_repo;
-// TODO: Implement level_history_repo
-// pub mod level_history_repo;
+pub mod notification_repo;
 
-pub use user_repo::*;
-// pub use user_repo_soft_delete::*;
-pub use session_repo::*;
-pub use payment_repo::*;
-pub use stock_repo::*;
-pub use iam_repo::*;
-pub use audit_repo::*;
-pub use permission_profile_repo::*;
-pub use assign_repo::*;
-pub use eps_ranking_repo::*;
-pub use module_repo::*;
-// pub use level_history_repo::*;
+pub use notification_repo::*;
 
 /// Enhanced database configuration with environment-aware scaling
 #[derive(Debug, Clone)]
@@ -164,7 +140,7 @@ pub async fn create_pool(config: DatabaseConfig) -> Result<DatabasePool, diesel:
     });
 
     // Create Diesel pool using the existing diesel infrastructure
-    let pool = create_diesel_pool(&database_url)
+    let pool = create_diesel_pool(&database_url).await
         .map_err(|_| DieselError::DatabaseError(
             diesel::result::DatabaseErrorKind::UnableToSendCommand,
             Box::new("Failed to create connection pool".to_string())
@@ -199,7 +175,10 @@ async fn ensure_database_exists(_database_url: &str) -> Result<(), diesel::resul
 /// Create optimized pool with default configuration (for backward compatibility)
 pub async fn create_optimized_pool(database_url: &str) -> Result<DbPool, diesel::result::Error> {
     // Use the Diesel pool creation function
-    create_diesel_pool(database_url)
+    create_diesel_pool(database_url).await.map_err(|_| diesel::result::Error::DatabaseError(
+        diesel::result::DatabaseErrorKind::UnableToSendCommand,
+        Box::new("Failed to create optimized pool".to_string())
+    ))
 }
 
 /// Database error wrapper

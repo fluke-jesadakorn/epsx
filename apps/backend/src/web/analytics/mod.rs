@@ -1,4 +1,5 @@
 pub mod eps_handlers;
+pub mod eps;  // New focused modules architecture
 
 use axum::{
     routing::{get, post},
@@ -11,6 +12,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::web::AppState;
+use crate::web::middleware::add_deprecation_headers;
 use crate::infra::services::tradingview::TradingViewApiService;
 use crate::infra::InfraFactory;
 use crate::config::Config;
@@ -123,27 +125,45 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
 
     // Background cache refresh removed - using on-demand loading instead
     
-    Router::new()
-        // Main EPS rankings endpoints (using corrected logic with FQ fields)
+    // Create versioned routes
+    let v1_routes = Router::new()
+        // Main EPS rankings endpoints (RESTful structure)
+        .route("/api/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        .route("/api/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
+        .route("/api/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
+        .route("/api/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
+        .route("/api/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
+        // Cache management endpoints
+        .route("/api/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
+        .route("/api/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
+        .route("/api/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
+        // System metrics endpoint for admin dashboard
+        .route("/api/v1/admin/analytics/metrics", get(system_metrics_handler));
+
+    // Legacy routes for backward compatibility
+    let legacy_routes = Router::new()
         .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
         .route("/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
         .route("/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
         .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        // V1 API compatibility (frontend uses these - corrected handlers)
+        .route("/analytics/system/metrics", get(system_metrics_handler))
+        // V1 prefix routes (also legacy - should use /api/v1/ instead)
         .route("/v1/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
         .route("/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
         .route("/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
         .route("/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        // Cache management endpoints
         .route("/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
-        // System metrics endpoint for admin dashboard
-        .route("/analytics/system/metrics", get(system_metrics_handler))
+        .layer(axum::middleware::from_fn(add_deprecation_headers));
+
+    Router::new()
+        .merge(v1_routes)
+        .merge(legacy_routes)
         // Add services as extensions
         .layer(Extension(eps_ranking_service))
         .layer(Extension(eps_cache_service))

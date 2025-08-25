@@ -25,9 +25,22 @@ pub struct Claims {
     pub permissions: Vec<String>,
     pub admin_modules: Vec<String>,
     pub package_tier: String,
+    pub role: String,
     
     // Firebase integration
     pub firebase_uid: Option<String>,
+}
+
+/// Refresh token claims (simplified)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RefreshTokenClaims {
+    pub sub: String,            // Subject (User ID)
+    pub iss: String,            // Issuer
+    pub aud: String,            // Audience (refresh)
+    pub exp: i64,               // Expiration Time
+    pub iat: i64,               // Issued At
+    pub session_id: String,     // Session ID
+    pub token_type: String,     // Token type (refresh)
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +51,7 @@ pub struct User {
     pub permissions: Vec<String>,
     pub admin_modules: Vec<String>,
     pub package_tier: String,
+    pub role: String,
     pub firebase_uid: Option<String>,
 }
 
@@ -59,7 +73,6 @@ pub enum Error {
 
 pub struct Service {
     key_manager: Arc<KeyManager>,
-    legacy_secret: Option<String>,
     issuer: String,
 }
 
@@ -68,20 +81,13 @@ impl Service {
         let key_manager = Arc::new(KeyManager::from_env_or_generate()
             .map_err(|e| Error::Invalid(format!("Failed to initialize KeyManager: {}", e)))?);
             
-        let legacy_secret = get_env_var("NEXTAUTH_SECRET")
-            .or_else(|_| get_env_var("NEXTAUTH_SECRET"))
-            .ok();
+        // Legacy HMAC support removed - RSA-only authentication
             
         let issuer = get_env_var("OIDC_ISSUER")
             .unwrap_or_else(|_| "http://localhost:8080".to_string());
             
-        if legacy_secret.is_some() {
-            tracing::warn!("Using legacy HMAC secret for JWT backwards compatibility");
-        }
-        
         Ok(Self {
             key_manager,
-            legacy_secret,
             issuer,
         })
     }
@@ -106,8 +112,13 @@ impl Service {
             
             // Authorization
             permissions: user_data.permissions.unwrap_or_default(),
-            admin_modules: user_data.admin_modules.unwrap_or_default(),
+            admin_modules: user_data.admin_modules.clone().unwrap_or_default(),
             package_tier: user_data.package_tier.unwrap_or_else(|| "FREE".to_string()),
+            role: if !user_data.admin_modules.unwrap_or_default().is_empty() { 
+                "admin".to_string() 
+            } else { 
+                "user".to_string() 
+            },
             
             // Firebase integration
             firebase_uid: user_data.firebase_uid,
@@ -166,23 +177,7 @@ impl Service {
             }
         }
         
-        // Fallback to legacy HMAC
-        if let Some(secret) = &self.legacy_secret {
-            let key = DecodingKey::from_secret(secret.as_ref());
-            let validation = Validation::new(Algorithm::HS256);
-            
-            match decode::<Claims>(token, &key, &validation) {
-                Ok(token_data) => {
-                    tracing::debug!("Successfully validated legacy HMAC token");
-                    return Ok(token_data.claims);
-                }
-                Err(err) => match err.kind() {
-                    ErrorKind::ExpiredSignature => return Err(Error::Expired),
-                    ErrorKind::InvalidSignature => return Err(Error::InvalidSignature),
-                    _ => tracing::debug!("Legacy HMAC validation failed: {}", err),
-                }
-            }
-        }
+        // No legacy fallback - RSA validation only
         
         Err(Error::Invalid("Token validation failed".to_string()))
     }
@@ -196,8 +191,9 @@ impl Service {
             email: claims.email,
             name: claims.name,
             permissions: claims.permissions,
-            admin_modules: claims.admin_modules,
+            admin_modules: claims.admin_modules.clone(),
             package_tier: claims.package_tier,
+            role: claims.role,
             firebase_uid: claims.firebase_uid,
         })
     }
@@ -228,7 +224,6 @@ impl Service {
         // Backwards compatibility mapping
         match required_role.to_lowercase().as_str() {
             "admin" => !user.admin_modules.is_empty(),
-            "super_admin" => user.admin_modules.contains(&"system_admin".to_string()),
             "moderator" => user.admin_modules.contains(&"user_operations".to_string()) || user.admin_modules.contains(&"support_specialist".to_string()),
             "premium" => self.has_tier(user, "SILVER"),
             "user" => self.has_tier(user, "BRONZE"),
@@ -380,6 +375,7 @@ mod tests {
             permissions: vec!["admin:*".to_string()],
             admin_modules: vec!["user_management".to_string()],
             package_tier: "GOLD".to_string(),
+            role: "admin".to_string(),
             firebase_uid: None,
         };
         

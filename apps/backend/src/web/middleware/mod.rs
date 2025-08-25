@@ -39,6 +39,7 @@ pub use security_headers::{
   performance_headers_middleware,
   enhanced_cors_middleware,
   enhanced_security_monitoring_middleware,
+  add_deprecation_headers,
 };
 
 // Modern middleware exports
@@ -46,6 +47,7 @@ pub use modern_auth::{
   modern_jwt_auth_middleware,
   cors_middleware,
   request_logging_middleware,
+  AuthCtx,
 };
 
 // Legacy middleware exports (will be removed in Phase 6)

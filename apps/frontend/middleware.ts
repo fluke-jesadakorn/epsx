@@ -26,6 +26,15 @@ const publicRoutes = [
   '/api/auth/signout',
   '/api/auth/logout',
   '/api/auth/session',
+  // New versioned auth routes
+  '/api/v1/auth/callback/epsx-backend',
+  '/api/v1/auth/initiate',
+  '/api/v1/auth/sessions',
+  '/api/v1/auth/users',
+  '/api/v1/auth/user',
+  '/api/v1/auth/tokens/refresh',
+  '/api/v1/validations/emails',
+  '/api/v1/validations/passwords',
   '/api/public', // Allow public API routes to handle auth themselves
   '/_next',
   '/favicon.ico'

@@ -6,8 +6,14 @@ import { NotificationState as _NotificationState,  NotificationPreferences } fro
 import type {Notification} from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
 import { createApiClient, isApiError } from '@/lib/api-client';
-import type {PushSubscriptionRequest} from '@/lib/api-client';
-import { getVapidKey } from '@/lib/actions/admin.server';
+import type { PushSubscriptionRequest, NotificationResponse, NotificationListParams } from '@/lib/api-client';
+import { 
+  requestNotificationPermission, 
+  getFCMToken, 
+  onForegroundMessage, 
+  isFCMSupported,
+  getNotificationPermissionStatus 
+} from '@/lib/firebase-config';
 
 interface NotificationContextType {
   // Data
@@ -33,10 +39,12 @@ interface NotificationContextType {
   deleteNotification: (id: string, optimistic?: boolean) => Promise<void>;
   refreshNotifications: () => Promise<void>;
   
-  // Push notifications
+  // Push notifications (FCM)
   requestPermission: () => Promise<boolean>;
   subscribeToPush: () => Promise<void>;
   unsubscribeFromPush: () => Promise<void>;
+  fcmSupported: boolean;
+  fcmToken: string | null;
   
   // Helpers
   getUnreadNotifications: () => Notification[];
@@ -53,8 +61,10 @@ interface NotificationProviderProps {
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const { state, actions } = useAppState();
   const { notifications } = state;
-  const wsRef = useRef<WebSocket | null>(null);
-  const pushSubscriptionRef = useRef<PushSubscription | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
+  const fcmTokenRef = useRef<string | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const unsubscribeForegroundRef = useRef<(() => void) | null>(null);
   
   const {
     startOptimisticUpdate,
@@ -67,85 +77,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     return createApiClient('/api');
   }, []);
 
-  // WebSocket connection for real-time notifications
-  const connectWebSocket = useCallback(() => {
-    if (typeof window === 'undefined' || wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    try {
-      const wsUrl = process.env.NODE_ENV === 'development' 
-        ? 'ws://localhost:8080/ws/notifications'
-        : 'wss://api.epsx.com/ws/notifications';
-      
-      wsRef.current = new WebSocket(wsUrl);
-      
-      wsRef.current.onopen = () => {
-        // Notifications WebSocket connected
-        actions.notifications.setRealtimeStatus({ 
-          connected: true, 
-          lastSync: Date.now() 
-        });
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          switch (data.type) {
-            case 'new_notification':
-              actions.notifications.addNotification(data.notification);
-              // Show browser notification if permission granted
-              showBrowserNotification(data.notification);
-              break;
-            case 'notification_read':
-              actions.notifications.markRead(data.notificationId);
-              break;
-            case 'bulk_read':
-              actions.notifications.markAllRead();
-              break;
-            case 'heartbeat':
-              actions.notifications.setRealtimeStatus({ 
-                connected: true, 
-                lastSync: Date.now() 
-              });
-              break;
-          }
-        } catch (error) {
-          console.error('Error parsing notification WebSocket message', { error: error instanceof Error ? error.message : String(error) });
-        }
-      };
-
-      wsRef.current.onclose = () => {
-        // Notifications WebSocket disconnected
-        actions.notifications.setRealtimeStatus({ connected: false });
-        
-        // Reconnect after 5 seconds
-        setTimeout(connectWebSocket, 5000);
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('Notifications WebSocket error', { error: error instanceof Error ? error.message : String(error) });
-        actions.notifications.setRealtimeStatus({ connected: false });
-      };
-    } catch (error) {
-      console.error('Failed to connect notification WebSocket', { error: error instanceof Error ? error.message : String(error) });
-    }
-  }, [actions.notifications]);
-
-  // Initialize WebSocket connection
-  useEffect(() => {
-    connectWebSocket();
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [connectWebSocket]);
-
-  // Browser notification helper
+  // Browser notification helper - moved to top
   const showBrowserNotification = useCallback((notification: Notification) => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
@@ -178,6 +110,154 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       }, 10000);
     }
   }, []);
+
+  // SSE connection for real-time notifications (Cloud Run compatible)
+  const connectSSE = useCallback(() => {
+    if (typeof window === 'undefined' || sseRef.current?.readyState === EventSource.OPEN) {
+      return;
+    }
+
+    try {
+      const sseUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:8080/api/v1/realtime/events'
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/v1/realtime/events`;
+      
+      sseRef.current = new EventSource(sseUrl, {
+        withCredentials: true
+      });
+      
+      sseRef.current.onopen = () => {
+        // Notifications SSE connected
+        actions.notifications.setRealtimeStatus({ 
+          connected: true, 
+          lastSync: Date.now() 
+        });
+        
+        // Clear any reconnect timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      };
+
+      sseRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          switch (data.type) {
+            case 'new_notification':
+              // Convert backend format to frontend format
+              const frontendNotification: Notification = {
+                id: data.notification.id,
+                type: mapNotificationCategory(data.notification.category),
+                title: data.notification.title,
+                message: data.notification.message,
+                read: data.notification.status === 'read',
+                actionUrl: data.notification.metadata?.action_url,
+                createdAt: data.notification.created_at,
+                metadata: data.notification.metadata
+              };
+              actions.notifications.addNotification(frontendNotification);
+              // Show browser notification if permission granted
+              showBrowserNotification(frontendNotification);
+              break;
+            case 'notification_read':
+              actions.notifications.markRead(data.notification_id);
+              break;
+            case 'bulk_read':
+              actions.notifications.markAllRead();
+              break;
+            case 'heartbeat':
+              actions.notifications.setRealtimeStatus({ 
+                connected: true, 
+                lastSync: Date.now() 
+              });
+              break;
+          }
+        } catch (error) {
+          console.error('Error parsing notification SSE message', { error: error instanceof Error ? error.message : String(error) });
+        }
+      };
+
+      sseRef.current.onerror = (error) => {
+        console.error('Notifications SSE error', { error: error instanceof Error ? error.message : String(error) });
+        actions.notifications.setRealtimeStatus({ connected: false });
+        
+        // Reconnect with exponential backoff
+        if (!reconnectTimeoutRef.current) {
+          const reconnectDelay = Math.min(5000 * Math.pow(2, Math.random()), 30000); // 5s to 30s
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (sseRef.current?.readyState !== EventSource.OPEN) {
+              connectSSE();
+            }
+          }, reconnectDelay);
+        }
+      };
+    } catch (error) {
+      console.error('Failed to connect notification SSE', { error: error instanceof Error ? error.message : String(error) });
+    }
+  }, [actions.notifications]);
+
+  // Helper function to map backend categories to frontend types
+  const mapNotificationCategory = (category: string): Notification['type'] => {
+    switch (category) {
+      case 'trading': return 'trading';
+      case 'system': return 'system';
+      case 'payment': return 'account';
+      case 'security': return 'system';
+      default: return 'system';
+    }
+  };
+
+  // Initialize FCM foreground message listener
+  useEffect(() => {
+    if (isFCMSupported()) {
+      const unsubscribe = onForegroundMessage((payload) => {
+        console.log('FCM foreground message received:', payload);
+        
+        // Convert FCM payload to frontend notification format
+        const notification: Notification = {
+          id: payload.data?.notificationId || Math.random().toString(36),
+          type: (payload.data?.type as Notification['type']) || 'system',
+          title: payload.notification?.title || payload.data?.title || 'New Notification',
+          message: payload.notification?.body || payload.data?.body || '',
+          read: false,
+          actionUrl: payload.data?.url || payload.fcmOptions?.link,
+          createdAt: new Date().toISOString(),
+          metadata: payload.data ? { ...payload.data } : undefined
+        };
+        
+        actions.notifications.addNotification(notification);
+        showBrowserNotification(notification);
+      });
+      
+      unsubscribeForegroundRef.current = unsubscribe;
+    }
+    
+    return () => {
+      if (unsubscribeForegroundRef.current) {
+        unsubscribeForegroundRef.current();
+        unsubscribeForegroundRef.current = null;
+      }
+    };
+  }, [actions.notifications, showBrowserNotification]);
+
+  // Initialize SSE connection
+  useEffect(() => {
+    connectSSE();
+    
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    };
+  }, [connectSSE]);
+
 
   // API calls using unified API client
   const markReadAPI = useCallback(async (id: string) => {
@@ -345,89 +425,136 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
       // Handle notifications response
       if (isApiError(notificationsRes)) {
-        console.error('Failed to fetch notifications', { error: notificationsRes.error });
+        console.error('Failed to fetch notifications', { error: notificationsRes.message });
         actions.notifications.setNotifications([]);
       } else {
-        const notificationsData = notificationsRes.data || { notifications: [], unreadCount: 0 };
-        actions.notifications.setNotifications(notificationsData.notifications);
+        // Convert backend format to frontend format
+        const backendNotifications = notificationsRes.data.notifications;
+        const frontendNotifications: Notification[] = backendNotifications.map((n: NotificationResponse) => ({
+          id: n.id,
+          type: mapNotificationCategory(n.category),
+          title: n.title,
+          message: n.message,
+          read: n.status === 'read',
+          actionUrl: n.metadata?.action_url,
+          createdAt: n.created_at,
+          metadata: n.metadata
+        }));
+        
+        actions.notifications.setNotifications(frontendNotifications);
       }
 
       // Handle preferences response
       if (isApiError(preferencesRes)) {
-        console.error('Failed to fetch notification preferences', { error: preferencesRes.error });
+        console.error('Failed to fetch notification preferences', { error: preferencesRes.message });
       } else if (preferencesRes.data) {
-        actions.notifications.updatePreferences(preferencesRes.data);
+        // Convert backend format to frontend format
+        const backendPrefs = preferencesRes.data;
+        const frontendPrefs: NotificationPreferences = {
+          email: backendPrefs.email_enabled,
+          push: backendPrefs.push_enabled,
+          inApp: backendPrefs.in_app_enabled,
+          tradingAlerts: backendPrefs.categories.some(c => c.category === 'trading' && c.enabled),
+          systemUpdates: backendPrefs.categories.some(c => c.category === 'system' && c.enabled)
+        };
+        actions.notifications.updatePreferences(frontendPrefs);
       }
     } catch (error) {
       console.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
-  }, [actions.notifications, notificationApiClient]);
+  }, [actions.notifications, notificationApiClient, mapNotificationCategory]);
 
-  // Push notification support
+  // FCM Push notification support
   const requestPermission = useCallback(async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+    if (!isFCMSupported()) {
+      console.warn('FCM not supported on this browser');
       return false;
     }
 
-    if (Notification.permission === 'granted') {
-      return true;
+    try {
+      const token = await requestNotificationPermission();
+      if (token) {
+        fcmTokenRef.current = token;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to request FCM permission:', error);
+      return false;
     }
-
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
   }, []);
 
   const subscribeToPush = useCallback(async () => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      throw new Error('Push notifications not supported');
+    if (!isFCMSupported()) {
+      throw new Error('FCM not supported on this browser');
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      // Get VAPID key from server action
-      const { vapidPublicKey } = await getVapidKey();
-      
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: vapidPublicKey
+      // Request permission and get FCM token
+      let token = fcmTokenRef.current;
+      if (!token) {
+        token = await requestNotificationPermission();
+        if (!token) {
+          throw new Error('Failed to get FCM token');
+        }
+        fcmTokenRef.current = token;
+      }
+
+      // Register FCM token with backend via Next.js API route
+      const response = await fetch('/api/v1/notifications/fcm/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          fcmToken: token,
+          userAgent: navigator.userAgent,
+          platform: navigator.platform
+        }),
       });
 
-      pushSubscriptionRef.current = subscription;
-
-      // Send subscription to server using API client
-      const subscriptionRequest: PushSubscriptionRequest = {
-        endpoint: subscription.endpoint,
-        keys: {
-          p256dh: subscription.getKey('p256dh') ? btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))) : '',
-          auth: subscription.getKey('auth') ? btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))) : ''
-        }
-      };
-
-      const response = await notificationApiClient.subscribeToPushNotifications(subscriptionRequest);
-      
-      if (isApiError(response)) {
-        throw new Error(response.error || 'Failed to register push subscription');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to register FCM token');
       }
+
+      console.log('Successfully subscribed to FCM notifications');
     } catch (error) {
-      console.error('Failed to subscribe to push notifications', { error: error instanceof Error ? error.message : String(error) });
+      console.error('Failed to subscribe to FCM notifications:', error);
       throw error;
     }
-  }, [notificationApiClient]);
+  }, []);
 
   const unsubscribeFromPush = useCallback(async () => {
-    if (pushSubscriptionRef.current) {
-      await pushSubscriptionRef.current.unsubscribe();
-      pushSubscriptionRef.current = null;
-
-      // Notify server using API client
-      const response = await notificationApiClient.unsubscribeFromPushNotifications();
-      
-      if (isApiError(response)) {
-        console.error('Failed to unsubscribe from push notifications', { error: response.error });
-      }
+    if (!fcmTokenRef.current) {
+      return;
     }
-  }, [notificationApiClient]);
+
+    try {
+      // Unregister FCM token with backend
+      const response = await fetch('/api/v1/notifications/fcm/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          fcmToken: fcmTokenRef.current 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to unregister FCM token:', errorData.error);
+      } else {
+        console.log('Successfully unsubscribed from FCM notifications');
+      }
+      
+      fcmTokenRef.current = null;
+    } catch (error) {
+      console.error('Failed to unsubscribe from FCM notifications:', error);
+    }
+  }, []);
 
   // Helper functions
   const getUnreadNotifications = useCallback(() => {
@@ -484,10 +611,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     deleteNotification,
     refreshNotifications,
     
-    // Push notifications
+    // Push notifications (FCM)
     requestPermission,
     subscribeToPush,
     unsubscribeFromPush,
+    fcmSupported: isFCMSupported(),
+    fcmToken: fcmTokenRef.current,
     
     // Helpers
     getUnreadNotifications,
@@ -555,7 +684,9 @@ export function usePushNotifications() {
     subscribeToPush, 
     unsubscribeFromPush,
     preferences,
-    updatePreferences
+    updatePreferences,
+    fcmSupported,
+    fcmToken
   } = useNotifications();
   
   return { 
@@ -563,6 +694,9 @@ export function usePushNotifications() {
     subscribeToPush, 
     unsubscribeFromPush,
     pushEnabled: preferences.push,
-    setPushEnabled: (enabled: boolean) => updatePreferences({ push: enabled })
+    setPushEnabled: (enabled: boolean) => updatePreferences({ push: enabled }),
+    fcmSupported,
+    fcmToken,
+    isSubscribed: !!fcmToken
   };
 }

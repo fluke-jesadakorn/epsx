@@ -272,11 +272,9 @@ fn build_csp_policy(is_development: bool) -> String {
 
 /// Check if origin is trusted
 fn is_trusted_origin(origin: &str) -> bool {
-    let trusted_origins = vec![
-        "https://epsx.io",
-        "https://www.epsx.io",
-        "https://admin.epsx.io",
-        "https://api.epsx.io",
+    use crate::config::env::get_env_var;
+    
+    let mut trusted_origins = vec![
         "http://localhost:3000",  // Frontend dev
         "http://localhost:3001",  // Admin dev
         "http://localhost:8080",  // Backend dev (for OAuth redirects)
@@ -284,6 +282,28 @@ fn is_trusted_origin(origin: &str) -> bool {
         "http://127.0.0.1:3001",
         "http://127.0.0.1:8080",
     ];
+    
+    // Add production URLs from environment variables
+    if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
+        trusted_origins.push(frontend_url.as_str());
+    }
+    if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
+        trusted_origins.push(admin_url.as_str());
+    }
+    if let Ok(backend_url) = get_env_var("BACKEND_URL") {
+        trusted_origins.push(backend_url.as_str());
+    }
+    if let Ok(api_url) = get_env_var("API_URL") {
+        trusted_origins.push(api_url.as_str());
+    }
+    
+    // Default production domains as fallback
+    trusted_origins.extend_from_slice(&[
+        "https://epsx.io",
+        "https://www.epsx.io",
+        "https://admin.epsx.io",
+        "https://api.epsx.io",
+    ]);
     
     trusted_origins.contains(&origin)
 }
@@ -507,4 +527,68 @@ fn should_log_security_event(context: &SecurityContext, status: &StatusCode) -> 
         SecurityLevel::Medium => context.is_suspicious || !status.is_success(),
         SecurityLevel::Low => context.is_suspicious || status.is_server_error(),
     }
+}
+
+/// Deprecation headers middleware for legacy routes
+pub async fn add_deprecation_headers(
+    request: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    let path = request.uri().path();
+    
+    // Process the request
+    let mut response = next.run(request).await;
+    
+    // Add deprecation headers for legacy routes
+    let headers = response.headers_mut();
+    
+    headers.insert(
+        HeaderName::from_static("x-deprecated"),
+        HeaderValue::from_static("true"),
+    );
+    
+    headers.insert(
+        HeaderName::from_static("x-deprecation-notice"),
+        HeaderValue::from_static("This endpoint is deprecated. Use /api/v1/ prefixed routes instead."),
+    );
+    
+    headers.insert(
+        HeaderName::from_static("x-deprecation-date"),
+        HeaderValue::from_static("2025-12-31"),
+    );
+    
+    // Add specific migration paths for common routes
+    let new_route = match path {
+        "/login" => "/api/v1/auth/sessions",
+        "/logout" => "/api/v1/auth/sessions (DELETE)",
+        "/register" => "/api/v1/auth/users",
+        "/check-email" => "/api/v1/validations/emails",
+        "/check-password" => "/api/v1/validations/passwords",
+        "/me" => "/api/v1/auth/user",
+        "/refresh" => "/api/v1/auth/tokens/refresh",
+        "/session/validate" => "/api/v1/auth/sessions/current",
+        "/session/rotate" => "/api/v1/auth/sessions/current (PATCH)",
+        "/permissions/check" => "/api/v1/permissions/validations",
+        "/permissions/route" => "/api/v1/permissions/routes/validations",
+        "/permissions/bulk" => "/api/v1/permissions/validations/bulk",
+        "/users/notifications" => "/api/v1/notifications",
+        "/me/notifications" => "/api/v1/notifications",
+        _ => "/api/v1/* (see API documentation)",
+    };
+    
+    if let Ok(new_route_header) = HeaderValue::from_str(new_route) {
+        headers.insert(
+            HeaderName::from_static("x-new-route"),
+            new_route_header,
+        );
+    }
+    
+    // Log usage of deprecated routes for monitoring
+    tracing::warn!(
+        path = %path,
+        new_route = %new_route,
+        "Deprecated route accessed"
+    );
+    
+    Ok(response)
 }

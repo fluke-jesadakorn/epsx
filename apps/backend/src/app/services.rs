@@ -5,13 +5,12 @@ use async_trait::async_trait;
 use crate::infra::cache::Cache;
 
 use crate::dom::values::UserId;
-use crate::app::use_cases::{AuthUC, UserMgmtUC, PayUC, StockUC};
+use crate::app::use_cases::{AuthUC, UserMgmtUC, StockUC};
 
 // Main application service that coordinates use cases
 pub struct AppService {
     auth_uc: Arc<AuthUC>,
     user_mgmt_uc: Arc<UserMgmtUC>,
-    pay_uc: Arc<PayUC>,
     stock_uc: Arc<StockUC>,
 }
 
@@ -19,13 +18,11 @@ impl AppService {
     pub fn new(
         auth_uc: Arc<AuthUC>,
         user_mgmt_uc: Arc<UserMgmtUC>,
-        pay_uc: Arc<PayUC>,
         stock_uc: Arc<StockUC>,
     ) -> Self {
         Self {
             auth_uc,
             user_mgmt_uc,
-            pay_uc,
             stock_uc,
         }
     }
@@ -38,9 +35,6 @@ impl AppService {
         &self.user_mgmt_uc
     }
     
-    pub fn payments(&self) -> &PayUC {
-        &self.pay_uc
-    }
     
     pub fn stocks(&self) -> &StockUC {
         &self.stock_uc

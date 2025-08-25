@@ -567,10 +567,27 @@ fn requires_admin_role(path: &str) -> bool {
 }
 
 /// Check if IP address is allowed for sensitive operations
-fn is_allowed_ip(_ip: &str) -> bool {
-    // TODO: Implement IP allowlist checking
-    // For now, allow all IPs
-    true
+fn is_allowed_ip(ip: &str) -> bool {
+    use crate::config::env::load_validated_config;
+    
+    // Get security configuration
+    let config = match load_validated_config() {
+        Ok(cfg) => cfg,
+        Err(errors) => {
+            tracing::error!("Failed to get security config for IP validation: {:?}", errors);
+            // Fail-safe: deny access if config is unavailable
+            return false;
+        }
+    };
+    
+    // Check IP against security allowlist
+    let allowed = config.security.is_ip_allowed(ip);
+    
+    if !allowed {
+        tracing::warn!("IP address {} denied by security allowlist", ip);
+    }
+    
+    allowed
 }
 
 // ============================================================================

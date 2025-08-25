@@ -4,7 +4,6 @@
 
 use axum::{
     middleware::from_fn_with_state,
-    routing::Router as AxumRouter,
     Router,
 };
 

@@ -10,12 +10,14 @@ pub mod memory_cache;
 pub mod redis_cache;
 pub mod security_cache;
 pub mod unified_cache;
+pub mod notification_cache;
 
 // Re-export implementations
 pub use memory_cache::InMemoryCache;
 pub use redis_cache::RedisCache;
 pub use unified_cache::UnifiedCache;
 pub use security_cache::{SecurityCache, SecurityCacheFactory, SecurityCacheKeys, CachedAdminSession, CachedUserSession, SecurityEvent, PerformanceMetrics};
+pub use notification_cache::{NotificationCache, NotificationCacheImpl, NotificationCacheConfig, NotificationCacheKeys, NotificationCacheStats};
 
 /// Cache backend configuration
 #[derive(Debug, Clone)]

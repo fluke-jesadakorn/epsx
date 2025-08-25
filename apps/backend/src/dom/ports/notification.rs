@@ -68,6 +68,33 @@ pub enum DomainNotificationPriority {
     Critical,
 }
 
+impl std::fmt::Display for DomainNotificationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            DomainNotificationType::FeatureExpiration => "feature_expiration",
+            DomainNotificationType::ModuleAccessChanged => "module_access_changed",
+            DomainNotificationType::QuotaWarning => "quota_warning",
+            DomainNotificationType::SecurityAlert => "security_alert",
+            DomainNotificationType::SystemMaintenance => "system_maintenance",
+            DomainNotificationType::AccountUpdate => "account_update",
+            DomainNotificationType::PaymentNotification => "payment_notification",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl std::fmt::Display for DomainNotificationPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            DomainNotificationPriority::Low => "low",
+            DomainNotificationPriority::Normal => "normal",
+            DomainNotificationPriority::High => "high",
+            DomainNotificationPriority::Critical => "critical",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 /// Notification delivery status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NotificationStatus {
@@ -95,6 +122,12 @@ pub enum NotificationError {
     
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
+    
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+    
+    #[error("Validation error: {0}")]
+    ValidationError(String),
 }
 
 impl DomainNotification {

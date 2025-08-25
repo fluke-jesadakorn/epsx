@@ -99,7 +99,7 @@ export async function getAnalyticsDashboardData(
     }
 
     // Fetch analytics data from backend
-    const [metricsResponse, timeSeriesResponse, moduleResponse, billingResponse] = await Promise.all([
+    const [metricsResponse, timeSeriesResponse, moduleResponse] = await Promise.all([
       fetch(`${BACKEND_URL}/api/v1/admin/analytics/metrics?range=${dateRange}&module=${selectedModule}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -120,18 +120,11 @@ export async function getAnalyticsDashboardData(
           'Content-Type': 'application/json',
         },
         next: { revalidate: 300 }
-      }),
-      fetch(`${BACKEND_URL}/api/v1/admin/analytics/billing?range=${dateRange}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        next: { revalidate: 600 } // 10-minute cache
       })
     ])
 
     // Check if all requests were successful
-    if (!metricsResponse.ok || !timeSeriesResponse.ok || !moduleResponse.ok || !billingResponse.ok) {
+    if (!metricsResponse.ok || !timeSeriesResponse.ok || !moduleResponse.ok) {
       logger.action.error('getAnalyticsDashboardData', 'Failed to fetch analytics data from backend')
       
       // Return mock data for development
@@ -198,11 +191,10 @@ export async function getAnalyticsDashboardData(
       return { success: true, data: mockData }
     }
 
-    const [metricsData, timeSeriesData, moduleData, billingData] = await Promise.all([
+    const [metricsData, timeSeriesData, moduleData] = await Promise.all([
       metricsResponse.json(),
       timeSeriesResponse.json(),
-      moduleResponse.json(),
-      billingResponse.json()
+      moduleResponse.json()
     ])
 
     const dashboardData: AnalyticsDashboardData = {
@@ -211,8 +203,7 @@ export async function getAnalyticsDashboardData(
       moduleData: moduleData.modules.map((module: any) => ({
         ...module,
         quotaPercentage: (module.quotaUsed / module.quota) * 100
-      })),
-      billingData: billingData
+      }))
     }
 
     logger.action.success('getAnalyticsDashboardData', { 

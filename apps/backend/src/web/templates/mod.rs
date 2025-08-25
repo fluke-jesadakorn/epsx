@@ -231,6 +231,8 @@ impl TemplateFactory {
                 // Development
                 "http://localhost:3000/auth/callback",
                 "http://localhost:3000/api/auth/callback/epsx-backend",
+                "http://localhost:3002/auth/callback",
+                "http://localhost:3002/api/auth/callback/epsx-backend",
                 // Production (.io domain)
                 "https://epsx.io/auth/callback",
                 "https://epsx.io/api/auth/callback/epsx-backend",
@@ -242,6 +244,8 @@ impl TemplateFactory {
                 // Development
                 "http://localhost:3001/auth/callback",
                 "http://localhost:3001/api/auth/callback/epsx-backend",
+                "http://localhost:3003/auth/callback",
+                "http://localhost:3003/api/auth/callback/epsx-backend",
                 // Production (.io domain)
                 "https://admin.epsx.io/auth/callback",
                 "https://admin.epsx.io/api/auth/callback/epsx-backend",

@@ -3,7 +3,7 @@
 
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { useAuth } from '@/lib/auth';
-import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database, ShieldCheck, AlertTriangle, Lock, Bell, Gauge, Zap } from 'lucide-react';
+import { BarChart, Home, LogIn, LogOut, DollarSign, Settings, Users, Code, Shield, FileText, Activity, Database, ShieldCheck, AlertTriangle, Lock, Bell, Gauge, Zap, Newspaper } from 'lucide-react';
 import _Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,6 +37,13 @@ const navItems: NavItem[] = [
     icon: BarChart,
     requiredModules: ['analytics_specialist'],
     description: 'View analytics and reporting'
+  },
+  { 
+    href: '/news', 
+    label: 'News', 
+    icon: Newspaper,
+    requiredModules: ['content_manager'],
+    description: 'Manage news articles and content'
   },
   { 
     href: '/billing', 

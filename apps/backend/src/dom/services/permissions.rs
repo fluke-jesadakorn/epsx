@@ -153,9 +153,16 @@ pub fn get_package_tier_permissions(package_tier: &crate::dom::entities::iam::Pa
             permissions::MARKET_DATA_HISTORICAL,
             permissions::ANALYTICS_EXPORT,
             permissions::RANKINGS_CUSTOM,
-            permissions::ADMIN_WILDCARD,
+            permissions::ALL_PERMISSIONS,
         ],
         crate::dom::entities::iam::PackageTier::SuperAdmin => vec![
+            permissions::ADMIN_ACCESS,
+            permissions::ADMIN_USERS_MANAGE,
+            permissions::USERS_MANAGE,
+            permissions::DASHBOARD_VIEW_ADMIN,
+            permissions::MARKET_DATA_HISTORICAL,
+            permissions::ANALYTICS_EXPORT,
+            permissions::RANKINGS_CUSTOM,
             permissions::ALL_PERMISSIONS,
         ],
     }

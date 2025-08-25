@@ -240,11 +240,6 @@ impl PermissionSecurityService {
         requesting_user_tier: &PackageTier,
         new_permissions: &[Permission],
     ) -> bool {
-        // SuperAdmin can do anything
-        if requesting_user_tier == &PackageTier::SuperAdmin {
-            return true;
-        }
-
         // Admin can grant non-admin permissions
         if requesting_user_tier == &PackageTier::Admin {
             return !self.contains_admin_permissions(new_permissions);

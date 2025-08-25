@@ -10,7 +10,7 @@ The EPSX backend uses Cargo feature flags and build profiles to enable selective
 
 ### Core Features
 
-- `database` - PostgreSQL database support via SQLx
+- `database` - PostgreSQL database support via Diesel ORM
 - `cache` - Redis caching layer
 - `auth` - Authentication subsystem (JWT, Firebase, crypto)
 - `websockets` - Real-time WebSocket support

@@ -216,15 +216,6 @@ export async function getUnifiedUserData(userId: string): Promise<UserOperationR
           period: 'daily'
         }
       ],
-      
-      // Map billing
-      billing: {
-        tier: rawData.billing.subscription.tier,
-        status: rawData.billing.subscription.status,
-        nextBillingDate: rawData.billing.subscription.next_billing ? new Date(rawData.billing.subscription.next_billing) : undefined,
-        amount: rawData.billing.subscription.amount,
-        currency: rawData.billing.subscription.currency
-      },
       stockRankingPackages: [],
       
       // Developer access
@@ -466,58 +457,6 @@ export async function updateModuleAccess(
   }
 }
 
-/**
- * Update billing information and packages
- */
-export async function updateUserBilling(
-  userId: string, 
-  data: BillingUpdateData
-): Promise<UserOperationResult> {
-  try {
-    const token = await getBearerToken()
-    
-    if (!token) {
-      return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
-    }
-    
-    const response = await fetch(`${BACKEND_URL}/api/v1/admin/users/${userId}/billing`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
-    
-    if (!response.ok) {
-      return { 
-        success: false, 
-        error: { 
-          code: 'UPDATE_ERROR', 
-          message: `Failed to update billing: ${response.statusText}` 
-        } 
-      }
-    }
-    
-    // Revalidate user pages
-    revalidatePath(`/users/${userId}`)
-    revalidatePath(`/users/${userId}/packages`)
-    revalidatePath('/users')
-    revalidatePath('/users')
-    
-    return { success: true }
-    
-  } catch (error) {
-    console.error('Update user billing error:', error)
-    return { 
-      success: false, 
-      error: { 
-        code: 'UNKNOWN_ERROR', 
-        message: 'An unexpected error occurred' 
-      } 
-    }
-  }
-}
 
 /**
  * Create new user

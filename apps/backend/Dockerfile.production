@@ -15,16 +15,16 @@ RUN apt-get update && \
 COPY Cargo.toml ./
 COPY src/ ./src/
 
-# Build with minimal features to avoid template issues
-RUN cargo build --release --features minimal --bin epsx
+# Build with optimized production features
+RUN cargo build --profile release-small --no-default-features --features production --bin epsx
 
 # Runtime with distroless
 FROM --platform=linux/amd64 gcr.io/distroless/cc-debian12:latest AS runtime
 
 WORKDIR /app
 
-# Copy binary
-COPY --from=builder --chown=nonroot:nonroot /app/target/release/epsx /app/epsx
+# Copy optimized binary
+COPY --from=builder --chown=nonroot:nonroot /app/target/release-small/epsx /app/epsx
 
 # Copy certificates
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

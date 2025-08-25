@@ -8,6 +8,8 @@ interface ForgotPasswordPageProps {
   };
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function ForgotPasswordPage({ searchParams }: ForgotPasswordPageProps) {
   const awaitedSearchParams = await searchParams;
   

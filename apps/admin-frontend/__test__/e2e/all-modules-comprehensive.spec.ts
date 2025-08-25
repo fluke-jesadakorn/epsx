@@ -31,12 +31,8 @@ const ALL_ADMIN_MODULES = [
   // Analytics module
   { path: '/analytics', name: 'Analytics Dashboard', module: 'analytics' },
   
-  // Billing module
-  { path: '/billing', name: 'Billing Management', module: 'billing_management' },
-  
   // System administration module
   { path: '/settings', name: 'System Settings', module: 'system_admin' },
-  { path: '/database', name: 'Database Management', module: 'system_admin' },
   { path: '/developer-portal', name: 'Developer Portal', module: 'system_admin' },
   { path: '/docs/api', name: 'API Documentation', module: 'system_admin' },
   { path: '/modules', name: 'Module Management', module: 'system_admin' },
@@ -57,7 +53,6 @@ const REQUIRED_ADMIN_MODULES = [
   'permission_management',
   'iam_management',
   'analytics',
-  'billing_management',
   'stock_ranking_management'
 ];
 
@@ -220,9 +215,9 @@ async function verifyPageFunctionality(page: Page, module: any): Promise<void> {
     await verifyUserManagementElements(page);
   } else if (module.path.includes('/permission') || module.path.includes('/iam')) {
     await verifyPermissionElements(page);
-  } else if (module.path.includes('/analytics') || module.path.includes('/billing')) {
+  } else if (module.path.includes('/analytics')) {
     await verifyAnalyticsElements(page);
-  } else if (module.path.includes('/settings') || module.path.includes('/database')) {
+  } else if (module.path.includes('/settings')) {
     await verifySystemAdminElements(page);
   }
   
@@ -443,7 +438,6 @@ test.describe('🚀 Complete Admin Module Access Test', () => {
     const sensitivePages = [
       '/users/create',
       '/permission-profiles/assign', 
-      '/database',
       '/settings',
       '/iam'
     ];
@@ -518,7 +512,6 @@ test.describe('🎯 Individual Module Deep Testing', () => {
     
     const systemPages = [
       '/settings',
-      '/database', 
       '/developer-portal',
       '/modules'
     ];

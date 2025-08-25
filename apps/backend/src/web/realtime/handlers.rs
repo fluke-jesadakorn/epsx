@@ -259,7 +259,7 @@ pub async fn send_user_notification_handler(
 
 
 /// Verify admin access
-async fn verify_admin_access(app_state: &AppState, _user_id: &UserId) -> Result<(), StatusCode> {
+async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(), StatusCode> {
     let user = app_state.user_repo.get(user_id).await
         .map_err(|e| {
             error!("Failed to get user for admin check: {:?}", e);
@@ -269,8 +269,8 @@ async fn verify_admin_access(app_state: &AppState, _user_id: &UserId) -> Result<
 
     // Check if user has admin role
     match user.role() {
-        crate::dom::values::Role::Admin => Ok(()),
-        crate::dom::values::Role::SuperAdmin => Ok(()),
+        crate::dom::entities::user::UserRole::Admin => Ok(()),
+        crate::dom::entities::user::UserRole::Moderator => Ok(()), // Allow moderators too
         _ => {
             tracing::warn!("Non-admin user {} attempted admin operation", user_id.to_string());
             Err(StatusCode::FORBIDDEN)

@@ -136,6 +136,10 @@ fn create_sse_event(event_msg: EventMessage) -> Result<Event, serde_json::Error>
         RealtimeEvent::SubscriptionUpgraded { .. } => "subscription_upgraded",
         RealtimeEvent::SubscriptionExpired { .. } => "subscription_expired",
         RealtimeEvent::HealthAlert { .. } => "health_alert",
+        RealtimeEvent::FeatureExpirationWarning { .. } => "feature_expiration_warning",
+        RealtimeEvent::FeatureExpired { .. } => "feature_expired",
+        RealtimeEvent::GracePeriodStarted { .. } => "grace_period_started",
+        RealtimeEvent::GracePeriodEnding { .. } => "grace_period_ending",
     };
     
     let data = serde_json::to_string(&event_msg)?;
@@ -149,7 +153,7 @@ fn create_sse_event(event_msg: EventMessage) -> Result<Event, serde_json::Error>
 /// Determine if an SSE event should be sent to a user
 fn should_send_sse_event(
     event: &EventMessage,
-    _user_id: &UserId,
+    user_id: &UserId,
     subscribed_events: &[String],
     subscribed_symbols: &[String],
 ) -> bool {
@@ -171,6 +175,10 @@ fn should_send_sse_event(
         RealtimeEvent::SubscriptionUpgraded { .. } |
         RealtimeEvent::SubscriptionExpired { .. } => "subscription",
         RealtimeEvent::HealthAlert { .. } => "health",
+        RealtimeEvent::FeatureExpirationWarning { .. } => "feature_expiration_warning",
+        RealtimeEvent::FeatureExpired { .. } => "feature_expired",
+        RealtimeEvent::GracePeriodStarted { .. } => "grace_period_started",
+        RealtimeEvent::GracePeriodEnding { .. } => "grace_period_ending",
     };
     
     if !subscribed_events.contains(&event_type.to_string()) {

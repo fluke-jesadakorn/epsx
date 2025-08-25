@@ -55,7 +55,6 @@ export interface AnalyticsDashboardData {
   metrics: UsageMetrics;
   timeSeriesData: TimeSeriesData[];
   moduleData: ModuleUsageData[];
-  billingData: BillingData;
 }
 
 export async function GET(request: NextRequest) {
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch analytics data from backend
-    const [metricsResponse, timeSeriesResponse, moduleResponse, billingResponse] = await Promise.allSettled([
+    const [metricsResponse, timeSeriesResponse, moduleResponse] = await Promise.allSettled([
       fetch(`${BACKEND_URL}/api/v1/admin/analytics/metrics?range=${dateRange}&module=${selectedModule}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -109,13 +108,6 @@ export async function GET(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         next: { revalidate: 300 }
-      }),
-      fetch(`${BACKEND_URL}/api/v1/admin/analytics/billing?range=${dateRange}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        next: { revalidate: 600 } // 10-minute cache
       })
     ]);
 
@@ -158,44 +150,24 @@ export async function GET(request: NextRequest) {
           quotaUsed: 475678,
           quotaPercentage: 79
         }
-      ],
-      billingData: {
-        currentPeriod: {
-          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          endDate: new Date().toISOString(),
-          totalCost: 45672.89,
-          totalRequests: 1245678
-        },
-        upcomingInvoice: {
-          amount: 48000.00,
-          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        },
-        costBreakdown: [
-          { module: 'User Management', cost: 15000, requests: 450000 },
-          { module: 'Analytics', cost: 12000, requests: 320000 },
-          { module: 'API Gateway', cost: 18672.89, requests: 475678 }
-        ]
-      }
+      ]
     };
 
     // If any backend call failed, return mock data
     if (
       metricsResponse.status === 'rejected' ||
       timeSeriesResponse.status === 'rejected' ||
-      moduleResponse.status === 'rejected' ||
-      billingResponse.status === 'rejected'
+      moduleResponse.status === 'rejected'
     ) {
       logger.action.success('getAnalyticsDashboardData', { source: 'mock', dateRange, selectedModule });
       return NextResponse.json({ success: true, data: mockData });
     }
 
     // Process successful responses
-    const [metricsData, timeSeriesData, moduleData, billingData] = await Promise.all([
+    const [metricsData, timeSeriesData, moduleData] = await Promise.all([
       metricsResponse.status === 'fulfilled' && metricsResponse.value.ok ? metricsResponse.value.json() : mockData.metrics,
       timeSeriesResponse.status === 'fulfilled' && timeSeriesResponse.value.ok ? timeSeriesResponse.value.json() : { data: mockData.timeSeriesData },
-      moduleResponse.status === 'fulfilled' && moduleResponse.value.ok ? moduleResponse.value.json() : { modules: mockData.moduleData },
-      billingResponse.status === 'fulfilled' && billingResponse.value.ok ? billingResponse.value.json() : mockData.billingData
+      moduleResponse.status === 'fulfilled' && moduleResponse.value.ok ? moduleResponse.value.json() : { modules: mockData.moduleData }
     ]);
 
     const dashboardData: AnalyticsDashboardData = {
@@ -204,8 +176,7 @@ export async function GET(request: NextRequest) {
       moduleData: (moduleData.modules || mockData.moduleData).map((module: any) => ({
         ...module,
         quotaPercentage: (module.quotaUsed / module.quota) * 100
-      })),
-      billingData: billingData
+      }))
     };
 
     logger.action.success('getAnalyticsDashboardData', { 

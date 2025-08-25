@@ -500,7 +500,7 @@ impl std::fmt::Display for PackageTier {
             PackageTier::Gold => write!(f, "gold"),
             PackageTier::Platinum => write!(f, "platinum"),
             PackageTier::Admin => write!(f, "admin"),
-            PackageTier::SuperAdmin => write!(f, "super_admin"),
+            PackageTier::SuperAdmin => write!(f, "superadmin"),
         }
     }
 }
@@ -579,7 +579,6 @@ impl std::str::FromStr for PackageTier {
             "gold" => Ok(PackageTier::Gold),
             "platinum" => Ok(PackageTier::Platinum),
             "admin" => Ok(PackageTier::Admin),
-            "super_admin" | "superadmin" => Ok(PackageTier::SuperAdmin),
             _ => Err(IamError::InvalidPackageTier(s.to_string())),
         }
     }

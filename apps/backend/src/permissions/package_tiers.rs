@@ -551,7 +551,6 @@ impl PackageTierValidator {
                 PackageTier::Gold,
                 PackageTier::Platinum,
                 PackageTier::Admin,
-                PackageTier::SuperAdmin,
             ],
             config,
         };
@@ -580,8 +579,7 @@ impl PackageTierValidator {
             TierFeature::InstitutionalFeatures,
         ].iter().cloned().collect();
         
-        self.tier_features.insert(PackageTier::Admin, all_features.clone());
-        self.tier_features.insert(PackageTier::SuperAdmin, all_features);
+        self.tier_features.insert(PackageTier::Admin, all_features);
     }
     
     fn initialize_default_limits(&mut self) {
@@ -591,9 +589,8 @@ impl PackageTierValidator {
         self.default_limits.insert(PackageTier::Gold, gold_tier::get_default_limits());
         self.default_limits.insert(PackageTier::Platinum, platinum_tier::get_default_limits());
         
-        // Admin tiers have unlimited access
+        // Admin tier has unlimited access
         self.default_limits.insert(PackageTier::Admin, vec![]);
-        self.default_limits.insert(PackageTier::SuperAdmin, vec![]);
     }
     
     pub fn grant_tier_access(&mut self, access: TierAccess) {

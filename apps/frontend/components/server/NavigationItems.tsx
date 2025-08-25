@@ -7,11 +7,13 @@ import {
   BarChart, 
   File, 
   Settings, 
-  Database 
+  Database,
+  Newspaper 
 } from 'lucide-react';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
+  news: <Newspaper className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,

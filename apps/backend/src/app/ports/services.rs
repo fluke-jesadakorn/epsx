@@ -194,7 +194,10 @@ pub enum WebSocketError {
 #[derive(Debug, thiserror::Error)]
 pub enum NotificationServiceError {
     #[error("Notification not found")]
-    NotificationNotFound,
+    NotFound,
+    
+    #[error("Invalid request: {0}")]
+    InvalidRequest(String),
     
     #[error("Invalid notification data: {0}")]
     InvalidData(String),
@@ -202,11 +205,29 @@ pub enum NotificationServiceError {
     #[error("User not found: {0}")]
     UserNotFound(String),
     
+    #[error("Send failed: {0}")]
+    SendFailed(String),
+    
+    #[error("Query error: {0}")]
+    QueryError(String),
+    
+    #[error("Update error: {0}")]
+    UpdateError(String),
+    
+    #[error("Delete error: {0}")]
+    DeleteError(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
     #[error("Storage error: {0}")]
     StorageError(String),
     
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
+    
+    #[error("Feature not implemented: {0}")]
+    NotImplemented(String),
     
     #[error("External service error: {0}")]
     ExternalError(String),

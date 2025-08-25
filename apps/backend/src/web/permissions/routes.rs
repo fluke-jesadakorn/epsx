@@ -24,6 +24,7 @@ use axum::{
 
 use crate::{
     infra::container::AppContainer,
+    web::middleware::add_deprecation_headers,
     // web::middleware::{
         // auth_monitoring::AuthContext,
         // rate_limiter::RateLimiter,
@@ -336,7 +337,15 @@ pub fn create_legacy_permission_routes(_container: &AppContainer) -> Router<AppC
         .route("/check-permission", post(handlers::legacy_check_permission))
         .route("/user-permissions/:user_id", get(handlers::legacy_get_user_permissions))
         .route("/admin-check", post(handlers::legacy_admin_check))
-        .layer(middleware::from_fn(perm_middleware::legacy_middleware))
+        // Legacy unversioned routes that should use /api/v1/permissions instead
+        .route("/permissions/check", post(handlers::legacy_check_permission))
+        .route("/permissions/route", post(handlers::legacy_check_permission))
+        .route("/permissions/bulk", post(handlers::validate_permissions_batch))
+        .route("/permissions/single", get(handlers::legacy_get_user_permissions))
+        .route("/permissions/navigation", get(handlers::legacy_get_user_permissions))
+        .route("/permissions/features", get(handlers::legacy_get_user_permissions))
+        .layer(middleware::from_fn(add_deprecation_headers))
+        .layer(middleware::from_fn(legacy_middleware))
 }
 
 // ============================================================================
@@ -419,18 +428,18 @@ async fn legacy_middleware(
 // Route Groups and Organization
 // ============================================================================
 
-/// Create API version 1 routes
+/// Create API version 1 routes with proper versioned paths
 pub fn create_v1_permission_routes(_container: &AppContainer) -> Router<AppContainer> {
     Router::new()
-        .nest("/permissions", create_permission_routes(_container))
-        .layer(middleware::from_fn(perm_middleware::api_version_middleware::<1>))
+        .nest("/api/v1/permissions", create_permission_routes(_container))
+        .layer(middleware::from_fn(api_version_middleware::<1>))
 }
 
 /// Create API version 2 routes (future)
 pub fn create_v2_permission_routes(_container: &AppContainer) -> Router<AppContainer> {
     Router::new()
-        .nest("/permissions", create_permission_routes(_container))
-        .layer(middleware::from_fn(perm_middleware::api_version_middleware::<2>))
+        .nest("/api/v2/permissions", create_permission_routes(_container))
+        .layer(middleware::from_fn(api_version_middleware::<2>))
 }
 
 /// API version middleware
@@ -449,17 +458,14 @@ async fn api_version_middleware<const VERSION: u8>(
 /// Create complete permission API with all versions
 pub fn create_complete_permission_api(_container: &AppContainer) -> Router {
     Router::new()
-        // Current API (v1)
-        .nest("/v1", create_v1_permission_routes(_container))
+        // Main versioned API routes (new structure)
+        .merge(create_v1_permission_routes(_container))
         
-        // Future API (v2) - placeholder
-        .nest("/v2", create_v2_permission_routes(_container))
+        // Future API (v2) - placeholder  
+        .merge(create_v2_permission_routes(_container))
         
         // Legacy API for backward compatibility
-        .nest("/legacy", create_legacy_permission_routes(_container))
-        
-        // Default to v1
-        .nest("/", create_v1_permission_routes(_container))
+        .merge(create_legacy_permission_routes(_container))
         
         .with_state(_container.clone())
 }

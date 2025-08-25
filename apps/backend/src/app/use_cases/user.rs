@@ -361,7 +361,6 @@ impl UserMgmtUC {
       PackageTier::Gold,
       PackageTier::Platinum,
       PackageTier::Admin,
-      PackageTier::SuperAdmin,
     ];
     let mut counts = Vec::new();
 
@@ -548,7 +547,7 @@ impl UserMgmtUC {
   fn can_upgrade_user_to_package_tier(
     admin: &User,
     _target: &User,
-    new_package_tier: &PackageTier
+    _new_package_tier: &PackageTier
   ) -> bool {
     // Only admins and super admins can upgrade users
     let admin_tier = admin
@@ -556,9 +555,7 @@ impl UserMgmtUC {
       .parse::<PackageTier>()
       .unwrap_or(PackageTier::Free);
     match admin_tier {
-      PackageTier::SuperAdmin => true,
-      PackageTier::Admin =>
-        !matches!(new_package_tier, PackageTier::SuperAdmin), // Admin can't create SuperAdmin
+      PackageTier::Admin => true,
       _ => false,
     }
   }
@@ -573,9 +570,7 @@ impl UserMgmtUC {
       .parse::<PackageTier>()
       .unwrap_or(PackageTier::Free);
     match (admin_tier, target_tier) {
-      (PackageTier::SuperAdmin, _) => true, // SuperAdmin can modify anyone
-      (PackageTier::Admin, PackageTier::SuperAdmin) => false, // Admin can't modify SuperAdmin
-      (PackageTier::Admin, _) => true, // Admin can modify users below SuperAdmin
+      (PackageTier::Admin, _) => true, // Admin can modify anyone
       _ => false, // Non-admins can't modify anyone
     }
   }

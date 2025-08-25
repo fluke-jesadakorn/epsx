@@ -243,15 +243,14 @@ impl TokenBroker {
       token_type: "Bearer".to_string(),
       expires_at,
       expires_in: self.config.token_ttl_hours * 3600, // seconds
-      session_id,
+      session_id: session_id.clone(),
       jti,
-      refresh_token: None, // TODO: Implement refresh tokens
+      refresh_token: Some(self.generate_refresh_token(&claims.user_id.to_string(), &session_id)?),
     };
 
     tracing::info!(
-      "Issued unified JWT for user {} via {} provider",
-      claims.user_id,
-      claims.provider
+      "Issued unified JWT for user {} via JWT system",
+      claims.user_id.to_string()
     );
 
     Ok(unified_jwt)
@@ -382,17 +381,101 @@ impl TokenBroker {
     stats
   }
 
+  /// Generate a refresh token for a user session
+  fn generate_refresh_token(
+    &self,
+    user_id: &str,
+    session_id: &str
+  ) -> Result<String, AuthProviderError> {
+    use crate::auth::jwt::RefreshTokenClaims;
+    use chrono::{Duration, Utc};
+
+    let now = Utc::now();
+    let expires_at = now + Duration::days(7); // 7 days for refresh tokens
+
+    let claims = RefreshTokenClaims {
+      sub: user_id.to_string(),
+      session_id: session_id.to_string(),
+      iat: now.timestamp(),
+      exp: expires_at.timestamp(),
+      aud: "refresh".to_string(),
+      iss: "epsx-backend".to_string(),
+      token_type: "refresh".to_string(),
+    };
+
+    let header = Header::new(Algorithm::HS256);
+    encode(&header, &claims, &self.encoding_key)
+      .map_err(|e| AuthProviderError::InternalError(format!("Refresh token encoding failed: {}", e)))
+  }
+
   /// Refresh an access token using a refresh token
-  /// TODO: Implement refresh token flow
   pub async fn refresh_access_token(
     &self,
-    _refresh_token: &str
+    refresh_token: &str
   ) -> Result<UnifiedJWT, AuthProviderError> {
-    Err(
-      AuthProviderError::InternalError(
-        "Refresh token flow not implemented yet".to_string()
-      )
-    )
+    use crate::auth::jwt::RefreshTokenClaims;
+    use jsonwebtoken::{decode, DecodingKey, Validation};
+
+    // Decode and validate refresh token
+    let decoding_key = DecodingKey::from_secret(self.config.jwt_secret.as_bytes());
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_audience(&["refresh"]);
+    validation.set_issuer(&["epsx-backend"]);
+
+    let token_data = decode::<RefreshTokenClaims>(
+      refresh_token, 
+      &decoding_key, 
+      &validation
+    ).map_err(|e| AuthProviderError::ValidationError(format!("Invalid refresh token: {}", e)))?;
+
+    let refresh_claims = token_data.claims;
+
+    // TODO: Verify session is still valid in database
+    // For now, proceed with token refresh
+
+    // Create new access token with same user data
+    // This is a simplified flow - in production you'd fetch fresh user data
+    let now = Utc::now();
+    let expires_at = now + Duration::hours(self.config.token_ttl_hours);
+    let jti = uuid::Uuid::new_v4().to_string();
+
+    let jwt_claims = crate::auth::jwt::Claims {
+      sub: refresh_claims.sub.clone(),
+      iss: "epsx-backend".to_string(),
+      aud: "epsx-api".to_string(),
+      exp: expires_at.timestamp() as usize,
+      iat: now.timestamp() as usize,
+      nbf: now.timestamp() as usize,
+      jti: jti.clone(),
+      
+      // User information (in production, fetch from database)
+      email: format!("user+{}@{}", refresh_claims.sub, 
+        get_env_var("DEFAULT_EMAIL_DOMAIN").unwrap_or_else(|_| "epsx.io".to_string())), // Placeholder
+      name: None,
+      
+      // Authorization (minimal defaults for refresh token scenario)
+      permissions: vec!["dashboard:read".to_string()],
+      admin_modules: vec![],
+      package_tier: "FREE".to_string(),
+      role: "user".to_string(),
+      
+      // Firebase integration
+      firebase_uid: Some(refresh_claims.sub.clone()),
+    };
+
+    let header = Header::new(Algorithm::HS256);
+    let access_token = encode(&header, &jwt_claims, &self.encoding_key)
+      .map_err(|e| AuthProviderError::InternalError(format!("Access token encoding failed: {}", e)))?;
+
+    Ok(UnifiedJWT {
+      access_token,
+      token_type: "Bearer".to_string(),
+      expires_at,
+      expires_in: self.config.token_ttl_hours * 3600,
+      session_id: refresh_claims.session_id.clone(),
+      jti,
+      refresh_token: Some(self.generate_refresh_token(&refresh_claims.sub, &refresh_claims.session_id)?),
+    })
   }
 }
 

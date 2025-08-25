@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnvVarType {
@@ -790,6 +791,25 @@ lazy_static::lazy_static! {
             default_value: None,
         });
 
+        // IP Security Configuration
+        schema.insert("SECURITY_IP_ALLOWLIST", EnvVarDefinition {
+            objective: "Comma-separated list of allowed IP addresses/ranges for sensitive operations",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Security,
+            example: "127.0.0.1,10.0.0.0/8,192.168.0.0/16",
+            default_value: Some(""),
+        });
+
+        schema.insert("SECURITY_ADMIN_IP_ALLOWLIST", EnvVarDefinition {
+            objective: "Comma-separated list of IP addresses/ranges allowed for admin operations",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Security,
+            example: "127.0.0.1,10.0.0.0/8",
+            default_value: Some(""),
+        });
+
         schema
     };
 }
@@ -1051,6 +1071,8 @@ pub struct SecurityConfig {
     pub security_alert_webhook_url: Option<String>,
     pub performance_monitoring_enabled: bool,
     pub middleware_execution_timeout_ms: u64,
+    pub ip_allowlist: Vec<String>,
+    pub admin_ip_allowlist: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1212,6 +1234,18 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         security_alert_webhook_url: get_env_var("SECURITY_ALERT_WEBHOOK_URL").ok(),
         performance_monitoring_enabled: get_env_var("PERFORMANCE_MONITORING_ENABLED").unwrap_or_else(|_| "true".to_string()).parse().unwrap_or(true),
         middleware_execution_timeout_ms: get_env_var("MIDDLEWARE_EXECUTION_TIMEOUT_MS").unwrap_or_else(|_| "10000".to_string()).parse().unwrap_or(10000),
+        ip_allowlist: get_env_var("SECURITY_IP_ALLOWLIST")
+            .unwrap_or_default()
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+        admin_ip_allowlist: get_env_var("SECURITY_ADMIN_IP_ALLOWLIST")
+            .unwrap_or_default()
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
     };
 
     let firebase_config = FirebaseExtendedConfig {
@@ -1264,4 +1298,137 @@ pub fn is_development() -> bool {
 
 pub fn get_log_level() -> String {
     get_env_var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string())
+}
+
+// IP allowlist validation utilities
+impl SecurityConfig {
+    /// Check if an IP address is allowed based on the general allowlist
+    pub fn is_ip_allowed(&self, ip: &str) -> bool {
+        Self::check_ip_against_allowlist(ip, &self.ip_allowlist)
+    }
+
+    /// Check if an IP address is allowed for admin operations
+    pub fn is_admin_ip_allowed(&self, ip: &str) -> bool {
+        Self::check_ip_against_allowlist(ip, &self.admin_ip_allowlist)
+    }
+
+    /// Internal helper to check IP against a specific allowlist
+    fn check_ip_against_allowlist(ip_str: &str, allowlist: &[String]) -> bool {
+        // If allowlist is empty, allow all IPs
+        if allowlist.is_empty() {
+            return true;
+        }
+
+        // Parse the incoming IP address
+        let ip = match ip_str.parse::<IpAddr>() {
+            Ok(addr) => addr,
+            Err(_) => {
+                tracing::warn!("Failed to parse IP address: {}", ip_str);
+                return false;
+            }
+        };
+
+        // Check against each entry in allowlist
+        for allowed_entry in allowlist {
+            if Self::ip_matches_entry(&ip, allowed_entry) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Check if an IP matches a single allowlist entry (supports CIDR notation)
+    fn ip_matches_entry(ip: &IpAddr, entry: &str) -> bool {
+        let entry = entry.trim();
+
+        // Handle CIDR notation (e.g., "192.168.0.0/16")
+        if let Some((network_str, prefix_len_str)) = entry.split_once('/') {
+            return Self::ip_matches_cidr(ip, network_str, prefix_len_str);
+        }
+
+        // Handle single IP addresses
+        match entry.parse::<IpAddr>() {
+            Ok(allowed_ip) => ip == &allowed_ip,
+            Err(_) => {
+                tracing::warn!("Invalid IP address in allowlist: {}", entry);
+                false
+            }
+        }
+    }
+
+    /// Check if IP matches a CIDR range
+    fn ip_matches_cidr(ip: &IpAddr, network_str: &str, prefix_len_str: &str) -> bool {
+        let prefix_len = match prefix_len_str.parse::<u8>() {
+            Ok(len) => len,
+            Err(_) => {
+                tracing::warn!("Invalid CIDR prefix length: {}", prefix_len_str);
+                return false;
+            }
+        };
+
+        let network = match network_str.parse::<IpAddr>() {
+            Ok(addr) => addr,
+            Err(_) => {
+                tracing::warn!("Invalid network address in CIDR: {}", network_str);
+                return false;
+            }
+        };
+
+        match (ip, network) {
+            (IpAddr::V4(ip4), IpAddr::V4(net4)) => {
+                Self::ipv4_in_cidr(ip4, &net4, prefix_len)
+            }
+            (IpAddr::V6(ip6), IpAddr::V6(net6)) => {
+                Self::ipv6_in_cidr(ip6, &net6, prefix_len)
+            }
+            _ => {
+                // IP version mismatch
+                false
+            }
+        }
+    }
+
+    /// Check if IPv4 address is in CIDR range
+    fn ipv4_in_cidr(ip: &Ipv4Addr, network: &Ipv4Addr, prefix_len: u8) -> bool {
+        if prefix_len > 32 {
+            return false;
+        }
+
+        let ip_int = u32::from(*ip);
+        let network_int = u32::from(*network);
+        let mask = (!0u32) << (32 - prefix_len);
+
+        (ip_int & mask) == (network_int & mask)
+    }
+
+    /// Check if IPv6 address is in CIDR range
+    fn ipv6_in_cidr(ip: &Ipv6Addr, network: &Ipv6Addr, prefix_len: u8) -> bool {
+        if prefix_len > 128 {
+            return false;
+        }
+
+        let ip_bytes = ip.octets();
+        let network_bytes = network.octets();
+
+        let full_bytes = (prefix_len / 8) as usize;
+        let remaining_bits = prefix_len % 8;
+
+        // Check full bytes
+        for i in 0..full_bytes {
+            if ip_bytes[i] != network_bytes[i] {
+                return false;
+            }
+        }
+
+        // Check remaining bits if any
+        if remaining_bits > 0 && full_bytes < 16 {
+            let mask = 0xff << (8 - remaining_bits);
+            if (ip_bytes[full_bytes] & mask) != (network_bytes[full_bytes] & mask) {
+                return false;
+            }
+        }
+
+        true
+    }
 }

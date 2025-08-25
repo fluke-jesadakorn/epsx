@@ -685,9 +685,18 @@ async fn create_session(
     access_token: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::Session;
-    use crate::dom::values::UserId;
+    
 
-    let user_id = UserId::new(firebase_user.uid.clone());
+    // Look up user in database by firebase_uid to get the proper UUID
+    let user = app_state.user_repo.find_by_firebase_uid(&firebase_user.uid).await?;
+    let user_id = match user {
+        Some(user) => user.id().clone(),
+        None => {
+            tracing::error!("User not found for firebase_uid: {}", firebase_user.uid);
+            return Err("User not found in database".into());
+        }
+    };
+    
     let expires_at = Utc::now() + Duration::hours(24);
     let session = Session::new(user_id, access_token.to_string(), expires_at);
 

@@ -138,6 +138,9 @@ pub enum AuthProviderError {
     #[error("Permission denied")]
     PermissionDenied,
     
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+    
     #[error("Provider internal error: {0}")]
     InternalError(String),
 }
@@ -153,6 +156,7 @@ impl From<AuthProviderError> for AppError {
             AuthProviderError::ConfigurationError(msg) => AppError::internal_error(&format!("Configuration error: {}", msg)),
             AuthProviderError::NetworkError(msg) => AppError::internal_error(&format!("Network error: {}", msg)),
             AuthProviderError::TokenValidationFailed(msg) => AppError::unauthorized(&format!("Token validation failed: {}", msg)),
+            AuthProviderError::ValidationError(msg) => AppError::bad_request(&format!("Validation error: {}", msg)),
             AuthProviderError::InternalError(msg) => AppError::internal_error(&format!("Provider error: {}", msg)),
         }
     }

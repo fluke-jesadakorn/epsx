@@ -1,4 +1,5 @@
 // Clean architecture library exports
+#![allow(dead_code)]
 
 pub mod core;       // Shared kernel
 pub mod dom;        // Domain layer
@@ -9,7 +10,6 @@ pub mod config;     // Configuration
 pub mod auth;       // Modern authentication
 pub mod security;   // Security layer
 pub mod permissions; // Permission system
-pub mod payment;    // Payment handling
 pub mod stock;      // Stock management
 
 // Selective re-exports for clean namespace

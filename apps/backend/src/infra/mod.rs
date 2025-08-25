@@ -5,11 +5,12 @@ pub mod db;
 pub mod services;
 pub mod events;
 pub mod firebase_admin;
+pub mod firebase;  // New focused modules architecture
 // pub mod jobs; // Module not implemented yet
 pub mod container;
 
 // Re-export essential implementations only
-pub use db::{DbPool, create_pool, DieselUserRepo, DieselAuditRepo, DieselIamRepo, DieselSessionRepo};
+pub use db::{DbPool, create_diesel_pool, DieselUserRepo, DieselAuditRepo, DieselIamRepo, DieselSessionRepo};
 pub use container::{AppContainer, AppContainerBuilder};
 pub use services::{MockEmailService, notification::*};
 pub use events::SimpleEventDispatcher;
@@ -41,7 +42,7 @@ impl InfraFactory {
         let database_backend = DatabaseBackend::PostgreSQL;
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://localhost/epsx".to_string());
-        let diesel_pool = create_pool(&database_url).await?;
+        let diesel_pool = create_diesel_pool(&database_url).await?;
         
         Ok(Self {
             database_backend,

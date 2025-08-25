@@ -130,3 +130,79 @@ export interface PermissionProfile {
   updatedAt: string;
   assignedUserCount?: number;
 }
+
+// Notification Types
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'trading' | 'system' | 'account' | 'price_alert' | 'security' | 'compliance';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+  userId?: string;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationListParams {
+  page?: number;
+  limit?: number;
+  type?: string;
+  priority?: string;
+  read?: boolean;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+  };
+}
+
+export interface NotificationCreateRequest {
+  title: string;
+  message: string;
+  type: Notification['type'];
+  priority: Notification['priority'];
+  userId?: string;
+  userIds?: string[];
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationUpdateRequest {
+  title?: string;
+  message?: string;
+  type?: Notification['type'];
+  priority?: Notification['priority'];
+  read?: boolean;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationPreferences {
+  inApp: boolean;
+  email: boolean;
+  push: boolean;
+  tradingAlerts: boolean;
+  systemUpdates: boolean;
+  securityAlerts: boolean;
+  complianceNotifications: boolean;
+}
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
+  byPriority: Record<string, number>;
+  last24Hours: number;
+  lastWeek: number;
+}
