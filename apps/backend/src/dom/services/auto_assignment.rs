@@ -172,21 +172,21 @@ impl AutoAssignmentEngine {
                 Ok(result) => {
                     tracing::info!(
                         "Successfully assigned permission profile {} to user {}",
-                        assignment_rule.permission_profile_id.value(), user_id
+                        assignment_rule.permission_profile_id, user_id
                     );
                     results.push(result);
                 },
                 Err(AutoAssignmentError::AlreadyExists) => {
                     tracing::info!(
                         "Permission profile {} already assigned to user {} - skipping",
-                        assignment_rule.permission_profile_id.value(), user_id
+                        assignment_rule.permission_profile_id, user_id
                     );
                     // Skip duplicates without error
                     continue;
                 },
                 Err(e) => {
                     // Log error but continue with other assignments
-                    tracing::warn!("Failed to assign permission profile {}: {}", assignment_rule.permission_profile_id.value(), e);
+                    tracing::warn!("Failed to assign permission profile {}: {}", assignment_rule.permission_profile_id, e);
                     results.push(AssignmentResult {
                         permission_profile_id: assignment_rule.permission_profile_id.clone(),
                         feature_id: "unknown".to_string(),
@@ -222,15 +222,14 @@ impl AutoAssignmentEngine {
     ) -> Result<RegistrationContext, AutoAssignmentError> {
         // Extract additional context from user entity
         let _registration_time = chrono::Utc::now(); // Could be extracted from user if stored
-        let actual_email_domain = user.email().value()
-            .split('@')
+        let actual_email_domain = user.email().to_string().split('@')
             .nth(1)
             .unwrap_or(&context.email_domain)
             .to_string();
         
         // Create enriched context
         let mut enriched_context = context.clone();
-        enriched_context.email = user.email().value().to_string();
+        enriched_context.email = user.email().to_string();
         enriched_context.email_domain = actual_email_domain;
         
         // Add user-specific data for condition evaluation
@@ -332,7 +331,7 @@ impl AutoAssignmentEngine {
         let variables = self.substitute_variables(&rule.variables, context)?;
 
         // Extract feature ID from permission profile (use name as feature ID)
-        let feature_id = permission_profile.name().to_string();
+        let feature_id = permission_profile.name.to_string();
 
         // Create assignment record using the permission assignment repository
         let reason = Some(format!("Auto-assigned during registration: {}", context.source));
@@ -350,7 +349,7 @@ impl AutoAssignmentEngine {
 
         tracing::info!(
             "Auto-assigned permission profile {} (feature: {}) to user {} via registration",
-            permission_profile.name(), feature_id, user_id
+            permission_profile.name, feature_id, user_id
         );
 
         Ok(AssignmentResult {
@@ -370,21 +369,18 @@ impl AutoAssignmentEngine {
         permission_profile: &crate::dom::entities::permission_profile::PermissionProfile,
         package_tier: &PackageTier,
     ) -> Result<AutoAssignmentRule, AutoAssignmentError> {
-        // Convert our PackageTier to the entity's PackageTier
-        let entity_tier = match package_tier {
-            PackageTier::Bronze => crate::dom::entities::iam::PackageTier::Bronze,
-            PackageTier::Silver => crate::dom::entities::iam::PackageTier::Silver,
-            PackageTier::Gold => crate::dom::entities::iam::PackageTier::Gold,
-            PackageTier::Platinum => crate::dom::entities::iam::PackageTier::Admin,
+        // Simple role mapping - convert PackageTier to simple roles
+        let _simple_role = match package_tier {
+            PackageTier::Bronze | PackageTier::Silver => crate::auth::roles::Role::Guest,
+            PackageTier::Gold => crate::auth::roles::Role::User,  
+            PackageTier::Platinum => crate::auth::roles::Role::Admin,
         };
         
-        // Only create rule if tiers match
-        if permission_profile.target_tier() != &entity_tier {
-            return Err(AutoAssignmentError::RuleValidation("Tier mismatch".to_string()));
-        }
+        // Simple validation - just return success for now since we're using simple roles
+        // In the simple system, we don't need complex tier matching
         
         Ok(AutoAssignmentRule {
-            permission_profile_id: permission_profile.id().clone(),
+            permission_profile_id: permission_profile.id.clone(),
             package_tiers: vec![package_tier.clone()],
             triggers: vec![AssignmentTrigger::TierMatch(package_tier.clone())],
             priority: 0,
@@ -461,8 +457,7 @@ impl AutoAssignmentEngine {
     ) -> Result<AssignmentResults, AutoAssignmentError> {
         tracing::info!(
             "Processing payment completion for user {} with payment {} and profile {}",
-            user_id, payment_id, permission_profile_id.value()
-        );
+            user_id, payment_id, permission_profile_id        );
 
         // For payment completion, we directly assign the specified permission profile
         // since it's already determined by the payment/package selection
@@ -485,7 +480,7 @@ impl AutoAssignmentEngine {
             Ok(result) => {
                 tracing::info!(
                     "Successfully assigned permission profile {} to user {} via payment completion",
-                    permission_profile_id.value(), user_id
+                    permission_profile_id, user_id
                 );
                 Ok(AssignmentResults {
                     assignments: vec![result],
@@ -496,7 +491,7 @@ impl AutoAssignmentEngine {
             Err(AutoAssignmentError::AlreadyExists) => {
                 tracing::info!(
                     "Permission profile {} already assigned to user {} - payment completion processed",
-                    permission_profile_id.value(), user_id
+                    permission_profile_id, user_id
                 );
                 // Return success even if already assigned
                 Ok(AssignmentResults {

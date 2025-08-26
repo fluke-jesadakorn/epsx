@@ -87,7 +87,7 @@ impl StockUC {
         let results = symbols.into_iter()
             .take(req.limit.unwrap_or(50) as usize)
             .map(|symbol_info| StockSearchResult {
-                sym: symbol_info.symbol.value().to_string(),
+                sym: symbol_info.symbol.to_string(),
                 name: symbol_info.name,
                 market: symbol_info.market,
                 sector: symbol_info.sector,

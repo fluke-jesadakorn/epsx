@@ -33,3 +33,27 @@ impl UsageRepo for DieselUsageRepo {
         Ok(0)
     }
 }
+
+// Simple stub implementation for usage repository
+pub struct StubUsageRepo;
+
+impl StubUsageRepo {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl UsageRepo for StubUsageRepo {
+    async fn log_usage(&self, _usage_log: ModuleUsageLog) -> Result<(), DomainError> {
+        Ok(()) // Stub - no-op
+    }
+
+    async fn get_usage_stats(&self, _user_id: &UserId, _module_name: &str) -> Result<HashMap<String, i32>, DomainError> {
+        Ok(HashMap::new()) // Stub - return empty stats
+    }
+
+    async fn get_current_usage(&self, _user_id: &UserId, _module_name: &str, _quota_type: &str) -> Result<i32, DomainError> {
+        Ok(0) // Stub - return zero usage
+    }
+}

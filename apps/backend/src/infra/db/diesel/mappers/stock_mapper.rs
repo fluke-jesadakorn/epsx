@@ -28,8 +28,8 @@ impl TryFrom<DieselStock> for Stock {
 impl From<&Stock> for NewDieselStock {
     fn from(stock: &Stock) -> Self {
         NewDieselStock {
-            symbol: stock.sym().value().to_string(),
-            name: stock.sym().value().to_string(), // Use symbol as name for minimal entity
+            symbol: stock.sym().to_string(),
+            name: stock.sym().to_string(), // Use symbol as name for minimal entity
             market: stock.market().to_string(),
             price: crate::infra::db::diesel::types::DieselDecimal(stock.px()),
             volume: stock.vol() as i64,

@@ -56,7 +56,7 @@ CREATE TYPE tier_limit_type AS ENUM (
     'support-tickets'
 );
 CREATE TYPE tier_reset_period AS ENUM ('minute', 'hour', 'day', 'week', 'month', 'year', 'never');
-CREATE TYPE package_tier AS ENUM ('free', 'bronze', 'silver', 'gold', 'platinum', 'admin', 'super_admin');
+CREATE TYPE package_tier AS ENUM ('free', 'bronze', 'silver', 'gold', 'platinum', 'admin');
 CREATE TYPE denial_reason AS ENUM (
     'insufficient-permissions',
     'expired-permission',
@@ -665,7 +665,6 @@ AS $BODY$
         'permissions', upv.base_permissions,
         'admin_modules', upv.admin_modules,
         'role', CASE 
-            WHEN 'system_admin' = ANY(upv.admin_modules) THEN 'super_admin'
             WHEN array_length(upv.admin_modules, 1) > 0 THEN 'admin'
             ELSE 'user'
         END,

@@ -214,7 +214,7 @@ impl TokenBroker {
 
       // Application claims
       email: claims.email.to_string(),
-      role: claims.package_tier.to_string(),
+      role: claims.role.to_string(),
       permissions: claims.permissions,
       subscription_tier: claims.extra_claims
         .get("subscription_tier")
@@ -274,7 +274,7 @@ impl TokenBroker {
               ::new("unknown@example.com".to_string())
               .unwrap()
           ),
-        package_tier: crate::dom::entities::iam::PackageTier::Free, // Default package tier
+        role: crate::auth::roles::Role::Guest, // Default role
         admin_modules: Vec::new(), // No admin modules by default
         provider: ProviderType::OIDC, // Default to OIDC for unified JWTs
         provider_user_id: jwt_claims.provider_user_id,
@@ -304,7 +304,7 @@ impl TokenBroker {
                   ::new("unknown@example.com".to_string())
                   .unwrap()
               ),
-            package_tier: crate::dom::entities::PackageTier::Free,
+            role: crate::auth::roles::Role::Guest,
             admin_modules: Vec::new(),
             provider: ProviderType::OIDC,
             provider_user_id: jwt_claims.provider_user_id,

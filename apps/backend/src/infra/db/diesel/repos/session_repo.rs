@@ -33,6 +33,8 @@ impl SessRepo for DieselSessionRepo {
         let uuid = Uuid::parse_str(&_id.to_string())
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
         
+        tracing::error!("🔍 SESSION DEBUG: Looking for session with UUID: {}", uuid);
+        
         let diesel_session = sessions::table
             .filter(sessions::id.eq(uuid))
             .first::<DieselSession>(&mut conn)
@@ -40,13 +42,19 @@ impl SessRepo for DieselSessionRepo {
             .optional()
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
         
+        tracing::error!("🔍 SESSION DEBUG: Query result: {:?}", diesel_session.is_some());
+        
         match diesel_session {
             Some(diesel_session) => {
                 let session = diesel_session.try_into()
                     .map_err(|e| RepoError::SerializationError(format!("Failed to convert DieselSession: {:?}", e)))?;
+                tracing::error!("🔍 SESSION DEBUG: Found session, returning");
                 Ok(Some(session))
             }
-            None => Ok(None)
+            None => {
+                tracing::error!("🔍 SESSION DEBUG: No session found for UUID: {}", uuid);
+                Ok(None)
+            }
         }
     }
     
@@ -54,10 +62,14 @@ impl SessRepo for DieselSessionRepo {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
+        tracing::error!("🔍 SESSION DEBUG: Saving session with ID: {}", session.id());
+        
         let new_session: NewDieselSession = session.try_into()
             .map_err(|e| RepoError::SerializationError(format!("Failed to convert Session: {:?}", e)))?;
         
-        diesel::insert_into(sessions::table)
+        tracing::error!("🔍 SESSION DEBUG: Converted to NewDieselSession with ID: {}", new_session.id);
+        
+        let result = diesel::insert_into(sessions::table)
             .values(&new_session)
             .on_conflict(sessions::id)
             .do_update()
@@ -65,6 +77,8 @@ impl SessRepo for DieselSessionRepo {
             .execute(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        
+        tracing::error!("🔍 SESSION DEBUG: Save result: {} rows affected", result);
         
         Ok(())
     }

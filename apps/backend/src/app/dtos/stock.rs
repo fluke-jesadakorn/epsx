@@ -152,7 +152,7 @@ pub struct StockUpdate {
 impl StockDto {
   pub fn from_entity(stock: &Stock) -> Self {
     Self {
-      sym: stock.sym().value().to_string(),
+      sym: stock.sym().to_string(),
       px: stock.px(),
       vol: stock.vol(),
       market: stock.market().to_string(),

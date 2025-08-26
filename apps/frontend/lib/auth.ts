@@ -242,7 +242,6 @@ export const useAuth = create<AuthState>((set, get) => ({
       premium: 2,
       moderator: 3,
       admin: 4,
-      super_admin: 5,
     }
     
     const userLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0

@@ -100,7 +100,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalUsers: backendData.total_users,
       verifiedUsers: backendData.active_users, // Using active_users as proxy for verified
       disabledUsers: backendData.deleted_users,
-      adminUsers: (backendData.by_role?.admin || 0) + (backendData.by_role?.super_admin || 0) + (backendData.by_role?.moderator || 0),
+      adminUsers: (backendData.by_role?.admin || 0) + (backendData.by_role?.moderator || 0),
       verificationRate: Math.round((backendData.active_users / backendData.total_users) * 100),
       activeUsers: backendData.active_users,
       newUsersToday: Math.floor(backendData.recent_users_30_days / 30), // Rough estimate

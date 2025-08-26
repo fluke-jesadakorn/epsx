@@ -3,8 +3,7 @@
 pub mod auth;
 pub mod oidc;
 pub mod admin;
-pub mod permission_profile;
-pub mod permissions;
+// Removed: permission_profile, permissions - replaced by auth/roles.rs
 pub mod user;
 pub mod middleware;
 pub mod modules;
@@ -357,8 +356,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
 
   // Performance routes removed - stub implementations cleaned up
 
-  // Create unified permission validation API routes
-  let permission_routes = permissions::routes::create_complete_permission_api(&container);
+  // Permission routes removed - replaced by simple roles middleware
 
   // Create notification routes (user and admin)
   let notification_routes = notifications::routes::create_notification_routes().with_state(app_state.clone());
@@ -391,7 +389,6 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .merge(oidc_routes)
     .merge(security_routes)
     .merge(alert_routes)
-    .merge(permission_routes)
     .merge(notification_routes)
     .merge(admin_notification_routes)
     .merge(legacy_notification_routes)

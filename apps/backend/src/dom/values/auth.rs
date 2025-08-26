@@ -109,3 +109,52 @@ impl Subscription {
     }
 }
 
+// ============================================================================
+// PERMISSION GROUPS STUB (FOR COMPATIBILITY)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PermissionGroups {
+    pub groups: std::collections::HashMap<String, Vec<String>>,
+}
+
+impl PermissionGroups {
+    pub fn new() -> Self {
+        Self {
+            groups: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn simple_permissions() -> Self {
+        let mut groups = std::collections::HashMap::new();
+        groups.insert("admin".to_string(), vec![
+            "view_eps".to_string(),
+            "export_data".to_string(),
+            "realtime".to_string(),
+            "profile".to_string(),
+            "notifications".to_string(),
+            "billing".to_string(),
+            "advanced_filters".to_string(),
+        ]);
+        groups.insert("user".to_string(), vec![
+            "view_eps".to_string(),
+            "export_data".to_string(),
+            "realtime".to_string(),
+            "profile".to_string(),
+            "notifications".to_string(),
+            "billing".to_string(),
+            "advanced_filters".to_string(),
+        ]);
+        groups.insert("guest".to_string(), vec![
+            "view_eps".to_string(),
+        ]);
+        
+        Self { groups }
+    }
+}
+
+impl Default for PermissionGroups {
+    fn default() -> Self {
+        Self::simple_permissions()
+    }
+}

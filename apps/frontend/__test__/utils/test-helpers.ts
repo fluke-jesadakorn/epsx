@@ -115,7 +115,7 @@ export class ApiMockHelper {
   async mockTierBasedApis(user: TestUser): Promise<void> {
     // Portfolio API
     await this.page.route('**/api/portfolio/**', async route => {
-      const hasAccess = this.checkTierAccess(user, 'portfolio');
+      const hasAccess = this.checkRoleAccess(user, 'profile');
       
       if (hasAccess) {
         await route.fulfill({
@@ -124,21 +124,21 @@ export class ApiMockHelper {
           body: JSON.stringify({
             balance: 125000.50,
             positions: [],
-            tier: user.package_tier
+            role: this.mapTierToRole(user.package_tier)
           })
         });
       } else {
         await route.fulfill({
           status: 403,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'Insufficient tier' })
+          body: JSON.stringify({ error: 'Insufficient permissions' })
         });
       }
     });
 
     // Analytics API
     await this.page.route('**/api/analytics/**', async route => {
-      const hasAccess = this.checkTierAccess(user, 'analytics');
+      const hasAccess = this.checkRoleAccess(user, 'view_eps');
       
       if (hasAccess) {
         await route.fulfill({
@@ -146,14 +146,14 @@ export class ApiMockHelper {
           contentType: 'application/json',
           body: JSON.stringify({
             data: 'analytics_data',
-            tier: user.package_tier
+            role: this.mapTierToRole(user.package_tier)
           })
         });
       } else {
         await route.fulfill({
           status: 403,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'Insufficient tier' })
+          body: JSON.stringify({ error: 'Insufficient permissions' })
         });
       }
     });
@@ -199,29 +199,32 @@ export class ApiMockHelper {
   }
 
   /**
-   * Check if user tier has access to feature
+   * Check if user role has access to feature
    */
-  private checkTierAccess(user: TestUser, feature: string): boolean {
-    const tierLevels = {
-      FREE: 1,
-      BRONZE: 2,
-      SILVER: 3,
-      GOLD: 4,
-      PLATINUM: 5,
-      ENTERPRISE: 6
+  private checkRoleAccess(user: TestUser, feature: string): boolean {
+    // Map tier to simple role
+    const role = this.mapTierToRole(user.package_tier);
+    
+    // Import role checking logic
+    const { checkFeatureAccess, Role } = require('@/lib/auth/roles');
+    
+    return checkFeatureAccess(role, feature);
+  }
+
+  /**
+   * Map package tier to simple role
+   */
+  private mapTierToRole(tier: string): string {
+    const tierRoleMap = {
+      FREE: 'guest',
+      BRONZE: 'guest', 
+      SILVER: 'user',
+      GOLD: 'user',
+      PLATINUM: 'user',
+      ENTERPRISE: 'admin'
     };
-
-    const featureRequirements = {
-      portfolio: 1,
-      analytics: 3, // SILVER+
-      research: 5,  // PLATINUM+
-      enterprise: 6 // ENTERPRISE only
-    };
-
-    const userLevel = tierLevels[user.package_tier] || 1;
-    const requiredLevel = featureRequirements[feature] || 1;
-
-    return userLevel >= requiredLevel;
+    
+    return tierRoleMap[tier] || 'guest';
   }
 }
 

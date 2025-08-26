@@ -1,11 +1,11 @@
 // Security module for comprehensive security management
-pub mod permission_security;
+// permission_security removed - replaced by auth/roles.rs
 pub mod brute_force;
 pub mod brute_force_integration;
 pub mod alerts;
 pub mod webhooks;
 
-pub use permission_security::SecuritySummary;
+// SecuritySummary removed - replaced by simple roles
 pub use brute_force_integration::BruteForceIntegrationService;
 // pub use brute_force::*;
 // pub use alerts::*;

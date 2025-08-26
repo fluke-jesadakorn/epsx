@@ -17,7 +17,7 @@ interface UserModulesContentProps {
 }
 
 export function UserModulesContent({ user, currentUser }: UserModulesContentProps) {
-  const canManageModules = currentUser.isSuperAdmin || currentUser.canManageUsers
+  const canManageModules = currentUser.role === 'admin' || currentUser.canManageUsers
 
   // Calculate module stats
   const activeModules = user.moduleAccess.filter(m => m.isActive).length

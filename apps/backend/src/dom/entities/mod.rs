@@ -4,28 +4,28 @@ pub mod user;
 pub mod auth;
 pub mod payment;
 pub mod stock;
-pub mod iam;
 pub mod audit;
 pub mod audit_event;
-pub mod permission_profile;
-pub mod temporary_permission;
 pub mod module;
 pub mod market_data;
 pub mod eps_growth;
+pub mod iam;
+pub mod permission_profile;
+pub mod temporary_permission;
 
 // Temporary glob re-exports - to be refined in next phase  
 pub use user::*;
 pub use auth::*;
 pub use payment::*;
 pub use stock::*;
-pub use iam::*;
 pub use audit::*;
 pub use audit_event::*;
-pub use permission_profile::*;
-pub use temporary_permission::*;
 pub use module::*;
 pub use market_data::*;
 pub use eps_growth::*;
+pub use iam::*;
+pub use permission_profile::*;
+pub use temporary_permission::*;
 
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};

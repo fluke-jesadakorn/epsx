@@ -59,9 +59,9 @@ export const test = base.extend<AdminTestFixtures>({
     // Create request context with authentication headers
     const authRequest = await request.newContext({
       extraHTTPHeaders: {
-        'Authorization': `Bearer ${TEST_SESSIONS.VALID_SUPER_ADMIN.token}`,
+        'Authorization': `Bearer ${TEST_SESSIONS.VALID_ADMIN.token}`,
         'Content-Type': 'application/json',
-        'X-Test-User': TEST_USERS.SUPER_ADMIN.id
+        'X-Test-User': TEST_USERS.ADMIN.id
       }
     });
     
@@ -70,7 +70,7 @@ export const test = base.extend<AdminTestFixtures>({
 
   testUser: async ({}, use) => {
     // Provide default test user
-    await use(TEST_USERS.SUPER_ADMIN);
+    await use(TEST_USERS.ADMIN);
   },
 
   dbUtils: async ({}, use) => {

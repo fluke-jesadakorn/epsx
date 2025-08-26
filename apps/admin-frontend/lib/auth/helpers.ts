@@ -39,7 +39,7 @@ export function isSystemAdmin(
   user: SessionData['user'] | null | undefined
 ): boolean {
   if (!user) return false;
-  return hasAdminModule(user, 'system_admin') || user.role === 'super_admin';
+  return hasAdminModule(user, 'system_admin') || user.role === 'admin';
 }
 
 /**

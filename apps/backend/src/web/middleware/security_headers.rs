@@ -283,18 +283,24 @@ fn is_trusted_origin(origin: &str) -> bool {
         "http://127.0.0.1:8080",
     ];
     
-    // Add production URLs from environment variables
+    // Collect environment URLs first
+    let mut env_urls = Vec::new();
     if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
-        trusted_origins.push(frontend_url.as_str());
+        env_urls.push(frontend_url);
     }
     if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
-        trusted_origins.push(admin_url.as_str());
+        env_urls.push(admin_url);
     }
     if let Ok(backend_url) = get_env_var("BACKEND_URL") {
-        trusted_origins.push(backend_url.as_str());
+        env_urls.push(backend_url);
     }
     if let Ok(api_url) = get_env_var("API_URL") {
-        trusted_origins.push(api_url.as_str());
+        env_urls.push(api_url);
+    }
+    
+    // Add environment URLs as string refs
+    for url in &env_urls {
+        trusted_origins.push(url.as_str());
     }
     
     // Default production domains as fallback
@@ -534,7 +540,7 @@ pub async fn add_deprecation_headers(
     request: Request,
     next: Next,
 ) -> Result<Response, Response> {
-    let path = request.uri().path();
+    let path = request.uri().path().to_string();
     
     // Process the request
     let mut response = next.run(request).await;
@@ -558,7 +564,7 @@ pub async fn add_deprecation_headers(
     );
     
     // Add specific migration paths for common routes
-    let new_route = match path {
+    let new_route = match path.as_str() {
         "/login" => "/api/v1/auth/sessions",
         "/logout" => "/api/v1/auth/sessions (DELETE)",
         "/register" => "/api/v1/auth/users",

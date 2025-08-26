@@ -5,10 +5,8 @@ pub mod error_recovery;
 pub mod telemetry;
 pub mod events;
 pub mod db;
-pub mod permission_constants;
 pub mod types;
 pub mod client_credential_service;
-pub mod iam_token_claims;
 // pub mod plugins;
 // pub mod plugin_examples;
 
@@ -25,5 +23,4 @@ pub use telemetry::{LogContext, PerformanceStats, Alert, AlertSeverity, Telemetr
 pub use events::{DomainEvent, EventEnvelope, StoredEvent, EventStream, Snapshot, EventHandler, Subscription, CircuitBreaker};
 pub use db::{DatabaseConnection, DatabaseTransaction, QueryBuilder, QueryFilter, QuerySort, DatabaseHealth, ConnectionInfo};
 pub use client_credential_service::{ClientCredentialService, ClientCredentials, ClientType};
-pub use iam_token_claims::{AccessTokenClaims, IdTokenClaims, RefreshTokenClaims};
 // pub use plugins::{Plugin, PluginManager, PluginRegistry, PluginMetadata, PluginConfig, PluginState, PluginFactory, TradingPlugin, DataProviderPlugin, NotificationPlugin};

@@ -10,7 +10,7 @@ pub mod firebase;  // New focused modules architecture
 pub mod container;
 
 // Re-export essential implementations only
-pub use db::{DbPool, create_diesel_pool, DieselUserRepo, DieselAuditRepo, DieselIamRepo, DieselSessionRepo};
+pub use db::{DbPool, create_diesel_pool, DieselUserRepo, DieselAuditRepo, DieselSessionRepo};
 pub use container::{AppContainer, AppContainerBuilder};
 pub use services::{MockEmailService, notification::*};
 pub use events::SimpleEventDispatcher;

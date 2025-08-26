@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::dom::values::{UserId, Email};
-use crate::dom::entities::iam::PackageTier;
+use crate::auth::roles::Role;
 use crate::core::types::AppError;
 
 pub mod firebase_provider;
@@ -39,7 +39,7 @@ pub struct UserClaims {
     /// User email
     pub email: Email,
     /// User package tier
-    pub package_tier: PackageTier,
+    pub role: Role,
     /// User admin modules
     pub admin_modules: Vec<String>,
     /// User permissions (for Casbin)
@@ -64,7 +64,7 @@ impl UserClaims {
     pub fn new(
         user_id: UserId,
         email: Email,
-        package_tier: PackageTier,
+        role: Role,
         admin_modules: Vec<String>,
         permissions: Vec<String>,
         provider_user_id: String,
@@ -77,7 +77,7 @@ impl UserClaims {
         Self {
             user_id,
             email,
-            package_tier,
+            role,
             admin_modules,
             permissions,
             provider_user_id,

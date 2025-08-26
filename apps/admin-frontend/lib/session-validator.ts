@@ -216,7 +216,7 @@ export class AdminSessionValidator {
    */
   private hasAdminAccess(user: UserProfile): boolean {
     // Must have moderator role or higher
-    const roles = ['moderator', 'admin', 'super_admin']
+    const roles = ['moderator', 'admin']
     if (!roles.includes(user.role)) {
       return false
     }
@@ -334,7 +334,6 @@ export function hasRole(user: UserProfile, role: string): boolean {
     premium: 2,
     moderator: 3,
     admin: 4,
-    super_admin: 5
   }
   
   const userLevel = roleHierarchy[user.role] || 0
@@ -350,7 +349,7 @@ export function hasAdminModule(user: UserProfile, module: string): boolean {
   }
   
   // Super admin has access to all modules
-  if (user.role === 'super_admin') {
+  if (user.role === 'admin') {
     return true
   }
   
@@ -381,7 +380,7 @@ export function hasPackageTier(user: UserProfile, tier: string): boolean {
 // Path-based admin access checking
 export function canAccessAdminPath(user: UserProfile, path: string): boolean {
   // Super admin can access everything
-  if (user.role === 'super_admin') {
+  if (user.role === 'admin') {
     return true
   }
   

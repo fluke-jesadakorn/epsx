@@ -7,7 +7,7 @@ use crate::app::ports::repositories::ModuleRepo;
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::UserId;
 use crate::dom::error::DomainError;
-use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
+use crate::app::ports::repositories::{UserModuleAccess, ApiKeyAccess};
 use crate::infra::db::diesel::DbPool;
 
 pub struct DieselModuleRepo {

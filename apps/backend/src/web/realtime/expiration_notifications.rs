@@ -104,7 +104,7 @@ impl ExpirationNotificationService {
     ) -> Result<(), ExpirationNotificationError> {
         let event = RealtimeEvent::feature_expiration_warning(
             feature.user_id.to_string(),
-            feature.permission_profile_id.value().to_string(),
+            feature.permission_profile_id.to_string(),
             feature.permission_profile_name.clone(),
             days_until_expiration,
             feature.expires_at,
@@ -134,7 +134,7 @@ impl ExpirationNotificationService {
 
         let event = RealtimeEvent::feature_expired(
             feature.user_id.to_string(),
-            feature.permission_profile_id.value().to_string(),
+            feature.permission_profile_id.to_string(),
             feature.permission_profile_name.clone(),
             feature.expires_at,
             feature.features.clone(),
@@ -160,7 +160,7 @@ impl ExpirationNotificationService {
 
         let event = RealtimeEvent::grace_period_started(
             feature.user_id.to_string(),
-            feature.permission_profile_id.value().to_string(),
+            feature.permission_profile_id.to_string(),
             feature.permission_profile_name.clone(),
             feature.grace_period_days,
             grace_period_ends,
@@ -189,7 +189,7 @@ impl ExpirationNotificationService {
 
         let event = RealtimeEvent::grace_period_ending(
             feature.user_id.to_string(),
-            feature.permission_profile_id.value().to_string(),
+            feature.permission_profile_id.to_string(),
             feature.permission_profile_name.clone(),
             hours_until_deactivation,
             deactivation_at,

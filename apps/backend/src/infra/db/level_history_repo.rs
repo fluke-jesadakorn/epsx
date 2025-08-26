@@ -36,7 +36,7 @@ impl LevelHistoryRepo for InMemoryLevelHistoryRepo {
         offset: u32,
     ) -> Result<Vec<LevelChangeRecord>, RepoError> {
         let storage = self.storage.lock().unwrap();
-        let key = user_id.value().to_string();
+        let key = user_id.to_string();
         
         if let Some(records) = storage.get(&key) {
             let start = offset as usize;
@@ -54,7 +54,7 @@ impl LevelHistoryRepo for InMemoryLevelHistoryRepo {
 
     async fn count_user_level_changes(&self, user_id: &UserId) -> Result<u64, RepoError> {
         let storage = self.storage.lock().unwrap();
-        let key = user_id.value().to_string();
+        let key = user_id.to_string();
         
         Ok(storage.get(&key).map(|records| records.len() as u64).unwrap_or(0))
     }

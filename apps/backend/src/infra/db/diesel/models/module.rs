@@ -1,14 +1,15 @@
-use diesel::prelude::*;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::Value as JsonValue;
 
-use crate::infra::db::diesel::schema::{sub_modules, user_module_assignments, admin_modules, user_admin_roles};
+// use crate::infra::db::diesel::schema::{sub_modules, user_module_assignments, admin_modules, user_admin_roles}; // Tables not in schema
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = sub_modules)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+// Disabled - sub_modules table not in schema
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// // #[diesel(table_name = sub_modules)]
+// // #[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DieselSubModule {
     pub id: Uuid,
     pub name: String,
@@ -19,8 +20,8 @@ pub struct DieselSubModule {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = sub_modules)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = sub_modules)]
 pub struct NewDieselSubModule {
     pub id: Uuid,
     pub name: String,
@@ -31,9 +32,9 @@ pub struct NewDieselSubModule {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = user_module_assignments)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = user_module_assignments)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselUserModuleAssignment {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -45,8 +46,8 @@ pub struct DieselUserModuleAssignment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = user_module_assignments)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = user_module_assignments)]
 pub struct NewDieselUserModuleAssignment {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -58,9 +59,9 @@ pub struct NewDieselUserModuleAssignment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = admin_modules)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = admin_modules)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselAdminModule {
     pub id: Uuid,
     pub module_code: String,
@@ -76,8 +77,8 @@ pub struct DieselAdminModule {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = admin_modules)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = admin_modules)]
 pub struct NewDieselAdminModule {
     pub id: Uuid,
     pub module_code: String,
@@ -93,9 +94,9 @@ pub struct NewDieselAdminModule {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = user_admin_roles)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = user_admin_roles)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselUserAdminRole {
     pub id: Uuid,
     pub firebase_uid: String,
@@ -109,8 +110,8 @@ pub struct DieselUserAdminRole {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = user_admin_roles)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = user_admin_roles)]
 pub struct NewDieselUserAdminRole {
     pub id: Uuid,
     pub firebase_uid: String,

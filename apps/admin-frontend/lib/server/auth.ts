@@ -114,7 +114,7 @@ export async function getAuthUser() {
     const user = await verifyJWTFromCookies();
     
     // Validate admin permissions
-    if (user && !user.admin_modules && user.role !== 'admin' && user.role !== 'super_admin') {
+    if (user && !user.admin_modules && user.role !== 'admin') {
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
@@ -282,7 +282,7 @@ export async function hasAdminModule(module: string): Promise<boolean> {
     }
     
     // Super admin has access to all modules
-    if (user.role === 'super_admin') {
+    if (user.role === 'admin') {
       return true;
     }
     

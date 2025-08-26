@@ -407,7 +407,7 @@ export async function getAdminUsers(filters?: {
         displayName: 'Admin User',
         disabled: false,
         customClaims: {
-          role: 'super_admin',
+          role: 'admin',
           tokenBalance: 1000,
           emailVerified: true,
           permissions: ['admin:all'],

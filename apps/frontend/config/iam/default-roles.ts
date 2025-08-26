@@ -1,20 +1,30 @@
-import type { PermissionDocument, RoleDocument } from './types';
+// UNIFIED PERMISSION SYSTEM - Single source of truth for all frontend permissions
+// Uses unified format: "domain:action:scope" matching backend Rust implementation
 
-export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
+import type { PermissionDocument, RoleDocument } from './types';
+import { 
+  PermissionPatterns, 
+  PermissionDomain, 
+  PermissionAction, 
+  PermissionScope 
+} from '../../types/permissions';
+
+// NEW: Unified permissions using consistent domain:action:scope format
+export const UNIFIED_PERMISSIONS: PermissionDocument[] = [
   // Dashboard permissions
   {
-    id: 'dashboard.view',
+    id: 'dashboard:view:own',
     name: 'View Dashboard',
     description: 'Access to view the main dashboard',
     category: 'dashboard',
     action: 'view',
-    resource: 'dashboard',
+    resource: 'dashboard', 
     scope: 'own',
     isSystem: true,
     tags: ['dashboard', 'view']
   },
   {
-    id: 'dashboard.admin',
+    id: 'dashboard:admin:system',
     name: 'Admin Dashboard',
     description: 'Access to admin dashboard features',
     category: 'dashboard',
@@ -27,18 +37,18 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
 
   // User management permissions
   {
-    id: 'users.view',
+    id: 'users:read:own',
     name: 'View Users',
     description: 'View user profiles and information',
     category: 'users',
-    action: 'view',
+    action: 'read',
     resource: 'users',
     scope: 'own',
     isSystem: true,
-    tags: ['users', 'view']
+    tags: ['users', 'read']
   },
   {
-    id: 'users.create',
+    id: 'users:create:system',
     name: 'Create Users',
     description: 'Create new user accounts',
     category: 'users',
@@ -49,7 +59,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['users', 'create']
   },
   {
-    id: 'users.update',
+    id: 'users:update:own',
     name: 'Update Users',
     description: 'Update user information and settings',
     category: 'users',
@@ -60,7 +70,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['users', 'update']
   },
   {
-    id: 'users.delete',
+    id: 'users:delete:system',
     name: 'Delete Users',
     description: 'Delete user accounts',
     category: 'users',
@@ -73,18 +83,18 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
 
   // Role management permissions
   {
-    id: 'roles.view',
+    id: 'roles:read:system',
     name: 'View Roles',
     description: 'View role definitions and permissions',
     category: 'roles',
-    action: 'view',
+    action: 'read',
     resource: 'roles',
     scope: 'system',
     isSystem: true,
-    tags: ['roles', 'view']
+    tags: ['roles', 'read']
   },
   {
-    id: 'roles.create',
+    id: 'roles:create:system',
     name: 'Create Roles',
     description: 'Create new roles and assign permissions',
     category: 'roles',
@@ -95,7 +105,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['roles', 'create']
   },
   {
-    id: 'roles.update',
+    id: 'roles:update:system',
     name: 'Update Roles',
     description: 'Update role definitions and permissions',
     category: 'roles',
@@ -106,7 +116,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['roles', 'update']
   },
   {
-    id: 'roles.delete',
+    id: 'roles:delete:system',
     name: 'Delete Roles',
     description: 'Delete role definitions',
     category: 'roles',
@@ -119,7 +129,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
 
   // Analytics permissions
   {
-    id: 'analytics.view',
+    id: 'analytics:view:own',
     name: 'View Analytics',
     description: 'Access to view analytics and reports',
     category: 'analytics',
@@ -130,7 +140,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['analytics', 'view']
   },
   {
-    id: 'analytics.admin',
+    id: 'analytics:admin:system',
     name: 'Admin Analytics',
     description: 'Access to admin analytics and system reports',
     category: 'analytics',
@@ -143,7 +153,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
 
   // Package permissions
   {
-    id: 'packages.view',
+    id: 'packages:view:own',
     name: 'View Packages',
     description: 'View available packages and features',
     category: 'packages',
@@ -154,7 +164,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['packages', 'view']
   },
   {
-    id: 'packages.create',
+    id: 'packages:create:system',
     name: 'Create Packages',
     description: 'Create new packages and features',
     category: 'packages',
@@ -165,7 +175,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['packages', 'create']
   },
   {
-    id: 'packages.update',
+    id: 'packages:update:system',
     name: 'Update Packages',
     description: 'Update package configurations',
     category: 'packages',
@@ -176,7 +186,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['packages', 'update']
   },
   {
-    id: 'packages.delete',
+    id: 'packages:delete:system',
     name: 'Delete Packages',
     description: 'Delete packages and features',
     category: 'packages',
@@ -189,7 +199,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
 
   // Payment permissions
   {
-    id: 'payments.view',
+    id: 'payments:view:own',
     name: 'View Payments',
     description: 'View payment history and transactions',
     category: 'payments',
@@ -200,7 +210,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['payments', 'view']
   },
   {
-    id: 'payments.create',
+    id: 'payments:create:own',
     name: 'Create Payments',
     description: 'Create new payment transactions',
     category: 'payments',
@@ -211,7 +221,7 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
     tags: ['payments', 'create']
   },
   {
-    id: 'payments.admin',
+    id: 'payments:admin:system',
     name: 'Admin Payments',
     description: 'Manage all payment transactions',
     category: 'payments',
@@ -223,37 +233,15 @@ export const DEFAULT_PERMISSIONS: PermissionDocument[] = [
   }
 ];
 
-export const DEFAULT_ROLES: RoleDocument[] = [
-  {
-    id: 'super_admin',
-    name: 'Super Admin',
-    description: 'Full system access with all permissions',
-    color: '#dc2626',
-    icon: 'Shield',
-    permissions: ['*'], // All permissions
-    isSystem: true,
-    isActive: true
-  },
+// NEW: Unified roles using unified permission IDs
+export const UNIFIED_ROLES: RoleDocument[] = [
   {
     id: 'admin',
     name: 'Admin',
-    description: 'Administrative access to manage users, roles, and system settings',
-    color: '#ea580c',
-    icon: 'UserCog',
-    permissions: [
-      'dashboard.admin',
-      'users.view',
-      'users.create',
-      'users.update',
-      'roles.view',
-      'roles.create',
-      'roles.update',
-      'analytics.admin',
-      'packages.view',
-      'packages.create',
-      'packages.update',
-      'payments.admin'
-    ],
+    description: 'Full system access with all permissions',
+    color: '#dc2626',
+    icon: 'Shield',
+    permissions: ['*:*:*'], // All permissions using unified wildcard
     isSystem: true,
     isActive: true
   },
@@ -264,14 +252,14 @@ export const DEFAULT_ROLES: RoleDocument[] = [
     color: '#ca8a04',
     icon: 'Users',
     permissions: [
-      'dashboard.view',
-      'users.view',
-      'users.create',
-      'users.update',
-      'analytics.view',
-      'packages.view',
-      'payments.view',
-      'payments.create'
+      'dashboard:view:own',
+      'users:read:team',
+      'users:create:team',
+      'users:update:team',
+      'analytics:view:own',
+      'packages:view:own',
+      'payments:view:own',
+      'payments:create:own'
     ],
     isSystem: true,
     isActive: true
@@ -283,12 +271,12 @@ export const DEFAULT_ROLES: RoleDocument[] = [
     color: '#16a34a',
     icon: 'User',
     permissions: [
-      'dashboard.view',
-      'users.view',
-      'analytics.view',
-      'packages.view',
-      'payments.view',
-      'payments.create'
+      'dashboard:view:own',
+      'users:read:own',
+      'analytics:view:own',
+      'packages:view:own',
+      'payments:view:own',
+      'payments:create:own'
     ],
     isSystem: true,
     isActive: true
@@ -300,11 +288,15 @@ export const DEFAULT_ROLES: RoleDocument[] = [
     color: '#2563eb',
     icon: 'Eye',
     permissions: [
-      'dashboard.view',
-      'analytics.view',
-      'packages.view'
+      'dashboard:view:own',
+      'analytics:view:own',
+      'packages:view:own'
     ],
     isSystem: true,
     isActive: true
   }
 ];
+
+// Backward compatibility: Export legacy permissions with conversion warning
+export const DEFAULT_PERMISSIONS = UNIFIED_PERMISSIONS;
+export const DEFAULT_ROLES = UNIFIED_ROLES;

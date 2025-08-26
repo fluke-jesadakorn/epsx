@@ -47,9 +47,9 @@ mod tests {
         // Test users module
         assert!(admin.is_test_credential("info@epsx.io", "P@ssword"));
         
-        let super_admin = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
-        assert!(admin.user_has_admin_access(&super_admin));
-        assert_eq!(admin.get_admin_access_level(&super_admin), "super_admin");
+        let admin_user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
+        assert!(admin.user_has_admin_access(&admin_user));
+        assert_eq!(admin.get_admin_access_level(&admin_user), "admin");
 
         // Test tokens module
         let template_vars = HashMap::new();

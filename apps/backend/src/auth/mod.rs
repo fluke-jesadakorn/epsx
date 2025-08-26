@@ -7,6 +7,7 @@ pub mod revocation;
 pub mod refresh_tokens;
 pub mod scopes;
 pub mod cleanup;
+pub mod roles;
 
 
 // Clean exports - use new simplified modules
@@ -18,6 +19,7 @@ pub use revocation::{TokenRevocationService, RevokedToken, RevocationError, TOKE
 pub use refresh_tokens::{RefreshTokenService, RefreshTokenData, RefreshTokenRotation, RefreshTokenError, REFRESH_TOKEN_SERVICE};
 pub use scopes::{ScopeService, Scope, ValidatedScopes, ScopeError, SCOPE_SERVICE};
 pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
+pub use roles::{Role, SimpleUserClaims, check_feature_access, check_role_access, RoleError, require_role_sync, require_feature_sync};
 
 // Create simplified global JWT service
 lazy_static::lazy_static! {

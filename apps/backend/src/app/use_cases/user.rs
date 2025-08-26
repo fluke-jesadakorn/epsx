@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use crate::dom::entities::User;
 use crate::dom::values::{ UserId, Email };
-use crate::dom::entities::iam::PackageTier;
-// Simple permission helpers for user management
+// Simple permission helpers for user management  
+use crate::auth::roles::Role;
 use crate::dom::events::{ DomainEvent, UserDeletedEvent };
 use crate::app::ports::{ UserRepo, EventDispatcher, LevelHistoryRepo };
 use crate::app::dtos::{
@@ -63,8 +63,8 @@ impl UserMgmtUC {
       UserUseCaseError::InvalidEmail(req.email.clone())
     )?;
 
-    let package_tier = req.package_tier
-      .parse::<PackageTier>()
+    let role = req.package_tier
+      .parse::<Role>()
       .map_err(|_|
         UserUseCaseError::InvalidPackageTier(req.package_tier.clone())
       )?;
@@ -78,7 +78,7 @@ impl UserMgmtUC {
       "firebase_{}",
       uuid::Uuid::new_v4().to_string().replace("-", "")[..28].to_string()
     );
-    let user = User::new(firebase_uid, email, package_tier.to_string());
+    let user = User::new(firebase_uid, email, role.to_string());
     self.user_repo
       .save(&user).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
@@ -110,8 +110,8 @@ impl UserMgmtUC {
       .validate()
       .map_err(|e| UserUseCaseError::ValidationError(e.to_string()))?;
 
-    let new_package_tier = req.new_package_tier
-      .parse::<PackageTier>()
+    let new_role = req.new_package_tier
+      .parse::<Role>()
       .map_err(|_|
         UserUseCaseError::InvalidPackageTier(req.new_package_tier.clone())
       )?;
@@ -130,10 +130,10 @@ impl UserMgmtUC {
 
     // Check permissions
     if
-      !Self::can_upgrade_user_to_package_tier(
+      !Self::can_upgrade_user_to_role(
         &admin,
         &target,
-        &new_package_tier
+        &new_role
       )
     {
       return Err(UserUseCaseError::PermissionDenied);
@@ -145,8 +145,8 @@ impl UserMgmtUC {
 
     // Perform upgrade
     let event = target
-      .upgrade_package_tier(
-        new_package_tier.clone(),
+      .upgrade_role(
+        new_role.clone(),
         Some(req.new_admin_modules.clone())
       )
       .map_err(|e| UserUseCaseError::DomainError(e.to_string()))?;
@@ -157,13 +157,13 @@ impl UserMgmtUC {
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
     // Record level change history
-    let old_tier_enum = old_package_tier
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
+    let old_role_enum = old_package_tier
+      .parse::<Role>()
+      .unwrap_or(Role::Guest);
     self.record_level_change(
       &req.usr_id,
-      &old_tier_enum,
-      &new_package_tier,
+      &old_role_enum,
+      &new_role,
       &old_admin_modules,
       &req.new_admin_modules,
       &req.admin_id,
@@ -191,12 +191,12 @@ impl UserMgmtUC {
 
     let users = (
       if let Some(package_tier_filter) = &req.package_tier_filter {
-        let package_tier = package_tier_filter
-          .parse::<PackageTier>()
+        let role = package_tier_filter
+          .parse::<Role>()
           .map_err(|_|
             UserUseCaseError::InvalidPackageTier(package_tier_filter.clone())
           )?;
-        self.user_repo.find_by_package_tier(&package_tier.to_string()).await
+        self.user_repo.find_by_package_tier(&role.to_string()).await
       } else {
         self.user_repo.list(req.offset, req.limit).await
       }
@@ -255,8 +255,8 @@ impl UserMgmtUC {
     admin: &User,
     update: &crate::app::dtos::UserLevelUpdate
   ) -> Result<User, UserUseCaseError> {
-    let new_package_tier = update.new_package_tier
-      .parse::<PackageTier>()
+    let new_role = update.new_package_tier
+      .parse::<Role>()
       .map_err(|_|
         UserUseCaseError::InvalidPackageTier(update.new_package_tier.clone())
       )?;
@@ -271,7 +271,7 @@ impl UserMgmtUC {
 
     // Check permissions
     if
-      !Self::can_upgrade_user_to_package_tier(admin, &target, &new_package_tier)
+      !Self::can_upgrade_user_to_role(admin, &target, &new_role)
     {
       return Err(UserUseCaseError::PermissionDenied);
     }
@@ -282,8 +282,8 @@ impl UserMgmtUC {
 
     // Perform upgrade
     let event = target
-      .upgrade_package_tier(
-        new_package_tier.clone(),
+      .upgrade_role(
+        new_role.clone(),
         Some(update.new_admin_modules.clone())
       )
       .map_err(|e| UserUseCaseError::DomainError(e.to_string()))?;
@@ -294,13 +294,13 @@ impl UserMgmtUC {
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
     // Record level change history
-    let old_tier_enum = old_package_tier
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
+    let old_role_enum = old_package_tier
+      .parse::<Role>()
+      .unwrap_or(Role::Guest);
     self.record_level_change(
       &update.usr_id,
-      &old_tier_enum,
-      &new_package_tier,
+      &old_role_enum,
+      &new_role,
       &old_admin_modules,
       &update.new_admin_modules,
       admin.id(),
@@ -332,7 +332,7 @@ impl UserMgmtUC {
     let disabled_users = 0; // TODO: implement user disabled status tracking
     let admin_users = all_users
       .iter()
-      .filter(|user| matches!(user.package_tier(), "Admin" | "SuperAdmin"))
+      .filter(|user| matches!(user.package_tier(), "admin"))
       .count() as u64;
 
     let verification_rate = if total_users > 0 {
@@ -354,23 +354,20 @@ impl UserMgmtUC {
   async fn get_package_tier_counts(
     &self
   ) -> Result<Vec<PackageTierCount>, UserUseCaseError> {
-    let package_tiers = [
-      PackageTier::Free,
-      PackageTier::Bronze,
-      PackageTier::Silver,
-      PackageTier::Gold,
-      PackageTier::Platinum,
-      PackageTier::Admin,
+    let roles = [
+      Role::Guest,
+      Role::User,
+      Role::Admin,
     ];
     let mut counts = Vec::new();
 
-    for package_tier in package_tiers {
+    for role in roles {
       let users = self.user_repo
-        .find_by_package_tier(&package_tier.to_string()).await
+        .find_by_package_tier(&role.to_string()).await
         .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
       counts.push(PackageTierCount {
-        package_tier: package_tier.to_string(),
+        package_tier: role.to_string(),
         count: users.len() as u64,
       });
     }
@@ -429,8 +426,8 @@ impl UserMgmtUC {
   async fn record_level_change(
     &self,
     user_id: &UserId,
-    old_package_tier: &PackageTier,
-    new_package_tier: &PackageTier,
+    old_role: &Role,
+    new_role: &Role,
     old_admin_modules: &[String],
     new_admin_modules: &[String],
     admin_id: &UserId,
@@ -439,8 +436,8 @@ impl UserMgmtUC {
     let record = LevelChangeRecord {
       id: uuid::Uuid::new_v4().to_string(),
       usr_id: user_id.to_string(),
-      old_package_tier: old_package_tier.to_string(),
-      new_package_tier: new_package_tier.to_string(),
+      old_package_tier: old_role.to_string(),
+      new_package_tier: new_role.to_string(),
       old_admin_modules: old_admin_modules.to_vec(),
       new_admin_modules: new_admin_modules.to_vec(),
       changed_by: admin_id.to_string(),
@@ -472,9 +469,9 @@ impl UserMgmtUC {
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?
       .ok_or_else(|| UserUseCaseError::UserNotFound(admin_id.to_string()))?;
 
-    // Check admin permissions - only Admin or SuperAdmin can delete users
-    let admin_tier_str = admin.package_tier();
-    if !(admin_tier_str == "Admin" || admin_tier_str == "SuperAdmin") {
+    // Check admin permissions - only Admin can delete users
+    let admin_role_str = admin.package_tier();
+    if !(admin_role_str == "admin") {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
@@ -489,7 +486,7 @@ impl UserMgmtUC {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
-    // Prevent deletion of users with higher or equal role (except SuperAdmin can delete Admin)
+    // Prevent deletion of users with higher or equal role
     if !Self::can_admin_modify_user(&admin, &target) {
       return Err(UserUseCaseError::PermissionDenied);
     }
@@ -544,33 +541,33 @@ impl UserMgmtUC {
   }
 
   // Helper methods for permission checking
-  fn can_upgrade_user_to_package_tier(
+  fn can_upgrade_user_to_role(
     admin: &User,
     _target: &User,
-    _new_package_tier: &PackageTier
+    _new_role: &Role
   ) -> bool {
-    // Only admins and super admins can upgrade users
-    let admin_tier = admin
+    // Only admins can upgrade users
+    let admin_role = admin
       .package_tier()
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
-    match admin_tier {
-      PackageTier::Admin => true,
+      .parse::<Role>()
+      .unwrap_or(Role::Guest);
+    match admin_role {
+      Role::Admin => true,
       _ => false,
     }
   }
 
   fn can_admin_modify_user(admin: &User, target: &User) -> bool {
-    let admin_tier = admin
+    let admin_role = admin
       .package_tier()
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
-    let target_tier = target
+      .parse::<Role>()
+      .unwrap_or(Role::Guest);
+    let target_role = target
       .package_tier()
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
-    match (admin_tier, target_tier) {
-      (PackageTier::Admin, _) => true, // Admin can modify anyone
+      .parse::<Role>()
+      .unwrap_or(Role::Guest);
+    match (admin_role, target_role) {
+      (Role::Admin, _) => true, // Admin can modify anyone
       _ => false, // Non-admins can't modify anyone
     }
   }

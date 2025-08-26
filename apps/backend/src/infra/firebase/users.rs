@@ -389,8 +389,8 @@ impl FirebaseAdmin {
         match email {
             "info@epsx.io" => {
                 custom_claims.insert("admin".to_string(), Value::Bool(true));
-                custom_claims.insert("access_level".to_string(), Value::String("super_admin".to_string()));
-                custom_claims.insert("role".to_string(), Value::String("SuperAdmin".to_string()));
+                custom_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
+                custom_claims.insert("role".to_string(), Value::String("Admin".to_string()));
             },
             "admin@epsx.io" => {
                 custom_claims.insert("admin".to_string(), Value::Bool(true));
@@ -426,8 +426,8 @@ impl FirebaseAdmin {
         custom_claims.get("role")
             .and_then(|v| v.as_str())
             .map(|role| match role {
-                "SuperAdmin" => "admin-full-004",
-                "Admin" => "moderator-standard-003", 
+                "Admin" => "admin-full-004",
+                "Moderator" => "moderator-standard-003", 
                 "Premium" => "user-premium-002",
                 _ => "user-basic-001",
             })
@@ -455,11 +455,6 @@ impl FirebaseAdmin {
         let mut custom_claims = HashMap::new();
         
         match role {
-            "SuperAdmin" => {
-                custom_claims.insert("admin".to_string(), Value::Bool(true));
-                custom_claims.insert("access_level".to_string(), Value::String("super_admin".to_string()));
-                custom_claims.insert("role".to_string(), Value::String("SuperAdmin".to_string()));
-            },
             "Admin" => {
                 custom_claims.insert("admin".to_string(), Value::Bool(true));
                 custom_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
@@ -518,7 +513,7 @@ mod tests {
         let user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
         assert_eq!(user.email, Some("info@epsx.io".to_string()));
         assert!(admin.user_has_admin_access(&user));
-        assert_eq!(admin.get_admin_access_level(&user), "super_admin");
+        assert_eq!(admin.get_admin_access_level(&user), "admin");
     }
 
     #[test]
@@ -526,7 +521,7 @@ mod tests {
         let admin = FirebaseAdmin::create_test_client();
         
         let mut claims = HashMap::new();
-        claims.insert("role".to_string(), Value::String("SuperAdmin".to_string()));
+        claims.insert("role".to_string(), Value::String("Admin".to_string()));
         let profile = admin.get_iam_profile_from_custom_claims(&claims);
         assert_eq!(profile, "admin-full-004");
 
@@ -539,9 +534,9 @@ mod tests {
     fn test_user_admin_access() {
         let admin = FirebaseAdmin::create_test_client();
         
-        let super_admin_user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
-        assert!(admin.user_has_admin_access(&super_admin_user));
-        assert_eq!(admin.get_admin_access_level(&super_admin_user), "super_admin");
+        let admin_user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
+        assert!(admin.user_has_admin_access(&admin_user));
+        assert_eq!(admin.get_admin_access_level(&admin_user), "admin");
 
         let regular_user = admin.create_test_firebase_user("user@example.com", "password").unwrap();
         assert!(!admin.user_has_admin_access(&regular_user));

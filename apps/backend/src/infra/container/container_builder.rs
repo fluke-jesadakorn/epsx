@@ -40,7 +40,12 @@ impl AppContainer {
     /// Create AppState with all dependencies from focused modules
     pub async fn create_app_state(&self) -> Result<crate::web::auth::AppState, Box<dyn std::error::Error + Send + Sync>> {
         // Create stub repositories for components not yet migrated to Diesel
-        let (temporary_permission_repo, module_repo, usage_repo) = self.database.create_stub_repos();
+        let (temporary_permission_repo, module_repo) = self.database.create_stub_repos();
+        
+        // Create stub usage repo
+        let usage_repo = Arc::new(
+            crate::infra::db::diesel::repos::StubUsageRepo::new()
+        ) as Arc<dyn crate::app::ports::repositories::UsageRepo>;
         
         // Create stub dependencies for use cases
         let event_dispatcher = Arc::new(
@@ -122,33 +127,21 @@ impl AppContainer {
         ))
     }
 
-    /// Convenience method to access permission systems
+    /// Simple permission system - replaced complex permissions with basic roles
     pub fn permission_systems(&self) -> Result<super::services_module::PermissionSystems, Box<dyn std::error::Error + Send + Sync>> {
-        self.services.create_permission_systems(self.database.database_pool.clone())
+        Ok(super::services_module::PermissionSystems::simple())
     }
 
-    /// Get the unified permission system - delegates to services module
-    pub fn get_permission_system(&self) -> Result<Arc<crate::permissions::UnifiedPermissionSystem>, Box<dyn std::error::Error + Send + Sync>> {
-        let permission_systems = self.services.create_permission_systems(self.database.database_pool.clone())?;
-        Ok(permission_systems.unified_permission_system)
+    /// Simple role system - no complex permission systems needed
+    pub fn get_role_checker(&self) -> Result<Arc<crate::auth::roles::Role>, Box<dyn std::error::Error + Send + Sync>> {
+        // Simple stub - roles are checked directly via check_feature_access
+        Ok(Arc::new(crate::auth::roles::Role::Guest))
     }
 
-    /// Get the admin module system - delegates to services module
-    pub fn get_admin_module_system(&self) -> Result<Arc<crate::permissions::AdminModuleValidator>, Box<dyn std::error::Error + Send + Sync>> {
-        let permission_systems = self.services.create_permission_systems(self.database.database_pool.clone())?;
-        Ok(permission_systems.admin_module_validator)
-    }
-
-    /// Get the package tier system - delegates to services module
-    pub fn get_package_tier_system(&self) -> Result<Arc<crate::permissions::PackageTierValidator>, Box<dyn std::error::Error + Send + Sync>> {
-        let permission_systems = self.services.create_permission_systems(self.database.database_pool.clone())?;
-        Ok(permission_systems.package_tier_validator)
-    }
-
-    /// Get the permission audit system - delegates to services module
-    pub fn get_audit_system(&self) -> Result<Arc<dyn crate::permissions::PermissionAuditTrait>, Box<dyn std::error::Error + Send + Sync>> {
-        let permission_systems = self.services.create_permission_systems(self.database.database_pool.clone())?;
-        Ok(permission_systems.audit_system)
+    /// Simple audit stub - basic logging only
+    pub fn get_simple_audit(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        // Simple system doesn't need complex audit
+        Ok(true)
     }
 
     /// Get the cache system - delegates to cache module

@@ -1,10 +1,10 @@
 pub mod user;
 pub mod session;
-pub mod iam;
+// Removed: iam
 pub mod audit;
 pub mod payment;
 pub mod stock;
-pub mod permission;
+// Removed: permission
 pub mod module;
 pub mod notification;
 pub mod security;
@@ -12,11 +12,10 @@ pub mod security;
 // Re-export all models for convenience
 pub use user::*;
 pub use session::*;
-pub use iam::*;
+// Removed: iam, permission exports
 pub use audit::*;
 pub use payment::*;
 pub use stock::*;
-pub use permission::*;
 pub use module::*;
 pub use notification::*;
 pub use security::*;

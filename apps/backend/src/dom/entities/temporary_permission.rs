@@ -1,145 +1,91 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+// ============================================================================
+// TEMPORARY PERMISSION ENTITY STUB - REPLACING COMPLEX TEMP PERMISSIONS
+// ============================================================================
+// Simple stub for removed temporary permission system
+
+use serde::{Serialize, Deserialize};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
+use crate::dom::values::UserId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemporaryPermission {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub permission: String,
-    pub resource: String,
-    pub action: String,
-    
-    // Time-bound attributes
-    pub granted_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub auto_revoke: bool,
-    
-    // Assignment metadata
-    pub granted_by: Uuid,
-    pub reason: Option<String>,
-    pub conditions: serde_json::Value,
-    
-    // Status tracking
-    pub status: TemporaryPermissionStatus,
-    pub revoked_at: Option<DateTime<Utc>>,
-    pub revoked_by: Option<Uuid>,
-    pub revocation_reason: Option<String>,
-    
-    // Audit
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// ============================================================================
+// TEMPORARY PERMISSION TYPES
+// ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TemporaryPermissionStatus {
     Active,
     Expired,
     Revoked,
-    Suspended,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporaryPermission {
+    pub id: Uuid,
+    pub user_id: UserId,
+    pub permission: String,
+    pub resource: Option<String>,
+    pub action: Option<String>,
+    pub status: TemporaryPermissionStatus,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub granted_by: UserId,
+    pub granted_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub reason: String,
 }
 
 impl TemporaryPermission {
     pub fn new(
-        user_id: Uuid,
+        user_id: UserId,
         permission: String,
-        resource: String,
-        action: String,
-        expires_at: DateTime<Utc>,
-        granted_by: Uuid,
-        reason: Option<String>,
+        granted_by: UserId,
+        expires_at: Option<DateTime<Utc>>,
+        reason: String,
     ) -> Self {
-        let now = Utc::now();
-        
         Self {
             id: Uuid::new_v4(),
             user_id,
             permission,
-            resource,
-            action,
-            granted_at: now,
-            expires_at,
-            auto_revoke: true,
-            granted_by,
-            reason,
-            conditions: serde_json::json!({}),
+            resource: None,
+            action: None,
             status: TemporaryPermissionStatus::Active,
+            expires_at,
+            granted_by,
+            granted_at: Utc::now(),
             revoked_at: None,
-            revoked_by: None,
-            revocation_reason: None,
-            created_at: now,
-            updated_at: now,
+            reason,
         }
     }
-    
+
     pub fn is_active(&self) -> bool {
-        matches!(self.status, TemporaryPermissionStatus::Active) && self.expires_at > Utc::now()
+        matches!(self.status, TemporaryPermissionStatus::Active) &&
+            self.expires_at.map_or(true, |exp| exp > Utc::now())
     }
-    
-    pub fn is_expired(&self) -> bool {
-        self.expires_at <= Utc::now()
-    }
-    
-    pub fn revoke(&mut self, revoked_by: Uuid, reason: Option<String>) {
+
+    pub fn revoke(&mut self) {
         self.status = TemporaryPermissionStatus::Revoked;
         self.revoked_at = Some(Utc::now());
-        self.revoked_by = Some(revoked_by);
-        self.revocation_reason = reason;
-        self.updated_at = Utc::now();
     }
-    
-    pub fn suspend(&mut self) {
-        self.status = TemporaryPermissionStatus::Suspended;
-        self.updated_at = Utc::now();
-    }
-    
-    pub fn activate(&mut self) {
-        if !self.is_expired() {
-            self.status = TemporaryPermissionStatus::Active;
-            self.updated_at = Utc::now();
-        }
-    }
-    
+
     pub fn expire(&mut self) {
         self.status = TemporaryPermissionStatus::Expired;
-        self.updated_at = Utc::now();
     }
-    
-    pub fn extend_expiry(&mut self, new_expires_at: DateTime<Utc>) {
-        if new_expires_at > self.expires_at {
-            self.expires_at = new_expires_at;
-            if self.is_expired() && matches!(self.status, TemporaryPermissionStatus::Expired) {
-                self.status = TemporaryPermissionStatus::Active;
-            }
-            self.updated_at = Utc::now();
+}
+
+impl Default for TemporaryPermission {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            user_id: UserId::generate(),
+            permission: "default".to_string(),
+            resource: None,
+            action: None,
+            status: TemporaryPermissionStatus::Active,
+            expires_at: None,
+            granted_by: UserId::generate(),
+            granted_at: Utc::now(),
+            revoked_at: None,
+            reason: "default".to_string(),
         }
     }
-    
-    pub fn set_conditions(&mut self, conditions: serde_json::Value) {
-        self.conditions = conditions;
-        self.updated_at = Utc::now();
-    }
-    
-    pub fn touch_updated_at(&mut self) {
-        self.updated_at = Utc::now();
-    }
-    
-    // Getters
-    pub fn id(&self) -> &Uuid { &self.id }
-    pub fn user_id(&self) -> &Uuid { &self.user_id }
-    pub fn permission(&self) -> &str { &self.permission }
-    pub fn resource(&self) -> &str { &self.resource }
-    pub fn action(&self) -> &str { &self.action }
-    pub fn granted_at(&self) -> &DateTime<Utc> { &self.granted_at }
-    pub fn expires_at(&self) -> &DateTime<Utc> { &self.expires_at }
-    pub fn auto_revoke(&self) -> bool { self.auto_revoke }
-    pub fn granted_by(&self) -> &Uuid { &self.granted_by }
-    pub fn reason(&self) -> &Option<String> { &self.reason }
-    pub fn conditions(&self) -> &serde_json::Value { &self.conditions }
-    pub fn status(&self) -> &TemporaryPermissionStatus { &self.status }
-    pub fn revoked_at(&self) -> &Option<DateTime<Utc>> { &self.revoked_at }
-    pub fn revoked_by(&self) -> &Option<Uuid> { &self.revoked_by }
-    pub fn revocation_reason(&self) -> &Option<String> { &self.revocation_reason }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
-    pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
 }

@@ -9,7 +9,7 @@ use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
 use crate::dom::values::{UserId, Email};
-use crate::dom::entities::iam::PackageTier;
+use crate::auth::roles::Role;
 
 /// OIDC JWT claims structure for our backend-issued tokens
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,9 +121,9 @@ impl AuthProvider for OIDCProvider {
         let email = Email::new(claims.email.clone())
             .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid email: {}", e)))?;
         
-        // Parse package tier
-        let package_tier = claims.package_tier.parse::<PackageTier>()
-            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid package tier: {}", e)))?;
+        // Parse role
+        let role = claims.package_tier.parse::<Role>()
+            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid role: {}", e)))?;
         
         // Convert timestamp to DateTime
         let expires_at = DateTime::from_timestamp(claims.exp, 0)
@@ -132,7 +132,7 @@ impl AuthProvider for OIDCProvider {
         let user_claims = UserClaims::new(
             user_id,
             email,
-            package_tier,
+            role,
             claims.admin_modules,
             claims.permissions,
             claims.sub, // provider_user_id is same as backend user_id for OIDC

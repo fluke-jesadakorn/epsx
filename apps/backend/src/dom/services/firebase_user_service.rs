@@ -393,7 +393,7 @@ impl FirebaseUserService {
         
         // Role-based permissions
         match role {
-            "super_admin" => {
+            "admin" => {
                 permissions.extend_from_slice(&[
                     "admin:*".to_string(),
                     "create:users".to_string(),
@@ -403,21 +403,13 @@ impl FirebaseUserService {
                     "manage:system".to_string(),
                 ]);
             },
-            "admin" => {
+            "moderator" => {
                 permissions.extend_from_slice(&[
                     "admin:users".to_string(),
                     "create:users".to_string(),
                     "update:users".to_string(),
                     "read:analytics".to_string(),
                     "manage:profiles".to_string(),
-                ]);
-            },
-            "moderator" => {
-                permissions.extend_from_slice(&[
-                    "admin:limited".to_string(),
-                    "read:users".to_string(),
-                    "update:users".to_string(),
-                    "read:analytics".to_string(),
                 ]);
             },
             "premium" => {

@@ -299,7 +299,6 @@ impl ScopeService {
         hierarchy.insert("premium".to_string(), 2);
         hierarchy.insert("moderator".to_string(), 3);
         hierarchy.insert("admin".to_string(), 4);
-        hierarchy.insert("super_admin".to_string(), 5);
         
         hierarchy
     }

@@ -29,23 +29,14 @@ pub fn user_routes_v1() -> Router<AppState> {
         .route("/api/v1/users/me/notifications", get(get_notifications_handler))
         .route("/api/v1/users/me/notifications/mark-read", post(mark_notifications_read_handler));
     
-    // Premium features (SILVER tier and above)
+    // Premium features (user role and above - simple role system)
     let premium_routes = Router::new()
-        .route("/api/v1/users/me/expiration/checks", post(request_expiration_check_handler))
-        .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_package_tier("SILVER")
-        ))
-        .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_feature("premium-notifications")
-        ));
+        .route("/api/v1/users/me/expiration/checks", post(request_expiration_check_handler));
     
-    // Admin features (require admin role or GOLD+ tier)
+    // Admin features (require admin role - simple role system)
     let admin_routes = Router::new()
         .route("/api/v1/admin/users", get(list_users_handler))
-        .route("/api/v1/admin/users/:id", delete(delete_user_handler))
-        .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_package_tier("GOLD")
-        ));
+        .route("/api/v1/admin/users/:id", delete(delete_user_handler));
 
     // Legacy routes for backward compatibility
     let legacy_routes = Router::new()

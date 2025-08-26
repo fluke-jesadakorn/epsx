@@ -245,7 +245,7 @@ pub async fn get_unified_user_data_handler(
     // Build unified response
     let profile = UserProfile {
         id: user.id().to_string(),
-        email: user.email().value().to_string(),
+        email: user.email().to_string(),
         display_name: None, // User entity doesn't store display name - would be fetched from Firebase/profile service
         role: user.role().to_string(),
         subscription_tier: user.subscription().tier().to_string(),
@@ -352,7 +352,7 @@ pub async fn update_user_profile_handler(
     
     if let Some(tier_str) = req.role {
         // Basic validation for package tier
-        if ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&tier_str.to_lowercase().as_str()) {
+        if ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&tier_str.to_lowercase().as_str()) {
             user.update_package_tier(tier_str.clone());
             tracing::info!("Successfully updated user package tier to: {}", tier_str);
         } else {
@@ -396,7 +396,7 @@ pub async fn update_user_roles_handler(
     // For now, just update the primary package tier (first in the array)
     // Package tier management implementation using existing domain methods
     let primary_tier = req.roles.first()
-        .filter(|r| ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&r.to_lowercase().as_str()))
+        .filter(|r| ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&r.to_lowercase().as_str()))
         .cloned()
         .unwrap_or("free".to_string());
     
@@ -583,7 +583,7 @@ pub async fn update_user_modules_handler(
         "status": "success",
         "data": {
             "user_id": user_id,
-            "user_email": user.email().value(),
+            "user_email": user.email(),
             "user_tier": user.subscription().tier().to_string(),
             "module_assignments": module_assignments,
             "updated_quotas": updated_quotas,
@@ -695,7 +695,7 @@ pub async fn get_user_activity_handler(
     // Format activities for response
     let formatted_activities: Vec<Value> = activities.iter()
         .map(|activity| json!({
-            "id": activity.id().value(),
+            "id": activity.id(),
             "action": activity.action().to_string(),
             "resource_type": activity.resource_type().to_string(),
             "resource_id": activity.resource_id(),
@@ -719,7 +719,7 @@ pub async fn get_user_activity_handler(
         "status": "success",
         "data": {
             "user_id": user_id,
-            "user_email": user.email().value(),
+            "user_email": user.email(),
             "user_role": user.role().to_string(),
             "activities": formatted_activities,
             "pagination": {

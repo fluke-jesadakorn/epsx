@@ -5,7 +5,7 @@ use serde::{ Serialize, Deserialize };
 
 use crate::dom::entities::User;
 use crate::dom::values::UserId;
-use crate::dom::entities::iam::PackageTier;
+use crate::auth::roles::Role;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMetadata {
@@ -252,7 +252,7 @@ impl UserDto {
   pub fn from_entity(user: &User) -> Self {
     Self {
       uid: user.id().to_string(),
-      email: user.email().value().to_string(),
+      email: user.email().to_string(),
       email_verified: true, // Assume verified by default
       display_name: None, // Not stored in domain entity
       disabled: false, // Not stored in domain entity
@@ -281,9 +281,9 @@ impl CreateUserReq {
       return Err(ValidationError::InvalidEmail(self.email.clone()));
     }
 
-    // Validate package tier
+    // Validate role
     self.package_tier
-      .parse::<PackageTier>()
+      .parse::<Role>()
       .map_err(|_|
         ValidationError::InvalidPackageTier(self.package_tier.clone())
       )?;
@@ -295,7 +295,7 @@ impl CreateUserReq {
 impl UpdatePackageTierReq {
   pub fn validate(&self) -> Result<(), ValidationError> {
     self.new_package_tier
-      .parse::<PackageTier>()
+      .parse::<Role>()
       .map_err(|_|
         ValidationError::InvalidPackageTier(self.new_package_tier.clone())
       )?;
@@ -311,7 +311,7 @@ impl ListUsersReq {
 
     if let Some(package_tier) = &self.package_tier_filter {
       package_tier
-        .parse::<PackageTier>()
+        .parse::<Role>()
         .map_err(|_|
           ValidationError::InvalidPackageTier(package_tier.clone())
         )?;
@@ -333,7 +333,7 @@ impl BulkUpdateLevelsReq {
 
     for update in &self.updates {
       update.new_package_tier
-        .parse::<PackageTier>()
+        .parse::<Role>()
         .map_err(|_|
           ValidationError::InvalidPackageTier(update.new_package_tier.clone())
         )?;

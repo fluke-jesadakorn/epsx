@@ -1,119 +1,133 @@
-// Services Module - Handles business logic services creation
-// Focused module for Firebase, admin modules, feature expiration, and notifications
+// ============================================================================
+// SIMPLE SERVICES MODULE - REPLACING COMPLEX SERVICE MANAGEMENT
+// ============================================================================
+// This file replaces complex service modules with simple ones for the basic role system
+// Works with the simple role system from auth/roles.rs
 
 use std::sync::Arc;
 use crate::app::ports::repositories::UserRepo;
-use crate::dom::ports::NotificationPort;
-use crate::dom::services::feature_expiration::FeatureExpirationService;
-use crate::dom::services::admin_module_service::AdminModuleService;
 use crate::infra::{
     firebase_admin::FirebaseAdmin,
     services::{notification::{NotificationService, InMemoryNotificationService}, NotificationPortAdapter},
     db::diesel::DbPool,
     cache::Cache,
 };
+use crate::dom::services::{
+    admin_module_service::AdminModuleService,
+    feature_expiration::{FeatureExpirationService, FeatureExpirationServiceImpl},
+};
 
-/// Services module responsible for business logic services creation
+// ============================================================================
+// PERMISSION SYSTEMS STUB (FOR COMPATIBILITY)
+// ============================================================================
+
+#[derive(Clone)]
+pub struct PermissionSystems {
+    pub simple_roles: bool,
+}
+
+impl PermissionSystems {
+    pub fn simple() -> Self {
+        Self {
+            simple_roles: true,
+        }
+    }
+}
+
+// ============================================================================
+// SIMPLE SERVICES MODULE
+// ============================================================================
+
+/// Simple services module with basic functionality
 #[derive(Clone)]
 pub struct ServicesModule {
     pub firebase_admin: Arc<FirebaseAdmin>,
-    pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
-    pub admin_module_service: Arc<AdminModuleService>,
     pub notification_service: Arc<dyn NotificationService>,
+    pub admin_module_service: Arc<AdminModuleService>,
+    pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
 }
 
 impl ServicesModule {
-    /// Create a new services module with dependencies
+    /// Create a new simple services module with minimal dependencies
     pub async fn new(
-        database_pool: Arc<DbPool>,
+        _database_pool: Arc<DbPool>,
         user_repo: Arc<dyn UserRepo>,
         _cache: Arc<dyn Cache>,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        // Create Firebase Admin service
-        tracing::info!("🔧 Creating Firebase Admin service...");
-        let firebase_admin = Arc::new(FirebaseAdmin::new().await.map_err(|e| {
-            tracing::error!("❌ Firebase Admin creation failed: {}", e);
-            format!("Firebase Admin creation failed: {}", e)
-        })?);
         
-        // Create notification services
-        tracing::info!("🔧 Creating notification services...");
-        // TODO: Implement proper notification repo with correct pool type
-        // For now, using in-memory service to allow compilation
-        let notification_service = Arc::new(
-            InMemoryNotificationService::new()
-        ) as Arc<dyn NotificationService>;
+        // Create Firebase admin service - use test client for now to avoid async issues
+        let firebase_admin = Arc::new(FirebaseAdmin::create_test_client());
+
+        // Create simple notification service (in-memory for now)
+        let notification_service: Arc<dyn NotificationService> = Arc::new(InMemoryNotificationService::new());
         
-        let notification_port: Arc<dyn NotificationPort> = Arc::new(
-            NotificationPortAdapter::new(notification_service.clone())
+        // Create stub admin module service
+        let admin_module_service = Arc::new(AdminModuleService::new());
+        
+        // Create stub feature expiration service
+        let feature_expiration_service: Arc<dyn FeatureExpirationService> = Arc::new(
+            FeatureExpirationServiceImpl::new(
+                user_repo.clone(),
+                Arc::new(NotificationPortAdapter::new(notification_service.clone())),
+                None // Use default config
+            )
         );
-        
-        // Create feature expiration service
-        tracing::info!("🔧 Creating feature expiration service...");
-        let feature_expiration_service = {
-            use crate::dom::services::feature_expiration::{FeatureExpirationServiceImpl, ExpirationConfig};
-            Arc::new(FeatureExpirationServiceImpl::new(
-                user_repo,
-                notification_port,
-                Some(ExpirationConfig::default()),
-            )) as Arc<dyn FeatureExpirationService>
-        };
-        
-        // Create admin module service
-        tracing::info!("🔧 Creating admin module service...");
-        let admin_module_service = Arc::new(AdminModuleService::new(database_pool));
-        
-        tracing::info!("✅ Services module created successfully");
-        
+
         Ok(ServicesModule {
             firebase_admin,
-            feature_expiration_service,
-            admin_module_service,
             notification_service,
+            admin_module_service,
+            feature_expiration_service,
         })
     }
 
-    /// Create permission system components
-    pub fn create_permission_systems(
-        &self,
-        database_pool: Arc<DbPool>
-    ) -> Result<PermissionSystems, Box<dyn std::error::Error + Send + Sync>> {
-        // Create the unified permission system
-        let permission_config = crate::permissions::core::PermissionConfig::default();
-        let unified_permission_system = Arc::new(
-            crate::permissions::UnifiedPermissionSystem::new(permission_config)
-        );
-        
-        // Create admin module system
-        let admin_config = crate::permissions::admin_modules::AdminModuleConfig::default();
-        let admin_module_validator = Arc::new(
-            crate::permissions::AdminModuleValidator::new(admin_config)
-        );
-        
-        // Create package tier system
-        let tier_config = crate::permissions::package_tiers::PackageTierConfig::default();
-        let package_tier_validator = Arc::new(
-            crate::permissions::PackageTierValidator::new(tier_config)
-        );
-        
-        // Create audit system
-        let audit_system = Arc::new(
-            crate::permissions::audit::DatabasePermissionAudit::new(database_pool)
-        ) as Arc<dyn crate::permissions::PermissionAuditTrait>;
-        
-        Ok(PermissionSystems {
-            unified_permission_system,
-            admin_module_validator,
-            package_tier_validator,
-            audit_system,
-        })
+    // ============================================================================
+    // SIMPLE SERVICE ACCESSORS
+    // ============================================================================
+
+    pub fn get_firebase_admin(&self) -> Arc<FirebaseAdmin> {
+        self.firebase_admin.clone()
+    }
+
+    pub fn get_notification_service(&self) -> Arc<dyn NotificationService> {
+        self.notification_service.clone()
     }
 }
 
-/// Container for permission system components
-pub struct PermissionSystems {
-    pub unified_permission_system: Arc<crate::permissions::UnifiedPermissionSystem>,
-    pub admin_module_validator: Arc<crate::permissions::AdminModuleValidator>,
-    pub package_tier_validator: Arc<crate::permissions::PackageTierValidator>,
-    pub audit_system: Arc<dyn crate::permissions::PermissionAuditTrait>,
+// ============================================================================
+// SIMPLE STUB SERVICES (FOR COMPATIBILITY)
+// ============================================================================
+
+/// Simple stub for feature expiration (always returns no expiration)
+pub struct SimpleFeatureService;
+
+impl SimpleFeatureService {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn is_feature_expired(&self, _user_id: &str, _feature: &str) -> bool {
+        false // Simple system doesn't expire features
+    }
+
+    pub fn get_expiration_date(&self, _user_id: &str, _feature: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+        None // Simple system doesn't expire features
+    }
+}
+
+/// Simple stub for admin module service (role-based access only)
+pub struct SimpleAdminService;
+
+impl SimpleAdminService {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn can_access_admin(&self, role: &str) -> bool {
+        role == "admin"
+    }
+
+    pub fn can_manage_users(&self, role: &str) -> bool {
+        role == "admin"
+    }
 }

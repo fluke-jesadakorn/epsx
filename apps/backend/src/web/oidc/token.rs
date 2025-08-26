@@ -439,7 +439,7 @@ async fn validate_and_consume_authorization_code(
     // Get session for authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
     tracing::error!("🔍 AUTH.JS DEBUG: Looking for session with ID: {}", session_id);
-    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id.value());
+    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id);
     
     let session_result = app_state.session_repo.get(&session_id).await;
     tracing::error!("🔍 AUTH.JS DEBUG: Session repo result: {:?}", session_result);
@@ -746,7 +746,7 @@ async fn get_user_admin_modules(
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     // Use the admin module service to get user's admin modules
     match app_state.admin_module_service.get_user_admin_modules(email).await {
-        Ok(modules) => Ok(modules.iter().map(|um| um.module_code.clone()).collect()),
+        Ok(modules) => Ok(modules),
         Err(e) => {
             tracing::warn!("Failed to get admin modules for user {}: {}", email, e);
             // Return default empty modules on error
@@ -814,7 +814,7 @@ async fn get_user_database_info(
         ]);
         
         // Add system admin permissions for system_admin module
-        if admin_modules.iter().any(|am| am.module_code == "system_admin") {
+        if admin_modules.iter().any(|am| am == "system_admin") {
             perms.extend(vec![
                 "api:admin:*".to_string(),
                 "route:*".to_string(),
@@ -832,7 +832,7 @@ async fn get_user_database_info(
     tracing::info!("User database info for {}: {} admin modules, {} tier, {} permissions", 
                   firebase_uid, admin_modules.len(), package_tier, enhanced_permissions.len());
     
-    (admin_modules.iter().map(|am| am.module_code.clone()).collect(), package_tier, enhanced_permissions)
+    (admin_modules, package_tier, enhanced_permissions)
 }
 
 /// Get user package tier from the database (legacy function - use get_user_database_info instead)
@@ -878,18 +878,12 @@ fn get_user_permissions_from_role(custom_claims: &HashMap<String, serde_json::Va
     let role = get_role_from_custom_claims(custom_claims);
     
     match role.as_str() {
-        "super_admin" => vec![
-            "api:admin:*".to_string(),
-            "route:*".to_string(),
-            "users:manage".to_string(),
-            "system:configure".to_string(),
-            "security:full".to_string(),
-        ],
         "admin" => vec![
             "api:admin:*".to_string(),
             "route:*".to_string(),
             "users:manage".to_string(),
             "system:configure".to_string(),
+            "security:full".to_string(),
         ],
         "moderator" => vec![
             "api:moderate:*".to_string(),

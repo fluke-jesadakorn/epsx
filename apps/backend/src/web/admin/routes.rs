@@ -15,7 +15,6 @@ use super::handlers::{
     get_level_history_handler,
     bulk_update_users_handler,
     bulk_assign_modules_handler,
-    assign_permission_profiles_handler,
     list_api_keys_handler,
 };
 use super::unified_user_handlers::{
@@ -28,40 +27,14 @@ use super::unified_user_handlers::{
 };
 // Casbin handlers removed - using modern JWT auth system
 // use super::casbin_handlers::{...};
-use super::permission_profile_handlers::{
-    list_permission_profiles_handler,
-    get_permission_profile_handler,
-    create_permission_profile_handler,
-    update_permission_profile_handler,
-    delete_permission_profile_handler,
-    unassign_permission_profile_handler,
-    get_permission_profile_categories_handler,
-    get_permission_profile_tiers_handler,
-    validate_permission_profile_assignment_handler,
-    bulk_validate_permission_profile_assignment_handler,
-};
-use super::temporary_permission_handlers::{
-    create_temporary_permission_handler,
-    get_temporary_permission_handler,
-    list_temporary_permissions_handler,
-    update_temporary_permission_handler,
-    revoke_temporary_permission_handler,
-    delete_temporary_permission_handler,
-    get_user_temporary_permissions_handler,
-    cleanup_expired_permissions_handler,
-    bulk_create_temporary_permissions_handler,
-    bulk_revoke_temporary_permissions_handler,
-    bulk_update_temporary_permissions_handler,
-};
-use super::permission_export_import_handlers::{
-    export_user_permissions_handler,
-    bulk_export_user_permissions_handler,
-    validate_permission_import_handler,
-    import_user_permissions_handler,
-    generate_audit_report_handler,
-    create_system_backup_handler,
-    restore_system_backup_handler,
-};
+// Removed permission profile handlers - using simple roles
+// use super::permission_profile_handlers::{...};
+
+// Removed temporary permission handlers - using simple roles
+// use super::temporary_permission_handlers::{...};
+
+// Removed permission export/import handlers - using simple roles  
+// use super::permission_export_import_handlers::{...};
 use super::analytics_handlers::{
     get_permission_analytics_handler,
     get_permission_recommendations_handler,
@@ -112,7 +85,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id", delete(delete_user_handler))
         .route("/users/search", get(search_users_handler))
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_admin_module_middleware
+            crate::web::middleware::modern_jwt_auth_middleware
         ));
         
     // System administration routes (require system-configuration module)
@@ -120,7 +93,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/api-keys", get(list_api_keys_handler))
         .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_admin_module_middleware
+            crate::web::middleware::modern_jwt_auth_middleware
         ));
         
     // Security management routes (require security-management module)
@@ -130,7 +103,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/admin-modules/assign", post(assign_admin_modules))
         .route("/admin-modules/revoke", post(revoke_admin_modules))
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::require_admin_module_middleware
+            crate::web::middleware::modern_jwt_auth_middleware
         ));
         
     Router::new()
@@ -178,42 +151,8 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/billing", put(update_user_billing_handler))
         .route("/users/:user_id/activity", get(get_user_activity_handler))
         
-        // Permission profile management routes (require security-management module)
-        .route("/permission-profiles", get(list_permission_profiles_handler))
-        .route("/permission-profiles", post(create_permission_profile_handler))
-        .route("/permission-profiles/:id", get(get_permission_profile_handler))
-        .route("/permission-profiles/:id", put(update_permission_profile_handler))
-        .route("/permission-profiles/:id", delete(delete_permission_profile_handler))
-        .route("/permission-profiles/assign", post(assign_permission_profiles_handler))
-        .route("/permission-profiles/unassign", delete(unassign_permission_profile_handler))
-        .route("/permission-profiles/validate-assignment", post(validate_permission_profile_assignment_handler))
-        .route("/permission-profiles/bulk-validate", post(bulk_validate_permission_profile_assignment_handler))
-        .route("/permission-profiles/categories", get(get_permission_profile_categories_handler))
-        .route("/permission-profiles/tiers", get(get_permission_profile_tiers_handler))
-        
-        // Temporary permissions routes (require security-management module)
-        .route("/temporary-permissions", post(create_temporary_permission_handler))
-        .route("/temporary-permissions", get(list_temporary_permissions_handler))
-        .route("/temporary-permissions/:id", get(get_temporary_permission_handler))
-        .route("/temporary-permissions/:id", put(update_temporary_permission_handler))
-        .route("/temporary-permissions/:id", delete(delete_temporary_permission_handler))
-        .route("/temporary-permissions/:id/revoke", post(revoke_temporary_permission_handler))
-        .route("/users/:user_id/temporary-permissions", get(get_user_temporary_permissions_handler))
-        .route("/temporary-permissions/cleanup-expired", post(cleanup_expired_permissions_handler))
-        
-        // Temporary permissions bulk operations (require security-management module)
-        .route("/temporary-permissions/bulk-create", post(bulk_create_temporary_permissions_handler))
-        .route("/temporary-permissions/bulk-revoke", post(bulk_revoke_temporary_permissions_handler))
-        .route("/temporary-permissions/bulk-update", post(bulk_update_temporary_permissions_handler))
-        
-        // Permission export/import routes (require audit-logs module)
-        .route("/users/:user_id/permissions/export", get(export_user_permissions_handler))
-        .route("/users/:user_id/permissions/validate-import", post(validate_permission_import_handler))
-        .route("/users/:user_id/permissions/import", post(import_user_permissions_handler))
-        .route("/permissions/bulk-export", post(bulk_export_user_permissions_handler))
-        .route("/permissions/audit-report", post(generate_audit_report_handler))
-        .route("/permissions/system-backup", post(create_system_backup_handler))
-        .route("/permissions/system-backup/:backup_id/restore", post(restore_system_backup_handler))
+        // Simple role system: complex permission management routes removed
+        // Use basic user role updates through /users/:user_id endpoints
         
         // Analytics routes (require analytics-access module)
         .route("/analytics/permissions", get(get_permission_analytics_handler))

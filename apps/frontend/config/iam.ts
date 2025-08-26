@@ -80,8 +80,8 @@ export const PERMISSIONS = {
   READ_ALL: 'read:all',
   WRITE_ALL: 'write:all',
 
-  // Super admin permissions
-  SUPER_ADMIN: '*',
+  // Admin permissions
+  ADMIN_ALL: '*',
 } as const;
 
 // Role definitions
@@ -90,7 +90,6 @@ export const ROLES = {
   PREMIUM_USER: 'premium_user',
   MODERATOR: 'moderator',
   ADMIN: 'admin',
-  SUPER_ADMIN: 'super_admin',
 } as const;
 
 // Error messages

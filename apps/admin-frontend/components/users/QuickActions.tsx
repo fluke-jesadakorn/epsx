@@ -37,7 +37,7 @@ export function QuickActions({ user, currentUser }: QuickActionsProps) {
     window.location.href = `mailto:${user.email}`
   }
 
-  const canModifyUser = currentUser.isSuperAdmin || currentUser.canManageUsers
+  const canModifyUser = currentUser.role === 'admin' || currentUser.canManageUsers
 
   return (
     <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export function QuickActions({ user, currentUser }: QuickActionsProps) {
               <Key className="h-4 w-4" />
             </button>
 
-            {currentUser.isSuperAdmin && (
+            {currentUser.role === 'admin' && (
               <button
                 className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                 title="Delete user"

@@ -133,7 +133,6 @@ export async function hasRole(requiredRole: string): Promise<boolean> {
       'premium': 2,
       'moderator': 3,
       'admin': 4,
-      'super_admin': 5
     };
     
     const userLevel = roleHierarchy[user.role.toLowerCase()] || 0;

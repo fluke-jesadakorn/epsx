@@ -12,10 +12,14 @@ const envSchema = z.object({
   SITE_URL: z.string().url().optional(),
 
   // Server-Only API URLs (never exposed to client)
-  BACKEND_URL: z.string().url().default('https://api.epsx.io'),
+  BACKEND_URL: z.string().url().default(
+    process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://api.epsx.io'
+  ),
 
   // Client-Safe API URLs (NEXT_PUBLIC_ - exposed to browser)
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default('https://api.epsx.io'),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(
+    process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://api.epsx.io'
+  ),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default('https://epsx.io'),
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),

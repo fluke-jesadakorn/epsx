@@ -93,7 +93,7 @@ impl UserRepo for DieselUserRepo {
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
         let diesel_user = users::table
-            .filter(users::email.eq(email.value()))
+            .filter(users::email.eq(email.to_string()))
             .first::<DieselUser>(&mut conn)
             .await
             .optional()
@@ -130,12 +130,15 @@ impl UserRepo for DieselUserRepo {
         }
     }
     
-    async fn find_by_admin_module(&self, admin_module: &str) -> Result<Vec<User>, RepoError> {
+    async fn find_by_admin_module(&self, _admin_module: &str) -> Result<Vec<User>, RepoError> {
+        // Simple role system: admin modules are replaced by admin role
+        // Only admin users can access admin functionality
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
+        use crate::auth::roles::UserRoleEnum;
         let diesel_users = users::table
-            .filter(users::permissions.contains(vec![admin_module.to_string()]))
+            .filter(users::role.eq(UserRoleEnum::Admin))
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -151,12 +154,21 @@ impl UserRepo for DieselUserRepo {
         users
     }
     
-    async fn find_by_package_tier(&self, package_tier: &str) -> Result<Vec<User>, RepoError> {
+    async fn find_by_package_tier(&self, role: &str) -> Result<Vec<User>, RepoError> {
+        // Simple role system: package tiers are replaced by roles
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
+        use crate::auth::roles::UserRoleEnum;
+        let target_role = match role {
+            "admin" => UserRoleEnum::Admin,
+            "user" => UserRoleEnum::User,
+            "guest" => UserRoleEnum::Guest,
+            _ => UserRoleEnum::Guest, // Default to guest for unknown roles
+        };
+        
         let diesel_users = users::table
-            .filter(users::package_tier.eq(package_tier))
+            .filter(users::role.eq(target_role))
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -259,9 +271,11 @@ impl UserRepo for DieselUserRepo {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
+        // Simple role system: auto assignment for user and admin roles (not guest)
+        use crate::auth::roles::UserRoleEnum;
         let diesel_users = users::table
             .filter(users::is_active.eq(true))
-            .filter(users::package_tier.ne("FREE"))
+            .filter(users::role.ne(UserRoleEnum::Guest))
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -354,8 +368,16 @@ impl UserRepo for DieselUserRepo {
             query = query.filter(users::email.ilike(format!("%{}%", email)));
         }
         
-        if let Some(package_tier) = &filters.package_tier {
-            query = query.filter(users::package_tier.eq(package_tier));
+        if let Some(role_filter) = &filters.package_tier {
+            // Simple role system: package_tier filter now filters by role
+            use crate::auth::roles::UserRoleEnum;
+            let target_role = match role_filter.as_str() {
+                "admin" => UserRoleEnum::Admin,
+                "user" => UserRoleEnum::User,
+                "guest" => UserRoleEnum::Guest,
+                _ => UserRoleEnum::Guest,
+            };
+            query = query.filter(users::role.eq(target_role));
         }
         
         if let Some(created_after) = filters.created_after {
@@ -382,11 +404,12 @@ impl UserRepo for DieselUserRepo {
                     query.order(users::created_at.asc())
                 }
             }
-            "package_tier" => {
+            "package_tier" | "role" => {
+                // Simple role system: sort by role instead of package_tier
                 if sort_order == "desc" {
-                    query.order(users::package_tier.desc())
+                    query.order(users::role.desc())
                 } else {
-                    query.order(users::package_tier.asc())
+                    query.order(users::role.asc())
                 }
             }
             _ => query.order(users::created_at.desc()),
@@ -429,8 +452,16 @@ impl UserRepo for DieselUserRepo {
             query = query.filter(users::email.ilike(format!("%{}%", email)));
         }
         
-        if let Some(package_tier) = &filters.package_tier {
-            query = query.filter(users::package_tier.eq(package_tier));
+        if let Some(role_filter) = &filters.package_tier {
+            // Simple role system: package_tier filter now filters by role
+            use crate::auth::roles::UserRoleEnum;
+            let target_role = match role_filter.as_str() {
+                "admin" => UserRoleEnum::Admin,
+                "user" => UserRoleEnum::User,
+                "guest" => UserRoleEnum::Guest,
+                _ => UserRoleEnum::Guest,
+            };
+            query = query.filter(users::role.eq(target_role));
         }
         
         if let Some(created_after) = filters.created_after {

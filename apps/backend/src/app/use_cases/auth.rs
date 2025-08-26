@@ -1,8 +1,8 @@
 // Authentication use cases
 
 use crate::dom::entities::{User, Session};
-use crate::dom::values::{UserId, Email, SessId, PermissionGroups};
-use crate::dom::entities::iam::PackageTier;
+use crate::dom::values::{UserId, Email, SessId};
+use crate::auth::roles::Role;
 use crate::app::ports::repositories::{UserRepo, SessRepo};
 use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession, AutoRegistrationRequest, RegistrationResponse, FeatureAssignmentResult};
 use crate::dom::services::auto_assignment::{AutoAssignmentEngine, RegistrationContext};
@@ -61,7 +61,7 @@ impl AuthUC {
                     user_id.clone(),
                     firebase_uid.clone(),
                     email.clone(),
-                    PackageTier::Free,
+                    Role::Guest.to_string(),
                 );
                 self.user_repo.save(&user).await?;
                 user
@@ -83,19 +83,19 @@ impl AuthUC {
             admin_modules: user.admin_modules().clone(),
             access_token,
             expires_in: 86400, // 24 hours
-            sess_id: session.id.value().to_string(),
+            sess_id: session.id.to_string(),
         })
     }
 
     async fn authenticate_with_firebase(&self, email: &Email, password: &str) -> Result<String, Box<dyn std::error::Error>> {
         // Production Firebase authentication using Admin SDK
-        match self.firebase_admin.authenticate_user(email.value(), password).await {
+        match self.firebase_admin.authenticate_user(&email.to_string(), password).await {
             Ok(firebase_user) => {
-                tracing::info!("Firebase authentication successful for: {}", email.value());
+                tracing::info!("Firebase authentication successful for: {}", email);
                 Ok(firebase_user.uid)
             }
             Err(e) => {
-                tracing::error!("Firebase authentication failed for {}: {}", email.value(), e);
+                tracing::error!("Firebase authentication failed for {}: {}", email, e);
                 Err(e)
             }
         }
@@ -119,38 +119,32 @@ impl AuthUC {
 
         let user = self.user_repo.find_by_id(&session.user_id).await?;
 
-        // Get user permissions based on package tier and admin modules
-        let package_tier = user.package_tier().parse::<PackageTier>().unwrap_or(PackageTier::Free);
-        let permissions = self.get_user_permissions(&package_tier, &user.admin_modules()).await;
+        // Simple role-based system - get user's role
+        let user_role = user.role(); // Use the role field from the user
+        let simple_permissions = self.get_simple_permissions(&user_role.to_string());
 
         Ok(UserSession {
             user_id: user.id().clone(),
-            package_tier: user.package_tier().to_string(),
-            admin_modules: user.admin_modules().clone(),
-            permissions,
+            package_tier: user_role.to_string(), // Role instead of package tier
+            admin_modules: vec![], // No admin modules in simple system
+            permissions: simple_permissions,
             expires_at: session.expires_at,
         })
     }
 
-    async fn get_user_permissions(&self, package_tier: &PackageTier, admin_modules: &[String]) -> Vec<String> {
-        let mut perms: Vec<String> = match package_tier {
-            PackageTier::SuperAdmin => PermissionGroups::admin().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Admin => PermissionGroups::admin().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Platinum => PermissionGroups::premium_tier().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Gold => PermissionGroups::premium_tier().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Silver => PermissionGroups::premium_tier().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Bronze => PermissionGroups::user_tier().into_iter().map(|s| s.to_string()).collect(),
-            PackageTier::Free => PermissionGroups::free_tier().into_iter().map(|s| s.to_string()).collect(),
+    fn get_simple_permissions(&self, role: &str) -> Vec<String> {
+        use crate::auth::roles::{Role, get_role_features};
+        
+        // Parse the role string and get associated features
+        let user_role = match role {
+            "admin" => Role::Admin,
+            "user" => Role::User,
+            "guest" => Role::Guest,
+            _ => Role::Guest, // Default to guest for unknown roles
         };
         
-        // Add permissions from admin modules
-        for module in admin_modules {
-            if let Some(admin_module) = crate::core::permission_constants::get_admin_module(module) {
-                perms.extend(admin_module.permissions.iter().map(|p| p.to_string()));
-            }
-        }
-        
-        perms
+        // Get all features that this role has access to
+        get_role_features(&user_role)
     }
 
     pub async fn refresh(&self, _req: RefreshReq) -> Result<LoginRes, Box<dyn std::error::Error>> {
@@ -175,7 +169,7 @@ impl AuthUC {
             user_id.clone(),
             firebase_uid.clone(),
             email,
-            PackageTier::Free, // Default package tier
+            Role::Guest.to_string(), // Default role
         );
         
         // Save user
@@ -214,7 +208,7 @@ impl AuthUC {
                         .into_iter()
                         .map(|a| FeatureAssignmentResult {
                             feature_id: a.feature_id,
-                            profile_name: format!("Profile_{}", a.permission_profile_id.value()), // Would fetch actual name
+                            profile_name: format!("Profile_{}", a.permission_profile_id), // Would fetch actual name
                             success: a.success,
                             reason: a.reason,
                             expires_at: a.expires_at,

@@ -1,5 +1,6 @@
 // Brute Force Detection Engine - Complete Diesel Implementation
 use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 use tracing::{info, error, warn, debug};
@@ -19,6 +20,7 @@ use crate::{
             },
             pool::DbPool,
             schema::{attack_attempts, ip_blacklist},
+            types::DieselIpAddr,
         },
     },
 };
@@ -96,21 +98,16 @@ impl BruteForceDetector {
     // Record an attack attempt
     pub async fn record_attempt(&self, ip_addr: IpNetwork, attack_type: &str, success: bool) -> AppResult<Uuid> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let attempt_id = Uuid::new_v4();
         let new_attempt = NewDieselAttackAttempt {
             id: attempt_id,
-            ip_address: ip_addr,
-            attack_type: attack_type.to_string(),
-            success,
-            user_agent: None,
-            request_path: None,
-            created_at: Utc::now(),
+            ip_address: DieselIpAddr(ip_addr.ip()),
+            user_id: None,
+            attempt_type: attack_type.to_string(),
+            timestamp: Utc::now(),
+            success: Some(success),
         };
 
         diesel::insert_into(attack_attempts::table)
@@ -119,11 +116,7 @@ impl BruteForceDetector {
             .await
             .map_err(|e| {
                 error!("Failed to record attack attempt: {}", e);
-                AppError::Database {
-                    message: "Failed to record attack attempt".to_string(),
-                    source: Some(Box::new(e)),
-                    correlation_id: None,
-                }
+                AppError::database_error(format!("Failed to record attack attempt: {}", e))
             })?;
 
         info!("Recorded attack attempt {} from {} (type: {}, success: {})", 
@@ -146,26 +139,18 @@ impl BruteForceDetector {
         }
 
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let window_start = Utc::now() - Duration::minutes(self.config.window_minutes as i64);
 
         // Get recent attempts from this IP
         let attempts = attack_attempts::table
-            .filter(attack_attempts::ip_address.eq(ip_addr))
-            .filter(attack_attempts::created_at.gt(window_start))
-            .order(attack_attempts::created_at.desc())
+            .filter(attack_attempts::ip_address.eq(DieselIpAddr(ip_addr.ip())))
+            .filter(attack_attempts::timestamp.gt(window_start))
+            .order(attack_attempts::timestamp.desc())
             .load::<DieselAttackAttempt>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to load attack attempts".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to load attack attempts: {}", e)))?;
 
         if attempts.is_empty() {
             return Ok(BruteForceAnalysis {
@@ -179,7 +164,7 @@ impl BruteForceDetector {
         // Group attempts by attack type
         let mut attack_patterns: HashMap<String, Vec<&DieselAttackAttempt>> = HashMap::new();
         for attempt in &attempts {
-            attack_patterns.entry(attempt.attack_type.clone())
+            attack_patterns.entry(attempt.attempt_type.clone())
                 .or_insert_with(Vec::new)
                 .push(attempt);
         }
@@ -191,7 +176,7 @@ impl BruteForceDetector {
         // Analyze each attack pattern
         for (attack_type, type_attempts) in attack_patterns {
             let attempt_count = type_attempts.len() as i32;
-            let failed_attempts = type_attempts.iter().filter(|a| !a.success).count() as i32;
+            let failed_attempts = type_attempts.iter().filter(|a| a.success != Some(true)).count() as i32;
             
             // Calculate risk score
             let base_risk = (failed_attempts as f32 / self.config.max_attempts as f32 * 100.0) as i32;
@@ -214,8 +199,8 @@ impl BruteForceDetector {
                     ip_address: ip_addr,
                     attack_type: attack_type.clone(),
                     attempt_count: failed_attempts,
-                    first_attempt: type_attempts.last().unwrap().created_at,
-                    last_attempt: type_attempts.first().unwrap().created_at,
+                    first_attempt: type_attempts[type_attempts.len() - 1].timestamp,
+                    last_attempt: type_attempts[0].timestamp,
                     blocked: false,
                 });
             }
@@ -240,11 +225,7 @@ impl BruteForceDetector {
     // Block an IP address
     pub async fn block_ip(&self, ip_addr: IpNetwork, reason: &str, duration_minutes: Option<i32>) -> AppResult<Uuid> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let block_id = Uuid::new_v4();
         let block_duration = duration_minutes.unwrap_or(self.config.block_duration_minutes);
@@ -252,11 +233,10 @@ impl BruteForceDetector {
 
         let new_block = NewDieselIpBlacklist {
             id: block_id,
-            ip_address: ip_addr,
+            ip_address: DieselIpAddr(ip_addr.ip()),
             reason: reason.to_string(),
-            blocked_until: Some(expires_at),
             created_at: Utc::now(),
-            is_permanent: false,
+            expires_at: Some(expires_at),
         };
 
         diesel::insert_into(ip_blacklist::table)
@@ -265,11 +245,7 @@ impl BruteForceDetector {
             .await
             .map_err(|e| {
                 error!("Failed to block IP {}: {}", ip_addr, e);
-                AppError::Database {
-                    message: "Failed to block IP address".to_string(),
-                    source: Some(Box::new(e)),
-                    correlation_id: None,
-                }
+                AppError::database_error(format!("Failed to block IP address: {}", e))
             })?;
 
         info!("Blocked IP {} for {} minutes (reason: {})", ip_addr, block_duration, reason);
@@ -279,26 +255,18 @@ impl BruteForceDetector {
     // Check if an IP is currently blocked
     pub async fn is_blocked(&self, ip_addr: IpNetwork) -> AppResult<bool> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let active_blocks = ip_blacklist::table
-            .filter(ip_blacklist::ip_address.eq(ip_addr))
+            .filter(ip_blacklist::ip_address.eq(DieselIpAddr(ip_addr.ip())))
             .filter(
-                ip_blacklist::is_permanent.eq(true)
-                    .or(ip_blacklist::blocked_until.gt(Utc::now()))
+                ip_blacklist::expires_at.is_null()
+                    .or(ip_blacklist::expires_at.gt(Utc::now()))
             )
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to check IP block status".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to check IP block status: {}", e)))?;
 
         Ok(active_blocks > 0)
     }
@@ -306,60 +274,40 @@ impl BruteForceDetector {
     // Get attack statistics for the last N hours
     pub async fn get_attack_stats(&self, hours_back: i32) -> AppResult<AttackStats> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let cutoff_time = Utc::now() - Duration::hours(hours_back as i64);
 
         let total_attempts = attack_attempts::table
-            .filter(attack_attempts::created_at.gt(cutoff_time))
+            .filter(attack_attempts::timestamp.gt(cutoff_time))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count total attempts".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count total attempts: {}", e)))?;
 
         let successful_attacks = attack_attempts::table
-            .filter(attack_attempts::created_at.gt(cutoff_time))
+            .filter(attack_attempts::timestamp.gt(cutoff_time))
             .filter(attack_attempts::success.eq(true))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count successful attacks".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count successful attacks: {}", e)))?;
 
         let unique_ips = attack_attempts::table
-            .filter(attack_attempts::created_at.gt(cutoff_time))
+            .filter(attack_attempts::timestamp.gt(cutoff_time))
             .select(attack_attempts::ip_address)
             .distinct()
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count unique IPs".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count unique IPs: {}", e)))?;
 
         let blocked_ips = ip_blacklist::table
             .filter(ip_blacklist::created_at.gt(cutoff_time))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count blocked IPs".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count blocked IPs: {}", e)))?;
 
         Ok(AttackStats {
             total_attempts,
@@ -373,24 +321,16 @@ impl BruteForceDetector {
     // Clean up expired blocks
     pub async fn cleanup_expired_blocks(&self) -> AppResult<usize> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let deleted_count = diesel::delete(
             ip_blacklist::table
-                .filter(ip_blacklist::is_permanent.eq(false))
-                .filter(ip_blacklist::blocked_until.lt(Utc::now()))
+                .filter(ip_blacklist::expires_at.is_not_null())
+                .filter(ip_blacklist::expires_at.lt(Utc::now()))
         )
         .execute(&mut conn)
         .await
-        .map_err(|e| AppError::Database {
-            message: "Failed to cleanup expired blocks".to_string(),
-            source: Some(Box::new(e)),
-            correlation_id: None,
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to cleanup expired blocks: {}", e)))?;
 
         if deleted_count > 0 {
             info!("Cleaned up {} expired IP blocks", deleted_count);
@@ -402,29 +342,21 @@ impl BruteForceDetector {
     // Check if IP is in whitelist
     fn is_whitelisted(&self, ip_addr: &IpNetwork) -> bool {
         self.config.whitelist_ips.iter().any(|whitelist_ip| {
-            whitelist_ip.contains(*ip_addr)
+            whitelist_ip.contains(ip_addr.ip())
         })
     }
 
     // Get recent blocked IPs
     pub async fn get_recent_blocks(&self, limit: i32) -> AppResult<Vec<DieselIpBlacklist>> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let blocks = ip_blacklist::table
             .order(ip_blacklist::created_at.desc())
             .limit(limit as i64)
             .load::<DieselIpBlacklist>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to load recent blocks".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to load recent blocks: {}", e)))?;
 
         Ok(blocks)
     }

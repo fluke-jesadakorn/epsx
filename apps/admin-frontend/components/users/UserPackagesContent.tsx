@@ -16,7 +16,7 @@ interface UserPackagesContentProps {
 }
 
 export function UserPackagesContent({ user, currentUser }: UserPackagesContentProps) {
-  const canManagePackages = currentUser.isSuperAdmin || currentUser.canManageUsers
+  const canManagePackages = currentUser.role === 'admin' || currentUser.canManageUsers
 
   // Calculate package stats
   const activePackages = user.stockRankingPackages.filter(p => p.isActive).length

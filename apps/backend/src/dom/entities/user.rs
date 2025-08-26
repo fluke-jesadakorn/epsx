@@ -60,7 +60,7 @@ impl User {
     id: UserId,
     firebase_uid: String,
     email: Email,
-    package_tier: crate::dom::entities::iam::PackageTier
+    package_tier: String
   ) -> Self {
     let now = chrono::Utc::now();
     Self {
@@ -68,7 +68,7 @@ impl User {
       firebase_uid,
       email,
       admin_modules: Vec::new(),
-      package_tier: format!("{:?}", package_tier),
+      package_tier,
       subscription: Subscription::free(),
       created_at: now,
       updated_at: now,
@@ -199,24 +199,16 @@ impl User {
     self.updated_at = Utc::now();
   }
 
-  pub fn upgrade_package_tier(
+  /// Simple role upgrade for the new unified role system
+  pub fn upgrade_role(
     &mut self,
-    new_tier: crate::dom::entities::iam::PackageTier,
+    new_role: crate::auth::roles::Role,
     new_admin_modules: Option<Vec<String>>
   ) -> Result<UserPermissionChangedEvent, DomainError> {
-    // Validate tier upgrade logic
-    use crate::dom::entities::iam::PackageTier;
-    let _current_tier = self.package_tier
-      .parse::<PackageTier>()
-      .unwrap_or(PackageTier::Free);
-
-    // Allow same tier or upgrade (no strict downgrade prevention for now)
-    // In a more sophisticated system, you'd implement Ord for PackageTier
-
     let old_tier = self.package_tier.clone();
     let old_modules = self.admin_modules.clone();
 
-    self.package_tier = new_tier.to_string();
+    self.package_tier = new_role.to_string();
 
     let (modules_added, modules_removed) = if
       let Some(modules) = new_admin_modules
@@ -245,7 +237,7 @@ impl User {
         modules_added,
         modules_removed,
         old_tier,
-        new_tier.to_string()
+        new_role.to_string()
       )
     )
   }
@@ -280,50 +272,52 @@ impl User {
     self.updated_at = Utc::now();
   }
 
-  /// Get user permissions based on package tier and admin modules
+  /// Get user permissions based on simple role system
   pub fn permissions(&self) -> Vec<String> {
     let mut perms = Vec::new();
 
-    // Add base permissions based on package tier
+    // Add base permissions based on simple role system
     match self.package_tier.as_str() {
-      "BRONZE" => perms.push("basic_access".to_string()),
-      "SILVER" => {
-        perms.push("basic_access".to_string());
-        perms.push("premium_features".to_string());
+      "admin" => {
+        perms.push("view_eps".to_string());
+        perms.push("export_data".to_string());
+        perms.push("realtime".to_string());
+        perms.push("profile".to_string());
+        perms.push("notifications".to_string());
+        perms.push("billing".to_string());
+        perms.push("advanced_filters".to_string());
       }
-      "GOLD" => {
-        perms.push("basic_access".to_string());
-        perms.push("premium_features".to_string());
-        perms.push("advanced_features".to_string());
+      "user" => {
+        perms.push("view_eps".to_string());
+        perms.push("export_data".to_string());
+        perms.push("realtime".to_string());
+        perms.push("profile".to_string());
+        perms.push("notifications".to_string());
+        perms.push("billing".to_string());
+        perms.push("advanced_filters".to_string());
       }
-      _ => perms.push("basic_access".to_string()),
-    }
-
-    // Add admin permissions based on admin modules
-    for module in &self.admin_modules {
-      perms.push(format!("admin_{}", module));
+      "guest" | _ => {
+        perms.push("view_eps".to_string());
+      }
     }
 
     perms
   }
 
-  pub fn has_package_tier_or_higher(&self, required_tier: &str) -> bool {
-    let tier_hierarchy = [
-      ("FREE", 1),
-      ("BRONZE", 2),
-      ("SILVER", 3),
-      ("GOLD", 4),
-      ("PLATINUM", 5),
-      ("ENTERPRISE", 6),
+  pub fn has_role_or_higher(&self, required_role: &str) -> bool {
+    let role_hierarchy = [
+      ("guest", 1),
+      ("user", 2), 
+      ("admin", 3),
     ]
       .iter()
       .cloned()
       .collect::<std::collections::HashMap<_, _>>();
 
-    let user_level = tier_hierarchy
+    let user_level = role_hierarchy
       .get(self.package_tier.as_str())
       .unwrap_or(&0);
-    let required_level = tier_hierarchy.get(required_tier).unwrap_or(&1);
+    let required_level = role_hierarchy.get(required_role).unwrap_or(&1);
 
     user_level >= required_level
   }

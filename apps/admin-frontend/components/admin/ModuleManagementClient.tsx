@@ -282,11 +282,11 @@ export const ModuleManagementClient: React.FC = () => {
     );
   }
 
-  // Check if user has admin permissions for module management - allow super_admin bypass
-  const isSuperAdmin = user?.roles?.includes('super_admin') || user?.claims?.role === 'super_admin';
-  const canManageModules = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'manage_modules'));
-  const canAssignModules = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'assign_modules'));
-  const canViewUsers = isSuperAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'view_users'));
+  // Check if user has admin permissions for module management
+  const isAdmin = user?.roles?.includes('admin') || user?.claims?.role === 'admin';
+  const canManageModules = isAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'manage_modules'));
+  const canAssignModules = isAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'assign_modules'));
+  const canViewUsers = isAdmin || (hasModuleAccess('admin') && canPerformAction('admin', 'view_users'));
 
   // Show access denied if user doesn't have permission
   if (!canManageModules) {

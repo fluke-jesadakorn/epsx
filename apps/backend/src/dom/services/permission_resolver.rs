@@ -1,8 +1,13 @@
-// Modern JWT-based permission resolver (replaces Casbin)
-use crate::dom::error::DomainError;
+// ============================================================================
+// PERMISSION RESOLVER STUB - REPLACING COMPLEX PERMISSION RESOLVER
+// ============================================================================
+// Simple stub for removed permission resolver system
 
-/// Modern permission resolver using JWT claims
-/// Replaces complex Casbin with simple JWT-based permission checking
+use crate::dom::values::UserId;
+use crate::auth::roles::{Role, check_feature_access};
+use std::str::FromStr;
+
+// Simple stub permission resolver
 pub struct PermissionResolver;
 
 impl PermissionResolver {
@@ -10,31 +15,32 @@ impl PermissionResolver {
         Self
     }
 
-    /// Check if user has permission using JWT claims
-    pub async fn has_permission(&self, _user_id: &str, _resource: &str, _action: &str) -> Result<bool, DomainError> {
-        // TODO: Implement JWT-based permission checking
-        // This should validate permissions from JWT token claims
-        Ok(true) // Temporary - allow all for migration
+    pub async fn can_access_feature(&self, _user_id: &UserId, feature: &str) -> Result<bool, String> {
+        // For now, always allow - use simple roles system instead
+        match feature {
+            "view_eps" => Ok(true), // All users can view EPS
+            _ => Ok(false), // Other features require proper role checking
+        }
     }
 
-    /// Check if user has role using JWT claims
-    pub async fn has_role(&self, _user_id: &str, _role: &str) -> Result<bool, DomainError> {
-        // TODO: Implement JWT-based role checking
-        // This should validate roles from JWT token claims
-        Ok(true) // Temporary - allow all for migration
+    pub async fn get_user_permissions(&self, _user_id: &UserId) -> Result<Vec<String>, String> {
+        // Return basic permissions for compatibility
+        Ok(vec![
+            "view_eps".to_string(),
+        ])
     }
 
-    /// Assign role (update database and invalidate JWT)
-    pub async fn assign_role(&self, _user_id: &str, _role: &str) -> Result<(), DomainError> {
-        // TODO: Implement role assignment
-        // This should update user admin modules in database
-        Ok(())
+    // Simple role-based checking
+    pub fn check_simple_role_feature(&self, role_str: &str, feature: &str) -> bool {
+        match Role::from_str(role_str) {
+            Ok(role) => check_feature_access(&role, feature),
+            Err(_) => false,
+        }
     }
+}
 
-    /// Revoke role (update database and invalidate JWT)
-    pub async fn revoke_role(&self, _user_id: &str, _role: &str) -> Result<(), DomainError> {
-        // TODO: Implement role revocation
-        // This should remove user admin modules from database
-        Ok(())
+impl Default for PermissionResolver {
+    fn default() -> Self {
+        Self::new()
     }
 }

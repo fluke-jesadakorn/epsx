@@ -1,5 +1,6 @@
 // Security Webhook Manager - Complete Diesel Implementation
 use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use tracing::{info, error, warn, debug};
@@ -14,15 +15,12 @@ use crate::{
             models::{
                 DieselSecurityEvent, 
                 NewDieselSecurityEvent,
-                DieselAlertNotification,
                 NewDieselAlertNotification,
                 SecurityStats,
             },
             pool::DbPool,
-            schema::{
-                security_events::dsl::*,
-                alert_notifications::dsl::*,
-            },
+            schema::{security_events, alert_notifications},
+            types::DieselIpAddr,
         },
     },
 };
@@ -51,7 +49,7 @@ pub struct SecurityWebhookPayload {
     pub timestamp: DateTime<Utc>,
     pub data: JsonValue,
     pub user_id: Option<String>,
-    pub ip_address: Option<ipnetwork::IpNetwork>,
+    pub ip_address: Option<DieselIpAddr>,
 }
 
 impl WebhookManager {
@@ -80,11 +78,7 @@ impl WebhookManager {
     // Log a security event with Diesel
     pub async fn log_security_event(&self, payload: &SecurityWebhookPayload) -> AppResult<Uuid> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let new_event = NewDieselSecurityEvent {
             id: payload.event_id,
@@ -92,34 +86,27 @@ impl WebhookManager {
             severity: payload.severity.clone(),
             source: payload.source.clone(),
             user_id: payload.user_id.clone(),
-            ip_address: payload.ip_address,
+            session_id: None,
+            ip_address: payload.ip_address.clone().unwrap_or_else(|| DieselIpAddr("127.0.0.1".parse().unwrap())),
             user_agent: None,
-            request_path: None,
-            request_method: None,
-            request_headers: None,
-            response_status: None,
-            event_data: Some(payload.data.clone()),
-            risk_score: Some(self.calculate_risk_score(&payload.severity)),
-            country_code: None,
-            device_fingerprint: None,
-            correlation_id: Some(Uuid::new_v4()),
-            alert_triggered: Some(true),
-            blocked: Some(false),
+            path: None,
+            method: None,
+            details: payload.data.clone(),
+            resolved: false,
+            resolution_notes: None,
             timestamp: payload.timestamp,
-            processed: Some(false),
+            created_at: payload.timestamp,
+            updated_at: payload.timestamp,
+            risk_score: Some(self.calculate_risk_score(&payload.severity)),
         };
 
-        let result = diesel::insert_into(security_events)
+        let result = diesel::insert_into(security_events::table)
             .values(&new_event)
             .execute(&mut conn)
             .await
             .map_err(|e| {
                 error!("Failed to insert security event: {}", e);
-                AppError::Database {
-                    message: "Failed to log security event".to_string(),
-                    source: Some(Box::new(e)),
-                    correlation_id: None,
-                }
+                AppError::database_error(format!("Failed to log security event: {}", e))
             })?;
 
         if result > 0 {
@@ -130,11 +117,7 @@ impl WebhookManager {
             
             Ok(payload.event_id)
         } else {
-            Err(AppError::Database {
-                message: "No security event was inserted".to_string(),
-                source: None,
-                correlation_id: None,
-            })
+            Err(AppError::database_error("No security event was inserted"))
         }
     }
 
@@ -178,7 +161,7 @@ impl WebhookManager {
             "timestamp": payload.timestamp,
             "data": payload.data,
             "user_id": payload.user_id,
-            "ip_address": payload.ip_address.map(|ip| ip.to_string()),
+            "ip_address": payload.ip_address.clone().map(|ip| ip.to_string()),
         });
 
         let mut attempt = 0;
@@ -206,10 +189,7 @@ impl WebhookManager {
                     
                     if attempt >= config.retry_attempts {
                         self.log_webhook_delivery(payload.event_id, webhook_name, "failed", Some(error_msg.clone())).await?;
-                        return Err(AppError::External {
-                            message: error_msg,
-                            source: None,
-                        });
+                        return Err(AppError::external_service_error(error_msg));
                     }
                 }
                 Err(e) => {
@@ -218,10 +198,7 @@ impl WebhookManager {
                     
                     if attempt >= config.retry_attempts {
                         self.log_webhook_delivery(payload.event_id, webhook_name, "failed", Some(error_msg.clone())).await?;
-                        return Err(AppError::External {
-                            message: error_msg,
-                            source: Some(Box::new(e)),
-                        });
+                        return Err(AppError::external_service_error(error_msg));
                     }
                 }
             }
@@ -231,53 +208,41 @@ impl WebhookManager {
             tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
         }
 
-        Err(AppError::External {
-            message: format!("Webhook delivery failed after {} attempts", config.retry_attempts),
-            source: None,
-        })
+        Err(AppError::external_service_error(format!("Webhook delivery failed after {} attempts", config.retry_attempts)))
     }
 
     // Log webhook delivery status
-    async fn log_webhook_delivery(&self, event_id: Uuid, webhook_name: &str, status: &str, error_message: Option<String>) -> AppResult<()> {
+    async fn log_webhook_delivery(&self, event_uuid: Uuid, webhook_name: &str, status: &str, error_msg: Option<String>) -> AppResult<()> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         // For now, we'll use a simple approach since we don't have a dedicated webhook_deliveries table
         // In a full implementation, you'd create a proper webhook_deliveries table
-        let delivery_data = serde_json::json!({
+        let _delivery_data = serde_json::json!({
             "webhook_name": webhook_name,
             "status": status,
-            "error_message": error_message,
+            "error_message": error_msg,
             "delivered_at": Utc::now(),
         });
 
+        let now = Utc::now();
         let new_notification = NewDieselAlertNotification {
             id: Uuid::new_v4(),
-            rule_id: Uuid::new_v4(), // Placeholder - in real implementation, this would be the webhook rule ID
-            event_id,
+            alert_id: event_uuid, // Using event UUID as alert ID
             channel: "webhook".to_string(),
-            recipient: webhook_name.to_string(),
-            message: format!("Webhook delivery {} for event {}", status, event_id),
-            delivery_status: Some(status.to_string()),
-            attempts: Some(1),
-            created_at: Some(Utc::now()),
+            sent_at: now,
+            status: status.to_string(),
+            created_at: now,
+            delivery_status: status.to_string(),
         };
 
-        diesel::insert_into(alert_notifications)
+        diesel::insert_into(alert_notifications::table)
             .values(&new_notification)
             .execute(&mut conn)
             .await
             .map_err(|e| {
                 error!("Failed to log webhook delivery: {}", e);
-                AppError::Database {
-                    message: "Failed to log webhook delivery".to_string(),
-                    source: Some(Box::new(e)),
-                    correlation_id: None,
-                }
+                AppError::database_error(format!("Failed to log webhook delivery: {}", e))
             })?;
 
         Ok(())
@@ -286,75 +251,51 @@ impl WebhookManager {
     // Get security event statistics
     pub async fn get_security_stats(&self, hours_back: i32) -> AppResult<SecurityStats> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let cutoff_time = Utc::now() - chrono::Duration::hours(hours_back as i64);
 
-        let total_events = security_events
-            .filter(timestamp.gt(cutoff_time))
+        let total_events = security_events::table
+            .filter(security_events::timestamp.gt(cutoff_time))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count total events".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count total events: {}", e)))?;
 
-        let high_severity_count = security_events
-            .filter(timestamp.gt(cutoff_time))
-            .filter(severity.eq("high").or(severity.eq("critical")))
+        let high_severity_count = security_events::table
+            .filter(security_events::timestamp.gt(cutoff_time))
+            .filter(security_events::severity.eq("high").or(security_events::severity.eq("critical")))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count high severity events".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count high severity events: {}", e)))?;
 
-        let blocked_attempts = security_events
-            .filter(timestamp.gt(cutoff_time))
-            .filter(blocked.eq(true))
+        let blocked_attempts = security_events::table
+            .filter(security_events::timestamp.gt(cutoff_time))
+            .filter(security_events::severity.eq("high").or(security_events::severity.eq("critical")))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count blocked attempts".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count blocked attempts: {}", e)))?;
 
         // Count unique IP addresses (attackers)
-        let unique_attackers = security_events
-            .filter(timestamp.gt(cutoff_time))
-            .filter(ip_address.is_not_null())
-            .select(ip_address)
+        let unique_attackers = security_events::table
+            .filter(security_events::timestamp.gt(cutoff_time))
+            .filter(security_events::ip_address.is_not_null())
+            .select(security_events::ip_address)
             .distinct()
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to count unique attackers".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to count unique attackers: {}", e)))?;
 
-        let last_event_at = security_events
-            .order(timestamp.desc())
-            .select(timestamp)
+        let last_event_at = security_events::table
+            .order(security_events::timestamp.desc())
+            .select(security_events::timestamp)
             .first::<DateTime<Utc>>(&mut conn)
             .await
             .optional()
-            .map_err(|e| AppError::Database {
-                message: "Failed to get last event time".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get last event time: {}", e)))?;
 
         Ok(SecurityStats {
             total_events,
@@ -368,30 +309,22 @@ impl WebhookManager {
     // Get recent security events with pagination
     pub async fn get_recent_events(&self, limit: i32, offset: i32) -> AppResult<Vec<DieselSecurityEvent>> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
-        let events = security_events
-            .order(timestamp.desc())
+        let events = security_events::table
+            .order(security_events::timestamp.desc())
             .limit(limit as i64)
             .offset(offset as i64)
             .load::<DieselSecurityEvent>(&mut conn)
             .await
-            .map_err(|e| AppError::Database {
-                message: "Failed to load security events".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to load security events: {}", e)))?;
 
         Ok(events)
     }
 
     // Calculate risk score based on severity
-    fn calculate_risk_score(&self, severity: &str) -> i32 {
-        match severity.to_lowercase().as_str() {
+    fn calculate_risk_score(&self, severity_level: &str) -> i32 {
+        match severity_level.to_lowercase().as_str() {
             "low" => 25,
             "medium" => 50,
             "high" => 75,
@@ -403,24 +336,16 @@ impl WebhookManager {
     // Clean up old security events
     pub async fn cleanup_old_events(&self, days_to_keep: i32) -> AppResult<usize> {
         let mut conn = self.pool.get().await
-            .map_err(|e| AppError::Database {
-                message: "Failed to get database connection".to_string(),
-                source: Some(Box::new(e)),
-                correlation_id: None,
-            })?;
+            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
 
         let cutoff_date = Utc::now() - chrono::Duration::days(days_to_keep as i64);
 
         let deleted_count = diesel::delete(
-            security_events.filter(timestamp.lt(cutoff_date))
+            security_events::table.filter(security_events::timestamp.lt(cutoff_date))
         )
         .execute(&mut conn)
         .await
-        .map_err(|e| AppError::Database {
-            message: "Failed to delete old security events".to_string(),
-            source: Some(Box::new(e)),
-            correlation_id: None,
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to delete old security events: {}", e)))?;
 
         if deleted_count > 0 {
             info!("Cleaned up {} old security events older than {} days", deleted_count, days_to_keep);

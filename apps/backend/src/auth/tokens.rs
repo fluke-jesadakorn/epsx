@@ -415,16 +415,11 @@ fn get_permissions(custom_claims: &HashMap<String, serde_json::Value>) -> Vec<St
     let role = get_role(custom_claims);
     
     match role.as_str() {
-        "super_admin" => vec![
-            "api:admin:*".to_string(),
-            "route:*".to_string(),
-            "users:manage".to_string(),
-            "system:configure".to_string(),
-        ],
         "admin" => vec![
             "api:admin:*".to_string(),
             "route:*".to_string(),
             "users:manage".to_string(),
+            "system:configure".to_string(),
         ],
         "moderator" => vec![
             "api:moderate:*".to_string(),

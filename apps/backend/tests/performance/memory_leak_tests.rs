@@ -307,9 +307,9 @@ async fn test_session_memory_lifecycle() {
         
         // Store session data in cache (simulating session storage)
         let cache = container.cache();
-        let session_key = format!("session:{}", session_id.value());
+        let session_key = format!("session:{}", session_id);
         let session_value = serde_json::json!({
-            "user_id": user_id.value(),
+            "user_id": user_id,
             "created_at": chrono::Utc::now(),
             "permissions": ["READ_PROFILE", "TRADE_STOCKS"],
             "metadata": {

@@ -9,10 +9,10 @@ pub mod web;        // Web/API layer
 pub mod config;     // Configuration
 pub mod auth;       // Modern authentication
 pub mod security;   // Security layer
-pub mod permissions; // Permission system
+// permissions module removed - replaced by auth/roles.rs
 pub mod stock;      // Stock management
 
 // Selective re-exports for clean namespace
 pub use core::{errors, types, telemetry};
-pub use infra::{AppContainer, DieselAuditRepo};
+pub use infra::AppContainer;
 pub use web::create_router;

@@ -12,26 +12,42 @@ use crate::infra::db::diesel::types::DieselIpAddr;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselAuditLog {
     pub id: Uuid,
+    pub actor_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
     pub action: String,
-    pub resource_type: Option<String>,
+    pub resource_type: String,
     pub resource_id: Option<String>,
+    pub result: Option<String>,
+    pub event_category: Option<String>,
+    pub severity: Option<String>,
+    pub success: Option<bool>,
     pub details: Option<JsonValue>,
+    pub metadata: Option<JsonValue>,
     pub ip_address: Option<DieselIpAddr>,
     pub user_agent: Option<String>,
-    pub created_at: Option<DateTime<Utc>>,
+    pub timestamp: DateTime<Utc>,
+    pub session_id: Option<Uuid>,
+    pub client_ip: Option<DieselIpAddr>,
 }
 
 #[derive(Insertable, Debug, Clone)]
 #[diesel(table_name = audit_logs)]
 pub struct NewDieselAuditLog {
     pub id: Uuid,
+    pub actor_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
     pub action: String,
-    pub resource_type: Option<String>,
+    pub resource_type: String,
     pub resource_id: Option<String>,
+    pub result: Option<String>,
+    pub event_category: Option<String>,
+    pub severity: Option<String>,
+    pub success: Option<bool>,
     pub details: Option<JsonValue>,
+    pub metadata: Option<JsonValue>,
     pub ip_address: Option<DieselIpAddr>,
     pub user_agent: Option<String>,
-    pub created_at: Option<DateTime<Utc>>,
+    pub timestamp: DateTime<Utc>,
+    pub session_id: Option<Uuid>,
+    pub client_ip: Option<DieselIpAddr>,
 }

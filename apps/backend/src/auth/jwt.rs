@@ -1,4 +1,4 @@
-use jsonwebtoken::{decode, encode, Header, DecodingKey, Validation, Algorithm, errors::ErrorKind};
+use jsonwebtoken::{decode, encode, Header, Validation, Algorithm, errors::ErrorKind};
 use serde::{Deserialize, Serialize};
 use super::key_manager::KeyManager;
 use std::sync::Arc;

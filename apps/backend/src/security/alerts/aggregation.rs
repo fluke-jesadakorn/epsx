@@ -6,7 +6,10 @@ use chrono::{DateTime, Utc, Duration, Timelike};
 use tracing::debug;
 
 use super::models::*;
-use crate::permissions::audit::SecurityEvent;
+// use crate::permissions::audit::SecurityEvent;
+
+// Simple stub - using SecurityEvent from auth roles
+use crate::auth::roles::SecurityEvent;
 
 /// Event aggregation strategies
 #[derive(Debug, Clone)]

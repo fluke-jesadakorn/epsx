@@ -210,14 +210,14 @@ pub async fn get_profile_handler(
     
     Ok(Json(json!({
         "user_id": user.id().to_string(),
-        "email": user.email().value(),
+        "email": user.email(),
         "roles": user_roles,
         "permissions": user_permissions,
         "subscription_tier": user.subscription().tier().to_string(),
         "package_tier": user.subscription().tier().to_string(), // Same as subscription tier
         "created_at": user.created_at(),
         "updated_at": user.updated_at(),
-        "display_name": format!("User {}", user.email().value()),
+        "display_name": format!("User {}", user.email()),
         "photo_url": null,
         "email_verified": true,
         "is_active": user.is_active()
@@ -340,7 +340,7 @@ pub async fn list_users_handler(
     let user_list: Vec<Value> = users.into_iter().map(|user| {
         json!({
             "id": user.id().to_string(),
-            "email": user.email().value(),
+            "email": user.email(),
             "role": user.role().to_string(),
             "subscription_tier": user.subscription().tier().to_string(),
             "is_active": user.is_active(),
@@ -414,7 +414,7 @@ pub async fn get_expiration_status_handler(
         }
         
         let feature_info = ExpiringFeatureInfo {
-            permission_profile_id: feature.permission_profile_id.value().to_string(),
+            permission_profile_id: feature.permission_profile_id.to_string(),
             permission_profile_name: feature.permission_profile_name.clone(),
             expires_at: feature.expires_at,
             days_until_expiration,

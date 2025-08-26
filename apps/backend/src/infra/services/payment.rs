@@ -245,7 +245,7 @@ impl PayGw for CoinPaymentsGateway {
 
         let params = serde_json::json!({
             "currency": currency_code,
-            "ipn_url": format!("https://your-domain.com/webhook/coinpayments/{}", user_id.value())
+            "ipn_url": format!("https://your-domain.com/webhook/coinpayments/{}", user_id)
         });
 
         let response = self.make_api_call("get_callback_address", &params).await?;
@@ -406,7 +406,7 @@ impl PayGw for MockPaymentGateway {
         }
 
         let address = PaymentAddress {
-            address: format!("mock_address_{}_{}", currency.to_string().to_lowercase(), user_id.value()),
+            address: format!("mock_address_{}_{}", currency.to_string().to_lowercase(), user_id),
             currency: currency.clone(),
             network: "mock_network".to_string(),
             qr_code_url: Some("https://mock.com/qr.png".to_string()),

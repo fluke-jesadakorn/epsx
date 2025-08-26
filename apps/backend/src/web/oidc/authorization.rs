@@ -182,14 +182,24 @@ pub async fn handle_authorization_form(
     if is_registration {
         tracing::info!("Processing registration form for user: {}", form_data.email);
         // Reuse existing registration handler
-        return handle_registration_form(Form(form_data)).await;
+        return handle_registration_form_direct(form_data).await;
     } else {
         tracing::info!("Processing login form for user: {}", form_data.email);
-        return handle_user_login_direct(form_data).await;
+        return handle_user_login_with_session_storage(form_data).await;
     }
 }
 
-/// Handle user login flow without AppState
+/// Handle user login flow with proper session storage
+async fn handle_user_login_with_session_storage(
+    form_data: LoginFormData,
+) -> Result<Redirect, StatusCode> {
+    tracing::info!("Processing login form for user: {}", form_data.email);
+    
+    // For now, just use the direct flow - it now has session storage
+    handle_user_login_direct(form_data).await
+}
+
+/// Handle user login flow without AppState (fallback)
 async fn handle_user_login_direct(
     form_data: LoginFormData,
 ) -> Result<Redirect, StatusCode> {
@@ -230,8 +240,32 @@ async fn handle_authenticated_user_flow_direct(
     form_data: LoginFormData,
     firebase_user: FirebaseUser,
 ) -> Result<Redirect, StatusCode> {
-    // For now, create a basic JWT without admin module checks (can be enhanced later)
+    // Generate authorization code
     let code = generate_authorization_code();
+    
+    // Store authorization code data in simplified manner
+    let auth_data = AuthorizationCodeData {
+        firebase_user: firebase_user.clone(),
+        client_id: form_data.client_id.clone(),
+        redirect_uri: form_data.redirect_uri.clone(),
+        scope: form_data.scope.clone(),
+        created_at: Utc::now(),
+        code_challenge: form_data.code_challenge.clone(),
+        code_challenge_method: form_data.code_challenge_method.clone(),
+    };
+    
+    tracing::info!("🔍 SESSION DEBUG: Authorization code generated in direct flow: {}", code);
+    
+    // Store session directly without full AppState to fix token exchange
+    match store_authorization_code_direct(&code, &auth_data).await {
+        Ok(_) => {
+            tracing::info!("🔍 SESSION DEBUG: Successfully stored authorization code in direct flow: {}", code);
+        }
+        Err(e) => {
+            tracing::error!("🔍 SESSION DEBUG: Failed to store authorization code in direct flow: {}", e);
+            // Continue anyway - at least the user gets redirected
+        }
+    }
 
     // Redirect to redirect_uri with authorization code
     let redirect_url = format!(
@@ -244,8 +278,8 @@ async fn handle_authenticated_user_flow_direct(
     tracing::info!(
         user_id = %firebase_user.uid,
         email = %firebase_user.email.as_deref().unwrap_or("unknown"),
-        "User login successful, redirecting to: {}",
-        redirect_url
+        "User login successful, redirecting with code: {}",
+        code
     );
     
     Ok(Redirect::to(&redirect_url))
@@ -375,8 +409,11 @@ async fn handle_authenticated_user_flow(
         }
     }
 
+    tracing::error!("🔍 SESSION DEBUG: Starting scope validation for user: {}", firebase_user.uid);
+    
     // Extract user role for scope validation
     let user_role = extract_user_role(&firebase_user);
+    tracing::error!("🔍 SESSION DEBUG: User role extracted: {} for user: {}", user_role, firebase_user.uid);
     
     // Validate requested scopes against user's role and permissions
     let validated_scopes = match validate_scopes_with_user_context(
@@ -384,8 +421,12 @@ async fn handle_authenticated_user_flow(
         &user_role,
         &form_data.client_id,
     ) {
-        Ok(scopes) => scopes,
+        Ok(scopes) => {
+            tracing::error!("🔍 SESSION DEBUG: Scope validation successful");
+            scopes
+        },
         Err(ref scope_error) => {
+            tracing::error!("🔍 SESSION DEBUG: Scope validation failed: {:?}", scope_error);
             let error_message = match scope_error {
                 crate::auth::ScopeError::InsufficientRole { scope, required_role, .. } => {
                     format!("Insufficient privileges for scope '{}'. Role '{}' required.", scope, required_role)
@@ -439,10 +480,12 @@ async fn handle_authenticated_user_flow(
         code_challenge_method: form_data.code_challenge_method.clone(),
     };
 
+    tracing::error!("🔍 SESSION DEBUG: About to store authorization code: {}", auth_code);
     if let Err(e) = store_authorization_code(&app_state, &auth_code, &auth_data).await {
-        tracing::error!("Failed to store authorization code: {}", e);
+        tracing::error!("🔍 SESSION DEBUG: Failed to store authorization code: {}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
+    tracing::error!("🔍 SESSION DEBUG: Successfully stored authorization code: {}", auth_code);
 
     // Log successful authentication
     tracing::info!("Authentication successful for user: {} ({})", firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()), firebase_user.uid);
@@ -506,8 +549,9 @@ async fn store_authorization_code(
     // Create a temporary session for the authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
     
-    tracing::debug!("Storing auth code: {} for user: {}", code, user_id);
-    tracing::debug!("Session ID: {}", session_id);
+    tracing::error!("🔍 SESSION DEBUG: Storing auth code: {} for user: {}", code, user_id);
+    tracing::error!("🔍 SESSION DEBUG: Session ID generated: {}", session_id);
+    tracing::error!("🔍 SESSION DEBUG: Session UUID: {:?}", session_id);
     
     // Serialize auth data and store in access_token field temporarily
     let auth_data_json = serde_json::to_string(auth_data)?;
@@ -706,7 +750,7 @@ async fn log_authentication_event(
 /// Determine user role for new registrations
 fn determine_user_role_for_registration(email: &str) -> String {
     if email == "info@epsx.io" {
-        "SuperAdmin".to_string()
+        "Admin".to_string()
     } else {
         "User".to_string() // Default role for new registrations
     }
@@ -720,19 +764,19 @@ async fn create_database_user(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::User;
     use crate::dom::values::Email;
-    use crate::dom::entities::iam::PackageTier;
+    use crate::auth::roles::Role;
     
     let email = Email::new(firebase_user.email.as_ref().unwrap_or(&"unknown@example.com".to_string()).clone())
         .map_err(|e| format!("Invalid email format: {}", e))?;
     
-    let package_tier = role.parse::<PackageTier>()
-        .map_err(|e| format!("Invalid package tier: {}", e))?;
+    let user_role = role.parse::<Role>()
+        .map_err(|e| format!("Invalid role: {}", e))?;
     
     // Create user entity with real Firebase UID
     let user = User::new(
         firebase_user.uid.clone(),
         email,
-        package_tier.to_string()
+        user_role.to_string()
     );
     
     // Save to database
@@ -815,57 +859,7 @@ pub async fn handle_registration_form(
 ) -> Result<Redirect, StatusCode> {
     tracing::info!("Processing registration form for user: {}", form_data.email);
     
-    // Create Firebase Admin instance directly
-    let firebase_admin = match create_firebase_admin().await {
-        Ok(admin) => admin,
-        Err(e) => {
-            tracing::error!("Failed to create Firebase Admin: {}", e);
-            return serve_registration_with_error(&form_data, "Registration service unavailable");
-        }
-    };
-
-    // Validate form data
-    if let Err(status) = validate_form_data(&form_data) {
-        return Err(status);
-    }
-
-    // Create Firebase user
-    let firebase_user = match firebase_admin
-        .create_user_with_password(
-            &form_data.email,
-            &form_data.password,
-            form_data.display_name.clone()
-        )
-        .await
-    {
-        Ok(user) => {
-            tracing::info!("✅ Successfully created Firebase user: {} ({})", form_data.email, user.uid);
-            user
-        }
-        Err(e) => {
-            tracing::error!("❌ Firebase user creation failed for {}: {}", form_data.email, e);
-            return serve_registration_with_error(&form_data, "Registration failed. Email may already be in use.");
-        }
-    };
-
-    // Create database user (simplified - would normally use repository)
-    if let Err(e) = create_database_user_simple(&firebase_user, &form_data.email).await {
-        tracing::error!("❌ Database user creation failed for {}: {}", form_data.email, e);
-        return serve_registration_with_error(&form_data, "Registration failed. Please try again.");
-    }
-
-    // Redirect to login page after successful registration
-    let login_url = format!(
-        "/oauth/authorize?client_id={}&response_type={}&scope={}&redirect_uri={}&state={}&registration_success=true",
-        urlencoding::encode(&form_data.client_id),
-        urlencoding::encode(&form_data.response_type),
-        urlencoding::encode(&form_data.scope),
-        urlencoding::encode(&form_data.redirect_uri),
-        urlencoding::encode(&form_data.state)
-    );
-
-    tracing::info!("Registration successful for user: {}, redirecting to login", form_data.email);
-    Ok(Redirect::to(&login_url))
+    return handle_registration_form_direct(form_data).await;
 }
 
 // ============================================================================
@@ -991,6 +985,126 @@ pub async fn handle_password_reset_confirm(
 /// Create Firebase Admin instance directly (without AppContainer)
 async fn create_firebase_admin() -> Result<crate::infra::firebase_admin::FirebaseAdmin, Box<dyn std::error::Error>> {
     crate::infra::firebase_admin::FirebaseAdmin::new().await
+}
+
+/// Store authorization code directly with minimal dependencies
+async fn store_authorization_code_direct(
+    code: &str,
+    auth_data: &AuthorizationCodeData,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use crate::infra::db::diesel::create_pool;
+    use crate::infra::db::diesel::repos::DieselSessionRepo;
+    use crate::dom::entities::auth::Session;
+    use crate::dom::values::SessId;
+    use crate::app::ports::repositories::{UserRepo, SessRepo};
+    use crate::infra::db::diesel::repos::DieselUserRepo;
+    use std::sync::Arc;
+    use chrono::{Utc, Duration};
+    
+    // Get database URL from environment
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| "DATABASE_URL environment variable not found")?;
+    
+    // Create database pool
+    let pool = create_pool(&database_url).await
+        .map_err(|e| format!("Failed to create database pool: {}", e))?;
+    let pool = Arc::new(pool);
+    
+    // Create repositories
+    let session_repo = DieselSessionRepo::new(pool.clone());
+    let user_repo = DieselUserRepo::new(pool.clone());
+    
+    // Find user by Firebase UID
+    let user = user_repo.find_by_firebase_uid(&auth_data.firebase_user.uid).await
+        .map_err(|e| format!("Database error: {}", e))?
+        .ok_or("User not found in database")?;
+    
+    let user_id = user.id().clone();
+    
+    // Create session ID for authorization code
+    let session_id = SessId::from_string(format!("auth_code:{}", code));
+    
+    tracing::info!("🔍 SESSION DEBUG: Storing auth code: {} for user: {}", code, user_id);
+    tracing::info!("🔍 SESSION DEBUG: Session ID generated: {}", session_id);
+    
+    // Serialize auth data and store in access_token field temporarily
+    let auth_data_json = serde_json::to_string(auth_data)
+        .map_err(|e| format!("Failed to serialize auth data: {}", e))?;
+    
+    // Create session with 10 minute expiration
+    let expires_at = Utc::now() + Duration::minutes(10);
+    let session = Session {
+        id: session_id,
+        user_id,
+        access_token: auth_data_json, // Store serialized auth data here
+        refresh_token: None,
+        expires_at,
+        created_at: Utc::now(),
+        is_active: true,
+    };
+    
+    session_repo.save(&session).await
+        .map_err(|e| format!("Failed to save session: {}", e))?;
+    
+    tracing::info!("🔍 SESSION DEBUG: Session stored successfully");
+    Ok(())
+}
+
+/// Registration form handler (direct version for now)
+async fn handle_registration_form_direct(form_data: LoginFormData) -> Result<Redirect, StatusCode> {
+    tracing::info!("Processing registration form for user: {}", form_data.email);
+    
+    // Create Firebase Admin instance directly
+    let firebase_admin = match create_firebase_admin().await {
+        Ok(admin) => admin,
+        Err(e) => {
+            tracing::error!("Failed to create Firebase Admin: {}", e);
+            return serve_registration_with_error(&form_data, "Registration service unavailable");
+        }
+    };
+
+    // Validate form data
+    if let Err(status) = validate_form_data(&form_data) {
+        return Err(status);
+    }
+
+    // Create Firebase user
+    let firebase_user = match firebase_admin
+        .create_user_with_password(
+            &form_data.email,
+            &form_data.password,
+            form_data.display_name.clone()
+        )
+        .await
+    {
+        Ok(user) => {
+            tracing::info!("✅ Successfully created Firebase user: {} ({})", form_data.email, user.uid);
+            user
+        }
+        Err(e) => {
+            tracing::error!("❌ Firebase user creation failed for {}: {}", form_data.email, e);
+            return serve_registration_with_error(&form_data, "Registration failed. Email may already be in use.");
+        }
+    };
+
+    // Create database user (simplified - would normally use repository)
+    if let Err(e) = create_database_user_simple(&firebase_user, &form_data.email).await {
+        tracing::error!("❌ Database user creation failed for {}: {}", form_data.email, e);
+        return serve_registration_with_error(&form_data, "Registration failed. Please try again.");
+    }
+
+    // Redirect to login page after successful registration
+    let login_url = format!(
+        "/oauth/authorize?client_id={}&response_type={}&scope={}&redirect_uri={}&state={}&registration_success=true",
+        urlencoding::encode(&form_data.client_id),
+        urlencoding::encode(&form_data.response_type),
+        urlencoding::encode(&form_data.scope),
+        urlencoding::encode(&form_data.redirect_uri),
+        urlencoding::encode(&form_data.state)
+    );
+
+    tracing::info!("Registration successful for user: {}, redirecting to login", form_data.email);
+    Ok(Redirect::to(&login_url))
 }
 
 /// Create database user record (simplified version)

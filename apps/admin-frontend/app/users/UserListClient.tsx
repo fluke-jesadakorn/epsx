@@ -84,7 +84,6 @@ export default function UserListClient({ currentFilters }: UserListClientProps) 
                   <option value="user">User</option>
                   <option value="moderator">Moderator</option>
                   <option value="admin">Admin</option>
-                  <option value="super_admin">Super Admin</option>
                 </select>
               </div>
               

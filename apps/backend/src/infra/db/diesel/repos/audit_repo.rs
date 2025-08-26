@@ -89,15 +89,15 @@ impl AuditRepo for DieselAuditRepo {
         }
         
         if let Some(from_time) = query.from_time {
-            diesel_query = diesel_query.filter(audit_logs::created_at.ge(from_time));
+            diesel_query = diesel_query.filter(audit_logs::timestamp.ge(from_time));
         }
         
         if let Some(to_time) = query.to_time {
-            diesel_query = diesel_query.filter(audit_logs::created_at.le(to_time));
+            diesel_query = diesel_query.filter(audit_logs::timestamp.le(to_time));
         }
         
         // Apply ordering and pagination
-        diesel_query = diesel_query.order(audit_logs::created_at.desc());
+        diesel_query = diesel_query.order(audit_logs::timestamp.desc());
         
         if let Some(offset) = query.offset {
             diesel_query = diesel_query.offset(offset as i64);
@@ -145,11 +145,11 @@ impl AuditRepo for DieselAuditRepo {
         }
         
         if let Some(from_time) = query.from_time {
-            diesel_query = diesel_query.filter(audit_logs::created_at.ge(from_time));
+            diesel_query = diesel_query.filter(audit_logs::timestamp.ge(from_time));
         }
         
         if let Some(to_time) = query.to_time {
-            diesel_query = diesel_query.filter(audit_logs::created_at.le(to_time));
+            diesel_query = diesel_query.filter(audit_logs::timestamp.le(to_time));
         }
         
         let count = diesel_query
@@ -167,7 +167,7 @@ impl AuditRepo for DieselAuditRepo {
         
         // Get total events
         let total_events = audit_logs::table
-            .filter(audit_logs::created_at.between(from, to))
+            .filter(audit_logs::timestamp.between(from, to))
             .count()
             .get_result::<i64>(&mut conn)
             .await
@@ -175,7 +175,7 @@ impl AuditRepo for DieselAuditRepo {
         
         // Get unique users
         let unique_users = audit_logs::table
-            .filter(audit_logs::created_at.between(from, to))
+            .filter(audit_logs::timestamp.between(from, to))
             .filter(audit_logs::user_id.is_not_null())
             .select(audit_logs::user_id)
             .distinct()
@@ -186,7 +186,7 @@ impl AuditRepo for DieselAuditRepo {
         
         // Get unique actions
         let _unique_actions = audit_logs::table
-            .filter(audit_logs::created_at.between(from, to))
+            .filter(audit_logs::timestamp.between(from, to))
             .select(audit_logs::action)
             .distinct()
             .count()
@@ -212,7 +212,7 @@ impl AuditRepo for DieselAuditRepo {
         
         // Use a transaction for consistent cleanup
         let deleted = diesel::delete(audit_logs::table)
-            .filter(audit_logs::created_at.lt(older_than))
+            .filter(audit_logs::timestamp.lt(older_than))
             .execute(&mut conn)
             .await
             .map_err(|e| AuditError::DatabaseError(e.to_string()))?;

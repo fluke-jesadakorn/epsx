@@ -43,9 +43,8 @@ export async function validateAdminAccess(): Promise<boolean> {
       return false;
     }
 
-    // Check if user has any admin modules or is super admin
+    // Check if user has any admin modules or is admin
     const hasAdminAccess = user.admin_modules.length > 0 || 
-                          user.role === 'super_admin' ||
                           user.role === 'admin';
 
     return hasAdminAccess;

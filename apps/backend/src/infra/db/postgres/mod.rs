@@ -5,9 +5,7 @@ use std::time::Duration;
 use crate::config::env::get_env_var;
 use crate::infra::db::diesel::{DbPool, create_pool as create_diesel_pool};
 
-pub mod notification_repo;
-
-pub use notification_repo::*;
+// Notification repository handled by Diesel implementation
 
 /// Enhanced database configuration with environment-aware scaling
 #[derive(Debug, Clone)]

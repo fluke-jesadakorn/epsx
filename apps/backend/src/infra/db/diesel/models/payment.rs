@@ -1,14 +1,15 @@
-use diesel::prelude::*;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
-use crate::infra::db::diesel::schema::payments;
+// use crate::infra::db::diesel::schema::payments; // Table not in schema
 use crate::infra::db::diesel::types::DieselDecimal;
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = payments)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+// Disabled - payments table not in schema
+// #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = payments)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DieselPayment {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -22,8 +23,8 @@ pub struct DieselPayment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = payments)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = payments)] // Table not in schema
 pub struct NewDieselPayment {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -37,8 +38,8 @@ pub struct NewDieselPayment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(AsChangeset, Debug, Clone)]
-#[diesel(table_name = payments)]
+#[derive(Debug, Clone)]
+// #[diesel(table_name = payments)] // Table not in schema
 pub struct UpdateDieselPayment {
     pub status: Option<String>,
     pub payment_method: Option<String>,

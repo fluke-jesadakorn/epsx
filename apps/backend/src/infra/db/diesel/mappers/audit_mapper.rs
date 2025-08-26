@@ -1,6 +1,4 @@
 use uuid::Uuid;
-use chrono::Utc;
-// use serde_json::Value as JsonValue;
 
 use crate::dom::entities::audit::AuditLogEntry;
 use crate::dom::entities::audit::AuditLogId;
@@ -31,11 +29,11 @@ impl TryFrom<DieselAuditLog> for AuditLogEntry {
                 previous_values: None,
                 new_values: None,
                 error_message: None,
-                additional_data: std::collections::HashMap::new(),
+                additional_data: Default::default(),
                 affected_count: None,
                 duration_ms: None,
             },
-            diesel_audit.created_at.unwrap_or_else(Utc::now),
+            diesel_audit.timestamp,
             diesel_audit.ip_address.map(|ip| ip.to_string()),
             diesel_audit.user_agent,
             None, // session_id
@@ -61,14 +59,22 @@ impl TryFrom<&AuditLogEntry> for NewDieselAuditLog {
         
         Ok(NewDieselAuditLog {
             id: audit_uuid,
+            actor_id: Some(user_uuid),
             user_id: Some(user_uuid),
             action: entry.action().to_string(),
-            resource_type: Some(entry.resource_type().to_string()),
+            resource_type: entry.resource_type().to_string(),
             resource_id: Some(entry.resource_id().to_string()),
+            result: None,
+            event_category: None,
+            severity: None,
+            success: Some(true),
             details: Some(serde_json::to_value(entry.metadata()).unwrap_or_default()),
+            metadata: None,
             ip_address,
             user_agent: entry.user_agent().map(|s| s.to_string()),
-            created_at: Some(*entry.created_at()),
+            timestamp: *entry.created_at(),
+            session_id: None,
+            client_ip: None,
         })
     }
 }

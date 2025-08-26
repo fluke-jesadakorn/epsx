@@ -49,10 +49,10 @@ export interface TestUser {
 }
 
 export const TEST_USERS: Record<string, TestUser> = {
-  SUPER_ADMIN: {
-    id: 'super-admin-001',
-    email: 'super.admin@epsx.test',
-    name: 'Super Administrator',
+  ADMIN: {
+    id: 'admin-001',
+    email: 'admin@epsx.test',
+    name: 'Administrator',
     adminModules: Object.values(ADMIN_MODULES),
     packageTier: PACKAGE_TIERS.ENTERPRISE,
     features: [
@@ -265,10 +265,10 @@ export interface TestSession {
 }
 
 export const TEST_SESSIONS: Record<string, TestSession> = {
-  VALID_SUPER_ADMIN: {
-    sessionId: 'sess-super-001',
-    userId: TEST_USERS.SUPER_ADMIN.id,
-    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdXBlci1hZG1pbi0wMDEiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_super',
+  VALID_ADMIN: {
+    sessionId: 'sess-admin-001',
+    userId: TEST_USERS.ADMIN.id,
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbi0wMDEiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_admin',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
     ipAddress: '192.168.1.100',
@@ -333,7 +333,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-login-001',
     eventType: 'LOGIN_SUCCESS',
     severity: 'LOW',
-    userId: TEST_USERS.SUPER_ADMIN.id,
+    userId: TEST_USERS.ADMIN.id,
     endpoint: '/api/v1/admin/auth/login',
     method: 'POST',
     statusCode: 200,

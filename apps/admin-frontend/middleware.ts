@@ -119,7 +119,7 @@ export async function middleware(request: NextRequest) {
     if (requiredModule) {
       const hasAccess = user.admin_modules?.includes(requiredModule) || 
                        user.admin_modules?.includes('admin-full-004') ||
-                       user.role === 'super_admin';
+                       user.role === 'admin';
       
       if (!hasAccess) {
         console.log(`🚫 Admin middleware: User ${user.email} lacks module ${requiredModule} for ${pathname}`);

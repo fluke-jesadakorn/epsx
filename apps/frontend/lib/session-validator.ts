@@ -299,7 +299,6 @@ export function hasRole(user: UserProfile, role: string): boolean {
     premium: 2,
     moderator: 3,
     admin: 4,
-    super_admin: 5
   }
   
   const userLevel = roleHierarchy[user.role] || 0

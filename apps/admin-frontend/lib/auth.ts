@@ -247,7 +247,6 @@ export const useAuth = create<AuthState>((set, get) => ({
       premium: 2,
       moderator: 3,
       admin: 4,
-      super_admin: 5,
     }
     
     const userLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0
@@ -358,8 +357,7 @@ export function getUserDisplayName(user: User | null): string {
 export function formatAdminRole(role: string): string {
   const roleLabels: Record<string, string> = {
     'moderator': 'Moderator',
-    'admin': 'Administrator',
-    'super_admin': 'Super Administrator'
+    'admin': 'Administrator'
   }
   
   return roleLabels[role] || role

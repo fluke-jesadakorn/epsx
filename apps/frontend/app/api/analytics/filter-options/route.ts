@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { FilterOptions } from '@/types/analytics';
+import { serverConfig } from '@/config/env';
 
 // Interface for backend country data
 interface CountryData {
@@ -9,30 +10,21 @@ interface CountryData {
 
 export async function GET() {
   try {
-    const apiUrl = 'https://api.epsx.io';
+    const apiUrl = serverConfig.backendUrl;
+    
+    // Configure fetch options with SSL handling for development
+    const fetchOptions = {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    };
     
     // Fetch countries, sectors, exchanges, and stock types in parallel
     const [countriesResponse, sectorsResponse, exchangesResponse, stockTypesResponse] = await Promise.all([
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/countries`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/sectors`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/exchanges`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
-      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/stock-types`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      }),
+      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/countries`, fetchOptions),
+      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/sectors`, fetchOptions),
+      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/exchanges`, fetchOptions),
+      fetch(`${apiUrl}/api/v1/analytics/eps-rankings/stock-types`, fetchOptions),
     ]);
 
     let countries: string[] = [];

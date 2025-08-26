@@ -40,24 +40,11 @@ pub fn create_security_routes() -> Router<AppState> {
         .route("/api/v1/admin/security/events/:event_id/resolve", put(resolve_security_event_handler))
         .route("/api/v1/admin/security/events/bulk", post(bulk_security_events_handler));
 
-    // Legacy routes for backward compatibility
-    let legacy_routes = Router::new()
-        .route("/events", post(create_security_event_handler))
-        .route("/events", get(get_security_events_handler))
-        .route("/events/:event_id/resolve", put(resolve_security_event_handler))
-        .route("/events/bulk", post(bulk_security_events_handler))
-        .route("/stats", get(get_security_stats_handler))
-        .route("/security/health", get(get_security_system_health_handler))
-        .route("/metrics", post(record_performance_metrics_handler))
-        .route("/security/events", get(get_security_events_handler))
-        .route("/security/stats", get(get_security_stats_handler))
-        .route("/security/events/:event_id/resolve", put(resolve_security_event_handler))
-        .route("/security/events/bulk", post(bulk_security_events_handler))
-        .layer(axum::middleware::from_fn(add_deprecation_headers));
+    // Legacy routes removed to avoid conflicts with realtime /events
+    // Use versioned routes: /api/v1/security/events instead
 
-    Router::new()
-        .merge(v1_routes)
-        .merge(legacy_routes)
+    // Return only versioned routes to avoid conflicts
+    v1_routes
 }
 
 /// Create admin security routes (deprecated - use create_security_routes instead)

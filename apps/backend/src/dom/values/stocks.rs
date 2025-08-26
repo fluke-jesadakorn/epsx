@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn should_create_valid_symbol() {
         let symbol = Symbol::new("AAPL").unwrap();
-        assert_eq!(symbol.value(), "AAPL");
+        assert_eq!(symbol, "AAPL");
         assert!(symbol.is_valid());
     }
     
@@ -271,13 +271,13 @@ mod tests {
     #[test]
     fn should_normalize_symbol() {
         let symbol = Symbol::new(" aapl ").unwrap();
-        assert_eq!(symbol.value(), "AAPL");
+        assert_eq!(symbol, "AAPL");
     }
     
     #[test]
     fn should_parse_symbol_from_string() {
         let symbol: Symbol = "MSFT".parse().unwrap();
-        assert_eq!(symbol.value(), "MSFT");
+        assert_eq!(symbol, "MSFT");
     }
     
     #[test]

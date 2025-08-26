@@ -85,19 +85,20 @@ pub async fn get_all_admin_modules(
     let admin_module_service = &app_state.admin_module_service;
     info!("Fetching all admin modules");
 
-    let modules = admin_module_service.get_all_admin_modules().await?;
+    let modules = admin_module_service.get_all_admin_modules().await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     let response: Vec<AdminModuleResponse> = modules
         .into_iter()
-        .map(|module| AdminModuleResponse {
-            code: module.module_code,
-            name: module.module_name,
-            description: module.description,
-            category: module.category,
-            icon: module.icon,
-            color: module.color,
-            sort_order: module.sort_order,
-            is_active: module.is_active,
+        .map(|module_name| AdminModuleResponse {
+            code: module_name.clone(),
+            name: module_name.clone(),
+            description: format!("Admin access for {}", module_name),
+            category: "admin".to_string(),
+            icon: Some("settings".to_string()),
+            color: Some("#6B7280".to_string()),
+            sort_order: 1,
+            is_active: true,
         })
         .collect();
 
@@ -114,24 +115,26 @@ pub async fn get_user_admin_modules(
     info!("Fetching admin modules for user: {}", firebase_uid);
 
     // Get user's module codes
-    let user_modules = admin_module_service.get_user_admin_modules(&firebase_uid).await?;
+    let user_modules = admin_module_service.get_user_admin_modules(&firebase_uid).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
     // Get all available modules for details
-    let all_modules = admin_module_service.get_all_admin_modules().await?;
+    let all_modules = admin_module_service.get_all_admin_modules().await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
     // Filter to only user's assigned modules
     let module_details: Vec<AdminModuleResponse> = all_modules
         .into_iter()
-        .filter(|module| user_modules.iter().any(|um| um.module_code == module.module_code))
-        .map(|module| AdminModuleResponse {
-            code: module.module_code,
-            name: module.module_name,
-            description: module.description,
-            category: module.category,
-            icon: module.icon,
-            color: module.color,
-            sort_order: module.sort_order,
-            is_active: module.is_active,
+        .filter(|module_name| user_modules.iter().any(|um| um == module_name))
+        .map(|module_name| AdminModuleResponse {
+            code: module_name.clone(),
+            name: module_name.clone(),
+            description: format!("Admin access for {}", module_name),
+            category: "admin".to_string(),
+            icon: Some("settings".to_string()),
+            color: Some("#6B7280".to_string()),
+            sort_order: 1,
+            is_active: true,
         })
         .collect();
 
@@ -139,7 +142,7 @@ pub async fn get_user_admin_modules(
 
     let response = UserAdminModulesResponse {
         firebase_uid: firebase_uid.clone(),
-        modules: user_modules.iter().map(|um| um.module_code.clone()).collect(),
+        modules: user_modules.clone(),
         module_details,
         is_admin,
         total_modules: user_modules.len(),
@@ -159,12 +162,13 @@ pub async fn assign_admin_modules(
     info!("Assigning admin modules to user: {} by admin: {}", request.firebase_uid, claims.user_id);
 
     // Ensure the admin has permission to assign these modules
-    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
+    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
     // Check if admin has 'user_operations' or 'permission_admin' module
-    let can_assign = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
-                     admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
-                     admin_modules.iter().any(|am| am.module_code == "system_admin");
+    let can_assign = admin_modules.iter().any(|am| am == "user_operations") ||
+                     admin_modules.iter().any(|am| am == "permission_admin") ||
+                     admin_modules.iter().any(|am| am == "system_admin");
     
     if !can_assign {
         warn!("Admin {} attempted to assign modules without proper permissions", claims.user_id);
@@ -172,17 +176,14 @@ pub async fn assign_admin_modules(
     }
 
     let assignment_request = AdminModuleAssignRequest {
-        firebase_uid: request.firebase_uid.clone(),
-        module_code: request.module_codes.first().unwrap_or(&String::new()).clone(),
-        granted_by: claims.user_id,
-        reason: request.granted_reason.or_else(|| 
-            Some(format!("Module assignment by admin via API"))
-        ),
+        user_id: request.firebase_uid.clone().into(),
+        module_name: request.module_codes.first().unwrap_or(&String::new()).clone(),
+        access_level: "admin".to_string(),
         expires_at: request.expires_at,
-        metadata: None,
     };
 
-    let assigned_modules = admin_module_service.assign_admin_modules(&assignment_request).await?;
+    let assigned_modules = admin_module_service.assign_admin_modules(&assignment_request).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     let firebase_uid = request.firebase_uid.clone();
     let response = AdminRoleOperationResponse {
@@ -206,11 +207,12 @@ pub async fn revoke_admin_modules(
     info!("Revoking admin modules from user: {} by admin: {}", request.firebase_uid, claims.user_id);
 
     // Ensure the admin has permission to revoke these modules
-    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
+    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
-    let can_revoke = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
-                     admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
-                     admin_modules.iter().any(|am| am.module_code == "system_admin");
+    let can_revoke = admin_modules.iter().any(|am| am == "user_operations") ||
+                     admin_modules.iter().any(|am| am == "permission_admin") ||
+                     admin_modules.iter().any(|am| am == "system_admin");
     
     if !can_revoke {
         warn!("Admin {} attempted to revoke modules without proper permissions", claims.user_id);
@@ -223,14 +225,13 @@ pub async fn revoke_admin_modules(
         return Err(AppError::bad_request("Cannot revoke your own admin modules"));
     }
 
-    let revoked_modules = admin_module_service.revoke_admin_modules(
-        &request.firebase_uid,
-        request.module_codes.clone(),
-        &claims.user_id,
-        request.reason.as_deref(),
-    ).await?;
-
     let firebase_uid = request.firebase_uid.clone();
+    
+    let revoked_modules = admin_module_service.revoke_admin_modules(
+        &firebase_uid.clone().into(),
+        request.module_codes.clone()
+    ).await
+    .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     let response = AdminRoleOperationResponse {
         success: true,
         message: format!("Successfully revoked {} modules", revoked_modules.len()),
@@ -252,9 +253,10 @@ pub async fn assign_all_admin_modules(
     info!("Assigning ALL admin modules to user: {} by super admin: {}", firebase_uid, claims.user_id);
 
     // Only allow users with 'system_admin' module to create super admins
-    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
+    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
-    if !admin_modules.iter().any(|am| am.module_code == "system_admin") {
+    if !admin_modules.iter().any(|am| am == "system_admin") {
         warn!("User {} attempted to create super admin without system_admin module", claims.user_id);
         return Err(AppError::unauthorized("Only system administrators can assign all admin modules"));
     }
@@ -263,7 +265,8 @@ pub async fn assign_all_admin_modules(
         &firebase_uid,
         &claims.user_id,
         "Full admin module assignment via API by system administrator"
-    ).await?;
+    ).await
+    .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     let response = AdminRoleOperationResponse {
         success: true,
@@ -287,10 +290,11 @@ pub async fn get_admin_role_audit(
     info!("Fetching admin role audit for user: {} by admin: {}", firebase_uid, claims.user_id);
 
     // Ensure the admin has permission to view audit trails
-    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
+    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
-    let can_view_audit = admin_modules.iter().any(|am| am.module_code == "compliance_audit") ||
-                         admin_modules.iter().any(|am| am.module_code == "system_admin");
+    let can_view_audit = admin_modules.iter().any(|am| am == "compliance_audit") ||
+                         admin_modules.iter().any(|am| am == "system_admin");
     
     if !can_view_audit {
         warn!("Admin {} attempted to view audit trail without proper permissions", claims.user_id);
@@ -298,7 +302,8 @@ pub async fn get_admin_role_audit(
     }
 
     let _limit = params.limit.or(Some(50)).map(|l| l.min(500)); // Max 500 records
-    let audit_records = admin_module_service.get_admin_role_audit(&firebase_uid).await?;
+    let audit_records = admin_module_service.get_admin_role_audit(&firebase_uid).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     info!("Retrieved {} audit records for user: {}", audit_records.len(), firebase_uid);
     Ok(Json(audit_records))
@@ -312,7 +317,8 @@ pub async fn check_admin_module_access(
     let admin_module_service = &app_state.admin_module_service;
     info!("Checking admin module access: user={}, module={}", firebase_uid, module_code);
 
-    let has_access = admin_module_service.user_has_admin_module(&firebase_uid, &module_code).await?;
+    let has_access = admin_module_service.user_has_admin_module(&firebase_uid, &module_code).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     let response = serde_json::json!({
         "firebase_uid": firebase_uid,
@@ -334,32 +340,35 @@ pub async fn get_user_admin_module_details(
     info!("Fetching detailed admin module assignments for user: {} by admin: {}", firebase_uid, claims.user_id);
 
     // Ensure the admin can view detailed assignments
-    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await?;
+    let admin_modules = admin_module_service.get_user_admin_modules(&claims.user_id).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
-    let can_view_details = admin_modules.iter().any(|am| am.module_code == "user_operations") ||
-                           admin_modules.iter().any(|am| am.module_code == "permission_admin") ||
-                           admin_modules.iter().any(|am| am.module_code == "system_admin");
+    let can_view_details = admin_modules.iter().any(|am| am == "user_operations") ||
+                           admin_modules.iter().any(|am| am == "permission_admin") ||
+                           admin_modules.iter().any(|am| am == "system_admin");
     
     if !can_view_details {
         warn!("Admin {} attempted to view detailed assignments without proper permissions", claims.user_id);
         return Err(AppError::unauthorized("Insufficient permissions to view detailed admin module assignments"));
     }
 
-    let assignments = admin_module_service.get_user_admin_modules(&firebase_uid).await?;
+    let assignments = admin_module_service.get_user_admin_modules(&firebase_uid).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     let response: Vec<serde_json::Value> = assignments
         .into_iter()
-        .map(|assignment| serde_json::json!({
-            "id": assignment.id,
-            "firebase_uid": assignment.firebase_uid,
-            "module_code": assignment.module_code,
-            "granted_by": assignment.granted_by,
-            "granted_reason": assignment.granted_reason,
-            "expires_at": assignment.expires_at,
-            "is_active": assignment.is_active,
-            "assignment_metadata": assignment.assignment_metadata,
-            "created_at": assignment.created_at,
-            "updated_at": assignment.updated_at
+        .enumerate()
+        .map(|(i, assignment)| serde_json::json!({
+            "id": format!("{}-{}", firebase_uid, i),
+            "firebase_uid": firebase_uid,
+            "module_code": assignment,
+            "granted_by": "system",
+            "granted_reason": "Simple role system assignment",
+            "expires_at": null,
+            "is_active": true,
+            "assignment_metadata": {},
+            "created_at": chrono::Utc::now(),
+            "updated_at": chrono::Utc::now()
         }))
         .collect();
 
@@ -377,24 +386,26 @@ pub async fn get_current_user_admin_modules(
     info!("Fetching admin modules for current authenticated user: {}", firebase_uid);
 
     // Get user's module codes
-    let user_modules = admin_module_service.get_user_admin_modules(firebase_uid).await?;
+    let user_modules = admin_module_service.get_user_admin_modules(firebase_uid).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
     // Get all available modules for details
-    let all_modules = admin_module_service.get_all_admin_modules().await?;
+    let all_modules = admin_module_service.get_all_admin_modules().await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     
     // Filter to only user's assigned modules
     let module_details: Vec<AdminModuleResponse> = all_modules
         .into_iter()
-        .filter(|module| user_modules.iter().any(|um| um.module_code == module.module_code))
-        .map(|module| AdminModuleResponse {
-            code: module.module_code,
-            name: module.module_name,
-            description: module.description,
-            category: module.category,
-            icon: module.icon,
-            color: module.color,
-            sort_order: module.sort_order,
-            is_active: module.is_active,
+        .filter(|module_name| user_modules.iter().any(|um| um == module_name))
+        .map(|module_name| AdminModuleResponse {
+            code: module_name.clone(),
+            name: module_name.clone(),
+            description: format!("Admin access for {}", module_name),
+            category: "admin".to_string(),
+            icon: Some("settings".to_string()),
+            color: Some("#6B7280".to_string()),
+            sort_order: 1,
+            is_active: true,
         })
         .collect();
 
@@ -402,7 +413,7 @@ pub async fn get_current_user_admin_modules(
 
     let response = UserAdminModulesResponse {
         firebase_uid: firebase_uid.clone(),
-        modules: user_modules.iter().map(|um| um.module_code.clone()).collect(),
+        modules: user_modules.clone(),
         module_details,
         is_admin,
         total_modules: user_modules.len(),

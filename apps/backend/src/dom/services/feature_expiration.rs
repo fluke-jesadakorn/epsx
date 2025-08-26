@@ -152,7 +152,7 @@ impl FeatureExpirationServiceImpl {
     let mut metadata = HashMap::new();
     metadata.insert(
       "permission_profile_id".to_string(),
-      expiration.permission_profile_id.value().to_string()
+      expiration.permission_profile_id.to_string()
     );
     metadata.insert(
       "permission_profile_name".to_string(),
@@ -246,7 +246,7 @@ impl FeatureExpirationServiceImpl {
     let mut metadata = HashMap::new();
     metadata.insert(
       "permission_profile_id".to_string(),
-      expiration.permission_profile_id.value().to_string()
+      expiration.permission_profile_id.to_string()
     );
     metadata.insert(
       "permission_profile_name".to_string(),
@@ -287,9 +287,8 @@ impl FeatureExpirationServiceImpl {
   ) -> bool {
     let state_key = format!(
       "{}:{}",
-      expiration.user_id.value(),
-      expiration.permission_profile_id.value()
-    );
+      expiration.user_id,
+      expiration.permission_profile_id    );
     let notification_state = self.notification_state.read().await;
 
     if let Some(state) = notification_state.get(&state_key) {
@@ -321,9 +320,8 @@ impl FeatureExpirationServiceImpl {
   ) {
     let state_key = format!(
       "{}:{}",
-      expiration.user_id.value(),
-      expiration.permission_profile_id.value()
-    );
+      expiration.user_id,
+      expiration.permission_profile_id    );
     let mut notification_state = self.notification_state.write().await;
 
     let state = notification_state
@@ -385,7 +383,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
             result.features_deactivated += 1;
             tracing::info!(
               "Deactivated expired features for user {} permission profile {}",
-              expiration.user_id.value(),
+              expiration.user_id,
               expiration.permission_profile_name
             );
           }
@@ -393,7 +391,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
             result.errors.push(
               format!(
                 "Failed to deactivate features for user {}: {}",
-                expiration.user_id.value(),
+                expiration.user_id,
                 e
               )
             );
@@ -430,7 +428,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
 
             tracing::info!(
               "Sent renewal notification to user {} for {} (expires in {} days)",
-              expiration.user_id.value(),
+              expiration.user_id,
               expiration.permission_profile_name,
               days_until_expiry_u32
             );
@@ -439,7 +437,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
             result.errors.push(
               format!(
                 "Failed to send notification to user {}: {}",
-                expiration.user_id.value(),
+                expiration.user_id,
                 e
               )
             );
@@ -482,8 +480,8 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
 
     tracing::info!(
       "Extended feature expiration for user {} permission profile {} by {} days",
-      user_id.value(),
-      permission_profile_id.value(),
+      user_id,
+      permission_profile_id,
       extension_days
     );
 
@@ -546,7 +544,7 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
       let mut meta = HashMap::new();
       meta.insert(
         "permission_profile_id".to_string(),
-        permission_profile_id.value().to_string()
+        permission_profile_id.to_string()
       );
       meta.insert("deactivated_at".to_string(), Utc::now().to_rfc3339());
       meta
@@ -568,9 +566,8 @@ impl FeatureExpirationService for FeatureExpirationServiceImpl {
 
     tracing::info!(
       "Deactivated expired features for user {} permission profile {}",
-      user_id.value(),
-      permission_profile_id.value()
-    );
+      user_id,
+      permission_profile_id    );
 
     Ok(())
   }

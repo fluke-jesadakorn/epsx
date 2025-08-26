@@ -1,13 +1,14 @@
-use diesel::prelude::*;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
-use crate::infra::db::diesel::schema::{stocks, eps_growth_rankings};
+// use crate::infra::db::diesel::schema::{stocks, eps_growth_rankings}; // Tables not in schema
 use crate::infra::db::diesel::types::DieselDecimal;
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = stocks)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+// Disabled - stocks table not in schema
+// #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = stocks)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DieselStock {
     pub symbol: String,
     pub name: String,
@@ -21,8 +22,10 @@ pub struct DieselStock {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = stocks)]
+// Disabled - stocks table not in schema
+// #[derive(Insertable, Debug, Clone)]
+// #[diesel(table_name = stocks)]
+#[derive(Debug, Clone)]
 pub struct NewDieselStock {
     pub symbol: String,
     pub name: String,
@@ -36,8 +39,10 @@ pub struct NewDieselStock {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(AsChangeset, Debug, Clone)]
-#[diesel(table_name = stocks)]
+// Disabled - stocks table not in schema
+// #[derive(AsChangeset, Debug, Clone)]
+// #[diesel(table_name = stocks)]
+#[derive(Debug, Clone)]
 pub struct UpdateDieselStock {
     pub price: DieselDecimal,
     pub volume: i64,
@@ -45,9 +50,11 @@ pub struct UpdateDieselStock {
     pub last_updated: DateTime<Utc>,
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
-#[diesel(table_name = eps_growth_rankings)]
-#[diesel(check_for_backend(diesel::pg::Pg))]  
+// Disabled - eps_growth_rankings table not in schema
+// #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+// #[diesel(table_name = eps_growth_rankings)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]  
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DieselEpsGrowthRanking {
     pub id: uuid::Uuid,
     pub symbol: String,
@@ -63,8 +70,10 @@ pub struct DieselEpsGrowthRanking {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = eps_growth_rankings)]
+// Disabled - eps_growth_rankings table not in schema
+// #[derive(Insertable, Debug, Clone)]
+// #[diesel(table_name = eps_growth_rankings)]
+#[derive(Debug, Clone)]
 pub struct NewDieselEpsGrowthRanking {
     pub id: uuid::Uuid,
     pub symbol: String,

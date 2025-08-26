@@ -14,9 +14,24 @@ use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, M
 use crate::dom::values::{UserId, SessId, Symbol, Email, Market};
 use crate::dom::error::DomainError;
 use crate::app::dtos::LevelChangeRecord;
-use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
+// use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+// Simple stubs for removed module auth
+#[derive(Debug, Clone)]
+pub struct UserModuleAccess {
+    pub user_id: UserId,
+    pub module_name: String,
+    pub access_level: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApiKeyAccess {
+    pub key_id: Uuid,
+    pub module_name: String,
+    pub access_level: String,
+}
 
 // Search filter structures for advanced user search
 #[derive(Debug, Clone)]

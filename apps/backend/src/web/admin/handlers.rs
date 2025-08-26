@@ -154,7 +154,7 @@ pub async fn list_users_handler(
     let user_list: Vec<Value> = users.into_iter().map(|user| {
         json!({
             "id": user.id().to_string(),
-            "email": user.email().value(),
+            "email": user.email(),
             "role": user.role().to_string(),
             "subscription_tier": user.subscription().tier().to_string(),
             "is_active": user.is_active(),
@@ -236,7 +236,7 @@ pub async fn create_user_handler(
     Ok(Json(json!({
         "message": "User created successfully",
         "user_id": user.id().to_string(),
-        "email": user.email().value(),
+        "email": user.email(),
         "role": user.role().to_string(),
         "display_name": req.display_name,
         "created_at": user.created_at()
@@ -280,7 +280,7 @@ pub async fn get_user_handler(
     
     Ok(Json(json!({
         "user_id": user.id().to_string(),
-        "email": user.email().value(),
+        "email": user.email(),
         "firebase_uid": user.firebase_uid(),
         "role": user.role().to_string(),
         "roles": user_roles,
@@ -332,7 +332,7 @@ pub async fn update_user_handler(
     // Handle package tier update
     if let Some(new_tier_str) = req.role {
         // Validate package tier (basic validation)
-        if !["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&new_tier_str.to_lowercase().as_str()) {
+        if !["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&new_tier_str.to_lowercase().as_str()) {
             tracing::warn!("Invalid package tier provided: {}", new_tier_str);
             return Err(StatusCode::BAD_REQUEST);
         }
@@ -565,7 +565,7 @@ pub async fn bulk_update_users_handler(
     // Validate new package tier if provided
     let new_package_tier = if let Some(tier_str) = &req.new_role {
         // Basic validation for package tier
-        if !["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&tier_str.to_lowercase().as_str()) {
+        if !["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&tier_str.to_lowercase().as_str()) {
             tracing::warn!("Invalid package tier provided for bulk update: {}", tier_str);
             return Err(StatusCode::BAD_REQUEST);
         }
@@ -630,7 +630,7 @@ pub async fn bulk_update_users_handler(
         if let Some(ref level_str) = req.new_level {
             if req.new_role.is_none() {  // Only process if package tier wasn't already updated
                 // Basic validation for level as package tier
-                if ["free", "bronze", "silver", "gold", "platinum", "admin", "super_admin"].contains(&level_str.to_lowercase().as_str()) {
+                if ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&level_str.to_lowercase().as_str()) {
                     if *level_str != old_package_tier {
                         user.update_package_tier(level_str.clone());
                         changes_made.push(format!("level: {} -> {}", old_package_tier, level_str));
@@ -781,7 +781,7 @@ pub async fn get_level_history_handler(
             };
             
             json!({
-                "id": change.id().value(),
+                "id": change.id(),
                 "action": change.action().to_string(),
                 "timestamp": change.timestamp(),
                 "previous_level": previous_level,
@@ -824,7 +824,7 @@ pub async fn get_level_history_handler(
         "status": "success",
         "data": {
             "user_id": query.user_id,
-            "user_email": user.email().value(),
+            "user_email": user.email(),
             "current_level": current_level_info,
             "progression_history": progression_history,
             "pagination": {

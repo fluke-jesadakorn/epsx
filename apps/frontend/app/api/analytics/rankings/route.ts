@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { EPSRankingsResponse, AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import type { CardDashboardResponse } from '@/types/financialChartData';
+import { serverConfig } from '@/config/env';
 
 // Country name mapping for normalization - maps display names to API values
 const countryValueMap: { [key: string]: string } = {
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
       stock_type: (searchParams.get('stock_type') as any) || undefined,
     };
 
-    const apiUrl = 'https://api.epsx.io';
+    const apiUrl = serverConfig.backendUrl;
     
     // Build query parameters
     const params = new URLSearchParams({

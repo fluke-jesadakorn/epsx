@@ -124,7 +124,7 @@ impl AlphaVantageService {
 
     fn get_cached_price(&self, symbol: &Symbol) -> Option<StockPrice> {
         let cache = self.cache.lock().unwrap();
-        if let Some(cached) = cache.get(symbol.value()) {
+        if let Some(cached) = cache.get(&symbol.to_string()) {
             if !cached.is_expired() {
                 return Some(cached.price.clone());
             }
@@ -134,7 +134,7 @@ impl AlphaVantageService {
 
     fn cache_price(&self, symbol: &Symbol, price: StockPrice, ttl_seconds: u64) {
         let mut cache = self.cache.lock().unwrap();
-        cache.insert(symbol.value().to_string(), CachedPrice {
+        cache.insert(symbol.to_string(), CachedPrice {
             price,
             cached_at: chrono::Utc::now(),
             ttl_seconds,
@@ -187,7 +187,8 @@ impl StockDataSvc for AlphaVantageService {
             return Ok(cached_price);
         }
 
-        let params = [("symbol", symbol.value())];
+        let symbol_str = symbol.to_string();
+        let params = [("symbol", symbol_str.as_str())];
         let json = self.make_request("GLOBAL_QUOTE", &params).await?;
 
         let quote: AlphaVantageQuote = serde_json::from_value(json)
@@ -228,7 +229,8 @@ impl StockDataSvc for AlphaVantageService {
             _ => return Err(StockServiceError::InvalidPeriod(period.to_string())),
         };
 
-        let params = [("symbol", symbol.value())];
+        let symbol_str = symbol.to_string();
+        let params = [("symbol", symbol_str.as_str())];
         let json = self.make_request(function, &params).await?;
 
         let time_series: AlphaVantageTimeSeries = serde_json::from_value(json)
@@ -470,7 +472,7 @@ mod tests {
 
         let search_results = service.search_symbols("AAPL").await.unwrap();
         assert!(!search_results.is_empty());
-        assert_eq!(search_results[0].symbol.value(), "AAPL");
+        assert_eq!(search_results[0].symbol, "AAPL");
     }
 
     #[tokio::test] 

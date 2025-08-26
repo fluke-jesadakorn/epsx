@@ -7,13 +7,15 @@ use axum::{
     Router,
 };
 
-use crate::web::{
-    auth::AppState,
-    middleware::{
-        module_auth_middleware::AccessLevel,
-        module_permission_middleware::module_casbin_middleware,
-    },
-};
+use crate::web::auth::AppState;
+
+// Simple stub for removed module middleware
+#[derive(Debug, Clone)]
+pub enum AccessLevel {
+    Basic,
+    Premium,
+    Admin,
+}
 
 // Module handlers and routes removed - were all placeholder implementations
 
@@ -29,10 +31,10 @@ pub fn create_modules_router(app_state: AppState) -> Router<AppState> {
         // These were all stub implementations that returned "implementation pending" messages
         
         
-        // Apply module permission middleware (includes auth + quota checking)
+        // Apply simple auth middleware (replaces complex casbin/module permissions)
         .route_layer(from_fn_with_state(
             app_state,
-            module_casbin_middleware,
+            crate::web::middleware::modern_jwt_auth_middleware,
         ))
 }
 
