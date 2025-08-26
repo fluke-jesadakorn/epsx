@@ -18,16 +18,12 @@ pub struct DieselAuditLog {
     pub resource_type: String,
     pub resource_id: Option<String>,
     pub result: Option<String>,
-    pub event_category: Option<String>,
     pub severity: Option<String>,
-    pub success: Option<bool>,
     pub details: Option<JsonValue>,
-    pub metadata: Option<JsonValue>,
     pub ip_address: Option<DieselIpAddr>,
     pub user_agent: Option<String>,
     pub timestamp: DateTime<Utc>,
     pub session_id: Option<Uuid>,
-    pub client_ip: Option<DieselIpAddr>,
 }
 
 #[derive(Insertable, Debug, Clone)]
@@ -40,14 +36,10 @@ pub struct NewDieselAuditLog {
     pub resource_type: String,
     pub resource_id: Option<String>,
     pub result: Option<String>,
-    pub event_category: Option<String>,
     pub severity: Option<String>,
-    pub success: Option<bool>,
     pub details: Option<JsonValue>,
-    pub metadata: Option<JsonValue>,
     pub ip_address: Option<DieselIpAddr>,
     pub user_agent: Option<String>,
     pub timestamp: DateTime<Utc>,
     pub session_id: Option<Uuid>,
-    pub client_ip: Option<DieselIpAddr>,
 }

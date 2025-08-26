@@ -7,7 +7,8 @@ use crate::dom::values::{ UserId, Email };
 // Simple permission helpers for user management  
 use crate::auth::roles::Role;
 use crate::dom::events::{ DomainEvent, UserDeletedEvent };
-use crate::app::ports::{ UserRepo, EventDispatcher, LevelHistoryRepo };
+use crate::app::ports::{ EventDispatcher };
+use crate::app::ports::repositories::{ UserRepository, LevelHistoryRepository };
 use crate::app::dtos::{
   CreateUserReq,
   CreateUserRes,
@@ -33,16 +34,16 @@ use crate::app::dtos::{
 };
 
 pub struct UserMgmtUC {
-  user_repo: Arc<dyn UserRepo>,
+  user_repo: Arc<dyn UserRepository>,
   event_dispatcher: Arc<dyn EventDispatcher>,
-  level_history_repo: Arc<dyn LevelHistoryRepo>,
+  level_history_repo: Arc<dyn LevelHistoryRepository>,
 }
 
 impl UserMgmtUC {
   pub fn new(
-    user_repo: Arc<dyn UserRepo>,
+    user_repo: Arc<dyn UserRepository>,
     event_dispatcher: Arc<dyn EventDispatcher>,
-    level_history_repo: Arc<dyn LevelHistoryRepo>
+    level_history_repo: Arc<dyn LevelHistoryRepository>
   ) -> Self {
     Self {
       user_repo,

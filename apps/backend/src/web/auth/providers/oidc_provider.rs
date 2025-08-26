@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
@@ -161,12 +161,59 @@ impl AuthProvider for OIDCProvider {
         Ok(user_claims)
     }
 
-    async fn refresh_token(&self, _refresh_token: &str) -> Result<TokenPair, AuthProviderError> {
-        // TODO: Implement refresh token flow
-        // This would involve validating the refresh token and issuing new access token
-        Err(AuthProviderError::InternalError(
-            "OIDC refresh token not implemented yet".to_string()
-        ))
+    async fn refresh_token(&self, refresh_token: &str) -> Result<TokenPair, AuthProviderError> {
+        use reqwest::Client;
+        
+        // Prepare token refresh request to OIDC provider
+        let token_endpoint = format!("{}/token", self.config.issuer_url.trim_end_matches('/'));
+        
+        let params = [
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token),
+            ("client_id", &self.config.expected_audience),
+            ("client_secret", "placeholder_secret"),
+        ];
+        
+        let client = Client::new();
+        let response = client
+            .post(&token_endpoint)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .form(&params)
+            .send()
+            .await
+            .map_err(|e| AuthProviderError::NetworkError(format!("Token refresh request failed: {}", e)))?;
+        
+        if !response.status().is_success() {
+            let _error_text = response.text().await.unwrap_or_default();
+            return Err(AuthProviderError::InvalidToken);
+        }
+        
+        // Parse token response
+        let token_response: serde_json::Value = response.json().await
+            .map_err(|e| AuthProviderError::NetworkError(format!("Failed to parse token response: {}", e)))?;
+        
+        let access_token = token_response.get("access_token")
+            .and_then(|t| t.as_str())
+            .ok_or(AuthProviderError::InvalidToken)?
+            .to_string();
+        
+        let new_refresh_token = token_response.get("refresh_token")
+            .and_then(|t| t.as_str())
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| refresh_token.to_string()); // Use original if not provided
+        
+        let expires_in = token_response.get("expires_in")
+            .and_then(|e| e.as_i64())
+            .unwrap_or(3600); // Default to 1 hour
+        
+        let expires_at = Utc::now() + chrono::Duration::seconds(expires_in);
+        
+        Ok(TokenPair {
+            access_token,
+            refresh_token: Some(new_refresh_token),
+            expires_at,
+            token_type: "Bearer".to_string(),
+        })
     }
 
     fn provider_name(&self) -> &'static str {

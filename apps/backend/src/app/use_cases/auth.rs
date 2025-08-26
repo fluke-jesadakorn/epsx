@@ -3,37 +3,30 @@
 use crate::dom::entities::{User, Session};
 use crate::dom::values::{UserId, Email, SessId};
 use crate::auth::roles::Role;
-use crate::app::ports::repositories::{UserRepo, SessRepo};
-use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession, AutoRegistrationRequest, RegistrationResponse, FeatureAssignmentResult};
-use crate::dom::services::auto_assignment::{AutoAssignmentEngine, RegistrationContext};
+use crate::app::ports::repositories::{UserRepository, SessionRepository};
+use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession, AutoRegistrationRequest, RegistrationResponse};
 use crate::infra::FirebaseAdmin;
 use std::sync::Arc;
 
 pub struct AuthUC {
-    user_repo: Arc<dyn UserRepo>,
-    session_repo: Arc<dyn SessRepo>,
-    auto_assignment_engine: Option<Arc<AutoAssignmentEngine>>,
+    user_repo: Arc<dyn UserRepository>,
+    session_repo: Arc<dyn SessionRepository>,
     firebase_admin: Arc<FirebaseAdmin>,
 }
 
 impl AuthUC {
     pub fn new(
-        user_repo: Arc<dyn UserRepo>, 
-        session_repo: Arc<dyn SessRepo>,
+        user_repo: Arc<dyn UserRepository>, 
+        session_repo: Arc<dyn SessionRepository>,
         firebase_admin: Arc<FirebaseAdmin>
     ) -> Self {
         Self { 
             user_repo,
             session_repo,
-            auto_assignment_engine: None,
             firebase_admin,
         }
     }
 
-    pub fn with_auto_assignment(mut self, engine: Arc<AutoAssignmentEngine>) -> Self {
-        self.auto_assignment_engine = Some(engine);
-        self
-    }
 
     pub async fn authenticate_user(&self, email: &Email) -> Result<Option<User>, Box<dyn std::error::Error>> {
         self.user_repo.find_by_email(email).await.map_err(|e| e.into())
@@ -180,51 +173,15 @@ impl AuthUC {
         let session = self.create_session(user_id.clone(), access_token.clone()).await?;
         self.session_repo.save(&session).await?;
 
-        // If auto-assignment engine is available, process permission profile assignments
-        let (features_unlocked, assignment_results, total_assigned) = if let Some(engine) = &self.auto_assignment_engine {
-            let context = RegistrationContext {
-                email: req.email.clone(),
-                package_tier: crate::dom::services::auto_assignment::PackageTier::from(req.package_tier.as_str()),
-                referral_code: req.referral_code,
-                source: req.source,
-                region: req.region,
-                email_domain: extract_email_domain(&req.email),
-                user_agent: None, // Would come from HTTP headers
-                utm_source: req.utm_source,
-                utm_campaign: req.utm_campaign,
-            };
-
-            match engine.process_registration(&user_id, &context).await {
-                Ok(results) => {
-                    let features: Vec<String> = results
-                        .assignments
-                        .iter()
-                        .filter(|a| a.success)
-                        .map(|a| a.feature_id.clone())
-                        .collect();
-
-                    let assignment_results: Vec<FeatureAssignmentResult> = results
-                        .assignments
-                        .into_iter()
-                        .map(|a| FeatureAssignmentResult {
-                            feature_id: a.feature_id,
-                            profile_name: format!("Profile_{}", a.permission_profile_id), // Would fetch actual name
-                            success: a.success,
-                            reason: a.reason,
-                            expires_at: a.expires_at,
-                        })
-                        .collect();
-
-                    (features, assignment_results, results.total_assigned)
-                }
-                Err(e) => {
-                    tracing::warn!("Auto-assignment failed for user {}: {}", user_id, e);
-                    (vec![], vec![], 0)
-                }
-            }
-        } else {
-            (vec![], vec![], 0)
+        // Simple role assignment based on package tier
+        let features_unlocked = match req.package_tier.as_str() {
+            "premium" => vec!["advanced_analytics".to_string(), "export_data".to_string()],
+            "basic" => vec!["view_eps".to_string()],
+            _ => vec!["view_eps".to_string()], // Default to basic
         };
+        
+        let assignment_results = vec![]; // Simplified - no complex assignment tracking
+        let total_assigned = features_unlocked.len() as u32;
 
         tracing::info!(
             "User {} registered with {} features auto-assigned",

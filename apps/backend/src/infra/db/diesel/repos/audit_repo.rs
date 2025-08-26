@@ -5,28 +5,26 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc, Duration};
 use std::sync::Arc;
 
-use crate::app::ports::repositories::{AuditRepo, ExportFormat};
+use crate::app::ports::repositories::{AuditRepository, ExportFormat};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
-use crate::dom::entities::permission_profile::PermissionProfileId;
-use crate::dom::values::UserId;
 use crate::infra::db::diesel::{
     DbPool,
     schema::audit_logs,
     models::{DieselAuditLog, NewDieselAuditLog},
 };
 
-pub struct DieselAuditRepo {
+pub struct DieselAuditRepository {
     pool: Arc<DbPool>,
 }
 
-impl DieselAuditRepo {
+impl DieselAuditRepository {
     pub fn new(pool: Arc<DbPool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl AuditRepo for DieselAuditRepo {
+impl AuditRepository for DieselAuditRepository {
     async fn store(&self, entry: &AuditLogEntry) -> Result<(), AuditError> {
         let mut conn = self.pool.get().await
             .map_err(|e| AuditError::DatabaseError(e.to_string()))?;
@@ -298,29 +296,6 @@ impl AuditRepo for DieselAuditRepo {
         Ok(deleted as i64)
     }
     
-    async fn log_permission_assignment(&self, user_id: &UserId, profile_id: &PermissionProfileId, _assigned_by: &str, _reason: &str) -> Result<(), AuditError> {
-        let entry = AuditLogEntry::new(
-            user_id.clone(),
-            crate::dom::entities::audit::AuditAction::UserCreated,
-            crate::dom::entities::audit::ResourceType::Permission,
-            profile_id.to_string(),
-            crate::dom::entities::audit::AuditResult::Success,
-        );
-        
-        self.store(&entry).await
-    }
-    
-    async fn log_permission_revocation(&self, user_id: &UserId, profile_id: &PermissionProfileId, _revoked_by: &str, _reason: &str) -> Result<(), AuditError> {
-        let entry = AuditLogEntry::new(
-            user_id.clone(),
-            crate::dom::entities::audit::AuditAction::PermissionRevoked,
-            crate::dom::entities::audit::ResourceType::Permission,
-            profile_id.to_string(),
-            crate::dom::entities::audit::AuditResult::Success,
-        );
-        
-        self.store(&entry).await
-    }
     
     async fn log_system_event(&self, event_type: &str, _details: &str) -> Result<(), AuditError> {
         let entry = AuditLogEntry::new(
@@ -383,7 +358,7 @@ mod tests {
             .unwrap_or_else(|_| "postgresql://test:test@localhost/test".to_string());
         
         if let Ok(pool) = create_pool(&database_url).await {
-            let repo = DieselAuditRepo::new(Arc::new(pool));
+            let repo = DieselAuditRepository::new(Arc::new(pool));
             // Test passes if we can create the repo
             assert!(true);
         }

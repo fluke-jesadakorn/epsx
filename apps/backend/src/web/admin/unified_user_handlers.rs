@@ -344,10 +344,27 @@ pub async fn update_user_profile_handler(
     // Note: Current User entity doesn't support direct updates
     // Implement user profile updates with available domain methods
     
-    if let Some(_email_str) = req.email {
+    if let Some(email_str) = req.email {
         // Email update requires domain-level validation and verification
-        // This would involve email verification workflow in production
-        tracing::warn!("Email update not implemented - requires domain logic changes");
+        use crate::dom::values::Email;
+        
+        match Email::new(email_str.clone()) {
+            Ok(new_email) => {
+                // Check if email is already taken
+                if let Ok(Some(_existing_user)) = app_state.user_repo.find_by_email(&new_email).await {
+                    tracing::error!("Email {} already taken", email_str);
+                    return Err(StatusCode::CONFLICT);
+                }
+                
+                // Update user email (this would trigger email verification in production)
+                user.update_email(new_email);
+                tracing::info!("Updated user email to: {} (verification required)", email_str);
+            },
+            Err(e) => {
+                tracing::error!("Invalid email format: {} - {}", email_str, e);
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
     }
     
     if let Some(tier_str) = req.role {
@@ -361,10 +378,19 @@ pub async fn update_user_profile_handler(
         }
     }
     
-    if let Some(_active) = req.is_active {
-        // User activation/deactivation handled through role management
-        // Additional domain logic for account suspension could be added here
-        tracing::warn!("User activation/deactivation not implemented - requires domain logic changes");
+    if let Some(active) = req.is_active {
+        // User activation/deactivation through package tier management
+        if active {
+            // Activate user by ensuring they have a valid tier
+            if user.package_tier() == "disabled" {
+                user.update_package_tier("free".to_string()); // Default to free tier
+                tracing::info!("Activated user {} with free tier", user.id().0);
+            }
+        } else {
+            // Deactivate user by setting tier to disabled
+            user.update_package_tier("disabled".to_string());
+            tracing::info!("Deactivated user {}", user.id().0);
+        }
     }
     
     // Save updated user

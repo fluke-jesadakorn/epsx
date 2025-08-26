@@ -15,7 +15,6 @@ import_types = [
 
 # Generate with specific Postgres types
 with_docs = true
-patch_file = "src/infra/db/diesel/schema_patches.rs"
 
 [migrations_directory]
 # Directory for Diesel migrations

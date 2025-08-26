@@ -3,25 +3,25 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::app::ports::repositories::ModuleRepo;
+use crate::app::ports::repositories::ModuleRepository;
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 use crate::dom::values::UserId;
 use crate::dom::error::DomainError;
 use crate::app::ports::repositories::{UserModuleAccess, ApiKeyAccess};
 use crate::infra::db::diesel::DbPool;
 
-pub struct DieselModuleRepo {
+pub struct DieselModuleRepository {
     pool: Arc<DbPool>,
 }
 
-impl DieselModuleRepo {
+impl DieselModuleRepository {
     pub fn new(pool: Arc<DbPool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl ModuleRepo for DieselModuleRepo {
+impl ModuleRepository for DieselModuleRepository {
     async fn create_sub_module(&self, _module: &SubModule) -> Result<(), DomainError> {
         Ok(())
     }
@@ -116,16 +116,16 @@ impl ModuleRepo for DieselModuleRepo {
 }
 
 // Also create a stub for compatibility
-pub struct StubModuleRepo;
+pub struct StubModuleRepository;
 
-impl StubModuleRepo {
+impl StubModuleRepository {
     pub fn new() -> Self {
         Self
     }
 }
 
 #[async_trait]
-impl ModuleRepo for StubModuleRepo {
+impl ModuleRepository for StubModuleRepository {
     async fn create_sub_module(&self, _module: &SubModule) -> Result<(), DomainError> {
         Ok(())
     }

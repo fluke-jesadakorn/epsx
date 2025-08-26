@@ -4,18 +4,19 @@ use std::sync::Arc;
 
 use crate::dom::entities::Stock;
 use crate::dom::values::{Symbol, Market};
-use crate::app::ports::{StockRepo, StockDataSvc, WebSocketSvc};
+use crate::app::ports::repositories::StockRepository;
+use crate::app::ports::services::{StockDataSvc, WebSocketSvc};
 use crate::app::dtos::{GetStockReq, GetStockRes, GetStocksReq, GetStocksRes, SearchStocksReq, SearchStocksRes, TopMoversReq, TopMoversRes, StockDto, StockSearchResult, PriceHistoryReq, PriceHistoryRes, PricePointDto};
 
 pub struct StockUC {
-    stock_repo: Arc<dyn StockRepo>,
+    stock_repo: Arc<dyn StockRepository>,
     stock_data_svc: Arc<dyn StockDataSvc>,
     ws_svc: Arc<dyn WebSocketSvc>,
 }
 
 impl StockUC {
     pub fn new(
-        stock_repo: Arc<dyn StockRepo>,
+        stock_repo: Arc<dyn StockRepository>,
         stock_data_svc: Arc<dyn StockDataSvc>,
         ws_svc: Arc<dyn WebSocketSvc>,
     ) -> Self {

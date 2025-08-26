@@ -50,9 +50,7 @@ impl TryFrom<&Session> for NewDieselSession {
             access_token: session.access_token().to_string(),
             expires_at: session.expires_at(),
             provider: Some(session.provider().to_string()),
-            provider_account_id: session.provider_account_id().map(|s| s.to_string()),
             session_token: session.session_token().map(|s| s.to_string()),
-            jwt_token: session.jwt_token().map(|s| s.to_string()),
             user_agent: session.user_agent().map(|s| s.to_string()),
             ip_address,
             is_active: session.is_active(),
@@ -66,7 +64,7 @@ impl From<&Session> for UpdateDieselSession {
         UpdateDieselSession {
             access_token: Some(session.access_token().to_string()),
             expires_at: Some(session.expires_at()),
-            jwt_token: session.jwt_token().map(|s| s.to_string()),
+            session_token: session.session_token().map(|s| s.to_string()),
             is_active: Some(session.is_active()),
         }
     }

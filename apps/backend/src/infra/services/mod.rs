@@ -1,30 +1,38 @@
 // External service implementations
 
-pub mod email;
-pub mod notification;
-pub mod payment;
-pub mod market_data;
-pub mod encryption;
+pub mod email_service;
+pub mod notification_service;
+pub mod payment_service;
+pub mod market_data_service;
+pub mod encryption_service;
 pub mod tradingview;
-pub mod websocket;
-pub mod tradingview_websocket;
+pub mod websocket_service;
+pub mod tradingview_websocket_service;
 
-pub use email::{SendGridEmailService, MockEmailService, SentEmail};
-pub use notification::{
+// Re-export with shorter alias for backward compatibility
+pub use tradingview_websocket_service as tradingview_websocket;
+pub mod api_key_service;
+
+pub use email_service::{SendGridEmailService, MockEmailService, SentEmail};
+pub use notification_service::{
     Notification, NotificationType, NotificationPriority, NotificationService,
     InMemoryNotificationService, NotificationPortAdapter
 };
-pub use payment::{
+pub use payment_service::{
     PaymentGatewayConfig, NetworkConfig, MultiGatewayPaymentService,
     CoinPaymentsGateway, MockPaymentGateway
 };
-pub use market_data::{
+pub use market_data_service::{
     MarketDataConfig, AlphaVantageService, MockMarketDataService
 };
-pub use encryption::{EncryptionService, EncryptionError};
+pub use encryption_service::{EncryptionService, EncryptionError};
 pub use tradingview::{TradingViewService, TradingViewApiService, TradingViewConfig};
-pub use websocket::{WebSocketClient, WebSocketConnection, WebSocketError};
-pub use tradingview_websocket::TradingViewWebSocketService;
+pub use websocket_service::{WebSocketClient, WebSocketConnection, WebSocketError};
+
+// Re-export websocket_service as websocket for backward compatibility  
+pub use websocket_service as websocket;
+pub use tradingview_websocket_service::TradingViewWebSocketService;
+pub use api_key_service::{ApiKeyService, ApiKeyError};
 
 // TODO: Implement remaining external services like:
 // - WebSocketService (real-time communication)

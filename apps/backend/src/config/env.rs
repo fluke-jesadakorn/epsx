@@ -689,23 +689,6 @@ lazy_static::lazy_static! {
             default_value: Some("1800"),
         });
 
-        schema.insert("BRUTE_FORCE_WINDOW_SECONDS", EnvVarDefinition {
-            objective: "Time window for brute force attack detection (seconds)",
-            required: false,
-            var_type: EnvVarType::Number,
-            category: EnvCategory::Security,
-            example: "300",
-            default_value: Some("300"),
-        });
-
-        schema.insert("BRUTE_FORCE_MAX_ATTEMPTS", EnvVarDefinition {
-            objective: "Maximum failed attempts before triggering brute force protection",
-            required: false,
-            var_type: EnvVarType::Number,
-            category: EnvCategory::Security,
-            example: "5",
-            default_value: Some("5"),
-        });
 
         schema.insert("SECURITY_ALERT_WEBHOOK_URL", EnvVarDefinition {
             objective: "Webhook URL for critical security event notifications",
@@ -1062,13 +1045,9 @@ pub struct CacheConfig {
 
 #[derive(Debug, Clone)]
 pub struct SecurityConfig {
-    pub security_event_cache_ttl: i64,
     pub session_validation_cache_ttl: i64,
     pub permission_cache_ttl: i64,
     pub admin_module_cache_ttl: i64,
-    pub brute_force_window_seconds: i64,
-    pub brute_force_max_attempts: u32,
-    pub security_alert_webhook_url: Option<String>,
     pub performance_monitoring_enabled: bool,
     pub middleware_execution_timeout_ms: u64,
     pub ip_allowlist: Vec<String>,
@@ -1225,13 +1204,9 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
     };
 
     let security_config = SecurityConfig {
-        security_event_cache_ttl: get_env_var("SECURITY_EVENT_CACHE_TTL").unwrap_or_else(|_| "86400".to_string()).parse().unwrap_or(86400),
         session_validation_cache_ttl: get_env_var("SESSION_VALIDATION_CACHE_TTL").unwrap_or_else(|_| "3600".to_string()).parse().unwrap_or(3600),
         permission_cache_ttl: get_env_var("PERMISSION_CACHE_TTL").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
         admin_module_cache_ttl: get_env_var("ADMIN_MODULE_CACHE_TTL").unwrap_or_else(|_| "1800".to_string()).parse().unwrap_or(1800),
-        brute_force_window_seconds: get_env_var("BRUTE_FORCE_WINDOW_SECONDS").unwrap_or_else(|_| "300".to_string()).parse().unwrap_or(300),
-        brute_force_max_attempts: get_env_var("BRUTE_FORCE_MAX_ATTEMPTS").unwrap_or_else(|_| "5".to_string()).parse().unwrap_or(5),
-        security_alert_webhook_url: get_env_var("SECURITY_ALERT_WEBHOOK_URL").ok(),
         performance_monitoring_enabled: get_env_var("PERFORMANCE_MONITORING_ENABLED").unwrap_or_else(|_| "true".to_string()).parse().unwrap_or(true),
         middleware_execution_timeout_ms: get_env_var("MIDDLEWARE_EXECUTION_TIMEOUT_MS").unwrap_or_else(|_| "10000".to_string()).parse().unwrap_or(10000),
         ip_allowlist: get_env_var("SECURITY_IP_ALLOWLIST")

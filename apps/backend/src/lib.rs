@@ -8,7 +8,6 @@ pub mod infra;      // Infrastructure layer
 pub mod web;        // Web/API layer
 pub mod config;     // Configuration
 pub mod auth;       // Modern authentication
-pub mod security;   // Security layer
 // permissions module removed - replaced by auth/roles.rs
 pub mod stock;      // Stock management
 

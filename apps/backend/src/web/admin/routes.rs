@@ -17,6 +17,7 @@ use super::handlers::{
     bulk_assign_modules_handler,
     list_api_keys_handler,
 };
+use crate::web::user::handlers::{login_handler, logout_handler, me_handler};
 use super::unified_user_handlers::{
     get_unified_user_data_handler,
     update_user_profile_handler,
@@ -108,8 +109,8 @@ pub fn create_admin_routes() -> Router<AppState> {
         
     Router::new()
         // Public admin auth routes
-        .route("/auth/logout", post(super::super::auth::handlers::logout_handler))
-        .route("/auth/profile", get(super::super::auth::handlers::me_handler))
+        .route("/auth/logout", post(logout_handler))
+        .route("/auth/profile", get(me_handler))
         // Merge protected routes
         .merge(user_mgmt_routes)
         .merge(system_config_routes)
@@ -164,5 +165,5 @@ pub fn create_admin_routes() -> Router<AppState> {
 pub fn create_admin_public_routes() -> Router<AppState> {
     Router::new()
         // Public admin authentication routes (no auth required)
-        .route("/auth/login", post(super::super::auth::handlers::login_handler))
+        .route("/auth/login", post(login_handler))
 }

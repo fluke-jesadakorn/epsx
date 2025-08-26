@@ -5,16 +5,15 @@
 // Works with the simple role system from auth/roles.rs
 
 use std::sync::Arc;
-use crate::app::ports::repositories::UserRepo;
+use crate::app::ports::repositories::UserRepository;
 use crate::infra::{
     firebase_admin::FirebaseAdmin,
-    services::{notification::{NotificationService, InMemoryNotificationService}, NotificationPortAdapter},
+    services::notification_service::{NotificationService, InMemoryNotificationService},
     db::diesel::DbPool,
     cache::Cache,
 };
 use crate::dom::services::{
     admin_module_service::AdminModuleService,
-    feature_expiration::{FeatureExpirationService, FeatureExpirationServiceImpl},
 };
 
 // ============================================================================
@@ -44,14 +43,13 @@ pub struct ServicesModule {
     pub firebase_admin: Arc<FirebaseAdmin>,
     pub notification_service: Arc<dyn NotificationService>,
     pub admin_module_service: Arc<AdminModuleService>,
-    pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
 }
 
 impl ServicesModule {
     /// Create a new simple services module with minimal dependencies
     pub async fn new(
         _database_pool: Arc<DbPool>,
-        user_repo: Arc<dyn UserRepo>,
+        _user_repo: Arc<dyn UserRepository>,
         _cache: Arc<dyn Cache>,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         
@@ -64,20 +62,11 @@ impl ServicesModule {
         // Create stub admin module service
         let admin_module_service = Arc::new(AdminModuleService::new());
         
-        // Create stub feature expiration service
-        let feature_expiration_service: Arc<dyn FeatureExpirationService> = Arc::new(
-            FeatureExpirationServiceImpl::new(
-                user_repo.clone(),
-                Arc::new(NotificationPortAdapter::new(notification_service.clone())),
-                None // Use default config
-            )
-        );
 
         Ok(ServicesModule {
             firebase_admin,
             notification_service,
             admin_module_service,
-            feature_expiration_service,
         })
     }
 

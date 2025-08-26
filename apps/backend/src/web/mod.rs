@@ -13,8 +13,6 @@ pub mod analytics;
 pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
-pub mod security;
-pub mod alerts;
 pub mod notifications;
 pub mod realtime;
 
@@ -348,11 +346,6 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     })?;
   let oidc_routes = oidc::routes::oidc_routes().with_state(app_state.clone());
   
-  // Create security routes for middleware operations
-  let security_routes = security::routes::create_security_routes().with_state(app_state.clone());
-
-  // Create alert management routes  
-  let alert_routes = alerts::routes::create_alert_routes();
 
   // Performance routes removed - stub implementations cleaned up
 
@@ -384,11 +377,9 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with analytics, security, alerts, notifications, admin, and permissions support
+  // Merge routes with analytics, notifications, admin, and permissions support
   Ok(core_routes
     .merge(oidc_routes)
-    .merge(security_routes)
-    .merge(alert_routes)
     .merge(notification_routes)
     .merge(admin_notification_routes)
     .merge(legacy_notification_routes)

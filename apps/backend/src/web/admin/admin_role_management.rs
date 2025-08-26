@@ -176,8 +176,9 @@ pub async fn assign_admin_modules(
     }
 
     let assignment_request = AdminModuleAssignRequest {
-        user_id: request.firebase_uid.clone().into(),
+        user_id: request.firebase_uid.clone(),
         module_name: request.module_codes.first().unwrap_or(&String::new()).clone(),
+        grant_access: true,
         access_level: "admin".to_string(),
         expires_at: request.expires_at,
     };
@@ -228,8 +229,8 @@ pub async fn revoke_admin_modules(
     let firebase_uid = request.firebase_uid.clone();
     
     let revoked_modules = admin_module_service.revoke_admin_modules(
-        &firebase_uid.clone().into(),
-        request.module_codes.clone()
+        &firebase_uid,
+        &request.module_codes
     ).await
     .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
     let response = AdminRoleOperationResponse {
@@ -262,9 +263,7 @@ pub async fn assign_all_admin_modules(
     }
 
     let assigned_modules = admin_module_service.assign_all_admin_modules(
-        &firebase_uid,
-        &claims.user_id,
-        "Full admin module assignment via API by system administrator"
+        &firebase_uid
     ).await
     .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
@@ -306,7 +305,10 @@ pub async fn get_admin_role_audit(
         .map_err(|e| AppError::new(crate::core::errors::ErrorKind::DatabaseError, e))?;
 
     info!("Retrieved {} audit records for user: {}", audit_records.len(), firebase_uid);
-    Ok(Json(audit_records))
+    let audit_values: Vec<serde_json::Value> = audit_records.into_iter()
+        .map(|record| serde_json::Value::String(record))
+        .collect();
+    Ok(Json(audit_values))
 }
 
 /// Check if user has specific admin module access

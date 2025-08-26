@@ -45,6 +45,12 @@ impl From<&User> for NewDieselUser {
             display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             avatar_url: None,
+            package_tier: Some(
+                crate::dom::values::auth::SubscriptionTier::from_string(user.package_tier())
+                    .unwrap_or(crate::dom::values::auth::SubscriptionTier::Free)
+                    .into()
+            ),
+            email_verified: Some(true), // Default to true for simple system
             role: user.role().into(),
             is_active: Some(user.is_active()),
             created_at: user.created_at(),
@@ -59,6 +65,12 @@ impl From<&User> for UpdateDieselUser {
             display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             avatar_url: None,
+            package_tier: Some(
+                crate::dom::values::auth::SubscriptionTier::from_string(user.package_tier())
+                    .unwrap_or(crate::dom::values::auth::SubscriptionTier::Free)
+                    .into()
+            ),
+            email_verified: Some(true), // Default to true for simple system
             role: Some(user.role().into()),
             is_active: Some(user.is_active()),
             last_login_at: None, // This would need to be set separately

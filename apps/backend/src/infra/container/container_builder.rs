@@ -4,14 +4,12 @@
 use std::sync::Arc;
 use super::{DatabaseModule, ServicesModule, CacheModule};
 use crate::app::ports::repositories::*;
-use crate::dom::services::feature_expiration::FeatureExpirationService;
 use crate::dom::services::admin_module_service::AdminModuleService;
 use crate::infra::{
     db::diesel::DbPool,
     firebase_admin::FirebaseAdmin,
 };
 use crate::app::use_cases::{AuthUC, UserMgmtUC};
-use crate::security::brute_force_integration::BruteForceIntegrationFactory;
 
 /// Refined AppContainer using focused modules instead of God Object pattern
 #[derive(Clone)]
@@ -25,14 +23,11 @@ pub struct AppContainer {
     pub database_pool: Arc<DbPool>,
     pub db_pool: Arc<DbPool>,
     pub infra: crate::infra::InfraFactory,
-    pub user_repo: Arc<dyn UserRepo>,
-    pub session_repo: Arc<dyn SessRepo>,
-    pub audit_repo: Arc<dyn AuditRepo>,
-    pub stock_repo: Arc<dyn StockRepo>,
-    pub iam_repo: Arc<dyn IamRepo>,
-    pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub session_repo: Arc<dyn SessionRepository>,
+    pub audit_repo: Arc<dyn AuditRepository>,
+    pub stock_repo: Arc<dyn StockRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
-    pub feature_expiration_service: Arc<dyn FeatureExpirationService>,
     pub admin_module_service: Arc<AdminModuleService>,
 }
 
@@ -40,12 +35,12 @@ impl AppContainer {
     /// Create AppState with all dependencies from focused modules
     pub async fn create_app_state(&self) -> Result<crate::web::auth::AppState, Box<dyn std::error::Error + Send + Sync>> {
         // Create stub repositories for components not yet migrated to Diesel
-        let (temporary_permission_repo, module_repo) = self.database.create_stub_repos();
+        let module_repo = self.database.create_stub_repos();
         
         // Create stub usage repo
         let usage_repo = Arc::new(
-            crate::infra::db::diesel::repos::StubUsageRepo::new()
-        ) as Arc<dyn crate::app::ports::repositories::UsageRepo>;
+            crate::infra::db::diesel::repos::StubUsageRepository::new()
+        ) as Arc<dyn crate::app::ports::repositories::UsageRepository>;
         
         // Create stub dependencies for use cases
         let event_dispatcher = Arc::new(
@@ -54,7 +49,7 @@ impl AppContainer {
         
         let level_history_repo = Arc::new(
             crate::infra::db::level_history_repo::InMemoryLevelHistoryRepo::new()
-        ) as Arc<dyn crate::app::ports::repositories::LevelHistoryRepo>;
+        ) as Arc<dyn crate::app::ports::repositories::LevelHistoryRepository>;
         
         // Create use cases with focused module dependencies
         let auth_uc = Arc::new(AuthUC::new(
@@ -69,60 +64,20 @@ impl AppContainer {
             level_history_repo,
         ));
 
-        // Create initial AppState for brute force factory
-        let temp_app_state = crate::web::auth::AppState::new(
-            auth_uc.clone(),
-            user_mgmt_uc.clone(),
-            self.database.session_repo.clone(),
-            self.database.user_repo.clone(),
-            self.database.iam_repo.clone(),
-            self.database.audit_repo.clone(),
-            self.database.permission_profile_repo.clone(),
-            temporary_permission_repo.clone(),
-            module_repo.clone(),
-            usage_repo.clone(),
-            self.services.firebase_admin.clone(),
-            self.services.admin_module_service.clone(),
-            self.services.feature_expiration_service.clone(),
-            self.database.database_pool.clone(),
-            self.cache.cache.clone(),
-            self.cache.security_cache.clone(),
-            None,
-            self.services.notification_service.clone(),
-        );
-
-        // Initialize brute force protection service
-        tracing::info!("🔧 Creating brute force protection service...");
-        let brute_force_service = match BruteForceIntegrationFactory::create(&temp_app_state).await {
-            Ok(service) => {
-                tracing::info!("✅ Brute force protection service initialized");
-                Some(service)
-            },
-            Err(e) => {
-                tracing::warn!("⚠️ Brute force protection service failed to initialize: {}", e);
-                tracing::warn!("⚠️ Continuing without brute force protection");
-                None
-            }
-        };
-
         Ok(crate::web::auth::AppState::new(
             auth_uc,
             user_mgmt_uc,
             self.database.session_repo.clone(),
             self.database.user_repo.clone(),
-            self.database.iam_repo.clone(),
             self.database.audit_repo.clone(),
-            self.database.permission_profile_repo.clone(),
-            temporary_permission_repo,
             module_repo,
             usage_repo,
             self.services.firebase_admin.clone(),
             self.services.admin_module_service.clone(),
-            self.services.feature_expiration_service.clone(),
             self.database.database_pool.clone(),
             self.cache.cache.clone(),
-            self.cache.security_cache.clone(),
-            brute_force_service,
+            None, // Removed security_cache 
+            None, // Removed brute_force_service
             self.services.notification_service.clone(),
         ))
     }
@@ -216,10 +171,7 @@ impl AppContainerBuilder {
             session_repo: database.session_repo.clone(),
             audit_repo: database.audit_repo.clone(),
             stock_repo: database.stock_repo.clone(),
-            iam_repo: database.iam_repo.clone(),
-            permission_profile_repo: database.permission_profile_repo.clone(),
             firebase_admin: services.firebase_admin.clone(),
-            feature_expiration_service: services.feature_expiration_service.clone(),
             admin_module_service: services.admin_module_service.clone(),
             infra,
             

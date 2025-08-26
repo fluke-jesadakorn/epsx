@@ -198,6 +198,11 @@ impl User {
     self.package_tier = new_tier;
     self.updated_at = Utc::now();
   }
+  
+  pub fn update_email(&mut self, new_email: Email) {
+    self.email = new_email;
+    self.updated_at = Utc::now();
+  }
 
   /// Simple role upgrade for the new unified role system
   pub fn upgrade_role(

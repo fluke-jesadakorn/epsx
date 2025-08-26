@@ -5,7 +5,7 @@ use uuid::Uuid;
 use chrono::Utc;
 use std::sync::Arc;
 
-use crate::app::ports::repositories::{SessRepo, RepoError};
+use crate::app::ports::repositories::{SessionRepository, RepoError};
 use crate::dom::entities::Session;
 use crate::dom::values::{SessId, UserId};
 use crate::infra::db::diesel::{
@@ -14,18 +14,18 @@ use crate::infra::db::diesel::{
     models::{DieselSession, NewDieselSession, UpdateDieselSession},
 };
 
-pub struct DieselSessionRepo {
+pub struct DieselSessionRepository {
     pool: Arc<DbPool>,
 }
 
-impl DieselSessionRepo {
+impl DieselSessionRepository {
     pub fn new(pool: Arc<DbPool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl SessRepo for DieselSessionRepo {
+impl SessionRepository for DieselSessionRepository {
     async fn get(&self, _id: &SessId) -> Result<Option<Session>, RepoError> {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
@@ -181,7 +181,7 @@ mod tests {
             .unwrap_or_else(|_| "postgresql://test:test@localhost/test".to_string());
         
         if let Ok(pool) = create_pool(&database_url).await {
-            let repo = DieselSessionRepo::new(Arc::new(pool));
+            let repo = DieselSessionRepository::new(Arc::new(pool));
             // Test passes if we can create the repo
             assert!(true);
         }

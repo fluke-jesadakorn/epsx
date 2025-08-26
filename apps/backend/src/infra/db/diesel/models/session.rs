@@ -15,9 +15,7 @@ pub struct DieselSession {
     pub access_token: String,
     pub expires_at: DateTime<Utc>,
     pub provider: Option<String>,
-    pub provider_account_id: Option<String>,
     pub session_token: Option<String>,
-    pub jwt_token: Option<String>,
     pub user_agent: Option<String>,
     pub ip_address: Option<DieselIpAddr>,
     pub is_active: bool,
@@ -32,9 +30,7 @@ pub struct NewDieselSession {
     pub access_token: String,
     pub expires_at: DateTime<Utc>,
     pub provider: Option<String>,
-    pub provider_account_id: Option<String>,
     pub session_token: Option<String>,
-    pub jwt_token: Option<String>,
     pub user_agent: Option<String>,
     pub ip_address: Option<DieselIpAddr>,
     pub is_active: bool,
@@ -46,6 +42,6 @@ pub struct NewDieselSession {
 pub struct UpdateDieselSession {
     pub access_token: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub jwt_token: Option<String>,
+    pub session_token: Option<String>,
     pub is_active: Option<bool>,
 }

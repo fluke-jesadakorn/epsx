@@ -47,7 +47,7 @@ pub async fn get_system_config_handler() -> Result<Json<SystemConfig>, StatusCod
     // In a real implementation, these would come from a database or config files
     let config = SystemConfig {
         system_name: "EPSX Admin Console".to_string(),
-        admin_email: "admin@epsx.com".to_string(),
+        admin_email: get_env_var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@example.org".to_string()),
         maintenance_mode: false,
         api_version: "2.0.1".to_string(),
         timezone: "UTC".to_string(),
@@ -116,7 +116,7 @@ pub async fn get_settings_by_category_handler(
     let settings = match category.as_str() {
         "general" => json!({
             "system_name": "EPSX Admin Console",
-            "admin_email": "admin@epsx.com",
+            "admin_email": get_env_var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@example.org".to_string()),
             "maintenance_mode": false,
             "timezone": "UTC",
             "language": "en",
@@ -208,7 +208,7 @@ pub async fn get_all_settings_handler() -> Result<Json<Value>, StatusCode> {
     let all_settings = json!({
         "general": {
             "system_name": "EPSX Admin Console",
-            "admin_email": "admin@epsx.com",
+            "admin_email": get_env_var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@example.org".to_string()),
             "maintenance_mode": false,
             "timezone": "UTC"
         },

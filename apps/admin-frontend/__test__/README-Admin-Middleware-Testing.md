@@ -228,7 +228,7 @@ npx playwright test admin-performance-load-testing.spec.ts --reporter=html
 
 ```bash
 # Test Configuration
-TEST_ADMIN_EMAIL=jesadakorn.kirtnu@gmail.com
+# Admin user must be promoted via: ./scripts/promote-admin.sh jesadakorn.kirtnu@gmail.com
 TEST_ADMIN_PASSWORD=Aa_12345678
 TEST_API_BASE_URL=http://localhost:8080
 TEST_ADMIN_BASE_URL=http://localhost:3001
@@ -428,8 +428,8 @@ All security events are logged with:
 **1. Authentication Failures**
 ```bash
 # Symptom: Login fails or tokens are invalid
-# Solution: Verify environment variables and OAuth configuration
-echo $TEST_ADMIN_EMAIL
+# Solution: Verify admin user is promoted in database and OAuth configuration
+# Promote user: ./scripts/promote-admin.sh jesadakorn.kirtnu@gmail.com
 echo $TEST_ADMIN_PASSWORD
 
 # Reset test session

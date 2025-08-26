@@ -95,3 +95,219 @@ impl deserialize::FromSql<sql_types::Numeric, diesel::pg::Pg> for DieselDecimal 
         Ok(DieselDecimal(decimal))
     }
 }
+
+// ============================================================================
+// PACKAGE TIER ENUM
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::PackageTier)]
+pub enum PackageTier {
+    Free,
+    Basic,
+    Premium,
+    Enterprise,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::PackageTier, diesel::pg::Pg> for PackageTier {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            PackageTier::Free => "free",
+            PackageTier::Basic => "basic",
+            PackageTier::Premium => "premium",
+            PackageTier::Enterprise => "enterprise",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::PackageTier, diesel::pg::Pg> for PackageTier {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "free" => Ok(PackageTier::Free),
+            "basic" => Ok(PackageTier::Basic),
+            "premium" => Ok(PackageTier::Premium),
+            "enterprise" => Ok(PackageTier::Enterprise),
+            _ => Err("Unrecognized PackageTier variant".into()),
+        }
+    }
+}
+
+// Conversion from domain SubscriptionTier
+impl From<crate::dom::values::auth::SubscriptionTier> for PackageTier {
+    fn from(tier: crate::dom::values::auth::SubscriptionTier) -> Self {
+        match tier {
+            crate::dom::values::auth::SubscriptionTier::Free => PackageTier::Free,
+            crate::dom::values::auth::SubscriptionTier::Basic => PackageTier::Basic,
+            crate::dom::values::auth::SubscriptionTier::Premium => PackageTier::Premium,
+            crate::dom::values::auth::SubscriptionTier::Enterprise => PackageTier::Enterprise,
+        }
+    }
+}
+
+impl From<PackageTier> for crate::dom::values::auth::SubscriptionTier {
+    fn from(tier: PackageTier) -> Self {
+        match tier {
+            PackageTier::Free => crate::dom::values::auth::SubscriptionTier::Free,
+            PackageTier::Basic => crate::dom::values::auth::SubscriptionTier::Basic,
+            PackageTier::Premium => crate::dom::values::auth::SubscriptionTier::Premium,
+            PackageTier::Enterprise => crate::dom::values::auth::SubscriptionTier::Enterprise,
+        }
+    }
+}
+
+// ============================================================================
+// ADMIN MODULE ENUM  
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::AdminModule)]
+pub enum AdminModule {
+    UserManagement,
+    Analytics,
+    Security,
+    Billing,
+    Settings,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            AdminModule::UserManagement => "user_management",
+            AdminModule::Analytics => "analytics",
+            AdminModule::Security => "security",
+            AdminModule::Billing => "billing",
+            AdminModule::Settings => "settings",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "user_management" => Ok(AdminModule::UserManagement),
+            "analytics" => Ok(AdminModule::Analytics),
+            "security" => Ok(AdminModule::Security),
+            "billing" => Ok(AdminModule::Billing),
+            "settings" => Ok(AdminModule::Settings),
+            _ => Err("Unrecognized AdminModule variant".into()),
+        }
+    }
+}
+
+// ============================================================================
+// NOTIFICATION PRIORITY ENUM
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::NotificationPriority)]
+pub enum NotificationPriority {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::NotificationPriority, diesel::pg::Pg> for NotificationPriority {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            NotificationPriority::Low => "low",
+            NotificationPriority::Medium => "medium",
+            NotificationPriority::High => "high",
+            NotificationPriority::Critical => "critical",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::NotificationPriority, diesel::pg::Pg> for NotificationPriority {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "low" => Ok(NotificationPriority::Low),
+            "medium" => Ok(NotificationPriority::Medium),
+            "high" => Ok(NotificationPriority::High),
+            "critical" => Ok(NotificationPriority::Critical),
+            _ => Err("Unrecognized NotificationPriority variant".into()),
+        }
+    }
+}
+
+impl std::fmt::Display for NotificationPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NotificationPriority::Low => write!(f, "low"),
+            NotificationPriority::Medium => write!(f, "medium"),
+            NotificationPriority::High => write!(f, "high"),
+            NotificationPriority::Critical => write!(f, "critical"),
+        }
+    }
+}
+
+// ============================================================================
+// NOTIFICATION TYPE ENUM
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::NotificationType)]
+pub enum NotificationType {
+    Info,
+    Warning,
+    Error,
+    Success,
+    FeatureAccess,
+    RoleChange,
+    SystemUpdate,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::NotificationType, diesel::pg::Pg> for NotificationType {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            NotificationType::Info => "info",
+            NotificationType::Warning => "warning",
+            NotificationType::Error => "error",
+            NotificationType::Success => "success",
+            NotificationType::FeatureAccess => "feature_access",
+            NotificationType::RoleChange => "role_change",
+            NotificationType::SystemUpdate => "system_update",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::NotificationType, diesel::pg::Pg> for NotificationType {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "info" => Ok(NotificationType::Info),
+            "warning" => Ok(NotificationType::Warning),
+            "error" => Ok(NotificationType::Error),
+            "success" => Ok(NotificationType::Success),
+            "feature_access" => Ok(NotificationType::FeatureAccess),
+            "role_change" => Ok(NotificationType::RoleChange),
+            "system_update" => Ok(NotificationType::SystemUpdate),
+            _ => Err("Unrecognized NotificationType variant".into()),
+        }
+    }
+}
+
+impl std::fmt::Display for NotificationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NotificationType::Info => write!(f, "info"),
+            NotificationType::Warning => write!(f, "warning"),
+            NotificationType::Error => write!(f, "error"),
+            NotificationType::Success => write!(f, "success"),
+            NotificationType::FeatureAccess => write!(f, "feature_access"),
+            NotificationType::RoleChange => write!(f, "role_change"),
+            NotificationType::SystemUpdate => write!(f, "system_update"),
+        }
+    }
+}

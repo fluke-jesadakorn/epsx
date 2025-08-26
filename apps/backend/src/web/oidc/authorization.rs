@@ -993,11 +993,11 @@ async fn store_authorization_code_direct(
     auth_data: &AuthorizationCodeData,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use crate::infra::db::diesel::create_pool;
-    use crate::infra::db::diesel::repos::DieselSessionRepo;
+    use crate::infra::db::diesel::repos::DieselSessionRepository;
     use crate::dom::entities::auth::Session;
     use crate::dom::values::SessId;
-    use crate::app::ports::repositories::{UserRepo, SessRepo};
-    use crate::infra::db::diesel::repos::DieselUserRepo;
+    use crate::app::ports::repositories::{UserRepository, SessionRepository};
+    use crate::infra::db::diesel::repos::DieselUserRepository;
     use std::sync::Arc;
     use chrono::{Utc, Duration};
     
@@ -1011,8 +1011,8 @@ async fn store_authorization_code_direct(
     let pool = Arc::new(pool);
     
     // Create repositories
-    let session_repo = DieselSessionRepo::new(pool.clone());
-    let user_repo = DieselUserRepo::new(pool.clone());
+    let session_repo = DieselSessionRepository::new(pool.clone());
+    let user_repo = DieselUserRepository::new(pool.clone());
     
     // Find user by Firebase UID
     let user = user_repo.find_by_firebase_uid(&auth_data.firebase_user.uid).await

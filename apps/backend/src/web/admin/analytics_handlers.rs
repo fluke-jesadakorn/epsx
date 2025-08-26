@@ -389,7 +389,7 @@ pub async fn get_security_risk_analysis_handler(
         high_risk_users: vec![
             HighRiskUser {
                 user_id: "user-123".to_string(),
-                email: "admin@example.com".to_string(),
+                email: "demo@example.org".to_string(),
                 risk_score: 8.9,
                 risk_factors: vec![
                     "Multiple admin permissions".to_string(),

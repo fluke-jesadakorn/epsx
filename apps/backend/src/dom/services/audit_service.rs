@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::app::ports::repositories::AuditRepo;
+use crate::app::ports::repositories::AuditRepository;
 use crate::dom::entities::audit::{
   AuditLogEntry,
   AuditAction,
@@ -17,7 +17,7 @@ use crate::dom::values::UserId;
 
 /// Audit service for recording security and compliance events
 pub struct AuditService {
-  audit_repo: Arc<dyn AuditRepo>,
+  audit_repo: Arc<dyn AuditRepository>,
 }
 
 /// Context information for audit logging
@@ -48,7 +48,7 @@ pub struct MetadataBuilder {
 }
 
 impl AuditService {
-  pub fn new(audit_repo: Arc<dyn AuditRepo>) -> Self {
+  pub fn new(audit_repo: Arc<dyn AuditRepository>) -> Self {
     Self { audit_repo }
   }
 

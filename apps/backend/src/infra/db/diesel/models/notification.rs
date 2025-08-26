@@ -11,12 +11,13 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value as JsonValue;
 
 use crate::infra::db::diesel::schema::notifications;
+use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
 
 // ============================================================================
 // SIMPLE NOTIFICATION MODEL (USING ONLY EXISTING FIELDS)
 // ============================================================================
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = notifications)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselNotification {
@@ -24,9 +25,11 @@ pub struct DieselNotification {
     pub user_id: Uuid,
     pub title: String,
     pub message: String,
-    pub notification_type: String,
-    pub priority: String,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
     pub is_read: bool,
+    pub delivery_status: Option<String>,
+    pub delivered_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub metadata: Option<JsonValue>,
@@ -39,61 +42,16 @@ pub struct NewDieselNotification {
     pub user_id: Uuid,
     pub title: String,
     pub message: String,
-    pub notification_type: String,
-    pub priority: String,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
     pub is_read: bool,
+    pub delivery_status: Option<String>,
+    pub delivered_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub metadata: Option<JsonValue>,
 }
 
-// ============================================================================
-// SIMPLE NOTIFICATION TYPES
-// ============================================================================
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NotificationType {
-    Info,
-    Warning,
-    Error,
-    Success,
-    FeatureAccess,
-    RoleChange,
-    SystemUpdate,
-}
-
-impl std::fmt::Display for NotificationType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NotificationType::Info => write!(f, "info"),
-            NotificationType::Warning => write!(f, "warning"),
-            NotificationType::Error => write!(f, "error"),
-            NotificationType::Success => write!(f, "success"),
-            NotificationType::FeatureAccess => write!(f, "feature_access"),
-            NotificationType::RoleChange => write!(f, "role_change"),
-            NotificationType::SystemUpdate => write!(f, "system_update"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NotificationPriority {
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-impl std::fmt::Display for NotificationPriority {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NotificationPriority::Low => write!(f, "low"),
-            NotificationPriority::Medium => write!(f, "medium"),
-            NotificationPriority::High => write!(f, "high"),
-            NotificationPriority::Critical => write!(f, "critical"),
-        }
-    }
-}
 
 // ============================================================================
 // SIMPLE NOTIFICATION HELPER FUNCTIONS
@@ -114,9 +72,11 @@ impl NewDieselNotification {
             user_id,
             title: title.to_string(),
             message: message.to_string(),
-            notification_type: notification_type.to_string(),
-            priority: priority.to_string(),
+            notification_type,
+            priority,
             is_read: false,
+            delivery_status: None,
+            delivered_at: None,
             created_at: Utc::now(),
             expires_at,
             metadata,
@@ -194,6 +154,7 @@ pub fn create_notification(
 ) -> Result<DieselNotification, diesel::result::Error> {
     diesel::insert_into(notifications::table)
         .values(&notification)
+        .returning(DieselNotification::as_returning())
         .get_result(conn)
 }
 
@@ -206,6 +167,7 @@ pub fn get_user_notifications(
         .filter(notifications::user_id.eq(user_id))
         .order(notifications::created_at.desc())
         .limit(limit)
+        .select(DieselNotification::as_select())
         .load(conn)
 }
 
@@ -215,6 +177,7 @@ pub fn mark_notification_read(
 ) -> Result<DieselNotification, diesel::result::Error> {
     diesel::update(notifications::table.filter(notifications::id.eq(notification_id)))
         .set(notifications::is_read.eq(true))
+        .returning(DieselNotification::as_returning())
         .get_result(conn)
 }
 

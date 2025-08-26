@@ -3,19 +3,18 @@ pub mod session;
 // Removed: iam
 pub mod audit;
 pub mod payment;
-pub mod stock;
+// Removed: stock (models not used - no stocks table in schema)
 // Removed: permission
 pub mod module;
 pub mod notification;
-pub mod security;
+// Removed: security
 
 // Re-export all models for convenience
 pub use user::*;
 pub use session::*;
-// Removed: iam, permission exports
+// Removed: iam, permission, stock exports
 pub use audit::*;
 pub use payment::*;
-pub use stock::*;
 pub use module::*;
 pub use notification::*;
-pub use security::*;
+// Removed: security exports

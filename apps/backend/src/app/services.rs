@@ -45,7 +45,6 @@ impl AppService {
 
 // Re-export comprehensive services from domain layer
 pub use crate::dom::services::audit_service::AuditService;
-pub use crate::dom::services::permission_resolver::PermissionResolver;
 
 // Rate limiting service with Redis backend
 pub struct RateLimitService {

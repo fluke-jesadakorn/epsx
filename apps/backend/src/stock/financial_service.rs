@@ -339,7 +339,5 @@ impl ScreenerService {
         }
     }
 
-    // REMOVED: fetch_eps_growth_ranking - was not a real algorithm, just sorting existing data
-    // This was a placeholder implementation that should be replaced with actual EPS analysis
-    // when proper market data integration is implemented
+    // REMOVED: fetch_eps_growth_ranking - will be implemented with proper market data integration
 }

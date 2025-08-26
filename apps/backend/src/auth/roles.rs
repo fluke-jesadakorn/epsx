@@ -8,7 +8,6 @@
 use serde::{Deserialize, Serialize};
 use diesel::prelude::*;
 use crate::dom::entities::user::UserRole;
-use diesel::serialize::ToSql;
 use diesel::pg::PgConnection;
 use diesel::result::Error as DieselError;
 use uuid::Uuid;
@@ -147,6 +146,7 @@ impl From<UserRole> for UserRoleEnum {
 
 impl diesel::serialize::ToSql<crate::infra::db::diesel::schema::sql_types::UserRole, diesel::pg::Pg> for UserRoleEnum {
     fn to_sql<'b>(&'b self, out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>) -> diesel::serialize::Result {
+        use diesel::serialize::ToSql;
         let value = match *self {
             UserRoleEnum::Admin => "admin",
             UserRoleEnum::User => "user",

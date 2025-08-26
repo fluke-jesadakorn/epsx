@@ -739,8 +739,9 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
     timeout: parseInt(process.env.TEST_API_TIMEOUT || '30000')
   },
   auth: {
-    testEmail: process.env.TEST_ADMIN_EMAIL || 'jesadakorn.kirtnu@gmail.com',
-    testPassword: process.env.TEST_ADMIN_PASSWORD || 'Aa_12345678'
+    // Admin user must be promoted via database script: ./scripts/promote-admin.sh jesadakorn.kirtnu@gmail.com
+    testEmail: 'jesadakorn.kirtnu@gmail.com',
+    testPassword: 'Aa_12345678'
   },
   performance: {
     maxResponseTime: parseInt(process.env.TEST_MAX_RESPONSE_TIME || '1000'),

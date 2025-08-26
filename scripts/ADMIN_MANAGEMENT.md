@@ -113,7 +113,7 @@ ORDER BY module_count DESC;
 The new system replaces:
 
 - ❌ Hardcoded `info@epsx.io` admin user
-- ❌ `TEST_ADMIN_EMAIL` mock authentication
+- ❌ Environment variable-based admin authentication
 - ❌ SuperAdmin role hierarchy
 - ❌ Firebase custom claims for admin access
 

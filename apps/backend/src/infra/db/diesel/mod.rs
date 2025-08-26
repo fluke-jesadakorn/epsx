@@ -9,4 +9,4 @@ pub mod types;
 pub use pool::{DbPool, DbConnection, create_pool, health_check, pool_stats, PoolStats};
 pub use models::*;
 pub use mappers::*;
-pub use repos::{DieselUserRepo, DieselSessionRepo, DieselAuditRepo};
+pub use repos::{DieselUserRepository, DieselSessionRepository, DieselAuditRepository};

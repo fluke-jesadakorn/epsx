@@ -5,7 +5,7 @@ use axum::{
 use crate::infra::db::diesel::DbPool;
 use std::sync::Arc;
 
-use super::handlers::{get_user_claims, upsert_user};
+use crate::web::user::handlers::{get_user_claims, upsert_user};
 
 /**
  * Modern Auth.js v5 routes

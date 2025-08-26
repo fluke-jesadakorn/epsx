@@ -150,13 +150,13 @@ pub trait NotificationService: Send + Sync {
 
 /// Database-backed notification service with real-time delivery and caching
 pub struct DatabaseNotificationService {
-    repo: Arc<dyn crate::app::ports::repositories::NotificationRepo>,
+    repo: Arc<dyn crate::app::ports::repositories::NotificationRepository>,
     cache: Option<Arc<dyn Cache>>,
     // websocket_manager: Option<Arc<ConnectionManager>>, // TODO: Add when WebSocket is implemented
 }
 
 impl DatabaseNotificationService {
-    pub fn new(repo: Arc<dyn crate::app::ports::repositories::NotificationRepo>) -> Self {
+    pub fn new(repo: Arc<dyn crate::app::ports::repositories::NotificationRepository>) -> Self {
         Self {
             repo,
             cache: None,
@@ -197,8 +197,8 @@ impl DatabaseNotificationService {
             user_firebase_uid: None, // Not available in simplified schema
             title: db_notif.title,
             message: db_notif.message,
-            notification_type: self.string_to_notification_type(&db_notif.notification_type),
-            priority: self.string_to_priority(&db_notif.priority),
+            notification_type: self.string_to_notification_type(&db_notif.notification_type.to_string()),
+            priority: self.string_to_priority(&db_notif.priority.to_string()),
             read: db_notif.is_read,
             delivery_status: NotificationDeliveryStatus::Delivered, // Assume delivered since it's in database
             delivered_at: Some(db_notif.created_at), // Use created_at as delivered_at
@@ -335,6 +335,68 @@ impl DatabaseNotificationService {
             NotificationDeliveryStatus::Expired => "expired".to_string(),
         }
     }
+    
+    /// Convert domain notification to service notification
+    fn domain_to_service_notification(&self, domain_notif: &DomainNotification) -> Result<Notification, NotificationServiceError> {
+        let user_id = match &domain_notif.recipient {
+            NotificationRecipient::User(id) => id.0.to_string(),
+            NotificationRecipient::Email(email) => {
+                return Err(NotificationServiceError::InvalidRequest(
+                    format!("Cannot convert email recipient {} to service notification", email)
+                ));
+            },
+            _ => {
+                return Err(NotificationServiceError::InvalidRequest(
+                    "Unsupported recipient type for service notification".to_string()
+                ));
+            },
+        };
+        
+        let notification_type = match domain_notif.notification_type {
+            DomainNotificationType::PaymentNotification => NotificationType::Payment,
+            DomainNotificationType::SecurityAlert => NotificationType::Security,
+            DomainNotificationType::QuotaWarning => NotificationType::QuotaWarning,
+            DomainNotificationType::FeatureExpiration => NotificationType::FeatureExpiration,
+            DomainNotificationType::ModuleAccessChanged => NotificationType::ModuleAccess,
+            DomainNotificationType::AccountUpdate => NotificationType::UserUpdate,
+            DomainNotificationType::SystemMaintenance => NotificationType::System,
+        };
+        
+        let priority = match domain_notif.priority {
+            DomainNotificationPriority::Low => NotificationPriority::Low,
+            DomainNotificationPriority::Normal => NotificationPriority::Medium,
+            DomainNotificationPriority::High => NotificationPriority::High,
+            DomainNotificationPriority::Critical => NotificationPriority::Critical,
+        };
+        
+        Ok(Notification {
+            id: domain_notif.id.clone().unwrap_or_else(|| Uuid::new_v4().to_string()),
+            user_id,
+            user_firebase_uid: None,
+            title: domain_notif.title.clone(),
+            message: domain_notif.message.clone(),
+            notification_type,
+            priority,
+            read: false, // Domain notifications don't track read status
+            delivery_status: NotificationDeliveryStatus::Pending,
+            delivered_at: None,
+            created_at: chrono::Utc::now(),
+            expires_at: domain_notif.expires_at,
+            action_url: None,
+            action_text: None,
+            template_id: None,
+            context_data: domain_notif.data.clone().map(|d| {
+                let mut map = HashMap::new();
+                if let Some(obj) = d.as_object() {
+                    for (k, v) in obj {
+                        map.insert(k.clone(), v.clone());
+                    }
+                }
+                map
+            }).unwrap_or_default(),
+            metadata: HashMap::new(),
+        })
+    }
 }
 
 #[async_trait]
@@ -431,13 +493,20 @@ impl NotificationService for DatabaseNotificationService {
         let _id_uuid = Uuid::parse_str(id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid notification ID: {}", e)))?;
         
-        let _user_id_uuid = Uuid::parse_str(user_id)
+        let user_id_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid user ID: {}", e)))?;
         
-        // TODO: App ports trait doesn't have get_by_id method, need to implement
-        // For now, return None as a stub
-        warn!("get_notification_by_id not implemented - app ports trait missing get_by_id");
-        Ok(None)
+        let user_id_value = crate::dom::values::UserId::from(user_id_uuid);
+        
+        // Use the new repository method
+        let domain_notification = self.repo.get_by_id(id, &user_id_value).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
+        
+        // Convert domain notification to service notification if found
+        match domain_notification {
+            Some(notif) => Ok(Some(self.domain_to_service_notification(&notif)?)),
+            None => Ok(None),
+        }
     }
     
     async fn get_user_stats(&self, user_id: &str) -> Result<ServiceNotificationStats, NotificationServiceError> {
@@ -451,13 +520,23 @@ impl NotificationService for DatabaseNotificationService {
         let unread_count = self.repo.count_unread_notifications(&user_id).await
             .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
         
+        // Use new repository methods for comprehensive stats
+        let critical_count = self.repo.count_critical_notifications(&user_id).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
+        
+        let today_count = self.repo.count_today_notifications(&user_id).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
+            
+        let last_notification_at = self.repo.get_last_notification_time(&user_id).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
+        
         // Build service stats from app ports data
         Ok(ServiceNotificationStats {
             total_notifications: total_notifications as i64,
             unread_count: unread_count as i64,
-            critical_count: 0, // TODO: Need to implement critical count tracking
-            today_count: 0, // TODO: Need to implement today count tracking
-            last_notification_at: None, // TODO: Need to implement last notification timestamp
+            critical_count: critical_count as i64,
+            today_count: today_count as i64,
+            last_notification_at,
         })
     }
     
@@ -490,68 +569,112 @@ impl NotificationService for DatabaseNotificationService {
     }
     
     async fn mark_all_notifications_read(&self, user_id: &str) -> Result<i64, NotificationServiceError> {
-        let _user_id_uuid = Uuid::parse_str(user_id)
+        let user_id_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid user ID: {}", e)))?;
         
-        // TODO: App ports trait doesn't have mark_all_as_read method
-        // For now, return 0 as stub
-        warn!("mark_all_notifications_read not implemented - app ports trait missing mark_all_as_read");
-        let updated_count = 0;
+        let user_id_value = crate::dom::values::UserId::from(user_id_uuid);
+        
+        // Use new repository method
+        let updated_count = self.repo.mark_all_as_read(&user_id_value).await
+            .map_err(|e| NotificationServiceError::UpdateError(e.to_string()))?;
         
         info!("Marked {} notifications as read for user {}", updated_count, user_id);
-        Ok(updated_count)
+        Ok(updated_count as i64)
     }
     
     async fn update_delivery_status(&self, notification_id: &str, status: NotificationDeliveryStatus) -> Result<(), NotificationServiceError> {
         let _notification_id_uuid = Uuid::parse_str(notification_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid notification ID: {}", e)))?;
         
-        let _status_str = self.delivery_status_to_string(&status);
+        let status_str = self.delivery_status_to_string(&status);
         let _delivered_at = if matches!(status, NotificationDeliveryStatus::Delivered) {
             Some(Utc::now())
         } else {
             None
         };
         
-        // TODO: App ports trait doesn't have update_delivery_status method
-        warn!("update_delivery_status not implemented - app ports trait missing method");
+        // Use new repository method
+        self.repo.update_delivery_status(notification_id, &status_str).await
+            .map_err(|e| NotificationServiceError::UpdateError(e.to_string()))?;
+            
+        debug!("Updated delivery status for notification {} to {}", notification_id, status_str);
         Ok(())
     }
     
     async fn delete_notification(&self, user_id: &str, notification_id: &str) -> Result<(), NotificationServiceError> {
-        let _user_id_uuid = Uuid::parse_str(user_id)
+        let user_id_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid user ID: {}", e)))?;
         
         let _notification_id_uuid = Uuid::parse_str(notification_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid notification ID: {}", e)))?;
         
-        // TODO: App ports trait doesn't have delete method
-        warn!("delete_notification not implemented - app ports trait missing delete method");
-        let _deleted = true; // Stub: assume successful deletion
+        let user_id_value = crate::dom::values::UserId::from(user_id_uuid);
         
-        info!("Deleted notification {} for user {}", notification_id, user_id);
+        // Use new repository method
+        let deleted = self.repo.delete(notification_id, &user_id_value).await
+            .map_err(|e| NotificationServiceError::UpdateError(e.to_string()))?;
+            
+        if deleted {
+            info!("Deleted notification {} for user {}", notification_id, user_id);
+        } else {
+            warn!("Notification {} not found for user {}", notification_id, user_id);
+        }
+        
         Ok(())
     }
     
     async fn get_user_preferences(&self, user_id: &str) -> Result<Option<NotificationPreferences>, NotificationServiceError> {
-        let _user_id_uuid = Uuid::parse_str(user_id)
+        let user_id_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid user ID: {}", e)))?;
         
-        // TODO: App ports trait doesn't have get_user_preferences method
-        warn!("get_user_preferences not implemented - app ports trait missing method");
-        Ok(None)
+        let user_id_value = crate::dom::values::UserId::from(user_id_uuid);
+        
+        // Use new repository method to get preferences from app ports
+        let repo_preferences = self.repo.get_user_preferences(&user_id_value).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
+        
+        // Convert from repository preferences to service preferences
+        match repo_preferences {
+            Some(prefs) => {
+                // Map repository preferences to service preferences structure
+                let service_prefs = NotificationPreferences {
+                    email_enabled: prefs.email_enabled,
+                    push_enabled: prefs.push_enabled,
+                    websocket_enabled: true, // Default for now
+                    digest_mode: false, // Default
+                    digest_frequency: "daily".to_string(), // Default
+                    quiet_hours_start: None,
+                    quiet_hours_end: None,
+                    timezone: "UTC".to_string(), // Default
+                    type_preferences: HashMap::new(), // Default for now
+                    max_notifications_per_hour: 10, // Default
+                    max_notifications_per_day: 100, // Default
+                };
+                Ok(Some(service_prefs))
+            },
+            None => Ok(None),
+        }
     }
     
     async fn update_user_preferences(&self, user_id: &str, preferences: &NotificationPreferences) -> Result<(), NotificationServiceError> {
-        let _user_id_uuid = Uuid::parse_str(user_id)
+        let user_id_uuid = Uuid::parse_str(user_id)
             .map_err(|e| NotificationServiceError::InvalidRequest(format!("Invalid user ID: {}", e)))?;
         
-        // TODO: Database structure not yet implemented
-        let _type_preferences_json = serde_json::to_value(&preferences.type_preferences)
-            .map_err(|e| NotificationServiceError::SerializationError(e.to_string()))?;
+        let user_id_value = crate::dom::values::UserId::from(user_id_uuid);
         
-        // TODO: App ports trait doesn't have upsert_user_preferences method
-        warn!("update_user_preferences not implemented - app ports trait missing upsert method");
+        // Convert service preferences to repository preferences
+        let repo_preferences = crate::app::ports::repositories::NotificationPreferences {
+            email_enabled: preferences.email_enabled,
+            push_enabled: preferences.push_enabled,
+            feature_expiration: preferences.type_preferences.contains_key("feature_expiration"),
+            security_alerts: preferences.type_preferences.contains_key("security_alerts"),
+            account_updates: preferences.type_preferences.contains_key("account_updates"),
+            marketing: preferences.type_preferences.contains_key("marketing"),
+        };
+        
+        // Use new repository method
+        self.repo.upsert_user_preferences(&user_id_value, &repo_preferences).await
+            .map_err(|e| NotificationServiceError::UpdateError(e.to_string()))?;
         
         info!("Updated notification preferences for user {}", user_id);
         Ok(())
@@ -592,29 +715,25 @@ impl NotificationService for DatabaseNotificationService {
         Err(NotificationServiceError::NotImplemented("Template notifications not yet implemented".to_string()))
     }
     
-    async fn process_pending_notifications(&self, _limit: i32) -> Result<i32, NotificationServiceError> {
-        // TODO: App ports trait doesn't have get_pending_notifications method
-        warn!("process_pending_notifications not implemented - app ports trait missing method");
-        let pending_notifications: Vec<DieselNotification> = Vec::new();
+    async fn process_pending_notifications(&self, limit: i32) -> Result<i32, NotificationServiceError> {
+        // Use new repository method to get pending notifications
+        let pending_notifications = self.repo.get_pending_notifications(limit as u32).await
+            .map_err(|e| NotificationServiceError::QueryError(e.to_string()))?;
         
         let mut processed_count = 0;
         
-        for db_notification in pending_notifications {
-            let notification = self.db_to_service_notification(db_notification.clone());
+        for domain_notification in pending_notifications {
+            // Convert domain notification to service notification for processing
+            let service_notification = self.domain_to_service_notification(&domain_notification)?;
             
             // Attempt real-time delivery
-            if self.deliver_real_time(&notification.user_id, &notification).await.unwrap_or(false) {
+            if self.deliver_real_time(&service_notification.user_id, &service_notification).await.unwrap_or(false) {
                 // Mark as delivered
-                let _ = self.update_delivery_status(&notification.id, NotificationDeliveryStatus::Delivered).await;
+                let _ = self.update_delivery_status(&service_notification.id, NotificationDeliveryStatus::Delivered).await;
                 processed_count += 1;
             } else {
-                // Mark as failed if it was already attempted multiple times
-                if db_notification.metadata.as_ref()
-                    .and_then(|m| m.get("delivery_attempts"))
-                    .and_then(|a| a.as_i64())
-                    .unwrap_or(0) >= 3 {
-                    let _ = self.update_delivery_status(&notification.id, NotificationDeliveryStatus::Failed).await;
-                }
+                // For now, just log failed delivery - more sophisticated retry logic would be added later
+                warn!("Failed to deliver notification {}", service_notification.id);
             }
         }
         
@@ -623,12 +742,13 @@ impl NotificationService for DatabaseNotificationService {
     }
     
     async fn cleanup_expired_notifications(&self) -> Result<i64, NotificationServiceError> {
-        // TODO: App ports trait doesn't have cleanup_expired method
-        warn!("cleanup_expired_notifications not implemented - app ports trait missing method");
-        let deleted_count = 0;
+        // Use new repository method to cleanup expired notifications
+        let cleanup_before = chrono::Utc::now();
+        let deleted_count = self.repo.cleanup_expired(cleanup_before).await
+            .map_err(|e| NotificationServiceError::UpdateError(e.to_string()))?;
         
         info!("Cleaned up {} expired notifications", deleted_count);
-        Ok(deleted_count)
+        Ok(deleted_count as i64)
     }
 }
 
@@ -823,10 +943,11 @@ impl NotificationPort for DatabaseNotificationService {
         Ok(())
     }
 
-    async fn get_notification_status(&self, _notification_id: &str) -> Result<NotificationStatus, NotificationError> {
-        // TODO: App ports trait doesn't have get_by_id method
-        // For now, return pending status as stub
-        warn!("get_notification_status not implemented - app ports trait missing get_by_id");
+    async fn get_notification_status(&self, notification_id: &str) -> Result<NotificationStatus, NotificationError> {
+        // We need a user_id to use get_by_id, but the NotificationPort interface doesn't provide one
+        // This is a limitation of the current interface design
+        // For now, we'll return Pending as we can't look up specific notifications without user context
+        warn!("get_notification_status has limited functionality without user context: {}", notification_id);
         Ok(NotificationStatus::Pending)
     }
 }

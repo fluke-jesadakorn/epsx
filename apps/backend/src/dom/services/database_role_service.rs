@@ -161,8 +161,7 @@ impl DatabaseRoleServiceTrait for DatabaseRoleService {
         let _conn = self.db_pool.get().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
             
-        // TODO: Implement proper database query once Diesel SQL functions are working
-        // For now, return a placeholder UUID to prevent compilation errors
+        // TODO: Implement proper database query with Diesel
         let assignment_id = Uuid::new_v4();
         
         info!("Successfully assigned role {} to user {} with ID {}", 

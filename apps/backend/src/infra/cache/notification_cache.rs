@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::infra::services::notification::{Notification, NotificationPreferences, ServiceNotificationStats};
+use crate::infra::services::notification_service::{Notification, NotificationPreferences, ServiceNotificationStats};
 
 /// Cache keys for notification system
 pub struct NotificationCacheKeys;

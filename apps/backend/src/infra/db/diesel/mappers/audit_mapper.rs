@@ -65,16 +65,12 @@ impl TryFrom<&AuditLogEntry> for NewDieselAuditLog {
             resource_type: entry.resource_type().to_string(),
             resource_id: Some(entry.resource_id().to_string()),
             result: None,
-            event_category: None,
             severity: None,
-            success: Some(true),
             details: Some(serde_json::to_value(entry.metadata()).unwrap_or_default()),
-            metadata: None,
             ip_address,
             user_agent: entry.user_agent().map(|s| s.to_string()),
             timestamp: *entry.created_at(),
             session_id: None,
-            client_ip: None,
         })
     }
 }

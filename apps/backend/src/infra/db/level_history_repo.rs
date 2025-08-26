@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-use crate::app::ports::{LevelHistoryRepo, RepoError};
+use crate::app::ports::repositories::{LevelHistoryRepository, RepoError};
 use crate::dom::values::UserId;
 use crate::app::dtos::user::LevelChangeRecord;
 
@@ -21,7 +21,7 @@ impl InMemoryLevelHistoryRepo {
 }
 
 #[async_trait]
-impl LevelHistoryRepo for InMemoryLevelHistoryRepo {
+impl LevelHistoryRepository for InMemoryLevelHistoryRepo {
     async fn save_level_change(&self, record: &LevelChangeRecord) -> Result<(), RepoError> {
         let mut storage = self.storage.lock().unwrap();
         let key = record.usr_id.clone();

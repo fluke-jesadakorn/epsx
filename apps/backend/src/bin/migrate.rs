@@ -1,5 +1,6 @@
-// Database Schema Initialization Tool for EPSX
-// Manages the consolidated database schema with Diesel
+// Database Schema Management Tool for EPSX
+// Modern consolidated database schema management with Diesel migrations
+// Optimized for production deployment and development workflows
 
 use clap::{Parser, Subcommand};
 use std::env;
@@ -21,12 +22,18 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize database with consolidated schema
+    /// Initialize database with modern consolidated schema
     Init,
     /// Check database connection and schema status
     Status,
-    /// Drop all tables (WARNING: destructive)
+    /// Drop all tables and recreate with fresh schema (WARNING: destructive)
     Reset,
+    /// Run pending migrations only
+    Up,
+    /// Rollback last migration
+    Down,
+    /// Show migration history
+    History,
 }
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("diesel_migrations");
@@ -52,6 +59,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Reset => {
             reset_database(&database_url)?;
+        }
+        Commands::Up => {
+            run_migrations(&database_url)?;
+        }
+        Commands::Down => {
+            rollback_migration(&database_url)?;
+        }
+        Commands::History => {
+            show_migration_history(&database_url)?;
         }
     }
 
@@ -81,14 +97,14 @@ fn init_database(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    info!("📊 Database includes:");
-    info!("   - Core user management tables");
-    info!("   - Admin module permission system");
-    info!("   - Security infrastructure");
-    info!("   - Analytics tables");
-    info!("   - 50+ performance indexes");
-    info!("   - JWT helper functions");
-    info!("   - Initial seed data");
+    info!("📊 Modern consolidated database includes:");
+    info!("   - Streamlined user management (Firebase + JWT)");
+    info!("   - Simplified admin permission system (8 core modules)");
+    info!("   - Optimized security infrastructure");
+    info!("   - EPS analytics with sample data");
+    info!("   - 25 focused performance indexes");
+    info!("   - JWT helper functions & optimized views");
+    info!("   - Production-ready seed data");
 
     Ok(())
 }
@@ -137,7 +153,7 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Check admin modules data
+    // Check data counts
     #[derive(diesel::QueryableByName)]
     struct CountResult {
         #[diesel(sql_type = BigInt)]
@@ -149,15 +165,20 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
         .map(|r| r.count)
         .unwrap_or(0);
 
-    info!("📊 Admin modules configured: {}", admin_count);
+    let user_count = sql_query("SELECT COUNT(*) as count FROM users")
+        .get_result::<CountResult>(&mut connection)
+        .map(|r| r.count)
+        .unwrap_or(0);
 
-    // Check EPS analytics sample data
     let eps_count = sql_query("SELECT COUNT(*) as count FROM eps_growth_analytics")
         .get_result::<CountResult>(&mut connection)
         .map(|r| r.count)
         .unwrap_or(0);
 
-    info!("📈 EPS analytics samples: {}", eps_count);
+    info!("📊 Data Summary:");
+    info!("   - Admin modules: {} active", admin_count);
+    info!("   - Users: {}", user_count);
+    info!("   - EPS analytics samples: {}", eps_count);
 
     Ok(())
 }
@@ -166,6 +187,88 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
 fn check_status(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     error!("Database feature not enabled. Compile with --features database");
     Err("Database feature not enabled".into())
+}
+
+#[cfg(feature = "database")]
+fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    info!("Running pending migrations...");
+    
+    let mut connection = PgConnection::establish(database_url)
+        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+    let migration_versions = connection.run_pending_migrations(MIGRATIONS)
+        .map_err(|e| format!("Failed to run migrations: {}", e))?;
+
+    if migration_versions.is_empty() {
+        info!("✅ No pending migrations - database is up to date!");
+    } else {
+        info!("✅ Applied {} migrations successfully!", migration_versions.len());
+        for version in &migration_versions {
+            info!("   - Applied: {}", version);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "database")]
+fn rollback_migration(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    warn!("⚠️  Rolling back last migration...");
+    
+    let mut connection = PgConnection::establish(database_url)
+        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+    connection.revert_last_migration(MIGRATIONS)
+        .map_err(|e| format!("Failed to rollback migration: {}", e))?;
+
+    info!("✅ Migration rollback completed");
+    Ok(())
+}
+
+#[cfg(feature = "database")]
+fn show_migration_history(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use diesel::sql_query;
+    use diesel::sql_types::*;
+
+    info!("📜 Migration History:");
+    
+    let mut connection = PgConnection::establish(database_url)
+        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+    #[derive(diesel::QueryableByName)]
+    struct MigrationRecord {
+        #[diesel(sql_type = Text)]
+        version: String,
+        #[diesel(sql_type = Timestamp)]
+        run_on: chrono::NaiveDateTime,
+    }
+
+    // Check if __diesel_schema_migrations table exists
+    let table_exists = sql_query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '__diesel_schema_migrations') as exists")
+        .get_result::<(bool,)>(&mut connection)
+        .map(|(exists,)| exists)
+        .unwrap_or(false);
+
+    if !table_exists {
+        warn!("   No migration history found - database not initialized");
+        return Ok(());
+    }
+
+    let migrations: Vec<MigrationRecord> = sql_query(
+        "SELECT version, run_on FROM __diesel_schema_migrations ORDER BY run_on DESC"
+    )
+    .load(&mut connection)
+    .unwrap_or_default();
+
+    if migrations.is_empty() {
+        info!("   No migrations have been run");
+    } else {
+        for migration in migrations {
+            info!("   ✅ {} (applied: {})", migration.version, migration.run_on.format("%Y-%m-%d %H:%M:%S"));
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(feature = "database")]
@@ -193,7 +296,29 @@ fn reset_database(database_url: &str) -> Result<(), Box<dyn std::error::Error>> 
     info!("✅ Database reset completed");
     info!("💡 Run 'migrate init' to recreate schema");
 
+    // Automatically reinitialize with fresh schema
+    info!("🔄 Reinitializing with fresh schema...");
+    init_database(database_url)?;
+
     Ok(())
+}
+
+#[cfg(not(feature = "database"))]
+fn run_migrations(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    error!("Database feature not enabled. Compile with --features database");
+    Err("Database feature not enabled".into())
+}
+
+#[cfg(not(feature = "database"))]
+fn rollback_migration(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    error!("Database feature not enabled. Compile with --features database");
+    Err("Database feature not enabled".into())
+}
+
+#[cfg(not(feature = "database"))]
+fn show_migration_history(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    error!("Database feature not enabled. Compile with --features database");
+    Err("Database feature not enabled".into())
 }
 
 #[cfg(not(feature = "database"))]

@@ -11,17 +11,16 @@ use crate::infra::db::diesel::DbPool;
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::ports::repositories::{
-    SessRepo, UserRepo, IamRepo, AuditRepo, PermissionProfileRepo, 
-    TemporaryPermissionRepo, ModuleRepo, UsageRepo
+    SessionRepository, UserRepository, AuditRepository, 
+    ModuleRepository, UsageRepository
 };
 use crate::infra::firebase_admin::FirebaseAdmin;
 use crate::dom::services::admin_module_service::AdminModuleService;
 use crate::infra::AppContainer;
-use crate::infra::cache::{SecurityCache, Cache};
-use crate::security::brute_force_integration::{BruteForceIntegrationService, brute_force_protection_middleware};
-use crate::infra::services::notification::NotificationService;
+use crate::infra::cache::Cache;
+use crate::infra::services::notification_service::NotificationService;
 
-use super::handlers::{
+use crate::web::user::handlers::{
     // Core Authentication
     login_handler, logout_handler, refresh_handler, me_handler,
     
@@ -45,21 +44,15 @@ use super::handlers::{
 pub struct AppState {
     pub auth_uc: Arc<AuthUC>,
     pub user_mgmt_uc: Arc<UserMgmtUC>,
-    pub session_repo: Arc<dyn SessRepo>,
-    pub user_repo: Arc<dyn UserRepo>,
-    pub iam_repo: Arc<dyn IamRepo>,
-    pub audit_repo: Arc<dyn AuditRepo>,
-    pub permission_profile_repo: Arc<dyn PermissionProfileRepo>,
-    pub temporary_permission_repo: Arc<dyn TemporaryPermissionRepo>,
-    pub module_repo: Arc<dyn ModuleRepo>,
-    pub usage_repo: Arc<dyn UsageRepo>,
+    pub session_repo: Arc<dyn SessionRepository>,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub audit_repo: Arc<dyn AuditRepository>,
+    pub module_repo: Arc<dyn ModuleRepository>,
+    pub usage_repo: Arc<dyn UsageRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
     pub admin_module_service: Arc<AdminModuleService>,
-    pub feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
-    pub security_cache: Option<Arc<SecurityCache>>,
-    pub brute_force_service: Option<BruteForceIntegrationService>,
     pub notification_service: Arc<dyn NotificationService>,
 }
 
@@ -67,21 +60,17 @@ impl AppState {
     pub fn new(
         auth_uc: Arc<AuthUC>,
         user_mgmt_uc: Arc<UserMgmtUC>,
-        session_repo: Arc<dyn SessRepo>,
-        user_repo: Arc<dyn UserRepo>,
-        iam_repo: Arc<dyn IamRepo>,
-        audit_repo: Arc<dyn AuditRepo>,
-        permission_profile_repo: Arc<dyn PermissionProfileRepo>,
-        temporary_permission_repo: Arc<dyn TemporaryPermissionRepo>,
-        module_repo: Arc<dyn ModuleRepo>,
-        usage_repo: Arc<dyn UsageRepo>,
+        session_repo: Arc<dyn SessionRepository>,
+        user_repo: Arc<dyn UserRepository>,
+        audit_repo: Arc<dyn AuditRepository>,
+        module_repo: Arc<dyn ModuleRepository>,
+        usage_repo: Arc<dyn UsageRepository>,
         firebase_admin: Arc<FirebaseAdmin>,
         admin_module_service: Arc<AdminModuleService>,
-        feature_expiration_service: Arc<dyn crate::dom::services::feature_expiration::FeatureExpirationService>,
         db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
-        security_cache: Option<Arc<SecurityCache>>,
-        brute_force_service: Option<BruteForceIntegrationService>,
+        _security_cache: Option<()>, // Removed security_cache
+        _brute_force_service: Option<()>, // Removed brute_force_service
         notification_service: Arc<dyn NotificationService>,
     ) -> Self {
         Self {
@@ -89,19 +78,13 @@ impl AppState {
             user_mgmt_uc,
             session_repo,
             user_repo,
-            iam_repo,
             audit_repo,
-            permission_profile_repo,
-            temporary_permission_repo,
             module_repo,
             usage_repo,
             firebase_admin,
             admin_module_service,
-            feature_expiration_service,
             db_pool,
             cache,
-            security_cache,
-            brute_force_service,
             notification_service,
         }
     }
@@ -153,12 +136,7 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         .merge(permission_routes)
         .with_state(app_state.clone());
 
-    // Apply brute force protection middleware to authentication routes
-    if app_state.brute_force_service.is_some() {
-        router.layer(middleware::from_fn_with_state(app_state, brute_force_protection_middleware))
-    } else {
-        router
-    }
+    router
 }
 
 /// Create registration routes with AppContainer state (RESTful patterns)

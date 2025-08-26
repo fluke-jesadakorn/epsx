@@ -138,18 +138,99 @@ impl FirebaseProvider {
 #[async_trait]
 impl AuthProvider for FirebaseProvider {
     async fn validate_token(&self, token: &str) -> Result<UserClaims, AuthProviderError> {
+        use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+        use serde_json::Value;
+        
         // Decode JWT header to get key ID
-        let _header = decode_header(token)
+        let header = decode_header(token)
             .map_err(|_e| AuthProviderError::InvalidTokenFormat)?;
 
         // Get JWKS for validation
-        let _jwks = self.get_jwks().await?;
+        let jwks = self.get_jwks().await?;
         
-        // TODO: Find the correct key from JWKS using header.kid
-        // For now, return error as Firebase certificate validation is complex
-        Err(AuthProviderError::ConfigurationError(
-            "Firebase provider not fully implemented yet".to_string()
-        ))
+        // Find the correct key from JWKS using header.kid
+        let key_id = header.kid.ok_or_else(|| {
+            AuthProviderError::InvalidTokenFormat
+        })?;
+        
+        // Find the key in JWKS
+        let jwk = jwks.keys.iter()
+            .find(|key| key.common.key_id.as_deref() == Some(&key_id))
+            .ok_or_else(|| AuthProviderError::InvalidTokenFormat)?;
+        
+        // Convert JWK to DecodingKey (simplified - in production would handle different key types)
+        let decoding_key = match &jwk.algorithm {
+            jsonwebtoken::jwk::AlgorithmParameters::RSA(rsa_key) => {
+                DecodingKey::from_rsa_components(&rsa_key.n, &rsa_key.e)
+                    .map_err(|_| AuthProviderError::InvalidTokenFormat)?
+            }
+            _ => return Err(AuthProviderError::InvalidTokenFormat),
+        };
+        
+        // Set up validation parameters for Firebase
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&[&self.config.project_id]);
+        validation.set_issuer(&[&format!("https://securetoken.google.com/{}", self.config.project_id)]);
+        
+        // Decode and validate the token
+        let token_data = decode::<Value>(token, &decoding_key, &validation)
+            .map_err(|_e| AuthProviderError::InvalidToken)?;
+        
+        // Extract user claims from Firebase token
+        let claims = &token_data.claims;
+        let user_id = claims.get("sub")
+            .and_then(|v| v.as_str())
+            .ok_or(AuthProviderError::InvalidToken)?;
+        
+        let email = claims.get("email")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        
+        let name = claims.get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+            
+        let email_verified = claims.get("email_verified")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let exp_timestamp = token_data.claims.get("exp")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as u64;
+        
+        let iat_timestamp = token_data.claims.get("iat")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as u64;
+
+        let user_id_parsed = crate::dom::values::UserId::from_str(user_id)
+            .map_err(|_| AuthProviderError::InvalidToken)?;
+        
+        let email_parsed = crate::dom::values::Email::new(email.unwrap_or_default())
+            .map_err(|_| AuthProviderError::InvalidToken)?;
+
+        Ok(UserClaims {
+            user_id: user_id_parsed,
+            email: email_parsed,
+            role: crate::auth::roles::Role::User, // Default role, should be looked up
+            admin_modules: vec![], // No admin modules by default
+            permissions: vec!["read".to_string()], // Default permission
+            provider_user_id: user_id.to_string(),
+            provider: ProviderType::Firebase,
+            expires_at: chrono::DateTime::<chrono::Utc>::from_timestamp(exp_timestamp as i64, 0)
+                .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::hours(1)),
+            iat: iat_timestamp,
+            exp: exp_timestamp,
+            subscription_tier: None,
+            extra_claims: {
+                let mut extra = HashMap::new();
+                if let Some(n) = name {
+                    extra.insert("name".to_string(), serde_json::Value::String(n));
+                }
+                extra.insert("email_verified".to_string(), serde_json::Value::Bool(email_verified));
+                extra.insert("firebase_uid".to_string(), serde_json::Value::String(user_id.to_string()));
+                extra
+            },
+        })
     }
 
     async fn refresh_token(&self, _refresh_token: &str) -> Result<TokenPair, AuthProviderError> {
@@ -183,12 +264,54 @@ impl AuthProvider for FirebaseProvider {
     }
 
     async fn get_user_info(&self, firebase_uid: &str) -> Result<serde_json::Value, AuthProviderError> {
-        // TODO: Implement Firebase Admin SDK user info retrieval
-        Ok(serde_json::json!({
-            "firebase_uid": firebase_uid,
-            "provider": "firebase",
-            "status": "not_implemented"
-        }))
+        // Call Firebase Admin API to get user info
+        let url = format!(
+            "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={}", 
+self.config.project_id // TODO: Add API key to config
+        );
+        
+        let request_body = serde_json::json!({
+            "localId": [firebase_uid]
+        });
+        
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| AuthProviderError::NetworkError(format!("Firebase API request failed: {}", e)))?;
+        
+        if !response.status().is_success() {
+            let status_code = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AuthProviderError::NetworkError(format!(
+                "Firebase API error: {} - {}", status_code, error_text
+            )));
+        }
+        
+        let firebase_response: serde_json::Value = response.json().await
+            .map_err(|e| AuthProviderError::NetworkError(format!("Failed to parse Firebase response: {}", e)))?;
+        
+        // Extract user data from Firebase response
+        if let Some(users) = firebase_response.get("users").and_then(|u| u.as_array()) {
+            if let Some(user) = users.first() {
+                return Ok(serde_json::json!({
+                    "firebase_uid": firebase_uid,
+                    "email": user.get("email"),
+                    "display_name": user.get("displayName"),
+                    "photo_url": user.get("photoUrl"),
+                    "email_verified": user.get("emailVerified"),
+                    "created_at": user.get("createdAt"),
+                    "last_login": user.get("lastLoginAt"),
+                    "provider": "firebase",
+                    "disabled": user.get("disabled").and_then(|d| d.as_bool()).unwrap_or(false)
+                }));
+            }
+        }
+        
+        Err(AuthProviderError::UserNotFound)
     }
 }
 
