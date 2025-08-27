@@ -96,7 +96,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
             className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-h-[44px]"
             disabled={isLoading}
           >
-            <option value="qoq_growth">EPS Growth</option>
+            <option value="growth_factor">EPS Growth</option>
             <option value="current_eps">Current EPS</option>
             <option value="market_cap">Market Cap</option>
             <option value="ranking_position">Ranking Position</option>

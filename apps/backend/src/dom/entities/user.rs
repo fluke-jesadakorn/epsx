@@ -5,24 +5,7 @@ use serde::{ Serialize, Deserialize };
 
 use crate::dom::values::{ UserId, Email, Subscription };
 use crate::dom::events::UserPermissionChangedEvent;
-
-/// User role enum for role-based access control
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum UserRole {
-  User,
-  Moderator,
-  Admin,
-}
-
-impl ToString for UserRole {
-  fn to_string(&self) -> String {
-    match self {
-      UserRole::User => "user".to_string(),
-      UserRole::Moderator => "moderator".to_string(),
-      UserRole::Admin => "admin".to_string(),
-    }
-  }
-}
+use crate::auth::roles::Role;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -31,6 +14,7 @@ pub struct User {
   email: Email,
   admin_modules: Vec<String>,
   package_tier: String,
+  role: Role,
   subscription: Subscription,
   created_at: DateTime<Utc>,
   updated_at: DateTime<Utc>,
@@ -48,6 +32,7 @@ impl User {
       email,
       admin_modules: Vec::new(),
       package_tier,
+      role: Role::Guest, // Default to guest role
       subscription: Subscription::free(),
       created_at: now,
       updated_at: now,
@@ -60,7 +45,8 @@ impl User {
     id: UserId,
     firebase_uid: String,
     email: Email,
-    package_tier: String
+    package_tier: String,
+    role: Role
   ) -> Self {
     let now = chrono::Utc::now();
     Self {
@@ -69,6 +55,7 @@ impl User {
       email,
       admin_modules: Vec::new(),
       package_tier,
+      role,
       subscription: Subscription::free(),
       created_at: now,
       updated_at: now,
@@ -83,6 +70,7 @@ impl User {
     email: Email,
     admin_modules: Vec<String>,
     package_tier: String,
+    role: Role,
     subscription: Subscription,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
@@ -94,6 +82,7 @@ impl User {
       email,
       admin_modules,
       package_tier,
+      role,
       subscription,
       created_at,
       updated_at,
@@ -107,6 +96,7 @@ impl User {
     email: Email,
     admin_modules: Vec<String>,
     package_tier: String,
+    role: Role,
     subscription: Subscription,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -118,6 +108,7 @@ impl User {
       email,
       admin_modules,
       package_tier,
+      role,
       subscription,
       created_at,
       updated_at,
@@ -163,17 +154,9 @@ impl User {
     self.deleted_at.is_some()
   }
 
-  /// Get user role based on admin modules and package tier
-  pub fn role(&self) -> UserRole {
-    if !self.admin_modules.is_empty() {
-      if self.admin_modules.contains(&"system_admin".to_string()) {
-        UserRole::Admin
-      } else {
-        UserRole::Moderator
-      }
-    } else {
-      UserRole::User
-    }
+  /// Get user role (direct field access)
+  pub fn role(&self) -> &Role {
+    &self.role
   }
 
   /// Check if user is active (not deleted)
@@ -207,12 +190,14 @@ impl User {
   /// Simple role upgrade for the new unified role system
   pub fn upgrade_role(
     &mut self,
-    new_role: crate::auth::roles::Role,
+    new_role: Role,
     new_admin_modules: Option<Vec<String>>
   ) -> Result<UserPermissionChangedEvent, DomainError> {
-    let old_tier = self.package_tier.clone();
+    let _old_role = self.role.clone();
+    let old_tier = self.package_tier.clone(); 
     let old_modules = self.admin_modules.clone();
 
+    self.role = new_role.clone();
     self.package_tier = new_role.to_string();
 
     let (modules_added, modules_removed) = if
@@ -277,54 +262,19 @@ impl User {
     self.updated_at = Utc::now();
   }
 
-  /// Get user permissions based on simple role system
+  /// Get user permissions based on unified role system
   pub fn permissions(&self) -> Vec<String> {
-    let mut perms = Vec::new();
-
-    // Add base permissions based on simple role system
-    match self.package_tier.as_str() {
-      "admin" => {
-        perms.push("view_eps".to_string());
-        perms.push("export_data".to_string());
-        perms.push("realtime".to_string());
-        perms.push("profile".to_string());
-        perms.push("notifications".to_string());
-        perms.push("billing".to_string());
-        perms.push("advanced_filters".to_string());
-      }
-      "user" => {
-        perms.push("view_eps".to_string());
-        perms.push("export_data".to_string());
-        perms.push("realtime".to_string());
-        perms.push("profile".to_string());
-        perms.push("notifications".to_string());
-        perms.push("billing".to_string());
-        perms.push("advanced_filters".to_string());
-      }
-      "guest" | _ => {
-        perms.push("view_eps".to_string());
-      }
-    }
-
-    perms
+    use crate::auth::roles::get_role_features;
+    get_role_features(&self.role)
   }
 
   pub fn has_role_or_higher(&self, required_role: &str) -> bool {
-    let role_hierarchy = [
-      ("guest", 1),
-      ("user", 2), 
-      ("admin", 3),
-    ]
-      .iter()
-      .cloned()
-      .collect::<std::collections::HashMap<_, _>>();
-
-    let user_level = role_hierarchy
-      .get(self.package_tier.as_str())
-      .unwrap_or(&0);
-    let required_level = role_hierarchy.get(required_role).unwrap_or(&1);
-
-    user_level >= required_level
+    use crate::auth::roles::check_role_access;
+    
+    match required_role.parse::<Role>() {
+      Ok(required) => check_role_access(&self.role, &required),
+      Err(_) => false,
+    }
   }
 }
 

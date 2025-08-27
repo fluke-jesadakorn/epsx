@@ -1,6 +1,9 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { TinaMarkdown } from 'tinacms/dist/rich-text';
+// Stub TinaMarkdown component (TinaCMS removed to fix axios conflicts)
+const TinaMarkdown = ({ content, components }: { content: any; components?: any }) => {
+  return <div>News content not available (TinaCMS disabled)</div>;
+};
 import { database } from '@/lib/tina-client';
 import { NewsArticleLayout } from '@/components/news/NewsArticleLayout';
 import { RelatedArticles } from '@/components/news/RelatedArticles';

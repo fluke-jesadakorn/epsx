@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+// Using native fetch instead of axios to avoid bundling issues
 import { env } from '@/config/env';
 import type {
   Notification,
@@ -83,63 +83,83 @@ export interface StockRankingAssignmentUpdateRequest {
 }
 
 export class ApiClient {
-  private instance: AxiosInstance;
+  private baseURL: string;
+  private token?: string;
 
   constructor(baseURL: string, token?: string) {
-    this.instance = axios.create({
-      baseURL,
+    this.baseURL = baseURL;
+    this.token = token;
+  }
+
+  private async makeRequest<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const fullUrl = `${this.baseURL}${url}`;
+    const config: RequestInit = {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        ...options.headers,
       },
-    });
+      ...options,
+    };
 
-    this.instance.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Handle unauthorized - redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+    try {
+      const response = await fetch(fullUrl, config);
+      
+      if (response.status === 401) {
+        // Handle unauthorized - redirect to login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
         }
-        return Promise.reject(error);
+        throw new Error('Unauthorized');
       }
-    );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return { data, status: response.status, success: true };
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
   }
 
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.get(url, config);
-    return { data: response.data, status: response.status, success: true };
+  async get<T>(url: string, params?: any): Promise<ApiResponse<T>> {
+    const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.makeRequest<T>(`${url}${queryString}`, { method: 'GET' });
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.post(url, data, config);
-    return { data: response.data, status: response.status, success: true };
+  async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.put(url, data, config);
-    return { data: response.data, status: response.status, success: true };
+  async put<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   }
 
-  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.delete(url, config);
-    return { data: response.data, status: response.status, success: true };
+  async delete<T>(url: string): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, { method: 'DELETE' });
   }
 
   setAuthToken(token: string) {
-    this.instance.defaults.headers.Authorization = `Bearer ${token}`;
+    this.token = token;
   }
 
   removeAuthToken() {
-    delete this.instance.defaults.headers.Authorization;
+    this.token = undefined;
   }
 
   // Notification API methods
   async getNotifications(params?: NotificationListParams): Promise<ApiResponse<NotificationListResponse>> {
-    return this.get('/api/v1/notifications', { params });
+    return this.get('/api/v1/notifications', params);
   }
 
   async getNotification(id: string): Promise<ApiResponse<Notification>> {

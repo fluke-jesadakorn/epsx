@@ -1,79 +1,94 @@
 'use client';
 
-// Removed server action imports - using API routes instead
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
-import type { EPSRankingsResponse, FilterOptions, AnalyticsFilters } from '@/types/analytics';
+import { 
+  AnalyticsClient, 
+  UnifiedAnalyticsRankingsResponse, 
+  UnifiedRankingItem,
+  EPSQueryParams
+} from '@/lib/api-client';
+import type { AnalyticsFilters } from '@/types/analytics';
 import { useEffect, useState } from 'react';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 import StockCard from './StockCard';
+import { CardDashboardView } from './CardDashboardView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { LayoutGrid, List, Download, FileDown } from 'lucide-react';
+import { 
+  exportUnifiedAnalyticsData, 
+  exportCurrentViewData, 
+  exportGrowthLeadersData,
+  exportFilteredData,
+  ExportFormat 
+} from '@/lib/export-utils';
 
-// API helper functions
-async function fetchEPSRankings(filters: AnalyticsFilters): Promise<EPSRankingsResponse | null> {
+// Rich filter options interface
+interface RichFilterOptions {
+  countries: Array<{ value: string; label: string }>;
+  sectors: string[];
+  exchanges?: string[];
+  stock_types?: string[];
+}
+
+// Analytics client instance
+const analyticsClient = new AnalyticsClient();
+
+// API helper functions using new AnalyticsClient
+async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnalyticsRankingsResponse | null> {
   try {
-    const params = new URLSearchParams({
-      page: filters.page.toString(),
-      limit: filters.limit.toString(),
+    const queryParams: EPSQueryParams = {
+      page: filters.page,
+      limit: filters.limit,
       sort_by: filters.sort_by,
-    });
+      country: filters.country,
+      sector: filters.sector,
+      min_eps: filters.min_eps,
+      min_growth: filters.min_growth,
+    };
 
-    if (filters.country) params.append('country', filters.country);
-    if (filters.sector) params.append('sector', filters.sector);
-    if (filters.min_eps) params.append('min_eps', filters.min_eps.toString());
-    if (filters.max_eps) params.append('max_eps', filters.max_eps.toString());
-    if (filters.min_growth) params.append('min_growth', filters.min_growth.toString());
-    if (filters.max_growth) params.append('max_growth', filters.max_growth.toString());
-    if (filters.min_market_cap) params.append('min_market_cap', filters.min_market_cap.toString());
-    if (filters.max_market_cap) params.append('max_market_cap', filters.max_market_cap.toString());
-    if (filters.min_volume) params.append('min_volume', filters.min_volume.toString());
-    if (filters.max_volume) params.append('max_volume', filters.max_volume.toString());
-    if (filters.min_price) params.append('min_price', filters.min_price.toString());
-    if (filters.max_price) params.append('max_price', filters.max_price.toString());
-    if (filters.min_pe_ratio) params.append('min_pe_ratio', filters.min_pe_ratio.toString());
-    if (filters.max_pe_ratio) params.append('max_pe_ratio', filters.max_pe_ratio.toString());
-    if (filters.min_dividend_yield) params.append('min_dividend_yield', filters.min_dividend_yield.toString());
-    if (filters.max_dividend_yield) params.append('max_dividend_yield', filters.max_dividend_yield.toString());
-    if (filters.exchange) params.append('exchange', filters.exchange);
-    if (filters.stock_type) params.append('stock_type', filters.stock_type);
-
-    const response = await fetch(`/api/analytics/rankings?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`Failed to fetch EPS rankings: ${response.status}`);
-      return null;
-    }
-
-    return await response.json();
+    const response = await analyticsClient.getUnifiedAnalyticsRankings(queryParams);
+    return response.data;
   } catch (error) {
     console.error('Error fetching EPS rankings:', error);
     return null;
   }
 }
 
-async function fetchFilterOptions(): Promise<FilterOptions> {
+async function fetchFilterOptions(): Promise<RichFilterOptions> {
   try {
-    const response = await fetch('/api/analytics/filter-options', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
+    // Fetch countries and sectors from the backend
+    const [countriesResponse, sectorsResponse] = await Promise.all([
+      analyticsClient.getAvailableCountries(),
+      analyticsClient.getSectorsByCountry(),
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch filter options: ${response.status}`);
-    }
-
-    return await response.json();
+    return {
+      countries: countriesResponse.data.countries,
+      sectors: sectorsResponse.data.sectors,
+      exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
+      stock_types: ['common', 'preferred', 'reit', 'etf'],
+    };
   } catch (error) {
     console.error('Error fetching filter options:', error);
     
     // Return fallback data
     return {
-      countries: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Japan', 'Australia'],
+      countries: [
+        { value: 'america', label: 'United States' },
+        { value: 'canada', label: 'Canada' },
+        { value: 'united_kingdom', label: 'United Kingdom' },
+        { value: 'germany', label: 'Germany' },
+        { value: 'france', label: 'France' },
+        { value: 'japan', label: 'Japan' },
+        { value: 'australia', label: 'Australia' }
+      ],
       sectors: [
         'Technology',
         'Healthcare', 
@@ -102,27 +117,26 @@ export default function AnalyticsDashboard() {
     setIsLoading,
   } = useAnalyticsFilters();
 
-  // Helper function to calculate QoQ leaders
-  const calculateQoQLeaders = (data: EPSRankingsResponse | null) => {
+  // Helper function to calculate QoQ leaders using rich UnifiedRankingItem data
+  const calculateQoQLeaders = (data: UnifiedAnalyticsRankingsResponse | null) => {
     if (!data?.data || data.data.length === 0) return { epsLeaders: [], priceLeaders: [] };
 
-    // Filter companies with QoQ data
+    // Filter companies with quarterly data
     const companiesWithQoQ = data.data.filter(ranking => 
       ranking.quarterly_data && ranking.quarterly_data.length >= 2
     );
 
-    // Calculate EPS QoQ leaders (highest EPS growth)
+    // Calculate EPS QoQ leaders using analytics.growth_factor for better accuracy
     const epsLeaders = companiesWithQoQ
-      .filter(ranking => ranking.qoq_growth !== null && ranking.qoq_growth !== undefined)
-      .sort((a, b) => (b.qoq_growth || 0) - (a.qoq_growth || 0))
+      .filter(ranking => ranking.analytics.growth_factor !== null && ranking.analytics.growth_factor !== undefined)
+      .sort((a, b) => b.analytics.growth_factor - a.analytics.growth_factor)
       .slice(0, 3);
 
-    // Calculate Price QoQ leaders (use previous quarter if latest is 0.0)
+    // Calculate Price QoQ leaders using quarterly_data
     const priceLeaders = companiesWithQoQ
       .filter(ranking => {
         const latestQuarter = ranking.quarterly_data?.[0];
         const previousQuarter = ranking.quarterly_data?.[1];
-        // Use previous quarter price growth if latest is 0.0, otherwise use latest
         const latestGrowth = latestQuarter?.price_growth || 0;
         const previousGrowth = previousQuarter?.price_growth || 0;
         const displayGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
@@ -144,13 +158,22 @@ export default function AnalyticsDashboard() {
     return { epsLeaders, priceLeaders };
   };
 
-  const [data, setData] = useState<EPSRankingsResponse | null>(null);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+  const [data, setData] = useState<UnifiedAnalyticsRankingsResponse | null>(null);
+  const [filterOptions, setFilterOptions] = useState<RichFilterOptions>({
     countries: [],
     sectors: [],
   });
   const [error, setError] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  // Export functionality state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [exportFilename, setExportFilename] = useState('');
+  const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [includeQuarterlyData, setIncludeQuarterlyData] = useState(true);
+  const [exportType, setExportType] = useState<'current' | 'filtered' | 'leaders' | 'full'>('current');
+
 
   // Load filter options on mount
   useEffect(() => {
@@ -205,6 +228,51 @@ export default function AnalyticsDashboard() {
       setError('Failed to refresh data');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Export handlers
+  const handleExport = () => {
+    if (!data) return;
+
+    const options = {
+      format: exportFormat,
+      filename: exportFilename || undefined,
+      includeMetadata,
+      includeQuarterlyData,
+    };
+
+    switch (exportType) {
+      case 'current':
+        exportCurrentViewData(data.data, { ...options, viewType: 'list' });
+        break;
+      case 'filtered':
+        exportFilteredData(data, filters, options);
+        break;
+      case 'leaders':
+        const { epsLeaders, priceLeaders } = calculateQoQLeaders(data);
+        exportGrowthLeadersData(epsLeaders, priceLeaders, options);
+        break;
+      case 'full':
+        exportUnifiedAnalyticsData(data, options);
+        break;
+    }
+
+    setShowExportDialog(false);
+  };
+
+  const getExportDescription = () => {
+    switch (exportType) {
+      case 'current':
+        return `Export current page data (${data?.data?.length || 0} records)`;
+      case 'filtered':
+        return `Export all filtered data (${data?.pagination?.total || 0} total records)`;
+      case 'leaders':
+        return 'Export QoQ performance leaders only';
+      case 'full':
+        return 'Export complete dataset with metadata';
+      default:
+        return '';
     }
   };
 
@@ -312,6 +380,7 @@ export default function AnalyticsDashboard() {
             </div>
           )}
 
+
           {/* Enhanced QoQ Leaders Section */}
           {!isLoading && data && data.data.length > 0 && (() => {
             const { epsLeaders, priceLeaders } = calculateQoQLeaders(data);
@@ -351,11 +420,19 @@ export default function AnalyticsDashboard() {
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 text-xs font-bold text-white shadow-lg">
                                   {index + 1}
                                 </span>
-                                <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                                <div>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{leader.company_name}</p>
+                                </div>
                               </div>
-                              <span className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-sm font-bold text-white shadow-md">
-                                +{(leader.qoq_growth || 0).toFixed(1)}%
-                              </span>
+                              <div className="text-right">
+                                <span className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-sm font-bold text-white shadow-md">
+                                  +{leader.analytics.growth_factor.toFixed(1)}%
+                                </span>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  Score: {leader.analytics.ranking_score.toFixed(1)}
+                                </p>
+                              </div>
                             </div>
                           ))}
                           {epsLeaders.length === 0 && (
@@ -389,15 +466,23 @@ export default function AnalyticsDashboard() {
                                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-xs font-bold text-white shadow-lg">
                                     {index + 1}
                                   </span>
-                                  <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                                  <div>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{leader.company_name}</p>
+                                  </div>
                                 </div>
-                                <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${
-                                  priceGrowth >= 0 
-                                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
-                                    : 'bg-gradient-to-r from-red-500 to-pink-500'
-                                }`}>
-                                  {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
-                                </span>
+                                <div className="text-right">
+                                  <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${
+                                    priceGrowth >= 0 
+                                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+                                      : 'bg-gradient-to-r from-red-500 to-pink-500'
+                                  }`}>
+                                    {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
+                                  </span>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {leader.analytics.trend} • Vol: {leader.analytics.volatility.toFixed(1)}
+                                  </p>
+                                </div>
                               </div>
                             );
                           })}
@@ -415,25 +500,120 @@ export default function AnalyticsDashboard() {
             );
           })()}
 
-          {/* Enhanced Layout: Responsive grid */}
-          <div className="lg:grid lg:grid-cols-4 lg:gap-8">
-            {/* Enhanced Desktop Filters sidebar */}
-            <div className="hidden lg:block lg:col-span-1">
-              <div className="sticky top-4">
-                <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
-                  <FilterPanel
-                    filters={filters}
-                    options={filterOptions}
-                    onFiltersChange={updateFilters}
-                    isLoading={isLoading}
-                    isMobile={false}
-                  />
+          {/* Rich Backend Analytics Metadata Section */}
+          {!isLoading && data && data.metadata && (
+            <div className="mb-8">
+              <div className="relative overflow-hidden rounded-3xl border border-purple-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-purple-400/20 dark:bg-slate-800/80">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-blue-900/10" />
+                
+                <div className="relative z-10">
+                  <div className="mb-6 text-center sm:text-left">
+                    <h2 className="animate-gradient-x mb-3 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-600 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
+                      🚀 Advanced Analytics Engine
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      Powered by Diesel ORM with real-time processing and intelligent caching
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-2xl border border-green-200/50 bg-gradient-to-br from-green-50/80 to-emerald-50/80 p-4 backdrop-blur-sm dark:border-green-400/20 dark:from-green-900/20 dark:to-emerald-900/20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-2">
+                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">Processing Time</span>
+                      </div>
+                      <p className="text-lg font-bold text-green-800 dark:text-green-300">{data.processing_time_ms}ms</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 p-4 backdrop-blur-sm dark:border-blue-400/20 dark:from-blue-900/20 dark:to-cyan-900/20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 p-2">
+                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">Real-time</span>
+                      </div>
+                      <p className="text-sm font-bold text-blue-800 dark:text-blue-300">
+                        HTTP Only
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-orange-200/50 bg-gradient-to-br from-orange-50/80 to-yellow-50/80 p-4 backdrop-blur-sm dark:border-orange-400/20 dark:from-orange-900/20 dark:to-yellow-900/20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 p-2">
+                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">Data Source</span>
+                      </div>
+                      <p className="text-sm font-bold text-orange-800 dark:text-orange-300">{data.metadata.data_source}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 p-4 backdrop-blur-sm dark:border-purple-400/20 dark:from-purple-900/20 dark:to-pink-900/20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 p-2">
+                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-400">Markets</span>
+                      </div>
+                      <p className="text-sm font-bold text-purple-800 dark:text-purple-300">
+                        {data.metadata.available_countries.length} Countries
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Enhanced Main content */}
-            <div className="lg:col-span-3">
+          {/* Enhanced Layout with Tabbed Views */}
+          <Tabs defaultValue="list" className="space-y-6">
+            <div className="flex justify-center">
+              <TabsList className="grid w-full max-w-md grid-cols-2 rounded-2xl bg-white/80 backdrop-blur-xl border border-orange-200/50 dark:bg-slate-800/80 dark:border-orange-400/20">
+                <TabsTrigger 
+                  value="list" 
+                  className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
+                >
+                  <List className="h-4 w-4" />
+                  List View
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="cards" 
+                  className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  Card View
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="list" className="space-y-0">
+              <div className="lg:grid lg:grid-cols-4 lg:gap-8">
+                {/* Enhanced Desktop Filters sidebar */}
+                <div className="hidden lg:block lg:col-span-1">
+                  <div className="sticky top-4">
+                    <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
+                      <FilterPanel
+                        filters={filters}
+                        options={filterOptions}
+                        onFiltersChange={updateFilters}
+                        isLoading={isLoading}
+                        isMobile={false}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enhanced Main content */}
+                <div className="lg:col-span-3">
               {/* Enhanced Results header */}
               <div className="mb-6 rounded-2xl border border-orange-200/50 bg-white/80 p-4 sm:p-6 backdrop-blur-xl shadow-lg dark:border-orange-400/20 dark:bg-slate-800/80">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -489,6 +669,104 @@ export default function AnalyticsDashboard() {
                       <span className="hidden sm:inline">Refresh Data</span>
                       <span className="sm:hidden">Refresh</span>
                     </button>
+
+                    <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                      <DialogTrigger asChild>
+                        <button
+                          className="flex items-center gap-2 rounded-xl border border-purple-200 bg-white/80 px-4 py-2 text-sm font-semibold text-purple-700 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-purple-50 hover:scale-105 dark:border-purple-400/20 dark:bg-slate-800/80 dark:text-purple-400 dark:hover:bg-slate-700/80"
+                          disabled={!data || isLoading}
+                        >
+                          <Download className="h-4 w-4" />
+                          <span className="hidden sm:inline">Export Data</span>
+                          <span className="sm:hidden">Export</span>
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <FileDown className="h-5 w-5 text-purple-600" />
+                            Export Analytics Data
+                          </DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="space-y-6 py-4">
+                          {/* Export type selection */}
+                          <div>
+                            <Label className="text-sm font-medium">Export Type</Label>
+                            <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="current">Current Page</SelectItem>
+                                <SelectItem value="filtered">Filtered Data</SelectItem>
+                                <SelectItem value="leaders">QoQ Leaders</SelectItem>
+                                <SelectItem value="full">Full Dataset</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500 mt-1">{getExportDescription()}</p>
+                          </div>
+
+                          {/* Format selection */}
+                          <div>
+                            <Label className="text-sm font-medium">Format</Label>
+                            <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="json">JSON</SelectItem>
+                                <SelectItem value="csv">CSV</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Filename input */}
+                          <div>
+                            <Label className="text-sm font-medium">Filename (optional)</Label>
+                            <Input
+                              value={exportFilename}
+                              onChange={(e) => setExportFilename(e.target.value)}
+                              placeholder="Leave empty for auto-generated name"
+                            />
+                          </div>
+
+                          {/* Options */}
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="metadata" 
+                                checked={includeMetadata}
+                                onCheckedChange={(checked) => setIncludeMetadata(!!checked)}
+                              />
+                              <Label htmlFor="metadata" className="text-sm">Include metadata</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="quarterly" 
+                                checked={includeQuarterlyData}
+                                onCheckedChange={(checked) => setIncludeQuarterlyData(!!checked)}
+                              />
+                              <Label htmlFor="quarterly" className="text-sm">Include quarterly data</Label>
+                            </div>
+                          </div>
+
+                          {/* Export button */}
+                          <div className="flex justify-end space-x-2">
+                            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+                              Cancel
+                            </Button>
+                            <Button 
+                              onClick={handleExport}
+                              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Export
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
               </div>
@@ -603,7 +881,7 @@ export default function AnalyticsDashboard() {
               </>
             )}
 
-            {/* Results grid - Responsive */}
+            {/* Results grid - Responsive HTTP Data */}
             {!isLoading && data && data.data.length > 0 && (
               <>
                 {/* Mobile: Horizontal scrolling cards */}
@@ -682,8 +960,14 @@ export default function AnalyticsDashboard() {
                   </button>
                 </div>
               )}
-            </div>
-          </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="cards" className="space-y-0">
+              <CardDashboardView />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

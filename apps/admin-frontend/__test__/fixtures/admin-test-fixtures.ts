@@ -1,36 +1,24 @@
 /**
- * Admin Test Fixtures and Database Setup Utilities
+ * Admin Test Fixtures - Simplified Role System
  * 
- * Comprehensive test data fixtures and database utilities for admin testing including:
- * - Test user accounts with various permission combinations
- * - Admin module permission matrices
+ * Test data fixtures for admin testing with unified role system:
+ * - Simple role hierarchy: admin > user > guest
  * - Session and authentication test data
- * - Security event test scenarios
- * - Performance testing datasets
- * - Database seeding and cleanup utilities
  * - Mock API responses
  * - Test environment configuration
  */
 
+import { Role } from '@/types/admin/roles';
+
 // ============================================================================
-// Admin Module Definitions
+// Simple Role Definitions
 // ============================================================================
 
-export const ADMIN_MODULES = {
-  USER_MANAGEMENT: 'user-management',
-  SYSTEM_CONFIGURATION: 'system-configuration',
-  SECURITY_MANAGEMENT: 'security-management',
-  AUDIT_LOGS: 'audit-logs',
-  ANALYTICS_ACCESS: 'analytics-access'
-} as const;
-
-export const PACKAGE_TIERS = {
-  BRONZE: 'BRONZE',
-  SILVER: 'SILVER', 
-  GOLD: 'GOLD',
-  PLATINUM: 'PLATINUM',
-  ENTERPRISE: 'ENTERPRISE'
-} as const;
+export const TEST_ROLES = {
+  ADMIN: 'admin' as const,
+  USER: 'user' as const,
+  GUEST: 'guest' as const
+};
 
 // ============================================================================
 // Test User Fixtures
@@ -40,11 +28,9 @@ export interface TestUser {
   id: string;
   email: string;
   name: string;
-  adminModules: string[];
-  packageTier: string;
+  role: Role;
   features: string[];
   sessionToken?: string;
-  role: string;
   description: string;
 }
 
@@ -53,8 +39,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     id: 'admin-001',
     email: 'admin@epsx.test',
     name: 'Administrator',
-    adminModules: Object.values(ADMIN_MODULES),
-    packageTier: PACKAGE_TIERS.ENTERPRISE,
+    role: Role.Admin,
     features: [
       'advanced-analytics',
       'bulk-operations',
@@ -62,187 +47,140 @@ export const TEST_USERS: Record<string, TestUser> = {
       'security-monitoring',
       'performance-analytics'
     ],
-    role: 'super-admin',
-    description: 'Full system access with all admin modules'
+    description: 'Full system access with admin privileges'
   },
   
   USER_MANAGER: {
     id: 'user-mgr-002',
     email: 'user.manager@epsx.test',
     name: 'User Manager',
-    adminModules: [ADMIN_MODULES.USER_MANAGEMENT],
-    packageTier: PACKAGE_TIERS.GOLD,
+    role: Role.User,
     features: [
       'user-creation',
       'user-editing',
       'user-analytics',
       'bulk-user-operations'
     ],
-    role: 'user-manager',
-    description: 'User management operations only'
+    description: 'User with management capabilities'
   },
   
   SECURITY_MANAGER: {
     id: 'sec-mgr-003',
     email: 'security.manager@epsx.test',
     name: 'Security Manager',
-    adminModules: [ADMIN_MODULES.SECURITY_MANAGEMENT, ADMIN_MODULES.AUDIT_LOGS],
-    packageTier: PACKAGE_TIERS.PLATINUM,
+    role: Role.Admin,
     features: [
       'permission-management',
       'security-monitoring',
       'audit-reporting',
       'threat-analysis'
     ],
-    role: 'security-manager',
-    description: 'Security and audit management'
+    description: 'Admin with security focus'
   },
   
   ANALYST: {
     id: 'analyst-004',
     email: 'analyst@epsx.test',
     name: 'Data Analyst',
-    adminModules: [ADMIN_MODULES.ANALYTICS_ACCESS],
-    packageTier: PACKAGE_TIERS.SILVER,
+    role: Role.User,
     features: [
       'analytics-dashboard',
       'report-generation',
       'data-export'
     ],
-    role: 'analyst',
-    description: 'Analytics and reporting access'
+    description: 'User with analytics access'
   },
   
   SYSTEM_ADMIN: {
     id: 'sys-admin-005',
     email: 'system.admin@epsx.test',
     name: 'System Administrator',
-    adminModules: [ADMIN_MODULES.SYSTEM_CONFIGURATION],
-    packageTier: PACKAGE_TIERS.GOLD,
+    role: Role.Admin,
     features: [
       'system-configuration',
       'api-key-management',
       'maintenance-mode'
     ],
-    role: 'system-admin',
-    description: 'System configuration and maintenance'
+    description: 'Admin with system configuration access'
   },
   
-  RESTRICTED_ADMIN: {
+  RESTRICTED_USER: {
     id: 'restricted-006',
     email: 'restricted@epsx.test',
-    name: 'Restricted Admin',
-    adminModules: [],
-    packageTier: PACKAGE_TIERS.BRONZE,
+    name: 'Restricted User',
+    role: Role.Guest,
     features: [],
-    role: 'restricted-admin',
-    description: 'No admin modules - for testing access denial'
+    description: 'Guest user for testing limited access'
   },
   
-  MULTI_MODULE_ADMIN: {
+  MULTI_ACCESS_ADMIN: {
     id: 'multi-admin-007',
     email: 'multi.admin@epsx.test',
-    name: 'Multi-Module Admin',
-    adminModules: [
-      ADMIN_MODULES.USER_MANAGEMENT,
-      ADMIN_MODULES.ANALYTICS_ACCESS,
-      ADMIN_MODULES.AUDIT_LOGS
-    ],
-    packageTier: PACKAGE_TIERS.PLATINUM,
+    name: 'Multi-Access Admin',
+    role: Role.Admin,
     features: [
       'user-management',
       'analytics-dashboard',
       'audit-reporting',
-      'cross-module-operations'
+      'cross-system-operations'
     ],
-    role: 'multi-module-admin',
-    description: 'Multiple module access for integration testing'
+    description: 'Admin with comprehensive access for integration testing'
   },
   
   TEMP_ACCESS_USER: {
     id: 'temp-user-008',
     email: 'temporary@epsx.test',
     name: 'Temporary Access User',
-    adminModules: [ADMIN_MODULES.USER_MANAGEMENT],
-    packageTier: PACKAGE_TIERS.SILVER,
+    role: Role.User,
     features: ['user-management'],
-    role: 'temp-admin',
     description: 'User for temporary permission testing'
   }
 };
 
 // ============================================================================
-// Permission Profile Fixtures
+// Role Profile Fixtures - Simplified
 // ============================================================================
 
-export interface PermissionProfile {
+export interface RoleProfile {
   id: string;
   name: string;
   description: string;
-  modules: string[];
+  role: Role;
   features: string[];
-  packageTier: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export const PERMISSION_PROFILES: Record<string, PermissionProfile> = {
-  USER_BASIC: {
-    id: 'user-basic-001',
-    name: 'User Basic Profile',
-    description: 'Basic user management permissions',
-    modules: [ADMIN_MODULES.USER_MANAGEMENT],
-    features: ['view-users', 'edit-users'],
-    packageTier: PACKAGE_TIERS.BRONZE,
+export const ROLE_PROFILES: Record<string, RoleProfile> = {
+  GUEST_BASIC: {
+    id: 'guest-basic-001',
+    name: 'Guest Basic Profile',
+    description: 'Basic read-only access',
+    role: Role.Guest,
+    features: ['view-profile', 'view-analytics'],
     isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z'
   },
   
-  USER_PREMIUM: {
-    id: 'user-premium-002',
-    name: 'User Premium Profile',
-    description: 'Premium user management with analytics',
-    modules: [ADMIN_MODULES.USER_MANAGEMENT, ADMIN_MODULES.ANALYTICS_ACCESS],
-    features: ['view-users', 'edit-users', 'bulk-operations', 'user-analytics'],
-    packageTier: PACKAGE_TIERS.GOLD,
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  },
-  
-  SECURITY_STANDARD: {
-    id: 'security-std-003',
-    name: 'Security Standard Profile',
-    description: 'Standard security management permissions',
-    modules: [ADMIN_MODULES.SECURITY_MANAGEMENT],
-    features: ['permission-management', 'security-monitoring'],
-    packageTier: PACKAGE_TIERS.PLATINUM,
+  USER_STANDARD: {
+    id: 'user-standard-002',
+    name: 'User Standard Profile',
+    description: 'Standard user with full features',
+    role: Role.User,
+    features: ['view-analytics', 'export-data', 'manage-profile'],
     isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z'
   },
   
   ADMIN_FULL: {
-    id: 'admin-full-004',
+    id: 'admin-full-003',
     name: 'Full Admin Profile',
     description: 'Complete administrative access',
-    modules: Object.values(ADMIN_MODULES),
+    role: Role.Admin,
     features: ['*'],
-    packageTier: PACKAGE_TIERS.ENTERPRISE,
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  },
-  
-  ANALYTICS_PRO: {
-    id: 'analytics-pro-005',
-    name: 'Analytics Professional',
-    description: 'Advanced analytics and reporting',
-    modules: [ADMIN_MODULES.ANALYTICS_ACCESS, ADMIN_MODULES.AUDIT_LOGS],
-    features: ['advanced-analytics', 'custom-reports', 'data-export'],
-    packageTier: PACKAGE_TIERS.PLATINUM,
     isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z'
@@ -354,7 +292,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     ipAddress: '192.168.1.200',
     userAgent: 'Mozilla/5.0 (Test Browser)',
     timestamp: new Date().toISOString(),
-    details: { requiredModule: ADMIN_MODULES.SECURITY_MANAGEMENT }
+    details: { requiredRole: Role.Admin }
   },
   
   SQL_INJECTION_ATTEMPT: {
@@ -382,7 +320,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     ipAddress: '192.168.1.101',
     userAgent: 'Mozilla/5.0 (Test Browser)',
     timestamp: new Date().toISOString(),
-    details: { rateLimitTier: PACKAGE_TIERS.GOLD, requestCount: 1001 }
+    details: { userRole: Role.User, requestCount: 1001 }
   },
   
   PRIVILEGE_ESCALATION: {
@@ -396,7 +334,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     ipAddress: '192.168.1.101',
     userAgent: 'Mozilla/5.0 (Test Browser)',
     timestamp: new Date().toISOString(),
-    details: { attemptedModules: Object.values(ADMIN_MODULES) }
+    details: { attemptedRole: Role.Admin }
   }
 };
 
@@ -423,21 +361,21 @@ export const API_RESPONSE_FIXTURES = {
       }
     },
     
-    PERMISSION_PROFILES: {
+    ROLE_PROFILES: {
       status: 200,
       data: {
-        profiles: Object.values(PERMISSION_PROFILES),
-        total: Object.values(PERMISSION_PROFILES).length
+        profiles: Object.values(ROLE_PROFILES),
+        total: Object.values(ROLE_PROFILES).length
       }
     },
     
-    ADMIN_MODULES: {
+    ROLES: {
       status: 200,
       data: {
-        modules: Object.entries(ADMIN_MODULES).map(([key, value]) => ({
-          code: value,
-          name: key.replace('_', ' ').toLowerCase(),
-          description: `${key.replace('_', ' ')} module`,
+        roles: Object.values(Role).map(role => ({
+          value: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
+          description: `${role.charAt(0).toUpperCase() + role.slice(1)} role`,
           isActive: true
         }))
       }
@@ -451,12 +389,10 @@ export const API_RESPONSE_FIXTURES = {
         newThisMonth: 23,
         premiumUsers: 45,
         adminUsers: 8,
-        usersByTier: {
-          [PACKAGE_TIERS.BRONZE]: 60,
-          [PACKAGE_TIERS.SILVER]: 45,
-          [PACKAGE_TIERS.GOLD]: 30,
-          [PACKAGE_TIERS.PLATINUM]: 12,
-          [PACKAGE_TIERS.ENTERPRISE]: 3
+        usersByRole: {
+          [Role.Guest]: 60,
+          [Role.User]: 75,
+          [Role.Admin]: 15
         }
       }
     }
@@ -475,7 +411,7 @@ export const API_RESPONSE_FIXTURES = {
       error: 'Forbidden',
       message: 'Insufficient admin privileges',
       code: 'INSUFFICIENT_PRIVILEGES',
-      requiredModule: ADMIN_MODULES.SECURITY_MANAGEMENT
+      requiredRole: Role.Admin
     },
     
     RATE_LIMITED: {
@@ -515,16 +451,14 @@ export const PERFORMANCE_TEST_DATA = {
     id: `perf-user-${index.toString().padStart(4, '0')}`,
     email: `perfuser${index}@epsx.test`,
     name: `Performance Test User ${index}`,
-    adminModules: index % 3 === 0 ? [ADMIN_MODULES.USER_MANAGEMENT] : [],
-    packageTier: Object.values(PACKAGE_TIERS)[index % Object.values(PACKAGE_TIERS).length],
+    role: index % 10 === 0 ? Role.Admin : index % 3 === 0 ? Role.User : Role.Guest,
     features: ['basic-access'],
-    role: 'test-user',
     createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
   })),
   
-  BULK_PERMISSION_UPDATES: Array.from({ length: 100 }, (_, index) => ({
+  BULK_ROLE_UPDATES: Array.from({ length: 100 }, (_, index) => ({
     userId: `bulk-user-${index}`,
-    profileId: Object.keys(PERMISSION_PROFILES)[index % Object.keys(PERMISSION_PROFILES).length],
+    role: Object.values(Role)[index % Object.values(Role).length],
     operation: index % 2 === 0 ? 'assign' : 'revoke'
   })),
   
@@ -567,17 +501,17 @@ export class TestDatabaseUtilities {
   }
   
   /**
-   * Seed database with permission profiles
+   * Seed database with role profiles
    */
-  async seedPermissionProfiles(): Promise<void> {
-    console.log('🌱 Seeding permission profiles...');
+  async seedRoleProfiles(): Promise<void> {
+    console.log('🌱 Seeding role profiles...');
     
-    for (const [key, profile] of Object.entries(PERMISSION_PROFILES)) {
-      console.log(`Creating permission profile: ${profile.name}`);
-      // await this.createPermissionProfile(profile);
+    for (const [key, profile] of Object.entries(ROLE_PROFILES)) {
+      console.log(`Creating role profile: ${profile.name}`);
+      // await this.createRoleProfile(profile);
     }
     
-    console.log('✅ Permission profiles seeded successfully');
+    console.log('✅ Role profiles seeded successfully');
   }
   
   /**
@@ -604,7 +538,7 @@ export class TestDatabaseUtilities {
     
     // Clean up in reverse order to handle dependencies
     await this.cleanupSessions();
-    await this.cleanupPermissionProfiles();
+    await this.cleanupRoleProfiles();
     await this.cleanupUsers();
     await this.cleanupSecurityEvents();
     
@@ -616,9 +550,9 @@ export class TestDatabaseUtilities {
     // Implementation: Delete test users from database
   }
   
-  private async cleanupPermissionProfiles(): Promise<void> {
-    console.log('Cleaning up permission profiles...');
-    // Implementation: Delete test permission profiles
+  private async cleanupRoleProfiles(): Promise<void> {
+    console.log('Cleaning up role profiles...');
+    // Implementation: Delete test role profiles
   }
   
   private async cleanupSessions(): Promise<void> {
@@ -689,7 +623,7 @@ export class TestDatabaseUtilities {
     const stats = {
       totalUsers: 0,
       totalSessions: 0,
-      totalPermissionProfiles: 0,
+      totalRoleProfiles: 0,
       totalSecurityEvents: 0,
       // Implementation: Query actual counts from database
     };
@@ -804,17 +738,15 @@ export class TestUtilities {
    */
   static generateRandomUser(): TestUser {
     const id = `random-${Date.now()}`;
-    const moduleCount = Math.floor(Math.random() * Object.values(ADMIN_MODULES).length);
-    const modules = Object.values(ADMIN_MODULES).slice(0, moduleCount);
+    const roles = Object.values(Role);
+    const randomRole = roles[Math.floor(Math.random() * roles.length)];
     
     return {
       id,
       email: `random.${id}@epsx.test`,
       name: `Random User ${id}`,
-      adminModules: modules,
-      packageTier: Object.values(PACKAGE_TIERS)[Math.floor(Math.random() * Object.values(PACKAGE_TIERS).length)],
+      role: randomRole,
       features: ['basic-access'],
-      role: 'test-user',
       description: 'Randomly generated test user'
     };
   }
@@ -859,10 +791,9 @@ export {
 };
 
 export default {
-  ADMIN_MODULES,
-  PACKAGE_TIERS,
+  TEST_ROLES,
   TEST_USERS,
-  PERMISSION_PROFILES,
+  ROLE_PROFILES,
   TEST_SESSIONS,
   SECURITY_EVENT_FIXTURES,
   API_RESPONSE_FIXTURES,

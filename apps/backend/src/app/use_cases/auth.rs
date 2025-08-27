@@ -55,6 +55,7 @@ impl AuthUC {
                     firebase_uid.clone(),
                     email.clone(),
                     Role::Guest.to_string(),
+                    Role::Guest,
                 );
                 self.user_repo.save(&user).await?;
                 user
@@ -163,6 +164,7 @@ impl AuthUC {
             firebase_uid.clone(),
             email,
             Role::Guest.to_string(), // Default role
+            Role::Guest, // Default role enum
         );
         
         // Save user

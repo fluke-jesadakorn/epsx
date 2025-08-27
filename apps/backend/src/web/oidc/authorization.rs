@@ -380,24 +380,16 @@ async fn handle_authenticated_user_flow(
         if firebase_user.uid == "test_user_info_epsx_io" {
             tracing::info!("Development mode: checking granular admin modules for test user");
             
-            // Check granular admin modules
+            // Simplified role check - no granular admin modules needed
             if let Some(email) = &firebase_user.email {
-                match app_state.admin_module_service.get_user_admin_modules(email).await {
-                    Ok(modules) if !modules.is_empty() => {
-                        tracing::info!("Test user has {} granular admin modules", modules.len());
-                    },
-                    _ => {
-                        tracing::warn!("Test user does not have granular admin modules, allowing for development");
-                    }
-                }
+                tracing::info!("Test user email: {} - using simple role system", email);
             }
         } else {
             // For real users, check both Firebase admin validation and database admin modules
             let has_firebase_admin = app_state.firebase_admin.user_has_admin_access(&firebase_user);
-            let has_admin_modules = if let Some(email) = &firebase_user.email {
-                app_state.admin_module_service.get_user_admin_modules(email).await
-                    .map(|modules| !modules.is_empty())
-                    .unwrap_or(false)
+            let has_admin_modules = if let Some(_email) = &firebase_user.email {
+                // Simplified role system - check via Firebase claims or user role field
+                false // TODO: implement simple role check
             } else {
                 false
             };

@@ -44,7 +44,7 @@ impl Default for EPSRankingParams {
         Self {
             country: None,
             sector: None,
-            sort_by: Some("qoq_growth".to_string()),
+            sort_by: Some("growth_factor".to_string()),
             page: 1,
             limit: 50,
             min_eps: None,
@@ -280,7 +280,7 @@ impl EPSRankingService {
 
         // Validate sort field
         if let Some(ref sort_by) = params.sort_by {
-            let valid_sort_fields = ["qoq_growth", "market_cap", "volume", "name", "current_eps", "ranking_score"];
+            let valid_sort_fields = ["growth_factor", "market_cap", "volume", "name", "current_eps", "ranking_score"];
             if !valid_sort_fields.contains(&sort_by.as_str()) {
                 return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError,
                     format!("Invalid sort field: {}. Valid options: {:?}", sort_by, valid_sort_fields)
@@ -336,7 +336,7 @@ mod tests {
         let params = EPSRankingParams::default();
         assert_eq!(params.page, 1);
         assert_eq!(params.limit, 50);
-        assert_eq!(params.sort_by, Some("qoq_growth".to_string()));
+        assert_eq!(params.sort_by, Some("growth_factor".to_string()));
     }
 
     #[test]

@@ -25,15 +25,15 @@ const publicRoutes = [
 
 // Routes that require specific admin modules
 const adminModuleRoutes: Record<string, string> = {
-  '/users': 'user_management',
-  '/analytics': 'analytics', 
-  '/settings': 'system_config',
-  '/permissions': 'permission_management',
-  '/permission-profiles': 'user_management',
-  '/stock-ranking-packages': 'package_management',
-  '/reports': 'reporting',
-  '/audit': 'audit_logs',
-  '/system': 'system_config'
+  '/users': 'user-management',
+  '/analytics': 'analytics-access', 
+  '/settings': 'system-admin',
+  '/permissions': 'security-management',
+  '/permission-profiles': 'user-management',
+  '/stock-ranking-packages': 'content-management',
+  '/reports': 'analytics-access',
+  '/audit': 'security-management',
+  '/system': 'system-admin'
 }
 
 // Performance monitoring
@@ -111,6 +111,9 @@ export async function middleware(request: NextRequest) {
     
     const user = validationResult.user;
     
+    // Start permission check timing
+    const permissionCheckStartTime = performance.now();
+    
     // Check for admin module requirements
     const requiredModule = Object.entries(adminModuleRoutes).find(([route]) => 
       pathname.startsWith(route)
@@ -122,7 +125,8 @@ export async function middleware(request: NextRequest) {
                        user.role === 'admin';
       
       if (!hasAccess) {
-        console.log(`🚫 Admin middleware: User ${user.email} lacks module ${requiredModule} for ${pathname}`);
+        const permissionCheckTime = performance.now() - permissionCheckStartTime;
+        console.log(`🚫 Admin middleware: User ${user.email} lacks module ${requiredModule} for ${pathname} (permission check: ${permissionCheckTime.toFixed(2)}ms)`);
         
         // Log security event for access denied
         await logSecurityEvent({
@@ -132,7 +136,11 @@ export async function middleware(request: NextRequest) {
           ipAddress,
           path: pathname,
           method,
-          details: { requiredModule, userModules: user.admin_modules }
+          details: { 
+            requiredModule, 
+            userModules: user.admin_modules,
+            permissionCheckTime: permissionCheckTime
+          }
         });
         
         const accessDeniedUrl = new URL('/access-denied', request.url);
@@ -141,6 +149,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(accessDeniedUrl);
       }
     }
+    
+    // Calculate permission check time
+    const permissionCheckTime = performance.now() - permissionCheckStartTime;
     
     // Add user info to headers for server components
     response.headers.set('x-user-id', user.id);
@@ -154,13 +165,14 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-middleware-performance', elapsedTime.toString());
     response.headers.set('x-session-cache-hit', validationResult.performance?.cache_hit.toString() || 'false');
     response.headers.set('x-session-validation-time', validationResult.performance?.validation_time_ms.toString() || '0');
+    response.headers.set('x-permission-check-time', permissionCheckTime.toString());
     
-    // Log successful access
+    // Log successful access with detailed performance breakdown
     if (elapsedTime > 100) { // Log slow requests
-      console.warn(`⚠️  Admin middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms`);
+      console.warn(`⚠️  Admin middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms (session: ${validationResult.performance?.validation_time_ms || 0}ms, permissions: ${permissionCheckTime.toFixed(2)}ms)`);
     }
     
-    console.log(`✅ Admin middleware: Authenticated ${user.email} (${user.role}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms`);
+    console.log(`✅ Admin middleware: Authenticated ${user.email} (${user.role}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms (session: ${(validationResult.performance?.validation_time_ms || 0).toFixed(2)}ms, permissions: ${permissionCheckTime.toFixed(2)}ms)`);
     
     // Log performance metrics to backend
     await recordPerformanceMetrics({
@@ -169,7 +181,7 @@ export async function middleware(request: NextRequest) {
       middlewareExecutionTime: elapsedTime,
       cacheHit: validationResult.performance?.cache_hit || false,
       sessionValidationTime: validationResult.performance?.validation_time_ms || 0,
-      permissionCheckTime: 0, // TODO: Measure permission check time
+      permissionCheckTime: permissionCheckTime,
       totalRequestTime: elapsedTime
     });
     

@@ -43,6 +43,7 @@ DROP TYPE IF EXISTS notification_priority;
 DROP TYPE IF EXISTS notification_type;
 DROP TYPE IF EXISTS admin_module;
 DROP TYPE IF EXISTS package_tier;
+DROP TYPE IF EXISTS user_role;
 
 -- ============================================================================
 -- NOTE: Extensions are not dropped to avoid affecting other applications

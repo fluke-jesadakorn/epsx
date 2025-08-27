@@ -156,6 +156,10 @@ impl AppError {
     pub fn network_error(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::NetworkError, message)
     }
+
+    pub fn cache_error(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ExternalServiceError, message)
+    }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
         self.context = context;

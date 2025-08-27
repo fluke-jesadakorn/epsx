@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NavigationMenu } from '@/components/ui/navigation-menu';
-import { NotificationBell, NotificationDropdown } from '@/components/notifications';
+// Notifications completely disabled to fix webpack bundling issues
 import {
   Sheet,
   SheetContent,
@@ -176,9 +176,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
           {/* Notifications - Only for authenticated users */}
           {user && (
             <div className="relative">
-              <NotificationDropdown>
-                <NotificationBell showBadge={true} />
-              </NotificationDropdown>
+              {/* Notifications disabled due to webpack bundling issues */}
             </div>
           )}
           
@@ -253,7 +251,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
                     className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors"
                   >
                     <span className="text-sm font-medium">Notifications</span>
-                    <NotificationBell showBadge={true} />
+                    {/* Notifications disabled due to webpack bundling issues */}
                   </Link>
                 )}
                 

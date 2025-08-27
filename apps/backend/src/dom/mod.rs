@@ -12,5 +12,5 @@ pub mod ports;
 pub use entities::{AggregateRoot, UnitOfWork};
 pub use values::{UserId, SessId, PayId, Email, SubscriptionTier, Subscription, Currency, PayStatus, Network};  // Explicit re-exports
 
-pub use services::{DatabaseRoleService, AuditService, EPSCacheService, AdminModuleService, FirebaseUserService};  // Explicit re-exports
+pub use services::{AuditService, EPSCacheService, FirebaseUserService};  // Explicit re-exports
 pub use events::*;

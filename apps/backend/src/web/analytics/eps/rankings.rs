@@ -96,7 +96,7 @@ pub fn convert_screening_result_to_eps_ranking(
         sector: result.sector,
         exchange: result.exchange,
         current_eps,
-        qoq_growth,
+        growth_factor: qoq_growth,
         price_current,
         market_cap,
         volume,

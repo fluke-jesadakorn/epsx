@@ -26,9 +26,7 @@ import {
   _getPlanDetails,
   initQRPayment,
   
-  // Permission actions - used in legacy client
-  _getUserPermissions,
-  _checkPermission,
+  // Simple feature access - replaces complex permission system
   checkFeatureAccess,
   checkRankingAccess
 } from '@/lib/server-actions';
@@ -224,26 +222,40 @@ export const userApi = {
   },
 };
 
-export const permissionsApi = {
-  getUserPermissions: async () => {
-    return await apiClient.permissions.getCurrentUserPermissions();
-  },
-
-  checkPermission: async (permission: string, resource?: string, context?: any) => {
-    return await apiClient.permissions.checkPermission({ 
-      userId: '', // Will be filled by server
-      permission, 
-      resource, 
-      context 
-    });
-  },
-
+// Simple feature access API - replaces complex permissions system
+export const featureAccessApi = {
   checkFeatureAccess: async (feature: string) => {
-    return await checkFeatureAccess(feature); // Use server action
+    return await checkFeatureAccess(feature); // Use server action with simple role system
   },
 
   checkRankingAccess: async () => {
     return await checkRankingAccess(); // Use server action
+  },
+
+  // Legacy permission check - maps to feature access
+  checkPermission: async (permission: string) => {
+    // Map legacy permissions to features
+    const featureMap: Record<string, string> = {
+      'users.view': 'view_eps',
+      'dashboard.view': 'view_eps',
+      'analytics.view': 'view_eps',
+      'analytics.export': 'export_data',
+      'realtime': 'realtime',
+      'profile': 'profile',
+      'notifications': 'notifications',
+      'billing': 'billing',
+      'advanced_filters': 'advanced_filters'
+    };
+
+    const feature = featureMap[permission] || permission;
+    return await checkFeatureAccess(feature);
+  },
+
+  // Get user's role-based features
+  getUserFeatures: async () => {
+    // This would need to be implemented to get user's current role and return features
+    // For now, return basic feature set
+    return ['view_eps']; // Default to guest features
   },
 };
 
@@ -273,11 +285,11 @@ export const legacyApiClient = {
   getPlanDetails: (id: string) => paymentApi.getPlan(id),
   initQRPayment,
 
-  // Permission methods using new structure
-  getUserPermissions: () => permissionsApi.getUserPermissions(),
-  checkPermission: (data: any) => apiClient.permissions.checkPermission(data),
-  checkFeatureAccess,
-  checkRankingAccess,
+  // Feature access methods using simple role system
+  getUserFeatures: () => featureAccessApi.getUserFeatures(),
+  checkFeatureAccess: (feature: string) => featureAccessApi.checkFeatureAccess(feature),
+  checkPermission: (permission: string) => featureAccessApi.checkPermission(permission),
+  checkRankingAccess: () => featureAccessApi.checkRankingAccess(),
   
   // Deprecated methods that will throw errors
   get: () => { throw new Error('Use apiClient.domain.method() instead of generic get()'); },

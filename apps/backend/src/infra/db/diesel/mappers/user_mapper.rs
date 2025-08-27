@@ -10,13 +10,12 @@ impl TryFrom<DieselUser> for User {
     type Error = RepoError;
 
     fn try_from(diesel_user: DieselUser) -> Result<Self, Self::Error> {
-        let user_id = UserId::from_str(&diesel_user.id.to_string())
-            .map_err(|e| RepoError::InvalidData(format!("Invalid UserId: {}", e)))?;
+        let user_id = UserId::from(diesel_user.id);
         
         let email = Email::new(diesel_user.email)
             .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
         
-        let role: crate::auth::roles::Role = diesel_user.role.into();
+        let role = diesel_user.role.unwrap_or(crate::auth::roles::Role::Guest);
         let subscription = Subscription::new(crate::dom::values::SubscriptionTier::Basic); // Simple subscription
         
         Ok(User::from_existing_complete(
@@ -25,6 +24,7 @@ impl TryFrom<DieselUser> for User {
             email,
             vec![], // admin_modules - empty for now
             role.to_string(), // package_tier as string
+            role.clone(), // Pass role directly
             subscription,
             diesel_user.created_at,
             diesel_user.updated_at,
@@ -51,7 +51,7 @@ impl From<&User> for NewDieselUser {
                     .into()
             ),
             email_verified: Some(true), // Default to true for simple system
-            role: user.role().into(),
+            role: Some(user.role().clone()),
             is_active: Some(user.is_active()),
             created_at: user.created_at(),
             updated_at: user.updated_at(),
@@ -71,7 +71,7 @@ impl From<&User> for UpdateDieselUser {
                     .into()
             ),
             email_verified: Some(true), // Default to true for simple system
-            role: Some(user.role().into()),
+            role: Some(user.role().clone()),
             is_active: Some(user.is_active()),
             last_login_at: None, // This would need to be set separately
             updated_at: Utc::now(),

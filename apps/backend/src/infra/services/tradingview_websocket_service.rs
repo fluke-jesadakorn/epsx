@@ -487,6 +487,26 @@ impl TradingViewWebSocketService {
             quarter_name: fiscal_period.clone(),
           });
           
+          // DEBUG: Capture announcement date data flow
+          if let Some(announcement_timestamp) = earnings_announcement_timestamp_ms.map(|ms| ms / 1000) {
+            let formatted_date = chrono::Utc.timestamp_opt(announcement_timestamp, 0)
+              .single()
+              .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+              .unwrap_or("Invalid timestamp".to_string());
+            let debug_info = format!(
+              "WEBSOCKET_DEBUG: Symbol={}, Quarter={}, AnnouncementTimestamp={}, FormattedDate={}, EPS={}\n",
+              symbol, fiscal_period, announcement_timestamp, formatted_date, eps_value
+            );
+            let _ = std::fs::OpenOptions::new()
+              .create(true)
+              .append(true)
+              .open("/Users/fluke/Desktop/Work/Outsource/epsx/.devtools/websocket_raw_data.json")
+              .and_then(|mut file| {
+                use std::io::Write;
+                file.write_all(debug_info.as_bytes())
+              });
+          }
+          
           info!("✅ Extracted EPS: {} = {} (from st4 v[5]) [announcement: {}, quarter_end: {:?}]", 
                 fiscal_period, eps_value, estimated_earnings_date, quarter_end_date);
         }

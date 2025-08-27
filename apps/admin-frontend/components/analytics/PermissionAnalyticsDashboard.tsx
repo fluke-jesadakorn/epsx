@@ -65,48 +65,57 @@ export function PermissionAnalyticsDashboard({
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      // Mock data - in production would call analytics API
-      const mockData: PermissionAnalyticsData = {
-        totalUsers: 1247,
-        totalPermissions: 3842,
-        totalProfiles: 28,
-        activeTemporaryPermissions: 156,
-        recentAssignments: 89,
-        securityAlerts: 3,
+      // Call real analytics API
+      const response = await fetch(`/api/v1/admin/analytics/permissions?range=${selectedTimeRange}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analytics API failed: ${response.status}`);
+      }
+
+      const analyticsData = await response.json();
+      
+      // Transform backend data to component format
+      const transformedData: PermissionAnalyticsData = {
+        totalUsers: analyticsData.total_users || 0,
+        totalPermissions: analyticsData.total_permissions || 0,
+        totalProfiles: analyticsData.permission_profiles?.length || 0,
+        activeTemporaryPermissions: analyticsData.temporary_permissions || 0,
+        recentAssignments: analyticsData.recent_assignments || 0,
+        securityAlerts: analyticsData.security_alerts || 0,
         usageStats: {
-          profileUsage: [
-            { profileName: 'user-basic-001', assignmentCount: 892, percentage: 71.5 },
-            { profileName: 'user-premium-002', assignmentCount: 245, percentage: 19.6 },
-            { profileName: 'moderator-standard-003', assignmentCount: 85, percentage: 6.8 },
-            { profileName: 'admin-full-004', assignmentCount: 25, percentage: 2.0 },
-          ],
-          permissionTrends: [
-            { date: '2025-01-01', assignments: 45, revocations: 12 },
-            { date: '2025-01-02', assignments: 52, revocations: 8 },
-            { date: '2025-01-03', assignments: 38, revocations: 15 },
-            { date: '2025-01-04', assignments: 67, revocations: 9 },
-            { date: '2025-01-05', assignments: 41, revocations: 18 },
-            { date: '2025-01-06', assignments: 55, revocations: 6 },
-            { date: '2025-01-07', assignments: 48, revocations: 11 },
-          ],
-          userActivity: [
-            { userId: '1', userEmail: 'john@example.com', lastActivity: '2025-01-08T10:30:00Z', permissionCount: 15, riskScore: 2.1 },
-            { userId: '2', userEmail: 'jane@example.com', lastActivity: '2025-01-08T09:45:00Z', permissionCount: 28, riskScore: 4.7 },
-            { userId: '3', userEmail: 'admin@example.com', lastActivity: '2025-01-08T11:15:00Z', permissionCount: 89, riskScore: 8.9 },
-          ]
+          profileUsage: analyticsData.profile_usage?.map((profile: any) => ({
+            profileName: profile.name,
+            assignmentCount: profile.assignments,
+            percentage: profile.percentage
+          })) || [],
+          permissionTrends: analyticsData.permission_trends || [],
+          userActivity: analyticsData.user_activity?.map((user: any) => ({
+            userId: user.id,
+            userEmail: user.email,
+            lastActivity: user.last_activity,
+            permissionCount: user.permission_count,
+            riskScore: user.risk_score || 0
+          })) || []
         },
         performanceMetrics: {
-          avgResponseTime: 127,
-          cacheHitRate: 94.2,
-          errorRate: 0.3,
-          throughput: 245.7
+          avgResponseTime: analyticsData.performance?.avg_response_time || 0,
+          cacheHitRate: analyticsData.performance?.cache_hit_rate || 0,
+          errorRate: analyticsData.performance?.error_rate || 0,
+          throughput: analyticsData.performance?.throughput || 0
         }
       };
       
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
-      setData(mockData);
+      setData(transformedData);
     } catch (error) {
       console.error('Failed to load analytics:', error);
+      // Set empty data instead of mock data
+      setData(null);
     } finally {
       setLoading(false);
     }

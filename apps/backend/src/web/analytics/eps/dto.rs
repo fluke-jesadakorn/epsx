@@ -92,14 +92,14 @@ pub struct UnifiedRankingItem {
 }
 
 /// Quarterly data for each stock
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct QuarterlyData {
     pub quarter: String, // e.g., "Q3 '25"
     pub date: chrono::DateTime<chrono::Utc>,
     pub price: f64,
     pub eps: f64,
-    pub eps_growth: f64, // QoQ growth percentage
-    pub price_growth: f64, // QoQ price growth percentage
+    pub eps_growth: f64, // Growth factor percentage
+    pub price_growth: f64, // Price growth percentage
     pub volume: Option<i64>,
 }
 
@@ -116,7 +116,7 @@ pub struct MarketData {
 /// Analytics metrics for each stock
 #[derive(Debug, Serialize)]
 pub struct AnalyticsMetrics {
-    pub qoq_growth: f64,
+    pub growth_factor: f64,
     pub ranking_score: f64,
     pub trend: String, // bullish, bearish, neutral, etc.
     pub volatility: f64,
@@ -192,17 +192,34 @@ pub struct SymbolCardData {
     pub value: f64,                    // Current price
     pub active_status: String,         // Active or Non Active based on surplus
     pub quarterly_performance: Vec<QuarterlyPerformanceData>,
+    pub next_quarter_estimate: Option<NextQuarterEstimate>, // NEW: Next quarter EPS estimate
 }
 
 /// Quarterly performance data for the card dashboard
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QuarterlyPerformanceData {
-    pub quarter: String,      // "Q1", "Q0", etc.
+    pub quarter: String,      // "Q1", "Q0", etc. OR "Announced Jul 25, 2024" 
     pub date: String,         // "Aug 8, 2025"
     pub price: f64,
     pub eps: f64,
     pub eps_growth: f64,      // EPS % growth
     pub price_growth: f64,    // Price % growth
+    // NEW: Enhanced announcement date fields
+    pub announcement_date: Option<String>,     // "Est. Oct 24, 2025" or "Announced Jul 25, 2024"
+    pub announcement_timestamp: Option<i64>,   // Raw timestamp for calculations
+    pub is_estimated: bool,                    // true if future/estimated, false if past/announced
+}
+
+/// Next quarter EPS estimate data
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NextQuarterEstimate {
+    pub quarter: String,                       // "2025-Q4"
+    pub estimated_eps: f64,                    // 3.85
+    pub announcement_date: String,             // "Est. Oct 24, 2025"
+    pub announcement_timestamp: i64,           // Raw timestamp
+    pub days_until_announcement: i32,          // 45 (calculated days from now)
+    pub estimated_price_target: Option<f64>,  // Optional price target based on EPS
+    pub confidence: String,                    // "High", "Medium", "Low" based on data quality
 }
 
 /// Metadata for card dashboard

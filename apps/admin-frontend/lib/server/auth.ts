@@ -138,7 +138,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
       ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
       : 'http://localhost:8080'
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin'
-    const redirectUri = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`
+    const redirectUri = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`
     
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: 'POST',
@@ -207,9 +207,9 @@ export async function getUserInfo(accessToken: string) {
  * Redirect to backend Chef Kitchen login with callback URL
  */
 export function redirectToBackendAdminLogin(callbackUrl?: string): never {
-  const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+  const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
   backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
-  backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.epsx.io'}/api/auth/callback/epsx-backend`);
+  backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`);
   backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
   backendAdminLoginUrl.searchParams.set('response_type', 'code');
   if (callbackUrl) {

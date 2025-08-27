@@ -7,7 +7,6 @@
 
 use serde::{Deserialize, Serialize};
 use diesel::prelude::*;
-use crate::dom::entities::user::UserRole;
 use diesel::pg::PgConnection;
 use diesel::result::Error as DieselError;
 use uuid::Uuid;
@@ -18,8 +17,9 @@ use std::collections::HashMap;
 // SIMPLE ROLE TYPES
 // ============================================================================
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, diesel::deserialize::FromSqlRow, diesel::expression::AsExpression)]
 #[serde(rename_all = "lowercase")]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::UserRole)]
 pub enum Role {
     Admin,
     User,
@@ -125,65 +125,25 @@ pub fn get_role_features(role: &Role) -> Vec<String> {
 // DATABASE INTEGRATION WITH DIESEL
 // ============================================================================
 
-// Diesel enum for UserRole
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, diesel::deserialize::FromSqlRow, diesel::expression::AsExpression)]
-#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::UserRole)]
-pub enum UserRoleEnum {
-    Admin,
-    User,
-    Guest,
-}
-
-// Conversion from old UserRole to new UserRoleEnum
-impl From<UserRole> for UserRoleEnum {
-    fn from(role: UserRole) -> Self {
-        match role {
-            UserRole::Admin => UserRoleEnum::Admin,
-            UserRole::Moderator | UserRole::User => UserRoleEnum::User,
-        }
-    }
-}
-
-impl diesel::serialize::ToSql<crate::infra::db::diesel::schema::sql_types::UserRole, diesel::pg::Pg> for UserRoleEnum {
+impl diesel::serialize::ToSql<crate::infra::db::diesel::schema::sql_types::UserRole, diesel::pg::Pg> for Role {
     fn to_sql<'b>(&'b self, out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>) -> diesel::serialize::Result {
         use diesel::serialize::ToSql;
         let value = match *self {
-            UserRoleEnum::Admin => "admin",
-            UserRoleEnum::User => "user",
-            UserRoleEnum::Guest => "guest",
+            Role::Admin => "admin",
+            Role::User => "user",
+            Role::Guest => "guest",
         };
         <str as ToSql<diesel::sql_types::Text, diesel::pg::Pg>>::to_sql(value, out)
     }
 }
 
-impl diesel::deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::UserRole, diesel::pg::Pg> for UserRoleEnum {
+impl diesel::deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::UserRole, diesel::pg::Pg> for Role {
     fn from_sql(bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
-            "admin" => Ok(UserRoleEnum::Admin),
-            "user" => Ok(UserRoleEnum::User),
-            "guest" => Ok(UserRoleEnum::Guest),
+            "admin" => Ok(Role::Admin),
+            "user" => Ok(Role::User),
+            "guest" => Ok(Role::Guest),
             _ => Err("Unrecognized enum variant".into()),
-        }
-    }
-}
-
-// Convert between our Role enum and UserRoleEnum
-impl From<UserRoleEnum> for Role {
-    fn from(user_role: UserRoleEnum) -> Self {
-        match user_role {
-            UserRoleEnum::Admin => Role::Admin,
-            UserRoleEnum::User => Role::User,
-            UserRoleEnum::Guest => Role::Guest,
-        }
-    }
-}
-
-impl From<Role> for UserRoleEnum {
-    fn from(role: Role) -> Self {
-        match role {
-            Role::Admin => UserRoleEnum::Admin,
-            Role::User => UserRoleEnum::User,
-            Role::Guest => UserRoleEnum::Guest,
         }
     }
 }
@@ -202,7 +162,7 @@ pub struct SimpleUser {
     pub last_login_at: Option<chrono::DateTime<chrono::Utc>>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub role: UserRoleEnum,
+    pub role: Option<Role>,
 }
 
 pub fn get_user_by_firebase_uid(conn: &mut PgConnection, firebase_uid_param: &str) -> Result<Option<SimpleUser>, DieselError> {
@@ -220,7 +180,7 @@ pub fn get_user_claims_from_db(conn: &mut PgConnection, firebase_uid_param: &str
     let user = get_user_by_firebase_uid(conn, firebase_uid_param)?;
     
     if let Some(user) = user {
-        let role: Role = user.role.into();
+        let role = user.role.unwrap_or(Role::Guest);
         
         Ok(Some(SimpleUserClaims {
             firebase_uid: user.firebase_uid,
@@ -245,7 +205,7 @@ pub fn check_user_feature_access_db(
     let user = get_user_by_firebase_uid(conn, firebase_uid)?;
     
     if let Some(user) = user {
-        let role: Role = user.role.into();
+        let role = user.role.unwrap_or(Role::Guest);
         Ok(check_feature_access(&role, feature))
     } else {
         Ok(false)
@@ -260,7 +220,7 @@ pub fn check_user_role_access_db(
     let user = get_user_by_firebase_uid(conn, firebase_uid)?;
     
     if let Some(user) = user {
-        let user_role: Role = user.role.into();
+        let user_role = user.role.unwrap_or(Role::Guest);
         let required = required_role.parse::<Role>().map_err(|_| DieselError::DeserializationError(
             "Invalid required role format".into()  
         ))?;

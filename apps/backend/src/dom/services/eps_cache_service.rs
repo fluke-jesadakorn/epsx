@@ -185,7 +185,7 @@ impl EPSCacheService {
                 sector: ranking.sector.clone(),
                 exchange: ranking.exchange.clone(),
                 current_eps: ranking.current_eps,
-                qoq_growth: ranking.qoq_growth,
+                growth_factor: ranking.growth_factor,
                 price_current: ranking.price_current,
                 market_cap: ranking.market_cap,
                 volume: ranking.volume,
@@ -236,7 +236,7 @@ impl EPSCacheService {
             symbol: eps_data.symbol.clone(),
             name: eps_data.name.clone(),
             current_eps: eps_data.current_eps,
-            qoq_growth: eps_data.qoq_growth,
+            growth_factor: eps_data.growth_factor,
             price_current: eps_data.price_current,
             market_cap: eps_data.market_cap,
             volume: eps_data.volume,
@@ -273,7 +273,7 @@ impl EPSCacheService {
 
         // Growth filter
         if let Some(min_growth) = params.min_growth {
-            if ranking.qoq_growth.unwrap_or(0.0) < min_growth {
+            if ranking.growth_factor.unwrap_or(0.0) < min_growth {
                 return false;
             }
         }
@@ -283,16 +283,16 @@ impl EPSCacheService {
 
     /// Sort rankings based on criteria
     fn sort_rankings(&self, mut rankings: Vec<EPSRanking>, sort_by: &Option<String>) -> Vec<EPSRanking> {
-        let sort_field = sort_by.as_ref().map(|s| s.as_str()).unwrap_or("qoq_growth");
+        let sort_field = sort_by.as_ref().map(|s| s.as_str()).unwrap_or("growth_factor");
         
         rankings.sort_by(|a, b| {
             match sort_field {
-                "qoq_growth" => b.qoq_growth.unwrap_or(0.0).partial_cmp(&a.qoq_growth.unwrap_or(0.0)).unwrap(),
+                "growth_factor" | "qoq_growth" => b.growth_factor.unwrap_or(0.0).partial_cmp(&a.growth_factor.unwrap_or(0.0)).unwrap(),
                 "market_cap" => b.market_cap.unwrap_or(0).cmp(&a.market_cap.unwrap_or(0)),
                 "volume" => b.volume.unwrap_or(0).cmp(&a.volume.unwrap_or(0)),
                 "current_eps" => b.current_eps.unwrap_or(0.0).partial_cmp(&a.current_eps.unwrap_or(0.0)).unwrap(),
                 "name" => a.name.cmp(&b.name),
-                _ => b.qoq_growth.unwrap_or(0.0).partial_cmp(&a.qoq_growth.unwrap_or(0.0)).unwrap(),
+                _ => b.growth_factor.unwrap_or(0.0).partial_cmp(&a.growth_factor.unwrap_or(0.0)).unwrap(),
             }
         });
 

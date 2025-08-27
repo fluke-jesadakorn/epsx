@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use super::{DatabaseModule, ServicesModule, CacheModule};
 use crate::app::ports::repositories::*;
-use crate::dom::services::admin_module_service::AdminModuleService;
+// Removed admin module service import - using simple roles
 use crate::infra::{
     db::diesel::DbPool,
     firebase_admin::FirebaseAdmin,
@@ -28,7 +28,7 @@ pub struct AppContainer {
     pub audit_repo: Arc<dyn AuditRepository>,
     pub stock_repo: Arc<dyn StockRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
-    pub admin_module_service: Arc<AdminModuleService>,
+    // Removed admin_module_service - using simple roles
 }
 
 impl AppContainer {
@@ -73,7 +73,7 @@ impl AppContainer {
             module_repo,
             usage_repo,
             self.services.firebase_admin.clone(),
-            self.services.admin_module_service.clone(),
+            // Removed admin_module_service parameter - using simple roles
             self.database.database_pool.clone(),
             self.cache.cache.clone(),
             None, // Removed security_cache 
@@ -172,7 +172,7 @@ impl AppContainerBuilder {
             audit_repo: database.audit_repo.clone(),
             stock_repo: database.stock_repo.clone(),
             firebase_admin: services.firebase_admin.clone(),
-            admin_module_service: services.admin_module_service.clone(),
+            // Removed admin_module_service field - using simple roles
             infra,
             
             // Store focused modules internally

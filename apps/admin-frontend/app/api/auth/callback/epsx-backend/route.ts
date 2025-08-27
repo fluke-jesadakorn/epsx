@@ -176,8 +176,8 @@ export async function GET(request: NextRequest) {
     // Enhanced error logging
     console.error('❌ Full error object:', JSON.stringify(error, null, 2));
 
-    // Redirect to login page with error (using proper admin domain)
-    const loginUrl = new URL('/login', 'https://admin.epsx.io');
+    // Redirect to login page with error (use current request domain)
+    const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'callback_error');
     loginUrl.searchParams.set('error_details', encodeURIComponent(error instanceof Error ? error.message : 'Unknown error'));
     

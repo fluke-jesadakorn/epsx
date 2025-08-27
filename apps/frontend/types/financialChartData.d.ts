@@ -73,7 +73,7 @@ export interface UnifiedMarketData {
 }
 
 export interface UnifiedAnalyticsMetrics {
-  qoq_growth: number;
+  growth_factor: number;
   ranking_score: number;
   trend: string; // bullish, bearish, neutral, etc.
   volatility: number;

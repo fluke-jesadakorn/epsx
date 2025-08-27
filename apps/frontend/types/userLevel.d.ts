@@ -56,3 +56,42 @@ export function convertPaymentTierToUserLevel(paymentTier: PaymentTier): UserLev
   };
   return mapping[paymentTier] || UserLevel.Basic;
 }
+
+// Simple role conversion functions for new system
+export function convertUserLevelToRole(userLevel: UserLevel): 'admin' | 'user' | 'guest' {
+  switch (userLevel) {
+    case UserLevel.VIP:
+      return 'user'; // VIP users get premium features (user role)
+    case UserLevel.Premium:
+      return 'user'; // Premium users get premium features (user role)
+    case UserLevel.Basic:
+      return 'guest'; // Basic users get limited access (guest role)
+    default:
+      return 'guest';
+  }
+}
+
+export function convertPaymentTierToRole(paymentTier: PaymentTier): 'admin' | 'user' | 'guest' {
+  switch (paymentTier) {
+    case PaymentTier.PLATINUM:
+    case PaymentTier.GOLD:
+    case PaymentTier.SILVER:
+    case PaymentTier.BRONZE:
+      return 'user'; // All paid tiers get user role (premium features)
+    default:
+      return 'guest'; // Free tier gets guest role (basic features)
+  }
+}
+
+export function convertRoleToPaymentTier(role: 'admin' | 'user' | 'guest'): PaymentTier {
+  switch (role) {
+    case 'admin':
+      return PaymentTier.PLATINUM; // Admin gets highest tier
+    case 'user':
+      return PaymentTier.SILVER; // User gets premium tier
+    case 'guest':
+      return PaymentTier.BRONZE; // Guest gets basic tier
+    default:
+      return PaymentTier.BRONZE;
+  }
+}

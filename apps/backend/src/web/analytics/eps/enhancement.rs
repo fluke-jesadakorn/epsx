@@ -76,8 +76,8 @@ pub async fn enhance_with_websocket_data(
                                 let qoq_growth = ((current_eps - previous_eps) / previous_eps) * 100.0;
                                 if qoq_growth.abs() < 200.0 { // Reasonable growth range
                                     debug!("Updating {} QoQ growth: {:?} → {}% (REAL WebSocket)", 
-                                           ranking.symbol, ranking.qoq_growth, qoq_growth);
-                                    ranking.qoq_growth = Some(qoq_growth);
+                                           ranking.symbol, ranking.growth_factor, qoq_growth);
+                                    ranking.growth_factor = Some(qoq_growth);
                                 }
                             }
                         }

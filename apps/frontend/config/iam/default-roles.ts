@@ -1,302 +1,197 @@
-// UNIFIED PERMISSION SYSTEM - Single source of truth for all frontend permissions
-// Uses unified format: "domain:action:scope" matching backend Rust implementation
+// ============================================================================
+// SIMPLE ROLE CONFIGURATION - MATCHES BACKEND EXACTLY
+// ============================================================================
+// This file replaces complex IAM system with simple role-based configuration
+// Roles: admin, user, guest
+// Features: view_eps, export_data, realtime, profile, notifications, billing, advanced_filters
 
-import type { PermissionDocument, RoleDocument } from './types';
-import { 
-  PermissionPatterns, 
-  PermissionDomain, 
-  PermissionAction, 
-  PermissionScope 
-} from '../../types/permissions';
+import { Role, checkFeatureAccess } from '../../types/permissions';
 
-// NEW: Unified permissions using consistent domain:action:scope format
-export const UNIFIED_PERMISSIONS: PermissionDocument[] = [
-  // Dashboard permissions
-  {
-    id: 'dashboard:view:own',
-    name: 'View Dashboard',
-    description: 'Access to view the main dashboard',
-    category: 'dashboard',
-    action: 'view',
-    resource: 'dashboard', 
-    scope: 'own',
-    isSystem: true,
-    tags: ['dashboard', 'view']
-  },
-  {
-    id: 'dashboard:admin:system',
-    name: 'Admin Dashboard',
-    description: 'Access to admin dashboard features',
-    category: 'dashboard',
-    action: 'admin',
-    resource: 'dashboard',
-    scope: 'system',
-    isSystem: true,
-    tags: ['dashboard', 'admin']
-  },
+// ============================================================================
+// SIMPLE ROLE DEFINITIONS
+// ============================================================================
 
-  // User management permissions
-  {
-    id: 'users:read:own',
-    name: 'View Users',
-    description: 'View user profiles and information',
-    category: 'users',
-    action: 'read',
-    resource: 'users',
-    scope: 'own',
-    isSystem: true,
-    tags: ['users', 'read']
-  },
-  {
-    id: 'users:create:system',
-    name: 'Create Users',
-    description: 'Create new user accounts',
-    category: 'users',
-    action: 'create',
-    resource: 'users',
-    scope: 'system',
-    isSystem: true,
-    tags: ['users', 'create']
-  },
-  {
-    id: 'users:update:own',
-    name: 'Update Users',
-    description: 'Update user information and settings',
-    category: 'users',
-    action: 'update',
-    resource: 'users',
-    scope: 'own',
-    isSystem: true,
-    tags: ['users', 'update']
-  },
-  {
-    id: 'users:delete:system',
-    name: 'Delete Users',
-    description: 'Delete user accounts',
-    category: 'users',
-    action: 'delete',
-    resource: 'users',
-    scope: 'system',
-    isSystem: true,
-    tags: ['users', 'delete']
-  },
+export interface SimpleRole {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  features: string[];
+  isSystem: boolean;
+  isActive: boolean;
+}
 
-  // Role management permissions
-  {
-    id: 'roles:read:system',
-    name: 'View Roles',
-    description: 'View role definitions and permissions',
-    category: 'roles',
-    action: 'read',
-    resource: 'roles',
-    scope: 'system',
-    isSystem: true,
-    tags: ['roles', 'read']
-  },
-  {
-    id: 'roles:create:system',
-    name: 'Create Roles',
-    description: 'Create new roles and assign permissions',
-    category: 'roles',
-    action: 'create',
-    resource: 'roles',
-    scope: 'system',
-    isSystem: true,
-    tags: ['roles', 'create']
-  },
-  {
-    id: 'roles:update:system',
-    name: 'Update Roles',
-    description: 'Update role definitions and permissions',
-    category: 'roles',
-    action: 'update',
-    resource: 'roles',
-    scope: 'system',
-    isSystem: true,
-    tags: ['roles', 'update']
-  },
-  {
-    id: 'roles:delete:system',
-    name: 'Delete Roles',
-    description: 'Delete role definitions',
-    category: 'roles',
-    action: 'delete',
-    resource: 'roles',
-    scope: 'system',
-    isSystem: true,
-    tags: ['roles', 'delete']
-  },
+// The 7 core features that align with backend
+export const AVAILABLE_FEATURES = [
+  'view_eps',
+  'export_data', 
+  'realtime',
+  'profile',
+  'notifications',
+  'billing',
+  'advanced_filters'
+] as const;
 
-  // Analytics permissions
-  {
-    id: 'analytics:view:own',
-    name: 'View Analytics',
-    description: 'Access to view analytics and reports',
-    category: 'analytics',
-    action: 'view',
-    resource: 'analytics',
-    scope: 'own',
-    isSystem: true,
-    tags: ['analytics', 'view']
-  },
-  {
-    id: 'analytics:admin:system',
-    name: 'Admin Analytics',
-    description: 'Access to admin analytics and system reports',
-    category: 'analytics',
-    action: 'admin',
-    resource: 'analytics',
-    scope: 'system',
-    isSystem: true,
-    tags: ['analytics', 'admin']
-  },
-
-  // Package permissions
-  {
-    id: 'packages:view:own',
-    name: 'View Packages',
-    description: 'View available packages and features',
-    category: 'packages',
-    action: 'view',
-    resource: 'packages',
-    scope: 'own',
-    isSystem: true,
-    tags: ['packages', 'view']
-  },
-  {
-    id: 'packages:create:system',
-    name: 'Create Packages',
-    description: 'Create new packages and features',
-    category: 'packages',
-    action: 'create',
-    resource: 'packages',
-    scope: 'system',
-    isSystem: true,
-    tags: ['packages', 'create']
-  },
-  {
-    id: 'packages:update:system',
-    name: 'Update Packages',
-    description: 'Update package configurations',
-    category: 'packages',
-    action: 'update',
-    resource: 'packages',
-    scope: 'system',
-    isSystem: true,
-    tags: ['packages', 'update']
-  },
-  {
-    id: 'packages:delete:system',
-    name: 'Delete Packages',
-    description: 'Delete packages and features',
-    category: 'packages',
-    action: 'delete',
-    resource: 'packages',
-    scope: 'system',
-    isSystem: true,
-    tags: ['packages', 'delete']
-  },
-
-  // Payment permissions
-  {
-    id: 'payments:view:own',
-    name: 'View Payments',
-    description: 'View payment history and transactions',
-    category: 'payments',
-    action: 'view',
-    resource: 'payments',
-    scope: 'own',
-    isSystem: true,
-    tags: ['payments', 'view']
-  },
-  {
-    id: 'payments:create:own',
-    name: 'Create Payments',
-    description: 'Create new payment transactions',
-    category: 'payments',
-    action: 'create',
-    resource: 'payments',
-    scope: 'own',
-    isSystem: true,
-    tags: ['payments', 'create']
-  },
-  {
-    id: 'payments:admin:system',
-    name: 'Admin Payments',
-    description: 'Manage all payment transactions',
-    category: 'payments',
-    action: 'admin',
-    resource: 'payments',
-    scope: 'system',
-    isSystem: true,
-    tags: ['payments', 'admin']
-  }
-];
-
-// NEW: Unified roles using unified permission IDs
-export const UNIFIED_ROLES: RoleDocument[] = [
+export const SIMPLE_ROLES: SimpleRole[] = [
   {
     id: 'admin',
     name: 'Admin',
-    description: 'Full system access with all permissions',
+    description: 'Full system access with all features',
     color: '#dc2626',
     icon: 'Shield',
-    permissions: ['*:*:*'], // All permissions using unified wildcard
+    features: [...AVAILABLE_FEATURES], // All features
     isSystem: true,
     isActive: true
   },
   {
-    id: 'manager',
-    name: 'Manager',
-    description: 'Management access to view and manage team members',
-    color: '#ca8a04',
-    icon: 'Users',
-    permissions: [
-      'dashboard:view:own',
-      'users:read:team',
-      'users:create:team',
-      'users:update:team',
-      'analytics:view:own',
-      'packages:view:own',
-      'payments:view:own',
-      'payments:create:own'
-    ],
-    isSystem: true,
-    isActive: true
-  },
-  {
-    id: 'user',
+    id: 'user', 
     name: 'User',
-    description: 'Standard user with basic access to dashboard and personal data',
+    description: 'Premium user with access to all features',
     color: '#16a34a',
     icon: 'User',
-    permissions: [
-      'dashboard:view:own',
-      'users:read:own',
-      'analytics:view:own',
-      'packages:view:own',
-      'payments:view:own',
-      'payments:create:own'
-    ],
+    features: [...AVAILABLE_FEATURES], // All features (user = premium)
     isSystem: true,
     isActive: true
   },
   {
-    id: 'viewer',
-    name: 'Viewer',
-    description: 'Read-only access to view dashboard and analytics',
-    color: '#2563eb',
+    id: 'guest',
+    name: 'Guest',
+    description: 'Basic access to view EPS data only',
+    color: '#6b7280',
     icon: 'Eye',
-    permissions: [
-      'dashboard:view:own',
-      'analytics:view:own',
-      'packages:view:own'
-    ],
+    features: ['view_eps'], // Only basic viewing
     isSystem: true,
     isActive: true
   }
 ];
 
-// Backward compatibility: Export legacy permissions with conversion warning
-export const DEFAULT_PERMISSIONS = UNIFIED_PERMISSIONS;
-export const DEFAULT_ROLES = UNIFIED_ROLES;
+// ============================================================================
+// ROLE UTILITIES
+// ============================================================================
+
+export const getRoleById = (roleId: string): SimpleRole | undefined => {
+  return SIMPLE_ROLES.find(role => role.id === roleId);
+};
+
+export const getRoleByName = (roleName: string): SimpleRole | undefined => {
+  return SIMPLE_ROLES.find(role => role.name.toLowerCase() === roleName.toLowerCase());
+};
+
+export const getUserFeatures = (role: Role): string[] => {
+  return AVAILABLE_FEATURES.filter(feature => checkFeatureAccess(role, feature));
+};
+
+// Import helper from types/permissions to avoid circular dependency
+const { checkFeatureAccess: checkFeature } = require('../../types/permissions');
+
+export const getUserFeaturesById = (roleId: string): string[] => {
+  const { roleFromString } = require('../../types/permissions');
+  try {
+    const role = roleFromString(roleId);
+    return AVAILABLE_FEATURES.filter(feature => checkFeature(role, feature));
+  } catch (error) {
+    console.warn(`Invalid role ID: ${roleId}, defaulting to guest features`);
+    return ['view_eps'];
+  }
+};
+
+export const hasFeatureAccess = (role: Role, feature: string): boolean => {
+  return checkFeatureAccess(role, feature);
+};
+
+// ============================================================================
+// ROLE VALIDATION
+// ============================================================================
+
+export const isValidRole = (roleId: string): boolean => {
+  return SIMPLE_ROLES.some(role => role.id === roleId);
+};
+
+export const getActiveRoles = (): SimpleRole[] => {
+  return SIMPLE_ROLES.filter(role => role.isActive);
+};
+
+export const getSystemRoles = (): SimpleRole[] => {
+  return SIMPLE_ROLES.filter(role => role.isSystem);
+};
+
+// ============================================================================
+// BACKWARD COMPATIBILITY
+// ============================================================================
+
+// Legacy exports for components that might still reference them
+export const DEFAULT_ROLES = SIMPLE_ROLES;
+export const DEFAULT_PERMISSIONS = AVAILABLE_FEATURES.map(feature => ({
+  id: feature,
+  name: feature.charAt(0).toUpperCase() + feature.slice(1),
+  description: `Access to ${feature} functionality`,
+  category: 'feature',
+  isSystem: true
+}));
+
+// Legacy role mapping for old code
+export const ROLE_MAPPINGS = {
+  'admin': Role.Admin,
+  'user': Role.User,
+  'premium': Role.User, // Map premium to user (they're the same now)
+  'basic': Role.Guest,  // Map basic to guest
+  'guest': Role.Guest,
+  'viewer': Role.Guest, // Map viewer to guest
+} as const;
+
+export const mapLegacyRole = (legacyRole: string): Role => {
+  const mapped = ROLE_MAPPINGS[legacyRole.toLowerCase() as keyof typeof ROLE_MAPPINGS];
+  return mapped || Role.Guest; // Default to guest if unknown
+};
+
+// ============================================================================
+// FEATURE DESCRIPTIONS
+// ============================================================================
+
+export const FEATURE_DESCRIPTIONS = {
+  view_eps: 'View EPS growth analytics and stock rankings',
+  export_data: 'Export analytics data to various formats (CSV, Excel, PDF)',
+  realtime: 'Access real-time market data and live updates',
+  profile: 'Manage user profile and account settings',
+  notifications: 'Receive and manage system notifications',
+  billing: 'Access billing information and payment management',
+  advanced_filters: 'Use advanced filtering and search capabilities'
+} as const;
+
+export const getFeatureDescription = (feature: string): string => {
+  return FEATURE_DESCRIPTIONS[feature as keyof typeof FEATURE_DESCRIPTIONS] || 'Unknown feature';
+};
+
+// ============================================================================
+// ROLE MATRIX (FOR DOCUMENTATION AND UI)
+// ============================================================================
+
+export const ROLE_FEATURE_MATRIX = SIMPLE_ROLES.map(role => ({
+  role: role.id,
+  name: role.name,
+  color: role.color,
+  icon: role.icon,
+  features: role.features.reduce((acc, feature) => ({
+    ...acc,
+    [feature]: true
+  }), {} as Record<string, boolean>)
+}));
+
+// ============================================================================
+// ROLE COMPARISON UTILITIES
+// ============================================================================
+
+export const compareRoles = (role1: Role, role2: Role): number => {
+  const hierarchy = { [Role.Admin]: 3, [Role.User]: 2, [Role.Guest]: 1 };
+  return hierarchy[role1] - hierarchy[role2];
+};
+
+export const isRoleHigherThan = (role1: Role, role2: Role): boolean => {
+  return compareRoles(role1, role2) > 0;
+};
+
+export const getHighestRole = (roles: Role[]): Role => {
+  return roles.reduce((highest, current) => 
+    isRoleHigherThan(current, highest) ? current : highest, Role.Guest);
+};

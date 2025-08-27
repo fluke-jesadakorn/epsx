@@ -125,70 +125,20 @@ export async function getAnalyticsDashboardData(
 
     // Check if all requests were successful
     if (!metricsResponse.ok || !timeSeriesResponse.ok || !moduleResponse.ok) {
-      logger.action.error('getAnalyticsDashboardData', 'Failed to fetch analytics data from backend')
+      const errors = [];
+      if (!metricsResponse.ok) errors.push(`metrics: ${metricsResponse.status}`);
+      if (!timeSeriesResponse.ok) errors.push(`timeSeries: ${timeSeriesResponse.status}`);
+      if (!moduleResponse.ok) errors.push(`modules: ${moduleResponse.status}`);
       
-      // Return mock data for development
-      const mockData: AnalyticsDashboardData = {
-        metrics: {
-          totalRequests: 1245678,
-          totalUsers: 8934,
-          totalRevenue: 45672.89,
-          averageResponseTime: 245,
-          errorRate: 0.23,
-          activeApiKeys: 156
-        },
-        timeSeriesData: generateMockTimeSeriesData(dateRange),
-        moduleData: [
-          { 
-            moduleName: 'User Management', 
-            requests: 450000, 
-            users: 3200, 
-            revenue: 15000, 
-            quota: 500000, 
-            quotaUsed: 450000,
-            quotaPercentage: 90
-          },
-          { 
-            moduleName: 'Analytics', 
-            requests: 320000, 
-            users: 2100, 
-            revenue: 12000, 
-            quota: 400000, 
-            quotaUsed: 320000,
-            quotaPercentage: 80
-          },
-          { 
-            moduleName: 'API Gateway', 
-            requests: 475678, 
-            users: 3634, 
-            revenue: 18672.89, 
-            quota: 600000, 
-            quotaUsed: 475678,
-            quotaPercentage: 79
-          }
-        ],
-        billingData: {
-          currentPeriod: {
-            startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            endDate: new Date().toISOString(),
-            totalCost: 45672.89,
-            totalRequests: 1245678
-          },
-          upcomingInvoice: {
-            amount: 48000.00,
-            dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'pending'
-          },
-          costBreakdown: [
-            { module: 'User Management', cost: 15000, requests: 450000 },
-            { module: 'Analytics', cost: 12000, requests: 320000 },
-            { module: 'API Gateway', cost: 18672.89, requests: 475678 }
-          ]
-        }
+      logger.action.error('getAnalyticsDashboardData', `Failed to fetch analytics data: ${errors.join(', ')}`)
+      
+      return { 
+        success: false, 
+        error: { 
+          code: 'ANALYTICS_FETCH_ERROR', 
+          message: `Failed to fetch analytics data from backend: ${errors.join(', ')}` 
+        } 
       }
-
-      logger.action.success('getAnalyticsDashboardData', { source: 'mock', dateRange, selectedModule })
-      return { success: true, data: mockData }
     }
 
     const [metricsData, timeSeriesData, moduleData] = await Promise.all([
@@ -200,10 +150,24 @@ export async function getAnalyticsDashboardData(
     const dashboardData: AnalyticsDashboardData = {
       metrics: metricsData,
       timeSeriesData: timeSeriesData.data || [],
-      moduleData: moduleData.modules.map((module: any) => ({
+      moduleData: moduleData.modules?.map((module: any) => ({
         ...module,
         quotaPercentage: (module.quotaUsed / module.quota) * 100
-      }))
+      })) || [],
+      billingData: moduleData.billing || {
+        currentPeriod: {
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          endDate: new Date().toISOString(),
+          totalCost: metricsData.totalRevenue || 0,
+          totalRequests: metricsData.totalRequests || 0
+        },
+        upcomingInvoice: {
+          amount: 0,
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'pending'
+        },
+        costBreakdown: []
+      }
     }
 
     logger.action.success('getAnalyticsDashboardData', { 

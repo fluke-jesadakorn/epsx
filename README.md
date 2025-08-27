@@ -28,11 +28,13 @@ This production-ready monorepo is organized with clean separation of concerns:
   - Next.js 15.5.0 with comprehensive admin controls
   - Features: User promotion tools, access control, analytics management, system monitoring
 
-- **Backend** (`apps/backend`) - High-performance Rust API server
+- **Backend** (`apps/backend`) - High-performance Rust API server with Diesel ORM
   - **URL**: https://api.epsx.io (local development)
-  - Axum framework with PostgreSQL and WebSocket support
+  - Axum framework with PostgreSQL (Diesel ORM 2.2) and WebSocket support
+  - **Database**: Complete Diesel ORM migration with compile-time SQL validation and bb8 connection pooling
   - **Core Features**: EPS ranking analytics engine, TradingView integration, authentication/IAM, payment processing, security monitoring
   - **Enterprise Security**: Brute force detection, GDPR/SOX/HIPAA compliance, audit logging, webhook system
+  - **Architecture**: Clean Architecture with 210+ Rust files and production-ready migration system
   - Includes CLI tools for admin operations and user management
 
 ### 📊 Core Analytics Features
@@ -69,7 +71,8 @@ This production-ready monorepo is organized with clean separation of concerns:
 | **Rust** | 2021 | High-performance systems language |
 | **Axum** | 0.7 | Web framework with WebSocket support |
 | **PostgreSQL** | Latest | Primary database |
-| **SQLx** | Latest | Async SQL toolkit |
+| **Diesel ORM** | 2.2 | Type-safe async SQL toolkit with compile-time validation |
+| **bb8-diesel** | Latest | Connection pooling for high-performance database access |
 | **Redis** | Latest | Caching & sessions |
 | **JWT** | Latest | Authentication tokens |
 | **Tokio** | Latest | Async runtime |
@@ -334,10 +337,12 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - **SSR Testing**: Server-side rendering validation
 
 ### Backend Testing
-- **Unit Tests**: Rust native testing framework for core business logic
-- **Integration Tests**: EPS analytics, authentication flows, and database operations
-- **Security Testing**: Brute force detection, compliance validation, and threat monitoring
-- **Performance Testing**: Load testing for analytics endpoints and caching systems
+- **Unit Tests**: Rust native testing framework for core business logic with Diesel integration
+- **Integration Tests**: EPS analytics, authentication flows, and database operations using Diesel repositories
+- **Architecture Testing**: Clean Architecture layers (domain, application, infrastructure, presentation)
+- **Security Testing**: Brute force detection, compliance validation, and threat monitoring with Diesel audit trails
+- **Performance Testing**: Load testing for analytics endpoints, caching systems, and Diesel connection pooling
+- **Database Testing**: Diesel ORM validation, migration testing, and compile-time SQL verification
 - **API Testing**: Comprehensive endpoint validation for analytics, auth, and admin functions
 
 ## 🤝 Contributing

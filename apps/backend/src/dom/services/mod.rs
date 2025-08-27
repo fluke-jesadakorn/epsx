@@ -4,12 +4,8 @@ pub mod audit_service;
 pub mod eps_ranking_service;
 pub mod eps_cache_service;
 pub mod firebase_user_service;
-pub mod database_role_service;
-pub mod admin_module_service;
 
 pub use audit_service::*;
 pub use eps_ranking_service::*;
 pub use eps_cache_service::*;
 pub use firebase_user_service::*;
-pub use database_role_service::*;
-pub use admin_module_service::*;

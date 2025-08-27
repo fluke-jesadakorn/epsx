@@ -28,31 +28,8 @@ export async function GET() {
     });
 
     if (!response.ok) {
-      // If backend route doesn't exist, return mock users
-      if (response.status === 404) {
-        return NextResponse.json({ 
-          users: [
-            {
-              id: 'mock-user-1',
-              email: 'user1@example.com',
-              full_name: 'Mock User 1',
-              status: 'active',
-              created_at: new Date().toISOString(),
-            },
-            {
-              id: 'mock-user-2', 
-              email: 'user2@example.com',
-              full_name: 'Mock User 2',
-              status: 'active',
-              created_at: new Date().toISOString(),
-            }
-          ],
-          total: 2,
-          message: 'Mock users (backend not implemented)'
-        });
-      }
-      
       const errorText = await response.text();
+      console.error(`Backend users API failed: ${response.status} ${errorText}`);
       return NextResponse.json(
         { error: `Backend error: ${errorText}` }, 
         { status: response.status }

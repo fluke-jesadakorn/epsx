@@ -12,9 +12,7 @@ use crate::infra::{
     db::diesel::DbPool,
     cache::Cache,
 };
-use crate::dom::services::{
-    admin_module_service::AdminModuleService,
-};
+// Removed legacy service imports
 
 // ============================================================================
 // PERMISSION SYSTEMS STUB (FOR COMPATIBILITY)
@@ -42,7 +40,6 @@ impl PermissionSystems {
 pub struct ServicesModule {
     pub firebase_admin: Arc<FirebaseAdmin>,
     pub notification_service: Arc<dyn NotificationService>,
-    pub admin_module_service: Arc<AdminModuleService>,
 }
 
 impl ServicesModule {
@@ -58,15 +55,10 @@ impl ServicesModule {
 
         // Create simple notification service (in-memory for now)
         let notification_service: Arc<dyn NotificationService> = Arc::new(InMemoryNotificationService::new());
-        
-        // Create stub admin module service
-        let admin_module_service = Arc::new(AdminModuleService::new());
-        
 
         Ok(ServicesModule {
             firebase_admin,
             notification_service,
-            admin_module_service,
         })
     }
 

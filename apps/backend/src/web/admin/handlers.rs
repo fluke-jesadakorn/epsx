@@ -50,21 +50,7 @@ pub struct AdminBulkUpdateRequest {
     pub batch_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BulkModuleAssignmentRequest {
-    pub user_ids: Vec<String>,
-    pub assignments: Vec<ModuleAssignment>,
-    pub reason: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ModuleAssignment {
-    pub module_id: String,
-    pub access_level: String,
-    pub custom_quotas: Option<Value>,
-    pub restrictions: Option<Value>,
-    pub expires_at: Option<DateTime<Utc>>,
-}
+// Removed legacy module assignment structures - using simple roles
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminLevelHistoryQuery {
@@ -1049,31 +1035,7 @@ fn extract_user_id_from_context() -> Result<String, StatusCode> {
     Ok("jesadakorn.kirtnu@gmail.com".to_string())
 }
 
-/// Bulk assign modules to users
-/// NOTE: This is a placeholder handler for frontend compatibility
-/// Stock ranking modules are temporarily disabled during Casbin migration
-pub async fn bulk_assign_modules_handler(
-    State(_app_state): State<AppState>,
-    Json(_request): Json<BulkModuleAssignmentRequest>
-) -> Result<Json<Value>, StatusCode> {
-    tracing::info!("Bulk module assignment request received for {} users", _request.user_ids.len());
-    
-    // Placeholder response - actual implementation would:
-    // 1. Validate user IDs exist
-    // 2. Check admin permissions using Casbin
-    // 3. Apply module assignments
-    // 4. Log audit events
-    // 5. Send notifications if configured
-    
-    Ok(Json(json!({
-        "message": "Module assignment functionality temporarily unavailable",
-        "status": "placeholder",
-        "requested_users": _request.user_ids.len(),
-        "requested_modules": _request.assignments.len(),
-        "reason": "Stock ranking modules disabled during Casbin migration",
-        "timestamp": Utc::now()
-    })))
-}
+// Removed bulk_assign_modules_handler - using simple roles
 
 /// GET /admin/api-keys - List API keys (placeholder)
 pub async fn list_api_keys_handler(

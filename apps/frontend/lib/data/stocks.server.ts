@@ -1,5 +1,5 @@
 import { createApiClient, isApiError } from '@/lib/api-client';
-import { MarketCountry } from '../../types/marketCountries';
+import { MarketCountry } from '../../types/market';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 const apiClient = createApiClient(BACKEND_URL);

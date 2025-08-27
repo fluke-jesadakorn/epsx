@@ -220,8 +220,8 @@ impl TradingViewService for TradingViewApiService {
             
             match TradingViewMapper::convert_to_eps_growth_data(stock) {
                 Ok(eps_data) => {
-                    debug!("EPS data for {}: current_eps={:?}, qoq_growth={:?}, price_current={:?}", 
-                           eps_data.symbol, eps_data.current_eps, eps_data.qoq_growth, eps_data.price_current);
+                    debug!("EPS data for {}: current_eps={:?}, growth_factor={:?}, price_current={:?}", 
+                           eps_data.symbol, eps_data.current_eps, eps_data.growth_factor, eps_data.price_current);
                     
                     debug!("Adding EPS data for: {}", eps_data.symbol);
                     eps_data_list.push(eps_data);

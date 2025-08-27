@@ -136,9 +136,10 @@ impl UserRepository for DieselUserRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
-        use crate::auth::roles::UserRoleEnum;
+        use crate::auth::roles::Role;
         let diesel_users = users::table
-            .filter(users::role.eq(UserRoleEnum::Admin))
+            .filter(users::role.eq(Some(Role::Admin)))
+            .select(DieselUser::as_select())
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -159,16 +160,16 @@ impl UserRepository for DieselUserRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
-        use crate::auth::roles::UserRoleEnum;
+        use crate::auth::roles::Role;
         let target_role = match role {
-            "admin" => UserRoleEnum::Admin,
-            "user" => UserRoleEnum::User,
-            "guest" => UserRoleEnum::Guest,
-            _ => UserRoleEnum::Guest, // Default to guest for unknown roles
+            "admin" => Role::Admin,
+            "user" => Role::User,
+            "guest" => Role::Guest,
+            _ => Role::Guest, // Default to guest for unknown roles
         };
         
         let diesel_users = users::table
-            .filter(users::role.eq(target_role))
+            .filter(users::role.eq(Some(target_role)))
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -272,10 +273,10 @@ impl UserRepository for DieselUserRepository {
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
         // Simple role system: auto assignment for user and admin roles (not guest)
-        use crate::auth::roles::UserRoleEnum;
+        use crate::auth::roles::Role;
         let diesel_users = users::table
             .filter(users::is_active.eq(true))
-            .filter(users::role.ne(UserRoleEnum::Guest))
+            .filter(users::role.ne(Some(Role::Guest)))
             .load::<DieselUser>(&mut conn)
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
@@ -370,14 +371,14 @@ impl UserRepository for DieselUserRepository {
         
         if let Some(role_filter) = &filters.package_tier {
             // Simple role system: package_tier filter now filters by role
-            use crate::auth::roles::UserRoleEnum;
+            use crate::auth::roles::Role;
             let target_role = match role_filter.as_str() {
-                "admin" => UserRoleEnum::Admin,
-                "user" => UserRoleEnum::User,
-                "guest" => UserRoleEnum::Guest,
-                _ => UserRoleEnum::Guest,
+                "admin" => Role::Admin,
+                "user" => Role::User,
+                "guest" => Role::Guest,
+                _ => Role::Guest,
             };
-            query = query.filter(users::role.eq(target_role));
+            query = query.filter(users::role.eq(Some(target_role)));
         }
         
         if let Some(created_after) = filters.created_after {
@@ -454,14 +455,14 @@ impl UserRepository for DieselUserRepository {
         
         if let Some(role_filter) = &filters.package_tier {
             // Simple role system: package_tier filter now filters by role
-            use crate::auth::roles::UserRoleEnum;
+            use crate::auth::roles::Role;
             let target_role = match role_filter.as_str() {
-                "admin" => UserRoleEnum::Admin,
-                "user" => UserRoleEnum::User,
-                "guest" => UserRoleEnum::Guest,
-                _ => UserRoleEnum::Guest,
+                "admin" => Role::Admin,
+                "user" => Role::User,
+                "guest" => Role::Guest,
+                _ => Role::Guest,
             };
-            query = query.filter(users::role.eq(target_role));
+            query = query.filter(users::role.eq(Some(target_role)));
         }
         
         if let Some(created_after) = filters.created_after {

@@ -6,7 +6,7 @@ export interface EPSRanking {
   sector: string;
   exchange: string;
   current_eps: number | null;
-  qoq_growth: number | null;
+  growth_factor: number | null;
   price_current: number | null;
   market_cap: number | null;
   volume: number | null;
@@ -48,7 +48,7 @@ export interface EPSPagination {
 export interface AnalyticsFilters {
   country?: string;
   sector?: string;
-  sort_by: 'qoq_growth' | 'eps_growth' | 'current_eps' | 'eps' | 'market_cap' | 'volume' | 'price' | 'close' | 'pe_ratio' | 'dividend_yield' | 'change' | 'relative_volume' | 'name' | 'symbol' | 'ranking_position';
+  sort_by: 'growth_factor' | 'eps_growth' | 'current_eps' | 'eps' | 'market_cap' | 'volume' | 'price' | 'close' | 'pe_ratio' | 'dividend_yield' | 'change' | 'relative_volume' | 'name' | 'symbol' | 'ranking_position';
   min_eps?: number;
   max_eps?: number;
   min_growth?: number;
@@ -145,15 +145,31 @@ export interface SymbolCardData {
   value: number; // Current price
   active_status: string; // "Active" or "Non Active"
   quarterly_performance: QuarterlyPerformanceData[];
+  next_quarter_estimate?: NextQuarterEstimate; // NEW: Next quarter EPS estimate
 }
 
 export interface QuarterlyPerformanceData {
-  quarter: string; // "Q1", "Q0", etc.
+  quarter: string; // "Est. Oct 24, 2025" or "Announced Jul 25, 2024" or fallback "Q1"
   date: string; // "Aug 8, 2025"
   price: number;
   eps: number;
   eps_growth: number; // EPS % growth
   price_growth: number; // Price % growth
+  // NEW: Enhanced announcement date fields
+  announcement_date?: string; // "Est. Oct 24, 2025" or "Announced Jul 25, 2024"
+  announcement_timestamp?: number; // Raw timestamp for calculations
+  is_estimated?: boolean; // true if future/estimated, false if past/announced
+}
+
+// Next quarter EPS estimate data
+export interface NextQuarterEstimate {
+  quarter: string; // "2025-Q4"
+  estimated_eps: number; // 3.85
+  announcement_date: string; // "Est. Oct 24, 2025"
+  announcement_timestamp: number; // Raw timestamp
+  days_until_announcement: number; // 45 (calculated days from now)
+  estimated_price_target?: number; // Optional price target based on EPS
+  confidence: string; // "High", "Medium", "Low" based on data quality
 }
 
 export interface CardDashboardMetadata {

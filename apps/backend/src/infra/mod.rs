@@ -66,9 +66,28 @@ impl InfraFactory {
         std::sync::Arc::new(crate::dom::services::eps_ranking_service::EPSRankingService::new(eps_repo))
     }
 
-    /// Create EPS repository for analytics
+    /// Create EPS repository for analytics with cache
+    pub fn create_eps_repo_with_cache(
+        &self, 
+        cache: std::sync::Arc<dyn crate::infra::cache::Cache>
+    ) -> std::sync::Arc<dyn crate::dom::services::eps_ranking_service::EPSRepository> {
+        tracing::info!("Creating EPS repository with cache - using PostgreSQL + Redis/InMemory implementation");
+        std::sync::Arc::new(crate::infra::db::diesel::repos::DieselEPSRepository::new(
+            self.diesel_pool.clone(), 
+            cache
+        ))
+    }
+    
+    /// Create EPS repository for analytics (backwards compatibility)
     pub fn create_eps_repo(&self) -> std::sync::Arc<dyn crate::dom::services::eps_ranking_service::EPSRepository> {
-        tracing::info!("Creating EPS repository - using PostgreSQL implementation");
-        std::sync::Arc::new(crate::infra::db::diesel::repos::DieselEPSRepository::new(self.diesel_pool.clone()))
+        tracing::info!("Creating EPS repository - using PostgreSQL implementation with in-memory cache fallback");
+        let cache = std::sync::Arc::new(crate::infra::cache::memory_cache::InMemoryCache::new(
+            crate::infra::cache::CacheConfig::default()
+        )) as std::sync::Arc<dyn crate::infra::cache::Cache>;
+        
+        std::sync::Arc::new(crate::infra::db::diesel::repos::DieselEPSRepository::new(
+            self.diesel_pool.clone(), 
+            cache
+        ))
     }
 }

@@ -30,21 +30,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      // If backend route doesn't exist, return mock success response
-      if (response.status === 404) {
-        return NextResponse.json({ 
-          success: true,
-          results: body.user_ids?.map((userId: string) => ({
-            user_id: userId,
-            success: true,
-            assignments_created: body.assignments?.length || 0,
-            message: 'Assignments completed (mock response)'
-          })) || [],
-          message: 'Bulk assignment completed (backend not implemented)' 
-        });
-      }
-      
       const errorText = await response.text();
+      console.error(`Backend bulk assign API failed: ${response.status} ${errorText}`);
       return NextResponse.json(
         { error: `Backend error: ${errorText}` }, 
         { status: response.status }

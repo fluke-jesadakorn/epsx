@@ -268,9 +268,9 @@ async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
     // Check if user has admin role
+    use crate::auth::roles::Role;
     match user.role() {
-        crate::dom::entities::user::UserRole::Admin => Ok(()),
-        crate::dom::entities::user::UserRole::Moderator => Ok(()), // Allow moderators too
+        Role::Admin => Ok(()),
         _ => {
             tracing::warn!("Non-admin user {} attempted admin operation", user_id.to_string());
             Err(StatusCode::FORBIDDEN)

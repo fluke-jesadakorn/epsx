@@ -276,35 +276,61 @@ export async function requireUserSession(request: {
   return result.user
 }
 
-// Permission checking utilities
-export function hasPermission(user: UserProfile, permission: string): boolean {
-  // Check exact match
-  if (user.permissions.includes(permission)) {
-    return true
+// Permission checking utilities using simple role system
+export function hasFeatureAccess(user: UserProfile, feature: string): boolean {
+  try {
+    // Import the simple role system (using require for non-async context)
+    const { checkFeatureAccess, roleFromString } = require('../types/permissions');
+    
+    // Convert user role to simple role enum
+    const role = roleFromString(user.role.toLowerCase());
+    
+    return checkFeatureAccess(role, feature);
+  } catch (error) {
+    console.error('❌ Failed to check feature access:', error);
+    return false;
   }
-  
-  // Check wildcard permissions
-  return user.permissions.some(p => {
-    if (p.endsWith('*')) {
-      const prefix = p.slice(0, -1)
-      return permission.startsWith(prefix)
-    }
-    return false
-  })
 }
 
 export function hasRole(user: UserProfile, role: string): boolean {
-  const roleHierarchy: Record<string, number> = {
-    user: 1,
-    premium: 2,
-    moderator: 3,
-    admin: 4,
+  try {
+    // Import the simple role system
+    const { checkRoleAccess, roleFromString } = require('../types/permissions');
+    
+    // Convert both roles to simple role enums
+    const userRole = roleFromString(user.role.toLowerCase());
+    const requiredRoleEnum = roleFromString(role.toLowerCase());
+    
+    return checkRoleAccess(userRole, requiredRoleEnum);
+  } catch (error) {
+    console.error('❌ Failed to check role access:', error);
+    return false;
   }
-  
-  const userLevel = roleHierarchy[user.role] || 0
-  const requiredLevel = roleHierarchy[role] || 1
-  
-  return userLevel >= requiredLevel
+}
+
+// Legacy permission check - maps old permission strings to features
+export function hasPermission(user: UserProfile, permission: string): boolean {
+  // Map legacy permissions to features
+  switch (permission) {
+    case 'users.view':
+    case 'dashboard.view':
+    case 'analytics.view':
+      return hasFeatureAccess(user, 'view_eps');
+    
+    case 'analytics.export':
+      return hasFeatureAccess(user, 'export_data');
+    
+    case 'admin':
+    case 'admin.users':
+      return user.role.toLowerCase() === 'admin';
+    
+    default:
+      // Try checking as a feature first
+      return hasFeatureAccess(user, permission) ||
+             // Fallback to old permission system for backward compatibility
+             (user.permissions?.includes(permission) || 
+              user.permissions?.some(p => p.endsWith('*') && permission.startsWith(p.slice(0, -1)))) || false;
+  }
 }
 
 export function hasPackageTier(user: UserProfile, tier: string): boolean {
@@ -373,16 +399,35 @@ export function getUserRateLimit(user: UserProfile): { perMinute: number; perHou
   return rateLimits[user.package_tier] || rateLimits.FREE
 }
 
-// Feature access helpers
+// Feature access helpers using simple role system
 export function getAvailableFeatures(user: UserProfile): string[] {
-  const featuresByTier: Record<string, string[]> = {
-    FREE: ['basic_data', 'limited_api'],
-    BRONZE: ['basic_data', 'limited_api', 'enhanced_data', 'basic_analytics'],
-    SILVER: ['basic_data', 'limited_api', 'enhanced_data', 'basic_analytics', 'realtime_data', 'advanced_analytics', 'email_alerts'],
-    GOLD: ['basic_data', 'limited_api', 'enhanced_data', 'basic_analytics', 'realtime_data', 'advanced_analytics', 'email_alerts', 'premium_data', 'custom_indicators', 'priority_support'],
-    PLATINUM: ['basic_data', 'limited_api', 'enhanced_data', 'basic_analytics', 'realtime_data', 'advanced_analytics', 'email_alerts', 'premium_data', 'custom_indicators', 'priority_support', 'all_features', 'custom_dashboards'],
-    ENTERPRISE: ['all_features', 'white_label', 'dedicated_support', 'custom_integrations', 'unlimited_api']
+  try {
+    // Import the simple role system
+    const { getUserFeatures, roleFromString } = require('../types/permissions');
+    
+    // Convert user role to simple role enum
+    const role = roleFromString(user.role.toLowerCase());
+    
+    // Get the 7 core features based on role
+    return getUserFeatures(role);
+  } catch (error) {
+    console.error('❌ Failed to get available features:', error);
+    // Fallback to legacy system
+    const featuresByTier: Record<string, string[]> = {
+      FREE: ['view_eps'],
+      BRONZE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
+      SILVER: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
+      GOLD: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
+      PLATINUM: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
+      ENTERPRISE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters']
+    }
+    
+    return featuresByTier[user.package_tier] || featuresByTier.FREE
   }
-  
-  return featuresByTier[user.package_tier] || featuresByTier.FREE
+}
+
+// Simple feature check that maps to the new system
+export function hasSimpleFeature(user: UserProfile, feature: string): boolean {
+  const availableFeatures = getAvailableFeatures(user);
+  return availableFeatures.includes(feature);
 }

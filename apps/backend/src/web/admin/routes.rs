@@ -14,7 +14,6 @@ use super::handlers::{
     get_user_stats_handler,
     get_level_history_handler,
     bulk_update_users_handler,
-    bulk_assign_modules_handler,
     list_api_keys_handler,
 };
 use crate::web::user::handlers::{login_handler, logout_handler, me_handler};
@@ -62,17 +61,7 @@ use super::database_role_management::{
     get_role_assignment_history as db_get_role_assignment_history,
     cleanup_expired_roles as db_cleanup_expired_roles,
 };
-use super::admin_role_management::{
-    get_all_admin_modules,
-    get_user_admin_modules,
-    assign_admin_modules,
-    revoke_admin_modules,
-    assign_all_admin_modules,
-    get_admin_role_audit,
-    check_admin_module_access,
-    get_user_admin_module_details,
-    get_current_user_admin_modules,
-};
+// Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -99,10 +88,6 @@ pub fn create_admin_routes() -> Router<AppState> {
         
     // Security management routes (require security-management module)
     let security_mgmt_routes = Router::new()
-        .route("/admin-modules", get(get_all_admin_modules))
-        .route("/admin-modules/users/:firebase_uid", get(get_user_admin_modules))
-        .route("/admin-modules/assign", post(assign_admin_modules))
-        .route("/admin-modules/revoke", post(revoke_admin_modules))
         .layer(axum::middleware::from_fn(
             crate::web::middleware::modern_jwt_auth_middleware
         ));
@@ -132,16 +117,10 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/roles/users-by-role", get(db_list_users_by_role))
         .route("/roles/users/:firebase_uid/history", get(db_get_role_assignment_history))
         
-        // Admin module details routes
-        .route("/admin-modules/users/:firebase_uid/details", get(get_user_admin_module_details))
-        .route("/admin-modules/users/:firebase_uid/assign-all", post(assign_all_admin_modules))
-        .route("/admin-modules/users/:firebase_uid/audit", get(get_admin_role_audit))
-        .route("/admin-modules/users/:firebase_uid/access/:module_code", get(check_admin_module_access))
-        .route("/modules/user", get(get_current_user_admin_modules))
+        // Admin module routes removed - using simple role system
         
         // Bulk operations (require user-management module)
         .route("/users/bulk-update", post(bulk_update_users_handler))
-        .route("/users/bulk/assign-modules", post(bulk_assign_modules_handler))
         .route("/users/level-history", get(get_level_history_handler))
         
         // Unified User Management routes (require user-management module)

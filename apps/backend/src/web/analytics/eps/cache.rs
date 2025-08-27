@@ -133,6 +133,30 @@ pub async fn get_unified_analytics_rankings_cached(
     
     let duration = start_time.elapsed();
 
+    // DEBUG: Capture final DTO structure before JSON serialization
+    let dto_debug = card_data.iter().take(3).map(|card| {
+        let quarters_debug = card.quarterly_performance.iter().take(2).map(|q| {
+            format!("  Quarter: '{}', Date: '{}', EPS: {:.2}, Price: {:.2}", 
+                    q.quarter, q.date, q.eps, q.price)
+        }).collect::<Vec<_>>().join("\n");
+        format!("Symbol: {}, Rank: {}, Status: '{}', Value: {:.2}\nQuarterly Performance:\n{}", 
+                card.symbol, card.rank, card.active_status, card.value, quarters_debug)
+    }).collect::<Vec<_>>().join("\n\n");
+    
+    let dto_debug_info = format!(
+        "DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):\n{}\n\n",
+        dto_debug
+    );
+    
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/Users/fluke/Desktop/Work/Outsource/epsx/.devtools/dto_serialization.json")
+        .and_then(|mut file| {
+            use std::io::Write;
+            file.write_all(dto_debug_info.as_bytes())
+        });
+
     // Build card dashboard response
     let data_len = card_data.len();
     let card_response = CardDashboardResponse {

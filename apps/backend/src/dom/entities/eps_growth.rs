@@ -12,7 +12,7 @@ pub struct EPSGrowthData {
     pub sector: String,
     pub exchange: String,
     pub current_eps: Option<f64>,
-    pub qoq_growth: Option<f64>,
+    pub growth_factor: Option<f64>,
     pub price_current: Option<f64>,
     pub market_cap: Option<i64>,
     pub volume: Option<i64>,
@@ -30,7 +30,7 @@ pub struct EPSRanking {
     pub sector: String,
     pub exchange: String,
     pub current_eps: Option<f64>,
-    pub qoq_growth: Option<f64>,
+    pub growth_factor: Option<f64>,
     pub price_current: Option<f64>,
     pub market_cap: Option<i64>,
     pub volume: Option<i64>,
@@ -79,7 +79,7 @@ impl EPSGrowthData {
         sector: String,
         exchange: String,
         current_eps: Option<f64>,
-        qoq_growth: Option<f64>,
+        growth_factor: Option<f64>,
         price_current: Option<f64>,
         market_cap: Option<i64>,
         volume: Option<i64>,
@@ -93,7 +93,7 @@ impl EPSGrowthData {
             sector,
             exchange,
             current_eps,
-            qoq_growth,
+            growth_factor,
             price_current,
             market_cap,
             volume,
@@ -125,7 +125,7 @@ impl EPSGrowthData {
         }
 
         // Validate QoQ growth is reasonable
-        if let Some(growth) = self.qoq_growth {
+        if let Some(growth) = self.growth_factor {
             if growth < -500.0 || growth > 1000.0 {
                 warn!("EPS validation warning: extreme QoQ growth {} for symbol {}", growth, self.symbol);
             }
@@ -142,7 +142,7 @@ impl EPSGrowthData {
         let mut score = 0.0;
 
         // QoQ growth weight (40%)
-        if let Some(qoq) = self.qoq_growth {
+        if let Some(qoq) = self.growth_factor {
             score += qoq * 0.4;
         }
 
@@ -171,7 +171,7 @@ impl EPSGrowthData {
 
     /// Determine EPS growth trend
     pub fn get_growth_trend(&self) -> EPSGrowthTrend {
-        match self.qoq_growth {
+        match self.growth_factor {
             Some(growth) if growth > 50.0 => EPSGrowthTrend::Accelerating,
             Some(growth) if growth >= 10.0 => EPSGrowthTrend::Steady,
             Some(growth) if growth >= 0.0 => EPSGrowthTrend::Steady,
@@ -184,7 +184,7 @@ impl EPSGrowthData {
     /// Check if this stock has quality EPS data
     pub fn has_quality_data(&self) -> bool {
         let has_eps = self.current_eps.is_some();
-        let has_growth = self.qoq_growth.is_some();
+        let has_growth = self.growth_factor.is_some();
         let has_price = self.price_current.is_some();
         
         debug!("Quality check for {}: EPS={}, Growth={}, Price={}", 
@@ -204,7 +204,7 @@ impl EPSRanking {
             sector: data.sector,
             exchange: data.exchange,
             current_eps: data.current_eps,
-            qoq_growth: data.qoq_growth,
+            growth_factor: data.growth_factor,
             price_current: data.price_current,
             market_cap: data.market_cap,
             volume: data.volume,

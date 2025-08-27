@@ -67,6 +67,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const startTime = performance.now();
   
+  // /login is now handled by API route instead of middleware
+  
   // Extract request metadata for session validation
   const userAgent = request.headers.get('user-agent') || undefined;
   const ipAddress = request.headers.get('x-forwarded-for') || 
@@ -229,7 +231,7 @@ function redirectToLogin(request: NextRequest): NextResponse {
   const loginUrl = new URL('/oauth/authorize', backendUrl);
   loginUrl.searchParams.set('client_id', 'epsx-frontend');
   loginUrl.searchParams.set('response_type', 'code');
-  loginUrl.searchParams.set('scope', 'openid profile email package_tier');
+  loginUrl.searchParams.set('scope', 'openid profile email');
   loginUrl.searchParams.set('redirect_uri', `${frontendUrl}/api/auth/callback/epsx-backend`);
   loginUrl.searchParams.set('state', Buffer.from(JSON.stringify({ redirectTo: callbackUrl })).toString('base64url'));
   

@@ -2,7 +2,7 @@
 
 import { transformFinancialDataWithCurrentPrice } from '@/utils';
 import type { StockFinancialData } from '@/types/financialChartData';
-import { MarketCountry } from '../../../../types/marketCountries';
+import { MarketCountry } from '../../types/market';
 
 // Server-side cache to store data temporarily with pagination-aware keys
 let serverCache: Map<

@@ -47,14 +47,65 @@ export async function requireAuth(redirectPath?: string): Promise<EPSXJWTPayload
 }
 
 /**
- * Check if user has specific permission
+ * Check if user has specific feature access using simple role system
  */
-export async function hasPermission(permission: string): Promise<boolean> {
+export async function hasFeatureAccess(feature: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
     if (!user) return false;
     
-    return user.permissions.includes(permission) || user.permissions.includes('*');
+    // Import the simple role system
+    const { checkFeatureAccess, roleFromString } = await import('../../types/permissions');
+    
+    // Convert user role to simple role enum
+    const role = roleFromString(user.role.toLowerCase());
+    
+    return checkFeatureAccess(role, feature);
+  } catch (error) {
+    console.error('❌ Failed to check feature access:', error);
+    return false;
+  }
+}
+
+/**
+ * Require specific feature access - redirect to access denied if not found
+ */
+export async function requireFeatureAccess(feature: string, redirectPath?: string): Promise<EPSXJWTPayload> {
+  const user = await requireAuth(redirectPath);
+  
+  const hasAccess = await hasFeatureAccess(feature);
+  
+  if (!hasAccess) {
+    const accessDeniedUrl = `/access-denied?feature=${encodeURIComponent(feature)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
+    redirect(accessDeniedUrl);
+  }
+  
+  return user;
+}
+
+/**
+ * Legacy permission check - maps old permission strings to features
+ */
+export async function hasPermission(permission: string): Promise<boolean> {
+  try {
+    // Map legacy permissions to features
+    switch (permission) {
+      case 'users.view':
+      case 'dashboard.view':
+      case 'analytics.view':
+        return hasFeatureAccess('view_eps');
+      
+      case 'analytics.export':
+        return hasFeatureAccess('export_data');
+      
+      case 'admin':
+      case 'admin.users':
+        const user = await getAuthUser();
+        return user?.role.toLowerCase() === 'admin';
+      
+      default:
+        return hasFeatureAccess(permission);
+    }
   } catch (error) {
     console.error('❌ Failed to check permission:', error);
     return false;
@@ -62,19 +113,26 @@ export async function hasPermission(permission: string): Promise<boolean> {
 }
 
 /**
- * Require specific permission - redirect to access denied if not found
+ * Legacy permission requirement - maps to feature access
  */
 export async function requirePermission(permission: string, redirectPath?: string): Promise<EPSXJWTPayload> {
-  const user = await requireAuth(redirectPath);
-  
-  const hasRequiredPermission = user.permissions.includes(permission) || user.permissions.includes('*');
-  
-  if (!hasRequiredPermission) {
-    const accessDeniedUrl = `/access-denied?permission=${encodeURIComponent(permission)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
+  // Map legacy permissions to features and redirect accordingly
+  switch (permission) {
+    case 'users.view':
+    case 'dashboard.view':
+    case 'analytics.view':
+      return requireFeatureAccess('view_eps', redirectPath);
+    
+    case 'analytics.export':
+      return requireFeatureAccess('export_data', redirectPath);
+    
+    case 'admin':
+    case 'admin.users':
+      return requireRole('admin', redirectPath);
+    
+    default:
+      return requireFeatureAccess(permission, redirectPath);
   }
-  
-  return user;
 }
 
 /**
@@ -121,24 +179,21 @@ export async function requirePackageTier(requiredTier: string, redirectPath?: st
 }
 
 /**
- * Check if user has specific role
+ * Check if user has specific role using simple role system
  */
 export async function hasRole(requiredRole: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
     if (!user) return false;
     
-    const roleHierarchy: Record<string, number> = {
-      'user': 1,
-      'premium': 2,
-      'moderator': 3,
-      'admin': 4,
-    };
+    // Import the simple role system
+    const { checkRoleAccess, roleFromString } = await import('../../types/permissions');
     
-    const userLevel = roleHierarchy[user.role.toLowerCase()] || 0;
-    const requiredLevel = roleHierarchy[requiredRole.toLowerCase()] || 1;
+    // Convert both roles to simple role enums
+    const userRole = roleFromString(user.role.toLowerCase());
+    const requiredRoleEnum = roleFromString(requiredRole.toLowerCase());
     
-    return userLevel >= requiredLevel;
+    return checkRoleAccess(userRole, requiredRoleEnum);
   } catch (error) {
     console.error('❌ Failed to check role:', error);
     return false;

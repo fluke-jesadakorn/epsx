@@ -24,10 +24,6 @@ name = "promote_admin"
 path = "src/bin/promote_admin.rs"
 required-features = ["cli-tools"]
 
-[[bin]]
-name = "assign_iam"
-path = "src/bin/assign_iam.rs"
-required-features = ["cli-tools"]
 
 
 # Feature flags optimized for production

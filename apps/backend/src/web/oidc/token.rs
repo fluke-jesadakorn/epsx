@@ -741,18 +741,50 @@ fn validate_access_token(token: &str) -> Result<AccessTokenClaims, Box<dyn std::
 
 /// Get user admin modules from the database
 async fn get_user_admin_modules(
-    app_state: &AppState,
+    _app_state: &AppState,
     email: &str
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    // Use the admin module service to get user's admin modules
-    match app_state.admin_module_service.get_user_admin_modules(email).await {
-        Ok(modules) => Ok(modules),
-        Err(e) => {
-            tracing::warn!("Failed to get admin modules for user {}: {}", email, e);
-            // Return default empty modules on error
-            Ok(vec![])
-        }
+    // Simplified role system - no admin modules needed
+    tracing::info!("Using simple role system for user: {}", email);
+    Ok(vec![]) // Return empty modules - using simple roles instead
+}
+
+/// Get user admin modules from the database using Firebase UID
+async fn get_user_admin_modules_from_db(
+    app_state: &AppState,
+    firebase_uid: &str
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    
+    // Get a connection from the pool
+    let mut conn = app_state.db_pool.get().await?;
+    
+    // Use raw SQL to avoid enum mapping issues for now
+    let query = diesel::sql_query(
+        "SELECT module_code FROM user_admin_roles WHERE firebase_uid = $1 AND is_active = true"
+    ).bind::<diesel::sql_types::Text, _>(firebase_uid);
+    
+    #[derive(diesel::QueryableByName)]
+    struct ModuleCodeRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        module_code: String,
     }
+    
+    let module_rows: Vec<ModuleCodeRow> = query
+        .load(&mut conn)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database query failed: {}", e);
+            e
+        })?;
+    
+    let admin_modules: Vec<String> = module_rows.into_iter()
+        .map(|row| row.module_code)
+        .collect();
+    
+    tracing::info!("Found {} admin modules for user {}: {:?}", admin_modules.len(), firebase_uid, admin_modules);
+    Ok(admin_modules)
 }
 
 /// Get comprehensive user database information for JWT token generation
@@ -763,15 +795,13 @@ async fn get_user_database_info(
     _email: &str
 ) -> (Vec<String>, String, Vec<String>) {
     // Get admin modules from database
-    let admin_modules = match app_state.admin_module_service.get_user_admin_modules(firebase_uid).await {
-        Ok(modules) => {
-            tracing::debug!("Retrieved {} admin modules for user {}: {:?}", modules.len(), firebase_uid, modules);
-            modules
-        },
-        Err(e) => {
-            tracing::warn!("Failed to get admin modules for user {}: {}", firebase_uid, e);
-            vec![]
-        }
+    let admin_modules = {
+        tracing::debug!("Querying admin modules for user: {}", firebase_uid);
+        get_user_admin_modules_from_db(app_state, firebase_uid).await
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to get admin modules for {}: {}", firebase_uid, e);
+                vec![]
+            })
     };
     
     // Get user data from database using Firebase UID for package tier and permissions
@@ -1022,8 +1052,11 @@ pub async fn oidc_userinfo(
     
     // Get additional user information based on the token claims
     let admin_modules = if token_claims.scope.contains("admin") || token_claims.scope.contains("admin_modules") {
-        get_user_admin_modules(&app_state, &token_claims.sub).await
-            .unwrap_or_else(|_| vec!["system_admin".to_string(), "user_management".to_string()])
+        get_user_admin_modules_from_db(&app_state, &token_claims.sub).await
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to get admin modules in userinfo for {}: {}", token_claims.sub, e);
+                vec![]
+            })
     } else {
         vec![]
     };

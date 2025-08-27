@@ -171,16 +171,22 @@ pub enum AdminModule {
     Security,
     Billing,
     Settings,
+    ContentManagement,
+    SupportAccess,
+    ApiManagement,
 }
 
 impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
     fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
         let value = match *self {
-            AdminModule::UserManagement => "user_management",
-            AdminModule::Analytics => "analytics",
-            AdminModule::Security => "security",
-            AdminModule::Billing => "billing",
-            AdminModule::Settings => "settings",
+            AdminModule::UserManagement => "user-management",
+            AdminModule::Analytics => "analytics-access",
+            AdminModule::Security => "security-management",
+            AdminModule::Billing => "billing-admin",
+            AdminModule::Settings => "system-admin",
+            AdminModule::ContentManagement => "content-management",
+            AdminModule::SupportAccess => "support-access",
+            AdminModule::ApiManagement => "api-management",
         };
         out.write_all(value.as_bytes())?;
         Ok(serialize::IsNull::No)
@@ -190,11 +196,14 @@ impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::AdminModule, 
 impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
     fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
-            "user_management" => Ok(AdminModule::UserManagement),
-            "analytics" => Ok(AdminModule::Analytics),
-            "security" => Ok(AdminModule::Security),
-            "billing" => Ok(AdminModule::Billing),
-            "settings" => Ok(AdminModule::Settings),
+            "user-management" => Ok(AdminModule::UserManagement),
+            "analytics-access" => Ok(AdminModule::Analytics),
+            "security-management" => Ok(AdminModule::Security),
+            "billing-admin" => Ok(AdminModule::Billing),
+            "system-admin" => Ok(AdminModule::Settings),
+            "content-management" => Ok(AdminModule::ContentManagement),
+            "support-access" => Ok(AdminModule::SupportAccess),
+            "api-management" => Ok(AdminModule::ApiManagement),
             _ => Err("Unrecognized AdminModule variant".into()),
         }
     }

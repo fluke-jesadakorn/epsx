@@ -6,10 +6,46 @@ use axum::{
     response::{Response, IntoResponse},
 };
 // use tower::Service; // Not needed for simple middleware
-use tracing::{info, warn};
+use tracing::{info, warn, error};
+use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use serde::{Deserialize, Serialize};
 
 use crate::auth::{JWT, User, jwt};
 use crate::dom::values::UserId;
+use crate::config::env::get_env_var;
+
+/// HMAC256 JWT Claims for Admin Frontend (matches admin frontend token format)
+#[derive(Debug, Serialize, Deserialize)]
+struct AdminFrontendTokenClaims {
+    pub sub: String,
+    pub email: String,
+    pub name: String,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub package_tier: String,
+    pub firebase_uid: String,
+    pub admin_modules: Option<Vec<String>>,
+    pub iat: i64,
+    pub exp: i64,
+}
+
+/// HMAC256 JWT Claims for OIDC tokens (matches OIDC token format)
+#[derive(Debug, Serialize, Deserialize)]
+struct AccessTokenClaims {
+    pub jti: String,
+    pub iss: String,
+    pub sub: String,
+    pub aud: String,
+    pub exp: i64,
+    pub iat: i64,
+    pub nbf: i64,
+    pub scope: String,
+    pub email: String,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub admin_modules: Vec<String>,
+    pub package_tier: String,
+}
 
 /**
  * Modern Auth.js v5 JWT middleware
@@ -47,32 +83,44 @@ pub async fn modern_jwt_auth_middleware(
         }
     };
 
-    // Validate JWT and extract user
-    let user = match JWT.extract_user(token) {
-        Ok(user) => user,
-        Err(jwt::Error::Expired) => {
-            warn!("Expired token for endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED.into_response());
+    // Try HMAC256 validation first (for admin frontend tokens), then RSA256 (for other tokens)
+    let user = match validate_hmac_token(token) {
+        Ok(user) => {
+            info!("HMAC256 token validation successful for admin endpoint: {}", path);
+            user
         }
-        Err(jwt::Error::Invalid(msg)) => {
-            warn!("Invalid token for endpoint {}: {}", path, msg);
-            return Err(StatusCode::UNAUTHORIZED.into_response());
-        }
-        Err(jwt::Error::MissingClaims(msg)) => {
-            warn!("Missing claims in token for endpoint {}: {}", path, msg);
-            return Err(StatusCode::UNAUTHORIZED.into_response());
-        }
-        Err(jwt::Error::InvalidSignature) => {
-            warn!("Invalid signature in token for endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED.into_response());
-        }
-        Err(jwt::Error::PermissionDenied) => {
-            warn!("Permission denied for endpoint: {}", path);
-            return Err(StatusCode::FORBIDDEN.into_response());
-        }
-        Err(jwt::Error::NotYetValid) => {
-            warn!("Token not yet valid for endpoint: {}", path);
-            return Err(StatusCode::UNAUTHORIZED.into_response());
+        Err(hmac_error) => {
+            // HMAC validation failed, try RSA validation
+            match JWT.extract_user(token) {
+                Ok(user) => {
+                    info!("RSA256 token validation successful for endpoint: {}", path);
+                    user
+                }
+                Err(jwt::Error::Expired) => {
+                    warn!("Expired token for endpoint: {}", path);
+                    return Err(StatusCode::UNAUTHORIZED.into_response());
+                }
+                Err(jwt::Error::Invalid(msg)) => {
+                    error!("Token validation failed for endpoint {}: HMAC error: {}, RSA error: {}", path, hmac_error, msg);
+                    return Err(StatusCode::UNAUTHORIZED.into_response());
+                }
+                Err(jwt::Error::MissingClaims(msg)) => {
+                    warn!("Missing claims in token for endpoint {}: {}", path, msg);
+                    return Err(StatusCode::UNAUTHORIZED.into_response());
+                }
+                Err(jwt::Error::InvalidSignature) => {
+                    error!("Invalid token signature for endpoint {}: Both HMAC and RSA validation failed", path);
+                    return Err(StatusCode::UNAUTHORIZED.into_response());
+                }
+                Err(jwt::Error::PermissionDenied) => {
+                    warn!("Permission denied for endpoint: {}", path);
+                    return Err(StatusCode::FORBIDDEN.into_response());
+                }
+                Err(jwt::Error::NotYetValid) => {
+                    warn!("Token not yet valid for endpoint: {}", path);
+                    return Err(StatusCode::UNAUTHORIZED.into_response());
+                }
+            }
         }
     };
 
@@ -335,4 +383,52 @@ where
             }
         }
     }
+}
+
+/// Validate HMAC256 token (try both admin frontend and OIDC formats)
+fn validate_hmac_token(token: &str) -> Result<User, Box<dyn std::error::Error + Send + Sync>> {
+    let jwt_secret = get_env_var("NEXTAUTH_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    
+    let decoding_key = DecodingKey::from_secret(jwt_secret.as_ref());
+    let mut validation = Validation::new(Algorithm::HS256);
+    
+    // Set validation parameters (be permissive for admin tokens)
+    validation.validate_exp = true;
+    validation.validate_aud = false;
+    validation.required_spec_claims.remove("iss"); // Don't require issuer
+    validation.required_spec_claims.remove("aud"); // Don't require audience
+    
+    // Try admin frontend token format first
+    if let Ok(token_data) = decode::<AdminFrontendTokenClaims>(token, &decoding_key, &validation) {
+        let claims = token_data.claims;
+        let sub = claims.sub.clone();
+        return Ok(User {
+            id: claims.sub,
+            email: claims.email,
+            name: Some(claims.name),
+            permissions: claims.permissions,
+            admin_modules: claims.admin_modules.unwrap_or_default(),
+            package_tier: claims.package_tier,
+            role: claims.role,
+            firebase_uid: Some(sub),
+        });
+    }
+    
+    // Try OIDC token format if admin format failed
+    let token_data = decode::<AccessTokenClaims>(token, &decoding_key, &validation)
+        .map_err(|e| format!("HMAC JWT validation failed for both formats: {}", e))?;
+    
+    let claims = token_data.claims;
+    let sub = claims.sub.clone();
+    Ok(User {
+        id: claims.sub,
+        email: claims.email,
+        name: None,
+        permissions: claims.permissions,
+        admin_modules: claims.admin_modules,
+        package_tier: claims.package_tier,
+        role: claims.role,
+        firebase_uid: Some(sub),
+    })
 }

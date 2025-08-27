@@ -37,15 +37,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!response.ok) {
-      // If backend route doesn't exist, return mock success
-      if (response.status === 404) {
-        return NextResponse.json({ 
-          success: true,
-          message: 'Assignment revoked (mock response - backend not implemented)' 
-        });
-      }
-      
       const errorText = await response.text();
+      console.error(`Backend stock ranking revoke API failed: ${response.status} ${errorText}`);
       return NextResponse.json(
         { error: `Backend error: ${errorText}` }, 
         { status: response.status }
@@ -58,10 +51,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error('Stock ranking revoke API error:', error);
     return NextResponse.json(
       { 
-        success: true,
-        message: 'Assignment revoked (fallback - service unavailable)' 
+        success: false,
+        error: 'Failed to revoke assignment',
+        message: 'Service temporarily unavailable' 
       }, 
-      { status: 200 }
+      { status: 500 }
     );
   }
 }

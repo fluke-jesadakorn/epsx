@@ -1,0 +1,192 @@
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'Active', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'Active', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'Active', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: TT, Rank: 100, Status: 'WATCH', Value: 426.19
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.88, Price: 426.19
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 2.45, Price: 255.66
+
+Symbol: 2317, Rank: 101, Status: 'STOP', Value: 208.00
+Quarterly Performance:
+  Quarter: 'Announced Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.11, Price: 208.00
+  Quarter: 'Announced May 29, 2025', Date: 'May 29, 2025', EPS: 0.11, Price: 192.09
+
+Symbol: 3690, Rank: 102, Status: 'STOP', Value: 116.30
+Quarterly Performance:
+  Quarter: 'Announced Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.03, Price: 116.30
+  Quarter: 'Announced May 29, 2025', Date: 'May 29, 2025', EPS: 0.03, Price: 109.63
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 2317, Rank: 101, Status: 'STOP', Value: 208.00
+Quarterly Performance:
+  Quarter: 'Announced Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.11, Price: 208.00
+  Quarter: 'Announced May 29, 2025', Date: 'May 29, 2025', EPS: 0.11, Price: 192.09
+
+Symbol: 3690, Rank: 102, Status: 'STOP', Value: 116.30
+Quarterly Performance:
+  Quarter: 'Announced Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.03, Price: 116.30
+  Quarter: 'Announced May 29, 2025', Date: 'May 29, 2025', EPS: 0.03, Price: 109.63
+
+Symbol: HCA, Rank: 103, Status: 'TRACK', Value: 401.96
+Quarterly Performance:
+  Quarter: 'Announced Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 401.96
+  Quarter: 'Announced Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 360.09
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Announced Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'Announced May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Announced Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Announced Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 502.04
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 502.04
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 452.11
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 228.71
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 228.71
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 205.63
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 754.10
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 754.10
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 645.16
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: TT, Rank: 100, Status: 'WATCH', Value: 426.19
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.88, Price: 426.19
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 2.45, Price: 255.66
+
+Symbol: 2317, Rank: 101, Status: 'STOP', Value: 208.00
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.11, Price: 208.00
+  Quarter: 'May 29, 2025', Date: 'May 29, 2025', EPS: 0.11, Price: 192.09
+
+Symbol: 3690, Rank: 102, Status: 'STOP', Value: 116.30
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.03, Price: 116.30
+  Quarter: 'May 29, 2025', Date: 'May 29, 2025', EPS: 0.03, Price: 109.63
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 2317, Rank: 101, Status: 'STOP', Value: 208.00
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.11, Price: 208.00
+  Quarter: 'May 29, 2025', Date: 'May 29, 2025', EPS: 0.11, Price: 192.09
+
+Symbol: 3690, Rank: 102, Status: 'STOP', Value: 116.30
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 0.03, Price: 116.30
+  Quarter: 'May 29, 2025', Date: 'May 29, 2025', EPS: 0.03, Price: 109.63
+
+Symbol: HCA, Rank: 103, Status: 'TRACK', Value: 401.96
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 401.96
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 360.09
+

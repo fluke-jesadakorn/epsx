@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::infra::db::diesel::schema::users;
 use crate::infra::db::diesel::types::{PackageTier};
-use crate::auth::roles::UserRoleEnum;
+use crate::auth::roles::Role;
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = users)]
@@ -18,12 +18,12 @@ pub struct DieselUser {
     pub name: Option<String>,
     pub avatar_url: Option<String>,
     pub package_tier: Option<PackageTier>,
+    pub role: Option<Role>,
     pub email_verified: Option<bool>,
     pub is_active: Option<bool>,
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub role: UserRoleEnum,
 }
 
 #[derive(Insertable, Debug, Clone)]
@@ -36,11 +36,11 @@ pub struct NewDieselUser {
     pub name: Option<String>,
     pub avatar_url: Option<String>,
     pub package_tier: Option<PackageTier>,
+    pub role: Option<Role>,
     pub email_verified: Option<bool>,
     pub is_active: Option<bool>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub role: UserRoleEnum,
 }
 
 #[derive(AsChangeset, Debug, Clone)]
@@ -54,5 +54,5 @@ pub struct UpdateDieselUser {
     pub is_active: Option<bool>,
     pub last_login_at: Option<DateTime<Utc>>,
     pub updated_at: DateTime<Utc>,
-    pub role: Option<UserRoleEnum>,
+    pub role: Option<Role>,
 }

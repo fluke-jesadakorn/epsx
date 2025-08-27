@@ -1,5 +1,4 @@
-import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+// Using native fetch instead of axios to avoid bundling issues
 
 export interface ApiError {
   message: string;
@@ -151,55 +150,94 @@ export interface MarkNotificationsReadRequest {
 }
 
 export class ApiClient {
-  private instance: AxiosInstance;
+  private baseURL: string;
+  private token?: string;
 
   constructor(baseURL: string, token?: string) {
-    this.instance = axios.create({
-      baseURL,
-      timeout: 30000,
+    this.baseURL = baseURL;
+    this.token = token;
+  }
+
+  private async makeRequest<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const fullUrl = `${this.baseURL}${url}`;
+    
+    const defaultHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.token) {
+      defaultHeaders.Authorization = `Bearer ${this.token}`;
+    }
+
+    const config: RequestInit = {
+      ...options,
       headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
+        ...defaultHeaders,
+        ...options.headers,
       },
-    });
+    };
 
-    this.instance.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Handle unauthorized - redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+    try {
+      const response = await fetch(fullUrl, config);
+      
+      if (response.status === 401) {
+        // Handle unauthorized - redirect to login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
         }
-        return Promise.reject(error);
       }
-    );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return { data, status: response.status, success: true };
+    } catch (error: any) {
+      throw {
+        message: error.message || 'Request failed',
+        status: 500,
+      } as ApiError;
+    }
   }
 
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.get(url, config);
-    return { data: response.data, status: response.status, success: true };
+  async get<T>(url: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+    let queryString = '';
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.keys(params).forEach(key => {
+        if (params[key] !== undefined && params[key] !== null) {
+          searchParams.append(key, String(params[key]));
+        }
+      });
+      queryString = searchParams.toString();
+    }
+    
+    const finalUrl = queryString ? `${url}?${queryString}` : url;
+    return this.makeRequest<T>(finalUrl, { method: 'GET' });
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.post(url, data, config);
-    return { data: response.data, status: response.status, success: true };
+  async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.put(url, data, config);
-    return { data: response.data, status: response.status, success: true };
+  async put<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   }
 
-  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.instance.delete(url, config);
-    return { data: response.data, status: response.status, success: true };
+  async delete<T>(url: string): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>(url, { method: 'DELETE' });
   }
 
   // Notification API methods
   async getNotifications(params?: NotificationListParams): Promise<ApiResponse<NotificationListResponse>> {
-    return this.get('/api/v1/notifications', { params });
+    return this.get('/api/v1/notifications', params);
   }
 
   async getNotification(id: string): Promise<ApiResponse<NotificationResponse>> {
@@ -244,11 +282,11 @@ export class ApiClient {
   }
 
   setAuthToken(token: string) {
-    this.instance.defaults.headers.Authorization = `Bearer ${token}`;
+    this.token = token;
   }
 
   removeAuthToken() {
-    delete this.instance.defaults.headers.Authorization;
+    this.token = undefined;
   }
 }
 
@@ -261,58 +299,199 @@ export function isApiError(error: any): error is ApiError {
   return error && typeof error.message === 'string' && typeof error.status === 'number';
 }
 
+// EPS Analytics interfaces matching backend DTOs
+export interface EPSPaginationResponse {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface QuarterlyData {
+  quarter: string; // e.g., "Q3 '25"
+  date: string;
+  price: number;
+  eps: number;
+  eps_growth: number; // Growth factor percentage
+  price_growth: number; // Price growth percentage
+  volume?: number;
+}
+
+export interface MarketData {
+  market_cap?: number;
+  volume_24h?: number;
+  country: string;
+  sector: string;
+  exchange: string;
+}
+
+export interface AnalyticsMetrics {
+  growth_factor: number;
+  ranking_score: number;
+  trend: string; // bullish, bearish, neutral, etc.
+  volatility: number;
+}
+
+export interface UnifiedRankingItem {
+  symbol: string;
+  company_name: string;
+  ranking_position: number;
+  current_price: number;
+  current_price_date: string;
+  quarterly_data: QuarterlyData[];
+  market_data: MarketData;
+  analytics: AnalyticsMetrics;
+}
+
+export interface UnifiedFilters {
+  country?: string;
+  sector?: string;
+  sort_by: string;
+  min_eps?: number;
+  min_growth?: number;
+}
+
+export interface UnifiedAnalyticsMetadata {
+  available_countries: string[];
+  available_sectors: string[];
+  current_filters: UnifiedFilters;
+  request_timestamp: string;
+  data_source: string;
+  enhanced_with_websocket: boolean;
+}
+
+export interface UnifiedAnalyticsRankingsResponse {
+  success: boolean;
+  data: UnifiedRankingItem[];
+  pagination: EPSPaginationResponse;
+  metadata: UnifiedAnalyticsMetadata;
+  message?: string;
+  processing_time_ms: number;
+}
+
+export interface QuarterlyPerformanceData {
+  quarter: string; // "Q1", "Q0", etc.
+  date: string; // "Aug 8, 2025"
+  price: number;
+  eps: number;
+  eps_growth: number; // Growth factor %
+  price_growth: number; // Price % growth
+}
+
+export interface SymbolCardData {
+  rank: number;
+  symbol: string;
+  latest_date: string;
+  value: number; // Current price
+  active_status: string; // Active or Non Active based on surplus
+  quarterly_performance: QuarterlyPerformanceData[];
+}
+
+export interface CardDashboardMetadata {
+  available_countries: string[];
+  available_sectors: string[];
+  request_timestamp: string;
+  data_source: string;
+}
+
+export interface CardDashboardResponse {
+  success: boolean;
+  data: SymbolCardData[];
+  pagination: EPSPaginationResponse;
+  metadata: CardDashboardMetadata;
+  message?: string;
+  processing_time_ms: number;
+}
+
+export interface EPSQueryParams {
+  page: number;
+  limit: number;
+  country?: string;
+  sector?: string;
+  sort_by?: string;
+  min_eps?: number;
+  min_growth?: number;
+}
+
 // Analytics Client for unified analytics endpoints
 export class AnalyticsClient {
-  private client: AxiosInstance;
+  private baseURL: string;
 
   constructor(baseURL?: string) {
-    this.client = axios.create({
-      baseURL: baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // Add request interceptor for authentication
-    this.client.interceptors.request.use((config) => {
-      if (typeof window !== 'undefined') {
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('epsx_frontend_jwt='))
-          ?.split('=')[1];
-        
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      }
-      return config;
-    });
+    this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   }
 
-  async getUnifiedAnalyticsRankings(params: {
-    page: number;
-    limit: number;
-    country?: string;
-    sector?: string;
-    sort_by?: string;
-    min_eps?: number;
-    min_growth?: number;
-  }): Promise<ApiResponse<any>> {
+  private async makeRequest<T>(url: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+    let queryString = '';
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.keys(params).forEach(key => {
+        if (params[key] !== undefined && params[key] !== null) {
+          searchParams.append(key, String(params[key]));
+        }
+      });
+      queryString = searchParams.toString();
+    }
+    
+    const fullUrl = queryString ? `${this.baseURL}${url}?${queryString}` : `${this.baseURL}${url}`;
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add authentication token if available
+    if (typeof window !== 'undefined') {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('epsx_frontend_jwt='))
+        ?.split('=')[1];
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+
     try {
-      const response = await this.client.get('/api/v1/analytics/eps-rankings', { params });
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       return {
-        data: response.data,
+        data,
         status: response.status,
         success: true,
       };
     } catch (error: any) {
       throw {
-        message: error.response?.data?.message || 'Failed to fetch analytics data',
-        status: error.response?.status || 500,
-        code: error.response?.data?.code,
+        message: error.message || 'Request failed',
+        status: 500,
       } as ApiError;
     }
+  }
+
+  async getUnifiedAnalyticsRankings(params: EPSQueryParams): Promise<ApiResponse<UnifiedAnalyticsRankingsResponse>> {
+    return this.makeRequest<UnifiedAnalyticsRankingsResponse>('/api/v1/analytics/eps-rankings', params);
+  }
+
+  async getCardDashboard(params: EPSQueryParams): Promise<ApiResponse<CardDashboardResponse>> {
+    return this.makeRequest<CardDashboardResponse>('/api/v1/analytics/card-dashboard', params);
+  }
+
+  async getAvailableCountries(): Promise<ApiResponse<{ countries: Array<{ value: string; label: string }>; count: number }>> {
+    return this.makeRequest<{ countries: Array<{ value: string; label: string }>; count: number }>('/api/v1/analytics/eps-rankings/countries');
+  }
+
+  async getSectorsByCountry(country?: string): Promise<ApiResponse<{ sectors: string[]; count: number; country?: string }>> {
+    const params = country ? { country } : undefined;
+    return this.makeRequest<{ sectors: string[]; count: number; country?: string }>('/api/v1/analytics/eps-rankings/sectors', params);
   }
 }
 

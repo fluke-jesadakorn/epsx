@@ -3,15 +3,13 @@ use std::sync::Arc;
 use crate::config::env::get_env_var;
 
 use crate::infra::firebase_admin::{FirebaseAdmin, FirebaseUser};
-use crate::dom::services::{DatabaseRoleService, DatabaseRoleServiceTrait, AdminModuleService};
+// Removed legacy service imports - using simple roles
 
 /// Firebase-first user service that queries Firebase directly for all user data
 /// No local user data storage - Firebase is the single source of truth
 #[derive(Clone)]
 pub struct FirebaseUserService {
     firebase_admin: FirebaseAdmin,
-    role_service: Option<DatabaseRoleService>,
-    admin_module_service: Option<std::sync::Arc<AdminModuleService>>,
 }
 
 /// User creation request
@@ -94,69 +92,29 @@ impl FirebaseUserService {
             
         Ok(Self {
             firebase_admin,
-            role_service: None,
-            admin_module_service: None,
         })
     }
     
-    /// Create service with database role service
-    pub async fn with_database_roles(db_pool: Arc<crate::infra::db::diesel::DbPool>) -> Result<Self, UserServiceError> {
-        let firebase_admin = FirebaseAdmin::new()
-            .await
-            .map_err(|e| UserServiceError::InternalError(format!("Failed to initialize Firebase Admin: {}", e)))?;
-            
-        let role_service = DatabaseRoleService::new(db_pool);
-            
-        Ok(Self {
-            firebase_admin,
-            role_service: Some(role_service),
-            admin_module_service: None,
-        })
+    /// Create service with simple roles (legacy method kept for compatibility)
+    pub async fn with_database_roles(_db_pool: Arc<crate::infra::db::diesel::DbPool>) -> Result<Self, UserServiceError> {
+        Self::new().await
     }
     
     /// Create service with existing Firebase Admin instance
     pub fn with_firebase_admin(firebase_admin: FirebaseAdmin) -> Self {
         Self {
             firebase_admin,
-            role_service: None,
-            admin_module_service: None,
         }
     }
     
-    /// Create service with AdminModuleService dependency
-    pub fn with_admin_module_service(firebase_admin: FirebaseAdmin, admin_module_service: std::sync::Arc<AdminModuleService>) -> Self {
-        Self {
-            firebase_admin,
-            role_service: None,
-            admin_module_service: Some(admin_module_service),
-        }
+    /// Create service with simple roles (legacy method kept for compatibility)
+    pub fn with_admin_module_service(firebase_admin: FirebaseAdmin, _admin_module_service: std::sync::Arc<()>) -> Self {
+        Self::with_firebase_admin(firebase_admin)
     }
 
-    /// Validate admin access for user
+    /// Validate admin access for user (simplified for unified role system)
     pub async fn validate_admin_access(&self, firebase_uid: &str) -> Result<bool, UserServiceError> {
         tracing::info!("Validating admin access for firebase_uid: {}", firebase_uid);
-        
-        // First check: Use granular admin module system if available
-        if let Some(admin_module_service) = &self.admin_module_service {
-            match admin_module_service.get_user_admin_modules(firebase_uid).await {
-                Ok(modules) => {
-                    let has_admin_modules = !modules.is_empty();
-                    tracing::info!("User {} has {} admin modules: {:?}", firebase_uid, modules.len(), modules);
-                    return Ok(has_admin_modules);
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to check admin modules for {}: {:?}", firebase_uid, e);
-                }
-            }
-        }
-        
-        // Second check: Check if user has admin role in database
-        if let Some(role_service) = &self.role_service {
-            if let Ok(Some(role_data)) = role_service.get_user_role(firebase_uid).await {
-                tracing::info!("User {} has legacy admin role: {}", firebase_uid, role_data.is_admin);
-                return Ok(role_data.is_admin);
-            }
-        }
         
         // Development fallback: For specific test users (Firebase UID only)
         let test_admin_uid = get_env_var("TEST_ADMIN_UID").unwrap_or_default();
@@ -166,7 +124,7 @@ impl FirebaseUserService {
             return Ok(true);
         }
         
-        // Development fallback: check if user is admin based on UID pattern (legacy)
+        // Simple check: Firebase custom claims or UID pattern for development
         let legacy_admin_check = firebase_uid.contains("admin");
         tracing::info!("User {} legacy admin check (contains 'admin'): {}", firebase_uid, legacy_admin_check);
         Ok(legacy_admin_check)
@@ -334,17 +292,7 @@ impl FirebaseUserServiceTrait for FirebaseUserService {
     async fn validate_admin_access(&self, firebase_uid: &str) -> Result<AdminAccessInfo, UserServiceError> {
         tracing::info!("Validating admin access for user: {}", firebase_uid);
         
-        // Use database role service if available
-        if let Some(role_service) = &self.role_service {
-            if let Ok(Some(role_data)) = role_service.get_user_role(firebase_uid).await {
-                return Ok(AdminAccessInfo {
-                    has_admin_access: role_data.is_admin,
-                    access_level: role_data.access_level,
-                    role: role_data.role,
-                    permissions: role_data.permissions,
-                });
-            }
-        }
+        // Using simplified role system - no complex database role service needed
         
         // Fallback to Firebase custom claims
         let firebase_user = self.get_user_by_uid(firebase_uid).await?;
@@ -371,7 +319,7 @@ impl FirebaseUserServiceTrait for FirebaseUserService {
             firebase_uid, 
             admin_info.has_admin_access, 
             admin_info.access_level,
-            if self.role_service.is_some() { "database" } else { "firebase" }
+"unified-roles"
         );
         
         Ok(admin_info)

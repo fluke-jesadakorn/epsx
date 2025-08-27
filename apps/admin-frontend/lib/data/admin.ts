@@ -1,30 +1,82 @@
-// TODO: Replace with proper API client implementation
-const createApiClient = () => ({
-  getAdminUsers: async () => { throw new Error('API client not implemented'); },
-  getAdminUser: async () => { throw new Error('API client not implemented'); },
-  getAdminPermissionProfiles: async () => { throw new Error('API client not implemented'); },
-  getAdminPermissionProfile: async () => { throw new Error('API client not implemented'); },
-  getStockRankingAssignments: async () => { throw new Error('API client not implemented'); },
-  getStockRankingAssignment: async () => { throw new Error('API client not implemented'); },
-  getAnalyticsStatistics: async () => { throw new Error('API client not implemented'); },
-  getStockRankingAnalytics: async () => { throw new Error('API client not implemented'); },
-  getAdminProfile: async () => { throw new Error('API client not implemented'); },
-});
+import { createApiClient } from '@/lib/api-client';
+import { env } from '@/config/env';
 
-const isApiError = (response: any) => false;
+// Types for API responses
+interface AdminUser {
+  id: string;
+  email: string;
+  name?: string;
+  roles: string[];
+  admin_modules: string[];
+  status: 'active' | 'inactive' | 'disabled';
+  created_at: string;
+  updated_at: string;
+}
 
-// Get backend URL server-side only
+interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+interface PermissionProfile {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  is_system: boolean;
+  created_at: string;
+}
+
+interface AnalyticsStats {
+  total_users: number;
+  active_users: number;
+  user_growth: number;
+  package_distribution: Record<string, number>;
+}
+
+interface StockRankingAssignment {
+  id: string;
+  user_id: string;
+  package_tier_id: string;
+  assignment_type: string;
+  status: 'active' | 'expired' | 'pending';
+  assigned_at: string;
+  expires_at?: string;
+}
+
+interface StockRankingAnalytics {
+  total_assignments: number;
+  active_assignments: number;
+  assignment_growth: number;
+  tier_distribution: Record<string, number>;
+}
+
+// Get authentication token for admin API calls
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null; // Server-side - token should be passed differently
+  }
+  return localStorage.getItem('admin_jwt') || sessionStorage.getItem('admin_jwt');
+}
+
+// Create admin API client with backend URL and auth
 const getApiClient = () => {
-  return createApiClient();
+  const token = getAuthToken();
+  return createApiClient(env.NEXT_PUBLIC_BACKEND_URL, token || undefined);
 };
 
+const isApiError = (response: any) => !response.success && response.error;
+
 // User Management
-export async function getUsers(searchParams?: URLSearchParams) {
+export async function getUsers(searchParams?: URLSearchParams): Promise<AdminUsersResponse> {
   try {
-    const response = await getApiClient().getAdminUsers(searchParams);
+    const params = searchParams ? `?${searchParams.toString()}` : '';
+    const response = await getApiClient().get<AdminUsersResponse>(`/api/v1/admin/users${params}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch users', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch users', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch users');
     }
 
@@ -37,13 +89,12 @@ export async function getUsers(searchParams?: URLSearchParams) {
   }
 }
 
-export async function getUser(userId: string) {
+export async function getUser(userId: string): Promise<AdminUser> {
   try {
-
-    const response = await getApiClient().getAdminUser(userId);
+    const response = await getApiClient().get<AdminUser>(`/api/v1/admin/users/${userId}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch user', { error: response.error, details: response.details, userId }, 'AdminDataLayer');
+      console.error('Failed to fetch user', { error: response.error, userId }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch user');
     }
 
@@ -58,13 +109,13 @@ export async function getUser(userId: string) {
 }
 
 // Permission Profiles
-export async function getPermissionProfiles(searchParams?: URLSearchParams) {
+export async function getPermissionProfiles(searchParams?: URLSearchParams): Promise<PermissionProfile[]> {
   try {
-    
-    const response = await getApiClient().getAdminPermissionProfiles(searchParams);
+    const params = searchParams ? `?${searchParams.toString()}` : '';
+    const response = await getApiClient().get<PermissionProfile[]>(`/api/v1/admin/permission-profiles${params}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch permission profiles', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch permission profiles', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch permission profiles');
     }
 
@@ -77,13 +128,12 @@ export async function getPermissionProfiles(searchParams?: URLSearchParams) {
   }
 }
 
-export async function getPermissionProfile(profileId: string) {
+export async function getPermissionProfile(profileId: string): Promise<PermissionProfile> {
   try {
-
-    const response = await getApiClient().getAdminPermissionProfile(profileId);
+    const response = await getApiClient().get<PermissionProfile>(`/api/v1/admin/permission-profiles/${profileId}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch permission profile', { error: response.error, details: response.details, profileId }, 'AdminDataLayer');
+      console.error('Failed to fetch permission profile', { error: response.error, profileId }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch permission profile');
     }
 
@@ -98,13 +148,13 @@ export async function getPermissionProfile(profileId: string) {
 }
 
 // Stock Ranking
-export async function getStockRankingAssignments(searchParams?: URLSearchParams) {
+export async function getStockRankingAssignments(searchParams?: URLSearchParams): Promise<StockRankingAssignment[]> {
   try {
-    
-    const response = await getApiClient().getStockRankingAssignments(searchParams);
+    const params = searchParams ? `?${searchParams.toString()}` : '';
+    const response = await getApiClient().get<StockRankingAssignment[]>(`/api/v1/admin/stock-ranking/assignments${params}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch stock ranking assignments', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch stock ranking assignments', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch stock ranking assignments');
     }
 
@@ -117,13 +167,12 @@ export async function getStockRankingAssignments(searchParams?: URLSearchParams)
   }
 }
 
-export async function getStockRankingAssignment(assignmentId: string) {
+export async function getStockRankingAssignment(assignmentId: string): Promise<StockRankingAssignment> {
   try {
-
-    const response = await getApiClient().getStockRankingAssignment(assignmentId);
+    const response = await getApiClient().get<StockRankingAssignment>(`/api/v1/admin/stock-ranking/assignments/${assignmentId}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch stock ranking assignment', { error: response.error, details: response.details, assignmentId }, 'AdminDataLayer');
+      console.error('Failed to fetch stock ranking assignment', { error: response.error, assignmentId }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch stock ranking assignment');
     }
 
@@ -138,13 +187,12 @@ export async function getStockRankingAssignment(assignmentId: string) {
 }
 
 // Analytics
-export async function getAnalyticsStatistics() {
+export async function getAnalyticsStatistics(): Promise<AnalyticsStats> {
   try {
-
-    const response = await getApiClient().getAnalyticsStatistics();
+    const response = await getApiClient().get<AnalyticsStats>('/api/v1/admin/analytics');
 
     if (isApiError(response)) {
-      console.error('Failed to fetch analytics statistics', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch analytics statistics', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch analytics statistics');
     }
 
@@ -157,13 +205,13 @@ export async function getAnalyticsStatistics() {
   }
 }
 
-export async function getStockRankingAnalytics(searchParams?: URLSearchParams) {
+export async function getStockRankingAnalytics(searchParams?: URLSearchParams): Promise<StockRankingAnalytics> {
   try {
-    
-    const response = await getApiClient().getStockRankingAnalytics(searchParams);
+    const params = searchParams ? `?${searchParams.toString()}` : '';
+    const response = await getApiClient().get<StockRankingAnalytics>(`/api/v1/admin/stock-ranking/analytics${params}`);
 
     if (isApiError(response)) {
-      console.error('Failed to fetch stock ranking analytics', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch stock ranking analytics', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch stock ranking analytics');
     }
 
@@ -177,13 +225,12 @@ export async function getStockRankingAnalytics(searchParams?: URLSearchParams) {
 }
 
 // Admin Profile
-export async function getAdminProfile() {
+export async function getAdminProfile(): Promise<AdminUser> {
   try {
-
-    const response = await getApiClient().getAdminProfile();
+    const response = await getApiClient().get<AdminUser>('/api/v1/admin/profile');
 
     if (isApiError(response)) {
-      console.error('Failed to fetch admin profile', { error: response.error, details: response.details }, 'AdminDataLayer');
+      console.error('Failed to fetch admin profile', { error: response.error }, 'AdminDataLayer');
       throw new Error(response.error || 'Failed to fetch admin profile');
     }
 

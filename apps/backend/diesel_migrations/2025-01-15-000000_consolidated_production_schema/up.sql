@@ -40,6 +40,9 @@ CREATE TYPE notification_type AS ENUM (
 
 CREATE TYPE notification_priority AS ENUM ('low', 'medium', 'high', 'critical');
 
+-- User role system (simplified to 3 core roles)
+CREATE TYPE user_role AS ENUM ('admin', 'user', 'guest');
+
 -- ============================================================================
 -- CORE USER MANAGEMENT TABLES
 -- ============================================================================
@@ -53,6 +56,7 @@ CREATE TABLE users (
     name VARCHAR(255),
     avatar_url TEXT,
     package_tier package_tier DEFAULT 'free',
+    role user_role DEFAULT 'guest',
     email_verified BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
     last_login_at TIMESTAMPTZ,
@@ -368,3 +372,24 @@ INSERT INTO notification_preferences (user_id, email_enabled, push_enabled, feat
 SELECT id, true, true, true, true, true, false 
 FROM users 
 ON CONFLICT (user_id) DO NOTHING;
+
+-- ============================================================================
+-- DATA MIGRATION: Populate role column from existing data
+-- ============================================================================
+
+-- Update role column based on existing admin_modules and package_tier
+UPDATE users 
+SET role = CASE
+    -- Users with admin modules get admin role
+    WHEN EXISTS (
+        SELECT 1 FROM user_admin_roles uar 
+        WHERE uar.firebase_uid = users.firebase_uid 
+        AND uar.is_active = true 
+        AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
+    ) THEN 'admin'::user_role
+    -- Users with admin or premium package tiers get user role  
+    WHEN package_tier IN ('admin', 'platinum', 'gold', 'silver', 'bronze') THEN 'user'::user_role
+    -- Everyone else gets guest role (including 'free' tier)
+    ELSE 'guest'::user_role
+END
+WHERE role = 'guest'; -- Only update if still default

@@ -133,6 +133,9 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
         .route("/api/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
         .route("/api/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
         .route("/api/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
+        // Simplified analytics endpoints for frontend compatibility
+        .route("/api/v1/analytics/countries", get(eps_handlers::get_available_countries))
+        .route("/api/v1/analytics/sectors", get(eps_handlers::get_sectors_by_country))
         // Cache management endpoints
         .route("/api/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/api/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))

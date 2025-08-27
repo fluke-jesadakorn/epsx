@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
         sector: 'Technology', // Default - API doesn't return sector in this format
         exchange: 'NASDAQ', // Default - API doesn't return exchange
         current_eps: latestQuarterly.eps || null,
-        qoq_growth: latestQuarterly.eps_growth || null,
+        growth_factor: latestQuarterly.eps_growth || null,
         price_current: card.value || null,
         market_cap: null, // Not available in card format
         volume: null, // Not available in card format

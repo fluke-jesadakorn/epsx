@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-// TODO: Replace with actual IAM service call
-const getIAMUsers = async () => {
-  // Mock implementation - replace with actual API call
-  return [];
-};
+import { getUsers } from '../../lib/data/admin';
 import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {
@@ -29,21 +25,20 @@ export const useUsers = (options: UseUsersOptions) => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      // Get users from server action
-      const iamUsers = await getIAMUsers();
+      // Get users from real backend API
+      const response = await getUsers();
+      const adminUsers = response.users;
 
-      // Transform to our User interface and apply filters
-      let transformedUsers: User[] = iamUsers.map(
-        (user: UserWithPermissions) => ({
+      // Transform AdminUser to our User interface and apply filters
+      let transformedUsers: User[] = adminUsers.map(
+        (user) => ({
           id: user.id,
-          name: user.displayName || user.name || user.email || 'Unknown User',
+          name: user.name || user.email || 'Unknown User',
           email: user.email || '',
-          packageTier: user.packageTier || 'free',
-          status: user.subscriptionStatus === 'active' ? 'active' : 'inactive',
-          lastActive: user.lastActivity
-            ? new Date(user.lastActivity).toLocaleDateString()
-            : 'Never',
-          permissions: user.effectivePermissions?.map(p => p.featureId) || [],
+          packageTier: 'user', // Map from roles/admin_modules as needed
+          status: user.status as 'active' | 'inactive' | 'suspended',
+          lastActive: new Date(user.updated_at).toLocaleDateString(),
+          permissions: user.admin_modules || [],
         })
       );
 

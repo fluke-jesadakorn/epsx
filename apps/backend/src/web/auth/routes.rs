@@ -15,7 +15,7 @@ use crate::app::ports::repositories::{
     ModuleRepository, UsageRepository
 };
 use crate::infra::firebase_admin::FirebaseAdmin;
-use crate::dom::services::admin_module_service::AdminModuleService;
+// Removed admin module service import - using simple roles
 use crate::infra::AppContainer;
 use crate::infra::cache::Cache;
 use crate::infra::services::notification_service::NotificationService;
@@ -50,7 +50,7 @@ pub struct AppState {
     pub module_repo: Arc<dyn ModuleRepository>,
     pub usage_repo: Arc<dyn UsageRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
-    pub admin_module_service: Arc<AdminModuleService>,
+    // Removed admin_module_service - using simple roles
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
     pub notification_service: Arc<dyn NotificationService>,
@@ -66,7 +66,7 @@ impl AppState {
         module_repo: Arc<dyn ModuleRepository>,
         usage_repo: Arc<dyn UsageRepository>,
         firebase_admin: Arc<FirebaseAdmin>,
-        admin_module_service: Arc<AdminModuleService>,
+        // Removed admin_module_service parameter - using simple roles
         db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
         _security_cache: Option<()>, // Removed security_cache
@@ -82,7 +82,7 @@ impl AppState {
             module_repo,
             usage_repo,
             firebase_admin,
-            admin_module_service,
+            // Removed admin_module_service field - using simple roles
             db_pool,
             cache,
             notification_service,
