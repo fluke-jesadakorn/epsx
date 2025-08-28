@@ -216,6 +216,10 @@ module.exports = {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
         },
+        "spin-very-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
         
         // Movement animations
         "wiggle": {
@@ -314,6 +318,7 @@ module.exports = {
         
         // Rotation animations
         "spin-slow": "spin-slow 20s linear infinite",
+        "spin-very-slow": "spin-very-slow 30s linear infinite",
         
         // Movement animations
         "wiggle": "wiggle 1s ease-in-out infinite",

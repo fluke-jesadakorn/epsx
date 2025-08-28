@@ -50,12 +50,14 @@ impl EPSRepository for DieselEPSRepository {
     async fn get_rankings_filtered(
         &self,
         country: Option<String>,
+        sector: Option<String>,
         sort_by: Option<String>,
         page: i32,
         limit: i32,
     ) -> Result<Vec<EPSRanking>, AppError> {
-        let params = format!("{}:{}:{}:{}", 
+        let params = format!("{}:{}:{}:{}:{}", 
                            country.as_deref().unwrap_or("all"),
+                           sector.as_deref().unwrap_or("all"),
                            sort_by.as_deref().unwrap_or("growth_factor"),
                            page, limit);
         let cache_key = self.get_cache_key("rankings", &params);
@@ -74,7 +76,7 @@ impl EPSRepository for DieselEPSRepository {
         
         // Generate sample data for development (Phase 2 implementation)
         // This will be replaced with real TradingView data in Phase 3
-        let sample_rankings = self.generate_sample_rankings(country, sort_by, page, limit).await;
+        let sample_rankings = self.generate_sample_rankings(country, sector, sort_by, page, limit).await;
         
         // Cache the results with 30-minute TTL
         if let Err(e) = self.cache.set(&cache_key, &sample_rankings, Some(1800)).await {
@@ -86,8 +88,10 @@ impl EPSRepository for DieselEPSRepository {
         Ok(sample_rankings)
     }
 
-    async fn get_total_count(&self, country: Option<String>) -> Result<i64, AppError> {
-        let cache_key = self.get_cache_key("count", country.as_deref().unwrap_or("all"));
+    async fn get_total_count(&self, country: Option<String>, sector: Option<String>) -> Result<i64, AppError> {
+        let cache_key = self.get_cache_key("count", &format!("{}:{}", 
+            country.as_deref().unwrap_or("all"), 
+            sector.as_deref().unwrap_or("all")));
         
         // Try cache first
         match self.cache.get::<i64>(&cache_key).await {
@@ -99,12 +103,27 @@ impl EPSRepository for DieselEPSRepository {
             Err(e) => warn!("Cache error during count fetch: {}", e),
         }
         
-        // Sample count for development
-        let count = match country.as_deref() {
-            Some("america") => 150,
-            Some("germany") => 80,
-            Some("japan") => 120,
-            _ => 500, // Total across all countries
+        // Sample count for development - consider both country and sector
+        let count = match (country.as_deref(), sector.as_deref()) {
+            // Country + Sector combinations
+            (Some("america"), Some("Technology")) => 25,
+            (Some("america"), Some("Finance")) => 15,
+            (Some("america"), Some("Consumer Goods")) => 10,
+            (Some("germany"), Some("Technology")) => 8,
+            (Some("japan"), Some("Technology")) => 12,
+            // Country only
+            (Some("america"), None) => 150,
+            (Some("germany"), None) => 80,
+            (Some("japan"), None) => 120,
+            (Some("taiwan"), None) => 95,
+            (Some("hongkong"), None) => 60,
+            // Sector only (across all countries)
+            (None, Some("Technology")) => 180,
+            (None, Some("Finance")) => 120,
+            (None, Some("Consumer Goods")) => 90,
+            (None, Some("Healthcare")) => 85,
+            // No filters
+            _ => 500, // Total across all countries and sectors
         };
         
         // Cache with 30-minute TTL
@@ -197,6 +216,7 @@ impl DieselEPSRepository {
     async fn generate_sample_rankings(
         &self,
         country: Option<String>,
+        sector: Option<String>,
         sort_by: Option<String>,
         page: i32,
         limit: i32,
@@ -338,6 +358,11 @@ impl DieselEPSRepository {
         // Filter by country if specified
         if let Some(country_filter) = &country {
             sample_data.retain(|r| r.country == *country_filter);
+        }
+        
+        // Filter by sector if specified
+        if let Some(sector_filter) = &sector {
+            sample_data.retain(|r| r.sector == *sector_filter);
         }
         
         // Sort by specified field

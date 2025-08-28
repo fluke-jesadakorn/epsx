@@ -12,11 +12,12 @@ pub trait EPSRepository: Send + Sync {
     async fn get_rankings_filtered(
         &self,
         country: Option<String>,
+        sector: Option<String>,
         sort_by: Option<String>,
         page: i32,
         limit: i32,
     ) -> Result<Vec<EPSRanking>, AppError>;
-    async fn get_total_count(&self, country: Option<String>) -> Result<i64, AppError>;
+    async fn get_total_count(&self, country: Option<String>, sector: Option<String>) -> Result<i64, AppError>;
     async fn batch_store_eps_data(&self, eps_data_list: Vec<EPSGrowthData>) -> Result<usize, AppError>;
     async fn get_countries(&self) -> Result<Vec<String>, AppError>;
     async fn get_sectors_by_country(&self, country: Option<String>) -> Result<Vec<String>, AppError>;
@@ -121,6 +122,7 @@ impl EPSRankingService {
         // Get rankings from repository
         let rankings = self.eps_repo.get_rankings_filtered(
             validated_country.clone(),
+            params.sector.clone(),
             params.sort_by.clone(),
             page,
             limit,
@@ -129,7 +131,7 @@ impl EPSRankingService {
         debug!("Found {} rankings from repository", rankings.len());
 
         // Get total count for pagination
-        let total_count = self.eps_repo.get_total_count(validated_country.clone()).await?;
+        let total_count = self.eps_repo.get_total_count(validated_country.clone(), params.sector.clone()).await?;
         debug!("Total count for pagination: {}", total_count);
 
         // Create pagination info
@@ -262,7 +264,7 @@ impl EPSRankingService {
             None
         };
 
-        let count = self.eps_repo.get_total_count(validated_country).await?;
+        let count = self.eps_repo.get_total_count(validated_country, params.sector.clone()).await?;
         debug!("Total count for parameters: {}", count);
         
         Ok(count)

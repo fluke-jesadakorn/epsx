@@ -3,11 +3,11 @@
     "earnings_release_date": 30,
     "earnings_release_next_date": 31
   },
-  "earnings_release_date": 1754563500.0,
-  "earnings_release_next_date": 1761821100.0,
-  "formatted_last": "2025-08-07",
-  "formatted_next": "2025-10-30",
+  "earnings_release_date": 1753300980.0,
+  "earnings_release_next_date": 1761217200.0,
+  "formatted_last": "2025-07-23",
+  "formatted_next": "2025-10-23",
   "last_is_valid_timestamp": true,
   "next_is_valid_timestamp": true,
-  "symbol": "LLY"
+  "symbol": "TMUS"
 }

@@ -532,3 +532,90 @@ Quarterly Performance:
   Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 747.38
   Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 639.41
 
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 506.74
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 506.74
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 456.34
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 229.12
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 229.12
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 206.00
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 506.74
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 506.74
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 456.34
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MSFT, Rank: 1, Status: 'TRACK', Value: 506.74
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 506.74
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 456.34
+
+Symbol: AMZN, Rank: 2, Status: 'TRACK', Value: 229.12
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 229.12
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 206.00
+
+Symbol: META, Rank: 3, Status: 'TRACK', Value: 747.38
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 7.14, Price: 747.38
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 6.43, Price: 639.41
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: HCA, Rank: 101, Status: 'TRACK', Value: 405.05
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 405.05
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 362.86
+
+Symbol: TT, Rank: 102, Status: 'WATCH', Value: 424.19
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.88, Price: 424.19
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 2.45, Price: 254.46
+
+Symbol: 601728, Rank: 103, Status: 'TRACK', Value: 7.51
+Quarterly Performance:
+  Quarter: 'Aug 14, 2025', Date: 'Aug 14, 2025', EPS: 0.11, Price: 7.51
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 0.10, Price: 6.30
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'TRACK', Value: 350.35
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 2.98, Price: 350.35
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.76, Price: 308.26
+
+Symbol: ORCL, Rank: 12, Status: 'TRACK', Value: 235.81
+Quarterly Performance:
+  Quarter: 'Jun 11, 2025', Date: 'Jun 11, 2025', EPS: 1.70, Price: 235.81
+  Quarter: 'Mar 10, 2025', Date: 'Mar 10, 2025', EPS: 1.47, Price: 193.71
+
+Symbol: MA, Rank: 13, Status: 'WATCH', Value: 590.66
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 4.15, Price: 590.66
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 3.73, Price: 504.34
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 2317, Rank: 100, Status: 'STOP', Value: 206.00
+Quarterly Performance:
+  Quarter: 'Aug 28, 2025', Date: 'Aug 28, 2025', EPS: 0.11, Price: 206.00
+  Quarter: 'May 30, 2025', Date: 'May 30, 2025', EPS: 0.11, Price: 190.98
+
+Symbol: HCA, Rank: 101, Status: 'TRACK', Value: 405.05
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 405.05
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 362.86
+
+Symbol: TT, Rank: 102, Status: 'WATCH', Value: 424.19
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.88, Price: 424.19
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 2.45, Price: 254.46
+

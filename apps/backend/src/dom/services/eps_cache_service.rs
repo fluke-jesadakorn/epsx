@@ -169,6 +169,7 @@ impl EPSCacheService {
         info!("Fetching EPS rankings from database");
         let db_rankings = self.eps_repository.get_rankings_filtered(
             params.country.clone(),
+            params.sector.clone(),
             params.sort_by.clone(),
             params.page,
             params.limit,
@@ -217,7 +218,7 @@ impl EPSCacheService {
         }
 
         // Get total count for pagination
-        let total_count = self.eps_repository.get_total_count(params.country.clone()).await?;
+        let total_count = self.eps_repository.get_total_count(params.country.clone(), params.sector.clone()).await?;
         let pagination = EPSPagination::new(params.page, params.limit, total_count);
 
         // Use database rankings directly (already filtered and sorted)
@@ -379,7 +380,7 @@ impl EPSCacheService {
     /// Get total count for pagination validation from database
     pub async fn get_total_count_for_params(&self, params: &EPSCacheParams) -> Result<i64, AppError> {
         // Use database as source of truth for total count
-        self.eps_repository.get_total_count(params.country.clone()).await
+        self.eps_repository.get_total_count(params.country.clone(), params.sector.clone()).await
     }
 
     /// Force cache refresh from database
