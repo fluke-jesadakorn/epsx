@@ -248,7 +248,11 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   }, [filters]);
 
   const updateFilters = (newFilters: Partial<AdvancedFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters, page: 1 }));
+    setFilters(prev => ({ 
+      ...prev, 
+      ...newFilters,
+      page: 'page' in newFilters ? newFilters.page! : 1
+    }));
   };
 
   const resetFilters = () => {
@@ -354,192 +358,178 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
     const latestQuarter = quarters[0];
     const previousQuarter = quarters[1];
-    
+
+    // Map status to action with visual indicators
+    const getActionInfo = (status: string) => {
+      switch (status) {
+        case 'TRACK':
+          return { action: 'KEEP', emoji: '🟢' };
+        case 'WATCH':
+          return { action: 'WATCH', emoji: '🟡' };
+        case 'STOP':
+          return { action: 'PAUSE', emoji: '🔴' };
+        default:
+          return { action: 'KEEP', emoji: '🟢' };
+      }
+    };
+
+    const actionInfo = getActionInfo(cardData.active_status);
+    const daysUntil =
+      cardData.next_quarter_estimate?.days_until_announcement || 185;
+    const nextDate =
+      cardData.next_quarter_estimate?.announcement_date || 'Feb 28, 2026';
+
+    // Progress bar calculation using exact dates
+    // Start: Latest EPS date, End: Next EPS announcement date
+    const currentEPSDate = new Date(latestQuarter?.date || 'Jul 30, 2025');
+    const nextEPSDate = new Date(nextDate);
+    const totalDays = Math.ceil(
+      (nextEPSDate.getTime() - currentEPSDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const daysPassed = Math.max(0, totalDays - daysUntil);
+    const progressPercentage =
+      totalDays > 0
+        ? Math.max(0, Math.min(100, (daysPassed / totalDays) * 100))
+        : 0;
+
     return (
-      <div className="w-full max-w-sm mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden touch-manipulation">
-        {/* Row 1: Header with symbol and status */}
-        <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm">#{cardData.rank}</span>
+      <div className="mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 hover:border-pink-200 dark:bg-slate-900 dark:shadow-cyan-500/20 dark:hover:border-cyan-400/50">
+        {/* Header with PancakeSwap gradient */}
+        <div className="bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-4xl font-black text-white drop-shadow-lg tracking-wide">
+                {cardData.symbol}
+              </span>
+              <span className="text-2xl font-bold text-pink-100 opacity-80">#{cardData.rank}</span>
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100 truncate">{cardData.symbol}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                {cardData.latest_date ? new Date(cardData.latest_date).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium self-start sm:self-auto ${
-            cardData.active_status === 'TRACK' 
-              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-              : cardData.active_status === 'WATCH'
-              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-              : cardData.active_status === 'STOP'
-              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-          }`}>
-            {cardData.active_status}
+            <a
+              href={`https://www.tradingview.com/symbols/NASDAQ-${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xl text-white transition-transform hover:scale-125 hover:text-yellow-300"
+            >
+              🔗
+            </a>
           </div>
         </div>
 
-        {quarters.length >= 2 ? (
-          <>
-            {/* Row 2: Quarter headers */}
-            <div className="px-4 sm:px-6 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {previousQuarter?.quarter || '2025-Q2'}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {latestQuarter?.quarter || '2025-Q3'}
-                  </div>
-                </div>
+        {/* Main Action with colorful background */}
+        <div className="bg-gradient-to-br from-pink-50 to-purple-50 py-8 text-center dark:from-slate-800 dark:to-slate-700">
+          <div className="inline-flex items-center gap-3 rounded-full border border-pink-200/50 bg-white px-6 py-3 shadow-lg dark:border-cyan-400/30 dark:bg-slate-800">
+            <span className="text-2xl">{actionInfo.emoji}</span>
+            <span className="bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-cyan-400 dark:to-blue-400">
+              {actionInfo.action}
+            </span>
+          </div>
+        </div>
+
+        {/* Progress Bar - PancakeSwap style */}
+        <div className="bg-gradient-to-br from-pink-50 to-purple-50 px-6 pb-6 dark:from-slate-800 dark:to-slate-700">
+          {/* Phase Label */}
+          <div className="mb-3 text-center">
+            <span className="text-sm font-semibold text-purple-700 dark:text-cyan-300">
+              Action Phase
+            </span>
+          </div>
+
+          {/* Date Labels */}
+          <div className="mb-2 flex justify-between text-xs font-medium text-purple-600 dark:text-cyan-400">
+            <span>{latestQuarter?.date || 'Jul 30, 2025'}</span>
+            <span>
+              {nextDate.includes(',') ? nextDate.split(',')[0] : nextDate}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="h-6 flex-1 rounded-full bg-pink-100 shadow-inner dark:bg-slate-600">
+              <div
+                className="h-6 rounded-full bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 shadow-sm transition-all duration-700"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-cyan-400">
+                {daysUntil}
+              </div>
+              <div className="text-xs font-medium text-purple-500 dark:text-cyan-300">
+                days
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Row 3: EPS Growth label */}
-            <div className="px-4 sm:px-6 py-1">
-              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                EPS GROWTH
-              </div>
-            </div>
+        {/* Main Growth with enhanced styling */}
+        <div className="bg-white py-6 text-center dark:bg-slate-900">
+          <div className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${
+            (latestQuarter?.eps_growth || 0) >= 0
+              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+              : 'bg-gradient-to-r from-red-400 to-red-500'
+          }`}>
+            <span className="text-2xl">
+              {(latestQuarter?.eps_growth || 0) >= 0 ? '↗️' : '↘️'}
+            </span>
+            <span className="text-2xl font-bold text-white drop-shadow-sm">
+              {formatPercentage(latestQuarter?.eps_growth || 0)}
+            </span>
+          </div>
+        </div>
 
-            {/* Row 4: EPS Growth percentages */}
-            <div className="px-4 sm:px-6 py-2">
-              <div className="grid grid-cols-2 gap-4 min-h-[48px] items-center">
-                <div className="text-center">
-                  <div className={`text-xl sm:text-2xl font-bold ${
-                    (previousQuarter?.eps_growth || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatPercentage(previousQuarter?.eps_growth || 0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className={`text-xl sm:text-2xl font-bold ${
-                    (latestQuarter?.eps_growth || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatPercentage(latestQuarter?.eps_growth || 0)}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Separator */}
+        <div className="bg-white px-6 dark:bg-slate-900">
+          <div className="border-t-2 border-dashed border-pink-200 dark:border-cyan-400/30" />
+        </div>
 
-            {/* Row 5: EPS values */}
-            <div className="px-4 sm:px-6 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <span className="font-medium">{(previousQuarter?.eps || 0).toFixed(2)}</span>
-                    <span className="ml-1 text-gray-400 dark:text-gray-500">EPS</span>
-                  </div>
+        {/* Expanded Content with card-like sections */}
+        <div className="space-y-4 bg-white px-6 pt-6 pb-6 dark:bg-slate-900">
+          {quarters.length >= 2 && (
+            <>
+              {/* Previous Quarter */}
+              <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
+                <div className="mb-2 text-sm font-semibold text-purple-600 dark:text-cyan-400">
+                  {previousQuarter?.date || 'Apr 30, 2025'}
                 </div>
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <span className="font-medium">{(latestQuarter?.eps || 0).toFixed(2)}</span>
-                    <span className="ml-1 text-gray-400 dark:text-gray-500">EPS</span>
+                <div className="space-y-1 text-sm text-purple-700 dark:text-cyan-200">
+                  <div>
+                    • Growth:{' '}
+                    {formatPercentage(previousQuarter?.eps_growth || 0)} | EPS:{' '}
+                    {(previousQuarter?.eps || 0).toFixed(2)}
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 6: Price Growth label */}
-            <div className="px-4 sm:px-6 py-1 pt-4 border-t border-gray-100 dark:border-slate-700">
-              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                PRICE GROWTH
-              </div>
-            </div>
-
-            {/* Row 7: Price Growth percentages */}
-            <div className="px-4 sm:px-6 py-2">
-              <div className="grid grid-cols-2 gap-4 min-h-[44px] items-center">
-                <div className="text-center">
-                  <div className={`text-lg sm:text-xl font-bold ${
-                    (previousQuarter?.price_growth || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatPercentage(previousQuarter?.price_growth || 0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className={`text-lg sm:text-xl font-bold ${
-                    (latestQuarter?.price_growth || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatPercentage(latestQuarter?.price_growth || 0)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 8: Price values */}
-            <div className="px-4 sm:px-6 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <div>
+                    • Price:{' '}
+                    {formatPercentage(previousQuarter?.price_growth || 0)} |{' '}
                     {formatCurrency(previousQuarter?.price || 0)}
                   </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              </div>
+
+              {/* Latest Quarter */}
+              <div className="rounded-2xl border border-green-200/50 bg-gradient-to-r from-green-50 to-emerald-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
+                <div className="mb-2 text-sm font-semibold text-green-600 dark:text-cyan-400">
+                  {latestQuarter?.date || 'Jul 30, 2025'}
+                </div>
+                <div className="space-y-1 text-sm text-green-700 dark:text-cyan-200">
+                  <div>
+                    • Growth: {formatPercentage(latestQuarter?.eps_growth || 0)}{' '}
+                    | EPS: {(latestQuarter?.eps || 0).toFixed(2)}
+                  </div>
+                  <div>
+                    • Price:{' '}
+                    {formatPercentage(latestQuarter?.price_growth || 0)} |{' '}
                     {formatCurrency(latestQuarter?.price || 0)}
                   </div>
                 </div>
               </div>
-            </div>
-          </>
-        ) : (
-          /* Fallback for single quarter */
-          <div className="px-4 sm:px-6 py-4">
-            <div className="text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Current Price</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(cardData.value)}</p>
-            </div>
-          </div>
-        )}
+            </>
+          )}
 
-        {/* Row 9: Current Price */}
-        <div className="px-4 sm:px-6 py-4 border-t border-gray-100 dark:border-slate-700">
-          <div className="flex items-center justify-between min-h-[44px]">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Current Price:</span>
-            <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {formatCurrency(cardData.value)}
-            </span>
+          {/* Next Checkpoint */}
+          <div className="rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
+            <div className="text-sm font-semibold text-amber-600 dark:text-cyan-400">
+              Next: {nextDate.includes(',') ? nextDate.split(',')[0] : nextDate}
+            </div>
           </div>
         </div>
-
-        {/* Row 10: Status */}
-        <div className="px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between min-h-[44px]">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Status:</span>
-            <span className={`px-3 py-2 rounded-full text-sm font-medium ${
-              cardData.active_status === 'TRACK'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                : cardData.active_status === 'WATCH'
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                : cardData.active_status === 'STOP'
-                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}>
-              {cardData.active_status}
-            </span>
-          </div>
-        </div>
-
-        {/* Row 11: Next Check Info */}
-        {cardData.next_quarter_estimate && (
-          <div className="px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-slate-700">
-            <div className="text-center">
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Next Check: Est. {cardData.next_quarter_estimate.announcement_date}
-              </p>
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                {cardData.next_quarter_estimate.days_until_announcement} days
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -586,7 +576,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-2xl font-bold text-transparent">
-            📋 Performance Monitor
+            📋 Performance Watch
           </h2>
           {data && (
             <p className="text-gray-600 dark:text-gray-300">
@@ -715,101 +705,48 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         </Card>
       )}
 
-      {/* Legend Section */}
-      <Card className="border border-orange-200/50 bg-white/90 backdrop-blur-sm dark:border-orange-400/20 dark:bg-slate-800/90">
+      {/* Status Legend Section */}
+      <Card className="bg-slate-800 border-slate-600">
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            📖 Status Legend
+          <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
+            <span className="text-blue-400">📊</span>
+            Status Legend
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {/* Status Indicators */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <CardContent className="pt-0">
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-slate-300 mb-3">
                 Status Indicators
               </h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <Badge className="bg-green-500 text-white">
-                    <span className="mr-1">🟢</span>
+              
+              {/* Responsive grid layout */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200">
+                  <div className="px-2 py-1 bg-green-500 text-white text-xs font-medium rounded min-w-fit">
                     TRACK
-                  </Badge>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  </div>
+                  <span className="text-sm text-slate-300 flex-1">
                     Strong performance, actively tracking
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge className="bg-yellow-500 text-white">
-                    <span className="mr-1">🟡</span>
+                
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200">
+                  <div className="px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded min-w-fit">
                     WATCH
-                  </Badge>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Monitor closely, mixed signals
+                  </div>
+                  <span className="text-sm text-slate-300 flex-1">
+                    Watch closely, mixed signals
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge className="bg-red-500 text-white">
-                    <span className="mr-1">🔴</span>
+                
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200 sm:col-span-2 lg:col-span-1">
+                  <div className="px-2 py-1 bg-red-500 text-white text-xs font-medium rounded min-w-fit">
                     STOP
-                  </Badge>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  </div>
+                  <span className="text-sm text-slate-300 flex-1">
                     Weak performance, avoid investment
                   </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Pattern Analysis */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Pattern Analysis
-              </h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-green-600">
-                    ⬆️ POSITIVE
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Both EPS & price growing
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-purple-600">
-                    ↕️ MIXED
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Conflicting growth signals
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-gray-600">
-                    ⬇️ NEGATIVE
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Both metrics declining
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Key Metrics
-              </h4>
-              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                <div>
-                  <strong>EPS Growth:</strong> Earnings per share change
-                </div>
-                <div>
-                  <strong>Price Growth:</strong> Stock price change
-                </div>
-                <div>
-                  <strong>Rank:</strong> Performance ranking position
-                </div>
-                <div>
-                  <strong>Pattern:</strong> Recent 2-quarter trend analysis
                 </div>
               </div>
             </div>
