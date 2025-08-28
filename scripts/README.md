@@ -1,208 +1,156 @@
-# EPSX Google Cloud Run Deployment Scripts
+# EPSX Build & Deploy Scripts
 
-✅ **SUCCESS ONLY SCRIPTS** - Only verified working gcloud deploy scripts
+✅ **COMPLETE BUILD & DEPLOY PIPELINE** - Fresh images from latest source code
 
-## 🚀 Quick Deploy
-
-### Prerequisites
-
-1. **Google Cloud CLI** configured
-   ```bash
-   gcloud auth login
-   gcloud config set project epsx-469400
-   ```
-
-2. **Working Images** already available in registry (verified)
-
-### Deploy in 1 Step per Service
+## 🚀 Quick Deploy Latest Version
 
 ```bash
-# Deploy individual services (all use verified working images)
-./scripts/deploy-backend.sh      # Backend API ✅ WORKING
-./scripts/deploy-frontend.sh     # Main frontend ✅ 
-./scripts/deploy-admin.sh        # Admin dashboard ✅
+# Build fresh images + deploy (recommended)
+./scripts/build-and-deploy.sh
 
-# Or deploy all at once
-./scripts/deploy-cloudrun.sh     # Deploy all services ✅
+# Or step by step:
+./scripts/build-all.sh      # Build fresh images
+./scripts/deploy.sh         # Deploy with latest images
 ```
 
-## 📋 Available Scripts (ALL SUCCESS ONLY)
+## 📋 Available Scripts
 
-### Individual Service Deployment Scripts
+### **Master Scripts**
 
-**✅ `deploy-backend.sh`** - Deploy Rust Backend API
-- Uses verified working image SHA: `sha256:115d71fbf09bc5271d408b1edf3a88628e3193de525e6cecd010a42182820651`
-- **CONFIRMED WORKING** - Currently serving at https://epsx-backend-6wjeb6vw2q-uc.a.run.app
-- **Health Check**: `/health` endpoint responding correctly
+#### **✅ `build-and-deploy.sh`** - Complete Pipeline
+- **Builds fresh images** from current source code in each app directory
+- **Deploys immediately** with the new images
+- **One command** for complete update
 
-**✅ `deploy-backend-direct.sh`** - Alternative Backend Deployment 
-- Same verified working image SHA
-- Alternative deployment script with different configuration options
+#### **✅ `build-all.sh`** - Build All Services
+- Builds backend, frontend, and admin from their directories
+- Creates fresh Docker images with timestamp tags
+- Tags as `:latest` for deployment
 
-**✅ `deploy-frontend.sh`** - Deploy Next.js Frontend
-- Uses verified working image SHA: `sha256:33c40107c101e6342d4afb795fe0fa0d652960853535fc59e5ca765a244fddcc`
-- Deploys main trading platform frontend
+#### **✅ `deploy.sh`** - Deploy All Services
+- Deploys all services using `:latest` images
+- Backend (4GB RAM, 4 CPUs) → https://api.epsx.io
+- Frontend (2GB RAM, 2 CPUs) → https://epsx.io
+- Admin (1GB RAM, 1 CPU) → https://admin.epsx.io
 
-**✅ `deploy-admin.sh`** - Deploy Admin Dashboard
-- Uses verified working image SHA: `sha256:6d23a5b528a16e3d19641f6094088bec151c1e7a1e2b4615385af78fc7f9bd56`
-- Deploys administrative dashboard
+### **Individual Service Scripts**
 
-**✅ `deploy-cloudrun.sh`** - Deploy All Services
-- Master deployment script for all three services
-- Uses gcloud commands for orchestration
-- Deploys in correct order (backend first, then frontend/admin)
+#### **Backend** (`apps/backend/`)
+- **`build.sh`** - Build backend from latest Rust source
+- **`deploy.sh`** - Deploy backend service
+- Uses `Dockerfile.standalone` (self-contained)
 
-## 🏗️ Architecture
+#### **Frontend** (`apps/frontend/`)
+- **`build.sh`** - Build frontend from latest Next.js source
+- **`deploy.sh`** - Deploy frontend service
+- Uses `Dockerfile.standalone` + copies `pnpm-lock.yaml`
+
+#### **Admin Frontend** (`apps/admin-frontend/`)
+- **`build.sh`** - Build admin from latest Next.js source
+- **`deploy.sh`** - Deploy admin service
+- Uses `Dockerfile.standalone` + copies `pnpm-lock.yaml`
+
+## 🏗️ Build Architecture
 
 ```
-Google Cloud Run Services (ALL WORKING)
-┌─────────────────────────────┐
-│  Backend Service (Port 8080)  │ ← https://epsx-backend-*.run.app ✅ HEALTHY
-├─────────────────────────────┤
-│  Frontend Service (Port 3000) │ ← https://epsx-frontend-*.run.app
-├─────────────────────────────┤
-│  Admin Service (Port 3000)    │ ← https://epsx-admin-*.run.app
-└─────────────────────────────┘
+Project Structure:
+├── scripts/
+│   ├── build-and-deploy.sh ← Master build + deploy
+│   ├── build-all.sh        ← Build all services
+│   └── deploy.sh           ← Deploy all services
+├── apps/backend/
+│   ├── Dockerfile.standalone ← Self-contained build
+│   ├── build.sh            ← Build from this directory
+│   └── deploy.sh           ← Deploy backend
+├── apps/frontend/
+│   ├── Dockerfile.standalone ← Self-contained build
+│   ├── pnpm-lock.yaml      ← Copied from root
+│   ├── build.sh            ← Build from this directory
+│   └── deploy.sh           ← Deploy frontend
+└── apps/admin-frontend/
+    ├── Dockerfile.standalone ← Self-contained build
+    ├── pnpm-lock.yaml      ← Copied from root
+    ├── build.sh            ← Build from this directory
+    └── deploy.sh           ← Deploy admin
 ```
+
+## 🎯 Build Process
+
+### **Each Service Builds Independently:**
+1. **Backend**: Uses `Cargo.lock` and `Cargo.toml` from `apps/backend/`
+2. **Frontend**: Uses `package.json` from `apps/frontend/` + copied `pnpm-lock.yaml`
+3. **Admin**: Uses `package.json` from `apps/admin-frontend/` + copied `pnpm-lock.yaml`
+
+### **Image Tagging:**
+- **Timestamp tags**: `backend:20250828-143052` (for versioning)
+- **Latest tags**: `backend:latest` (for deployment)
 
 ## ⚙️ Service Configuration
 
-| Service | Memory | CPU | Min/Max Instances | Port | Status |
-|---------|--------|-----|------------------|------|--------|
-| Backend | 4Gi | 4 | 0-10 | 8080 | ✅ **HEALTHY** |
-| Frontend | 512Mi | 1 | 1-10 | 3000 | ✅ Ready |
-| Admin | 512Mi | 1 | 0-5 | 3000 | ✅ Ready |
+| Service | Memory | CPU | Min/Max Instances | Port | Custom Domain |
+|---------|--------|-----|------------------|------|---------------|
+| Backend | 4Gi | 4 | 0-10 | 8080 | api.epsx.io |
+| Frontend | 2Gi | 2 | 0-10 | 3000 | epsx.io |
+| Admin | 1Gi | 1 | 0-5 | 3000 | admin.epsx.io |
 
-## 🔧 Usage
+## 🔧 Individual Commands
 
-### Deploy Single Service
+### **Build Individual Services:**
 ```bash
-# Deploy backend (confirmed working)
-./scripts/deploy-backend.sh
-
-# Deploy frontend
-./scripts/deploy-frontend.sh
-
-# Deploy admin
-./scripts/deploy-admin.sh
+cd apps/backend && ./build.sh           # Build backend only
+cd apps/frontend && ./build.sh          # Build frontend only  
+cd apps/admin-frontend && ./build.sh    # Build admin only
 ```
 
-### Deploy All Services
+### **Deploy Individual Services:**
 ```bash
-# Deploy everything at once
-./scripts/deploy-cloudrun.sh
+cd apps/backend && ./deploy.sh          # Deploy backend only
+cd apps/frontend && ./deploy.sh         # Deploy frontend only
+cd apps/admin-frontend && ./deploy.sh   # Deploy admin only
 ```
 
-### Override Image Version (Optional)
+### **Management Commands:**
 ```bash
-# Use specific version instead of default SHA
-BUILD_VERSION=custom-tag ./scripts/deploy-backend.sh
-
-# Use latest tag
-BUILD_VERSION=latest ./scripts/deploy-frontend.sh
-```
-
-## 📊 Current Status
-
-### Backend Service ✅ **WORKING**
-- **URL**: https://epsx-backend-6wjeb6vw2q-uc.a.run.app
-- **Health**: `/health` endpoint responding
-- **Status**: `{"service": "epsx-backend", "status": "healthy"}`
-- **Database**: Connected to Neon PostgreSQL
-- **Authentication**: Firebase integration active
-
-### Frontend & Admin Services ✅ **READY TO DEPLOY**
-- **Images**: Available in Artifact Registry
-- **Configuration**: Optimized for Cloud Run
-- **Environment**: Production-ready
-
-## 🚨 Why Only These Scripts?
-
-**Removed Scripts** (were failing):
-- ❌ `build-backend.sh` - Template compilation errors
-- ❌ `build-frontend.sh` - Local Docker build issues
-- ❌ `build-admin.sh` - Local Docker build issues  
-- ❌ `build-all.sh` - Orchestration of failing builds
-- ❌ `push-all.sh` - Depends on builds
-
-**Kept Scripts** (verified working):
-- ✅ All `deploy-*.sh` scripts use `gcloud run deploy`
-- ✅ All use verified working image SHAs
-- ✅ No local compilation or Docker builds
-- ✅ Direct deployment to Google Cloud Run
-
-## 🔍 Verification
-
-### Test Backend (Already Working)
-```bash
-curl https://epsx-backend-6wjeb6vw2q-uc.a.run.app/health
-# Response: {"service": "epsx-backend", "status": "healthy"}
-```
-
-### Check Service Status
-```bash
-# List all services
+# Check service status
 gcloud run services list --region=us-central1
 
-# Check specific service
-gcloud run services describe epsx-backend --region=us-central1
+# View service logs
+gcloud run services logs read epsx-backend --region=us-central1
+gcloud run services logs read epsx-frontend --region=us-central1
+gcloud run services logs read epsx-admin --region=us-central1
 ```
 
-### View Logs
-```bash
-# Backend logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=epsx-backend" --limit=10
+## 📊 After Deployment
 
-# Frontend logs  
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=epsx-frontend" --limit=10
-```
+Your EPSX platform will be available at:
 
-## 💡 Key Benefits
+- **Main Platform**: https://epsx.io 🚀
+- **API Backend**: https://api.epsx.io ⚡
+- **Admin Panel**: https://admin.epsx.io 🔧
 
-### ✅ **100% Success Rate**
-- Only scripts that are verified to work
-- No compilation errors or build failures
-- Uses proven working container images
+## 🔥 Key Features
 
-### ⚡ **Fast Deployment**
-- No build time - direct deployment
-- Uses existing verified images
-- Immediate deployment to Cloud Run
+### ✅ **Fresh Source Code**
+- **No more legacy images** - builds from your current code
+- Each service builds from its own directory
+- Standalone Dockerfiles with no external dependencies
 
-### 🔒 **Reliable**
-- Known working image SHAs
-- Production-tested configurations
-- Currently serving traffic successfully
+### ⚡ **Flexible Workflow**
+- Build all services at once or individually
+- Deploy all services or individual ones
+- Combined pipeline or step-by-step
 
-### 🎯 **Simple**
-- Just run deploy script
-- No prerequisites beyond gcloud auth
-- No Docker builds or compilation
+### 🎯 **Production Ready**
+- Optimized Docker builds (no BuildKit cache issues)
+- Proper resource allocation for each service
+- Production environment variables
+- Health checks and custom domains
 
-## 🔧 Environment Variables
+### 🧹 **Clean & Simple**
+- Self-contained builds from each app directory
+- Clear separation between build and deploy
+- Comprehensive logging and error handling
 
-All scripts use these defaults (can be overridden):
+## 🎉 Success!
 
-```bash
-# Google Cloud Configuration
-GOOGLE_CLOUD_PROJECT=epsx-469400
-GOOGLE_CLOUD_REGION=us-central1
-ARTIFACT_REGISTRY_REPO=epsx
-
-# Override image version (optional)
-BUILD_VERSION=custom-tag  # Defaults to verified SHA
-```
-
-## ✅ Success!
-
-After running these scripts, you'll have:
-
-- **Backend**: High-performance Rust API ✅ **ALREADY RUNNING**
-- **Frontend**: Modern Next.js trading platform 
-- **Admin**: Administrative dashboard
-
-All services deployed to Google Cloud Run with verified working configurations! 🚀
-
----
-
-**Note**: Backend is already deployed and healthy. Frontend and admin are ready to deploy with working images. All scripts use gcloud deployment - no local builds required!
+Your EPSX platform now deploys with **fresh images from your latest source code** instead of old cached versions. No more legacy content issues! 🚀
