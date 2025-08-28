@@ -96,6 +96,15 @@
     background-size: 200% 200%;
     animation: gradientShift 3s ease-in-out infinite;
   }
+  
+  /* Smart Filters gradient */
+  .bg-gradient-smart-filters {
+    background: linear-gradient(
+      135deg,
+      hsl(330 90% 60%) 0%,
+      hsl(217 91% 60%) 100%
+    );
+  }
 }
 
 /* ============================================================================
@@ -162,6 +171,20 @@
     animation: gradientShift 5s ease-in-out infinite;
   }
   
+  /* Smart Filters text gradient */
+  .text-gradient-smart-filters {
+    background: linear-gradient(
+      135deg,
+      hsl(330 90% 60%) 0%,
+      hsl(217 91% 60%) 100%
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientShift 3s ease-in-out infinite;
+  }
+  
   /* Dark mode adjustments */
   .dark .text-gradient-primary {
     background: linear-gradient(
@@ -185,6 +208,19 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+  
+  .dark .text-gradient-smart-filters {
+    background: linear-gradient(
+      135deg,
+      hsl(330 90% 70%) 0%,
+      hsl(217 91% 70%) 100%
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientShift 3s ease-in-out infinite;
   }
 }
 
@@ -227,6 +263,15 @@
     box-shadow: 0 0 25px hsl(142 71% 45% / 0.4);
   }
   
+  /* Smart Filters glow */
+  .glow-smart-filters {
+    box-shadow: 0 0 20px hsl(330 90% 60% / 0.3);
+  }
+  
+  .dark .glow-smart-filters {
+    box-shadow: 0 0 25px hsl(330 90% 60% / 0.4);
+  }
+  
   /* Enhanced shadows */
   .shadow-enhanced {
     box-shadow:
@@ -253,6 +298,14 @@
   
   .dark .ring-primary-soft {
     box-shadow: 0 0 0 2px hsl(217 70% 70% / 0.3);
+  }
+  
+  .ring-smart-filters {
+    box-shadow: 0 0 0 2px hsl(330 90% 60% / 0.25);
+  }
+  
+  .dark .ring-smart-filters {
+    box-shadow: 0 0 0 2px hsl(330 90% 70% / 0.3);
   }
 }
 
@@ -301,6 +354,21 @@
   .dark .glass-subtle {
     background: rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Smart Filters glassmorphism */
+  .glass-smart-filters {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid hsl(330 90% 60% / 0.3);
+    box-shadow: 0 8px 32px 0 hsl(330 90% 60% / 0.2);
+  }
+  
+  .dark .glass-smart-filters {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid hsl(330 90% 60% / 0.2);
+    box-shadow: 0 8px 32px 0 hsl(330 90% 60% / 0.3);
   }
 }
 
@@ -353,6 +421,22 @@
     transform: scale(0.95);
   }
   
+  /* Smart Filters interactive effects */
+  .hover-smart-filters {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hover-smart-filters:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 30px -8px hsl(330 90% 60% / 0.4);
+    border-color: hsl(330 90% 70%);
+  }
+  
+  .dark .hover-smart-filters:hover {
+    box-shadow: 0 12px 30px -8px hsl(330 90% 60% / 0.5);
+    border-color: hsl(330 90% 70%);
+  }
+  
   /* Focus utilities */
   .focus-ring {
     transition: box-shadow 0.2s ease;
@@ -366,6 +450,11 @@
   .focus-ring-inset:focus {
     outline: none;
     box-shadow: inset 0 0 0 2px hsl(var(--primary));
+  }
+  
+  .focus-ring-smart-filters:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(330 90% 60% / 0.3);
   }
 }
 
@@ -638,6 +727,15 @@
   .animate-fade-in-delayed-3 {
     animation: fade-in-delayed-3 1.2s ease-out;
   }
+  
+  /* Smart Filters animation utilities */
+  .animate-smart-filters-pulse {
+    animation: smart-filters-pulse 2s ease-in-out infinite;
+  }
+  
+  .animate-smart-filters-shimmer {
+    animation: smart-filters-shimmer 3s ease-in-out infinite;
+  }
 }
 
 /* ============================================================================
@@ -791,5 +889,26 @@
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Smart Filters animations */
+@keyframes smart-filters-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes smart-filters-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }

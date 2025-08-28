@@ -123,11 +123,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
   const activeFilterCount = getActiveFilterCount();
 
   return (
-    <Card className={`relative overflow-hidden border-2 transition-all duration-500 ${
-      hasChanges 
-        ? 'border-pink-300 bg-gradient-to-br from-pink-50/80 to-orange-50/80 shadow-lg shadow-pink-500/20 dark:border-pink-400/50 dark:from-pink-900/20 dark:to-orange-900/20 dark:shadow-pink-500/10' 
-        : 'border-pink-200/60 bg-gradient-to-br from-white via-pink-50/20 to-orange-50/20 shadow-lg shadow-pink-500/5 dark:border-pink-400/30 dark:from-slate-800/80 dark:via-slate-700/70 dark:to-purple-900/80'
-    }`}>
+    <Card className="card-smart-filters">
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-50">
         <div className="animate-float absolute -top-4 -left-4 h-16 w-16 rounded-full bg-gradient-to-br from-pink-400/30 to-orange-400/30 blur-xl" />

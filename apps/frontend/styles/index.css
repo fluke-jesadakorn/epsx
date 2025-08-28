@@ -9,7 +9,7 @@
  * 1. Base styles (reset, variables, essential elements)
  * 2. Critical styles (above-the-fold, immediate render)
  * 3. Component styles (complex components)
- * 4. Utility styles (custom utilities)
+ * 4. Utility styles (custom Tailwind extensions)
  * 
  * Benefits:
  * - Modular and maintainable
@@ -218,6 +218,11 @@ body[data-performance-mode="high"] .glass-strong,
 body[data-performance-mode="high"] .glass-subtle {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* Smart Filters feature flag */
+body[data-smart-filters="enabled"] .card-smart-filters {
+  animation: float-gentle 4s ease-in-out infinite;
 }
 
 /* ============================================================================
