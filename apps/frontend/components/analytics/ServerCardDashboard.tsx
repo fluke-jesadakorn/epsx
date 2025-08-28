@@ -60,6 +60,7 @@ const formatPercentage = (value: number) => {
 const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
   const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
   const latestQuarter = quarters[0];
+  const previousQuarter = quarters[1];
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -113,29 +114,46 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-slate-600 dark:text-slate-400">EPS:</span>
-          <span className="font-medium text-slate-800 dark:text-slate-200">{(latestQuarter?.eps || 0).toFixed(2)}</span>
+      {/* Current Quarter */}
+      <div className="mb-2 space-y-1 text-xs">
+        <div className="font-medium text-slate-700 dark:text-slate-300">
+          Current: {latestQuarter?.date || 'Jul 30, 2025'}
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-600 dark:text-slate-400">Price:</span>
-          <span className="font-medium text-slate-800 dark:text-slate-200">{formatCurrency(latestQuarter?.price || 0)}</span>
+        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+          <span>EPS Growth: {formatPercentage(latestQuarter?.eps_growth || 0)}</span>
+          <span>EPS: {(latestQuarter?.eps || 0).toFixed(2)}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-600 dark:text-slate-400">P/E:</span>
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-            {latestQuarter?.eps && latestQuarter.eps > 0 
-              ? ((latestQuarter.price || 0) / latestQuarter.eps).toFixed(1)
-              : 'N/A'
-            }
-          </span>
+        <div className="flex justify-between text-slate-600 dark:text-slate-400">
+          <span>Price: {formatPercentage(latestQuarter?.price_growth || 0)}</span>
+          <span>{formatCurrency(latestQuarter?.price || 0)}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-600 dark:text-slate-400">Next:</span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">{daysUntil}d</span>
+      </div>
+
+      {/* Previous Quarter */}
+      {previousQuarter && (
+        <div className="mb-3 space-y-1 border-t border-slate-200 pt-2 text-xs dark:border-slate-700">
+          <div className="font-medium text-slate-600 dark:text-slate-400">
+            Previous: {previousQuarter.date}
+          </div>
+          <div className="flex justify-between text-slate-500 dark:text-slate-500">
+            <span>EPS Growth: {formatPercentage(previousQuarter.eps_growth || 0)}</span>
+            <span>EPS: {(previousQuarter.eps || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-slate-500 dark:text-slate-500">
+            <span>Price: {formatPercentage(previousQuarter.price_growth || 0)}</span>
+            <span>{formatCurrency(previousQuarter.price || 0)}</span>
+          </div>
         </div>
+      )}
+
+      {/* Footer Info */}
+      <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span>P/E: {
+          latestQuarter?.eps && latestQuarter.eps > 0 
+            ? ((latestQuarter.price || 0) / latestQuarter.eps).toFixed(1)
+            : 'N/A'
+        }</span>
+        <span>Next: {daysUntil}d</span>
       </div>
     </div>
   );
