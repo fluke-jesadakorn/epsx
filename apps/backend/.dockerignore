@@ -49,9 +49,7 @@ scripts/
 # CI/CD and deployment files
 .github/
 .gitlab-ci.yml
-Dockerfile*
 docker-compose*
-.dockerignore
 kubernetes/
 k8s/
 helm/

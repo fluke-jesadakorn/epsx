@@ -32,7 +32,7 @@ export default function JumpToPageForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
-      <span className="text-sm text-gray-600">Go to page:</span>
+      <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">Go to page:</span>
       <input
         type="number"
         min={1}
@@ -40,9 +40,15 @@ export default function JumpToPageForm({
         value={page}
         onChange={(e) => setPage(e.target.value)}
         placeholder={String(currentPage)}
-        className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
+        className="w-16 px-2 py-1 text-sm border border-orange-200 dark:border-orange-400/30 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm text-slate-700 dark:text-slate-200 text-center hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:border-orange-300 dark:hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-400 focus:border-orange-500 dark:focus:border-orange-400 transition-all duration-200"
       />
-      <Button type="submit" size="sm">Go</Button>
+      <Button 
+        type="submit" 
+        size="sm"
+        className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg transition-all duration-200"
+      >
+        Go
+      </Button>
     </form>
   );
 }

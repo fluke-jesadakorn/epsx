@@ -126,7 +126,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
     <Card className={`relative overflow-hidden border-2 transition-all duration-500 ${
       hasChanges 
         ? 'border-pink-300 bg-gradient-to-br from-pink-50/80 to-orange-50/80 shadow-lg shadow-pink-500/20 dark:border-pink-400/50 dark:from-pink-900/20 dark:to-orange-900/20 dark:shadow-pink-500/10' 
-        : 'border-pink-200/60 bg-gradient-to-br from-white via-pink-50/30 to-orange-50/30 shadow-xl shadow-pink-500/10 dark:border-pink-400/20 dark:from-slate-800/95 dark:via-slate-700/80 dark:to-purple-900/20'
+        : 'border-pink-200/60 bg-gradient-to-br from-white via-pink-50/20 to-orange-50/20 shadow-lg shadow-pink-500/5 dark:border-pink-400/30 dark:from-slate-800/80 dark:via-slate-700/70 dark:to-purple-900/80'
     }`}>
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-50">
@@ -195,7 +195,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
       <CardContent className="relative z-10">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className={`grid gap-6 transition-all duration-500 ${
-            isCompact ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+            isCompact ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2'
           }`}>
             
             {/* Country Filter */}
@@ -271,100 +271,6 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                     type="button"
                     onClick={() => clearFilter('sector')}
                     className="absolute right-8 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Sort By Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="sort_by" className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                Sort By
-              </Label>
-              <Select value={filters.sort_by} onValueChange={(value) => updateFilter('sort_by', value)}>
-                <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-300 hover:border-purple-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all shadow-sm">
-                  <SelectValue placeholder="📈 Sort By" />
-                </SelectTrigger>
-                <SelectContent className="bg-white/95 backdrop-blur-md border-purple-200">
-                  <SelectItem value="growth_factor">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                      Growth Factor
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="ranking_position">
-                    <div className="flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-blue-500" />
-                      Ranking Position
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="latest_date">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-purple-500" />
-                      Latest Date
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="symbol">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-orange-500" />
-                      Symbol
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Min EPS Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="min_eps" className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                <DollarSign className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                Min EPS
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  value={filters.min_eps}
-                  onChange={(e) => updateFilter('min_eps', e.target.value)}
-                  placeholder="💰 0.00"
-                  step="0.01"
-                  min="0"
-                  className="bg-white/80 backdrop-blur-sm border-gray-300 hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all shadow-sm"
-                />
-                {filters.min_eps && (
-                  <button
-                    type="button"
-                    onClick={() => clearFilter('min_eps')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Min Growth Filter - Enhanced for mobile */}
-            <div className={`space-y-2 ${isCompact ? '' : 'md:col-span-2 lg:col-span-1'}`}>
-              <Label htmlFor="min_growth" className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                Min Growth %
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  value={filters.min_growth}
-                  onChange={(e) => updateFilter('min_growth', e.target.value)}
-                  placeholder="📈 0.0%"
-                  step="0.1"
-                  className="bg-white/80 backdrop-blur-sm border-gray-300 hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all shadow-sm"
-                />
-                {filters.min_growth && (
-                  <button
-                    type="button"
-                    onClick={() => clearFilter('min_growth')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors"
                   >
                     <X className="h-3 w-3" />
                   </button>

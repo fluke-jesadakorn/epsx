@@ -404,7 +404,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               <span className="text-2xl font-bold text-pink-100 opacity-80">#{cardData.rank}</span>
             </div>
             <a
-              href={`https://www.tradingview.com/symbols/NASDAQ-${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+              href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xl text-white transition-transform hover:scale-125 hover:text-yellow-300"
