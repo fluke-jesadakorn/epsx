@@ -205,10 +205,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                   <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all shadow-sm">
                     <SelectValue placeholder="🌍 All Countries" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-64 bg-white/95 backdrop-blur-md border-blue-200">
+                  <SelectContent className="max-h-64 bg-white/95 backdrop-blur-md border-blue-200 dark:bg-slate-800/90">
                     <SelectItem value="all">
                       <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-gray-500" />
+                        <Globe className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                         All Countries
                       </div>
                     </SelectItem>
@@ -245,10 +245,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                   <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-300 hover:border-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all shadow-sm">
                     <SelectValue placeholder="🏢 All Sectors" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white/95 backdrop-blur-md border-green-200">
+                  <SelectContent className="bg-white/95 backdrop-blur-md border-green-200 dark:bg-slate-800/90">
                     <SelectItem value="all">
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-gray-500" />
+                        <Building2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                         All Sectors
                       </div>
                     </SelectItem>

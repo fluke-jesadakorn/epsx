@@ -457,6 +457,38 @@
     box-shadow: 0 0 0 3px hsl(330 90% 60% / 0.2);
   }
   
+  /* Smart Filter Select Content */
+  .smart-filter-select-content {
+    background: hsl(0 0% 100% / 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(217 91% 60% / 0.5);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .dark .smart-filter-select-content {
+    background: hsl(217 30% 15% / 0.95);
+    border-color: hsl(217 20% 30%);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Smart Filter Select Item */
+  .smart-filter-select-item {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .smart-filter-select-item:hover {
+    background: hsl(330 90% 60% / 0.1);
+  }
+  
+  .dark .smart-filter-select-item:hover {
+    background: hsl(330 90% 60% / 0.2);
+  }
+  
   /* Smart Filter Actions */
   .smart-filters-actions {
     display: flex;
