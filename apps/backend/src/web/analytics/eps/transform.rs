@@ -1,7 +1,7 @@
 // Data Transformation and Formatting Utilities
 // Focused module handling data conversion and transformation between formats
 
-use tracing::{ debug, info };
+use tracing::{ debug, info, warn };
 use chrono::Datelike;
 
 use crate::dom::entities::eps_growth::EPSRanking;
@@ -39,6 +39,9 @@ pub fn transform_ranking_to_unified_format(
       trend: determine_trend(growth_factor_pct),
       volatility: calculate_simple_volatility(growth_factor_pct),
     },
+    // Pass through real earnings dates from TradingView
+    next_earnings_date: ranking.next_earnings_date.clone(),
+    last_earnings_date: ranking.last_earnings_date.clone(),
   }
 }
 
@@ -324,7 +327,7 @@ fn generate_quarterly_data_from_real_websocket_data(
       "HasAnnouncementDate: NO".to_string()
     };
 
-    let transform_debug = format!(
+    let _transform_debug = format!(
       "TRANSFORM_DEBUG: Symbol={}, Quarter={}, Index={}, {} → QuarterlyData.quarter={}, QuarterlyData.date={}\n",
       ranking.symbol,
       quarter_data.period,
@@ -348,7 +351,7 @@ fn generate_quarterly_data_from_real_websocket_data(
       let formatted_date = announcement_dt.format("%b %-d, %Y").to_string();
 
       if announcement_dt > now {
-        format!("Est. {}", formatted_date) // Future announcement
+        format!("{}", formatted_date) // Future announcement
       } else {
         format!("{}", formatted_date) // Past announcement
       }
@@ -704,7 +707,7 @@ fn format_announcement_date_from_quarter_data(
       quarter_data.quarter.starts_with("2025") ||
       quarter_data.quarter.starts_with("2026");
     let formatted_date = if is_future {
-      Some(format!("Est. {}", quarter_data.date.format("%b %-d, %Y")))
+      Some(format!("{}", quarter_data.date.format("%b %-d, %Y")))
     } else {
       Some(format!("{}", quarter_data.date.format("%b %-d, %Y")))
     };
@@ -760,38 +763,81 @@ fn generate_next_quarter_estimate(
     latest_quarter.eps * 1.05
   };
 
-  // Estimate announcement date (typically 45-90 days after quarter end)
-  let quarter_end_month = match next_quarter {
-    1 => 3, // Q1 ends in March
-    2 => 6, // Q2 ends in June
-    3 => 9, // Q3 ends in September
-    4 => 12, // Q4 ends in December
-    _ => 12,
-  };
-
-  let quarter_end_date = chrono::Utc
-    ::now()
-    .with_year(next_year)
-    .and_then(|d| d.with_month(quarter_end_month))
-    .and_then(|d| d.with_day(30)) // Assume end of month
-    .unwrap_or(current_date);
-
-  // Add 60 days for typical announcement delay
-  let estimated_announcement = quarter_end_date + chrono::Duration::days(60);
-  let days_until_announcement = (
-    estimated_announcement - current_date
-  ).num_days() as i32;
-
-  // Calculate confidence based on data quality
-  let confidence = (
-    if quarterly_performance.len() >= 4 {
-      "High"
-    } else if quarterly_performance.len() >= 2 {
-      "Medium"
+  // CRITICAL FIX: Use real TradingView earnings date if available, otherwise estimate
+  let (announcement_date_str, announcement_timestamp, days_until_announcement, confidence) = 
+    if let Some(ref real_next_date) = unified_item.next_earnings_date {
+      if !real_next_date.is_empty() && real_next_date != "N/A" {
+        debug!("Using REAL TradingView earnings date for {}: {}", unified_item.symbol, real_next_date);
+        
+        // Try to parse the real date to calculate days until
+        // Backend sends dates in YYYY-MM-DD format from format_date function
+        debug!("Attempting to parse TradingView date '{}' for {}", real_next_date, unified_item.symbol);
+        
+        // Try multiple date formats to be robust
+        let parsed_result = chrono::NaiveDate::parse_from_str(&real_next_date, "%Y-%m-%d")
+          .or_else(|_| {
+            debug!("YYYY-MM-DD parse failed, trying %b %d, %Y format");
+            chrono::NaiveDate::parse_from_str(&real_next_date, "%b %d, %Y")
+          })
+          .or_else(|_| {
+            debug!("Both formats failed, trying %B %d, %Y format");
+            chrono::NaiveDate::parse_from_str(&real_next_date, "%B %d, %Y")
+          });
+        
+        let days = if let Ok(parsed_date) = parsed_result {
+          let target_date = parsed_date.and_hms_opt(0, 0, 0).unwrap();
+          let current_naive = current_date.naive_utc().date();
+          let current_datetime = current_naive.and_hms_opt(0, 0, 0).unwrap();
+          
+          let calculated_days = (target_date - current_datetime).num_days() as i32;
+          debug!("Successfully parsed date '{}' -> {} days until announcement", real_next_date, calculated_days);
+          calculated_days
+        } else {
+          // Improved fallback - avoid hardcoded 100 days
+          warn!("Failed to parse real TradingView date '{}' for {}", real_next_date, unified_item.symbol);
+          // Calculate a more reasonable fallback based on typical earnings cycles
+          let days_fallback = 90; // Typical quarterly earnings cycle
+          days_fallback
+        };
+        
+        // Create confidence rating based on the fact we have real data
+        let conf = "High (Real TradingView Data)".to_string();
+        
+        (real_next_date.clone(), 0, days.max(1), conf)
+      } else {
+        // No real date available, use estimation
+        let quarter_end_month = match next_quarter {
+          1 => 3, 2 => 6, 3 => 9, 4 => 12, _ => 12,
+        };
+        let quarter_end_date = chrono::Utc::now()
+          .with_year(next_year)
+          .and_then(|d| d.with_month(quarter_end_month))
+          .and_then(|d| d.with_day(30))
+          .unwrap_or(current_date);
+        let estimated_announcement = quarter_end_date + chrono::Duration::days(60);
+        let days = (estimated_announcement - current_date).num_days() as i32;
+        let conf = if quarterly_performance.len() >= 4 { "High (Estimated)" } else if quarterly_performance.len() >= 2 { "Medium (Estimated)" } else { "Low (Estimated)" };
+        
+        (estimated_announcement.format("%b %-d, %Y").to_string(), estimated_announcement.timestamp(), days, conf.to_string())
+      }
     } else {
-      "Low"
-    }
-  ).to_string();
+      // No real date available, use estimation
+      let quarter_end_month = match next_quarter {
+        1 => 3, 2 => 6, 3 => 9, 4 => 12, _ => 12,
+      };
+      let quarter_end_date = chrono::Utc::now()
+        .with_year(next_year)
+        .and_then(|d| d.with_month(quarter_end_month))
+        .and_then(|d| d.with_day(30))
+        .unwrap_or(current_date);
+      let estimated_announcement = quarter_end_date + chrono::Duration::days(60);
+      let days = (estimated_announcement - current_date).num_days() as i32;
+      let conf = if quarterly_performance.len() >= 4 { "High (Estimated)" } else if quarterly_performance.len() >= 2 { "Medium (Estimated)" } else { "Low (Estimated)" };
+      
+      (estimated_announcement.format("%b %-d, %Y").to_string(), estimated_announcement.timestamp(), days, conf.to_string())
+    };
+
+  // Confidence is already calculated above based on real vs estimated data
 
   // Estimate price target based on P/E ratio (simple estimation)
   let estimated_price_target = if estimated_eps > 0.0 {
@@ -810,13 +856,11 @@ fn generate_next_quarter_estimate(
   Some(NextQuarterEstimate {
     quarter: next_quarter_name,
     estimated_eps: (estimated_eps * 100.0).round() / 100.0, // Round to 2 decimal places
-    announcement_date: estimated_announcement
-      .format("Est. %b %-d, %Y")
-      .to_string(),
-    announcement_timestamp: estimated_announcement.timestamp(),
-    days_until_announcement,
+    announcement_date: announcement_date_str,  // Using real TradingView date when available
+    announcement_timestamp,                     // Using real or estimated timestamp
+    days_until_announcement,                    // Calculated from real or estimated date
     estimated_price_target,
-    confidence,
+    confidence,                                 // Indicates whether real or estimated
   })
 }
 

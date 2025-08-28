@@ -10,9 +10,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function MyDataPage() {
-  // For now, we'll pass an empty array since we don't have user data yet
-  // In a real implementation, we would fetch the user's assets from a database
-  const initialAssets: { symbol: string; name: string }[] = [];
+  // In a real implementation, we would fetch the user's portfolio data from a database
+  // For now, we're using mock data that's defined in the client component
   
-  return <MyDataClientWrapper initialAssets={initialAssets} />;
+  return <MyDataClientWrapper />;
 }

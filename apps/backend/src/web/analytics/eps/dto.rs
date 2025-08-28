@@ -89,6 +89,9 @@ pub struct UnifiedRankingItem {
     pub quarterly_data: Vec<QuarterlyData>,
     pub market_data: MarketData,
     pub analytics: AnalyticsMetrics,
+    // Real earnings announcement dates from TradingView
+    pub next_earnings_date: Option<String>,
+    pub last_earnings_date: Option<String>,
 }
 
 /// Quarterly data for each stock

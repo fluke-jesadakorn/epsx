@@ -48,6 +48,7 @@ export default defineConfig({
       name: 'core',
       testMatch: [
         '**/frontend.spec.ts',
+        '**/pagination.spec.ts',
         '**/auth-flow.spec.ts',
         '**/comprehensive-auth-test.spec.ts'
       ],

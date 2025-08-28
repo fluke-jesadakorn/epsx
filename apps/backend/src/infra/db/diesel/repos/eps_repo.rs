@@ -218,6 +218,8 @@ impl DieselEPSRepository {
                 volume: Some(47200000),
                 ranking_position: Some(1),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "MSFT".to_string(),
@@ -232,6 +234,8 @@ impl DieselEPSRepository {
                 volume: Some(18500000),
                 ranking_position: Some(2),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "TSLA".to_string(),
@@ -246,6 +250,8 @@ impl DieselEPSRepository {
                 volume: Some(89200000),
                 ranking_position: Some(3),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "BRK.A".to_string(),
@@ -260,6 +266,8 @@ impl DieselEPSRepository {
                 volume: Some(12000),
                 ranking_position: Some(4),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "2330".to_string(),
@@ -274,6 +282,8 @@ impl DieselEPSRepository {
                 volume: Some(28500000),
                 ranking_position: Some(5),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "JPM".to_string(),
@@ -288,6 +298,8 @@ impl DieselEPSRepository {
                 volume: Some(8900000),
                 ranking_position: Some(6),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "WMT".to_string(),
@@ -302,6 +314,8 @@ impl DieselEPSRepository {
                 volume: Some(21800000),
                 ranking_position: Some(7),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
             EPSRanking {
                 symbol: "700".to_string(),
@@ -316,6 +330,8 @@ impl DieselEPSRepository {
                 volume: Some(15200000),
                 ranking_position: Some(8),
                 quarterly_data: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
             },
         ];
         

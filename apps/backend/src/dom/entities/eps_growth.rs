@@ -19,6 +19,9 @@ pub struct EPSGrowthData {
     pub ranking_score: Option<f64>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
+    // Real earnings announcement dates from TradingView
+    pub next_earnings_date: Option<String>,
+    pub last_earnings_date: Option<String>,
 }
 
 /// EPS Ranking result for API responses
@@ -37,6 +40,11 @@ pub struct EPSRanking {
     pub ranking_position: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quarterly_data: Option<Vec<QuarterlyEPSData>>,
+    // Real earnings announcement dates from TradingView
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_earnings_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_earnings_date: Option<String>,
 }
 
 /// API response structure for EPS rankings
@@ -100,6 +108,8 @@ impl EPSGrowthData {
             ranking_score: None,
             created_at: Some(Utc::now()),
             updated_at: Some(Utc::now()),
+            next_earnings_date: None, // Will be set when converting from StockScreeningResult
+            last_earnings_date: None, // Will be set when converting from StockScreeningResult
         }
     }
 
@@ -210,6 +220,8 @@ impl EPSRanking {
             volume: data.volume,
             ranking_position: position,
             quarterly_data: None, // Will be populated by WebSocket enhancement
+            next_earnings_date: data.next_earnings_date,
+            last_earnings_date: data.last_earnings_date,
         }
     }
 }

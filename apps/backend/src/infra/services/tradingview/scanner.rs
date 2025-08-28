@@ -33,7 +33,8 @@ impl TradingViewScanner {
                 "fundamental_currency_code", "price_earnings_ttm", "earnings_per_share_diluted_ttm",
                 "earnings_per_share_diluted_yoy_growth_ttm", "dividends_yield_current", 
                 "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
-                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange"
+                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
+                "earnings_release_date", "earnings_release_next_date"
             ],
             "filter": [
                 {
@@ -190,7 +191,8 @@ impl TradingViewScanner {
                 "fundamental_currency_code", "price_earnings_ttm", "earnings_per_share_diluted_ttm",
                 "earnings_per_share_diluted_yoy_growth_ttm", "dividends_yield_current", 
                 "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
-                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange"
+                "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
+                "earnings_release_date", "earnings_release_next_date"
             ],
             "filter": filters,
             "ignore_unknown_fields": false,
@@ -432,8 +434,48 @@ impl TradingViewScanner {
                 .unwrap_or_else(|| default.to_string())
         };
 
-        let last = get_number(&stock.d, 17);
-        let next = get_number(&stock.d, 18);
+        // Extract earnings release dates (correct indices based on TradingView API)
+        let last = get_number(&stock.d, 30); // earnings_release_date (index 30 after adding to columns)
+        let next = get_number(&stock.d, 31); // earnings_release_next_date (index 31 after adding to columns)
+        
+        // DEBUG: Enhanced logging to verify we're getting real timestamps  
+        if !stock.s.is_empty() {
+            let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s);
+            
+            // Check if values look like Unix timestamps (> 1,000,000,000 = after year 2001)
+            let last_is_timestamp = last > 1_000_000_000.0;
+            let next_is_timestamp = next > 1_000_000_000.0;
+            
+            debug!("[DEBUG] Earnings dates for {}: last={} ({}), next={} ({})", 
+                symbol, 
+                last, 
+                if last_is_timestamp { "VALID timestamp" } else { "NOT a timestamp" },
+                next,
+                if next_is_timestamp { "VALID timestamp" } else { "NOT a timestamp" }
+            );
+            
+            // Save enhanced debug data to file
+            let debug_data = serde_json::json!({
+                "symbol": symbol,
+                "earnings_release_date": last,
+                "earnings_release_next_date": next,
+                "last_is_valid_timestamp": last_is_timestamp,
+                "next_is_valid_timestamp": next_is_timestamp,
+                "formatted_last": StockScreeningResult::format_date(if last != 0.0 { Some(last as i64) } else { None }),
+                "formatted_next": StockScreeningResult::format_date(if next != 0.0 { Some(next as i64) } else { None }),
+                "column_indices": {
+                    "earnings_release_date": 30,
+                    "earnings_release_next_date": 31
+                }
+            });
+            
+            if let Ok(debug_str) = serde_json::to_string_pretty(&debug_data) {
+                let debug_file = "/Users/fluke/Desktop/Work/Outsource/epsx/.devtools/earnings_dates_debug.txt";
+                if let Err(e) = std::fs::write(debug_file, debug_str) {
+                    tracing::warn!("Failed to write debug file: {}", e);
+                }
+            }
+        }
         let (entry_phase, phase_status) = if last != 0.0 && next != 0.0 {
             StockScreeningResult::get_analysis_phases(last as i64, next as i64)
         } else {

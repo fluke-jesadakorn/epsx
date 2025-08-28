@@ -1,15 +1,30 @@
-'use client';
+import { Button } from '@/components/ui/button';
+import { navigateToPage } from '@/lib/server-actions';
+import LimitSelectorForm from './LimitSelectorForm';
+import PaginationButton from './PaginationButton';
+import JumpToPageForm from './JumpToPageForm';
 
-import { memo } from 'react';
-import type { PaginationProps } from '@/types/analytics';
-import LimitSelector from './LimitSelector';
+interface ServerPaginationProps {
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  currentParams: string;
+}
 
-const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitChange, isLoading }) => {
+export default function ServerPagination({ 
+  pagination, 
+  currentParams 
+}: ServerPaginationProps) {
   const { page, totalPages, hasNext, hasPrev, total, limit } = pagination;
 
-  // Calculate visible page numbers for mobile
+  // Calculate visible page numbers
   const getVisiblePages = () => {
-    const delta = 1; // Show 1 page on each side of current page on mobile
+    const delta = 2; // Show 2 pages on each side of current page
     const range = [];
     const rangeWithDots = [];
 
@@ -46,33 +61,30 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
-      {/* Results info and limit selector */}
+      {/* Results info */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
         <div className="text-sm text-gray-600">
           Showing {startItem}-{endItem} of {total} results
         </div>
-        {onLimitChange && (
-          <LimitSelector
-            currentLimit={limit}
-            onLimitChange={onLimitChange}
-            isLoading={isLoading}
-          />
-        )}
+        
+        {/* Limit selector form */}
+        <LimitSelectorForm currentParams={currentParams} currentLimit={limit} />
       </div>
 
       {/* Pagination controls */}
       <div className="flex items-center justify-center gap-1">
         {/* Previous button */}
-        <button
-          onClick={() => onPageChange(page - 1)}
-          disabled={!hasPrev || isLoading}
+        <PaginationButton
+          page={page - 1}
+          currentParams={currentParams}
+          disabled={!hasPrev}
           className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px]"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 19-7-7 7-7" />
           </svg>
           <span className="hidden sm:block ml-1">Previous</span>
-        </button>
+        </PaginationButton>
 
         {/* Page numbers */}
         <div className="flex items-center gap-1">
@@ -86,60 +98,48 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
             }
 
             const isCurrentPage = pageNum === page;
+            
             return (
-              <button
+              <PaginationButton
                 key={pageNum}
-                onClick={() => onPageChange(pageNum as number)}
-                disabled={isLoading}
-                className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                page={pageNum as number}
+                currentParams={currentParams}
+                disabled={isCurrentPage}
+                variant={isCurrentPage ? 'default' : 'outline'}
+                className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg ${
                   isCurrentPage
                     ? 'bg-orange-500 text-white'
                     : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                }`}
               >
                 {pageNum}
-              </button>
+              </PaginationButton>
             );
           })}
         </div>
 
         {/* Next button */}
-        <button
-          onClick={() => onPageChange(page + 1)}
-          disabled={!hasNext || isLoading}
+        <PaginationButton
+          page={page + 1}
+          currentParams={currentParams}
+          disabled={!hasNext}
           className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px]"
         >
           <span className="hidden sm:block mr-1">Next</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9 5 7 7-7 7" />
           </svg>
-        </button>
+        </PaginationButton>
       </div>
 
-      {/* Jump to page input - hidden on mobile to save space */}
+      {/* Jump to page input - hidden on mobile */}
       <div className="hidden lg:flex items-center justify-center gap-2 mt-4">
-        <span className="text-sm text-gray-600">Go to page:</span>
-        <input
-          type="number"
-          min={1}
-          max={totalPages}
-          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
-          onKeyPress={(e) => {
-            if (e.key === 'Enter') {
-              const value = parseInt((e.target as HTMLInputElement).value);
-              if (value >= 1 && value <= totalPages) {
-                onPageChange(value);
-                (e.target as HTMLInputElement).value = '';
-              }
-            }
-          }}
-          disabled={isLoading}
+        <JumpToPageForm 
+          currentParams={currentParams}
+          currentPage={page}
+          totalPages={totalPages}
         />
       </div>
     </div>
   );
-});
-
-Pagination.displayName = 'Pagination';
-
-export default Pagination;
+}

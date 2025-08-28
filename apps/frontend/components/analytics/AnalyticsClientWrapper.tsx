@@ -28,6 +28,7 @@ import {
   exportFilteredData,
   ExportFormat 
 } from '@/lib/export-utils';
+import { AnalyticsNavigation } from '@/components/shared/AnalyticsNavigation';
 
 // Rich filter options interface
 interface RichFilterOptions {
@@ -274,6 +275,7 @@ export default function AnalyticsClientWrapper({
             <p className="mx-auto max-w-2xl text-lg text-gray-600 dark:text-gray-300">
               Stateless HTTP analytics with server-side data fetching and advanced filtering
             </p>
+            <AnalyticsNavigation currentPage="analytics" />
             {/* Decorative elements */}
             <div className="mt-4 flex items-center justify-center gap-4">
               <div className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />
@@ -874,6 +876,7 @@ export default function AnalyticsClientWrapper({
                   <Pagination
                     pagination={data.pagination}
                     onPageChange={changePage}
+                    onLimitChange={(limit) => updateFilters({ limit })}
                     isLoading={isLoading}
                   />
                 </div>

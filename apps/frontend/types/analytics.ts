@@ -93,6 +93,7 @@ export interface FilterPanelProps {
 export interface PaginationProps {
   pagination: EPSPagination;
   onPageChange: (page: number) => void;
+  onLimitChange?: (limit: number) => void;
   isLoading?: boolean;
 }
 
@@ -182,4 +183,46 @@ export interface CardDashboardMetadata {
 // Updated StockCardProps for new card format
 export interface CardStockProps {
   cardData: SymbolCardData;
+}
+
+// Portfolio Tracking Types
+export enum PositionAction {
+  KEEP = 'KEEP',
+  TRACK = 'TRACK', 
+  STOP = 'STOP'
+}
+
+export interface ActionPhase {
+  start: string; // "Jul 30, 2025"
+  end: string;   // "2025-10-28"  
+}
+
+export interface PortfolioPosition {
+  symbol: string;
+  rank: number;
+  actionStatus: PositionAction;
+  actionPhase: ActionPhase;
+  daysRemaining: number;
+  performance: number;
+  quarters: PositionQuarterlyData[];
+  nextAnnouncement: string;
+  gradientClass: string; // CSS class for card gradient
+}
+
+export interface PositionQuarterlyData {
+  date: string;     // "Apr 30, 2025"
+  growth: number;   // +7.12%
+  eps: number;      // 3.46
+  price: number;    // -0.34% or +4.94%
+}
+
+export interface PortfolioData {
+  positions: PortfolioPosition[];
+  processingTime: number; // milliseconds
+  lastUpdated: string;
+}
+
+export interface PositionCardProps {
+  position: PortfolioPosition;
+  onActionChange: (symbol: string, action: PositionAction) => void;
 }

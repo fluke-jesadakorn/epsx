@@ -192,6 +192,8 @@ impl EPSCacheService {
                 ranking_score: None, // Not in EPSRanking, will be calculated
                 created_at: None,
                 updated_at: None,
+                next_earnings_date: ranking.next_earnings_date.clone(),
+                last_earnings_date: ranking.last_earnings_date.clone(),
             }
         }).collect();
 
@@ -245,6 +247,8 @@ impl EPSCacheService {
             exchange: eps_data.exchange.clone(),
             ranking_position: None, // Will be set during pagination
             quarterly_data: None, // Will be populated by WebSocket enhancement
+            next_earnings_date: eps_data.next_earnings_date.clone(),
+            last_earnings_date: eps_data.last_earnings_date.clone(),
         }
     }
 

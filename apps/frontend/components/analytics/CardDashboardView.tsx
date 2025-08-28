@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -705,54 +705,40 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         </Card>
       )}
 
-      {/* Status Legend Section */}
-      <Card className="bg-slate-800 border-slate-600">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-            <span className="text-blue-400">📊</span>
-            Status Legend
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-slate-300 mb-3">
-                Status Indicators
-              </h4>
-              
-              {/* Responsive grid layout */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200">
-                  <div className="px-2 py-1 bg-green-500 text-white text-xs font-medium rounded min-w-fit">
-                    TRACK
-                  </div>
-                  <span className="text-sm text-slate-300 flex-1">
-                    Strong performance, actively tracking
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200">
-                  <div className="px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded min-w-fit">
-                    WATCH
-                  </div>
-                  <span className="text-sm text-slate-300 flex-1">
-                    Watch closely, mixed signals
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 transition-colors duration-200 sm:col-span-2 lg:col-span-1">
-                  <div className="px-2 py-1 bg-red-500 text-white text-xs font-medium rounded min-w-fit">
-                    STOP
-                  </div>
-                  <span className="text-sm text-slate-300 flex-1">
-                    Weak performance, avoid investment
-                  </span>
-                </div>
-              </div>
-            </div>
+      {/* Status Legend */}
+      <div className="bg-slate-800/90 border border-slate-600 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-blue-400">📊</span>
+          <h3 className="text-lg font-semibold text-white">Status Legend</h3>
+        </div>
+        
+        <div className="mb-3">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">Status Indicators</h4>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200">
+            <span className="inline-flex items-center px-2 py-1 bg-green-500 text-white text-xs font-medium rounded">
+              TRACK
+            </span>
+            <span className="text-sm text-slate-300">Strong performance, actively tracking</span>
           </div>
-        </CardContent>
-      </Card>
+          
+          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200">
+            <span className="inline-flex items-center px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded">
+              WATCH
+            </span>
+            <span className="text-sm text-slate-300">Watch closely, mixed signals</span>
+          </div>
+          
+          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200 md:col-span-1">
+            <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-medium rounded">
+              STOP
+            </span>
+            <span className="text-sm text-slate-300">Weak performance, avoid investment</span>
+          </div>
+        </div>
+      </div>
 
       {/* Processing time indicator */}
       {data && (

@@ -1,8 +1,19 @@
-'use client';
+import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
 
-import { CardDashboardView } from '@/components/analytics/CardDashboardView';
+interface AnalyticsPageProps {
+  searchParams: {
+    page?: string;
+    limit?: string;
+    country?: string;
+    sector?: string;
+    sort_by?: string;
+    min_eps?: string;
+    min_growth?: string;
+    showFilters?: string;
+  };
+}
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}
@@ -38,7 +49,7 @@ export default function AnalyticsPage() {
           {/* Header with enhanced styling */}
           <div className="mb-8 text-center">
             <h1 className="animate-gradient-x mb-4 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
-              🎯 EPS Analytics Platform
+              🎯 Analytics Platform
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-gray-600 dark:text-gray-300">
               Performance monitoring system with tech-focused decision support
@@ -58,11 +69,11 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Card Dashboard View with floating decorations */}
+          {/* Server Card Dashboard with floating decorations */}
           <div className="relative">
             <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-xl" />
             <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 blur-xl" />
-            <CardDashboardView />
+            <ServerCardDashboard searchParams={searchParams} />
           </div>
         </div>
       </div>

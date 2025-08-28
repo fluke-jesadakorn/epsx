@@ -102,6 +102,17 @@ pub fn convert_screening_result_to_eps_ranking(
         volume,
         ranking_position: None,
         quarterly_data: None,
+        // IMPORTANT: Preserve real earnings dates from TradingView
+        next_earnings_date: if result.next_analysis_date.is_empty() || result.next_analysis_date == "N/A" { 
+            None 
+        } else { 
+            Some(result.next_analysis_date) 
+        },
+        last_earnings_date: if result.last_analysis_date.is_empty() || result.last_analysis_date == "N/A" { 
+            None 
+        } else { 
+            Some(result.last_analysis_date) 
+        },
     }
 }
 

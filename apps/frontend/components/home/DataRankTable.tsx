@@ -1,5 +1,6 @@
 'use client';
 
+import { Card, CardContent } from '@/components/ui/card';
 import {
   ChevronDown,
   ChevronUp,
@@ -10,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 
 import {
   Table,
@@ -23,10 +23,7 @@ import {
 
 import type { UserLevelType } from '@/app/constants/packages';
 import { getLockedRankings, getNextLevelLimit } from '@/app/constants/packages';
-import {
-  LockedRankingCard,
-  UpgradePrompt,
-} from '@/components/ui/prompt';
+import { LockedRankingCard, UpgradePrompt } from '@/components/ui/prompt';
 import { Button } from '../ui/button';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
@@ -114,7 +111,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
   return (
     <Card
-      className={`w-full transition-all duration-200 hover:shadow-2xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] rounded-3xl shadow-lg ${
+      className={`w-full rounded-3xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 shadow-lg transition-all duration-200 hover:shadow-2xl dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] ${
         isPressed ? 'scale-[0.98] opacity-90' : ''
       } relative`}
       onTouchStart={() => setIsPressed(true)}
@@ -124,22 +121,22 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
       onMouseLeave={() => setIsPressed(false)}
     >
       {/* Rank Number Badge */}
-      <div className="absolute top-4 w-auto left-4 z-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 dark:from-yellow-600 dark:via-pink-700 dark:to-purple-800 flex items-center justify-center text-white text-base font-extrabold shadow-xl border-4 border-white dark:border-[#232946]">
+      <div className="absolute top-4 left-4 z-10 flex h-10 w-auto items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 text-base font-extrabold text-white shadow-xl dark:border-[#232946] dark:from-yellow-600 dark:via-pink-700 dark:to-purple-800">
         {index + 1}
       </div>
       <CardContent className="p-6 pt-8">
         {/* Primary Information */}
-        <div className="flex justify-between items-start mb-3">
+        <div className="mb-3 flex items-start justify-between">
           <div>
-            <div className="text-xl font-extrabold text-primary dark:text-white drop-shadow-sm tracking-wide">
+            <div className="text-primary text-xl font-extrabold tracking-wide drop-shadow-sm dark:text-white">
               {data.symbol}
             </div>
-            <div className="text-sm text-muted-foreground line-clamp-1 font-medium">
+            <div className="text-muted-foreground line-clamp-1 text-sm font-medium">
               {data.name}
             </div>
           </div>
           <div className="text-right">
-            <div className="font-bold text-lg text-blue-600 dark:text-blue-300 drop-shadow">
+            <div className="text-lg font-bold text-blue-600 drop-shadow dark:text-blue-300">
               {data.valueIndex} {data.currency}
             </div>
             <div
@@ -156,7 +153,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
         </div>
 
         {/* Market Size - Always visible */}
-        <div className="text-xs sm:text-sm text-muted-foreground mb-2 flex items-center gap-2">
+        <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs sm:text-sm">
           <span className="font-semibold text-purple-500 dark:text-purple-300">
             Market Size:
           </span>
@@ -164,11 +161,11 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
         </div>
 
         {/* Action Buttons Row */}
-        <div className="flex justify-between items-center gap-2 mt-3">
+        <div className="mt-3 flex items-center justify-between gap-2">
           <Button
             size="sm"
             variant="ghost"
-            className="w-full rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-[#232946] dark:to-[#1a1a2e] text-primary dark:text-white font-bold shadow hover:scale-105 transition flex items-center gap-1"
+            className="text-primary flex w-full items-center gap-1 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 font-bold shadow transition hover:scale-105 dark:from-[#232946] dark:to-[#1a1a2e] dark:text-white"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
@@ -182,7 +179,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
             asChild
             size="sm"
             variant="secondary"
-            className="w-[100px] rounded-full bg-gradient-to-r from-yellow-300 to-pink-300 dark:from-yellow-700 dark:to-pink-700 text-white font-bold shadow hover:scale-105 transition"
+            className="w-[100px] rounded-full bg-gradient-to-r from-yellow-300 to-pink-300 font-bold text-white shadow transition hover:scale-105 dark:from-yellow-700 dark:to-pink-700"
           >
             <a
               href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}
@@ -196,8 +193,8 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
 
         {/* Expandable Content */}
         <div
-          className={`mt-4 pt-4 border-t border-border/50 grid gap-3 text-xs sm:text-sm overflow-hidden transition-all duration-300 ${
-            expanded ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0'
+          className={`border-border/50 mt-4 grid gap-3 overflow-hidden border-t pt-4 text-xs transition-all duration-300 sm:text-sm ${
+            expanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
           <div className="grid grid-cols-2 gap-2">
@@ -219,7 +216,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
                 Entry Phase
               </div>
               <div
-                className={`${data.entryPhase?.active ? 'text-green-500 font-bold' : ''}`}
+                className={`${data.entryPhase?.active ? 'font-bold text-green-500' : ''}`}
               >
                 {data.entryPhase?.date || 'N/A'}
                 {data.entryPhase?.active && (
@@ -232,7 +229,7 @@ function DataCard({ data, index }: DataCardProps): React.JSX.Element {
                 Phase Status
               </div>
               <div
-                className={`${data.phaseStatus?.active ? 'text-yellow-500 font-bold' : ''}`}
+                className={`${data.phaseStatus?.active ? 'font-bold text-yellow-500' : ''}`}
               >
                 {data.phaseStatus?.date || 'N/A'}
                 {data.phaseStatus?.active && (
@@ -317,15 +314,15 @@ function DataRankTable({
 
   const renderTableView = () => (
     <div className="relative w-full">
-      <div className="rounded-3xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021] shadow-xl max-w-[100vw] overflow-x-auto custom-scrollbar">
+      <div className="custom-scrollbar max-w-[100vw] overflow-x-auto rounded-3xl border-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 shadow-xl dark:from-[#232946] dark:via-[#1a1a2e] dark:to-[#0f1021]">
         <div className="min-w-[1200px]">
           <Table>
-            <TableHeader className="bg-gradient-to-r from-blue-200/40 via-purple-200/40 to-pink-200/40 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40 backdrop-blur-sm sticky top-0 z-10">
+            <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-blue-200/40 via-purple-200/40 to-pink-200/40 backdrop-blur-sm dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40">
               <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
+                {columns.map(column => (
                   <TableHead
                     key={column.key}
-                    className="font-bold text-primary/80 dark:text-white tracking-wide"
+                    className="text-primary/80 font-bold tracking-wide dark:text-white"
                   >
                     {column.tooltip ? (
                       <span title={column.tooltip}>{column.header}</span>
@@ -340,13 +337,13 @@ function DataRankTable({
               {safeData.map((row, index) => (
                 <TableRow
                   key={`${row.symbol}-${index}`}
-                  className={`hover:bg-blue-100/40 dark:hover:bg-blue-900/20 transition-colors ${
+                  className={`transition-colors hover:bg-blue-100/40 dark:hover:bg-blue-900/20 ${
                     !canViewRanking(index)
-                      ? 'opacity-50 pointer-events-none'
+                      ? 'pointer-events-none opacity-50'
                       : ''
                   }`}
                 >
-                  {columns.map((column) => (
+                  {columns.map(column => (
                     <TableCell
                       key={column.key}
                       className={
@@ -380,9 +377,9 @@ function DataRankTable({
                   (_, index) => (
                     <TableRow
                       key={`locked-row-${index}`}
-                      className="opacity-50 pointer-events-none bg-gray-50 dark:bg-gray-900/50"
+                      className="pointer-events-none bg-gray-50 opacity-50 dark:bg-gray-900/50"
                     >
-                      {columns.map((column) => (
+                      {columns.map(column => (
                         <TableCell key={column.key}>
                           <div className="flex items-center gap-2">
                             <Lock className="h-4 w-4 text-gray-400" />
@@ -391,18 +388,18 @@ function DataRankTable({
                         </TableCell>
                       ))}
                     </TableRow>
-                  ),
+                  )
                 )}
             </TableBody>
           </Table>
 
           {/* Table upgrade prompt */}
           {upgradeRequired && (
-            <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-t">
-              <div className="text-center space-y-3">
-                <Crown className="h-8 w-8 text-yellow-500 mx-auto" />
-                <h3 className="font-semibold text-lg">Unlock More Rankings</h3>
-                <p className="text-sm text-muted-foreground">
+            <div className="border-t bg-gradient-to-r from-blue-50 to-purple-50 p-6 dark:from-blue-950/50 dark:to-purple-950/50">
+              <div className="space-y-3 text-center">
+                <Crown className="mx-auto h-8 w-8 text-yellow-500" />
+                <h3 className="text-lg font-semibold">Unlock More Rankings</h3>
+                <p className="text-muted-foreground text-sm">
                   Upgrade to see up to {getNextLevelLimit(userLevel)} top-ranked
                   stocks
                 </p>
@@ -416,7 +413,7 @@ function DataRankTable({
         </div>
       </div>
       {isNarrow && (
-        <div className="mt-2 text-sm text-muted-foreground text-center">
+        <div className="text-muted-foreground mt-2 text-center text-sm">
           Scroll horizontally to see more →
         </div>
       )}
@@ -440,7 +437,7 @@ function DataRankTable({
               userLevel={userLevel}
               onUpgrade={handleUpgrade}
             />
-          ),
+          )
         )}
         {/* Show additional locked cards for premium tiers */}
         {upgradeRequired &&
@@ -452,7 +449,7 @@ function DataRankTable({
                 userLevel={userLevel}
                 onUpgrade={handleUpgrade}
               />
-            ),
+            )
           )}
       </div>
 
@@ -471,7 +468,7 @@ function DataRankTable({
   const renderCell = (
     row: TableDataMetrics,
     column: ColumnDef,
-    index: number,
+    index: number
   ) => {
     if (column.render) {
       return column.render(row, index);
@@ -505,12 +502,12 @@ function DataRankTable({
         return (
           <div className="flex flex-col gap-1">
             <span
-              className={`text-xs ${row.entryPhase?.active ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}
+              className={`text-xs ${row.entryPhase?.active ? 'font-medium text-green-500' : 'text-muted-foreground'}`}
             >
               {row.entryPhase?.date || 'N/A'}
             </span>
             {row.entryPhase?.active && (
-              <span className="text-xs text-green-500 font-medium">Active</span>
+              <span className="text-xs font-medium text-green-500">Active</span>
             )}
           </div>
         );
@@ -518,12 +515,12 @@ function DataRankTable({
         return (
           <div className="flex flex-col gap-1">
             <span
-              className={`text-xs ${row.phaseStatus?.active ? 'text-yellow-500 font-medium' : 'text-muted-foreground'}`}
+              className={`text-xs ${row.phaseStatus?.active ? 'font-medium text-yellow-500' : 'text-muted-foreground'}`}
             >
               {row.phaseStatus?.date || 'N/A'}
             </span>
             {row.phaseStatus?.active && (
-              <span className="text-xs text-yellow-500 font-medium">
+              <span className="text-xs font-medium text-yellow-500">
                 {row.phaseStatus?.type === 'monitor' ? 'Monitor' : 'Exit'}
               </span>
             )}
@@ -568,12 +565,12 @@ function DataRankTable({
       style={style}
     >
       {/* Title and View Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow">
+          <h2 className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-3xl font-extrabold text-transparent drop-shadow">
             Top Data Rankings
           </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full mt-2" />
+          <div className="mt-2 h-1 w-24 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
         </div>
 
         {/* Only show view toggle for table default view */}
@@ -583,7 +580,7 @@ function DataRankTable({
               variant={viewMode === 'table' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('table')}
-              className="w-[100px] rounded-full font-bold shadow flex items-center gap-2"
+              className="flex w-[100px] items-center gap-2 rounded-full font-bold shadow"
             >
               <Table2 className="h-4 w-4" />
               Table
@@ -592,7 +589,7 @@ function DataRankTable({
               variant={viewMode === 'card' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('card')}
-              className="w-[100px] rounded-full font-bold shadow flex items-center gap-2"
+              className="flex w-[100px] items-center gap-2 rounded-full font-bold shadow"
             >
               <LayoutGrid className="h-4 w-4" />
               Cards
@@ -602,7 +599,7 @@ function DataRankTable({
       </div>
 
       {/* Content based on view mode */}
-      <div className="-mx-4 sm:-mx-8 px-4 sm:px-8">
+      <div className="-mx-4 px-4 sm:-mx-8 sm:px-8">
         {viewMode === 'table' ? renderTableView() : renderCardView()}
       </div>
     </div>

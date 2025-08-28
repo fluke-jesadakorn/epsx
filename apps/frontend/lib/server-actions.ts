@@ -126,3 +126,40 @@ export async function getTransactionHistory(excludePending?: boolean): Promise<P
 }
 
 export type { PaymentStatus, PaymentTransaction } from './api-client';
+
+// Analytics Server Actions
+interface AnalyticsFilterParams {
+  page?: number;
+  limit?: number;
+  country?: string;
+  sector?: string;
+  sort_by?: string;
+  min_eps?: number;
+  min_growth?: number;
+}
+
+export async function updateAnalyticsFilters(params: AnalyticsFilterParams) {
+  const { redirect } = await import('next/navigation');
+  const searchParams = new URLSearchParams();
+  
+  // Always include page and limit
+  searchParams.set('page', String(params.page || 1));
+  searchParams.set('limit', String(params.limit || 10));
+  
+  // Add other params if they exist
+  if (params.country) searchParams.set('country', params.country);
+  if (params.sector) searchParams.set('sector', params.sector);
+  if (params.sort_by) searchParams.set('sort_by', params.sort_by);
+  if (params.min_eps !== undefined) searchParams.set('min_eps', String(params.min_eps));
+  if (params.min_growth !== undefined) searchParams.set('min_growth', String(params.min_growth));
+
+  redirect(`/analytics?${searchParams.toString()}`);
+}
+
+export async function navigateToPage(page: number, currentParams: string) {
+  const { redirect } = await import('next/navigation');
+  const searchParams = new URLSearchParams(currentParams);
+  searchParams.set('page', String(page));
+  
+  redirect(`/analytics?${searchParams.toString()}`);
+}
