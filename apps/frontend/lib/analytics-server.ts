@@ -8,6 +8,7 @@ export interface EPSQueryParams {
   sort_by?: string;
   min_eps?: number;
   min_growth?: number;
+  search?: string;
 }
 
 export interface QuarterlyPerformanceData {
