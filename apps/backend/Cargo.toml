@@ -85,7 +85,7 @@ num_cpus = "1.16"
 
 # Optional WebSocket support
 futures-util = { version = "0.3", optional = true }
-tokio-tungstenite = { version = "0.21", features = ["native-tls"], optional = true }
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], optional = true }
 
 # Optional authentication and security
 hmac = { version = "0.12", optional = true }
@@ -102,9 +102,13 @@ x509-parser = { version = "0.16" }
 # Optional HTTP client with TLS choice
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
 
+# TLS support for PostgreSQL connections - use native-tls for better compatibility  
+native-tls = "0.2"
+tokio-postgres = "0.7"
+postgres-native-tls = "0.5"
+
 # Optional CLI tools
 clap = { version = "4.4", features = ["derive"], optional = true }
-# tokio-postgres = { version = "0.7", optional = true } # Moved to dev-dependencies for CLI tools only
 
 # Optional API documentation (removed)
 
@@ -138,7 +142,7 @@ axum-test = "15.0"
 criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
 tempfile = "3.8"
-tokio-postgres = "0.7"  # Only needed for CLI migration tools
+# tokio-postgres moved to main dependencies for TLS support
 
 # Clean Architecture Test Configuration
 # Tests are organized by architectural layers for optimal caching

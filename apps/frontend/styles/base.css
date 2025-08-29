@@ -1,18 +1,318 @@
 /**
- * Base Styles - Essential Foundations
+ * Base Styles - Essential Foundations (Tailwind CSS v4)
  * 
- * This file contains only the most essential base styles that are needed
- * immediately when the page loads. It includes:
- * - CSS reset and normalization
- * - Basic HTML element styling
- * - Core CSS custom properties
- * - Critical layout foundations
+ * This file contains the complete Tailwind v4 theme configuration using
+ * @theme directive and CSS-based configuration instead of JavaScript.
+ * 
+ * Key Changes:
+ * - Migrated from tailwind.config.js to CSS @theme
+ * - All colors, animations, and utilities defined in CSS
+ * - Optimized for Tailwind v4 performance benefits
  */
 
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* ============================================================================
-   CSS CUSTOM PROPERTIES (Theme Variables)
+   TAILWIND V4 THEME CONFIGURATION
+   ============================================================================ */
+
+@theme {
+  /* Container Configuration */
+  --breakpoint-2xl: 1400px;
+  
+  /* Border Radius Variables */
+  --radius: 1rem;
+  --radius-lg: 1rem;
+  --radius-md: calc(1rem - 2px);
+  --radius-sm: calc(1rem - 4px);
+  
+  /* ========================================================================
+     COLOR SYSTEM - Tailwind v4 Format
+     ======================================================================== */
+  
+  /* Primary Color Scale */
+  --color-primary-50: hsl(217 100% 95%);
+  --color-primary-100: hsl(217 90% 90%);
+  --color-primary-200: hsl(217 95% 85%);
+  --color-primary-300: hsl(217 95% 75%);
+  --color-primary-400: hsl(217 95% 65%);
+  --color-primary-500: hsl(217 91% 60%);
+  --color-primary-600: hsl(217 95% 45%);
+  --color-primary-700: hsl(217 90% 40%);
+  --color-primary-800: hsl(217 85% 35%);
+  --color-primary-900: hsl(217 80% 30%);
+  
+  /* Secondary Color Scale */
+  --color-secondary-50: hsl(262 100% 95%);
+  --color-secondary-100: hsl(262 95% 88%);
+  --color-secondary-200: hsl(262 90% 80%);
+  --color-secondary-300: hsl(262 95% 75%);
+  --color-secondary-400: hsl(262 100% 70%);
+  --color-secondary-500: hsl(262 83% 58%);
+  --color-secondary-600: hsl(262 95% 65%);
+  --color-secondary-700: hsl(262 90% 60%);
+  --color-secondary-800: hsl(262 85% 55%);
+  --color-secondary-900: hsl(262 80% 50%);
+  
+  /* Success Color Scale */
+  --color-success-50: hsl(142 76% 95%);
+  --color-success-100: hsl(142 71% 88%);
+  --color-success-200: hsl(142 71% 75%);
+  --color-success-300: hsl(142 71% 65%);
+  --color-success-400: hsl(142 71% 55%);
+  --color-success-500: hsl(142 71% 45%);
+  --color-success-600: hsl(142 66% 40%);
+  --color-success-700: hsl(142 61% 35%);
+  --color-success-800: hsl(142 56% 30%);
+  --color-success-900: hsl(142 51% 25%);
+  
+  /* Warning Color Scale */
+  --color-warning-50: hsl(45 98% 95%);
+  --color-warning-100: hsl(45 93% 88%);
+  --color-warning-200: hsl(45 93% 75%);
+  --color-warning-300: hsl(45 93% 65%);
+  --color-warning-400: hsl(45 93% 57%);
+  --color-warning-500: hsl(45 93% 47%);
+  --color-warning-600: hsl(45 88% 42%);
+  --color-warning-700: hsl(45 83% 37%);
+  --color-warning-800: hsl(45 78% 32%);
+  --color-warning-900: hsl(45 73% 27%);
+  
+  /* Error Color Scale */
+  --color-error-50: hsl(0 90% 95%);
+  --color-error-100: hsl(0 85% 88%);
+  --color-error-200: hsl(0 85% 75%);
+  --color-error-300: hsl(0 85% 70%);
+  --color-error-400: hsl(0 85% 65%);
+  --color-error-500: hsl(0 85% 60%);
+  --color-error-600: hsl(0 80% 55%);
+  --color-error-700: hsl(0 75% 50%);
+  --color-error-800: hsl(0 70% 45%);
+  --color-error-900: hsl(0 65% 40%);
+  
+  /* Info Color Scale */
+  --color-info-50: hsl(217 96% 95%);
+  --color-info-100: hsl(217 91% 88%);
+  --color-info-200: hsl(217 91% 75%);
+  --color-info-300: hsl(217 91% 70%);
+  --color-info-400: hsl(217 91% 65%);
+  --color-info-500: hsl(217 91% 60%);
+  --color-info-600: hsl(217 86% 55%);
+  --color-info-700: hsl(217 81% 50%);
+  --color-info-800: hsl(217 76% 45%);
+  --color-info-900: hsl(217 71% 40%);
+  
+  /* Insight Colors (Analytics Theme) */
+  --color-insight-primary: hsl(217 91% 60%);
+  --color-insight-secondary: hsl(262 83% 58%);
+  --color-insight-success: hsl(142 71% 45%);
+  --color-insight-warning: hsl(45 93% 47%);
+  --color-insight-error: hsl(0 85% 60%);
+  --color-insight-info: hsl(184 93% 47%);
+  
+  /* ========================================================================
+     ANIMATIONS - Custom Keyframes and Animation Properties
+     ======================================================================== */
+  
+  /* Animation Durations and Timing */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-collapsible-down: collapsible-down 0.2s ease-out;
+  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+  
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-gentle: float-gentle 4s ease-in-out infinite;
+  --animate-float-reverse: float-reverse 5s ease-in-out infinite;
+  --animate-float-delayed: float 6s ease-in-out infinite -3s;
+  
+  --animate-bounce-gentle: bounce-gentle 2s ease-in-out infinite;
+  --animate-bounce-slow: bounce-slow 3s ease-in-out infinite;
+  
+  --animate-pulse-gentle: pulse-gentle 3s ease-in-out infinite;
+  --animate-pulse-slow: pulse-slow 4s ease-in-out infinite;
+  --animate-pulse-insight: pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  --animate-scale-pulse: scale-pulse 3s ease-in-out infinite;
+  --animate-spin-slow: spin-slow 20s linear infinite;
+  --animate-spin-very-slow: spin-very-slow 30s linear infinite;
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
+  
+  --animate-gradient: gradient 8s ease infinite;
+  --animate-gradient-x: gradient-x 3s ease infinite;
+  --animate-gradient-shift: gradient-shift 3s ease-in-out infinite;
+  
+  --animate-shine: shine 2s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  
+  --animate-slide-up: slide-up 0.8s ease-out;
+  --animate-slide-up-delayed: slide-up 0.8s ease-out 0.2s both;
+  --animate-slide-up-delayed-2: slide-up 0.8s ease-out 0.4s both;
+  --animate-slide-in-left: slide-in-left 0.6s ease-out;
+  --animate-slide-in-right: slide-in-right 0.6s ease-out;
+  
+  --animate-fade-in: fade-in 1s ease-out forwards;
+  --animate-fade-in-delayed: fade-in 1s ease-out 0.3s forwards;
+  --animate-fade-in-delayed-2: fade-in 1s ease-out 0.6s forwards;
+  --animate-fade-in-delayed-3: fade-in 1s ease-out 0.9s forwards;
+  
+  --animate-blob1: blob1 12s ease-in-out infinite;
+  --animate-blob2: blob2 14s ease-in-out infinite;
+  --animate-blob3: blob3 16s ease-in-out infinite;
+}
+
+/* ============================================================================
+   KEYFRAMES DEFINITIONS
+   ============================================================================ */
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+@keyframes collapsible-down {
+  from { height: 0; }
+  to { height: var(--collapsible-content-height); }
+}
+
+@keyframes collapsible-up {
+  from { height: var(--collapsible-content-height); }
+  to { height: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(1deg); }
+  66% { transform: translateY(8px) rotate(-1deg); }
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(15px) rotate(2deg); }
+}
+
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes pulse-insight {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-very-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes wiggle {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(1deg); }
+  75% { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blob1 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.1, 0.9) translate(10px, -10px); }
+  66% { transform: scale(0.95, 1.05) translate(-10px, 10px); }
+}
+
+@keyframes blob2 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.05, 0.95) translate(-12px, 8px); }
+  66% { transform: scale(0.9, 1.1) translate(12px, -8px); }
+}
+
+@keyframes blob3 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.08, 0.92) translate(8px, 12px); }
+  66% { transform: scale(0.92, 1.08) translate(-8px, -12px); }
+}
+
+/* ============================================================================
+   CSS CUSTOM PROPERTIES (Theme Variables) - For Backwards Compatibility
    ============================================================================ */
 
 @custom-variant dark (&:is(.dark *));
@@ -47,9 +347,6 @@
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 217 91% 60%;
-    
-    /* Border radius */
-    --radius: 1rem;
   }
 
   .dark {

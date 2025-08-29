@@ -7,18 +7,18 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
+    "baseUrl": "./",
     "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/utils/*": ["./utils/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/types/*": ["./types/*"],
-      "@/context/*": ["./context/*"],
-      "@/services/*": ["./services/*"],
-      "@/config/*": ["./config/*"]
+      "@/components/*": ["components/*"],
+      "@/lib/*": ["lib/*"],
+      "@/utils/*": ["utils/*"],
+      "@/hooks/*": ["hooks/*"],
+      "@/types/*": ["types/*"],
+      "@/context/*": ["context/*"],
+      "@/services/*": ["services/*"],
+      "@/config/*": ["config/*"]
     },
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],

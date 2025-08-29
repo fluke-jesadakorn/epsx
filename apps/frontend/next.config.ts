@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   // Force dynamic rendering for container builds
   generateBuildId: () => 'build',
   trailingSlash: false,
-  
+
   // Ultra-minimal bundle optimizations
   productionBrowserSourceMaps: false,
   modularizeImports: {
@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
       transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
     },
   },
-  
+
   // Mobile performance optimizations
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  
+
   // Caching optimizations
   headers: async () => [
     {
@@ -65,7 +65,7 @@ const nextConfig: NextConfig = {
       ],
     },
   ],
-  
+
   experimental: {
     forceSwcTransforms: true,
     optimizePackageImports: [
@@ -87,7 +87,7 @@ const nextConfig: NextConfig = {
     scrollRestoration: true,
     gzipSize: true,
   },
-  
+
   // Ultra-minimal standalone bundle
   outputFileTracingExcludes: {
     '*': [
@@ -100,11 +100,11 @@ const nextConfig: NextConfig = {
       './node_modules/@types/**/*',
     ],
   },
-  
+
   // Compression and optimization
   compress: true,
   poweredByHeader: false,
-  
+
   env: {
     SITE_URL: env.SITE_URL,
     BACKEND_URL: env.BACKEND_URL,

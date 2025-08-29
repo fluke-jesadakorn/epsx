@@ -59,59 +59,6 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
   const latestQuarter = quarters[0];
   const previousQuarter = quarters[1];
 
-  // Special styling for top 5 ranks - Ultra Premium
-  const isTopRank = cardData.rank <= 5;
-  const getTopRankStyle = (rank: number) => {
-    if (rank === 1)
-      return {
-        crown: '👑',
-        glow: 'shadow-2xl shadow-yellow-500/80 hover:shadow-3xl hover:shadow-yellow-400/90',
-        border: 'border-4 border-yellow-400 hover:border-yellow-300',
-        bg: 'bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 dark:from-yellow-800 dark:via-amber-700 dark:to-orange-800',
-        sparkle: '✨',
-        special: '🏆 CHAMPION',
-      };
-    if (rank === 2)
-      return {
-        crown: '🥈',
-        glow: 'shadow-2xl shadow-slate-500/80 hover:shadow-3xl hover:shadow-slate-400/90',
-        border: 'border-4 border-slate-400 hover:border-slate-300',
-        bg: 'bg-gradient-to-br from-slate-200 via-gray-100 to-zinc-200 dark:from-slate-800 dark:via-gray-700 dark:to-zinc-800',
-        sparkle: '🌟',
-        special: '🥈 ELITE',
-      };
-    if (rank === 3)
-      return {
-        crown: '🥉',
-        glow: 'shadow-2xl shadow-orange-500/80 hover:shadow-3xl hover:shadow-orange-400/90',
-        border: 'border-4 border-orange-400 hover:border-orange-300',
-        bg: 'bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-200 dark:from-orange-800 dark:via-amber-700 dark:to-yellow-800',
-        sparkle: '💫',
-        special: '🥉 LEGEND',
-      };
-    if (rank === 4)
-      return {
-        crown: '⭐',
-        glow: 'shadow-2xl shadow-purple-500/80 hover:shadow-3xl hover:shadow-purple-400/90',
-        border: 'border-4 border-purple-400 hover:border-purple-300',
-        bg: 'bg-gradient-to-br from-purple-200 via-pink-100 to-fuchsia-200 dark:from-purple-800 dark:via-pink-700 dark:to-fuchsia-800',
-        sparkle: '🌟',
-        special: '⭐ MASTER',
-      };
-    if (rank === 5)
-      return {
-        crown: '💎',
-        glow: 'shadow-2xl shadow-cyan-500/80 hover:shadow-3xl hover:shadow-cyan-400/90',
-        border: 'border-4 border-cyan-400 hover:border-cyan-300',
-        bg: 'bg-gradient-to-br from-cyan-200 via-blue-100 to-sky-200 dark:from-cyan-800 dark:via-blue-700 dark:to-sky-800',
-        sparkle: '✨',
-        special: '💎 DIAMOND',
-      };
-    return null;
-  };
-
-  const topRankStyle = isTopRank ? getTopRankStyle(cardData.rank) : null;
-
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'TRACK':
@@ -162,92 +109,27 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl ${
-        topRankStyle
-          ? `${topRankStyle.border} ${topRankStyle.bg} ${topRankStyle.glow}`
-          : `border-2 ${statusConfig.border} ${statusConfig.cardBg} shadow-lg`
-      } ${isTopRank ? 'p-5' : 'p-4'} backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-        isTopRank
-          ? 'ring-opacity-60 hover:ring-opacity-100 transform ring-2 ring-offset-2 ring-offset-white hover:-translate-y-1 hover:rotate-1'
-          : 'hover:rotate-1 hover:shadow-xl'
-      }`}
+      className={`relative overflow-hidden rounded-2xl border-2 ${statusConfig.border} ${statusConfig.cardBg} shadow-lg p-4 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:rotate-1 hover:shadow-xl`}
     >
-      {/* Enhanced decorative elements for top 5 */}
-      {isTopRank && topRankStyle ? (
-        <>
-          <div
-            className="absolute -top-4 -right-4 animate-spin text-2xl"
-            style={{ animationDuration: '3s' }}
-          >
-            {topRankStyle.sparkle}
-          </div>
-          <div
-            className="absolute -bottom-2 -left-2 animate-bounce text-xl"
-            style={{ animationDelay: '0.5s' }}
-          >
-            {topRankStyle.sparkle}
-          </div>
-          <div
-            className="absolute top-2 right-2 animate-pulse text-lg"
-            style={{ animationDelay: '1s' }}
-          >
-            {topRankStyle.sparkle}
-          </div>
-          <div className="absolute -top-8 -right-8 h-20 w-20 animate-pulse rounded-full bg-gradient-to-br from-white/30 to-transparent blur-2xl" />
-        </>
-      ) : (
-        <div className="absolute -top-8 -right-8 h-16 w-16 rounded-full bg-white/20 blur-xl" />
-      )}
+      <div className="absolute -top-8 -right-8 h-16 w-16 rounded-full bg-white/20 blur-xl" />
 
       {/* Header with PancakeSwap-style badge */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div
-            className={`flex ${isTopRank ? 'h-12 w-12' : 'h-8 w-8'} items-center justify-center rounded-full ${
-              isTopRank
-                ? `bg-white shadow-xl ring-2 ring-yellow-400 ring-offset-1`
-                : statusConfig.bg
-            } shadow-lg ${isTopRank ? 'animate-pulse' : ''} transition-all duration-300`}
+            className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg} shadow-lg transition-all duration-300`}
           >
-            {isTopRank && topRankStyle ? (
-              <span className="text-2xl">{topRankStyle.crown}</span>
-            ) : (
-              <span className="text-xs font-bold text-white">
-                {cardData.rank}
-              </span>
-            )}
+            <span className="text-xs font-bold text-white">
+              {cardData.rank}
+            </span>
           </div>
           <div className="flex flex-col">
-            <h3
-              className={`${isTopRank ? 'text-2xl' : 'text-lg'} font-bold ${isTopRank ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-slate-100'}`}
-            >
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
               {cardData.symbol}
             </h3>
-            {isTopRank && topRankStyle && (
-              <span className="animate-pulse bg-gradient-to-r from-red-600 via-pink-600 to-purple-600 bg-clip-text text-sm font-bold text-transparent">
-                {topRankStyle.special} • #{cardData.rank}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          {isTopRank && topRankStyle && (
-            <span
-              className={`animate-pulse rounded-full px-3 py-1 text-xs font-bold text-white shadow-lg transition-all duration-300 ${
-                cardData.rank === 1
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-600'
-                  : cardData.rank === 2
-                    ? 'bg-gradient-to-r from-slate-500 to-zinc-600'
-                    : cardData.rank === 3
-                      ? 'bg-gradient-to-r from-orange-500 to-yellow-600'
-                      : cardData.rank === 4
-                        ? 'bg-gradient-to-r from-purple-500 to-fuchsia-600'
-                        : 'bg-gradient-to-r from-cyan-500 to-sky-600'
-              }`}
-            >
-              {topRankStyle.sparkle} {topRankStyle.special}
-            </span>
-          )}
           <a
             href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
             target="_blank"
@@ -285,45 +167,274 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
         </div>
       </div>
 
-      {/* Essential Data - Enhanced for Top Ranks */}
-      <div
-        className={`grid grid-cols-2 gap-3 ${isTopRank ? 'text-sm' : 'text-xs'}`}
-      >
+      {/* Essential Data */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
         <div
-          className={`rounded-xl text-center ${isTopRank ? 'p-3' : 'p-2'} shadow-lg backdrop-blur-sm ${
+          className={`rounded-xl text-center p-2 shadow-lg backdrop-blur-sm ${
             (latestQuarter?.eps_growth || 0) >= 0
               ? 'bg-gradient-to-br from-green-500 to-emerald-600'
               : 'bg-gradient-to-br from-red-500 to-rose-600'
           }`}
         >
-          <div
-            className={`mb-1 font-bold text-white/90 ${isTopRank ? 'text-xs' : 'text-xs'}`}
-          >
+          <div className="mb-1 font-bold text-white/90 text-xs">
             Growth
           </div>
-          <div
-            className={`font-bold text-white ${isTopRank ? 'text-lg' : 'text-sm'}`}
-          >
+          <div className="font-bold text-white text-sm">
             {formatPercentage(latestQuarter?.eps_growth || 0)}
           </div>
         </div>
-        <div
-          className={`rounded-xl text-center ${isTopRank ? 'p-3' : 'p-2'} shadow-lg backdrop-blur-sm ${
-            isTopRank
-              ? 'bg-gradient-to-br from-slate-600 to-gray-700'
-              : 'bg-white/50 dark:bg-slate-700/60'
-          }`}
-        >
-          <div
-            className={`${isTopRank ? 'text-white/90' : 'text-slate-600 dark:text-slate-300'} mb-1 font-bold ${isTopRank ? 'text-xs' : 'text-xs'}`}
-          >
+        <div className="rounded-xl text-center p-2 shadow-lg backdrop-blur-sm bg-white/50 dark:bg-slate-700/60">
+          <div className="text-slate-600 dark:text-slate-300 mb-1 font-bold text-xs">
             Price
           </div>
-          <div
-            className={`font-bold ${isTopRank ? 'text-lg text-white' : 'text-sm text-slate-800 dark:text-white'}`}
-          >
+          <div className="font-bold text-sm text-slate-800 dark:text-white">
             {formatCurrency(latestQuarter?.price || 0)}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
+  const getTopRankStyle = (rank: number) => {
+    if (rank === 1)
+      return {
+        crown: '👑',
+        glow: 'shadow-2xl shadow-yellow-500/80 hover:shadow-3xl hover:shadow-yellow-400/90',
+        border: 'border-4 border-yellow-400 hover:border-yellow-300',
+        bg: 'bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 dark:from-yellow-800 dark:via-amber-700 dark:to-orange-800',
+        sparkle: '✨',
+        special: '🏆 CHAMPION',
+      };
+    if (rank === 2)
+      return {
+        crown: '🥈',
+        glow: 'shadow-2xl shadow-slate-500/80 hover:shadow-3xl hover:shadow-slate-400/90',
+        border: 'border-4 border-slate-400 hover:border-slate-300',
+        bg: 'bg-gradient-to-br from-slate-200 via-gray-100 to-zinc-200 dark:from-slate-800 dark:via-gray-700 dark:to-zinc-800',
+        sparkle: '🌟',
+        special: '🥈 ELITE',
+      };
+    if (rank === 3)
+      return {
+        crown: '🥉',
+        glow: 'shadow-2xl shadow-orange-500/80 hover:shadow-3xl hover:shadow-orange-400/90',
+        border: 'border-4 border-orange-400 hover:border-orange-300',
+        bg: 'bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-200 dark:from-orange-800 dark:via-amber-700 dark:to-yellow-800',
+        sparkle: '💫',
+        special: '🥉 LEGEND',
+      };
+    if (rank === 4)
+      return {
+        crown: '⭐',
+        glow: 'shadow-2xl shadow-purple-500/80 hover:shadow-3xl hover:shadow-purple-400/90',
+        border: 'border-4 border-purple-400 hover:border-purple-300',
+        bg: 'bg-gradient-to-br from-purple-200 via-pink-100 to-fuchsia-200 dark:from-purple-800 dark:via-pink-700 dark:to-fuchsia-800',
+        sparkle: '🌟',
+        special: '⭐ MASTER',
+      };
+    if (rank === 5)
+      return {
+        crown: '💎',
+        glow: 'shadow-2xl shadow-cyan-500/80 hover:shadow-3xl hover:shadow-cyan-400/90',
+        border: 'border-4 border-cyan-400 hover:border-cyan-300',
+        bg: 'bg-gradient-to-br from-cyan-200 via-blue-100 to-sky-200 dark:from-cyan-800 dark:via-blue-700 dark:to-sky-800',
+        sparkle: '✨',
+        special: '💎 DIAMOND',
+      };
+    return null;
+  };
+
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'TRACK':
+        return {
+          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
+          border: 'border-green-300/60',
+          cardBg:
+            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
+          text: 'text-green-700 dark:text-green-300',
+        };
+      case 'WATCH':
+        return {
+          bg: 'bg-gradient-to-br from-yellow-400 via-orange-400 to-amber-500',
+          border: 'border-yellow-300/60',
+          cardBg:
+            'bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 dark:from-yellow-900/20 dark:via-orange-900/20 dark:to-amber-900/20',
+          text: 'text-yellow-700 dark:text-yellow-300',
+        };
+      case 'STOP':
+        return {
+          bg: 'bg-gradient-to-br from-red-400 via-rose-400 to-pink-500',
+          border: 'border-red-300/60',
+          cardBg:
+            'bg-gradient-to-br from-red-50 via-rose-50 to-pink-50 dark:from-red-900/20 dark:via-rose-900/20 dark:to-pink-900/20',
+          text: 'text-red-700 dark:text-red-300',
+        };
+      default:
+        return {
+          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
+          border: 'border-green-300/60',
+          cardBg:
+            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
+          text: 'text-green-700 dark:text-green-300',
+        };
+    }
+  };
+
+  return (
+    <div className="mb-8">
+      {/* Special Header */}
+      <div className="mb-6 text-center">
+        <div className="relative inline-block">
+          {/* Floating sparkles */}
+          <div className="absolute -top-6 -left-6 animate-ping text-2xl">
+            ✨
+          </div>
+          <div
+            className="absolute -top-4 -right-6 animate-pulse text-xl"
+            style={{ animationDelay: '0.5s' }}
+          >
+            🌟
+          </div>
+          <div
+            className="absolute -bottom-4 -left-4 animate-bounce text-lg"
+            style={{ animationDelay: '1s' }}
+          >
+            💫
+          </div>
+          <div
+            className="absolute -right-4 -bottom-6 animate-spin text-2xl"
+            style={{ animationDuration: '3s' }}
+          >
+            ⭐
+          </div>
+
+          <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 px-8 py-4 shadow-2xl ring-4 shadow-purple-500/40 ring-purple-200 ring-offset-4 ring-offset-white">
+            <span className="animate-bounce text-3xl">👑</span>
+            <h2 className="text-2xl font-bold tracking-wide text-white">
+              TOP 5 ULTIMATE LEGENDS
+            </h2>
+            <span
+              className="animate-bounce text-3xl"
+              style={{ animationDelay: '0.5s' }}
+            >
+              👑
+            </span>
+          </div>
+        </div>
+        <p className="mt-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-lg font-semibold text-transparent">
+          🏆 The Ultimate Elite Circle - Where Champions Reign Supreme 🏆
+        </p>
+      </div>
+
+      {/* Special Box Container */}
+      <div className="rounded-3xl bg-gradient-to-br from-purple-900 via-pink-900 to-red-900 p-4 shadow-2xl ring-4 ring-purple-300/50 ring-offset-4 ring-offset-white">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {top5Data.map((cardData) => {
+            const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
+            const latestQuarter = quarters[0];
+            const statusConfig = getStatusConfig(cardData.active_status);
+            
+            return (
+              <div
+                key={cardData.symbol}
+                className={`relative overflow-hidden rounded-xl border-2 ${statusConfig.border} ${statusConfig.cardBg} shadow-lg p-3 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:rotate-1 hover:shadow-xl`}
+              >
+                <div className="absolute -top-8 -right-8 h-16 w-16 rounded-full bg-white/20 blur-xl" />
+
+                {/* Header */}
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg} shadow-lg transition-all duration-300`}>
+                      <span className="text-xs font-bold text-white">
+                        {cardData.rank}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                        {cardData.symbol}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <a
+                      href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-all hover:scale-110 ${statusConfig.bg} text-white shadow-md`}
+                    >
+                      View 🔗
+                    </a>
+                  </div>
+                </div>
+
+                {/* Status Badge */}
+                <div className="mb-2 flex justify-center">
+                  <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 ${statusConfig.bg} shadow-lg`}>
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-white/80" />
+                    <span className="text-sm font-bold text-white">
+                      {cardData.active_status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-2">
+                  <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-white">
+                    <span>Next Action</span>
+                    <span>{cardData.next_quarter_estimate?.days_until_announcement || 185}d left</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/60 shadow-inner">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${statusConfig.bg} shadow-sm`}
+                      style={{ width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Essential Data */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div
+                    className={`rounded-lg text-center p-1.5 shadow-md backdrop-blur-sm ${
+                      (latestQuarter?.eps_growth || 0) >= 0
+                        ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                        : 'bg-gradient-to-br from-red-500 to-rose-600'
+                    }`}
+                  >
+                    <div className="mb-0.5 font-bold text-white/90 text-xs">
+                      Growth
+                    </div>
+                    <div className="font-bold text-white text-xs">
+                      {formatPercentage(latestQuarter?.eps_growth || 0)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg text-center p-1.5 shadow-md backdrop-blur-sm bg-white/50 dark:bg-slate-700/60">
+                    <div className="text-slate-600 dark:text-slate-300 mb-0.5 font-bold text-xs">
+                      Price
+                    </div>
+                    <div className="font-bold text-xs text-slate-800 dark:text-white">
+                      {formatCurrency(latestQuarter?.price || 0)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -343,53 +454,13 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
 
   const isFirstPage = params.page === 1;
   const hasTopRanks = data.data.some(card => card.rank <= 5);
+  const top5Data = data.data.filter(card => card.rank <= 5);
 
   return (
     <>
-      {/* Show special header only on first page with top 5 ranks */}
-      {isFirstPage && hasTopRanks && (
-        <div className="mb-8 text-center">
-          <div className="relative inline-block">
-            {/* Floating sparkles */}
-            <div className="absolute -top-6 -left-6 animate-ping text-2xl">
-              ✨
-            </div>
-            <div
-              className="absolute -top-4 -right-6 animate-pulse text-xl"
-              style={{ animationDelay: '0.5s' }}
-            >
-              🌟
-            </div>
-            <div
-              className="absolute -bottom-4 -left-4 animate-bounce text-lg"
-              style={{ animationDelay: '1s' }}
-            >
-              💫
-            </div>
-            <div
-              className="absolute -right-4 -bottom-6 animate-spin text-2xl"
-              style={{ animationDuration: '3s' }}
-            >
-              ⭐
-            </div>
-
-            <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 px-8 py-4 shadow-2xl ring-4 shadow-purple-500/40 ring-purple-200 ring-offset-4 ring-offset-white">
-              <span className="animate-bounce text-3xl">👑</span>
-              <h2 className="text-2xl font-bold tracking-wide text-white">
-                TOP 5 ULTIMATE LEGENDS
-              </h2>
-              <span
-                className="animate-bounce text-3xl"
-                style={{ animationDelay: '0.5s' }}
-              >
-                👑
-              </span>
-            </div>
-          </div>
-          <p className="mt-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-lg font-semibold text-transparent">
-            🏆 The Ultimate Elite Circle - Where Champions Reign Supreme 🏆
-          </p>
-        </div>
+      {/* Show special Top 5 box only on first page with top 5 ranks */}
+      {isFirstPage && hasTopRanks && top5Data.length > 0 && (
+        <Top5SpecialBox top5Data={top5Data} />
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">

@@ -138,48 +138,10 @@
 }
 
 /* ============================================================================
-   DEVELOPMENT WARNINGS
+   DEVELOPMENT WARNINGS - REMOVED FOR PRODUCTION
    ============================================================================ */
 
-/*
- * This section includes development-only warnings for legacy class usage.
- * These are stripped out in production builds.
- */
-
-@media screen {
-  .btn-insight-primary::after,
-  .btn-insight-secondary::after,
-  .btn-insight-outline::after,
-  .card-insight::after,
-  .insight-gradient-text::after,
-  .insight-shadow::after,
-  .insight-glow::after {
-    content: '⚠️ Legacy class detected. Migrate to design system variants.';
-    position: absolute;
-    top: -2rem;
-    left: 0;
-    background: orange;
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    z-index: 1000;
-  }
-  
-  /* Show warnings on hover in development */
-  body[data-env="development"] .btn-insight-primary:hover::after,
-  body[data-env="development"] .btn-insight-secondary:hover::after,
-  body[data-env="development"] .btn-insight-outline:hover::after,
-  body[data-env="development"] .card-insight:hover::after,
-  body[data-env="development"] .insight-gradient-text:hover::after,
-  body[data-env="development"] .insight-shadow:hover::after,
-  body[data-env="development"] .insight-glow:hover::after {
-    opacity: 1;
-  }
-}
+/* Development warnings removed for production builds */
 
 /* ============================================================================
    FEATURE FLAGS

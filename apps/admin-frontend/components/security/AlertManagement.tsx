@@ -32,7 +32,7 @@ import {
   MessageSquare,
   RefreshCw,
   Eye,
-  Mute,
+  VolumeX,
   Volume2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -269,7 +269,7 @@ export function AlertManagement() {
     toast.success('Alert resolved');
   };
 
-  const handleMuteAlert = async (alertId: string) => {
+  const handleVolumeXAlert = async (alertId: string) => {
     setAlerts(prev => prev.map(alert => 
       alert.id === alertId 
         ? { 
@@ -329,7 +329,7 @@ export function AlertManagement() {
       case 'active': return AlertTriangle;
       case 'acknowledged': return CheckCircle;
       case 'resolved': return XCircle;
-      case 'muted': return Mute;
+      case 'muted': return VolumeX;
       default: return Bell;
     }
   };
@@ -506,7 +506,7 @@ export function AlertManagement() {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="acknowledged">Acknowledged</SelectItem>
                     <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="muted">Muted</SelectItem>
+                    <SelectItem value="muted">VolumeXd</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -574,7 +574,7 @@ export function AlertManagement() {
                             alert={alert}
                             onAcknowledge={handleAcknowledgeAlert}
                             onResolve={handleResolveAlert}
-                            onMute={handleMuteAlert}
+                            onVolumeX={handleVolumeXAlert}
                           />
                         </div>
                         

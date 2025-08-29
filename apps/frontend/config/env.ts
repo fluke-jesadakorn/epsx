@@ -56,7 +56,6 @@ const envSchema = z.object({
   COOKIE_ENCRYPTION_KEY: z.string().optional(),
   ADMIN_FRONTEND_URL: z.string().url().optional(),
   FRONTEND_URL: z.string().url().optional(),
-  APP_URL: z.string().url().optional(),
   
   // Server-Only Feature Flag Management
   FEATURE_FLAGS_ENDPOINT: z.string().url().optional(),

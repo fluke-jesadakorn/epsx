@@ -33,7 +33,7 @@
     "build:dev": "./scripts/build-dev.sh",
     "build:staging": "./scripts/build-staging.sh",
     "build:prod": "./scripts/build-prod.sh",
-    "build:cloud-run": "BUILD_TARGET=cloud-run ./scripts/build-all.sh",
+    "build:cloud-run": "./scripts/build-turborepo.sh",
     "build:apps": "turbo run build:apps",
     "build:frontend": "turbo run build:frontend",
     "build:admin": "turbo run build:admin",

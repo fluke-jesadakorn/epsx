@@ -8,6 +8,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
+    libpq-dev \
     gcc-x86-64-linux-gnu \
     libc6-dev-amd64-cross \
     && rm -rf /var/lib/apt/lists/* \
@@ -30,7 +31,7 @@ RUN --mount=type=cache,target=/app/target \
     rustup target add x86_64-unknown-linux-gnu && \
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
     CC=x86_64-linux-gnu-gcc \
-    cargo chef cook --release --features container-minimal --recipe-path recipe.json --target x86_64-unknown-linux-gnu
+    cargo chef cook --release --features production --recipe-path recipe.json --target x86_64-unknown-linux-gnu
 
 # Stage 4: Builder (compile application)
 FROM chef AS builder
@@ -44,7 +45,7 @@ RUN --mount=type=cache,target=/app/target \
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
     CC=x86_64-linux-gnu-gcc \
     RUSTFLAGS="-C target-cpu=x86-64 -C link-arg=-s -C opt-level=3" \
-    cargo build --release --features container-minimal --bin epsx --target x86_64-unknown-linux-gnu && \
+    cargo build --release --features production --bin epsx --target x86_64-unknown-linux-gnu && \
     ls -la /app/target/x86_64-unknown-linux-gnu/release/ && \
     cp /app/target/x86_64-unknown-linux-gnu/release/epsx /app/epsx-binary
 

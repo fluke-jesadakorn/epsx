@@ -29,7 +29,7 @@
    ============================================================================ */
 
 /* Import the new modular CSS architecture */
-@import '../styles/index.css';
+@import url('../styles/index.css');
 
 /* ============================================================================
    TEMPORARY MIGRATION BRIDGE
@@ -50,34 +50,10 @@
 }
 
 /* ============================================================================
-   DEVELOPMENT HELPERS
+   DEVELOPMENT HELPERS - REMOVED FOR PRODUCTION
    ============================================================================ */
 
-/*
- * Development-only styles for debugging and migration assistance
- */
-
-/* Add development indicator */
-body::before {
-  content: 'EPSX CSS v2.0 - Modular Architecture';
-  position: fixed;
-  bottom: 0;
-  right: 0;
-  background: rgba(255, 140, 0, 0.9);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: 0.25rem 0 0 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* Show indicator on development builds */
-body[data-env="development"]::before {
-  opacity: 1;
-}
+/* Development indicators removed for production builds */
 
 /* ============================================================================
    PERFORMANCE MONITORING

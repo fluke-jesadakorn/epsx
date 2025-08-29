@@ -8,9 +8,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use base64::Engine;
+#[cfg(feature = "templates")]
 use askama::Template;
 
 use crate::web::auth::AppState;
+#[cfg(feature = "templates")]
 use crate::web::templates::TemplateFactory;
 use crate::infra::firebase_admin::FirebaseUser;
 

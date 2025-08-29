@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle,
   XCircle,
-  Mute,
+  VolumeX,
   MessageSquare,
   Clock,
   AlertTriangle,
@@ -42,22 +42,22 @@ interface AlertAcknowledgmentProps {
   alert: SecurityAlert;
   onAcknowledge: (alertId: string, comment?: string) => Promise<void>;
   onResolve: (alertId: string, resolution?: string) => Promise<void>;
-  onMute: (alertId: string, duration?: string) => Promise<void>;
+  onVolumeX: (alertId: string, duration?: string) => Promise<void>;
 }
 
 export function AlertAcknowledgment({ 
   alert, 
   onAcknowledge, 
   onResolve, 
-  onMute 
+  onVolumeX 
 }: AlertAcknowledgmentProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showAckDialog, setShowAckDialog] = useState(false);
   const [showResolveDialog, setShowResolveDialog] = useState(false);
-  const [showMuteDialog, setShowMuteDialog] = useState(false);
+  const [showVolumeXDialog, setShowVolumeXDialog] = useState(false);
   const [ackComment, setAckComment] = useState('');
   const [resolution, setResolution] = useState('');
-  const [muteDuration, setMuteDuration] = useState('1h');
+  const [muteDuration, setVolumeXDuration] = useState('1h');
 
   const handleAcknowledge = async () => {
     setIsLoading(true);
@@ -85,12 +85,12 @@ export function AlertAcknowledgment({
     }
   };
 
-  const handleMute = async () => {
+  const handleVolumeX = async () => {
     setIsLoading(true);
     try {
-      await onMute(alert.id, muteDuration);
-      setShowMuteDialog(false);
-      setMuteDuration('1h');
+      await onVolumeX(alert.id, muteDuration);
+      setShowVolumeXDialog(false);
+      setVolumeXDuration('1h');
     } catch (error) {
       // Error handling would be done by parent component
     } finally {
@@ -186,16 +186,16 @@ export function AlertAcknowledgment({
                 </DialogContent>
               </Dialog>
 
-              {/* Mute Button */}
-              <Dialog open={showMuteDialog} onOpenChange={setShowMuteDialog}>
+              {/* VolumeX Button */}
+              <Dialog open={showVolumeXDialog} onOpenChange={setShowVolumeXDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="ghost">
-                    <Mute className="w-4 h-4" />
+                    <VolumeX className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Mute Alert</DialogTitle>
+                    <DialogTitle>VolumeX Alert</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
@@ -206,8 +206,8 @@ export function AlertAcknowledgment({
                     </div>
                     
                     <div>
-                      <Label>Mute Duration</Label>
-                      <Select value={muteDuration} onValueChange={setMuteDuration}>
+                      <Label>VolumeX Duration</Label>
+                      <Select value={muteDuration} onValueChange={setVolumeXDuration}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -222,11 +222,11 @@ export function AlertAcknowledgment({
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button onClick={handleMute} disabled={isLoading}>
-                        <Mute className="w-4 h-4 mr-2" />
-                        {isLoading ? 'Muting...' : 'Mute Alert'}
+                      <Button onClick={handleVolumeX} disabled={isLoading}>
+                        <VolumeX className="w-4 h-4 mr-2" />
+                        {isLoading ? 'Muting...' : 'VolumeX Alert'}
                       </Button>
-                      <Button variant="outline" onClick={() => setShowMuteDialog(false)}>
+                      <Button variant="outline" onClick={() => setShowVolumeXDialog(false)}>
                         Cancel
                       </Button>
                     </div>
@@ -284,8 +284,8 @@ export function AlertAcknowledgment({
         return (
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-gray-600 bg-gray-50 border-gray-200">
-              <Mute className="w-3 h-3 mr-1" />
-              Muted
+              <VolumeX className="w-3 h-3 mr-1" />
+              VolumeXd
             </Badge>
             <div className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" />

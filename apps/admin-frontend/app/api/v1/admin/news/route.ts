@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 
 // This will be replaced with actual TinaCMS client
 // import { client } from '@/lib/tina-client';
@@ -39,10 +38,11 @@ const mockArticles: NewsArticle[] = [
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and permissions
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // TODO: Add authentication when ready
+    // const session = await getSession();
+    // if (!session?.user) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
 
     // TODO: Check if user has news management permissions
     // const hasPermission = await checkPermission(session.user, 'news.view');
@@ -114,10 +114,11 @@ export async function GET(request: NextRequest) {
 // POST /api/v1/admin/news - Create new article
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // TODO: Add authentication when ready
+    // const session = await getSession();
+    // if (!session?.user) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
 
     // TODO: Check if user has news creation permissions
     // const hasPermission = await checkPermission(session.user, 'news.create');

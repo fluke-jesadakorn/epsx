@@ -43,7 +43,9 @@ tmp/
 # Rust Build Artifacts
 target/
 **/target/
-Cargo.lock
+# Cargo.lock - needed for reproducible builds in containers
+!Cargo.lock
+!apps/backend/Cargo.lock
 **/*.rs.bk
 *.pdb
 
