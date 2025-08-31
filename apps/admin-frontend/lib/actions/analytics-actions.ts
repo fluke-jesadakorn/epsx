@@ -90,11 +90,14 @@ export async function getAnalyticsDashboardData(
       return { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }
     }
 
-    // Check analytics admin permissions
-    if (!user.admin || !user.admin_modules.includes('analytics_specialist')) {
+    // Check analytics admin permissions using structured permissions system
+    const hasAnalyticsPermission = user.permissions?.includes('epsx:analytics:view') || 
+                                   user.permissions?.includes('*');
+
+    if (!hasAnalyticsPermission) {
       return { 
         success: false, 
-        error: { code: 'FORBIDDEN', message: 'Analytics specialist access required' } 
+        error: { code: 'FORBIDDEN', message: 'Analytics viewing permission required' } 
       }
     }
 

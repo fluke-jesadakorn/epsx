@@ -82,17 +82,17 @@ TEST_EMAIL="your-test-user@example.com"
 ```
 
 ### Required Permissions
-The test user needs these admin modules:
-- `system_admin` - Full system administration
-- `user_management` - User management capabilities
-- `permission_management` - Permission assignment
-- `iam_management` - Identity & access management
-- `analytics` - Analytics and reporting
-- `billing_management` - Billing operations
-- `stock_ranking_management` - Stock ranking features
-- `database_management` - Database operations
-- `developer_portal` - Developer tools
-- `module_management` - Module administration
+The test user needs these structured permissions:
+- `epsx:admin:manage` - Full system administration
+- `epsx:users:manage` - User management capabilities
+- `epsx:permissions:manage` - Permission assignment
+- `epsx:iam:manage` - Identity & access management
+- `epsx:analytics:view` - Analytics and reporting
+- `epsx:billing:manage` - Billing operations
+- `epsx:rankings:manage` - Stock ranking features
+- `epsx:database:manage` - Database operations
+- `epsx:developer:access` - Developer tools
+- `*` - Full administrative access (wildcard permission)
 
 ## 📊 Test Execution
 
@@ -168,7 +168,7 @@ cd apps/admin-frontend/__test__/scripts
 ./assign-permissions.sh
 
 # Verify user exists in database
-psql $DATABASE_URL -c "SELECT email, role, admin_modules FROM users WHERE email = 'jesadakorn.kirtnu@gmail.com';"
+psql $DATABASE_URL -c "SELECT email, role, permissions FROM users WHERE email = 'jesadakorn.kirtnu@gmail.com';"
 ```
 
 #### 2. Backend Not Running
@@ -222,8 +222,8 @@ psql $DATABASE_URL -c "\\d users"
 Edit `all-modules-comprehensive.spec.ts`:
 ```typescript
 const ALL_ADMIN_MODULES = [
-  // Add new module
-  { path: '/new-module', name: 'New Module', module: 'new_module_management' }
+  // Add new module with structured permission
+  { path: '/new-module', name: 'New Module', permission: 'epsx:new-module:view' }
 ];
 ```
 
@@ -231,9 +231,9 @@ const ALL_ADMIN_MODULES = [
 Edit required permissions in `assign-test-permissions.ts`:
 ```typescript
 const REQUIRED_PERMISSIONS = [
-  // Add new permissions
-  'new_module:read',
-  'new_module:write'
+  // Add new structured permissions
+  'epsx:new-module:view',
+  'epsx:new-module:manage'
 ];
 ```
 

@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Serialize, Deserialize};
 
-use crate::dom::entities::{User, Session, Stock};
+use crate::dom::entities::{User, UserPermission, PermissionId, Session, Stock};
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
 use crate::dom::ports::notification::{DomainNotification, NotificationError};
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
@@ -61,7 +61,6 @@ pub trait UserRepository: Send + Sync {
     async fn delete(&self, id: &UserId) -> Result<(), RepoError>;
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepoError>;
     async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError>;
-    async fn find_by_admin_module(&self, admin_module: &str) -> Result<Vec<User>, RepoError>;
     async fn find_by_package_tier(&self, package_tier: &str) -> Result<Vec<User>, RepoError>;
     async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>, RepoError>;
     async fn count(&self) -> Result<u64, RepoError>;
@@ -92,6 +91,65 @@ pub trait UserRepository: Send + Sync {
     async fn count_search_users(&self, filters: &UserSearchFilters) -> Result<u64, RepoError>;
 }
 
+/// Repository for managing individual user permissions
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait UserPermissionRepository: Send + Sync {
+    /// Get all permissions for a specific user
+    async fn get_user_permissions(&self, user_id: &UserId) -> Result<Vec<UserPermission>, RepoError>;
+    
+    /// Get a specific permission by ID
+    async fn get_permission(&self, permission_id: &PermissionId) -> Result<Option<UserPermission>, RepoError>;
+    
+    /// Grant a permission to a user
+    async fn grant_permission(&self, permission: &UserPermission) -> Result<(), RepoError>;
+    
+    /// Revoke a specific permission by ID
+    async fn revoke_permission(&self, permission_id: &PermissionId) -> Result<bool, RepoError>;
+    
+    /// Revoke a specific permission by user and permission string
+    async fn revoke_user_permission(&self, user_id: &UserId, permission: &str) -> Result<bool, RepoError>;
+    
+    /// Update an existing permission
+    async fn update_permission(&self, permission: &UserPermission) -> Result<(), RepoError>;
+    
+    /// Bulk update permissions for a user (replace all)
+    async fn set_user_permissions(&self, user_id: &UserId, permissions: Vec<String>) -> Result<(), RepoError>;
+    
+    /// Check if user has a specific permission
+    async fn has_permission(&self, user_id: &UserId, permission: &str) -> Result<bool, RepoError>;
+    
+    /// Get active permissions for a user (not expired, active=true)
+    async fn get_active_permissions(&self, user_id: &UserId) -> Result<Vec<String>, RepoError>;
+    
+    /// Get permissions with metadata (including granted_by, expires_at, etc.)
+    async fn get_permissions_with_metadata(&self, user_id: &UserId) -> Result<Vec<UserPermission>, RepoError>;
+    
+    /// Cleanup expired permissions
+    async fn cleanup_expired_permissions(&self) -> Result<u64, RepoError>;
+    
+    /// Get permissions granted by a specific user (for admin tracking)
+    async fn get_permissions_granted_by(&self, granted_by: &UserId) -> Result<Vec<UserPermission>, RepoError>;
+    
+    /// Bulk grant permissions (for migration and batch operations)
+    async fn grant_permissions_batch(&self, permissions: Vec<UserPermission>) -> Result<(), RepoError>;
+    
+    /// Get all users who have a specific permission
+    async fn find_users_with_permission(&self, permission: &str) -> Result<Vec<UserId>, RepoError>;
+    
+    /// Get permission statistics for monitoring
+    async fn get_permission_stats(&self) -> Result<PermissionStats, RepoError>;
+}
+
+/// Permission statistics for monitoring
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionStats {
+    pub total_permissions: u64,
+    pub active_permissions: u64,
+    pub expired_permissions: u64,
+    pub users_with_permissions: u64,
+    pub most_common_permissions: Vec<(String, u64)>,
+}
 
 #[async_trait]
 #[cfg_attr(test, automock)]
@@ -334,9 +392,24 @@ impl From<serde_json::Error> for RepoError {
     }
 }
 
+impl From<diesel::result::Error> for RepoError {
+    fn from(err: diesel::result::Error) -> Self {
+        RepoError::QueryError(err.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    #[derive(Debug, Clone)]
+    struct PaymentStats {
+        total_payments: u32,
+        total_revenue: Decimal,
+        pending_payments: u32,
+        completed_payments: u32,
+        failed_payments: u32,
+    }
     
     #[test]
     fn should_create_payment_stats() {

@@ -68,14 +68,14 @@ export async function getAuthorizationUrl() {
     authorizationEndpoint,
     clientId,
     redirectUri,
-    scope: 'openid profile email admin_modules'
+    scope: 'openid profile email permissions'
   });
   
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'openid profile email admin_modules',
+    scope: 'openid profile email permissions',
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
@@ -114,7 +114,7 @@ export async function getAuthUser() {
     const user = await verifyJWTFromCookies();
     
     // Validate admin permissions
-    if (user && !user.admin_modules && user.role !== 'admin') {
+    if (user && !user.permissions && user.role !== 'admin') {
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
@@ -210,7 +210,7 @@ export function redirectToBackendAdminLogin(callbackUrl?: string): never {
   const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
   backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
   backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`);
-  backendAdminLoginUrl.searchParams.set('scope', 'openid profile email admin_modules');
+  backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
   backendAdminLoginUrl.searchParams.set('response_type', 'code');
   if (callbackUrl) {
     backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
@@ -276,8 +276,10 @@ export async function hasAdminModule(module: string): Promise<boolean> {
     const user = await getAuthUser();
     if (!user) return false;
     
-    // Check admin_modules array
-    if (user.admin_modules && user.admin_modules.includes(module)) {
+    // Check structured permissions
+    const platform = user.platform_context || user.primary_platform || 'epsx';
+    const permission = `${platform}:${module}:access`;
+    if (user.permissions && user.permissions.includes(permission)) {
       return true;
     }
     

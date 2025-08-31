@@ -43,13 +43,65 @@ export async function validateAdminAccess(): Promise<boolean> {
       return false;
     }
 
-    // Check if user has any admin modules or is admin
-    const hasAdminAccess = user.admin_modules.length > 0 || 
-                          user.role === 'admin';
+    // Check new permissions system first
+    if (user.permissions?.length > 0) {
+      const hasAdminPermission = user.permissions.some(p => 
+        p.includes(':manage') || 
+        p.includes(':admin') || 
+        p === '*'
+      );
+      if (hasAdminPermission) return true;
+    }
 
-    return hasAdminAccess;
+    // Fallback to role check for admin access
+    return user.role === 'admin';
   } catch (error) {
     console.error('❌ Failed to validate admin access:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user has specific permission
+ */
+export async function hasPermission(permission: string): Promise<boolean> {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return false;
+    }
+
+    return user.permissions?.includes(permission) || 
+           user.permissions?.includes('*') || 
+           false;
+  } catch (error) {
+    console.error('❌ Failed to check permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user has platform-specific permission
+ */
+export async function hasPlatformPermission(
+  resource: string, 
+  action: string, 
+  platform?: string
+): Promise<boolean> {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return false;
+    }
+
+    const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
+    const permission = `${targetPlatform}:${resource}:${action}`;
+
+    return hasPermission(permission);
+  } catch (error) {
+    console.error('❌ Failed to check platform permission:', error);
     return false;
   }
 }

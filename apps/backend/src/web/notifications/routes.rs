@@ -64,7 +64,7 @@ pub fn create_legacy_notification_routes() -> Router<AppState> {
 mod tests {
     use super::*;
     use axum::http::StatusCode;
-    use tower::ServiceExt;
+    use axum::ServiceExt;
     use axum::body::Body;
     use axum::http::{Request, Method};
 

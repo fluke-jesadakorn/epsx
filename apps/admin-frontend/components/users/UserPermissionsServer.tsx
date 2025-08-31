@@ -8,15 +8,16 @@ import { getServerSession } from '@/lib/auth'
 import { getUnifiedUserData } from '@/lib/actions/user-profile-actions'
 import { getPermissionHistory } from '@/lib/actions/user-permissions-actions'
 import { adminCardVariants, cn } from '@/design-system'
-// Session type compatible with Zustand auth system
+// Session type compatible with new permissions system
 interface Session {
   user?: {
     id: string;
     email: string;
     name?: string;
     role: string;
-    adminModules: string[];
     permissions: string[];
+    platform_context?: string;
+    primary_platform?: string;
     packageTier: string;
   };
   isLoggedIn: boolean;
@@ -56,7 +57,7 @@ export async function UserPermissionsServer({ userId }: UserPermissionsServerPro
     )
   }
 
-  const currentUser = currentUserResult
+  const currentUser = session.user
   const user = userResult.data
   const permissionHistory = historyResult.success ? historyResult.data : []
 
@@ -65,10 +66,12 @@ export async function UserPermissionsServer({ userId }: UserPermissionsServerPro
   const totalPermissions = user.customPermissions.length
   const activeProfiles = user.permissionProfiles.filter(p => p.isActive !== false).length
 
-  // Check permissions on server
-  const canManagePermissions = currentUser.admin && 
-    (currentUser.admin_modules.includes('permission_admin') || 
-     currentUser.admin_modules.includes('system_admin'))
+  // Check permissions on server using permissions system
+  const hasPermissionManagement = currentUser.permissions?.includes('epsx:permissions:manage') ||
+                                  currentUser.permissions?.includes('*') ||
+                                  false;
+  
+  const canManagePermissions = hasPermissionManagement || hasLegacyPermissionAccess;
 
   return (
     <div className="space-y-6">

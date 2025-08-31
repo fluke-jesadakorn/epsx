@@ -30,8 +30,9 @@ interface AdminUser {
   email: string;
   name?: string;
   role: string;
-  admin_modules: string[];
   permissions: string[];
+  platform_context?: string;
+  primary_platform?: string;
 }
 
 // Temporary placeholder functions
@@ -63,7 +64,7 @@ export async function fetchUserDetails() {
 
     // Transform AdminUser[] to User[] format for backward compatibility
     const users: User[] = res.data.users.map((u: AdminUser) => ({
-      userId: u.uid,
+      userId: u.id, // Fixed: use 'id' instead of 'uid'
       email: u.email,
       role: (u.role || 'user') as UserRole,
       tokenBalance: 0, // Not available in AdminUser, set default

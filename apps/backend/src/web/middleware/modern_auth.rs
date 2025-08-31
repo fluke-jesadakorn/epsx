@@ -11,6 +11,7 @@ use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{JWT, User, jwt};
+use crate::auth::jwt::CROSS_PLATFORM_PERMISSION_SERVICE;
 use crate::dom::values::UserId;
 use crate::config::env::get_env_var;
 
@@ -20,11 +21,9 @@ struct AdminFrontendTokenClaims {
     pub sub: String,
     pub email: String,
     pub name: String,
-    pub role: String,
     pub permissions: Vec<String>,
     pub package_tier: String,
     pub firebase_uid: String,
-    pub admin_modules: Option<Vec<String>>,
     pub iat: i64,
     pub exp: i64,
 }
@@ -41,17 +40,15 @@ struct AccessTokenClaims {
     pub nbf: i64,
     pub scope: String,
     pub email: String,
-    pub role: String,
     pub permissions: Vec<String>,
-    pub admin_modules: Vec<String>,
     pub package_tier: String,
 }
 
 /**
- * Modern Auth.js v5 JWT middleware
- * Replaces complex Casbin middleware with simple JWT validation
+ * Enhanced cross-platform JWT middleware with structured permissions
+ * Supports Platform:Resource:Action permission format and platform context
  */
-pub async fn modern_jwt_auth_middleware(
+pub async fn cross_platform_auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, Response> {
@@ -61,6 +58,9 @@ pub async fn modern_jwt_auth_middleware(
     if is_public_endpoint(&path) {
         return Ok(next.run(request).await);
     }
+
+    // Extract platform context from request
+    let platform_context = extract_platform_context(&request);
 
     // Extract JWT token from Authorization header
     let auth_header = request
@@ -86,7 +86,7 @@ pub async fn modern_jwt_auth_middleware(
     // Try HMAC256 validation first (for admin frontend tokens), then RSA256 (for other tokens)
     let user = match validate_hmac_token(token) {
         Ok(user) => {
-            info!("HMAC256 token validation successful for admin endpoint: {}", path);
+            info!("HMAC256 token validation successful for endpoint: {}", path);
             user
         }
         Err(hmac_error) => {
@@ -96,33 +96,50 @@ pub async fn modern_jwt_auth_middleware(
                     info!("RSA256 token validation successful for endpoint: {}", path);
                     user
                 }
-                Err(jwt::Error::Expired) => {
+                Err(crate::auth::jwt::Error::Expired) => {
                     warn!("Expired token for endpoint: {}", path);
                     return Err(StatusCode::UNAUTHORIZED.into_response());
                 }
-                Err(jwt::Error::Invalid(msg)) => {
+                Err(crate::auth::jwt::Error::Invalid(msg)) => {
                     error!("Token validation failed for endpoint {}: HMAC error: {}, RSA error: {}", path, hmac_error, msg);
                     return Err(StatusCode::UNAUTHORIZED.into_response());
                 }
-                Err(jwt::Error::MissingClaims(msg)) => {
+                Err(crate::auth::jwt::Error::MissingClaims(msg)) => {
                     warn!("Missing claims in token for endpoint {}: {}", path, msg);
                     return Err(StatusCode::UNAUTHORIZED.into_response());
                 }
-                Err(jwt::Error::InvalidSignature) => {
+                Err(crate::auth::jwt::Error::InvalidSignature) => {
                     error!("Invalid token signature for endpoint {}: Both HMAC and RSA validation failed", path);
                     return Err(StatusCode::UNAUTHORIZED.into_response());
                 }
-                Err(jwt::Error::PermissionDenied) => {
+                Err(crate::auth::jwt::Error::PermissionDenied) => {
                     warn!("Permission denied for endpoint: {}", path);
                     return Err(StatusCode::FORBIDDEN.into_response());
                 }
-                Err(jwt::Error::NotYetValid) => {
+                Err(crate::auth::jwt::Error::NotYetValid) => {
                     warn!("Token not yet valid for endpoint: {}", path);
                     return Err(StatusCode::UNAUTHORIZED.into_response());
                 }
             }
         }
     };
+
+    // 🔥 PLATFORM ACCESS VALIDATION
+    if let Some(platform) = &platform_context {
+        if !CROSS_PLATFORM_PERMISSION_SERVICE.can_access_platform(&user, platform) {
+            warn!(
+                "Platform access denied for user {} to platform '{}' at endpoint: {}", 
+                user.email, platform, path
+            );
+            return Err((StatusCode::FORBIDDEN, 
+                format!("Access denied to platform: {}", platform)).into_response());
+        }
+        
+        info!(
+            "Platform access granted for user {} to platform '{}' at endpoint: {}", 
+            user.email, platform, path
+        );
+    }
 
     // Check admin access for admin endpoints
     if path.starts_with("/api/admin") || path.starts_with("/api/v1/admin") {
@@ -140,14 +157,22 @@ pub async fn modern_jwt_auth_middleware(
         );
     }
 
-    // Check specific permission requirements
-    if let Some(required_permission) = get_required_permission(&path) {
-        if !JWT.has_permission(&user, &required_permission) {
-            warn!(
-                "Permission '{}' denied for user {} to endpoint: {}", 
-                required_permission, user.email, path
+    // 🔥 STRUCTURED PERMISSION VALIDATION (Legacy support removed)
+    if let Some(structured_permission) = get_structured_permission(&path, &platform_context) {
+        if let Some((platform, resource, action)) = CROSS_PLATFORM_PERMISSION_SERVICE.parse_permission(&structured_permission) {
+            if !CROSS_PLATFORM_PERMISSION_SERVICE.validate_platform_permission(&user, &platform, &resource, &action) {
+                warn!(
+                    "Structured permission '{}' denied for user {} to endpoint: {}", 
+                    structured_permission, user.email, path
+                );
+                return Err((StatusCode::FORBIDDEN, 
+                    format!("Permission denied: {}", structured_permission)).into_response());
+            }
+            
+            info!(
+                "Structured permission '{}' granted for user {} at endpoint: {}", 
+                structured_permission, user.email, path
             );
-            return Err(StatusCode::FORBIDDEN.into_response());
         }
     }
 
@@ -162,17 +187,34 @@ pub async fn modern_jwt_auth_middleware(
         }
     }
 
+    // Add platform context to request extensions
+    if let Some(platform) = platform_context {
+        request.extensions_mut().insert(PlatformContext { platform });
+    }
+
     // Add user to request extensions for use in handlers
     let user_email = user.email.clone();
     request.extensions_mut().insert(user);
 
     info!(
-        "Authenticated user {} accessing endpoint: {}", 
+        "Cross-platform authentication successful for user {} accessing endpoint: {}", 
         user_email, 
         path
     );
 
     Ok(next.run(request).await)
+}
+
+/**
+ * Legacy Modern Auth.js v5 JWT middleware (kept for backward compatibility)
+ * Use cross_platform_auth_middleware for new implementations
+ */
+pub async fn modern_jwt_auth_middleware(
+    request: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    // Delegate to cross-platform middleware for backward compatibility
+    cross_platform_auth_middleware(request, next).await
 }
 
 /**
@@ -204,26 +246,81 @@ fn is_public_endpoint(path: &str) -> bool {
     public_endpoints.iter().any(|&endpoint| path.starts_with(endpoint))
 }
 
-/**
- * Get required permission for specific endpoints
- * Replaces complex Casbin policy rules with simple mapping
- */
-fn get_required_permission(path: &str) -> Option<String> {
-    let permission_map = [
-        ("/api/v1/analytics", "analytics:read"),
-        ("/api/v1/stock", "stock:read"),
-        ("/api/v1/user/profile", "user:read"),
-        ("/api/v1/user/settings", "user:write"),
-        ("/api/v1/payment", "payment:read"),
-        ("/api/v1/modules", "modules:read"),
-    ];
-
-    for (endpoint_prefix, permission) in &permission_map {
-        if path.starts_with(endpoint_prefix) {
-            return Some(permission.to_string());
+/// Extract platform context from request
+fn extract_platform_context(request: &Request) -> Option<String> {
+    // Method 1: X-Platform header
+    if let Some(platform) = request.headers().get("X-Platform") {
+        if let Ok(platform_str) = platform.to_str() {
+            return Some(platform_str.to_string());
         }
     }
+    
+    // Method 2: Subdomain detection  
+    if let Some(host) = request.headers().get("HOST") {
+        if let Ok(host_str) = host.to_str() {
+            if host_str.starts_with("pay.") || host_str.contains("epsx-pay") {
+                return Some("epsx-pay".to_string());
+            }
+            if host_str.starts_with("token.") || host_str.contains("epsx-token") {
+                return Some("epsx-token".to_string());
+            }
+        }
+    }
+    
+    // Method 3: Path-based detection
+    let path = request.uri().path();
+    if path.starts_with("/api/pay/") || path.starts_with("/api/v1/pay/") {
+        return Some("epsx-pay".to_string());
+    }
+    if path.starts_with("/api/token/") || path.starts_with("/api/v1/token/") {
+        return Some("epsx-token".to_string());
+    }
+    
+    // Default to EPSX platform
+    Some("epsx".to_string())
+}
 
+
+/**
+ * Get structured permission based on platform context and path
+ */
+fn get_structured_permission(path: &str, platform_context: &Option<String>) -> Option<String> {
+    let platform = platform_context.as_deref().unwrap_or("epsx");
+    
+    let structured_permission_map = [
+        // EPSX Platform
+        ("/api/v1/analytics", ("epsx", "analytics", "read")),
+        ("/api/v1/users", ("epsx", "users", "read")), 
+        ("/api/admin/users", ("epsx", "users", "manage")),
+        
+        // EPSX Pay Platform
+        ("/api/pay/transactions", ("epsx-pay", "transactions", "read")),
+        ("/api/pay/wallets", ("epsx-pay", "wallets", "read")),
+        ("/api/pay/admin/transactions", ("epsx-pay", "transactions", "manage")),
+        ("/api/v1/pay/transactions", ("epsx-pay", "transactions", "read")),
+        ("/api/v1/pay/wallets", ("epsx-pay", "wallets", "read")),
+        
+        // EPSX Token Platform  
+        ("/api/token/governance", ("epsx-token", "governance", "vote")),
+        ("/api/token/treasury", ("epsx-token", "treasury", "view")),
+        ("/api/token/admin/proposals", ("epsx-token", "governance", "propose")),
+        ("/api/v1/token/governance", ("epsx-token", "governance", "vote")),
+        ("/api/v1/token/treasury", ("epsx-token", "treasury", "view")),
+    ];
+    
+    for (path_pattern, (default_platform, resource, action)) in &structured_permission_map {
+        if path.starts_with(path_pattern) {
+            // Use detected platform or default platform from mapping
+            let resolved_platform = if platform == "epsx" && *default_platform != "epsx" {
+                *default_platform
+            } else {
+                platform
+            };
+            
+            return Some(format!("{}:{}:{}", resolved_platform, resource, action));
+        }
+    }
+    
     None
 }
 
@@ -303,25 +400,78 @@ pub async fn request_logging_middleware(
     Ok(response)
 }
 
-/// Simple authentication context for realtime handlers
+/// Platform context for cross-platform operations
+#[derive(Debug, Clone)]
+pub struct PlatformContext {
+    pub platform: String,
+}
+
+/// Simple authentication context for realtime handlers with cross-platform support
 #[derive(Debug, Clone)]
 pub struct AuthCtx {
     pub user_id: UserId,
     pub email: String,
     pub package_tier: String,
     pub permissions: Vec<String>,
-    pub admin_modules: Vec<String>,
+    // Cross-platform fields
+    pub platforms: Vec<String>,
+    pub primary_platform: String,
+    pub platform_context: Option<String>,
 }
 
-impl From<User> for AuthCtx {
-    fn from(user: User) -> Self {
+impl AuthCtx {
+    /// Create AuthCtx from User with default permissions (permissions need to be fetched separately)
+    pub fn from_user_without_permissions(user: User) -> Self {
         Self {
             user_id: UserId::from(user.id),
             email: user.email,
             package_tier: user.package_tier,
-            permissions: user.permissions,
-            admin_modules: user.admin_modules,
+            permissions: vec![], // Will be populated separately
+            
+            // Cross-platform fields
+            platforms: user.platforms,
+            primary_platform: user.primary_platform,
+            platform_context: user.platform_context,
         }
+    }
+    
+    /// Create AuthCtx from JWT token with full permission fetching
+    pub async fn from_jwt_token(token: &str, permission_service: &crate::app::services::PermissionApplicationService) -> Result<Self, StatusCode> {
+        use crate::auth::jwt::JWT;
+        
+        // Extract user from JWT
+        let user = match JWT.extract_user(token) {
+            Ok(user) => user,
+            Err(_) => return Err(StatusCode::UNAUTHORIZED),
+        };
+        
+        // Fetch permissions from separate table using firebase_uid
+        let permissions = permission_service
+            .get_user_permissions(user.firebase_uid.as_deref().unwrap_or(""))
+            .await
+            .unwrap_or_default();
+            
+        // Apply timestamp validation to filter expired permissions
+        use crate::auth::permissions::filter_valid_permissions;
+        let valid_permissions = filter_valid_permissions(&permissions);
+        
+        Ok(Self {
+            user_id: UserId::from(user.id),
+            email: user.email,
+            package_tier: user.package_tier,
+            permissions: valid_permissions,
+            
+            // Cross-platform fields
+            platforms: user.platforms,
+            primary_platform: user.primary_platform,
+            platform_context: user.platform_context,
+        })
+    }
+}
+
+impl From<User> for AuthCtx {
+    fn from(user: User) -> Self {
+        Self::from_user_without_permissions(user)
     }
 }
 
@@ -354,30 +504,42 @@ where
             }
         };
 
-        // Validate JWT and extract user
-        match JWT.extract_user(token) {
-            Ok(user) => Ok(AuthCtx::from(user)),
-            Err(jwt::Error::Expired) => {
+        // Validate JWT and extract user with permissions
+        use crate::auth::jwt::JWT;
+        
+        match JWT.decode_with_permissions(token) {
+            Ok((user, permissions)) => Ok(AuthCtx {
+                user_id: UserId::from(user.id),
+                email: user.email,
+                package_tier: user.package_tier,
+                permissions,
+                
+                // Cross-platform fields
+                platforms: user.platforms,
+                primary_platform: user.primary_platform,
+                platform_context: user.platform_context,
+            }),
+            Err(crate::auth::jwt::Error::Expired) => {
                 warn!("Expired token for AuthCtx extraction");
                 Err(StatusCode::UNAUTHORIZED)
             }
-            Err(jwt::Error::Invalid(msg)) => {
+            Err(crate::auth::jwt::Error::Invalid(msg)) => {
                 warn!("Invalid token for AuthCtx extraction: {}", msg);
                 Err(StatusCode::UNAUTHORIZED)
             }
-            Err(jwt::Error::MissingClaims(msg)) => {
+            Err(crate::auth::jwt::Error::MissingClaims(msg)) => {
                 warn!("Missing claims in token for AuthCtx extraction: {}", msg);
                 Err(StatusCode::UNAUTHORIZED)
             }
-            Err(jwt::Error::InvalidSignature) => {
+            Err(crate::auth::jwt::Error::InvalidSignature) => {
                 warn!("Invalid signature in token for AuthCtx extraction");
                 Err(StatusCode::UNAUTHORIZED)
             }
-            Err(jwt::Error::PermissionDenied) => {
+            Err(crate::auth::jwt::Error::PermissionDenied) => {
                 warn!("Permission denied for AuthCtx extraction");
                 Err(StatusCode::FORBIDDEN)
             }
-            Err(jwt::Error::NotYetValid) => {
+            Err(crate::auth::jwt::Error::NotYetValid) => {
                 warn!("Token not yet valid for AuthCtx extraction");
                 Err(StatusCode::UNAUTHORIZED)
             }
@@ -407,11 +569,13 @@ fn validate_hmac_token(token: &str) -> Result<User, Box<dyn std::error::Error + 
             id: claims.sub,
             email: claims.email,
             name: Some(claims.name),
-            permissions: claims.permissions,
-            admin_modules: claims.admin_modules.unwrap_or_default(),
             package_tier: claims.package_tier,
-            role: claims.role,
             firebase_uid: Some(sub),
+            
+            // Cross-platform defaults for HMAC tokens
+            platforms: vec!["epsx".to_string()],
+            primary_platform: "epsx".to_string(),
+            platform_context: None,
         });
     }
     
@@ -425,10 +589,12 @@ fn validate_hmac_token(token: &str) -> Result<User, Box<dyn std::error::Error + 
         id: claims.sub,
         email: claims.email,
         name: None,
-        permissions: claims.permissions,
-        admin_modules: claims.admin_modules,
         package_tier: claims.package_tier,
-        role: claims.role,
         firebase_uid: Some(sub),
+        
+        // Cross-platform defaults for HMAC tokens
+        platforms: vec!["epsx".to_string()],
+        primary_platform: "epsx".to_string(),
+        platform_context: None,
     })
 }

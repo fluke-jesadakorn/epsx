@@ -88,7 +88,7 @@ test.describe('🎯 Analytics Command Center - Admin Authentication Complete Flo
     
     // Verify admin scope
     const scopeValue = await form.locator('input[name="scope"]').getAttribute('value');
-    expect(scopeValue).toContain('admin_modules');
+    expect(scopeValue).toContain('permissions');
     console.log('✅ Admin OIDC form structure validated with admin scope');
 
     // Step 6: Fill in admin login credentials
@@ -387,7 +387,7 @@ test.describe('🎯 Analytics Command Center - Admin Authentication Complete Flo
     
     expect(codeChallenge).toBeTruthy();
     expect(codeChallengeMethod).toBe('S256');
-    expect(scope).toContain('admin_modules');
+    expect(scope).toContain('permissions');
     console.log('✅ Admin PKCE parameters validated:', { 
       clientId, 
       scope,

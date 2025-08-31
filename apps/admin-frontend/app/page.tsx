@@ -84,6 +84,10 @@ async function DashboardContent() {
               <Users className="h-5 w-5 text-blue-500" />
               <span className="text-gray-900 dark:text-white">Manage Users</span>
             </Link>
+            <Link href="/permissions" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors">
+              <Shield className="h-5 w-5 text-blue-500" />
+              <span className="text-gray-900 dark:text-white">Manage Permissions</span>
+            </Link>
             <Link href="/analytics" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors">
               <TrendingUp className="h-5 w-5 text-green-500" />
               <span className="text-gray-900 dark:text-white">View Analytics</span>

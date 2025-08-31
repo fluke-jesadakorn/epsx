@@ -24,7 +24,7 @@ test.describe('Admin Frontend Comprehensive Tests', () => {
     // Verify OAuth parameters
     await expect(page).toHaveURL(/.*localhost:8080.*oauth\/authorize.*/);
     await expect(page.getByText('epsx-admin-frontend')).toBeVisible();
-    await expect(page.getByText('admin_modules')).toBeVisible();
+    await expect(page.getByText('permissions')).toBeVisible();
     await expect(page.getByText('✅ Enabled')).toBeVisible(); // PKCE
     
     // Login
@@ -36,7 +36,7 @@ test.describe('Admin Frontend Comprehensive Tests', () => {
     await expect(page).toHaveURL(ADMIN_URL);
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
     await expect(page.getByText('info@epsx.io')).toBeVisible();
-    await expect(page.getByText('10 modules')).toBeVisible();
+    await expect(page.getByText('10 permissions')).toBeVisible();
     
     // Test dashboard stats
     await expect(page.getByText('Total Users')).toBeVisible();
@@ -144,7 +144,7 @@ test.describe('Admin Frontend Comprehensive Tests', () => {
     
     // Check user profile information
     await expect(page.getByText('info@epsx.io')).toBeVisible();
-    await expect(page.getByText('10 modules')).toBeVisible();
+    await expect(page.getByText('10 permissions')).toBeVisible();
     await expect(page.locator('div').filter({ hasText: /^Online$/ }).locator('span')).toBeVisible();
     
     // Check user avatar/initial in user profile section

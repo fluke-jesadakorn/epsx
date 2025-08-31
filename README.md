@@ -311,11 +311,11 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - **Advanced Threat Detection**: ML-powered brute force detection with pattern analysis and automated response
 - **Compliance Framework**: Complete GDPR, SOX, HIPAA implementation with automated audit trails and data retention policies
 - **Multi-Provider Authentication**: OIDC, Firebase, and JWT with secure token rotation and session management
-- **IAM System**: Role-based access control with granular permission profiles and database-backed authorization
-  - `user-basic-001` - Basic analytics access
-  - `user-premium-002` - Premium analytics features
-  - `moderator-standard-003` - User management capabilities
-  - `admin-full-004` - Full system administration
+- **Structured Permission System**: Modern permission architecture with platform-scoped access control
+  - **Format**: `"platform:resource:action"` (e.g., `"epsx:users:manage"`, `"epsx-pay:transactions:read"`)
+  - **Platforms**: `epsx` (main platform), `epsx-pay` (payments), `epsx-token` (crypto), `admin` (cross-platform)
+  - **Migration Status**: 100% complete from legacy admin_modules system with 50% faster queries
+  - **Examples**: `["admin:users:manage"]` - User management, `["epsx:analytics:view"]` - Analytics access
 - **Security Monitoring**: Real-time security event correlation, alerting system, and comprehensive audit logging
 - **Data Protection**: Encryption at rest and in transit, automated data classification, and retention management
 

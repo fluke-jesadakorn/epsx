@@ -267,14 +267,20 @@ async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(
         })?
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Check if user has admin role
-    use crate::auth::roles::Role;
-    match user.role() {
-        Role::Admin => Ok(()),
-        _ => {
-            tracing::warn!("Non-admin user {} attempted admin operation", user_id.to_string());
-            Err(StatusCode::FORBIDDEN)
+    // Check if user has admin permissions via PermissionApplicationService
+    let user_permissions = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch permissions for admin check {}: {:?}", user.id(), e);
+            return Err(StatusCode::FORBIDDEN);
         }
+    };
+    
+    if user_permissions.iter().any(|p| p.starts_with("admin:")) {
+        Ok(())
+    } else {
+        tracing::warn!("Non-admin user {} attempted admin operation", user_id.to_string());
+        Err(StatusCode::FORBIDDEN)
     }
 }
 

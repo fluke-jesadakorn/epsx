@@ -7,7 +7,9 @@ interface AdminUser {
   email: string;
   name?: string;
   roles: string[];
-  admin_modules: string[];
+  permissions: string[];
+  platform_context?: string;
+  primary_platform?: string;
   status: 'active' | 'inactive' | 'disabled';
   created_at: string;
   updated_at: string;

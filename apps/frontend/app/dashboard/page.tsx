@@ -14,20 +14,25 @@ export default async function DashboardPage() {
     redirectToBackendLogin('/dashboard');
   }
 
-  // Transform custom session data to the expected format
+  // Transform session data to structured format
   const user = {
-    user_id: session.user.firebase_uid || session.user.id || '',
+    id: session.user.id || '',
     email: session.user.email || '',
-    role: session.user.role || 'user',
-    permissions: session.user.permissions || ['user:read'],
+    name: session.user.name || session.user.email?.split('@')[0] || 'User',
+    permissions: session.user.permissions || ['epsx:analytics:view'],
     package_tier: session.user.package_tier || 'FREE',
-    admin_modules: [], // Frontend users don't have admin modules
-    name: session.user.name || session.user.email || '',
+    firebase_uid: session.user.firebase_uid,
+    
+    // Cross-platform fields
+    platforms: session.user.platforms || ['epsx'],
+    primary_platform: session.user.primary_platform || 'epsx',
+    platform_context: session.user.platform_context,
   };
 
   const permissions = {
-    role: user.role,
     permissions: user.permissions,
+    platforms: user.platforms,
+    platform_context: user.platform_context,
   };
 
   // Mock dashboard data for now - you can replace this with API calls using the session
@@ -46,7 +51,7 @@ export default async function DashboardPage() {
   console.log('Dashboard: User session loaded for', user.email, {
     package_tier: user.package_tier,
     permissions_count: user.permissions?.length || 0,
-    role: user.role,
+    permissions: user.permissions,
   });
 
   return (

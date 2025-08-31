@@ -86,7 +86,7 @@ test.describe('Comprehensive Authentication Tests', () => {
       
       // Verify admin scope
       await expect(page.getByText('epsx-admin-frontend')).toBeVisible();
-      await expect(page.getByText('admin_modules')).toBeVisible();
+      await expect(page.getByText('permissions')).toBeVisible();
       
       // Fill login form
       await page.getByRole('textbox', { name: 'Email' }).fill(TEST_CREDENTIALS.email);

@@ -11,7 +11,7 @@ use crate::infra::db::diesel::DbPool;
 use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::ports::repositories::{
-    SessionRepository, UserRepository, AuditRepository, 
+    SessionRepository, UserRepository, UserPermissionRepository, AuditRepository, 
     ModuleRepository, UsageRepository
 };
 use crate::infra::firebase_admin::FirebaseAdmin;
@@ -19,6 +19,7 @@ use crate::infra::firebase_admin::FirebaseAdmin;
 use crate::infra::AppContainer;
 use crate::infra::cache::Cache;
 use crate::infra::services::notification_service::NotificationService;
+use crate::app::services::PermissionApplicationService;
 
 use crate::web::user::handlers::{
     // Core Authentication
@@ -46,6 +47,7 @@ pub struct AppState {
     pub user_mgmt_uc: Arc<UserMgmtUC>,
     pub session_repo: Arc<dyn SessionRepository>,
     pub user_repo: Arc<dyn UserRepository>,
+    pub user_permission_repo: Arc<dyn UserPermissionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
     pub module_repo: Arc<dyn ModuleRepository>,
     pub usage_repo: Arc<dyn UsageRepository>,
@@ -54,6 +56,8 @@ pub struct AppState {
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
     pub notification_service: Arc<dyn NotificationService>,
+    // Clean architecture services
+    pub permission_application_service: Arc<PermissionApplicationService>,
 }
 
 impl AppState {
@@ -62,6 +66,7 @@ impl AppState {
         user_mgmt_uc: Arc<UserMgmtUC>,
         session_repo: Arc<dyn SessionRepository>,
         user_repo: Arc<dyn UserRepository>,
+        user_permission_repo: Arc<dyn UserPermissionRepository>,
         audit_repo: Arc<dyn AuditRepository>,
         module_repo: Arc<dyn ModuleRepository>,
         usage_repo: Arc<dyn UsageRepository>,
@@ -72,12 +77,15 @@ impl AppState {
         _security_cache: Option<()>, // Removed security_cache
         _brute_force_service: Option<()>, // Removed brute_force_service
         notification_service: Arc<dyn NotificationService>,
+        // Clean architecture services
+        permission_application_service: Arc<PermissionApplicationService>,
     ) -> Self {
         Self {
             auth_uc,
             user_mgmt_uc,
             session_repo,
             user_repo,
+            user_permission_repo,
             audit_repo,
             module_repo,
             usage_repo,
@@ -86,6 +94,8 @@ impl AppState {
             db_pool,
             cache,
             notification_service,
+            // Clean architecture services
+            permission_application_service,
         }
     }
 }

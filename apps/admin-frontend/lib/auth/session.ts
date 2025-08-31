@@ -68,8 +68,9 @@ export function createUserSession(
     email: userinfo.email,
     name: userinfo.name || userinfo.display_name,
     role: userinfo.role || 'user',
-    admin_modules: userinfo.admin_modules || [],
-    permissions: userinfo.permissions || ['user:read'],
+    permissions: userinfo.permissions || ['epsx:user:read'],
+    platform_context: userinfo.platform_context || 'epsx',
+    primary_platform: userinfo.primary_platform || 'epsx',
     package_tier: userinfo.package_tier || 'FREE',
     firebase_uid: userinfo.firebase_uid || userinfo.sub,
   };

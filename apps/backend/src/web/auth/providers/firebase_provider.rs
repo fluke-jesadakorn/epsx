@@ -208,29 +208,31 @@ impl AuthProvider for FirebaseProvider {
         let email_parsed = crate::dom::values::Email::new(email.unwrap_or_default())
             .map_err(|_| AuthProviderError::InvalidToken)?;
 
-        Ok(UserClaims {
-            user_id: user_id_parsed,
-            email: email_parsed,
-            role: crate::auth::roles::Role::User, // Default role, should be looked up
-            admin_modules: vec![], // No admin modules by default
-            permissions: vec!["read".to_string()], // Default permission
-            provider_user_id: user_id.to_string(),
-            provider: ProviderType::Firebase,
-            expires_at: chrono::DateTime::<chrono::Utc>::from_timestamp(exp_timestamp as i64, 0)
+        // Create UserClaims with default permissions
+        use crate::auth::permissions::PermissionSets;
+        let default_permissions = PermissionSets::basic_user(); // Default permissions for Firebase users
+        
+        let mut claims = UserClaims::new(
+            user_id_parsed,
+            email_parsed,
+            default_permissions,
+            user_id.to_string(),
+            ProviderType::Firebase,
+            chrono::DateTime::<chrono::Utc>::from_timestamp(exp_timestamp as i64, 0)
                 .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::hours(1)),
-            iat: iat_timestamp,
-            exp: exp_timestamp,
-            subscription_tier: None,
-            extra_claims: {
-                let mut extra = HashMap::new();
-                if let Some(n) = name {
-                    extra.insert("name".to_string(), serde_json::Value::String(n));
-                }
-                extra.insert("email_verified".to_string(), serde_json::Value::Bool(email_verified));
-                extra.insert("firebase_uid".to_string(), serde_json::Value::String(user_id.to_string()));
-                extra
-            },
-        })
+            iat_timestamp,
+            exp_timestamp,
+            None,
+        );
+        
+        // Add extra claims
+        if let Some(n) = name {
+            claims = claims.with_claim("name".to_string(), serde_json::Value::String(n));
+        }
+        claims = claims.with_claim("email_verified".to_string(), serde_json::Value::Bool(email_verified));
+        claims = claims.with_claim("firebase_uid".to_string(), serde_json::Value::String(user_id.to_string()));
+        
+        Ok(claims)
     }
 
     async fn refresh_token(&self, _refresh_token: &str) -> Result<TokenPair, AuthProviderError> {

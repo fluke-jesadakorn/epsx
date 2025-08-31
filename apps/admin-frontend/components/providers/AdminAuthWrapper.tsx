@@ -50,16 +50,27 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
     redirectToBackendAdminLogin();
   }
   
-  // Check if user has admin access
+  // Check if user has admin access using new permissions system
   const user = sessionData.user;
-  const hasAdminAccess = user.role === 'admin' || 
-                        user.role === 'moderator' || 
-                        (user.admin_modules && user.admin_modules.length > 0);
+  
+  // Check permissions system
+  const hasPermissionAccess = user.permissions?.some((p: string) => 
+    p.includes(':manage') || 
+    p.includes(':admin') || 
+    p === '*'
+  ) || false;
+  
+  // Check role-based access
+  const hasRoleAccess = user.role === 'admin' || user.role === 'moderator';
+  
+  const hasAdminAccess = hasPermissionAccess || hasRoleAccess;
   
   if (!hasAdminAccess) {
-    // For now, allow users who successfully authenticated through OAuth admin flow
-    // TODO: Add proper admin role assignment in backend
-    console.warn('⚠️ AdminAuthWrapper: Admin access granted based on OAuth authentication - user should have proper admin role assigned');
+    console.warn('⚠️ AdminAuthWrapper: User lacks admin permissions', {
+      permissions: user.permissions,
+      role: user.role
+    });
+    redirect('/access-denied?reason=insufficient_admin_permissions');
   }
   
   // For protected routes, render with authentication and layout

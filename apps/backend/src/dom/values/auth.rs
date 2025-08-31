@@ -145,9 +145,7 @@ impl PermissionGroups {
             "billing".to_string(),
             "advanced_filters".to_string(),
         ]);
-        groups.insert("guest".to_string(), vec![
-            "view_eps".to_string(),
-        ]);
+        // Guest role removed - permissions integrated into user role
         
         Self { groups }
     }

@@ -10,6 +10,9 @@ use crate::infra::{
     firebase_admin::FirebaseAdmin,
 };
 use crate::app::use_cases::{AuthUC, UserMgmtUC};
+use crate::dom::services::PermissionService;
+use crate::infra::services::permission_infrastructure::PermissionInfrastructureService;
+use crate::app::services::PermissionApplicationService;
 
 /// Refined AppContainer using focused modules instead of God Object pattern
 #[derive(Clone)]
@@ -24,10 +27,15 @@ pub struct AppContainer {
     pub db_pool: Arc<DbPool>,
     pub infra: crate::infra::InfraFactory,
     pub user_repo: Arc<dyn UserRepository>,
+    pub user_permission_repo: Arc<dyn UserPermissionRepository>,
     pub session_repo: Arc<dyn SessionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
     pub stock_repo: Arc<dyn StockRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
+    // Permission services (clean architecture)
+    pub permission_service: Arc<PermissionService>,
+    pub permission_infrastructure_service: Arc<PermissionInfrastructureService>,
+    pub permission_application_service: Arc<PermissionApplicationService>,
     // Removed admin_module_service - using simple roles
 }
 
@@ -56,12 +64,14 @@ impl AppContainer {
             self.database.user_repo.clone(),
             self.database.session_repo.clone(),
             self.services.firebase_admin.clone(),
+            self.services.permission_application_service.clone(),
         ));
         
         let user_mgmt_uc = Arc::new(UserMgmtUC::new(
             self.database.user_repo.clone(),
             event_dispatcher,
             level_history_repo,
+            self.services.permission_application_service.clone(),
         ));
 
         Ok(crate::web::auth::AppState::new(
@@ -69,6 +79,7 @@ impl AppContainer {
             user_mgmt_uc,
             self.database.session_repo.clone(),
             self.database.user_repo.clone(),
+            self.database.user_permission_repo.clone(),
             self.database.audit_repo.clone(),
             module_repo,
             usage_repo,
@@ -79,6 +90,8 @@ impl AppContainer {
             None, // Removed security_cache 
             None, // Removed brute_force_service
             self.services.notification_service.clone(),
+            // Clean architecture services
+            self.permission_application_service.clone(),
         ))
     }
 
@@ -87,10 +100,11 @@ impl AppContainer {
         Ok(super::services_module::PermissionSystems::simple())
     }
 
-    /// Simple role system - no complex permission systems needed
-    pub fn get_role_checker(&self) -> Result<Arc<crate::auth::roles::Role>, Box<dyn std::error::Error + Send + Sync>> {
-        // Simple stub - roles are checked directly via check_feature_access
-        Ok(Arc::new(crate::auth::roles::Role::Guest))
+    /// Simple permission system - returns default permissions
+    pub fn get_default_permissions(&self) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        // Return basic user permissions as default
+        use crate::auth::permissions::PermissionSets;
+        Ok(PermissionSets::basic_user())
     }
 
     /// Simple audit stub - basic logging only
@@ -152,6 +166,7 @@ impl AppContainerBuilder {
         let services = ServicesModule::new(
             database.database_pool.clone(),
             database.user_repo.clone(),
+            database.user_permission_repo.clone(),
             cache.cache.clone(),
         ).await?;
         
@@ -168,10 +183,15 @@ impl AppContainerBuilder {
             database_pool: database.database_pool.clone(),
             db_pool: database.database_pool.clone(),
             user_repo: database.user_repo.clone(),
+            user_permission_repo: database.user_permission_repo.clone(),
             session_repo: database.session_repo.clone(),
             audit_repo: database.audit_repo.clone(),
             stock_repo: database.stock_repo.clone(),
             firebase_admin: services.firebase_admin.clone(),
+            // Permission services from services module
+            permission_service: services.permission_service.clone(),
+            permission_infrastructure_service: services.permission_infrastructure_service.clone(),
+            permission_application_service: services.permission_application_service.clone(),
             // Removed admin_module_service field - using simple roles
             infra,
             

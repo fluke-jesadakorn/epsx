@@ -9,7 +9,6 @@ use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
 use crate::dom::values::{UserId, Email};
-use crate::auth::roles::Role;
 
 /// OIDC JWT claims structure for our backend-issued tokens
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,9 +23,7 @@ pub struct OIDCTokenClaims {
     pub email: String,
     /// User package tier
     pub package_tier: String,
-    /// User admin modules
-    pub admin_modules: Vec<String>,
-    /// Permissions array
+    /// Structured permissions: "platform:resource:action"
     pub permissions: Vec<String>,
     /// Issued at
     pub iat: i64,
@@ -122,9 +119,6 @@ impl AuthProvider for OIDCProvider {
             .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid email: {}", e)))?;
         
         // Parse role
-        let role = claims.package_tier.parse::<Role>()
-            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid role: {}", e)))?;
-        
         // Convert timestamp to DateTime
         let expires_at = DateTime::from_timestamp(claims.exp, 0)
             .ok_or_else(|| AuthProviderError::TokenValidationFailed("Invalid expiry timestamp".to_string()))?;
@@ -132,15 +126,13 @@ impl AuthProvider for OIDCProvider {
         let user_claims = UserClaims::new(
             user_id,
             email,
-            role,
-            claims.admin_modules,
-            claims.permissions,
+            claims.permissions, // Use permissions directly instead of role
             claims.sub, // provider_user_id is same as backend user_id for OIDC
             ProviderType::OIDC,
             expires_at,
             claims.iat.try_into().unwrap(),
             claims.exp.try_into().unwrap(),
-            None, // subscription_tier not available from OIDC by default
+            claims.subscription_tier.clone(), // Use subscription_tier from claims
         );
         
         // Add extra claims if available

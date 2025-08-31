@@ -4,7 +4,7 @@
 
 use clap::{Parser, Subcommand};
 use std::env;
-use tracing::{info, error, warn};
+use tracing::{info, warn};
 
 #[cfg(feature = "database")]
 use diesel::{Connection, PgConnection, RunQueryDsl};
@@ -127,7 +127,7 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     // Check if key tables exist
     let tables = vec![
-        "users", "admin_modules", "sessions", "firebase_sessions",
+        "users", "sessions", "firebase_sessions",
         "security_events", "audit_logs", "notifications", "eps_growth_analytics"
     ];
 
@@ -160,10 +160,7 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
         count: i64,
     }
 
-    let admin_count = sql_query("SELECT COUNT(*) as count FROM admin_modules WHERE is_active = true")
-        .get_result::<CountResult>(&mut connection)
-        .map(|r| r.count)
-        .unwrap_or(0);
+    // Admin modules table removed - using structured permissions now
 
     let user_count = sql_query("SELECT COUNT(*) as count FROM users")
         .get_result::<CountResult>(&mut connection)
@@ -176,7 +173,6 @@ fn check_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(0);
 
     info!("📊 Data Summary:");
-    info!("   - Admin modules: {} active", admin_count);
     info!("   - Users: {}", user_count);
     info!("   - EPS analytics samples: {}", eps_count);
 
@@ -243,10 +239,16 @@ fn show_migration_history(database_url: &str) -> Result<(), Box<dyn std::error::
         run_on: chrono::NaiveDateTime,
     }
 
+    #[derive(diesel::QueryableByName)]
+    struct TableExists {
+        #[diesel(sql_type = Bool)]
+        exists: bool,
+    }
+
     // Check if __diesel_schema_migrations table exists
     let table_exists = sql_query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '__diesel_schema_migrations') as exists")
-        .get_result::<(bool,)>(&mut connection)
-        .map(|(exists,)| exists)
+        .get_result::<TableExists>(&mut connection)
+        .map(|result| result.exists)
         .unwrap_or(false);
 
     if !table_exists {

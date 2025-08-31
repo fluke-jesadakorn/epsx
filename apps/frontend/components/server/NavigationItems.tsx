@@ -8,16 +8,16 @@ import {
   File, 
   Settings, 
   Database,
-  Newspaper 
+  Shield
 } from 'lucide-react';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
-  news: <Newspaper className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
   'my-data': <Database className="h-4 w-4" />,
+  permissions: <Shield className="h-4 w-4" />,
 };
 
 interface NavigationItem {

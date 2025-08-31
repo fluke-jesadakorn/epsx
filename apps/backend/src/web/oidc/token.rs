@@ -92,7 +92,7 @@ pub struct IdTokenClaims {
     pub admin: Option<bool>,
     pub access_level: Option<String>,
     // Database-derived fields
-    pub admin_modules: Vec<String>,
+    pub permissions: Vec<String>,  // Structured permissions: "platform:resource:action"
     pub package_tier: String,
 }
 
@@ -109,9 +109,7 @@ pub struct AccessTokenClaims {
     pub scope: String,
     pub email: String,
     pub role: String,
-    pub permissions: Vec<String>,
-    // Database-derived fields
-    pub admin_modules: Vec<String>,
+    pub permissions: Vec<String>,  // Structured permissions: "platform:resource:action"
     pub package_tier: String,
 }
 
@@ -469,8 +467,8 @@ async fn generate_access_token(
     now: DateTime<Utc>,
     expires_in: i64,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
-    // Get user data from database for accurate permissions and admin modules
-    let (admin_modules, package_tier, database_permissions) = 
+    // Get user data from database for accurate permissions
+    let (_, package_tier, database_permissions) = 
         get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
     
     // Combine Firebase role with database permissions
@@ -492,8 +490,7 @@ async fn generate_access_token(
         scope: scope.to_string(),
         email: firebase_user.email.clone().unwrap_or_default(),
         role: firebase_role,
-        permissions: effective_permissions,
-        admin_modules,
+        permissions: effective_permissions.clone(),
         package_tier,
     };
 
@@ -535,7 +532,6 @@ fn generate_access_token_simple(
         email: firebase_user.email.clone().unwrap_or_default(),
         role: get_role_from_custom_claims(&firebase_user.custom_claims),
         permissions,
-        admin_modules: vec![], // Empty for refresh token flow
         package_tier: "FREE".to_string(), // Default for refresh token flow
     };
 
@@ -565,7 +561,7 @@ async fn generate_id_token(
     expires_in: i64,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
     // Get user data from database for accurate information
-    let (admin_modules, package_tier, _) = 
+    let (_, package_tier, database_permissions) = 
         get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
     
     let claims = IdTokenClaims {
@@ -583,7 +579,7 @@ async fn generate_id_token(
         role: get_role_from_custom_claims(&firebase_user.custom_claims),
         admin: firebase_user.custom_claims.get("admin").and_then(|v| v.as_bool()),
         access_level: firebase_user.custom_claims.get("access_level").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        admin_modules,
+        permissions: database_permissions,
         package_tier,
     };
 
@@ -626,7 +622,7 @@ fn generate_id_token_simple(
         role: get_role_from_custom_claims(&firebase_user.custom_claims),
         admin: firebase_user.custom_claims.get("admin").and_then(|v| v.as_bool()),
         access_level: firebase_user.custom_claims.get("access_level").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        admin_modules: vec![], // Empty for refresh token flow
+        permissions: vec![], // Empty for refresh token flow
         package_tier: "FREE".to_string(), // Default for refresh token flow
     };
 
@@ -739,70 +735,35 @@ fn validate_access_token(token: &str) -> Result<AccessTokenClaims, Box<dyn std::
     Ok(token_data.claims)
 }
 
-/// Get user admin modules from the database
+/// Get user permissions from the database (deprecated - use get_user_database_info instead)
 async fn get_user_admin_modules(
     _app_state: &AppState,
     email: &str
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     // Simplified role system - no admin modules needed
-    tracing::info!("Using simple role system for user: {}", email);
-    Ok(vec![]) // Return empty modules - using simple roles instead
+    tracing::info!("Using structured permissions system for user: {}", email);
+    Ok(vec![]) // Return empty - using structured permissions instead
 }
 
-/// Get user admin modules from the database using Firebase UID
+/// Get user permissions from the database using Firebase UID (deprecated - integrated into get_user_database_info)
 async fn get_user_admin_modules_from_db(
-    app_state: &AppState,
+    _app_state: &AppState,
     firebase_uid: &str
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-    
-    // Get a connection from the pool
-    let mut conn = app_state.db_pool.get().await?;
-    
-    // Use raw SQL to avoid enum mapping issues for now
-    let query = diesel::sql_query(
-        "SELECT module_code FROM user_admin_roles WHERE firebase_uid = $1 AND is_active = true"
-    ).bind::<diesel::sql_types::Text, _>(firebase_uid);
-    
-    #[derive(diesel::QueryableByName)]
-    struct ModuleCodeRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        module_code: String,
-    }
-    
-    let module_rows: Vec<ModuleCodeRow> = query
-        .load(&mut conn)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database query failed: {}", e);
-            e
-        })?;
-    
-    let admin_modules: Vec<String> = module_rows.into_iter()
-        .map(|row| row.module_code)
-        .collect();
-    
-    tracing::info!("Found {} admin modules for user {}: {:?}", admin_modules.len(), firebase_uid, admin_modules);
-    Ok(admin_modules)
+    // Legacy function - structured permissions are now handled by get_user_database_info
+    tracing::info!("Legacy admin modules lookup for user {}: using structured permissions instead", firebase_uid);
+    Ok(vec![]) // Return empty - use structured permissions from domain entity instead
 }
 
 /// Get comprehensive user database information for JWT token generation
-/// Returns (admin_modules, package_tier, permissions)
+/// Returns (legacy_placeholder, package_tier, permissions)
 async fn get_user_database_info(
     app_state: &AppState,
     firebase_uid: &str,
     _email: &str
 ) -> (Vec<String>, String, Vec<String>) {
-    // Get admin modules from database
-    let admin_modules = {
-        tracing::debug!("Querying admin modules for user: {}", firebase_uid);
-        get_user_admin_modules_from_db(app_state, firebase_uid).await
-            .unwrap_or_else(|e| {
-                tracing::warn!("Failed to get admin modules for {}: {}", firebase_uid, e);
-                vec![]
-            })
-    };
+    // Legacy placeholder for compatibility - admin_modules no longer used
+    let _admin_modules_placeholder = vec![];
     
     // Get user data from database using Firebase UID for package tier and permissions
     use crate::dom::values::UserId;
@@ -817,8 +778,14 @@ async fn get_user_database_info(
                 crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE".to_string(),
             };
             
-            // Get user permissions from the domain entity
-            let user_permissions: Vec<String> = user.permissions();
+            // Get user permissions from separate table via PermissionApplicationService
+            let user_permissions: Vec<String> = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
+                Ok(permissions) => permissions,
+                Err(e) => {
+                    tracing::error!("Failed to fetch permissions for JWT token {}: {:?}", user.id(), e);
+                    vec![] // Default to empty permissions on error
+                }
+            };
             
             tracing::debug!("Retrieved user data for {}: tier={}, {} permissions", firebase_uid, tier, user_permissions.len());
             (tier, user_permissions)
@@ -833,36 +800,13 @@ async fn get_user_database_info(
         }
     };
     
-    // If user has admin modules, add admin permissions
-    let enhanced_permissions = if !admin_modules.is_empty() {
-        let mut perms = permissions;
-        // Add comprehensive admin permissions for users with admin modules
-        perms.extend(vec![
-            "api:admin:read".to_string(),
-            "api:admin:write".to_string(),
-            "route:admin:*".to_string(),
-        ]);
-        
-        // Add system admin permissions for system_admin module
-        if admin_modules.iter().any(|am| am == "system_admin") {
-            perms.extend(vec![
-                "api:admin:*".to_string(),
-                "route:*".to_string(),
-                "system:manage".to_string(),
-                "users:manage".to_string(),
-                "security:full".to_string(),
-            ]);
-        }
-        
-        perms
-    } else {
-        permissions
-    };
+    // Use permissions from domain entity (no legacy admin_modules enhancement needed)
+    let final_permissions = permissions;
     
-    tracing::info!("User database info for {}: {} admin modules, {} tier, {} permissions", 
-                  firebase_uid, admin_modules.len(), package_tier, enhanced_permissions.len());
+    tracing::info!("User database info for {}: {} tier, {} permissions", 
+                  firebase_uid, package_tier, final_permissions.len());
     
-    (admin_modules, package_tier, enhanced_permissions)
+    (_admin_modules_placeholder, package_tier, final_permissions)
 }
 
 /// Get user package tier from the database (legacy function - use get_user_database_info instead)
@@ -1050,16 +994,7 @@ pub async fn oidc_userinfo(
     // Check if token is revoked (if we implement token revocation)
     // TODO: Check JTI against revoked tokens list
     
-    // Get additional user information based on the token claims
-    let admin_modules = if token_claims.scope.contains("admin") || token_claims.scope.contains("admin_modules") {
-        get_user_admin_modules_from_db(&app_state, &token_claims.sub).await
-            .unwrap_or_else(|e| {
-                tracing::warn!("Failed to get admin modules in userinfo for {}: {}", token_claims.sub, e);
-                vec![]
-            })
-    } else {
-        vec![]
-    };
+    // No additional user information needed - using structured permissions from token
 
     let package_tier = get_user_package_tier(&app_state, &token_claims.email).await
         .unwrap_or_else(|_| "FREE".to_string());
@@ -1070,10 +1005,8 @@ pub async fn oidc_userinfo(
         "email": token_claims.email,
         "email_verified": true, // This should come from the user data
         "name": token_claims.email.split('@').next().unwrap_or("User"),
-        "role": token_claims.package_tier,
         "permissions": token_claims.permissions,
-        "package_tier": package_tier,
-        "admin_modules": admin_modules
+        "package_tier": package_tier
     });
     
     tracing::debug!("UserInfo endpoint returning response for user: {}", token_claims.email);

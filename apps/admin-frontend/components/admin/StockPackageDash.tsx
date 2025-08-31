@@ -19,8 +19,8 @@ export default function StockRankingPackageDashboard() {
   };
 
   const tabs = [
-    { id: 'assign', label: 'Assign Packages', count: null },
-    { id: 'manage', label: 'Manage Assignments', count: null }
+    { id: 'assign', label: 'Assign Permissions', count: null },
+    { id: 'manage', label: 'Manage Permissions', count: null }
   ];
 
   return (
@@ -35,10 +35,10 @@ export default function StockRankingPackageDashboard() {
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-              Stock Ranking Package Management
+              Stock Ranking Permission Management
             </h1>
             <p className="text-muted-foreground mt-1">
-              Assign and manage stock ranking access packages for users
+              Assign and manage stock ranking access permissions for users
             </p>
           </div>
         </div>
@@ -100,10 +100,10 @@ export default function StockRankingPackageDashboard() {
           </div>
           <div>
             <h3 className="text-xl font-bold text-foreground">
-              Package Overview
+              Permission Tiers Overview
             </h3>
             <p className="text-sm text-muted-foreground">
-              Available stock ranking packages
+              Available ranking permission levels (displayed as familiar tiers)
             </p>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function StockRankingPackageDashboard() {
             </div>
           </div>
           <h3 className="text-lg font-medium text-blue-900 dark:text-blue-300">
-            How to Use Stock Ranking Package Assignment
+            How to Use Stock Ranking Permission Assignment
           </h3>
         </div>
         
@@ -166,7 +166,7 @@ export default function StockRankingPackageDashboard() {
               1
             </span>
             <div>
-              <strong>Select Package Tier:</strong> Choose the appropriate stock ranking package based on user needs. Each tier provides different ranking limits and features.
+              <strong>Select Permission Tier:</strong> Choose the appropriate stock ranking permission level based on user needs. Each tier represents different permission sets with specific ranking limits.
             </div>
           </div>
           
@@ -175,7 +175,7 @@ export default function StockRankingPackageDashboard() {
               2
             </span>
             <div>
-              <strong>Select Users:</strong> Search and select users to assign the package to. You can select multiple users for bulk assignment.
+              <strong>Select Users:</strong> Search and select users to assign the permission tier to. You can select multiple users for bulk permission assignment.
             </div>
           </div>
           
@@ -193,7 +193,7 @@ export default function StockRankingPackageDashboard() {
               4
             </span>
             <div>
-              <strong>Review & Assign:</strong> Review the assignment summary and click assign. Users will receive access to stock rankings based on their package tier.
+              <strong>Review & Assign:</strong> Review the assignment summary and click assign. Users will receive access to stock rankings based on their permission tier.
             </div>
           </div>
         </div>

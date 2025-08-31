@@ -71,6 +71,7 @@ impl TryFrom<&AuditLogEntry> for NewDieselAuditLog {
             user_agent: entry.user_agent().map(|s| s.to_string()),
             timestamp: *entry.created_at(),
             session_id: None,
+            platform_id: None,
         })
     }
 }

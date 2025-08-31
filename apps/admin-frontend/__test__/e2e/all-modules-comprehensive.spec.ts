@@ -1,6 +1,7 @@
 /**
- * Comprehensive E2E Test for ALL Admin Modules
- * Tests complete access to all admin modules with user: jesadakorn.kirtnu@gmail.com
+ * Comprehensive E2E Test for ALL Admin Modules (Permission-Based)
+ * Tests complete access to all admin modules with structured permissions
+ * Uses modern permission system: "platform:resource:action" format
  * Includes automatic permission assignment if access is denied
  */
 import { test, expect, Page } from '@playwright/test';
@@ -9,57 +10,59 @@ const TEST_EMAIL = 'jesadakorn.kirtnu@gmail.com';
 const TEST_PASSWORD = 'Aa_1234567';
 const BACKEND_URL = 'http://localhost:8080';
 
-// All admin modules and pages to test
+// All admin modules and pages to test (with structured permissions)
 const ALL_ADMIN_MODULES = [
   // Core admin pages
-  { path: '/', name: 'Admin Dashboard', module: 'dashboard' },
+  { path: '/', name: 'Admin Dashboard', permission: 'admin:dashboard:view' },
   
   // User management module
-  { path: '/users', name: 'Users List', module: 'user_management' },
-  { path: '/users/create', name: 'Create User', module: 'user_management' },
-  { path: '/users/permissions', name: 'User Permissions Overview', module: 'user_management' },
-  { path: '/users/roles', name: 'User Roles', module: 'user_management' },
+  { path: '/users', name: 'Users List', permission: 'admin:users:view' },
+  { path: '/users/create', name: 'Create User', permission: 'admin:users:create' },
+  { path: '/users/permissions', name: 'User Permissions Overview', permission: 'admin:users:permissions' },
+  { path: '/users/roles', name: 'User Roles', permission: 'admin:users:manage' },
   
-  // Permission management module
-  { path: '/permission-profiles', name: 'Permission Profiles', module: 'permission_management' },
-  { path: '/permission-profiles/assign', name: 'Assign Permission Profiles', module: 'permission_management' },
+  // Permission management module (NEW: Permission-based)
+  { path: '/permission-profiles', name: 'Permission Profiles', permission: 'admin:permissions:view' },
+  { path: '/permission-profiles/assign', name: 'Assign Permission Profiles', permission: 'admin:permissions:assign' },
   
   // IAM module
-  { path: '/iam', name: 'Identity & Access Management', module: 'iam_management' },
-  { path: '/admin-roles', name: 'Admin Roles Management', module: 'iam_management' },
+  { path: '/iam', name: 'Identity & Access Management', permission: 'admin:iam:manage' },
+  { path: '/admin-roles', name: 'Admin Roles Management', permission: 'admin:iam:roles' },
   
   // Analytics module
-  { path: '/analytics', name: 'Analytics Dashboard', module: 'analytics' },
+  { path: '/analytics', name: 'Analytics Dashboard', permission: 'admin:analytics:view' },
   
   // System administration module
-  { path: '/settings', name: 'System Settings', module: 'system_admin' },
-  { path: '/developer-portal', name: 'Developer Portal', module: 'system_admin' },
-  { path: '/docs/api', name: 'API Documentation', module: 'system_admin' },
-  { path: '/modules', name: 'Module Management', module: 'system_admin' },
+  { path: '/settings', name: 'System Settings', permission: 'admin:system:settings' },
+  { path: '/developer-portal', name: 'Developer Portal', permission: 'admin:system:developer' },
+  { path: '/docs/api', name: 'API Documentation', permission: 'admin:system:docs' },
+  { path: '/modules', name: 'Module Management', permission: 'admin:system:modules' },
   
-  // Stock ranking module
-  { path: '/stock-ranking-packages', name: 'Stock Ranking Packages', module: 'stock_ranking_management' },
+  // Stock ranking module (NOW: Permission-based management)
+  { path: '/stock-ranking-packages', name: 'Stock Ranking Permission Management', permission: 'admin:stocks:permissions' },
   
   // Access control pages
-  { path: '/unauthorized', name: 'Unauthorized Page', module: 'system_admin' },
-  { path: '/access-denied', name: 'Access Denied Page', module: 'system_admin' },
-  { path: '/request-access', name: 'Request Access Page', module: 'system_admin' },
+  { path: '/unauthorized', name: 'Unauthorized Page', permission: 'admin:system:access' },
+  { path: '/access-denied', name: 'Access Denied Page', permission: 'admin:system:access' },
+  { path: '/request-access', name: 'Request Access Page', permission: 'admin:system:access' },
 ];
 
-// Required admin modules for full access
-const REQUIRED_ADMIN_MODULES = [
-  'system_admin',
-  'user_management', 
-  'permission_management',
-  'iam_management',
-  'analytics',
-  'stock_ranking_management'
+// Required structured permissions for full admin access
+const REQUIRED_PERMISSIONS = [
+  'admin:*:*',           // Full admin wildcard access
+  'epsx:*:*',            // Full EPSX platform access
+  'admin:system:manage', // System administration
+  'admin:users:manage',  // User management
+  'admin:permissions:manage', // Permission management (NEW)
+  'admin:iam:manage',    // Identity & access management
+  'admin:analytics:view',     // Analytics dashboard
+  'admin:stocks:permissions'  // Stock ranking permission management (NEW)
 ];
 
-// Helper function to assign admin modules to user
-async function assignAdminModulesToUser(email: string, modules: string[]): Promise<void> {
-  console.log(`🔧 Assigning admin modules to user: ${email}`);
-  console.log(`🔧 Modules to assign: ${modules.join(', ')}`);
+// Helper function to assign permissions to user
+async function assignPermissionsToUser(email: string, permissions: string[]): Promise<void> {
+  console.log(`🔧 Assigning permissions to user: ${email}`);
+  console.log(`🔧 Permissions to assign: ${permissions.join(', ')}`);
   
   try {
     // Call backend API to assign admin modules
@@ -71,22 +74,22 @@ async function assignAdminModulesToUser(email: string, modules: string[]): Promi
       },
       body: JSON.stringify({
         email: email,
-        admin_modules: modules,
+        permissions: permissions,
         reason: 'E2E test permission assignment'
       })
     });
 
     if (response.ok) {
-      console.log('✅ Successfully assigned admin modules via API');
+      console.log('✅ Successfully assigned permissions via API');
     } else {
-      console.log('⚠️ API assignment failed, using alternative method');
+      console.log('⚠️ Permission assignment failed, using alternative method');
       
       // Alternative: Direct database assignment (for local testing)
       // This would require a separate script or direct database access
       console.log('🔧 Using direct assignment method...');
     }
   } catch (error) {
-    console.log('⚠️ Module assignment failed:', error);
+    console.log('⚠️ Permission assignment failed:', error);
     console.log('🔧 Continuing with test - user may already have required permissions');
   }
 }
@@ -289,8 +292,8 @@ async function verifySystemAdminElements(page: Page): Promise<void> {
 
 test.describe('🚀 Complete Admin Module Access Test', () => {
   test.beforeAll(async () => {
-    // Assign required admin modules before testing
-    await assignAdminModulesToUser(TEST_EMAIL, REQUIRED_ADMIN_MODULES);
+    // Assign required permissions before testing
+    await assignPermissionsToUser(TEST_EMAIL, REQUIRED_PERMISSIONS);
     
     // Wait a bit for permissions to propagate
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -339,8 +342,8 @@ test.describe('🚀 Complete Admin Module Access Test', () => {
           console.log(`❌ FAILED: ${module.name} - Access denied`);
           
           // Try to assign permissions and retry once
-          console.log(`🔧 Attempting to assign permissions for ${module.module}`);
-          await assignAdminModulesToUser(TEST_EMAIL, [module.module]);
+          console.log(`🔧 Attempting to assign permission for ${module.permission}`);
+          await assignPermissionsToUser(TEST_EMAIL, [module.permission]);
           
           // Wait and retry
           await new Promise(resolve => setTimeout(resolve, 1000));

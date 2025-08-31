@@ -34,7 +34,7 @@ setup('🔧 Admin Setup - Service Health Check', async ({ page }) => {
 
   // Verify admin OIDC endpoint is responsive
   try {
-    const adminOidcResponse = await page.request.get(`${API_URL}/oauth/authorize?client_id=epsx-admin&response_type=code&scope=openid%20profile%20email%20admin_modules&redirect_uri=http://localhost:3001/callback&state=test`);
+    const adminOidcResponse = await page.request.get(`${API_URL}/oauth/authorize?client_id=epsx-admin&response_type=code&scope=openid%20profile%20email%20permissions&redirect_uri=http://localhost:3001/callback&state=test`);
     if (adminOidcResponse.status() === 200) {
       console.log('✅ Admin OIDC authorization endpoint is responsive');
     } else {

@@ -11,30 +11,56 @@ import {
 } from 'lucide-react';
 import { formatLevelAsNumber } from '@/utils/env';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
+import { 
+  extractRankingLimitFromPermissions, 
+  deriveTierFromPermissions,
+  hasPermission 
+} from '@/lib/permission-utils';
 
 interface AnalyticsMetricsProps {
-  userLevel: string;
-  maxRankings: number;
+  userPermissions: string[];
   isExpired: boolean;
+  // Legacy props for backward compatibility
+  userLevel?: string; // @deprecated Use userPermissions instead
+  maxRankings?: number; // @deprecated Use userPermissions instead  
 }
 
 export function AnalyticsMetrics({ 
-  userLevel, 
-  maxRankings, 
-  isExpired 
+  userPermissions,
+  isExpired,
+  userLevel, // Legacy backward compatibility
+  maxRankings, // Legacy backward compatibility
 }: AnalyticsMetricsProps) {
-  const getUpgradeInfo = () => {
-    const nextLevel = {
-      BASIC: { name: 'SILVER', rankings: 25 },
+  // Extract permission-based data with backward compatibility
+  const actualMaxRankings = maxRankings ?? extractRankingLimitFromPermissions(userPermissions);
+  const actualUserLevel = userLevel ?? deriveTierFromPermissions(userPermissions);
+
+  const getUpgradeInfo = (currentTier: string, currentLimit: number) => {
+    const tierUpgrades: Record<string, { name: string; rankings: number }> = {
+      BRONZE: { name: 'SILVER', rankings: 25 },
       SILVER: { name: 'GOLD', rankings: 50 },
       GOLD: { name: 'PLATINUM', rankings: 100 },
-      PLATINUM: { name: 'PLATINUM', rankings: 100 },
+      PLATINUM: { name: 'VIP', rankings: -1 }, // Unlimited
     };
-    return nextLevel[userLevel as keyof typeof nextLevel] || nextLevel.BASIC;
+    
+    // Handle custom limits
+    if (currentLimit === 5) return tierUpgrades.BRONZE;
+    if (currentLimit === 25) return tierUpgrades.SILVER;
+    if (currentLimit === 50) return tierUpgrades.GOLD;
+    if (currentLimit === 100) return tierUpgrades.PLATINUM;
+    if (currentLimit === -1) return { name: 'MAX', rankings: -1 };
+    
+    // Fallback for custom limits
+    if (currentLimit < 25) return tierUpgrades.BRONZE;
+    if (currentLimit < 50) return tierUpgrades.SILVER;
+    if (currentLimit < 100) return tierUpgrades.GOLD;
+    return tierUpgrades.PLATINUM;
   };
 
-  const upgradeInfo = getUpgradeInfo();
-  const accessPercentage = Math.round((maxRankings / 100) * 100);
+  const upgradeInfo = getUpgradeInfo(actualUserLevel, actualMaxRankings);
+  const accessPercentage = actualMaxRankings === -1 
+    ? 100 
+    : Math.min(Math.round((actualMaxRankings / 100) * 100), 100);
 
   return (
     <div className="grid gap-6 md:grid-cols-4">
@@ -47,9 +73,11 @@ export function AnalyticsMetrics({
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <div className="text-2xl font-bold">{maxRankings}</div>
+            <div className="text-2xl font-bold">
+              {actualMaxRankings === -1 ? '∞' : actualMaxRankings}
+            </div>
             <Badge variant={isExpired ? "destructive" : "default"} className="text-xs">
-              {formatLevelAsNumber(userLevel)}
+              {formatLevelAsNumber(actualUserLevel)}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
@@ -93,13 +121,20 @@ export function AnalyticsMetrics({
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <div className="text-2xl font-bold">+{upgradeInfo.rankings - maxRankings}</div>
+            <div className="text-2xl font-bold">
+              {actualMaxRankings === -1 ? 
+                '∞' : 
+                upgradeInfo.rankings === -1 ? 
+                  '∞' : 
+                  `+${upgradeInfo.rankings - actualMaxRankings}`
+              }
+            </div>
             <Badge variant="secondary" className="text-xs">
-              more stocks
+              {actualMaxRankings === -1 ? 'unlimited' : 'more stocks'}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Additional rankings
+            {actualMaxRankings === -1 ? 'Maximum access' : 'Additional rankings'}
           </p>
         </CardContent>
         <div className="absolute top-4 right-4">

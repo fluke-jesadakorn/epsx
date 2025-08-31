@@ -2,7 +2,7 @@
 // Originally 1,865 lines - now split into 7 focused modules with domain separation
 
 // Re-export all handlers from focused modules for backward compatibility
-pub use super::eps::*;
+pub use crate::web::analytics::eps::*;
 
 // Re-export handler functions with their original names for routing compatibility
 pub use rankings::get_eps_rankings;
@@ -65,11 +65,11 @@ mod tests {
         };
 
         // Test data transformation pipeline
-        let unified = super::eps::transform::transform_ranking_to_unified_format(ranking, 1);
+        let unified = crate::web::analytics::eps::transform::transform_ranking_to_unified_format(ranking, 1);
         assert_eq!(unified.symbol, "AAPL");
         assert_eq!(unified.ranking_position, 1);
 
-        let card = super::eps::transform::transform_unified_to_card_format(unified);
+        let card = crate::web::analytics::eps::transform::transform_unified_to_card_format(unified);
         assert_eq!(card.symbol, "AAPL");
         assert_eq!(card.rank, 1);
         assert_eq!(card.value, 150.0);

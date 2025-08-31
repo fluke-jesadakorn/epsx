@@ -6,9 +6,9 @@
 import { test as setup, expect, chromium } from '@playwright/test';
 import { initializeTestUsers } from '../fixtures/user-fixtures';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const BASE_URL = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+const ADMIN_URL = process.env.ADMIN_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3003';
 
 setup('🔧 Global Setup - Service Health Check', async ({ page }) => {
   console.log('🚀 Starting comprehensive global setup...');
@@ -89,8 +89,7 @@ async function checkFrontendHealth(page: any): Promise<void> {
     
     // Check if the app is in development mode
     const isDev = await page.evaluate(() => {
-      return process.env.NODE_ENV === 'development' || 
-             window.location.hostname === 'localhost';
+      return window.location.hostname === 'localhost';
     });
     
     if (isDev) {

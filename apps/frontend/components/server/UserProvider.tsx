@@ -11,7 +11,6 @@ interface UserData {
   role: string;
   permissions: string[];
   package_tier: string;
-  admin_modules: string[];
   name: string;
 }
 
@@ -28,7 +27,6 @@ export async function UserProvider({ children }: UserProviderProps) {
     role: session.user.role || 'user',
     permissions: session.user.permissions || ['user:read'],
     package_tier: session.user.package_tier || 'FREE',
-    admin_modules: session.user.admin_modules || [],
     name: session.user.name || session.user.email || '',
   } : null;
   

@@ -19,8 +19,8 @@ pub struct UserPermissionChangedEvent {
     event_id: Uuid,
     occurred_at: DateTime<Utc>,
     user_id: UserId,
-    admin_modules_added: Vec<String>,
-    admin_modules_removed: Vec<String>,
+    permissions_added: Vec<String>,
+    permissions_removed: Vec<String>,
     old_package_tier: String,
     new_package_tier: String,
 }
@@ -81,8 +81,8 @@ pub struct UserDeletedEvent {
 impl UserPermissionChangedEvent {
     pub fn new(
         user_id: UserId, 
-        admin_modules_added: Vec<String>,
-        admin_modules_removed: Vec<String>,
+        permissions_added: Vec<String>,
+        permissions_removed: Vec<String>,
         old_package_tier: String, 
         new_package_tier: String
     ) -> Self {
@@ -90,16 +90,16 @@ impl UserPermissionChangedEvent {
             event_id: Uuid::new_v4(),
             occurred_at: Utc::now(),
             user_id,
-            admin_modules_added,
-            admin_modules_removed,
+            permissions_added,
+            permissions_removed,
             old_package_tier,
             new_package_tier,
         }
     }
     
     pub fn user_id(&self) -> &UserId { &self.user_id }
-    pub fn admin_modules_added(&self) -> &[String] { &self.admin_modules_added }
-    pub fn admin_modules_removed(&self) -> &[String] { &self.admin_modules_removed }
+    pub fn permissions_added(&self) -> &[String] { &self.permissions_added }
+    pub fn permissions_removed(&self) -> &[String] { &self.permissions_removed }
     pub fn old_package_tier(&self) -> &str { &self.old_package_tier }
     pub fn new_package_tier(&self) -> &str { &self.new_package_tier }
 }
@@ -241,8 +241,8 @@ mod tests {
         );
         
         assert_eq!(event.user_id(), &user_id);
-        assert_eq!(event.admin_modules_added(), &["user-management"]);
-        assert_eq!(event.admin_modules_removed().len(), 0);
+        assert_eq!(event.permissions_added(), &["user-management"]);
+        assert_eq!(event.permissions_removed().len(), 0);
         assert_eq!(event.old_package_tier(), "FREE");
         assert_eq!(event.new_package_tier(), "BRONZE");
         assert_eq!(event.event_type(), "UserPermissionChanged");

@@ -74,19 +74,16 @@ const packageToPricingCard = (pkg: Package): PricingCard => ({
     text: benefit,
     included: true,
   })),
-  highlight: pkg.level === 'GOLD' || pkg.level === 'PLATINUM',
+  highlight: pkg.level === 'GOLD',
   buttonText: pkg.price === 0 ? 'Start Trial' : 'Subscribe Now',
   buttonVariant: pkg.price === 0 ? 'outline' : 'default',
 });
 
 const PricingSection = () => {
   const personalPlans = PACKAGES.filter((pkg) =>
-    ['BASIC', 'SILVER', 'GOLD'].includes(pkg.level),
+    ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND', 'VIP'].includes(pkg.level),
   ).map(packageToPricingCard);
 
-  const companyPlans = PACKAGES.filter((pkg) => pkg.level === 'PLATINUM').map(
-    packageToPricingCard,
-  );
 
   const router = useRouter();
 
@@ -231,23 +228,6 @@ const PricingSection = () => {
           </div>
         </div>
 
-        {/* Company Plans */}
-        <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
-            <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-              Company Plans
-            </h2>
-            <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
-              Enterprise solutions for your business
-            </p>
-            <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500 mx-auto rounded-full overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 animate-fade-in-delayed">
-            {renderPricingCards(companyPlans)}
-          </div>
-        </div>
 
         {/* API Plans */}
         <div className="space-y-8 sm:space-y-12">

@@ -45,13 +45,20 @@ export async function getUsersAction(): Promise<ActionResult<any[]>> {
       return { success: false, error: 'Not authenticated' };
     }
 
-    const userAdminModules = (session.user as any)?.admin_modules as string[] || [];
+    const userPermissions = (session.user as any)?.permissions as string[] || [];
+    
+    // Check if user has admin permissions
+    const hasAdminPermission = userPermissions.some(p => 
+      p.includes(':manage') || 
+      p.includes(':admin') || 
+      p === '*'
+    );
     
     logger.admin.userOperation('Getting users list', {
       userId: session.user.id,
       email: session.user.email,
-      isAdmin: userAdminModules.length > 0,
-      adminModules: userAdminModules
+      isAdmin: hasAdminPermission,
+      permissions: userPermissions
     });
 
     const apiClient = await getApiClient();

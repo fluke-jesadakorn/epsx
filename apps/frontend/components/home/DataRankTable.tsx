@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 
 import type { UserLevelType } from '@/app/constants/packages';
-import { getLockedRankings, getNextLevelLimit } from '@/app/constants/packages';
+import { extractRankingLimitFromPermissions, deriveTierFromPermissions, canViewRankingPosition } from '@/lib/permission-utils';
 import { LockedRankingCard, UpgradePrompt } from '@/components/ui/prompt';
 import { Button } from '../ui/button';
 
@@ -41,7 +41,8 @@ interface DataRankTableProps {
   data: TableDataMetrics[];
   columns?: ColumnDef[];
   defaultView?: 'table' | 'card';
-  rankingLimit?: number; // max items to display, from user profile
+  userPermissions?: string[]; // User permissions for ranking access control
+  rankingLimit?: number; // @deprecated Use userPermissions instead - max items to display, from user profile
 }
 
 const defaultColumns: ColumnDef[] = [
@@ -265,23 +266,48 @@ function DataRankTable({
   data,
   columns = defaultColumns,
   defaultView = 'card',
-  rankingLimit,
+  userPermissions = ['epsx:rankings:view:5'], // Default to basic access
+  rankingLimit, // Keep for backward compatibility
 }: DataRankTableProps): React.JSX.Element {
   const router = useRouter();
 
-  // Mock ranking access data - replace with server-side auth when needed
-  const maxRankings = 10;
-  const userLevel: UserLevelType = 'BRONZE';
-  const upgradeRequired = false;
-  const canViewRanking = (index: number) => index < maxRankings;
+  // Helper function to calculate next tier limit for upgrade prompts
+  const getNextTierLimit = (currentTier: UserLevelType): number => {
+    const tierLimits: Record<UserLevelType, number> = {
+      'BRONZE': 25, // Next is SILVER
+      'SILVER': 50, // Next is GOLD  
+      'GOLD': 100, // Next is PLATINUM
+      'PLATINUM': -1, // Next is unlimited (VIP)
+      'DIAMOND': -1,
+      'VIP': -1,
+      'API_PERSONAL': -1,
+      'API_COMPANY': -1,
+      'API_PARTNER': -1,
+    };
+    return tierLimits[currentTier] || 25;
+  };
+
+  // Helper function to calculate locked rankings for upgrade prompts
+  const getLockedRankingsCount = (currentLimit: number): number => {
+    if (currentLimit === -1) return 0; // Unlimited access
+    const nextLimit = getNextTierLimit(userLevel);
+    if (nextLimit === -1) return 50; // Show some locked content for unlimited upgrade
+    return Math.min(nextLimit - currentLimit, 10); // Cap at 10 locked rankings
+  };
+
+  // Permission-based ranking access control
+  const maxRankings = extractRankingLimitFromPermissions(userPermissions);
+  const userLevel: UserLevelType = deriveTierFromPermissions(userPermissions);
+  const upgradeRequired = maxRankings < 100 && maxRankings !== -1; // Show upgrade if not unlimited and less than 100
+  const canViewRanking = (index: number) => canViewRankingPosition(userPermissions, index + 1);
 
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];
 
-  // Apply user-based ranking limit (override rankingLimit prop if user limit is lower)
+  // Apply user-based ranking limit (with backward compatibility)
   const effectiveLimit = rankingLimit
-    ? Math.min(rankingLimit, maxRankings)
-    : maxRankings;
+    ? Math.min(rankingLimit, maxRankings === -1 ? 1000 : maxRankings) // Handle unlimited case
+    : (maxRankings === -1 ? safeData.length : maxRankings);
 
   safeData = safeData.slice(0, effectiveLimit);
 
@@ -400,7 +426,7 @@ function DataRankTable({
                 <Crown className="mx-auto h-8 w-8 text-yellow-500" />
                 <h3 className="text-lg font-semibold">Unlock More Rankings</h3>
                 <p className="text-muted-foreground text-sm">
-                  Upgrade to see up to {getNextLevelLimit(userLevel)} top-ranked
+                  Upgrade to see up to {getNextTierLimit(userLevel)} top-ranked
                   stocks
                 </p>
                 <Button className="gap-2" onClick={handleUpgrade}>
@@ -457,7 +483,7 @@ function DataRankTable({
       {upgradeRequired && (
         <UpgradePrompt
           currentLevel={userLevel}
-          lockedRankings={getLockedRankings(userLevel)}
+          lockedRankings={getLockedRankingsCount(maxRankings)}
           className="mt-6"
         />
       )}

@@ -13,8 +13,9 @@ export interface SessionData {
     name: string;
     role: string;
     firebase_uid?: string;
-    admin_modules: string[];
     permissions: string[];
+    platform_context?: string;
+    primary_platform?: string;
     package_tier: string;
   };
   isLoggedIn: boolean;
@@ -22,14 +23,27 @@ export interface SessionData {
 }
 
 /**
- * Check if user has specific admin module
+ * Check if user has specific admin module (deprecated - use hasPermission instead)
+ * @deprecated Use hasPermission instead
  */
 export function hasAdminModule(
   user: SessionData['user'] | null | undefined,
   module: string
 ): boolean {
-  if (!user?.admin_modules) return false;
-  return user.admin_modules.includes(module) || user.admin_modules.includes('system_admin');
+  if (!user) return false;
+  
+  // Convert legacy module to structured permission
+  const modulePermissionMap: Record<string, string> = {
+    'system_admin': '*',
+    'user_management': 'epsx:users:manage',
+    'analytics_specialist': 'epsx:analytics:view',
+    'billing_admin': 'epsx:billing:manage',
+    'permission_admin': 'epsx:permissions:manage',
+    'package_coordinator': 'epsx:packages:manage',
+  };
+  
+  const permission = modulePermissionMap[module];
+  return permission ? hasPermission(user, permission) : false;
 }
 
 /**
@@ -39,7 +53,13 @@ export function isSystemAdmin(
   user: SessionData['user'] | null | undefined
 ): boolean {
   if (!user) return false;
-  return hasAdminModule(user, 'system_admin') || user.role === 'admin';
+  
+  // Check permissions first
+  if (user.permissions?.includes('*')) return true;
+  if (user.role === 'admin') return true;
+  
+  // Check for system admin permissions
+  return hasPermission(user, '*');
 }
 
 /**
@@ -64,7 +84,7 @@ export function getUserDisplayName(
 }
 
 /**
- * Format admin modules for display
+ * Format admin modules for display (deprecated - use formatPermissions instead)
  */
 export function formatAdminModules(modules: string[]): string[] {
   const moduleLabels: Record<string, string> = {
@@ -78,4 +98,39 @@ export function formatAdminModules(modules: string[]): string[] {
   };
   
   return modules.map(module => moduleLabels[module] || module);
+}
+
+/**
+ * Format permissions for display
+ */
+export function formatPermissions(permissions: string[]): string[] {
+  return permissions.map(permission => {
+    if (permission === '*') return 'System Admin';
+    
+    const [platform, resource, action] = permission.split(':');
+    if (!platform || !resource || !action) return permission;
+    
+    const platformLabel = platform.toUpperCase();
+    const resourceLabel = resource.charAt(0).toUpperCase() + resource.slice(1);
+    const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+    
+    return `${platformLabel} ${resourceLabel} ${actionLabel}`;
+  });
+}
+
+/**
+ * Check if user has platform-specific permission
+ */
+export function hasPlatformPermission(
+  user: SessionData['user'] | null | undefined,
+  resource: string,
+  action: string,
+  platform?: string
+): boolean {
+  if (!user) return false;
+  
+  const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
+  const permission = `${targetPlatform}:${resource}:${action}`;
+  
+  return hasPermission(user, permission);
 }

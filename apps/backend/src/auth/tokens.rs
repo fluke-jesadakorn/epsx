@@ -47,7 +47,7 @@ pub struct IdTokenClaims {
     pub email: String,
     pub email_verified: bool,
     pub name: Option<String>,
-    pub role: String,
+    pub permissions: Vec<String>,
     pub nonce: Option<String>,
 }
 
@@ -151,7 +151,7 @@ async fn handle_auth_code(
 
     // Generate tokens
     let expires_in = 7200; // 2 hours
-    let access_token = create_access_token(&auth_data.firebase_user, &auth_data.scope, expires_in)?;
+    let access_token = create_access_token(&app_state, &auth_data.firebase_user, &auth_data.scope, expires_in).await?;
     let id_token = create_id_token(&auth_data.firebase_user, &request.client_id, expires_in)?;
     let refresh_token = create_refresh_token(&app_state, &auth_data).await?;
 
@@ -190,7 +190,7 @@ async fn handle_refresh(
 
     // Generate new tokens
     let expires_in = 7200;
-    let access_token = create_access_token(&refresh_data.firebase_user, &refresh_data.scope, expires_in)?;
+    let access_token = create_access_token(&app_state, &refresh_data.firebase_user, &refresh_data.scope, expires_in).await?;
     let id_token = create_id_token(&refresh_data.firebase_user, &request.client_id, expires_in)?;
 
     tracing::info!("Token refresh successful for user: {}", 
@@ -207,23 +207,28 @@ async fn handle_refresh(
 }
 
 /// Create access token
-fn create_access_token(
+async fn create_access_token(
+    app_state: &crate::web::auth::AppState,
     firebase_user: &FirebaseUser,
     _scope: &str,
     expires_in: i64,
 ) -> Result<String, Error> {
-    let permissions = get_permissions(&firebase_user.custom_claims);
+    // Fetch permissions from user_permissions table using firebase_uid
+    let permissions = get_user_permissions_from_db(app_state, &firebase_user.uid).await
+        .unwrap_or_else(|_| get_permissions(&firebase_user.custom_claims)); // Fallback to legacy
     
     let user_data = jwt::UserData {
         id: firebase_user.uid.clone(),
         email: firebase_user.email.clone().unwrap_or_default(),
         name: firebase_user.display_name.clone(),
         permissions: Some(permissions),
-        admin_modules: Some(get_admin_modules(&firebase_user.custom_claims)),
         package_tier: Some(get_tier(&firebase_user.custom_claims)),
         firebase_uid: Some(firebase_user.uid.clone()),
         audience: Some("epsx-api".to_string()),
         ttl_seconds: Some(expires_in as usize),
+        platforms: Some(vec!["epsx".to_string()]), // Default platform access
+        primary_platform: Some("epsx".to_string()),
+        platform_context: None,
     };
 
     jwt::JWT.create(user_data)
@@ -249,7 +254,7 @@ fn create_id_token(
         email: firebase_user.email.clone().unwrap_or_default(),
         email_verified: firebase_user.email_verified,
         name: firebase_user.display_name.clone(),
-        role: get_role(&firebase_user.custom_claims),
+        permissions: get_permissions(&firebase_user.custom_claims),
         nonce: None, // TODO: Extract from original request
     };
 
@@ -382,9 +387,9 @@ pub async fn userinfo(
     
     let token = &auth_header[7..];
     
-    // Validate token
-    let user = match jwt::JWT.decode(token) {
-        Ok(user) => user,
+    // Validate token and get permissions from separate table
+    let (user, permissions) = match jwt::JWT.decode_with_permissions(token) {
+        Ok((user, permissions)) => (user, permissions),
         Err(_) => return Err(Error::InvalidRequest("Invalid or expired token".to_string()).to_response()),
     };
     
@@ -393,16 +398,37 @@ pub async fn userinfo(
         "email": user.email,
         "email_verified": true,
         "name": user.name,
-        "role": if !user.admin_modules.is_empty() { "admin" } else { "user" },
-        "permissions": user.permissions,
-        "package_tier": user.package_tier,
-        "admin_modules": user.admin_modules
+        "permissions": permissions,
+        "package_tier": user.package_tier
     });
     
     Ok(Json(userinfo))
 }
 
 // Helper functions
+
+/// Fetch user permissions from user_permissions table with timestamp validation
+async fn get_user_permissions_from_db(
+    app_state: &crate::web::auth::AppState, 
+    firebase_uid: &str
+) -> Result<Vec<String>, Error> {
+    use crate::auth::permissions::filter_valid_permissions;
+    
+    // Fetch permissions directly using firebase_uid (the service expects firebase_uid string)
+    let user_permissions = app_state.permission_application_service
+        .get_user_permissions(firebase_uid).await
+        .unwrap_or_default();
+        
+    // Filter out expired permissions using timestamp validation
+    let valid_permissions = filter_valid_permissions(&user_permissions);
+    
+    if valid_permissions.is_empty() {
+        // If no permissions found, provide basic default permissions
+        Ok(vec!["epsx:analytics:view".to_string()])
+    } else {
+        Ok(valid_permissions)
+    }
+}
 
 fn get_role(custom_claims: &HashMap<String, serde_json::Value>) -> String {
     custom_claims.get("role")
@@ -438,12 +464,7 @@ fn get_permissions(custom_claims: &HashMap<String, serde_json::Value>) -> Vec<St
     }
 }
 
-fn get_admin_modules(custom_claims: &HashMap<String, serde_json::Value>) -> Vec<String> {
-    custom_claims.get("admin_modules")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
-        .unwrap_or_default()
-}
+// Legacy admin_modules function removed - now using structured permissions via get_permissions()
 
 fn get_tier(custom_claims: &HashMap<String, serde_json::Value>) -> String {
     custom_claims.get("package_tier")
@@ -474,6 +495,8 @@ mod tests {
         let permissions = get_permissions(&claims);
         assert!(permissions.contains(&"api:admin:*".to_string()));
         assert!(permissions.contains(&"users:manage".to_string()));
+        assert!(permissions.contains(&"route:*".to_string()));
+        assert!(permissions.contains(&"system:configure".to_string()));
     }
 
     #[test]

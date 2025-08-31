@@ -27,10 +27,10 @@ impl ModuleAuthCtx {
         }
     }
 
-    pub fn guest() -> Self {
+    pub fn unauthenticated() -> Self {
         Self {
-            user_id: "guest".to_string(),
-            role: "guest".to_string(),
+            user_id: "anonymous".to_string(),
+            role: "user".to_string(),
             is_authenticated: false,
         }
     }
@@ -114,8 +114,8 @@ pub fn check_module_access(role: &str, module: &str) -> ModuleAccess {
     match role {
         "admin" => ModuleAccess::Granted(AccessLevel::Admin),
         "user" => ModuleAccess::Granted(AccessLevel::Write),
-        "guest" => ModuleAccess::Granted(AccessLevel::Read),
-        _ => ModuleAccess::Denied,
+        // Guest role removed - unknown roles default to user with read access
+        _ => ModuleAccess::Granted(AccessLevel::Read),
     }
 }
 

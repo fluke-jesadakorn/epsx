@@ -19,17 +19,20 @@ interface UserProfile {
   email: string
   name?: string
   role: string
-  permissions: string[]
-  admin_modules: string[]
+  permissions: string[]  // Structured permissions: "platform:resource:action"
   package_tier: string
   firebase_uid?: string
+  
+  // Cross-platform fields
+  platforms?: string[]
+  primary_platform?: string
+  platform_context?: string
 }
 
 interface SessionValidationResponse {
   valid: boolean
   user?: UserProfile
   permissions?: string[]
-  admin_modules?: string[]
   package_tier?: string
   expires_at?: number
   session_id?: string
@@ -38,15 +41,22 @@ interface SessionValidationResponse {
     validation_time_ms: number
     cache_hit: boolean
   }
+  
+  // Cross-platform fields
+  platforms?: string[]
+  platform_context?: string
 }
 
 interface SessionValidatorCache {
   user: UserProfile
   permissions: string[]
-  admin_modules: string[]
   package_tier: string
   expires_at: number
   cached_at: number
+  
+  // Cross-platform fields
+  platforms?: string[]
+  platform_context?: string
 }
 
 export class AdminSessionValidator {
@@ -106,7 +116,8 @@ export class AdminSessionValidator {
           valid: true,
           user: cached.user,
           permissions: cached.permissions,
-          admin_modules: cached.admin_modules,
+          platforms: cached.platforms,
+          platform_context: cached.platform_context,
           package_tier: cached.package_tier,
           expires_at: cached.expires_at,
           performance: {
@@ -140,10 +151,14 @@ export class AdminSessionValidator {
         email: payload.email,
         name: payload.name,
         role: payload.role,
-        permissions: payload.permissions || ['user:read'],
-        admin_modules: payload.admin_modules || [],
+        permissions: payload.permissions || ['epsx:dashboard:read'],
         package_tier: payload.package_tier || 'FREE',
-        firebase_uid: payload.firebase_uid
+        firebase_uid: payload.firebase_uid,
+        
+        // Cross-platform fields
+        platforms: payload.platforms || ['epsx'],
+        primary_platform: payload.primary_platform || 'epsx',
+        platform_context: payload.platform_context
       }
       
       // Validate admin permissions
@@ -165,17 +180,19 @@ export class AdminSessionValidator {
       this.cacheSession(cacheKey, {
         user,
         permissions: user.permissions,
-        admin_modules: user.admin_modules,
         package_tier: user.package_tier,
         expires_at,
-        cached_at: Date.now()
+        cached_at: Date.now(),
+        platforms: user.platforms,
+        platform_context: user.platform_context
       })
       
       return {
         valid: true,
         user,
         permissions: user.permissions,
-        admin_modules: user.admin_modules,
+        platforms: user.platforms,
+        platform_context: user.platform_context,
         package_tier: user.package_tier,
         expires_at,
         performance: {
@@ -206,8 +223,13 @@ export class AdminSessionValidator {
       return true
     }
     
-    // Check if user has any admin modules (indicating admin access)
-    if (user.admin_modules && user.admin_modules.length > 0) {
+    // Check if user has any admin permissions (indicating admin access)
+    if (user.permissions && user.permissions.some(p => 
+      p.includes(':manage') || 
+      p.includes(':admin') ||
+      p.includes('users:') ||
+      p.includes('system:')
+    )) {
       return true
     }
     
@@ -353,19 +375,23 @@ export function hasRole(user: UserProfile, role: string): boolean {
   return userLevel >= requiredLevel
 }
 
-export function hasAdminModule(user: UserProfile, module: string): boolean {
-  // Check if user has the specific admin module
-  if (user.admin_modules && user.admin_modules.includes(module)) {
+export function hasAdminPermission(user: UserProfile, permission: string): boolean {
+  // Check if user has the specific permission
+  if (user.permissions && user.permissions.includes(permission)) {
     return true
+  }
+  
+  // Check for platform-specific permission if not already specified
+  if (!permission.includes(':')) {
+    const platform = user.platform_context || user.primary_platform || 'epsx'
+    const fullPermission = `${platform}:${permission}`
+    if (user.permissions && user.permissions.includes(fullPermission)) {
+      return true
+    }
   }
   
   // Super admin has access to all modules
   if (user.role === 'admin') {
-    return true
-  }
-  
-  // Check for admin-full-004 profile
-  if (user.admin_modules && user.admin_modules.includes('admin-full-004')) {
     return true
   }
   
@@ -388,34 +414,38 @@ export function hasPackageTier(user: UserProfile, tier: string): boolean {
   return userLevel >= requiredLevel
 }
 
-// Path-based admin access checking
+// Path-based admin access checking with structured permissions
 export function canAccessAdminPath(user: UserProfile, path: string): boolean {
   // Super admin can access everything
   if (user.role === 'admin') {
     return true
   }
   
-  // Check module-specific access
+  const platform = user.platform_context || user.primary_platform || 'epsx'
+  
+  // Check permission-based access
   if (path.includes('/admin/users') || path.includes('/users')) {
-    return hasAdminModule(user, 'user_management')
+    return hasAdminPermission(user, `${platform}:users:manage`)
   }
   
   if (path.includes('/admin/analytics') || path.includes('/analytics')) {
-    return hasAdminModule(user, 'analytics')
+    return hasAdminPermission(user, `${platform}:analytics:read`)
   }
   
   if (path.includes('/admin/reports') || path.includes('/reports')) {
-    return hasAdminModule(user, 'reporting')
+    return hasAdminPermission(user, `${platform}:reports:read`)
   }
   
   if (path.includes('/admin/audit') || path.includes('/audit')) {
-    return hasAdminModule(user, 'audit_logs')
+    return hasAdminPermission(user, `${platform}:audit:read`)
   }
   
   if (path.includes('/admin/config') || path.includes('/system')) {
-    return hasAdminModule(user, 'system_config')
+    return hasAdminPermission(user, `${platform}:system:manage`)
   }
   
-  // Default: allow if user has any admin module
-  return user.admin_modules && user.admin_modules.length > 0
+  // Default: allow if user has any admin permissions
+  return user.permissions && user.permissions.some(p => 
+    p.includes(':manage') || p.includes(':admin') || p.includes('system:')
+  )
 }

@@ -173,11 +173,11 @@ impl ScopeService {
         });
 
         self.register_scope(Scope {
-            name: "admin_modules".to_string(),
-            description: "Access to granular admin modules".to_string(),
+            name: "permissions".to_string(),
+            description: "Access to structured permission system".to_string(),
             category: ScopeCategory::Admin,
             required_role: None,
-            permissions: vec!["admin_modules:read", "admin_modules:validate"].iter().map(|s| s.to_string()).collect(),
+            permissions: vec!["permissions:read", "permissions:validate", "epsx:*"].iter().map(|s| s.to_string()).collect(),
             sensitive: true,
         });
     }

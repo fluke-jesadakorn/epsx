@@ -8,8 +8,7 @@ export interface EPSXJWTPayload extends JWTPayload {
   sub: string // User ID
   email: string
   name?: string
-  admin_modules: string[]
-  permissions: string[]
+  permissions: string[]  // Structured permissions: "platform:resource:action"
   package_tier: string
   role: string
   firebase_uid?: string
@@ -99,19 +98,36 @@ export function hasPermissionInJWT(token: string, permission: string): boolean {
 }
 
 /**
- * Extract admin modules from JWT token
+ * Extract admin modules from JWT token (deprecated - use getPermissionsFromJWT instead)
+ * @deprecated Use getPermissionsFromJWT instead
  */
 export function getAdminModulesFromJWT(token: string): string[] {
-  const payload = decodeJWT(token)
-  return payload?.admin_modules || []
+  // Legacy compatibility - convert permissions to module names
+  const permissions = getPermissionsFromJWT(token)
+  return permissions
+    .filter(p => p.includes(':manage') || p.includes(':admin') || p === '*')
+    .map(p => {
+      const parts = p.split(':')
+      return parts[1] || 'admin'
+    })
 }
 
 /**
- * Check if JWT token has specific admin module
+ * Check if JWT token has specific admin module (deprecated - use hasPermissionInJWT instead)
+ * @deprecated Use hasPermissionInJWT instead
  */
 export function hasAdminModuleInJWT(token: string, module: string): boolean {
-  const adminModules = getAdminModulesFromJWT(token)
-  return adminModules.includes(module)
+  // Legacy compatibility - check for equivalent permissions
+  const modulePermissionMap: Record<string, string> = {
+    'user_management': 'epsx:users:manage',
+    'analytics': 'epsx:analytics:view',
+    'security': 'epsx:security:manage',
+    'notifications': 'epsx:notifications:manage',
+    'billing': 'epsx:billing:manage',
+  }
+  
+  const permission = modulePermissionMap[module]
+  return permission ? hasPermissionInJWT(token, permission) : false
 }
 
 /**
@@ -172,7 +188,6 @@ export function createJWTClaims(user: {
   id: string
   email: string
   name?: string
-  admin_modules?: string[]
   permissions?: string[]
   package_tier?: string
   role?: string
@@ -182,7 +197,6 @@ export function createJWTClaims(user: {
     sub: user.id,
     email: user.email,
     name: user.name,
-    admin_modules: user.admin_modules || [],
     permissions: user.permissions || ['user:read'],
     package_tier: user.package_tier || 'FREE',
     role: user.role || 'user',

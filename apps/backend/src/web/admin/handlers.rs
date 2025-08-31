@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminCreateUserRequest {
     pub email: String,
-    pub role: String,
+    pub permissions: Vec<String>,
     pub display_name: Option<String>,
     pub password: Option<String>,
     pub fb_token: Option<String>,
@@ -24,7 +24,7 @@ pub struct AdminCreateUserRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminUpdateUserRequest {
-    pub role: Option<String>,
+    pub permissions: Option<Vec<String>>,
     pub email: Option<String>,
 }
 
@@ -32,13 +32,13 @@ pub struct AdminUpdateUserRequest {
 pub struct AdminListUsersQuery {
     pub offset: Option<u32>,
     pub limit: Option<u32>,
-    pub role_filter: Option<String>,
+    pub permission_filter: Option<String>,
     pub page_token: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminUserStatsQuery {
-    pub include_roles: Option<bool>,
+    pub include_permissions: Option<bool>,
     pub include_tiers: Option<bool>,
 }
 
@@ -46,11 +46,11 @@ pub struct AdminUserStatsQuery {
 pub struct AdminBulkUpdateRequest {
     pub user_ids: Vec<String>,
     pub new_level: Option<String>,
-    pub new_role: Option<String>,
+    pub new_permissions: Option<Vec<String>>,
     pub batch_id: Option<String>,
 }
 
-// Removed legacy module assignment structures - using simple roles
+// Removed legacy module assignment structures - using structured permissions
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminLevelHistoryQuery {
@@ -137,17 +137,33 @@ pub async fn list_users_handler(
         }
     };
     
-    let user_list: Vec<Value> = users.into_iter().map(|user| {
-        json!({
+    // Convert users to response format, fetching permissions from the service
+    let mut user_list = Vec::new();
+    for user in users {
+        let user_firebase_uid = if user.firebase_uid().is_empty() {
+            &user.id().to_string()
+        } else {
+            user.firebase_uid()
+        };
+        
+        let user_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch permissions for user {}: {:?}", user.id(), e);
+                vec![] // Return empty permissions on error
+            }
+        };
+        
+        user_list.push(json!({
             "id": user.id().to_string(),
             "email": user.email(),
-            "role": user.role().to_string(),
+            "permissions": user_permissions,
             "subscription_tier": user.subscription().tier().to_string(),
             "is_active": user.is_active(),
             "created_at": user.created_at(),
             "updated_at": user.updated_at()
-        })
-    }).collect();
+        }));
+    }
     
     let response = json!({
         "users": user_list,
@@ -171,8 +187,8 @@ pub async fn create_user_handler(
     verify_admin_permissions(&user_id, "/api/v1/admin/users", "POST").await?;
     
     tracing::info!(
-        "Admin create user handler called with authorization for role: {}, display_name: {:?}", 
-        req.role, req.display_name
+        "Admin create user handler called with authorization for permissions: {:?}, display_name: {:?}", 
+        req.permissions, req.display_name
     );
     
     // Note: Password handling is typically done by Firebase Auth, not stored locally
@@ -202,14 +218,28 @@ pub async fn create_user_handler(
         }
     }
     
-    // Parse package tier
-    let package_tier = req.role.clone(); // Convert role string to package tier string
+    // Set default package tier based on permissions
+    let package_tier = if req.permissions.contains(&"admin:*:*".to_string()) {
+        "admin".to_string()
+    } else if req.permissions.iter().any(|p| p.starts_with("epsx:analytics:export") || p.starts_with("epsx:analytics:advanced")) {
+        "premium".to_string()
+    } else {
+        "basic".to_string()
+    };
     
     // Generate Firebase UID (in a real system, this would come from Firebase)
     let firebase_uid = req.fb_token.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     
-    // Create new user
-    let user = crate::dom::entities::User::new(firebase_uid, email, package_tier);
+    // Clone permissions for later use
+    let permissions_for_user = req.permissions.clone();
+    let permissions_for_response = req.permissions.clone();
+    
+    // Create new user (permissions handled separately)
+    let user = crate::dom::entities::User::from_existing(
+        crate::dom::values::UserId::generate(),
+        firebase_uid, 
+        email
+    );
     
     // Save user to database
     if let Err(e) = app_state.user_repo.save(&user).await {
@@ -219,11 +249,18 @@ pub async fn create_user_handler(
     
     tracing::info!("Successfully created user with ID: {}", user.id());
     
+    // Store permissions in separate table as well
+    let _firebase_uid = user.firebase_uid(); // Fixed: added underscore to suppress warning
+    if let Err(e) = app_state.permission_application_service.set_user_permissions(user.id(), req.permissions).await {
+        tracing::error!("Failed to store permissions in separate table for user {}: {:?}", user.id(), e);
+        // Continue anyway since user was created successfully in main table
+    }
+
     Ok(Json(json!({
         "message": "User created successfully",
         "user_id": user.id().to_string(),
         "email": user.email(),
-        "role": user.role().to_string(),
+        "permissions": permissions_for_response, // Use the permissions we just assigned
         "display_name": req.display_name,
         "created_at": user.created_at()
     })))
@@ -255,11 +292,20 @@ pub async fn get_user_handler(
         }
     };
     
-    // Get user roles - using modern JWT-based auth system
-    let user_roles = vec!["user".to_string()]; // TODO: Implement modern role loading
+    // Get user permissions from the permission service
+    let user_firebase_uid = if user.firebase_uid().is_empty() {
+        &user.id().to_string()
+    } else {
+        user.firebase_uid()
+    };
     
-    // Get user permissions - using modern JWT-based auth system  
-    let user_permissions = vec!["read".to_string()]; // TODO: Implement modern permission loading
+    let user_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch permissions for user {}: {:?}", user.id(), e);
+            vec![] // Return empty permissions on error
+        }
+    };
     
     // TODO: Add audit logging when audit interface is confirmed
     tracing::info!("Successfully retrieved user details for user: {} by admin: {}", user_id, admin_user_id);
@@ -268,8 +314,6 @@ pub async fn get_user_handler(
         "user_id": user.id().to_string(),
         "email": user.email(),
         "firebase_uid": user.firebase_uid(),
-        "role": user.role().to_string(),
-        "roles": user_roles,
         "permissions": user_permissions,
         "subscription_tier": user.subscription().tier().to_string(),
         "is_active": user.is_active(),
@@ -291,7 +335,7 @@ pub async fn update_user_handler(
     
     tracing::info!("Admin update user handler called for user: {} by admin: {}", user_id, admin_user_id);
     
-    if req.role.is_none() && req.email.is_none() {
+    if req.permissions.is_none() && req.email.is_none() {
         tracing::warn!("No update fields provided for user: {}", user_id);
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -313,20 +357,50 @@ pub async fn update_user_handler(
     };
     
     let mut changes_made = Vec::new();
-    let old_package_tier = user.package_tier().to_string();
+    // Package tier removed - using permissions only
     
-    // Handle package tier update
-    if let Some(new_tier_str) = req.role {
-        // Validate package tier (basic validation)
-        if !["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&new_tier_str.to_lowercase().as_str()) {
-            tracing::warn!("Invalid package tier provided: {}", new_tier_str);
-            return Err(StatusCode::BAD_REQUEST);
+    // Handle permissions update  
+    if let Some(new_perms) = req.permissions {
+        // Validate permissions (basic validation)
+        for perm in &new_perms {
+            if !perm.contains(':') {
+                tracing::warn!("Invalid permission format: {}", perm);
+                return Err(StatusCode::BAD_REQUEST);
+            }
         }
         
-        if new_tier_str != old_package_tier {
-            user.update_package_tier(new_tier_str.clone());
-            changes_made.push(format!("package_tier: {} -> {}", old_package_tier, new_tier_str));
-            tracing::info!("Package tier updated from {} to {} for user {}", old_package_tier, new_tier_str, user_id);
+        // Get current permissions from the permission service
+        let user_firebase_uid = if user.firebase_uid().is_empty() {
+            &user.id().to_string()
+        } else {
+            user.firebase_uid()
+        };
+        
+        let old_perms = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch current permissions for user {}: {:?}", user.id(), e);
+                vec![] // Use empty as fallback
+            }
+        };
+        
+        if new_perms != old_perms {
+            // Update permissions in separate table
+            match app_state.permission_application_service.set_user_permissions(user.id(), new_perms.clone()).await {
+                Ok(()) => {
+                    if let Err(e) = app_state.permission_application_service.set_user_permissions(user.id(), new_perms.clone()).await {
+                        tracing::error!("Failed to update permissions in separate table for user {}: {:?}", user.id(), e);
+                        // Continue anyway since main table was updated successfully
+                    }
+                    
+                    changes_made.push(format!("permissions updated"));
+                    tracing::info!("Permissions updated for user {}", user_id);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to update permissions: {}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            }
         }
     }
     
@@ -348,12 +422,27 @@ pub async fn update_user_handler(
     
     tracing::info!("Successfully updated user: {} with changes: {:?}", user_id, changes_made);
     
+    // Get current permissions from the permission service for response
+    let user_firebase_uid = if user.firebase_uid().is_empty() {
+        &user.id().to_string()
+    } else {
+        user.firebase_uid()
+    };
+    
+    let current_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch current permissions for response {}: {:?}", user.id(), e);
+            vec![] // Use empty as fallback
+        }
+    };
+    
     Ok(Json(json!({
         "user_id": user.id().to_string(),
         "message": "User updated successfully",
         "changes_made": changes_made,
         "updated_at": user.updated_at(),
-        "current_role": user.role().to_string(),
+        "current_permissions": current_permissions,
         "is_active": user.is_active()
     })))
 }
@@ -472,20 +561,34 @@ pub async fn get_user_stats_handler(
     response["active_users"] = json!(active_users);
     response["deleted_users"] = json!(deleted_users);
     
-    // Include role breakdown if requested - updated for modern admin module system
-    if query.include_roles.unwrap_or(true) {
-        let mut role_counts = std::collections::HashMap::new();
+    // Include permission breakdown if requested
+    if query.include_permissions.unwrap_or(true) {
+        let mut permission_counts = std::collections::HashMap::new();
         
         for user in &all_users {
             if !user.is_deleted() {  // Only count active users
-                // Since roles are now managed through admin modules, default to "user"
-                // In the future, this could query the admin modules system for actual roles
-                let role_str = "user".to_string();
-                *role_counts.entry(role_str).or_insert(0) += 1;
+                // Get permissions from the permission service
+                let user_firebase_uid = if user.firebase_uid().is_empty() {
+                    &user.id().to_string()
+                } else {
+                    user.firebase_uid()
+                };
+                
+                let user_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+                    Ok(permissions) => permissions,
+                    Err(e) => {
+                        tracing::error!("Failed to fetch permissions for user {} in statistics: {:?}", user.id(), e);
+                        vec![] // Skip user on error
+                    }
+                };
+                
+                for permission in user_permissions {
+                    *permission_counts.entry(permission).or_insert(0) += 1;
+                }
             }
         }
         
-        response["by_role"] = json!(role_counts);
+        response["by_permissions"] = json!(permission_counts);
     }
     
     // Include tier breakdown if requested
@@ -543,19 +646,22 @@ pub async fn bulk_update_users_handler(
         return Err(StatusCode::BAD_REQUEST);
     }
     
-    if req.new_role.is_none() && req.new_level.is_none() {
+    if req.new_permissions.is_none() && req.new_level.is_none() {
         tracing::warn!("No update fields provided for bulk update");
         return Err(StatusCode::BAD_REQUEST);
     }
     
-    // Validate new package tier if provided
-    let new_package_tier = if let Some(tier_str) = &req.new_role {
-        // Basic validation for package tier
-        if !["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&tier_str.to_lowercase().as_str()) {
-            tracing::warn!("Invalid package tier provided for bulk update: {}", tier_str);
-            return Err(StatusCode::BAD_REQUEST);
+    // Validate new permissions if provided
+    let new_permissions = if let Some(perms) = &req.new_permissions {
+        // Basic validation for permissions format (platform:resource:action)
+        for perm in perms {
+            let parts: Vec<&str> = perm.split(':').collect();
+            if parts.len() != 3 {
+                tracing::warn!("Invalid permission format provided for bulk update: {}", perm);
+                return Err(StatusCode::BAD_REQUEST);
+            }
         }
-        Some(tier_str.clone())
+        Some(perms.clone())
     } else {
         None
     };
@@ -601,26 +707,59 @@ pub async fn bulk_update_users_handler(
         };
         
         let mut changes_made = Vec::new();
-        let old_package_tier = user.package_tier().to_string();
+        // Package tier removed - using permissions only
+        let old_package_tier = "user".to_string(); // Default since derived_tier removed
         
-        // Handle package tier update
-        if let Some(ref new_tier) = new_package_tier {
-            if *new_tier != old_package_tier {
-                user.update_package_tier(new_tier.clone());
-                changes_made.push(format!("package_tier: {} -> {}", old_package_tier, new_tier));
-                tracing::info!("Bulk package tier update: {} -> {} for user {}", old_package_tier, new_tier, user_id);
+        // Handle permissions update
+        if let Some(ref new_perms) = new_permissions {
+            // Get current permissions from the permission service
+            let user_firebase_uid = if user.firebase_uid().is_empty() {
+                &user.id().to_string()
+            } else {
+                user.firebase_uid()
+            };
+            
+            let old_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+                Ok(permissions) => permissions,
+                Err(e) => {
+                    tracing::error!("Failed to fetch current permissions for bulk update {}: {:?}", user.id(), e);
+                    vec![] // Use empty as fallback
+                }
+            };
+            
+            // Update permissions in separate table
+            if let Err(e) = app_state.permission_application_service.set_user_permissions(user.id(), new_perms.clone()).await {
+                tracing::error!("Failed to update permissions in separate table for bulk update {}: {:?}", user.id(), e);
+                // Continue anyway since main table was updated successfully
+            }
+            
+            changes_made.push(format!("permissions: {:?} -> {:?}", old_permissions, new_perms));
+            tracing::info!("Bulk permissions update for user {}: {:?}", user_id, new_perms);
+            
+            // Update package tier based on new permissions
+            let new_tier = if new_perms.contains(&"admin:*:*".to_string()) {
+                "admin".to_string()
+            } else if new_perms.iter().any(|p| p.starts_with("epsx:analytics:export") || p.starts_with("epsx:analytics:advanced")) {
+                "premium".to_string()
+            } else {
+                "basic".to_string()
+            };
+            
+            if new_tier != old_package_tier {
+                // Package tier system removed - permissions handle access levels now
+                changes_made.push(format!("package_tier: {} -> {} (migrated to permission-based)", old_package_tier, new_tier));
             }
         }
         
         // Handle level update (treat as synonym for package tier for now)
         if let Some(ref level_str) = req.new_level {
-            if req.new_role.is_none() {  // Only process if package tier wasn't already updated
-                // Basic validation for level as package tier
+            if req.new_permissions.is_none() {  // Only process if permissions weren't already updated
+                // Basic validation for level as package tier (legacy support)
                 if ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&level_str.to_lowercase().as_str()) {
                     if *level_str != old_package_tier {
-                        user.update_package_tier(level_str.clone());
-                        changes_made.push(format!("level: {} -> {}", old_package_tier, level_str));
-                        tracing::info!("Level package tier update: {} -> {} for user {}", old_package_tier, level_str, user_id);
+                        // Package tier system removed - permissions handle access levels now
+                        changes_made.push(format!("level: {} -> {} (migrated to permission-based)", old_package_tier, level_str));
+                        tracing::info!("Level update: {} -> {} for user {} (permission-based)", old_package_tier, level_str, user_id);
                     } else {
                         // Same level, no change needed
                         changes_made.push("level: no change needed".to_string());
@@ -755,23 +894,27 @@ pub async fn get_level_history_handler(
     // Format progression history
     let progression_history: Vec<Value> = all_changes.iter()
         .map(|change| {
-            let (previous_level, new_level) = if let (Some(prev), Some(new)) = (
+            let (previous_permissions, new_permissions) = if let (Some(prev), Some(new)) = (
                 change.metadata().previous_values.as_ref(),
                 change.metadata().new_values.as_ref()
             ) {
-                let prev_role = prev.get("role").unwrap_or(&"unknown".to_string()).clone();
-                let new_role = new.get("role").unwrap_or(&"unknown".to_string()).clone();
-                (prev_role, new_role)
+                let prev_perms = prev.get("permissions")
+                    .map(|v| v.split(',').map(|s| s.trim().to_string()).collect::<Vec<String>>())
+                    .unwrap_or_else(|| vec!["unknown".to_string()]);
+                let new_perms = new.get("permissions")
+                    .map(|v| v.split(',').map(|s| s.trim().to_string()).collect::<Vec<String>>())
+                    .unwrap_or_else(|| vec!["unknown".to_string()]);
+                (prev_perms, new_perms)
             } else {
-                ("unknown".to_string(), "current".to_string())
+                (vec!["unknown".to_string()], vec!["current".to_string()])
             };
             
             json!({
                 "id": change.id(),
                 "action": change.action().to_string(),
                 "timestamp": change.timestamp(),
-                "previous_level": previous_level,
-                "new_level": new_level,
+                "previous_permissions": previous_permissions,
+                "new_permissions": new_permissions,
                 "result": change.result().to_string(),
                 "metadata": {
                     "duration_ms": change.metadata().duration_ms,
@@ -796,9 +939,24 @@ pub async fn get_level_history_handler(
         *progression_timeline.entry(date_key).or_insert(0) += 1;
     }
     
+    // Get current permissions from the permission service
+    let user_firebase_uid = if user.firebase_uid().is_empty() {
+        &user.id().to_string()
+    } else {
+        user.firebase_uid()
+    };
+    
+    let current_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch current permissions for progression {}: {:?}", user.id(), e);
+            vec![] // Use empty as fallback
+        }
+    };
+
     // Generate user level summary
     let current_level_info = json!({
-        "current_role": user.role().to_string(),
+        "current_permissions": current_permissions,
         "current_tier": user.subscription().tier().to_string(),
         "account_age_days": (Utc::now().signed_duration_since(user.created_at())).num_days(),
         "is_active": user.is_active(),

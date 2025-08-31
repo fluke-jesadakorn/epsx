@@ -2,7 +2,7 @@
 
 import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { getPackageByLevel } from '@/app/constants/packages';
+import { extractRankingLimitFromPermissions, deriveTierFromPermissions, convertTierToPermissions } from '@/lib/permission-utils';
 import type { UserLevelType } from '@/app/constants/packages';
 
 /**
@@ -21,8 +21,31 @@ export async function fetchStockRankingData(
 }
 
 /**
- * Fetch data with user access control
+ * Fetch data with user access control based on permissions
+ * Respects user permissions for ranking limits (NEW - Permission-based)
+ */
+export async function fetchStockRankingDataWithPermissions(
+  userPermissions: string[],
+  isExpired: boolean = true,
+  page = 1,
+  country?: any,
+  quarters = 2,
+): Promise<StockFinancialData[]> {
+  const maxLimit = isExpired ? 5 : extractRankingLimitFromPermissions(userPermissions);
+  
+  // Determine tier for additional logic
+  const derivedTier = deriveTierFromPermissions(userPermissions);
+  
+  // Always fetch a bit more for premium users to show locked items
+  const fetchLimit = derivedTier === 'BRONZE' ? maxLimit : Math.min((maxLimit === -1 ? 100 : maxLimit) + 10, 100);
+  
+  return getStockFinancialData(page, fetchLimit, country, quarters);
+}
+
+/**
+ * Fetch data with user access control (LEGACY - Backward compatibility)
  * Respects user subscription level for ranking limits
+ * @deprecated Use fetchStockRankingDataWithPermissions instead
  */
 export async function fetchStockRankingDataForUser(
   userLevel: UserLevelType = 'BRONZE',
@@ -31,13 +54,9 @@ export async function fetchStockRankingDataForUser(
   country?: any,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
-  const currentPackage = getPackageByLevel(userLevel);
-  const maxLimit = isExpired ? 5 : (currentPackage?.rankingLimit || 5);
-  
-  // Always fetch a bit more for premium users to show locked items
-  const fetchLimit = userLevel === 'BRONZE' ? maxLimit : Math.min(maxLimit + 10, 100);
-  
-  return getStockFinancialData(page, fetchLimit, country, quarters);
+  // Convert userLevel to permissions for backward compatibility
+  const userPermissions = convertTierToPermissions(userLevel);
+  return fetchStockRankingDataWithPermissions(userPermissions, isExpired, page, country, quarters);
 }
 
 /**

@@ -1,26 +1,26 @@
 import Link from 'next/link';
-import { LineChart, BarChart, File, Settings, Database, Crown, Newspaper } from 'lucide-react';
+import { LineChart, BarChart, File, Settings, Database, Crown, Shield } from 'lucide-react';
 import { auth } from '@/lib/auth';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
-  news: <Newspaper className="h-4 w-4" />,
   ranking: <LineChart className="h-4 w-4" />,
   analytics: <BarChart className="h-4 w-4" />,
   settings: <Settings className="h-4 w-4" />,
   'my-data': <Database className="h-4 w-4" />,
+  permissions: <Shield className="h-4 w-4" />,
   vip: <Crown className="h-4 w-4" />,
 };
 
 const publicMenuItems = [
   { key: 'docs', href: '/docs', label: 'Docs' },
-  { key: 'news', href: '/news', label: 'News' },
   { key: 'ranking', href: '/ranking', label: 'Ranking' },
   { key: 'analytics', href: '/analytics', label: 'Analytics' },
 ];
 
 const userMenuItems = [
   { key: 'my-data', href: '/my-data', label: 'My Data' },
+  { key: 'permissions', href: '/permissions', label: 'Permissions' },
   { key: 'settings', href: '/settings', label: 'Settings' },
 ];
 

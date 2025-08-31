@@ -120,13 +120,17 @@ export async function middleware(request: NextRequest) {
     )?.[1];
     
     if (requiredModule) {
-      const hasAccess = user.admin_modules?.includes(requiredModule) || 
-                       user.admin_modules?.includes('admin-full-004') ||
+      // Convert legacy module to structured permission
+      const platform = user.platform_context || user.primary_platform || 'epsx';
+      const requiredPermission = `${platform}:${requiredModule}:access`;
+      
+      const hasAccess = user.permissions?.includes(requiredPermission) || 
+                       user.permissions?.some(p => p.includes(':admin:') || p.includes(':manage:')) ||
                        user.role === 'admin';
       
       if (!hasAccess) {
         const permissionCheckTime = performance.now() - permissionCheckStartTime;
-        console.log(`🚫 Admin middleware: User ${user.email} lacks module ${requiredModule} for ${pathname} (permission check: ${permissionCheckTime.toFixed(2)}ms)`);
+        console.log(`🚫 Admin middleware: User ${user.email} lacks permission ${requiredPermission} for ${pathname} (permission check: ${permissionCheckTime.toFixed(2)}ms)`);
         
         // Log security event for access denied
         await logSecurityEvent({
@@ -137,8 +141,8 @@ export async function middleware(request: NextRequest) {
           path: pathname,
           method,
           details: { 
-            requiredModule, 
-            userModules: user.admin_modules,
+            requiredPermission, 
+            userPermissions: user.permissions,
             permissionCheckTime: permissionCheckTime
           }
         });
@@ -157,7 +161,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-user-id', user.id);
     response.headers.set('x-user-email', user.email);
     response.headers.set('x-user-role', user.role);
-    response.headers.set('x-user-admin-modules', JSON.stringify(user.admin_modules || []));
+    response.headers.set('x-user-permissions', JSON.stringify(user.permissions || []));
     response.headers.set('x-user-package-tier', user.package_tier);
     
     // Add performance metrics

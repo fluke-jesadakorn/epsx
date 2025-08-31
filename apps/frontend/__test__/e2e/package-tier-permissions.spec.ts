@@ -3,22 +3,29 @@ import {
   TEST_USERS, 
   TIER_FEATURES, 
   getUserByTier, 
-  getUsersForTierTesting, 
+  getPermissionTestUsers, // NEW: Permission-based testing
   getSpecialCaseUsers,
   canUserAccessRoute, 
   canUserAccessFeature,
   isFeatureRestricted,
   generateMockJWT,
-  TestUser
+  TestUser,
+  // NEW: Permission-based helpers
+  getUserRankingLimit,
+  userHasPermission,
+  canUserViewRanking,
+  deriveTierFromUserPermissions,
+  createTestUserWithPermissions
 } from '../fixtures/user-fixtures';
 
 /**
- * Comprehensive Package Tier Permission Tests
- * Tests all 6 package tiers (FREE, BRONZE, SILVER, GOLD, PLATINUM, ENTERPRISE)
- * Validates feature access control, route protection, and tier-based restrictions
+ * Comprehensive Permission-Based Access Control Tests
+ * Tests structured permissions (e.g., "epsx:rankings:view:25")
+ * Validates dynamic ranking limits and permission-based access control
+ * Maintains UI compatibility with familiar tier names
  */
 
-test.describe('🎯 Package Tier Permission System', () => {
+test.describe('🎯 Permission-Based Access Control System', () => {
   
   // Helper function to authenticate user and set JWT token
   async function authenticateUser(page: Page, user: TestUser): Promise<void> {
@@ -34,7 +41,10 @@ test.describe('🎯 Package Tier Permission System', () => {
       secure: false
     }]);
     
-    console.log(`🔐 Authenticated user: ${user.email} (${user.package_tier})`);
+    // Log both legacy tier and actual permissions for debugging
+    const derivedTier = deriveTierFromUserPermissions(user);
+    const rankingLimit = getUserRankingLimit(user);
+    console.log(`🔐 Authenticated user: ${user.email} (${derivedTier}, rankings: ${rankingLimit === -1 ? 'unlimited' : rankingLimit})`);
   }
 
   // Helper function to verify route access
@@ -59,12 +69,10 @@ test.describe('🎯 Package Tier Permission System', () => {
     }
   }
 
-  // Helper function to verify feature availability in UI
+  // Helper function to verify feature availability based on permissions
   async function verifyFeatureAvailability(page: Page, user: TestUser): Promise<void> {
-    const tierFeatures = TIER_FEATURES[user.package_tier];
-    
-    // Check navigation menu for tier-specific features
-    if (tierFeatures.features.includes('advanced-analytics')) {
+    // Check navigation menu for permission-specific features
+    if (userHasPermission(user, 'epsx:analytics:advanced')) {
       await expect(page.locator('[data-testid="nav-analytics"]')).toBeVisible();
     } else {
       // Should either be hidden or show upgrade prompt
@@ -77,20 +85,62 @@ test.describe('🎯 Package Tier Permission System', () => {
       }
     }
     
-    if (tierFeatures.features.includes('portfolio-tools')) {
+    if (userHasPermission(user, 'epsx:portfolio:tools')) {
       await expect(page.locator('[data-testid="nav-portfolio-tools"]')).toBeVisible();
     }
     
-    if (tierFeatures.features.includes('api-access')) {
+    if (userHasPermission(user, 'admin:*:*') || userHasPermission(user, 'epsx:*:*')) {
       await expect(page.locator('[data-testid="nav-api-access"]')).toBeVisible();
     }
   }
 
-  test.describe('🔓 FREE Tier (Basic Access)', () => {
+  // NEW: Helper function to verify ranking limits
+  async function verifyRankingLimits(page: Page, user: TestUser): Promise<void> {
+    await page.goto('/rankings');
+    
+    const rankingLimit = getUserRankingLimit(user);
+    const derivedTier = deriveTierFromUserPermissions(user);
+    
+    if (rankingLimit === -1) {
+      // Unlimited access - should see all rankings
+      const allRankings = page.locator('[data-testid="ranking-item"]');
+      const count = await allRankings.count();
+      console.log(`✅ ${derivedTier} user sees ${count} rankings (unlimited)`);
+    } else {
+      // Limited access - should only see up to the limit
+      const visibleRankings = page.locator('[data-testid="ranking-item"]:not([data-locked="true"])');
+      const lockedRankings = page.locator('[data-testid="ranking-item"][data-locked="true"]');
+      
+      const visibleCount = await visibleRankings.count();
+      const lockedCount = await lockedRankings.count();
+      
+      expect(visibleCount).toBeLessThanOrEqual(rankingLimit);
+      console.log(`✅ ${derivedTier} user sees ${visibleCount} visible + ${lockedCount} locked rankings (limit: ${rankingLimit})`);
+      
+      if (visibleCount < rankingLimit) {
+        // Should see upgrade prompts for additional rankings
+        await expect(page.locator('[data-testid="ranking-upgrade-prompt"]')).toBeVisible();
+      }
+    }
+  }
+
+  test.describe('🔓 FREE Tier (Basic Access - 3 Rankings)', () => {
     const freeUser = TEST_USERS.FREE_USER;
 
     test.beforeEach(async ({ page }) => {
       await authenticateUser(page, freeUser);
+    });
+
+    test('should validate permission-based access control', async ({ page }) => {
+      // Verify user has expected permissions
+      expect(userHasPermission(freeUser, 'epsx:rankings:view:3')).toBe(true);
+      expect(userHasPermission(freeUser, 'epsx:trading:basic')).toBe(true);
+      expect(userHasPermission(freeUser, 'epsx:portfolio:view')).toBe(true);
+      expect(userHasPermission(freeUser, 'epsx:trading:advanced')).toBe(false);
+      
+      // Verify derived tier matches expectation
+      expect(deriveTierFromUserPermissions(freeUser)).toBe('FREE');
+      expect(getUserRankingLimit(freeUser)).toBe(3);
     });
 
     test('should access basic trading features only', async ({ page }) => {
@@ -107,6 +157,16 @@ test.describe('🎯 Package Tier Permission System', () => {
       await verifyRouteAccess(page, '/elite', false);
       await verifyRouteAccess(page, '/enterprise', false);
       await verifyRouteAccess(page, '/api-access', false);
+    });
+
+    test('should enforce 3-ranking limit', async ({ page }) => {
+      await verifyRankingLimits(page, freeUser);
+      
+      // Verify specific ranking positions
+      expect(canUserViewRanking(freeUser, 1)).toBe(true);  // Position 1
+      expect(canUserViewRanking(freeUser, 3)).toBe(true);  // Position 3
+      expect(canUserViewRanking(freeUser, 4)).toBe(false); // Position 4 (beyond limit)
+      expect(canUserViewRanking(freeUser, 10)).toBe(false); // Position 10
     });
 
     test('should show upgrade prompts for premium features', async ({ page }) => {
@@ -128,11 +188,24 @@ test.describe('🎯 Package Tier Permission System', () => {
     });
   });
 
-  test.describe('🥉 BRONZE Tier (Enhanced Access)', () => {
+  test.describe('🥉 BRONZE Tier (Enhanced Access - 5 Rankings)', () => {
     const bronzeUser = TEST_USERS.BRONZE_USER;
 
     test.beforeEach(async ({ page }) => {
       await authenticateUser(page, bronzeUser);
+    });
+
+    test('should validate permission-based access control', async ({ page }) => {
+      // Verify user has expected permissions
+      expect(userHasPermission(bronzeUser, 'epsx:rankings:view:5')).toBe(true);
+      expect(userHasPermission(bronzeUser, 'epsx:trading:basic')).toBe(true);
+      expect(userHasPermission(bronzeUser, 'epsx:portfolio:history')).toBe(true);
+      expect(userHasPermission(bronzeUser, 'epsx:analytics:basic')).toBe(true);
+      expect(userHasPermission(bronzeUser, 'epsx:trading:premium')).toBe(false); // Not in bronze
+      
+      // Verify derived tier matches expectation
+      expect(deriveTierFromUserPermissions(bronzeUser)).toBe('BRONZE');
+      expect(getUserRankingLimit(bronzeUser)).toBe(5);
     });
 
     test('should access bronze-level features', async ({ page }) => {
@@ -151,12 +224,26 @@ test.describe('🎯 Package Tier Permission System', () => {
       await verifyRouteAccess(page, '/api-access', false);
     });
 
+    test('should enforce 5-ranking limit', async ({ page }) => {
+      await verifyRankingLimits(page, bronzeUser);
+      
+      // Verify specific ranking positions
+      expect(canUserViewRanking(bronzeUser, 1)).toBe(true);  // Position 1
+      expect(canUserViewRanking(bronzeUser, 5)).toBe(true);  // Position 5
+      expect(canUserViewRanking(bronzeUser, 6)).toBe(false); // Position 6 (beyond limit)
+      expect(canUserViewRanking(bronzeUser, 25)).toBe(false); // Position 25 (Silver limit)
+    });
+
     test('should show enhanced notifications and portfolio history', async ({ page }) => {
       await page.goto('/portfolio');
       
-      // Should see enhanced features
-      await expect(page.locator('[data-testid="portfolio-history-chart"]')).toBeVisible();
-      await expect(page.locator('[data-testid="enhanced-notifications-panel"]')).toBeVisible();
+      // Should see enhanced features based on permissions
+      if (userHasPermission(bronzeUser, 'epsx:portfolio:history')) {
+        await expect(page.locator('[data-testid="portfolio-history-chart"]')).toBeVisible();
+      }
+      if (userHasPermission(bronzeUser, 'epsx:notifications:enhanced')) {
+        await expect(page.locator('[data-testid="enhanced-notifications-panel"]')).toBeVisible();
+      }
       
       // Should still see upgrade options for higher tiers
       await expect(page.locator('[data-testid="upgrade-to-silver"]')).toBeVisible();
@@ -333,11 +420,34 @@ test.describe('🎯 Package Tier Permission System', () => {
     });
   });
 
-  test.describe('🏢 ENTERPRISE Tier (Full Access)', () => {
+  test.describe('🏢 ENTERPRISE Tier (Unlimited Access)', () => {
     const enterpriseUser = TEST_USERS.ENTERPRISE_USER;
 
     test.beforeEach(async ({ page }) => {
       await authenticateUser(page, enterpriseUser);
+    });
+
+    test('should validate unlimited permission structure', async ({ page }) => {
+      // Verify user has expected unlimited permissions
+      expect(userHasPermission(enterpriseUser, 'epsx:rankings:view:unlimited')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx:*:*')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx-pay:*:*')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx-token:*:*')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'admin:*:*')).toBe(true);
+      
+      // Verify derived tier matches expectation
+      expect(deriveTierFromUserPermissions(enterpriseUser)).toBe('ENTERPRISE');
+      expect(getUserRankingLimit(enterpriseUser)).toBe(-1); // Unlimited
+    });
+
+    test('should have unlimited ranking access', async ({ page }) => {
+      await verifyRankingLimits(page, enterpriseUser);
+      
+      // Verify unlimited access to any ranking position
+      expect(canUserViewRanking(enterpriseUser, 1)).toBe(true);
+      expect(canUserViewRanking(enterpriseUser, 100)).toBe(true);
+      expect(canUserViewRanking(enterpriseUser, 1000)).toBe(true);
+      expect(canUserViewRanking(enterpriseUser, 9999)).toBe(true);
     });
 
     test('should access all enterprise features', async ({ page }) => {
@@ -356,6 +466,25 @@ test.describe('🎯 Package Tier Permission System', () => {
       await verifyRouteAccess(page, '/reports', true);
       await verifyRouteAccess(page, '/enterprise', true);
       await verifyRouteAccess(page, '/api-access', true);
+    });
+
+    test('should have wildcard permissions across all platforms', async ({ page }) => {
+      // Test EPSX platform wildcard
+      expect(userHasPermission(enterpriseUser, 'epsx:trading:any')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx:analytics:premium')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx:research:reports')).toBe(true);
+      
+      // Test EPSX Pay platform wildcard
+      expect(userHasPermission(enterpriseUser, 'epsx-pay:transactions:manage')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx-pay:payments:process')).toBe(true);
+      
+      // Test EPSX Token platform wildcard
+      expect(userHasPermission(enterpriseUser, 'epsx-token:governance:vote')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'epsx-token:tokens:stake')).toBe(true);
+      
+      // Test Admin platform wildcard
+      expect(userHasPermission(enterpriseUser, 'admin:users:manage')).toBe(true);
+      expect(userHasPermission(enterpriseUser, 'admin:system:configure')).toBe(true);
     });
 
     test('should access institutional features and API management', async ({ page }) => {
@@ -386,6 +515,7 @@ test.describe('🎯 Package Tier Permission System', () => {
       await expect(page.locator('[data-testid="upgrade-modal"]')).not.toBeVisible();
       await expect(page.locator('[data-testid="upgrade-to-platinum"]')).not.toBeVisible();
       await expect(page.locator('[data-testid="upgrade-banner"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="ranking-upgrade-prompt"]')).not.toBeVisible();
     });
   });
 
@@ -462,14 +592,18 @@ test.describe('🎯 Package Tier Permission System', () => {
       }
     });
 
-    test('should validate feature access across all tiers', async ({ page }) => {
-      const allUsers = getUsersForTierTesting();
+    test('should validate permission-based feature access across all tiers', async ({ page }) => {
+      const allUsers = getPermissionTestUsers(); // Use new permission-based function
       
       for (const user of allUsers) {
         await authenticateUser(page, user);
         await page.goto('/');
         await verifyFeatureAvailability(page, user);
-        console.log(`✅ Feature validation completed for ${user.package_tier}`);
+        await verifyRankingLimits(page, user);
+        
+        const derivedTier = deriveTierFromUserPermissions(user);
+        const rankingLimit = getUserRankingLimit(user);
+        console.log(`✅ Permission validation completed for ${derivedTier} (${rankingLimit === -1 ? 'unlimited' : rankingLimit} rankings)`);
       }
     });
 
@@ -543,6 +677,153 @@ test.describe('🎯 Package Tier Permission System', () => {
       
       // Should have at least some rate limited responses
       expect(rateLimitedResponses.length).toBeGreaterThan(0);
+    });
+  });
+
+  test.describe('🚀 Dynamic Permission System (NEW)', () => {
+    
+    test('should support custom ranking limits', async ({ page }) => {
+      // Create custom users with non-standard limits
+      const customUsers = [
+        createTestUserWithPermissions(['epsx:rankings:view:7', 'epsx:trading:basic'], { email: 'custom7@test.com' }),
+        createTestUserWithPermissions(['epsx:rankings:view:37', 'epsx:trading:advanced'], { email: 'custom37@test.com' }),
+        createTestUserWithPermissions(['epsx:rankings:view:123', 'epsx:portfolio:tools'], { email: 'custom123@test.com' })
+      ];
+      
+      for (const user of customUsers) {
+        await authenticateUser(page, user);
+        
+        const rankingLimit = getUserRankingLimit(user);
+        const derivedTier = deriveTierFromUserPermissions(user);
+        
+        console.log(`🔧 Testing custom user: ${user.email} (limit: ${rankingLimit}, tier: ${derivedTier})`);
+        
+        // Verify ranking access follows custom limit
+        expect(canUserViewRanking(user, 1)).toBe(true);
+        expect(canUserViewRanking(user, rankingLimit)).toBe(true);
+        if (rankingLimit > 0) {
+          expect(canUserViewRanking(user, rankingLimit + 1)).toBe(false);
+        }
+        
+        // Verify UI derives appropriate tier
+        if (rankingLimit <= 10) expect(derivedTier).toBe('BRONZE');
+        else if (rankingLimit <= 30) expect(derivedTier).toBe('SILVER');
+        else if (rankingLimit <= 75) expect(derivedTier).toBe('GOLD');
+        else if (rankingLimit <= 150) expect(derivedTier).toBe('PLATINUM');
+        else expect(derivedTier).toBe('ENTERPRISE');
+      }
+    });
+
+    test('should handle unlimited access correctly', async ({ page }) => {
+      const unlimitedUser = createTestUserWithPermissions([
+        'epsx:rankings:view:unlimited',
+        'epsx:*:*'
+      ], { email: 'unlimited@test.com' });
+      
+      await authenticateUser(page, unlimitedUser);
+      
+      // Verify unlimited access
+      expect(getUserRankingLimit(unlimitedUser)).toBe(-1);
+      expect(deriveTierFromUserPermissions(unlimitedUser)).toBe('ENTERPRISE');
+      
+      // Should access any ranking position
+      expect(canUserViewRanking(unlimitedUser, 1)).toBe(true);
+      expect(canUserViewRanking(unlimitedUser, 100)).toBe(true);
+      expect(canUserViewRanking(unlimitedUser, 1000)).toBe(true);
+      
+      // Should have wildcard permissions
+      expect(userHasPermission(unlimitedUser, 'epsx:any:feature')).toBe(true);
+    });
+
+    test('should validate permission wildcards', async ({ page }) => {
+      const wildcardTests = [
+        {
+          permissions: ['epsx:*:*'],
+          shouldHave: ['epsx:trading:basic', 'epsx:portfolio:view', 'epsx:analytics:advanced'],
+          shouldNotHave: ['admin:users:manage', 'epsx-pay:transactions:view']
+        },
+        {
+          permissions: ['epsx:trading:*'],
+          shouldHave: ['epsx:trading:basic', 'epsx:trading:advanced'],
+          shouldNotHave: ['epsx:portfolio:view', 'epsx:analytics:basic']
+        },
+        {
+          permissions: ['admin:*:*'],
+          shouldHave: ['admin:users:manage', 'admin:system:configure'],
+          shouldNotHave: ['epsx:trading:basic']
+        }
+      ];
+      
+      for (const test of wildcardTests) {
+        const testUser = createTestUserWithPermissions(test.permissions);
+        
+        for (const perm of test.shouldHave) {
+          expect(userHasPermission(testUser, perm)).toBe(true);
+        }
+        
+        for (const perm of test.shouldNotHave) {
+          expect(userHasPermission(testUser, perm)).toBe(false);
+        }
+      }
+    });
+
+    test('should support multi-platform permissions', async ({ page }) => {
+      const multiPlatformUser = createTestUserWithPermissions([
+        'epsx:rankings:view:50',
+        'epsx:trading:advanced',
+        'epsx-pay:transactions:view',
+        'epsx-token:tokens:stake'
+      ], { email: 'multiplatform@test.com' });
+      
+      await authenticateUser(page, multiPlatformUser);
+      
+      // Should have EPSX permissions
+      expect(userHasPermission(multiPlatformUser, 'epsx:trading:advanced')).toBe(true);
+      expect(getUserRankingLimit(multiPlatformUser)).toBe(50);
+      
+      // Should have EPSX Pay permissions
+      expect(userHasPermission(multiPlatformUser, 'epsx-pay:transactions:view')).toBe(true);
+      
+      // Should have EPSX Token permissions
+      expect(userHasPermission(multiPlatformUser, 'epsx-token:tokens:stake')).toBe(true);
+      
+      // Should NOT have admin permissions
+      expect(userHasPermission(multiPlatformUser, 'admin:users:manage')).toBe(false);
+    });
+
+    test('should handle edge cases in permission parsing', async ({ page }) => {
+      // Test malformed or edge case permissions
+      const edgeCaseTests = [
+        {
+          permissions: ['epsx:rankings:view:0'], // Zero limit
+          expectedLimit: 0,
+          canView1: false
+        },
+        {
+          permissions: ['epsx:rankings:view:abc'], // Invalid number
+          expectedLimit: 5, // Should fallback to default
+          canView1: true
+        },
+        {
+          permissions: ['epsx:rankings:view'], // Missing limit
+          expectedLimit: 5, // Should fallback to default
+          canView1: true
+        },
+        {
+          permissions: ['invalid:permission:format'], // No ranking permission
+          expectedLimit: 5, // Should fallback to default
+          canView1: true
+        }
+      ];
+      
+      for (const test of edgeCaseTests) {
+        const testUser = createTestUserWithPermissions(test.permissions);
+        
+        expect(getUserRankingLimit(testUser)).toBe(test.expectedLimit);
+        expect(canUserViewRanking(testUser, 1)).toBe(test.canView1);
+        
+        console.log(`✅ Edge case handled: ${JSON.stringify(test.permissions)} -> limit: ${test.expectedLimit}`);
+      }
     });
   });
 

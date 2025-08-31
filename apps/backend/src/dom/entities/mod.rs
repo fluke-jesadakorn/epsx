@@ -1,6 +1,7 @@
 // Domain entities with business rules and behavior
 
 pub mod user;
+pub mod user_permission;
 pub mod auth;
 pub mod payment;
 pub mod stock;
@@ -11,6 +12,7 @@ pub mod market_data;
 pub mod eps_growth;
 
 pub use user::*;
+pub use user_permission::*;
 pub use auth::*;
 pub use payment::*;
 pub use stock::*;

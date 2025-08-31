@@ -377,7 +377,7 @@ async fn handle_authenticated_user_flow(
 ) -> Result<Redirect, StatusCode> {
 
     // Validate admin access if required
-    if form_data.scope.contains("admin") || form_data.scope.contains("admin_modules") {
+    if form_data.scope.contains("admin") || form_data.scope.contains("permissions") {
         // For test user, skip Firebase admin validation and use granular admin modules
         if firebase_user.uid == "test_user_info_epsx_io" {
             tracing::info!("Development mode: checking granular admin modules for test user");
@@ -389,14 +389,14 @@ async fn handle_authenticated_user_flow(
         } else {
             // For real users, check both Firebase admin validation and database admin modules
             let has_firebase_admin = app_state.firebase_admin.user_has_admin_access(&firebase_user);
-            let has_admin_modules = if let Some(_email) = &firebase_user.email {
+            let has_permissions = if let Some(_email) = &firebase_user.email {
                 // Simplified role system - check via Firebase claims or user role field
                 false // TODO: implement simple role check
             } else {
                 false
             };
             
-            if !has_firebase_admin && !has_admin_modules {
+            if !has_firebase_admin && !has_permissions {
                 tracing::warn!("User {} attempted admin login without privileges", form_data.email);
                 return serve_login_with_error(&form_data, "Administrator privileges required");
             }
@@ -758,19 +758,14 @@ async fn create_database_user(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::User;
     use crate::dom::values::Email;
-    use crate::auth::roles::Role;
     
     let email = Email::new(firebase_user.email.as_ref().unwrap_or(&"unknown@example.com".to_string()).clone())
         .map_err(|e| format!("Invalid email format: {}", e))?;
     
-    let user_role = role.parse::<Role>()
-        .map_err(|e| format!("Invalid role: {}", e))?;
-    
-    // Create user entity with real Firebase UID
+    // Create user entity with real Firebase UID (no package_tier needed - using permissions)
     let user = User::new(
         firebase_user.uid.clone(),
-        email,
-        user_role.to_string()
+        email
     );
     
     // Save to database
@@ -1140,9 +1135,9 @@ mod tests {
     fn test_is_valid_scope() {
         assert!(is_valid_scope("openid"));
         assert!(is_valid_scope("openid profile email"));
-        assert!(is_valid_scope("openid profile email admin"));
-        assert!(is_valid_scope("openid profile email admin:read admin:write"));
-        assert!(is_valid_scope("openid profile email admin:read admin:write system:manage"));
+        assert!(is_valid_scope("openid profile email permissions"));
+        assert!(is_valid_scope("openid profile email epsx:admin:read epsx:admin:write"));
+        assert!(is_valid_scope("openid profile email epsx:users:manage epsx:system:admin"));
         assert!(!is_valid_scope("profile email")); // Missing openid
         assert!(!is_valid_scope("openid invalid_scope"));
         assert!(!is_valid_scope("openid malicious:inject"));

@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     console.log('✅ Successfully received user info from EPSX backend:', {
       email: userinfo.email,
       role: userinfo.role,
-      admin_modules: userinfo.admin_modules,
+      permissions: userinfo.permissions,
     });
 
     // Create JWT token with user claims
@@ -115,8 +115,7 @@ export async function GET(request: NextRequest) {
       id: userinfo.sub || userinfo.id,
       email: userinfo.email,
       name: userinfo.name || userinfo.display_name,
-      admin_modules: userinfo.admin_modules || [],
-      permissions: userinfo.permissions || ['user:read'],
+      permissions: userinfo.permissions || ['epsx:user:read'],
       package_tier: userinfo.subscription_tier || 'FREE', // Use subscription_tier from backend
       role: userinfo.role || 'user',
       firebase_uid: userinfo.firebase_uid || userinfo.sub,

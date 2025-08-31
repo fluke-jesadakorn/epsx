@@ -21,9 +21,11 @@ export function SecurityDashboardLayout({ children, className }: SecurityDashboa
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // Check if user has required security permissions
-  const hasSecurityAccess = user?.admin_modules?.some(module => 
-    ['security_management', 'audit_logs'].includes(module)
+  // Check if user has required security permissions using new system
+  const hasSecurityAccess = user?.permissions?.some(p => 
+    p.includes('epsx:security:') || 
+    p.includes('epsx:audit:') ||
+    p === '*'
   ) ?? false;
 
   // Simulate real-time security status updates
@@ -57,8 +59,9 @@ export function SecurityDashboardLayout({ children, className }: SecurityDashboa
           <div className="bg-muted/50 p-4 rounded-lg">
             <h3 className="font-semibold mb-2">Required Permissions:</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• security_management</li>
-              <li>• audit_logs</li>
+              <li>• epsx:security:view or epsx:security:manage</li>
+              <li>• epsx:audit:view or epsx:audit:manage</li>
+              <li className="text-xs mt-2 opacity-70">Legacy: security_management, audit_logs</li>
             </ul>
           </div>
         </div>

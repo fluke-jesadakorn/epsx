@@ -89,7 +89,7 @@ pub async fn search_users_handler(
                     email: user.email().to_string(),
                     display_name: None, // User entity doesn't have display_name field
                     firebase_uid: Some(user.firebase_uid().to_string()),
-                    package_tier: Some(user.package_tier().to_string()),
+                    package_tier: Some("user".to_string()), // Default since derived_tier removed
                     created_at: user.created_at().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
                     email_verified: None, // User entity doesn't have email_verified field
                 }

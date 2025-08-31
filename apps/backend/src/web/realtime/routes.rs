@@ -7,7 +7,6 @@ use axum::{
 use super::super::auth::routes::AppState;
 use crate::web::middleware::add_deprecation_headers;
 use super::{
-    websocket::websocket_handler,
     sse::{sse_handler, sse_health_handler},
     handlers::{
         broadcast_notification_handler,

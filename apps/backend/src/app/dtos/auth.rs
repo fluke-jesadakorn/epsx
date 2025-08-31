@@ -13,7 +13,7 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub user_id: UserId,
     pub package_tier: String,
-    pub admin_modules: Vec<String>,
+    pub permissions: Vec<String>,
     pub access_token: String,
     pub expires_in: i64,
     pub sess_id: String,
@@ -28,7 +28,6 @@ pub struct RefreshTokenRequest {
 pub struct UserSession {
     pub user_id: UserId,
     pub package_tier: String,
-    pub admin_modules: Vec<String>,
     pub permissions: Vec<String>,
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }

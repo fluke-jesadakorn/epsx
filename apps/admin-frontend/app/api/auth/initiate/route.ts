@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const authorizationEndpoint = `${backendUrl}/oauth/authorize`;
     const clientId = 'epsx-admin';
     const redirectUri = `${adminUrl}/api/auth/callback/epsx-backend`;
-    const scope = 'openid profile email admin_modules';
+    const scope = 'openid profile email permissions platform_context'; // Structured permissions only
     
     console.log('🔧 Admin: OAuth configuration:', {
       authorizationEndpoint,

@@ -97,117 +97,12 @@ impl deserialize::FromSql<sql_types::Numeric, diesel::pg::Pg> for DieselDecimal 
 }
 
 // ============================================================================
-// PACKAGE TIER ENUM
+// PACKAGE TIER - Now using VARCHAR instead of enum
 // ============================================================================
+// The package_tier column is now VARCHAR(50) to allow flexible tier values
+// like 'FREE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'admin', etc.
+// No custom Diesel type needed since it's a simple string.
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(AsExpression, FromSqlRow)]
-#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::PackageTier)]
-pub enum PackageTier {
-    Free,
-    Basic,
-    Premium,
-    Enterprise,
-}
-
-impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::PackageTier, diesel::pg::Pg> for PackageTier {
-    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
-        let value = match *self {
-            PackageTier::Free => "free",
-            PackageTier::Basic => "basic",
-            PackageTier::Premium => "premium",
-            PackageTier::Enterprise => "enterprise",
-        };
-        out.write_all(value.as_bytes())?;
-        Ok(serialize::IsNull::No)
-    }
-}
-
-impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::PackageTier, diesel::pg::Pg> for PackageTier {
-    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
-        match std::str::from_utf8(bytes.as_bytes())? {
-            "free" => Ok(PackageTier::Free),
-            "basic" => Ok(PackageTier::Basic),
-            "premium" => Ok(PackageTier::Premium),
-            "enterprise" => Ok(PackageTier::Enterprise),
-            _ => Err("Unrecognized PackageTier variant".into()),
-        }
-    }
-}
-
-// Conversion from domain SubscriptionTier
-impl From<crate::dom::values::auth::SubscriptionTier> for PackageTier {
-    fn from(tier: crate::dom::values::auth::SubscriptionTier) -> Self {
-        match tier {
-            crate::dom::values::auth::SubscriptionTier::Free => PackageTier::Free,
-            crate::dom::values::auth::SubscriptionTier::Basic => PackageTier::Basic,
-            crate::dom::values::auth::SubscriptionTier::Premium => PackageTier::Premium,
-            crate::dom::values::auth::SubscriptionTier::Enterprise => PackageTier::Enterprise,
-        }
-    }
-}
-
-impl From<PackageTier> for crate::dom::values::auth::SubscriptionTier {
-    fn from(tier: PackageTier) -> Self {
-        match tier {
-            PackageTier::Free => crate::dom::values::auth::SubscriptionTier::Free,
-            PackageTier::Basic => crate::dom::values::auth::SubscriptionTier::Basic,
-            PackageTier::Premium => crate::dom::values::auth::SubscriptionTier::Premium,
-            PackageTier::Enterprise => crate::dom::values::auth::SubscriptionTier::Enterprise,
-        }
-    }
-}
-
-// ============================================================================
-// ADMIN MODULE ENUM  
-// ============================================================================
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(AsExpression, FromSqlRow)]
-#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::AdminModule)]
-pub enum AdminModule {
-    UserManagement,
-    Analytics,
-    Security,
-    Billing,
-    Settings,
-    ContentManagement,
-    SupportAccess,
-    ApiManagement,
-}
-
-impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
-    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
-        let value = match *self {
-            AdminModule::UserManagement => "user-management",
-            AdminModule::Analytics => "analytics-access",
-            AdminModule::Security => "security-management",
-            AdminModule::Billing => "billing-admin",
-            AdminModule::Settings => "system-admin",
-            AdminModule::ContentManagement => "content-management",
-            AdminModule::SupportAccess => "support-access",
-            AdminModule::ApiManagement => "api-management",
-        };
-        out.write_all(value.as_bytes())?;
-        Ok(serialize::IsNull::No)
-    }
-}
-
-impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::AdminModule, diesel::pg::Pg> for AdminModule {
-    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
-        match std::str::from_utf8(bytes.as_bytes())? {
-            "user-management" => Ok(AdminModule::UserManagement),
-            "analytics-access" => Ok(AdminModule::Analytics),
-            "security-management" => Ok(AdminModule::Security),
-            "billing-admin" => Ok(AdminModule::Billing),
-            "system-admin" => Ok(AdminModule::Settings),
-            "content-management" => Ok(AdminModule::ContentManagement),
-            "support-access" => Ok(AdminModule::SupportAccess),
-            "api-management" => Ok(AdminModule::ApiManagement),
-            _ => Err("Unrecognized AdminModule variant".into()),
-        }
-    }
-}
 
 // ============================================================================
 // NOTIFICATION PRIORITY ENUM

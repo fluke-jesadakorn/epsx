@@ -32,8 +32,8 @@ describe('UserManagement', () => {
       name: 'Admin User',
       admin: true,
       access_level: 'admin',
-      admin_modules: ['user_operations', 'system_admin'],
-      permissions: ['user:read', 'user:write', 'admin_access'],
+      permissions: ['epsx:users:manage', 'epsx:system:admin'],
+      additional_permissions: ['user:read', 'user:write', 'admin_access'],
       package_tier: 'enterprise',
       subscription_status: 'active'
     })
@@ -94,8 +94,8 @@ describe('UserManagement', () => {
       name: 'Regular User',
       admin: false,
       access_level: 'read',
-      admin_modules: [],
-      permissions: ['user:read'],
+      permissions: [],
+      additional_permissions: ['user:read'],
       package_tier: 'free',
       subscription_status: 'active'
     })

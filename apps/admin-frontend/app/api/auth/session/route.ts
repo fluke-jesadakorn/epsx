@@ -27,8 +27,9 @@ export async function GET() {
         email: sessionData.user.email,
         name: sessionData.user.name,
         role: sessionData.user.role,
-        admin_modules: sessionData.user.admin_modules,
-        permissions: sessionData.user.permissions,
+        permissions: sessionData.user.permissions || [],
+        platform_context: sessionData.user.platform_context || 'epsx',
+        primary_platform: sessionData.user.primary_platform || 'epsx',
         package_tier: sessionData.user.package_tier,
         firebase_uid: sessionData.user.firebase_uid,
       },
@@ -120,7 +121,12 @@ export async function PUT() {
       // Validate admin permissions are still active
       const userInfo = await response.json();
       
-      if (!userInfo.admin_modules || userInfo.admin_modules.length === 0) {
+      // Check structured permissions system
+      const hasAdminPermissions = userInfo.permissions && userInfo.permissions.some((p: string) => 
+        p.includes(':manage') || p.includes(':admin') || p === '*'
+      );
+      
+      if (!hasAdminPermissions) {
         return NextResponse.json({
           error: 'Admin privileges revoked'
         }, { status: 403 });
@@ -131,7 +137,7 @@ export async function PUT() {
         message: 'Admin session validated with backend',
         expiresAt: payload.exp * 1000,
         isValid: true,
-        adminModules: userInfo.admin_modules
+        permissions: userInfo.permissions || []
       });
       
     } catch (fetchError) {

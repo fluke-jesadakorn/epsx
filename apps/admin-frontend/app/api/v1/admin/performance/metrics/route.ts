@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         user: {
           email: user.email,
           role: user.role,
-          adminModules: user.admin_modules?.length || 0,
+          permissions: user.permissions?.length || 0,
           packageTier: user.package_tier
         },
         performance: {
@@ -129,7 +129,7 @@ function getPerformanceRecommendations(metrics: {
   
   // Permission check recommendations
   if (permissionTime > 5) {
-    recommendations.push('Permission checks are slow - consider optimizing admin module lookups')
+    recommendations.push('Permission checks are slow - consider optimizing structured permission lookups')
   }
   
   // Overall middleware recommendations

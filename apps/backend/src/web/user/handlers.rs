@@ -10,6 +10,7 @@ use serde::{ Deserialize, Serialize };
 use chrono::{ DateTime, Utc };
 use crate::web::auth::AppState;
 use crate::dom::values::UserId;
+use crate::app::services::permission_application_service::ApplicationPermissionError;
 use serde_json::{ json, Value };
 
 /// Extract session ID from headers
@@ -29,20 +30,43 @@ fn extract_session_from_headers(
   Err(StatusCode::UNAUTHORIZED)
 }
 
-/// Helper function to verify user permissions
+/// Helper function to verify user permissions using PermissionApplicationService
 async fn verify_user_permissions(
-  user_id: &str,
-  resource: &str,
-  action: &str
+  permission_service: &crate::app::services::PermissionApplicationService,
+  firebase_uid: &str,
+  required_permission: &str
 ) -> Result<(), StatusCode> {
-  // TODO: Implement proper permission verification logic with role-based access control
-  tracing::debug!(
-    "Permission check for user {} on {}/{} - implementation needed",
-    user_id,
-    resource,
-    action
-  );
-  Ok(())
+  match permission_service.check_user_permission(firebase_uid, required_permission).await {
+    Ok(true) => {
+      tracing::debug!(
+        "Permission granted for user {} to access {}",
+        firebase_uid,
+        required_permission
+      );
+      Ok(())
+    }
+    Ok(false) => {
+      tracing::warn!(
+        "Permission denied for user {} to access {}",
+        firebase_uid,
+        required_permission
+      );
+      Err(StatusCode::FORBIDDEN)
+    }
+    Err(e) => {
+      tracing::error!(
+        "Permission check failed for user {} to access {}: {:?}",
+        firebase_uid,
+        required_permission,
+        e
+      );
+      match e {
+        ApplicationPermissionError::UserNotFound => Err(StatusCode::NOT_FOUND),
+        ApplicationPermissionError::InsufficientPermissions => Err(StatusCode::FORBIDDEN),
+        _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
+      }
+    }
+  }
 }
 
 /// User profile response
@@ -50,7 +74,6 @@ async fn verify_user_permissions(
 pub struct UserProfileResponse {
   pub user_id: String,
   pub email: String,
-  pub role: String,
   pub permissions: Vec<String>,
   pub subscription_tier: String,
   pub package_tier: String,
@@ -186,14 +209,8 @@ pub async fn get_profile_handler(
   };
 
   let user_id = session.user_id().to_string();
-  verify_user_permissions(&user_id, "/api/v1/users/profile", "GET").await?;
-
-  tracing::info!(
-    "User get profile handler called with authorization for user: {}",
-    user_id
-  );
-
-  // Get actual user from database
+  
+  // Get user from database to obtain firebase_uid for permission check
   let user_id_obj = crate::dom::values::UserId::new(user_id.clone());
   let user = match app_state.user_repo.get(&user_id_obj).await {
     Ok(Some(user)) => user,
@@ -206,12 +223,36 @@ pub async fn get_profile_handler(
       return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
   };
+  
+  let firebase_uid = if user.firebase_uid().is_empty() {
+    &user_id
+  } else {
+    user.firebase_uid()
+  };
+  verify_user_permissions(&app_state.permission_application_service, firebase_uid, "epsx:profile:view").await?;
+
+  tracing::info!(
+    "User get profile handler called with authorization for user: {}",
+    user_id
+  );
 
   // Get user roles - TODO: Implement role loading from database
   let user_roles = vec!["user".to_string()];
 
-  // Get user permissions - TODO: Implement permission loading from database
-  let user_permissions = vec!["read".to_string()];
+  // Get user permissions from the permission service
+  let user_permissions = match app_state.permission_application_service.get_user_permissions(firebase_uid).await {
+    Ok(permissions) => permissions,
+    Err(e) => {
+      tracing::error!("Failed to fetch user permissions for {}: {:?}", firebase_uid, e);
+      match e {
+        ApplicationPermissionError::UserNotFound => {
+          tracing::warn!("User {} not found for permission lookup", firebase_uid);
+          vec![]
+        }
+        _ => vec![] // Return empty permissions on other errors
+      }
+    }
+  };
 
   Ok(
     Json(
@@ -263,7 +304,27 @@ pub async fn update_profile_handler(
   };
 
   let user_id = session.user_id().to_string();
-  verify_user_permissions(&user_id, "/api/v1/users/profile", "PUT").await?;
+  
+  // Get user from database to obtain firebase_uid for permission check
+  let user_id_obj = crate::dom::values::UserId::new(user_id.clone());
+  let user = match app_state.user_repo.get(&user_id_obj).await {
+    Ok(Some(user)) => user,
+    Ok(None) => {
+      tracing::warn!("User {} not found in database", user_id);
+      return Err(StatusCode::NOT_FOUND);
+    }
+    Err(e) => {
+      tracing::error!("Failed to fetch user {}: {:?}", user_id, e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
+  
+  let firebase_uid = if user.firebase_uid().is_empty() {
+    &user_id
+  } else {
+    user.firebase_uid()
+  };
+  verify_user_permissions(&app_state.permission_application_service, firebase_uid, "epsx:profile:update").await?;
 
   tracing::info!(
     "User update profile handler called with authorization for user: {}",
@@ -444,7 +505,27 @@ pub async fn list_users_handler(
   };
 
   let user_id = session.user_id().to_string();
-  verify_user_permissions(&user_id, "/api/v1/users", "GET").await?;
+  
+  // Get user from database to obtain firebase_uid for permission check
+  let user_id_obj = crate::dom::values::UserId::new(user_id.clone());
+  let current_user = match app_state.user_repo.get(&user_id_obj).await {
+    Ok(Some(user)) => user,
+    Ok(None) => {
+      tracing::warn!("User {} not found in database", user_id);
+      return Err(StatusCode::NOT_FOUND);
+    }
+    Err(e) => {
+      tracing::error!("Failed to fetch user {}: {:?}", user_id, e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
+  
+  let firebase_uid = if current_user.firebase_uid().is_empty() {
+    &user_id
+  } else {
+    current_user.firebase_uid()
+  };
+  verify_user_permissions(&app_state.permission_application_service, firebase_uid, "admin:users:list").await?;
 
   tracing::info!(
     "User list handler called with authorization for admin user: {}",
@@ -469,21 +550,39 @@ pub async fn list_users_handler(
     }
   };
 
-  let user_list: Vec<Value> = users
-    .into_iter()
-    .map(|user| {
-      json!({
-            "id": user.id().to_string(),
-            "email": user.email(),
-            "role": user.role().to_string(),
-            "subscription_tier": user.subscription().tier().to_string(),
-            "is_active": user.is_active(),
-            "created_at": user.created_at(),
-            "updated_at": user.updated_at(),
-            "is_deleted": user.is_deleted()
-        })
-    })
-    .collect();
+  // Convert users to response format, fetching permissions from the service
+  let mut user_list = Vec::new();
+  for user in users {
+    let user_firebase_uid = if user.firebase_uid().is_empty() {
+      &user.id().to_string()
+    } else {
+      user.firebase_uid()
+    };
+    let user_permissions = match app_state.permission_application_service.get_user_permissions(user_firebase_uid).await {
+      Ok(permissions) => permissions,
+      Err(e) => {
+        tracing::error!("Failed to fetch permissions for user {}: {:?}", user.id(), e);
+        match e {
+          ApplicationPermissionError::UserNotFound => {
+            tracing::warn!("User {} not found for permission lookup", user.id());
+            vec![]
+          }
+          _ => vec![] // Return empty permissions on other errors
+        }
+      }
+    };
+    
+    user_list.push(json!({
+      "id": user.id().to_string(),
+      "email": user.email(),
+      "permissions": user_permissions,
+      "subscription_tier": user.subscription().tier().to_string(),
+      "is_active": user.is_active(),
+      "created_at": user.created_at(),
+      "updated_at": user.updated_at(),
+      "is_deleted": user.is_deleted()
+    }));
+  }
 
   Ok(
     Json(
@@ -787,13 +886,33 @@ pub async fn me_handler(
       return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
   };
+  
+  // Get user permissions from the permission service
+  let firebase_uid = if user.firebase_uid().is_empty() {
+    &user_id_str
+  } else {
+    user.firebase_uid()
+  };
+  let user_permissions = match app_state.permission_application_service.get_user_permissions(firebase_uid).await {
+    Ok(permissions) => permissions,
+    Err(e) => {
+      tracing::error!("Failed to fetch user permissions for {}: {:?}", firebase_uid, e);
+      match e {
+        ApplicationPermissionError::UserNotFound => {
+          tracing::warn!("User {} not found for permission lookup", firebase_uid);
+          vec![]
+        }
+        _ => vec![] // Return empty permissions on other errors
+      }
+    }
+  };
 
   Ok(
     Json(
       json!({
         "id": user.id().to_string(),
         "email": user.email(),
-        "role": user.role().to_string(),
+        "permissions": user_permissions,
         "subscription_tier": user.subscription().tier().to_string(),
         "is_active": user.is_active(),
         "created_at": user.created_at(),

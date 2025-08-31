@@ -7,10 +7,14 @@ export interface User {
   id: string
   email: string
   name?: string
-  role: string
-  permissions: string[]
+  permissions: string[]  // Structured permissions: "platform:resource:action"
   package_tier: string
   firebase_uid?: string
+  
+  // Cross-platform fields
+  platforms: string[]          // Available platforms: ['epsx', 'epsx-pay', 'epsx-token']
+  primary_platform: string     // Default platform
+  platform_context?: string    // Current platform context
 }
 
 export interface AuthState {
@@ -27,10 +31,17 @@ export interface AuthState {
   refreshSession: () => Promise<void>
   clearError: () => void
   
-  // Permission checks
+  // Permission checks - pure permission system
   can: (permission: string) => boolean
-  hasRole: (role: string) => boolean
+  hasAnyPermission: (permissions: string[]) => boolean
+  hasAllPermissions: (permissions: string[]) => boolean
   hasTier: (tier: string) => boolean
+  
+  // Cross-platform functionality
+  switchPlatform: (platform: string) => Promise<void>
+  getCurrentPlatform: () => string
+  getAvailablePlatforms: () => string[]
+  canAccessPlatform: (platform: string) => boolean
 }
 
 // Create auth store without persistence (relies on server-side cookies)
@@ -171,6 +182,11 @@ export const useAuth = create<AuthState>((set, get) => ({
         permissions: data.user.permissions || [],
         package_tier: data.user.package_tier || 'FREE',
         firebase_uid: data.user.firebase_uid,
+        
+        // Cross-platform fields
+        platforms: data.user.platforms || ['epsx'],
+        primary_platform: data.user.primary_platform || 'epsx',
+        platform_context: data.user.platform_context,
       }
 
       set({ 
@@ -218,8 +234,15 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { user } = get()
     if (!user) return false
     
+    // If permission doesn't contain platform prefix, add current platform
+    let checkPermission = permission
+    if (!permission.includes(':')) {
+      const currentPlatform = user.platform_context || user.primary_platform
+      checkPermission = `${currentPlatform}:${permission}`
+    }
+    
     // Check exact match
-    if (user.permissions.includes(permission)) {
+    if (user.permissions.includes(checkPermission)) {
       return true
     }
     
@@ -227,27 +250,43 @@ export const useAuth = create<AuthState>((set, get) => ({
     return user.permissions.some(p => {
       if (p.endsWith('*')) {
         const prefix = p.slice(0, -1)
-        return permission.startsWith(prefix)
+        return checkPermission.startsWith(prefix)
       }
+      
+      // Check platform-level wildcards (e.g., "epsx:*")
+      const parts = p.split(':')
+      if (parts.length >= 2 && parts[1] === '*') {
+        const checkParts = checkPermission.split(':')
+        return checkParts[0] === parts[0]
+      }
+      
       return false
     })
   },
 
-  hasRole: (role: string) => {
+  hasAnyPermission: (permissions: string[]) => {
     const { user } = get()
     if (!user) return false
     
-    const roleHierarchy = {
-      user: 1,
-      premium: 2,
-      moderator: 3,
-      admin: 4,
-    }
+    return permissions.some(permission => {
+      return user.permissions.some(userPerm => {
+        // Support wildcard matching for admin permissions
+        if (userPerm === 'admin:*:*') return true
+        
+        const [userPlat, userRes, userAct] = userPerm.split(':')
+        const [reqPlat, reqRes, reqAct] = permission.split(':')
+        
+        return (userPlat === '*' || reqPlat === '*' || userPlat === reqPlat) &&
+               (userRes === '*' || reqRes === '*' || userRes === reqRes) &&
+               (userAct === '*' || reqAct === '*' || userAct === reqAct)
+      })
+    })
+  },
+  hasAllPermissions: (permissions: string[]) => {
+    const { user } = get()
+    if (!user) return false
     
-    const userLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0
-    const requiredLevel = roleHierarchy[role as keyof typeof roleHierarchy] || 1
-    
-    return userLevel >= requiredLevel
+    return permissions.every(permission => get().can(permission))
   },
 
   hasTier: (tier: string) => {
@@ -267,6 +306,69 @@ export const useAuth = create<AuthState>((set, get) => ({
     const requiredLevel = tierHierarchy[tier as keyof typeof tierHierarchy] || 1
     
     return userLevel >= requiredLevel
+  },
+  
+  // Cross-platform functionality
+  switchPlatform: async (platform: string) => {
+    const { user } = get()
+    if (!user) return
+    
+    // Check if user can access the platform
+    if (!user.platforms.includes(platform)) {
+      set({ error: `Access denied to platform: ${platform}` })
+      return
+    }
+    
+    set({ isLoading: true, error: null })
+    
+    try {
+      // Update platform context on server
+      const response = await fetch('/api/auth/switch-platform', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ platform }),
+        credentials: 'include',
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Platform switch failed: ${response.status}`)
+      }
+      
+      // Update local user state
+      set({ 
+        user: { 
+          ...user, 
+          platform_context: platform 
+        },
+        isLoading: false
+      })
+      
+    } catch (error) {
+      console.error('❌ Platform switch failed:', error)
+      set({ 
+        error: 'Failed to switch platform. Please try again.',
+        isLoading: false
+      })
+    }
+  },
+  
+  getCurrentPlatform: () => {
+    const { user } = get()
+    return user?.platform_context || user?.primary_platform || 'epsx'
+  },
+  
+  getAvailablePlatforms: () => {
+    const { user } = get()
+    return user?.platforms || ['epsx']
+  },
+  
+  canAccessPlatform: (platform: string) => {
+    const { user } = get()
+    if (!user) return false
+    
+    return user.platforms.includes(platform)
   },
 }))
 
@@ -302,8 +404,12 @@ export function checkPermission(permission: string): boolean {
   return useAuth.getState().can(permission)
 }
 
-export function checkRole(role: string): boolean {
-  return useAuth.getState().hasRole(role)
+export function checkAnyPermission(permissions: string[]): boolean {
+  return useAuth.getState().hasAnyPermission(permissions)
+}
+
+export function checkAllPermissions(permissions: string[]): boolean {
+  return useAuth.getState().hasAllPermissions(permissions)
 }
 
 export function checkTier(tier: string): boolean {
@@ -410,5 +516,123 @@ export async function signIn(callbackUrl?: string) {
     })
     
     window.location.href = `${backendUrl}/oauth/authorize?${params.toString()}`
+  }
+}
+
+// Cross-Platform Utility Functions
+export function parseStructuredPermission(permission: string): {
+  platform: string
+  resource: string
+  action: string
+} | null {
+  const parts = permission.split(':')
+  if (parts.length !== 3) return null
+  
+  return {
+    platform: parts[0],
+    resource: parts[1],
+    action: parts[2],
+  }
+}
+
+export function hasStructuredPermission(
+  userPermissions: string[],
+  requiredPermission: string,
+  currentPlatform?: string
+): boolean {
+  // If permission doesn't contain platform prefix, add current platform
+  let checkPermission = requiredPermission
+  if (!requiredPermission.includes(':') && currentPlatform) {
+    checkPermission = `${currentPlatform}:${requiredPermission}`
+  }
+  
+  // Check exact match
+  if (userPermissions.includes(checkPermission)) {
+    return true
+  }
+  
+  // Check wildcard permissions
+  return userPermissions.some(p => {
+    if (p.endsWith('*')) {
+      const prefix = p.slice(0, -1)
+      return checkPermission.startsWith(prefix)
+    }
+    
+    // Check platform-level wildcards (e.g., "epsx:*")
+    const parts = p.split(':')
+    if (parts.length >= 2 && parts[1] === '*') {
+      const checkParts = checkPermission.split(':')
+      return checkParts[0] === parts[0]
+    }
+    
+    return false
+  })
+}
+
+export function getPlatformDisplayName(platform: string): string {
+  const platformNames: Record<string, string> = {
+    'epsx': 'EPSX Trading',
+    'epsx-pay': 'EPSX Pay',
+    'epsx-token': 'EPSX Token',
+  }
+  
+  return platformNames[platform] || platform.toUpperCase()
+}
+
+export function getPlatformIcon(platform: string): string {
+  const platformIcons: Record<string, string> = {
+    'epsx': '📈',
+    'epsx-pay': '💳',
+    'epsx-token': '🪙',
+  }
+  
+  return platformIcons[platform] || '⚡'
+}
+
+export function createPlatformPermission(
+  platform: string,
+  resource: string,
+  action: string
+): string {
+  return `${platform}:${resource}:${action}`
+}
+
+// Cross-platform hooks
+export function usePlatformContext() {
+  const { user, getCurrentPlatform, getAvailablePlatforms, canAccessPlatform, switchPlatform } = useAuth.getState()
+  
+  return {
+    currentPlatform: getCurrentPlatform(),
+    availablePlatforms: getAvailablePlatforms(),
+    canAccessPlatform,
+    switchPlatform,
+    platformDisplayName: getPlatformDisplayName(getCurrentPlatform()),
+    platformIcon: getPlatformIcon(getCurrentPlatform()),
+  }
+}
+
+export function useStructuredPermissions() {
+  const { user, can } = useAuth.getState()
+  const currentPlatform = user?.platform_context || user?.primary_platform || 'epsx'
+  
+  return {
+    can,
+    hasPermission: (resource: string, action: string, platform?: string) => {
+      const targetPlatform = platform || currentPlatform
+      return can(`${targetPlatform}:${resource}:${action}`)
+    },
+    canRead: (resource: string, platform?: string) => {
+      const targetPlatform = platform || currentPlatform
+      return can(`${targetPlatform}:${resource}:read`)
+    },
+    canWrite: (resource: string, platform?: string) => {
+      const targetPlatform = platform || currentPlatform
+      return can(`${targetPlatform}:${resource}:write`)
+    },
+    canManage: (resource: string, platform?: string) => {
+      const targetPlatform = platform || currentPlatform
+      return can(`${targetPlatform}:${resource}:manage`)
+    },
+    currentPlatform,
   }
 }

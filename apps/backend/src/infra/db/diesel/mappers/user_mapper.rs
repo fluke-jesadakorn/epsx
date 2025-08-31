@@ -15,16 +15,15 @@ impl TryFrom<DieselUser> for User {
         let email = Email::new(diesel_user.email)
             .map_err(|e| RepoError::InvalidData(format!("Invalid email: {}", e)))?;
         
-        let role = diesel_user.role.unwrap_or(crate::auth::roles::Role::Guest);
-        let subscription = Subscription::new(crate::dom::values::SubscriptionTier::Basic); // Simple subscription
+        let subscription = Subscription::new(crate::dom::values::SubscriptionTier::Basic);
+        
+        // Permissions now handled by separate user_permissions table
         
         Ok(User::from_existing_complete(
             user_id,
             diesel_user.firebase_uid,
             email,
-            vec![], // admin_modules - empty for now
-            role.to_string(), // package_tier as string
-            role.clone(), // Pass role directly
+            // permissions removed - now handled by separate table
             subscription,
             diesel_user.created_at,
             diesel_user.updated_at,
@@ -45,16 +44,11 @@ impl From<&User> for NewDieselUser {
             display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             avatar_url: None,
-            package_tier: Some(
-                crate::dom::values::auth::SubscriptionTier::from_string(user.package_tier())
-                    .unwrap_or(crate::dom::values::auth::SubscriptionTier::Free)
-                    .into()
-            ),
             email_verified: Some(true), // Default to true for simple system
-            role: Some(user.role().clone()),
             is_active: Some(user.is_active()),
             created_at: user.created_at(),
             updated_at: user.updated_at(),
+            primary_platform_id: None,
         }
     }
 }
@@ -65,13 +59,7 @@ impl From<&User> for UpdateDieselUser {
             display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()),
             avatar_url: None,
-            package_tier: Some(
-                crate::dom::values::auth::SubscriptionTier::from_string(user.package_tier())
-                    .unwrap_or(crate::dom::values::auth::SubscriptionTier::Free)
-                    .into()
-            ),
             email_verified: Some(true), // Default to true for simple system
-            role: Some(user.role().clone()),
             is_active: Some(user.is_active()),
             last_login_at: None, // This would need to be set separately
             updated_at: Utc::now(),

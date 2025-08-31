@@ -2,9 +2,10 @@
 
 use crate::dom::entities::{User, Session};
 use crate::dom::values::{UserId, Email, SessId};
-use crate::auth::roles::Role;
+// Removed role import - using permission-only system
 use crate::app::ports::repositories::{UserRepository, SessionRepository};
 use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession, AutoRegistrationRequest, RegistrationResponse};
+use crate::app::services::PermissionApplicationService;
 use crate::infra::FirebaseAdmin;
 use std::sync::Arc;
 
@@ -12,18 +13,21 @@ pub struct AuthUC {
     user_repo: Arc<dyn UserRepository>,
     session_repo: Arc<dyn SessionRepository>,
     firebase_admin: Arc<FirebaseAdmin>,
+    permission_service: Arc<PermissionApplicationService>,
 }
 
 impl AuthUC {
     pub fn new(
         user_repo: Arc<dyn UserRepository>, 
         session_repo: Arc<dyn SessionRepository>,
-        firebase_admin: Arc<FirebaseAdmin>
+        firebase_admin: Arc<FirebaseAdmin>,
+        permission_service: Arc<PermissionApplicationService>,
     ) -> Self {
         Self { 
             user_repo,
             session_repo,
             firebase_admin,
+            permission_service,
         }
     }
 
@@ -49,15 +53,23 @@ impl AuthUC {
         let user = match self.user_repo.find_by_id(&user_id).await {
             Ok(user) => user,
             Err(_) => {
-                // Auto-create user from Firebase
+                // Auto-create user from Firebase (permissions handled separately)
                 let user = User::from_existing(
                     user_id.clone(),
                     firebase_uid.clone(),
                     email.clone(),
-                    Role::Guest.to_string(),
-                    Role::Guest,
+                    // permissions parameter removed - now handled by separate table
                 );
+                
+                // Save user first
                 self.user_repo.save(&user).await?;
+                
+                // Set default permissions in separate table
+                let default_permissions = vec!["epsx:analytics:view".to_string(), "epsx:user:read".to_string()];
+                if let Err(e) = self.permission_service.set_user_permissions(user.id(), default_permissions).await {
+                    tracing::error!("Failed to set default permissions for new user {}: {:?}", user.id(), e);
+                    // Continue anyway since user was created successfully
+                }
                 user
             }
         };
@@ -71,10 +83,20 @@ impl AuthUC {
         // Store session
         self.session_repo.save(&session).await?;
 
+        // Fetch user permissions from separate table
+        let user_firebase_uid = user.firebase_uid();
+        let user_permissions = match self.permission_service.get_user_permissions(user_firebase_uid).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch user permissions for login response {}: {:?}", user.id(), e);
+                vec![] // Return empty permissions on error
+            }
+        };
+
         Ok(LoginRes {
             user_id: user.id().clone(),
-            package_tier: user.package_tier().to_string(),
-            admin_modules: user.admin_modules().clone(),
+            package_tier: "user".to_string(), // Derived from permissions
+            permissions: user_permissions,
             access_token,
             expires_in: 86400, // 24 hours
             sess_id: session.id.to_string(),
@@ -113,33 +135,26 @@ impl AuthUC {
 
         let user = self.user_repo.find_by_id(&session.user_id).await?;
 
-        // Simple role-based system - get user's role
-        let user_role = user.role(); // Use the role field from the user
-        let simple_permissions = self.get_simple_permissions(&user_role.to_string());
+        // Permission-only system - permissions fetched from separate table
+        let user_firebase_uid = user.firebase_uid();
+        let user_permissions = match self.permission_service.get_user_permissions(user_firebase_uid).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch user permissions for session validation {}: {:?}", user.id(), e);
+                vec![] // Return empty permissions on error
+            }
+        };
 
         Ok(UserSession {
             user_id: user.id().clone(),
-            package_tier: user_role.to_string(), // Role instead of package tier
-            admin_modules: vec![], // No admin modules in simple system
-            permissions: simple_permissions,
+            package_tier: "user".to_string(), // TODO: Derive from permissions 
+            // Using structured permissions from separate table
+            permissions: user_permissions,
             expires_at: session.expires_at,
         })
     }
 
-    fn get_simple_permissions(&self, role: &str) -> Vec<String> {
-        use crate::auth::roles::{Role, get_role_features};
-        
-        // Parse the role string and get associated features
-        let user_role = match role {
-            "admin" => Role::Admin,
-            "user" => Role::User,
-            "guest" => Role::Guest,
-            _ => Role::Guest, // Default to guest for unknown roles
-        };
-        
-        // Get all features that this role has access to
-        get_role_features(&user_role)
-    }
+    // Removed get_simple_permissions - using structured permissions from user entity
 
     pub async fn refresh(&self, _req: RefreshReq) -> Result<LoginRes, Box<dyn std::error::Error>> {
         // Stub implementation - in real app would validate refresh token
@@ -159,27 +174,57 @@ impl AuthUC {
 
         // Use the actual email from registration request
         let email = Email::new(req.email.clone())?;
+        
+        // Set default permissions based on package tier
+        let default_permissions = match req.package_tier.as_str() {
+            "premium" => vec![
+                "epsx:analytics:view".to_string(),
+                "epsx:analytics:export".to_string(),
+                "epsx:analytics:advanced".to_string(),
+                "epsx:realtime:access".to_string(),
+                "epsx:profile:manage".to_string(),
+                "epsx:notifications:receive".to_string(),
+                "epsx:billing:manage".to_string()
+            ],
+            "basic" => vec![
+                "epsx:analytics:view".to_string(),
+                "epsx:profile:manage".to_string(),
+                "epsx:notifications:receive".to_string()
+            ],
+            _ => vec![
+                "epsx:analytics:view".to_string(),
+                "epsx:profile:manage".to_string(),
+                "epsx:notifications:receive".to_string()
+            ],
+        };
+        
         let user = User::from_existing(
             user_id.clone(),
             firebase_uid.clone(),
-            email,
-            Role::Guest.to_string(), // Default role
-            Role::Guest, // Default role enum
+            email
         );
         
         // Save user
         self.user_repo.save(&user).await?;
+
+        // Set default permissions in separate table
+        if let Err(e) = self.permission_service.set_user_permissions(user.id(), default_permissions.clone()).await {
+            tracing::error!("Failed to set default permissions for new user {}: {:?}", user.id(), e);
+            // Continue anyway since user was created successfully
+        }
 
         // Generate JWT access token
         let access_token = self.firebase_admin.generate_jwt_token(&firebase_uid).await?;
         let session = self.create_session(user_id.clone(), access_token.clone()).await?;
         self.session_repo.save(&session).await?;
 
-        // Simple role assignment based on package tier
-        let features_unlocked = match req.package_tier.as_str() {
-            "premium" => vec!["advanced_analytics".to_string(), "export_data".to_string()],
-            "basic" => vec!["view_eps".to_string()],
-            _ => vec!["view_eps".to_string()], // Default to basic
+        // Permission-based feature assignment - fetch from separate table
+        let features_unlocked = match self.permission_service.get_user_permissions(user.firebase_uid()).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch permissions for registration response {}: {:?}", user.id(), e);
+                default_permissions // Fallback to default permissions
+            }
         };
         
         let assignment_results = vec![]; // Simplified - no complex assignment tracking

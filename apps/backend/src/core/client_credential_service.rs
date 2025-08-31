@@ -107,7 +107,7 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(
           "openid".to_string(),
           "profile".to_string(),
           "email".to_string(),
-          "admin_modules".to_string()
+          "permissions".to_string()
         ],
         client_type: ClientType::Confidential,
       });

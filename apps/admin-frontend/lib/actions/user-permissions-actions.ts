@@ -16,6 +16,12 @@ const getBearerToken = async () => {
 import { logger } from '@/lib/logger'
 import { env } from '@/config/env'
 import type { UserOperationResult } from '@/lib/types/unified-user'
+import { 
+  grantEmbeddedTimestampPermission,
+  validateEmbeddedPermissions,
+  getPermissionExpiryStatus,
+  type EmbeddedPermissionData
+} from './embedded-permission-actions'
 
 const BACKEND_URL = env.BACKEND_URL
 
@@ -25,6 +31,7 @@ export interface AssignTemporaryPermissionData {
   action: string
   expires: Date
   reason?: string
+  useEmbeddedTimestamp?: boolean // New option for embedded timestamp format
 }
 
 export interface PermissionHistoryEntry {
@@ -43,6 +50,7 @@ export interface BulkPermissionData {
   permissions: string[]
   reason?: string
   expires?: Date
+  useEmbeddedTimestamp?: boolean // New option for embedded timestamp format
 }
 
 /**
@@ -367,7 +375,7 @@ export async function removeCustomPermission(data: {
 }
 
 /**
- * Get permission history for user
+ * Get permission history for user (includes embedded timestamp operations)
  */
 export async function getPermissionHistory(userId: string, limit = 50): Promise<UserOperationResult<PermissionHistoryEntry[]>> {
   try {
@@ -379,7 +387,7 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
       return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
     }
     
-    const response = await fetch(`${BACKEND_URL}/api/v1/admin/users/${userId}/permissions/history?limit=${limit}`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/admin/users/${userId}/permissions/history?limit=${limit}&include_embedded=true`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -428,14 +436,44 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
 }
 
 /**
- * Bulk assign permissions to multiple users
+ * Bulk assign permissions to multiple users (supports both traditional and embedded timestamp formats)
  */
 export async function bulkAssignPermissions(data: BulkPermissionData): Promise<UserOperationResult> {
   try {
     logger.action.start('bulkAssignPermissions', { 
       userCount: data.userIds.length, 
-      permissionCount: data.permissions.length 
+      permissionCount: data.permissions.length,
+      useEmbeddedTimestamp: data.useEmbeddedTimestamp
     })
+    
+    // Use embedded timestamp format if requested and expires is provided
+    if (data.useEmbeddedTimestamp && data.expires) {
+      // Import the bulk embedded permission action
+      const { grantBulkEmbeddedPermissions } = await import('./embedded-permission-actions')
+      
+      const embeddedPermissions = data.permissions.map(perm => {
+        const parts = perm.split(':')
+        return {
+          basePermission: perm,
+          platform: parts[0] || 'epsx',
+          resource: parts[1] || 'unknown',
+          action: parts[2] || 'unknown',
+          expiryTimestamp: Math.floor(data.expires!.getTime() / 1000)
+        }
+      })
+      
+      const bulkResult = await grantBulkEmbeddedPermissions({
+        userIds: data.userIds,
+        permissions: embeddedPermissions,
+        reason: data.reason
+      })
+      
+      if (!bulkResult.success) {
+        return bulkResult
+      }
+      
+      return { success: true }
+    }
     
     const token = await getBearerToken()
     
@@ -496,7 +534,7 @@ export async function bulkAssignPermissions(data: BulkPermissionData): Promise<U
 }
 
 /**
- * Assign temporary permission to user
+ * Assign temporary permission to user (supports both traditional and embedded timestamp formats)
  */
 export async function assignTemporaryPermission(data: AssignTemporaryPermissionData): Promise<UserOperationResult> {
   try {
@@ -504,8 +542,24 @@ export async function assignTemporaryPermission(data: AssignTemporaryPermissionD
       userId: data.userId, 
       resource: data.resource, 
       action: data.action,
-      expires: data.expires.toISOString()
+      expires: data.expires.toISOString(),
+      useEmbeddedTimestamp: data.useEmbeddedTimestamp
     })
+    
+    // Use embedded timestamp format if requested
+    if (data.useEmbeddedTimestamp) {
+      const embeddedData: EmbeddedPermissionData = {
+        userId: data.userId,
+        basePermission: `epsx:${data.resource}:${data.action}`, // Construct base permission
+        platform: 'epsx',
+        resource: data.resource,
+        action: data.action,
+        expiryTimestamp: Math.floor(data.expires.getTime() / 1000),
+        reason: data.reason
+      }
+      
+      return await grantEmbeddedTimestampPermission(embeddedData)
+    }
     
     const token = await getBearerToken()
     
@@ -605,6 +659,116 @@ export async function getExpiringPermissions(days = 7): Promise<UserOperationRes
       error: { 
         code: 'UNKNOWN_ERROR', 
         message: 'An unexpected error occurred' 
+      } 
+    }
+  }
+}
+
+/**
+ * Get expiring embedded timestamp permissions across all users
+ */
+export async function getExpiringEmbeddedPermissions(hours = 24): Promise<UserOperationResult<any[]>> {
+  try {
+    logger.action.start('getExpiringEmbeddedPermissions', { hours })
+    
+    const token = await getBearerToken()
+    
+    if (!token) {
+      return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
+    }
+    
+    const response = await fetch(`${BACKEND_URL}/api/v1/admin/embedded-permissions/expiring?hours=${hours}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 300 }
+    })
+    
+    if (!response.ok) {
+      logger.action.error('getExpiringEmbeddedPermissions', `Failed to fetch expiring embedded permissions: ${response.statusText}`, { hours })
+      return { 
+        success: false, 
+        error: { 
+          code: 'FETCH_ERROR', 
+          message: `Failed to fetch expiring embedded permissions: ${response.statusText}` 
+        } 
+      }
+    }
+    
+    const permissions = await response.json()
+    
+    logger.action.success('getExpiringEmbeddedPermissions', { hours, count: permissions.length })
+    
+    return { success: true, data: permissions }
+    
+  } catch (error) {
+    logger.action.error('getExpiringEmbeddedPermissions', error, { hours })
+    return { 
+      success: false, 
+      error: { 
+        code: 'UNKNOWN_ERROR', 
+        message: 'An unexpected error occurred' 
+      } 
+    }
+  }
+}
+
+/**
+ * Validate user's embedded timestamp permissions
+ */
+export async function validateUserEmbeddedPermissions(userId: string, permissions?: string[]): Promise<UserOperationResult> {
+  try {
+    logger.action.start('validateUserEmbeddedPermissions', { userId, permissionCount: permissions?.length })
+    
+    const result = await validateEmbeddedPermissions(userId, permissions)
+    
+    if (!result.success) {
+      return result
+    }
+    
+    logger.action.success('validateUserEmbeddedPermissions', { userId, validation: result.data?.summary })
+    return result
+    
+  } catch (error) {
+    logger.action.error('validateUserEmbeddedPermissions', error, { userId })
+    return { 
+      success: false, 
+      error: { 
+        code: 'VALIDATION_ERROR', 
+        message: 'Failed to validate embedded permissions' 
+      } 
+    }
+  }
+}
+
+/**
+ * Get user's permission expiry status
+ */
+export async function getUserPermissionExpiryStatus(userId: string): Promise<UserOperationResult> {
+  try {
+    logger.action.start('getUserPermissionExpiryStatus', { userId })
+    
+    const result = await getPermissionExpiryStatus(userId)
+    
+    if (!result.success) {
+      return result
+    }
+    
+    logger.action.success('getUserPermissionExpiryStatus', { 
+      userId,
+      permissionCount: result.data?.permissions.length,
+      hasExpired: result.data?.health.hasExpired
+    })
+    return result
+    
+  } catch (error) {
+    logger.action.error('getUserPermissionExpiryStatus', error, { userId })
+    return { 
+      success: false, 
+      error: { 
+        code: 'EXPIRY_STATUS_ERROR', 
+        message: 'Failed to get permission expiry status' 
       } 
     }
   }

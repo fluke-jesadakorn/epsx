@@ -32,7 +32,6 @@ pub struct UnifiedJWTClaims {
 
   /// Custom claims for our application
   pub email: String,
-  pub role: String,
   pub permissions: Vec<String>,
   pub subscription_tier: Option<String>,
 
@@ -214,7 +213,6 @@ impl TokenBroker {
 
       // Application claims
       email: claims.email.to_string(),
-      role: claims.role.to_string(),
       permissions: claims.permissions,
       subscription_tier: claims.extra_claims
         .get("subscription_tier")
@@ -265,28 +263,25 @@ impl TokenBroker {
     // First try to validate as a unified JWT
     if let Ok(jwt_claims) = self.validate_unified_jwt(token).await {
       // Convert UnifiedJWTClaims to UserClaims
-      return Ok(UserClaims {
-        user_id: UserId::new(jwt_claims.sub),
-        email: crate::dom::values::Email
+      return Ok(UserClaims::new(
+        UserId::new(jwt_claims.sub),
+        crate::dom::values::Email
           ::new(jwt_claims.email)
           .unwrap_or_else(|_|
             crate::dom::values::Email
               ::new("unknown@example.com".to_string())
               .unwrap()
           ),
-        role: crate::auth::roles::Role::Guest, // Default role
-        admin_modules: Vec::new(), // No admin modules by default
-        provider: ProviderType::OIDC, // Default to OIDC for unified JWTs
-        provider_user_id: jwt_claims.provider_user_id,
-        permissions: jwt_claims.permissions,
-        subscription_tier: jwt_claims.subscription_tier,
-        iat: jwt_claims.iat as u64,
-        exp: jwt_claims.exp as u64,
-        expires_at: DateTime::from_timestamp(jwt_claims.exp, 0).unwrap_or_else(
+        jwt_claims.permissions,
+        jwt_claims.provider_user_id,
+        ProviderType::OIDC, // Default to OIDC for unified JWTs
+        DateTime::from_timestamp(jwt_claims.exp, 0).unwrap_or_else(
           || Utc::now()
         ),
-        extra_claims: HashMap::new(),
-      });
+        jwt_claims.iat as u64,
+        jwt_claims.exp as u64,
+        jwt_claims.subscription_tier,
+      ));
     }
 
     // If not a unified JWT, try to process through providers
@@ -295,29 +290,26 @@ impl TokenBroker {
         // Extract claims from the unified JWT token
         self
           .validate_unified_jwt(&unified_jwt.access_token).await
-          .map(|jwt_claims| UserClaims {
-            user_id: UserId::new(jwt_claims.sub),
-            email: crate::dom::values::Email
+          .map(|jwt_claims| UserClaims::new(
+            UserId::new(jwt_claims.sub),
+            crate::dom::values::Email
               ::new(jwt_claims.email)
               .unwrap_or_else(|_|
                 crate::dom::values::Email
                   ::new("unknown@example.com".to_string())
                   .unwrap()
               ),
-            role: crate::auth::roles::Role::Guest,
-            admin_modules: Vec::new(),
-            provider: ProviderType::OIDC,
-            provider_user_id: jwt_claims.provider_user_id,
-            permissions: jwt_claims.permissions,
-            subscription_tier: jwt_claims.subscription_tier,
-            iat: jwt_claims.iat as u64,
-            exp: jwt_claims.exp as u64,
-            expires_at: DateTime::from_timestamp(
+            jwt_claims.permissions,
+            jwt_claims.provider_user_id,
+            ProviderType::OIDC,
+            DateTime::from_timestamp(
               jwt_claims.exp,
               0
             ).unwrap_or_else(|| Utc::now()),
-            extra_claims: HashMap::new(),
-          })
+            jwt_claims.iat as u64,
+            jwt_claims.exp as u64,
+            jwt_claims.subscription_tier,
+          ))
       }
       Err(e) => Err(e),
     }
@@ -454,13 +446,16 @@ impl TokenBroker {
       name: None,
       
       // Authorization (minimal defaults for refresh token scenario)
-      permissions: vec!["dashboard:read".to_string()],
-      admin_modules: vec![],
+      permissions: vec!["epsx:dashboard:read".to_string()],
       package_tier: "FREE".to_string(),
-      role: "user".to_string(),
       
       // Firebase integration
       firebase_uid: Some(refresh_claims.sub.clone()),
+      
+      // Cross-platform fields (defaults for token broker)
+      platforms: Some(vec!["epsx".to_string()]),
+      primary_platform: Some("epsx".to_string()),
+      platform_context: None,
     };
 
     let header = Header::new(Algorithm::HS256);

@@ -5,7 +5,6 @@ use serde::{ Serialize, Deserialize };
 
 use crate::dom::entities::User;
 use crate::dom::values::UserId;
-use crate::auth::roles::Role;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMetadata {
@@ -28,7 +27,7 @@ pub struct UserDto {
   pub display_name: Option<String>,
   pub disabled: bool,
   pub package_tier: String,
-  pub admin_modules: Vec<String>,
+  pub permissions: Vec<String>,
   pub sub_tier: String,
   pub perms: Vec<String>,
   pub created_at: u64,
@@ -65,7 +64,7 @@ pub struct GetUserRes {
 pub struct UpdatePackageTierReq {
   pub usr_id: UserId,
   pub new_package_tier: String,
-  pub new_admin_modules: Vec<String>,
+  pub new_permissions: Vec<String>,
   pub admin_id: UserId, // Who is making this change
 }
 
@@ -128,7 +127,7 @@ pub struct BulkUpdateLevelsReq {
 pub struct UserLevelUpdate {
   pub usr_id: UserId,
   pub new_package_tier: String,
-  pub new_admin_modules: Vec<String>,
+  pub new_permissions: Vec<String>,
   pub reason: Option<String>,
 }
 
@@ -229,8 +228,8 @@ pub struct LevelChangeRecord {
   pub usr_id: String,
   pub old_package_tier: String,
   pub new_package_tier: String,
-  pub old_admin_modules: Vec<String>,
-  pub new_admin_modules: Vec<String>,
+  pub old_permissions: Vec<String>,
+  pub new_permissions: Vec<String>,
   pub changed_by: String,
   pub reason: Option<String>,
   pub changed_at: DateTime<Utc>,
@@ -256,10 +255,10 @@ impl UserDto {
       email_verified: true, // Assume verified by default
       display_name: None, // Not stored in domain entity
       disabled: false, // Not stored in domain entity
-      package_tier: user.package_tier().to_string(),
-      admin_modules: user.admin_modules().clone(),
+      package_tier: "user".to_string(), // Default since derived_tier removed
+      permissions: vec![], // Default - should be provided by caller from PermissionApplicationService
       sub_tier: user.subscription().tier().to_string(),
-      perms: user.permissions(),
+      perms: vec![], // Default - should be provided by caller from PermissionApplicationService
       created_at: user.created_at().timestamp() as u64,
       last_updated: Some(user.updated_at().timestamp() as u64),
       metadata: UserMetadata {
@@ -281,12 +280,10 @@ impl CreateUserReq {
       return Err(ValidationError::InvalidEmail(self.email.clone()));
     }
 
-    // Validate role
-    self.package_tier
-      .parse::<Role>()
-      .map_err(|_|
-        ValidationError::InvalidPackageTier(self.package_tier.clone())
-      )?;
+    // Validate package tier (basic validation)
+    if self.package_tier.is_empty() {
+      return Err(ValidationError::InvalidPackageTier(self.package_tier.clone()));
+    }
 
     Ok(())
   }
@@ -294,11 +291,10 @@ impl CreateUserReq {
 
 impl UpdatePackageTierReq {
   pub fn validate(&self) -> Result<(), ValidationError> {
-    self.new_package_tier
-      .parse::<Role>()
-      .map_err(|_|
-        ValidationError::InvalidPackageTier(self.new_package_tier.clone())
-      )?;
+    // Validate package tier (basic validation)
+    if self.new_package_tier.is_empty() {
+      return Err(ValidationError::InvalidPackageTier(self.new_package_tier.clone()));
+    }
     Ok(())
   }
 }
@@ -310,11 +306,9 @@ impl ListUsersReq {
     }
 
     if let Some(package_tier) = &self.package_tier_filter {
-      package_tier
-        .parse::<Role>()
-        .map_err(|_|
-          ValidationError::InvalidPackageTier(package_tier.clone())
-        )?;
+      if package_tier.is_empty() {
+        return Err(ValidationError::InvalidPackageTier(package_tier.clone()));
+      }
     }
 
     Ok(())
@@ -332,11 +326,9 @@ impl BulkUpdateLevelsReq {
     }
 
     for update in &self.updates {
-      update.new_package_tier
-        .parse::<Role>()
-        .map_err(|_|
-          ValidationError::InvalidPackageTier(update.new_package_tier.clone())
-        )?;
+      if update.new_package_tier.is_empty() {
+        return Err(ValidationError::InvalidPackageTier(update.new_package_tier.clone()));
+      }
     }
 
     Ok(())

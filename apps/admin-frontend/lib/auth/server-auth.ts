@@ -3,7 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
-import type { EPSXJWTPayload } from '@/lib/auth-utils';
+import type { EPSXJWTPayload } from '@/lib/auth/jwt-utils';
 
 /**
  * Enhanced auth user type based on our JWT structure
@@ -84,19 +84,40 @@ export function hasPermission(user: EnhancedAuthUser | null, permission: string)
 }
 
 /**
- * Check if user has required admin module
+ * Check if user has required admin module (deprecated - use hasPermission instead)
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, module: string): boolean {
-  if (!user?.admin_modules) return false;
-  return user.admin_modules.includes(module);
+  if (!user) return false;
+  
+  // Convert legacy module to structured permission
+  const modulePermissionMap: Record<string, string> = {
+    'user_management': 'epsx:users:manage',
+    'analytics': 'epsx:analytics:view',
+    'security': 'epsx:security:manage',
+    'notifications': 'epsx:notifications:manage',
+    'billing': 'epsx:billing:manage',
+  };
+  
+  const permission = modulePermissionMap[module];
+  return permission ? hasPermission(user, permission) : false;
 }
 
 /**
- * Check if user is admin (has any admin module)
+ * Check if user is admin (has any admin permissions)
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  if (!user?.admin_modules) return false;
-  return user.admin_modules.length > 0;
+  if (!user) return false;
+  
+  // Check permissions system
+  if (user.permissions?.length > 0) {
+    return user.permissions.some(p => 
+      p.includes(':manage') || 
+      p.includes(':admin') || 
+      p === '*'
+    );
+  }
+  
+  return false;
 }
 
 /**
@@ -118,14 +139,33 @@ export async function getUserContext() {
     const user = await getCurrentUser();
     if (!user) return null;
     
+    const platform = user.platform_context || user.primary_platform || 'epsx';
+    
     return {
       user,
       isAdmin: isAdmin(user),
       permissions: user.permissions || [],
-      adminModules: user.admin_modules || [],
+      platform,
     };
   } catch (error) {
     console.error('❌ Failed to get user context:', error);
     return null;
   }
+}
+
+/**
+ * Check if user has platform-specific permission
+ */
+export function hasPlatformPermission(
+  user: EnhancedAuthUser | null, 
+  resource: string, 
+  action: string,
+  platform?: string
+): boolean {
+  if (!user) return false;
+  
+  const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
+  const permission = `${targetPlatform}:${resource}:${action}`;
+  
+  return hasPermission(user, permission);
 }

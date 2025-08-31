@@ -9,7 +9,8 @@ import {
   hasAdminModule,
   isSystemAdmin,
   canManageUsers,
-  canAccessAnalytics
+  canAccessAnalytics,
+  hasPlatformPermission
 } from '@/lib/server/auth';
 
 interface FeatureGateProps {
@@ -37,7 +38,16 @@ export async function ConditionalFeature({
  */
 export async function AdminFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
-  const hasAdmin = user && user.admin_modules.length > 0;
+  
+  // Check permissions system
+  const hasAdminPermissions = user?.permissions?.some(p => 
+    p.includes(':manage') || 
+    p.includes(':admin') || 
+    p === '*'
+  ) || false;
+  
+  const hasAdmin = hasAdminPermissions;
+  
   return (
     <ConditionalFeature condition={!!hasAdmin} fallback={fallback}>
       {children}
@@ -125,10 +135,13 @@ export async function AnalyticsFeature({ children, fallback }: FeatureGateProps)
  * Billing management features
  */
 export async function BillingFeature({ children, fallback }: FeatureGateProps) {
+  const hasBillingPermission = await hasPermission('epsx:billing:manage');
+  const hasLegacyModule = await hasAdminModule('billing_admin');
+  
   return (
-    <AdminModuleFeature module="billing_admin" fallback={fallback}>
+    <ConditionalFeature condition={hasBillingPermission || hasLegacyModule} fallback={fallback}>
       {children}
-    </AdminModuleFeature>
+    </ConditionalFeature>
   );
 }
 
@@ -136,10 +149,13 @@ export async function BillingFeature({ children, fallback }: FeatureGateProps) {
  * Permission management features
  */
 export async function PermissionManagementFeature({ children, fallback }: FeatureGateProps) {
+  const hasPermissionPermission = await hasPermission('epsx:permissions:manage');
+  const hasLegacyModule = await hasAdminModule('permission_admin');
+  
   return (
-    <AdminModuleFeature module="permission_admin" fallback={fallback}>
+    <ConditionalFeature condition={hasPermissionPermission || hasLegacyModule} fallback={fallback}>
       {children}
-    </AdminModuleFeature>
+    </ConditionalFeature>
   );
 }
 
@@ -147,10 +163,13 @@ export async function PermissionManagementFeature({ children, fallback }: Featur
  * Module coordination features
  */
 export async function ModuleCoordinatorFeature({ children, fallback }: FeatureGateProps) {
+  const hasPackagePermission = await hasPermission('epsx:packages:manage');
+  const hasLegacyModule = await hasAdminModule('package_coordinator');
+  
   return (
-    <AdminModuleFeature module="package_coordinator" fallback={fallback}>
+    <ConditionalFeature condition={hasPackagePermission || hasLegacyModule} fallback={fallback}>
       {children}
-    </AdminModuleFeature>
+    </ConditionalFeature>
   );
 }
 

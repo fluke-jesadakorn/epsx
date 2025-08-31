@@ -6,7 +6,7 @@ use crate::app::ports::repositories::*;
 use crate::infra::db::diesel::{
     DbPool, create_pool,
     repos::{
-        DieselUserRepository, DieselSessionRepository, DieselAuditRepository,
+        DieselUserRepository, DieselUserPermissionRepository, DieselSessionRepository, DieselAuditRepository,
         DieselModuleRepository, StubStockRepository
     }
 };
@@ -16,6 +16,7 @@ use crate::infra::db::diesel::{
 pub struct DatabaseModule {
     pub database_pool: Arc<DbPool>,
     pub user_repo: Arc<dyn UserRepository>,
+    pub user_permission_repo: Arc<dyn UserPermissionRepository>,
     pub session_repo: Arc<dyn SessionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
     pub stock_repo: Arc<dyn StockRepository>,
@@ -28,16 +29,18 @@ impl DatabaseModule {
         
         // Create all Diesel repositories
         let user_repo = Arc::new(DieselUserRepository::new(database_pool.clone())) as Arc<dyn UserRepository>;
+        let user_permission_repo = Arc::new(DieselUserPermissionRepository::new(database_pool.clone())) as Arc<dyn UserPermissionRepository>;
         let session_repo = Arc::new(DieselSessionRepository::new(database_pool.clone())) as Arc<dyn SessionRepository>;
         let audit_repo = Arc::new(DieselAuditRepository::new(database_pool.clone())) as Arc<dyn AuditRepository>;
         // Stock repository removed - replaced with EPS analytics system
         let stock_repo = Arc::new(StubStockRepository::new()) as Arc<dyn StockRepository>;
         
-        tracing::info!("✅ Repository layer created successfully");
+        tracing::info!("✅ Repository layer created successfully with user permissions");
         
         Ok(DatabaseModule {
             database_pool,
             user_repo,
+            user_permission_repo,
             session_repo,
             audit_repo,
             stock_repo,

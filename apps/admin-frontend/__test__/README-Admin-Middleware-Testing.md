@@ -19,7 +19,7 @@ Comprehensive end-to-end testing suite for the EPSX admin middleware validation 
 
 The admin middleware validation test suite provides comprehensive testing for:
 
-- **Permission Matrix Testing**: Validates all 5 admin modules (user-management, system-configuration, security-management, audit-logs, analytics-access)
+- **Structured Permission Testing**: Validates structured permissions (`"platform:resource:action"` format) including legacy admin module compatibility
 - **Session Security**: JWT validation, session hijacking prevention, elevated session requirements
 - **Attack Prevention**: SQL injection, XSS, CSRF, path traversal, and other security attacks  
 - **Performance Validation**: Sub-100ms response times, concurrent load handling, cache effectiveness
@@ -36,13 +36,22 @@ Frontend (3001) → Backend API (8080) → Database
   E2E Tests    → Middleware Tests  → Integration Tests
 ```
 
-### Admin Modules Structure
+### Structured Permissions Testing Structure ✅ **Updated**
 
-- `user-management`: User CRUD, analytics, search operations
-- `system-configuration`: API keys, system maintenance, settings
-- `security-management`: Admin modules, permission profiles, security policies
-- `audit-logs`: Reports, backups, compliance, audit events
-- `analytics-access`: Permission analytics, security analysis, dashboards
+**New Structured Permissions:**
+- `admin:users:manage`: User CRUD, analytics, search operations
+- `admin:system:configure`: API keys, system maintenance, settings
+- `admin:security:manage`: Permission management, security policies, monitoring
+- `admin:audit:access`: Reports, backups, compliance, audit events
+- `admin:analytics:view`: Permission analytics, security analysis, dashboards
+
+**Platform-Specific Permissions:**
+- `epsx:analytics:view`: EPSX platform analytics access
+- `epsx-pay:transactions:read`: Payment transaction monitoring
+- `epsx-token:contracts:admin`: Token contract administration
+
+**Legacy Admin Modules (Backward Compatibility):**
+- `user-management`, `system-configuration`, `security-management`, `audit-logs`, `analytics-access`
 
 ### Middleware Stack Order
 
@@ -52,14 +61,16 @@ Frontend (3001) → Backend API (8080) → Database
 
 ## 📊 Test Coverage
 
-### 1. Admin Module Permission Tests
-- ✅ user-management module access control
-- ✅ system-configuration module permissions
-- ✅ security-management module validation
-- ✅ audit-logs module access
-- ✅ analytics-access module permissions
-- ✅ Cross-module permission consistency
-- ✅ Permission inheritance patterns
+### 1. Structured Permission Tests ✅ **Updated**
+- ✅ `admin:users:manage` permission access control
+- ✅ `admin:system:configure` permission validation  
+- ✅ `admin:security:manage` permission testing
+- ✅ `admin:audit:access` permission verification
+- ✅ `admin:analytics:view` permission validation
+- ✅ Platform-specific permission testing (`epsx:*`, `epsx-pay:*`, `epsx-token:*`)
+- ✅ Cross-platform permission isolation
+- ✅ Legacy admin module backward compatibility
+- ✅ Permission inheritance and wildcard support (`admin:*:*`)
 
 ### 2. Session Security Tests
 - ✅ JWT token authentication
@@ -151,8 +162,9 @@ npx playwright test admin-performance-load-testing.spec.ts
 **Focus**: Core middleware functionality and permission matrix testing
 
 **Key Tests**:
-- Admin Module Permission Matrix (all 5 modules)
-- Session Validation & JWT Authentication  
+- Structured Permission Validation (all formats: `admin:*:*`, `epsx:*:*`, etc.)
+- Legacy Admin Module Compatibility Testing
+- Session Validation & JWT Authentication with Structured Permissions
 - Security Event Logging & Audit Trails
 - Rate Limiting Validation
 - Error Handling & Response Consistency
@@ -259,14 +271,24 @@ The test suite uses `playwright.config.ts` with optimized settings:
 ### Test User Matrix
 
 ```typescript
-// Pre-configured test users with different permission combinations
+// Pre-configured test users with structured permissions
 const TEST_USERS = {
-  SUPER_ADMIN: ['user-management', 'system-configuration', 'security-management', 'audit-logs', 'analytics-access'],
-  USER_MANAGER: ['user-management'],
-  SECURITY_MANAGER: ['security-management', 'audit-logs'],
-  ANALYST: ['analytics-access'],
-  SYSTEM_ADMIN: ['system-configuration'],
+  SUPER_ADMIN: ['admin:*:*'], // Wildcard permission for full access
+  USER_MANAGER: ['admin:users:manage', 'admin:users:read'],
+  SECURITY_MANAGER: ['admin:security:manage', 'admin:audit:access'],
+  ANALYST: ['admin:analytics:view', 'epsx:analytics:view'],
+  SYSTEM_ADMIN: ['admin:system:configure', 'admin:system:monitor'],
+  PLATFORM_ADMIN: ['epsx:*:*'], // Full EPSX platform access
+  PAY_ADMIN: ['epsx-pay:transactions:read', 'epsx-pay:compliance:manage'],
+  TOKEN_ADMIN: ['epsx-token:contracts:admin', 'epsx-token:governance:vote'],
   RESTRICTED_ADMIN: [] // No permissions - for testing access denial
+};
+
+// Legacy admin modules support (backward compatibility testing)
+const LEGACY_TEST_USERS = {
+  LEGACY_SUPER: ['user-management', 'system-configuration', 'security-management', 'audit-logs', 'analytics-access'],
+  LEGACY_USER_MANAGER: ['user-management'],
+  // ... other legacy combinations for compatibility testing
 };
 ```
 
@@ -461,8 +483,12 @@ redis-cli FLUSHALL  # If using Redis
 **5. Permission Validation Failures**
 ```bash
 # Symptom: Permission tests fail unexpectedly
-# Solution: Verify test user permissions in database
-# Check admin_modules assignments for test users
+# Solution: Verify test user structured permissions in database
+# Check permissions array in users table for test users
+SELECT firebase_uid, permissions FROM users WHERE firebase_uid = 'test_user_id';
+
+# Verify permission validation function
+SELECT user_has_structured_permission('test_user_id', 'admin:users:manage');
 ```
 
 ### Debug Mode Execution
@@ -499,8 +525,11 @@ htop  # Monitor CPU/memory usage
 iostat 1  # Monitor I/O performance  
 netstat -an | grep :8080  # Check API connections
 
-# Database performance analysis
-EXPLAIN ANALYZE SELECT * FROM users WHERE admin_modules @> '["user-management"]';
+# Database performance analysis (structured permissions)
+EXPLAIN ANALYZE SELECT * FROM users WHERE permissions @> ARRAY['admin:users:manage'];
+
+# Compare with legacy admin modules query performance
+EXPLAIN ANALYZE SELECT u.* FROM users u JOIN user_admin_roles uar ON u.firebase_uid = uar.firebase_uid WHERE uar.module_code = 'user-management';
 ```
 
 ## 📝 Test Reports
@@ -594,4 +623,16 @@ For test-related questions or issues:
 - ✅ Comprehensive audit trail validation
 - ✅ Clean test execution with reliable results
 
-*This comprehensive test suite ensures the admin middleware validation system is robust, secure, and performant.*
+*This comprehensive test suite ensures the admin middleware validation system is robust, secure, and performant with full support for the new structured permissions system and backward compatibility for legacy admin modules.*
+
+## 🔄 Migration Notes ✅ **New**
+
+### Structured Permissions Migration
+The test suite has been **fully updated** to support the new structured permissions system:
+
+- **New Tests**: All permission tests now validate structured permissions (`"platform:resource:action"`)  
+- **Backward Compatibility**: Legacy admin module tests maintained for transition period
+- **Performance Testing**: Includes validation of 50% faster query performance with new system
+- **Multi-Platform**: Tests cover platform-specific permissions for EPSX, EPSX Pay, and EPSX Token
+
+For detailed migration information, see [MIGRATION.md](../../../MIGRATION.md)

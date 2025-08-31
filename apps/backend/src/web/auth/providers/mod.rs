@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::dom::values::{UserId, Email};
-use crate::auth::roles::Role;
 use crate::core::types::AppError;
 
 pub mod firebase_provider;
@@ -38,11 +37,7 @@ pub struct UserClaims {
     pub user_id: UserId,
     /// User email
     pub email: Email,
-    /// User package tier
-    pub role: Role,
-    /// User admin modules
-    pub admin_modules: Vec<String>,
-    /// User permissions (for Casbin)
+    /// User permissions (structured permission system)
     pub permissions: Vec<String>,
     /// Provider-specific user ID (Firebase UID, OIDC sub, etc.)
     pub provider_user_id: String,
@@ -64,8 +59,6 @@ impl UserClaims {
     pub fn new(
         user_id: UserId,
         email: Email,
-        role: Role,
-        admin_modules: Vec<String>,
         permissions: Vec<String>,
         provider_user_id: String,
         provider: ProviderType,
@@ -77,8 +70,6 @@ impl UserClaims {
         Self {
             user_id,
             email,
-            role,
-            admin_modules,
             permissions,
             provider_user_id,
             provider,
@@ -248,15 +239,14 @@ mod tests {
     fn test_user_claims_creation() {
         let user_id = UserId::generate();
         let email = Email::new("test@example.com".to_string()).unwrap();
-        let package_tier = PackageTier::Free;
+        let role = Role::User;
         let permissions = vec!["read".to_string(), "write".to_string()];
         let expires_at = Utc::now() + chrono::Duration::hours(1);
         
         let claims = UserClaims::new(
             user_id.clone(),
             email.clone(),
-            package_tier,
-            vec![],
+            role,
             permissions.clone(),
             "firebase_uid_123".to_string(),
             ProviderType::Firebase,

@@ -35,10 +35,10 @@ export const useUsers = (options: UseUsersOptions) => {
           id: user.id,
           name: user.name || user.email || 'Unknown User',
           email: user.email || '',
-          packageTier: 'user', // Map from roles/admin_modules as needed
+          packageTier: 'user', // Map from roles/permissions as needed
           status: user.status as 'active' | 'inactive' | 'suspended',
           lastActive: new Date(user.updated_at).toLocaleDateString(),
-          permissions: user.admin_modules || [],
+          permissions: user.permissions || [], // Use structured permissions
         })
       );
 

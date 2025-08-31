@@ -8,6 +8,7 @@ pub mod encryption_service;
 pub mod tradingview;
 pub mod websocket_service;
 pub mod tradingview_websocket_service;
+pub mod permission_infrastructure;
 
 // Re-export with shorter alias for backward compatibility
 pub use tradingview_websocket_service as tradingview_websocket;
@@ -33,6 +34,10 @@ pub use websocket_service::{WebSocketClient, WebSocketConnection, WebSocketError
 pub use websocket_service as websocket;
 pub use tradingview_websocket_service::TradingViewWebSocketService;
 pub use api_key_service::{ApiKeyService, ApiKeyError};
+pub use permission_infrastructure::{
+    PermissionInfrastructureService, PermissionInfrastructureServiceFactory, 
+    InfrastructurePermissionError
+};
 
 // TODO: Implement remaining external services like:
 // - WebSocketService (real-time communication)

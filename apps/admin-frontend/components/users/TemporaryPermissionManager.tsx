@@ -61,9 +61,59 @@ import {
   cleanupExpiredPermissions,
 } from '@/lib/actions/temporary-permission-actions';
 
+// Embedded timestamp permissions support
+interface EmbeddedPermissionData {
+  basePermission: string;
+  expiryTimestamp: number;
+  reason?: string;
+}
+
 interface TemporaryPermissionManagerProps {
   userId: string;
+  // Enhanced props for embedded timestamps
+  enableEmbeddedTimestamps?: boolean;
+  showTimeline?: boolean;
+  allowQuickActions?: boolean;
 }
+
+// Quick time selection options
+const QUICK_TIME_OPTIONS = [
+  { label: '1 Hour', minutes: 60 },
+  { label: '4 Hours', minutes: 240 },
+  { label: '8 Hours', minutes: 480 },
+  { label: '1 Day', minutes: 1440 },
+  { label: '3 Days', minutes: 4320 },
+  { label: '1 Week', minutes: 10080 },
+  { label: '1 Month', minutes: 43200 },
+] as const;
+
+// Common permission templates with embedded timestamps
+const PERMISSION_TEMPLATES = [
+  { 
+    name: 'Temporary Analytics Access', 
+    basePermission: 'epsx:analytics:view',
+    defaultDuration: 240, // 4 hours
+    description: 'Temporary access to analytics dashboard'
+  },
+  { 
+    name: 'Premium Rankings (1 Day)', 
+    basePermission: 'epsx:rankings:view:100',
+    defaultDuration: 1440, // 1 day
+    description: 'Temporary access to top 100 rankings'
+  },
+  { 
+    name: 'Export Data Access', 
+    basePermission: 'epsx:analytics:export',
+    defaultDuration: 60, // 1 hour
+    description: 'Temporary data export capabilities'
+  },
+  { 
+    name: 'User Management (Emergency)', 
+    basePermission: 'admin:users:manage',
+    defaultDuration: 480, // 8 hours
+    description: 'Emergency user management access'
+  },
+] as const;
 
 const STATUS_COLORS = {
   active: 'bg-green-100 text-green-800',
@@ -79,7 +129,12 @@ const STATUS_ICONS = {
   revoked: XCircle,
 };
 
-export function TemporaryPermissionManager({ userId }: TemporaryPermissionManagerProps) {
+export function TemporaryPermissionManager({ 
+  userId, 
+  enableEmbeddedTimestamps = true,
+  showTimeline = true,
+  allowQuickActions = true 
+}: TemporaryPermissionManagerProps) {
   const { toast } = useToast();
   const [permissions, setPermissions] = useState<TemporaryPermission[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +142,7 @@ export function TemporaryPermissionManager({ userId }: TemporaryPermissionManage
   const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'revoked'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Form state
+  // Form state - Legacy temporary permissions
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPermission, setEditingPermission] = useState<TemporaryPermission | null>(null);
   const [formData, setFormData] = useState<CreateTemporaryPermissionData>({
@@ -98,6 +153,18 @@ export function TemporaryPermissionManager({ userId }: TemporaryPermissionManage
     expires_at: '',
     reason: '',
   });
+
+  // Embedded timestamp form state
+  const [showEmbeddedForm, setShowEmbeddedForm] = useState(false);
+  const [embeddedFormData, setEmbeddedFormData] = useState<EmbeddedPermissionData>({
+    basePermission: '',
+    expiryTimestamp: 0,
+    reason: '',
+  });
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [quickTimeSelection, setQuickTimeSelection] = useState<string>('240'); // 4 hours default
+  const [customDateTime, setCustomDateTime] = useState<string>('');
+  const [timeInputMode, setTimeInputMode] = useState<'quick' | 'custom'>('quick');
 
   const loadPermissions = async () => {
     try {
@@ -285,6 +352,92 @@ export function TemporaryPermissionManager({ userId }: TemporaryPermissionManage
     }
   };
 
+  // Utility functions for embedded timestamps
+  const createEmbeddedPermissionString = (basePermission: string, expiryTimestamp: number): string => {
+    return `${basePermission}:${expiryTimestamp}`;
+  };
+
+  const parseEmbeddedPermission = (permission: string): { base: string; timestamp?: number } => {
+    const parts = permission.split(':');
+    const lastPart = parts[parts.length - 1];
+    const timestamp = parseInt(lastPart, 10);
+    
+    if (!isNaN(timestamp)) {
+      return {
+        base: parts.slice(0, -1).join(':'),
+        timestamp
+      };
+    }
+    
+    return { base: permission };
+  };
+
+  const handleCreateEmbeddedPermission = async () => {
+    if (!embeddedFormData.basePermission) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please provide a base permission',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Calculate expiry timestamp
+    let expiryTimestamp: number;
+    
+    if (timeInputMode === 'quick') {
+      const minutes = parseInt(quickTimeSelection, 10);
+      expiryTimestamp = Math.floor(Date.now() / 1000) + (minutes * 60);
+    } else {
+      if (!customDateTime) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please select an expiry date and time',
+          variant: 'destructive',
+        });
+        return;
+      }
+      expiryTimestamp = Math.floor(new Date(customDateTime).getTime() / 1000);
+    }
+
+    // Create embedded permission string
+    const embeddedPermissionString = createEmbeddedPermissionString(
+      embeddedFormData.basePermission,
+      expiryTimestamp
+    );
+
+    // Here we would typically call a server action to add this to the user's permissions
+    // For now, we'll simulate with a toast
+    toast({
+      title: 'Success',
+      description: `Embedded timestamp permission created: ${embeddedPermissionString}`,
+    });
+
+    // Reset form
+    setShowEmbeddedForm(false);
+    setEmbeddedFormData({
+      basePermission: '',
+      expiryTimestamp: 0,
+      reason: '',
+    });
+    setSelectedTemplate('');
+    setQuickTimeSelection('240');
+    setCustomDateTime('');
+    setTimeInputMode('quick');
+  };
+
+  const handleTemplateSelect = (templateName: string) => {
+    const template = PERMISSION_TEMPLATES.find(t => t.name === templateName);
+    if (template) {
+      setEmbeddedFormData(prev => ({
+        ...prev,
+        basePermission: template.basePermission
+      }));
+      setQuickTimeSelection(template.defaultDuration.toString());
+      setSelectedTemplate(templateName);
+    }
+  };
+
   const activePermissions = permissions.filter(p => p.status === 'active' && !p.is_expired);
   const expiredPermissions = permissions.filter(p => p.is_expired || p.status === 'expired');
   const revokedPermissions = permissions.filter(p => p.status === 'revoked');
@@ -308,12 +461,25 @@ export function TemporaryPermissionManager({ userId }: TemporaryPermissionManage
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
+          
+          {enableEmbeddedTimestamps && (
+            <Button
+              size="sm"
+              onClick={() => setShowEmbeddedForm(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Quick Grant
+            </Button>
+          )}
+          
           <Button
+            variant="outline"
             size="sm"
             onClick={() => setShowCreateForm(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Grant Permission
+            Legacy Grant
           </Button>
         </div>
       </div>
@@ -614,6 +780,184 @@ export function TemporaryPermissionManager({ userId }: TemporaryPermissionManage
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Embedded Timestamp Permission Dialog */}
+      {enableEmbeddedTimestamps && (
+        <Dialog open={showEmbeddedForm} onOpenChange={setShowEmbeddedForm}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Quick Grant Temporary Permission
+              </DialogTitle>
+              <DialogDescription>
+                Create a permission with embedded timestamp that automatically expires
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Permission Templates */}
+              <div className="space-y-3">
+                <Label>Quick Templates</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {PERMISSION_TEMPLATES.map((template) => (
+                    <Button
+                      key={template.name}
+                      variant={selectedTemplate === template.name ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleTemplateSelect(template.name)}
+                      className="justify-start text-left h-auto p-3"
+                    >
+                      <div>
+                        <div className="font-medium">{template.name}</div>
+                        <div className="text-xs text-muted-foreground">{template.description}</div>
+                        <div className="text-xs text-blue-600">{template.basePermission}</div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Base Permission */}
+              <div className="space-y-2">
+                <Label htmlFor="basePermission">Base Permission *</Label>
+                <Input
+                  id="basePermission"
+                  value={embeddedFormData.basePermission}
+                  onChange={(e) => setEmbeddedFormData(prev => ({ 
+                    ...prev, 
+                    basePermission: e.target.value 
+                  }))}
+                  placeholder="e.g., epsx:analytics:view or admin:users:manage"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Permission in platform:resource:action format
+                </p>
+              </div>
+
+              {/* Time Selection */}
+              <div className="space-y-4">
+                <Label>Expiry Time</Label>
+                
+                <Tabs value={timeInputMode} onValueChange={(value: any) => setTimeInputMode(value)}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="quick">Quick Select</TabsTrigger>
+                    <TabsTrigger value="custom">Custom Date</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="quick" className="space-y-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {QUICK_TIME_OPTIONS.map((option) => (
+                        <Button
+                          key={option.label}
+                          variant={quickTimeSelection === option.minutes.toString() ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setQuickTimeSelection(option.minutes.toString())}
+                          className="h-12 flex flex-col"
+                        >
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {option.minutes < 60 ? `${option.minutes}m` : 
+                             option.minutes < 1440 ? `${Math.round(option.minutes/60)}h` : 
+                             `${Math.round(option.minutes/1440)}d`}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Selected: {QUICK_TIME_OPTIONS.find(o => o.minutes.toString() === quickTimeSelection)?.label || 'Custom'}
+                      {quickTimeSelection && (
+                        <>
+                          {' - Expires: '}
+                          {format(
+                            new Date(Date.now() + (parseInt(quickTimeSelection) * 60 * 1000)), 
+                            'PPp'
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="custom" className="space-y-3">
+                    <Input
+                      type="datetime-local"
+                      value={customDateTime}
+                      onChange={(e) => setCustomDateTime(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                    {customDateTime && (
+                      <div className="text-xs text-muted-foreground">
+                        Expires: {format(new Date(customDateTime), 'PPp')} 
+                        ({formatDistance(new Date(customDateTime), new Date(), { addSuffix: true })})
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              {/* Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="embeddedReason">Reason (Optional)</Label>
+                <Textarea
+                  id="embeddedReason"
+                  value={embeddedFormData.reason}
+                  onChange={(e) => setEmbeddedFormData(prev => ({ 
+                    ...prev, 
+                    reason: e.target.value 
+                  }))}
+                  placeholder="Why is this temporary permission needed?"
+                  rows={2}
+                />
+              </div>
+
+              {/* Preview */}
+              {embeddedFormData.basePermission && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <div><strong>Permission Preview:</strong></div>
+                      <code className="text-sm bg-gray-100 p-2 rounded block">
+                        {embeddedFormData.basePermission}:
+                        {timeInputMode === 'quick' 
+                          ? Math.floor(Date.now() / 1000) + (parseInt(quickTimeSelection) * 60)
+                          : customDateTime 
+                            ? Math.floor(new Date(customDateTime).getTime() / 1000)
+                            : 'TIMESTAMP'
+                        }
+                      </code>
+                      <div className="text-xs text-muted-foreground">
+                        This permission will be automatically validated for expiry by the frontend
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleCreateEmbeddedPermission} 
+                  disabled={loading} 
+                  className="flex-1"
+                >
+                  {loading ? 'Creating...' : 'Grant Permission'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEmbeddedForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

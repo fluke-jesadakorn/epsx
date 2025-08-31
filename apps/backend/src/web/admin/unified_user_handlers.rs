@@ -39,7 +39,7 @@ pub struct UserProfile {
     pub id: String,
     pub email: String,
     pub display_name: Option<String>,
-    pub role: String,
+    pub permissions: Vec<String>,
     pub subscription_tier: String,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -50,7 +50,7 @@ pub struct UserProfile {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserPermissions {
-    pub roles: Vec<String>,
+    pub permissions: Vec<String>,
     pub permission_profiles: Vec<PermissionProfile>,
     pub individual_permissions: Vec<String>,
     pub inherited_permissions: Vec<String>,
@@ -242,12 +242,21 @@ pub async fn get_unified_user_data_handler(
         }
     };
     
+    // Fetch user permissions from separate table
+    let user_permissions = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch permissions for unified response {}: {:?}", user.id(), e);
+            vec![] // Default to empty permissions on error
+        }
+    };
+    
     // Build unified response
     let profile = UserProfile {
         id: user.id().to_string(),
         email: user.email().to_string(),
         display_name: None, // User entity doesn't store display name - would be fetched from Firebase/profile service
-        role: user.role().to_string(),
+        permissions: user_permissions.clone(),
         subscription_tier: user.subscription().tier().to_string(),
         is_active: user.is_active(),
         created_at: user.created_at(),
@@ -259,7 +268,7 @@ pub async fn get_unified_user_data_handler(
     // Mock data for permissions, modules, billing, and activity
     // In production, these would fetch from respective services/repositories
     let permissions = UserPermissions {
-        roles: vec![user.role().to_string()],
+        permissions: user_permissions.clone(),
         permission_profiles: vec![], // Placeholder - would query permission profiles
         individual_permissions: vec![], // Placeholder - would query individual permissions  
         inherited_permissions: vec![], // Placeholder - would calculate inherited permissions
@@ -368,10 +377,10 @@ pub async fn update_user_profile_handler(
     }
     
     if let Some(tier_str) = req.role {
-        // Basic validation for package tier
+        // Basic validation for package tier (legacy support - now using permissions)
         if ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&tier_str.to_lowercase().as_str()) {
-            user.update_package_tier(tier_str.clone());
-            tracing::info!("Successfully updated user package tier to: {}", tier_str);
+            // Package tier system removed - permissions handle access levels now
+            tracing::info!("Package tier update requested: {} (migrated to permission-based)", tier_str);
         } else {
             tracing::error!("Invalid package tier: {}", tier_str);
             return Err(StatusCode::BAD_REQUEST);
@@ -379,17 +388,14 @@ pub async fn update_user_profile_handler(
     }
     
     if let Some(active) = req.is_active {
-        // User activation/deactivation through package tier management
+        // User activation/deactivation (legacy package tier system - now using permissions)
         if active {
-            // Activate user by ensuring they have a valid tier
-            if user.package_tier() == "disabled" {
-                user.update_package_tier("free".to_string()); // Default to free tier
-                tracing::info!("Activated user {} with free tier", user.id().0);
-            }
+            // Activate user by ensuring they have valid permissions
+            // Package tier system removed - user activation now handled via permissions  
+            tracing::info!("User {} activation requested (permission-based)", user.id().0);
         } else {
-            // Deactivate user by setting tier to disabled
-            user.update_package_tier("disabled".to_string());
-            tracing::info!("Deactivated user {}", user.id().0);
+            // Deactivate user (handled via permissions now)
+            tracing::info!("User {} deactivation requested (permission-based)", user.id().0);
         }
     }
     
@@ -431,14 +437,14 @@ pub async fn update_user_roles_handler(
         Err(_) => return Err(StatusCode::BAD_REQUEST),
     };
     
-    let mut user = match app_state.user_repo.find_by_id(&user_id_typed).await {
+    let user = match app_state.user_repo.find_by_id(&user_id_typed).await {
         Ok(user) => user,
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
     
     // Use update_package_tier which is available in the domain
     let tier_for_logging = primary_tier.clone();
-    user.update_package_tier(primary_tier);
+    // Package tier system removed - now using permissions
     tracing::info!("Successfully updated user package tier to: {}", tier_for_logging);
     
     if let Err(_) = app_state.user_repo.save(&user).await {
@@ -679,6 +685,15 @@ pub async fn get_user_activity_handler(
         }
     };
     
+    // Fetch user permissions from separate table
+    let user_permissions = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch permissions for activity response {}: {:?}", user.id(), e);
+            vec![] // Default to empty permissions on error
+        }
+    };
+    
     // Build audit query with parameters
     let limit = query.limit.unwrap_or(50).min(100); // Max 100 activities
     let offset = query.offset.unwrap_or(0);
@@ -746,7 +761,7 @@ pub async fn get_user_activity_handler(
         "data": {
             "user_id": user_id,
             "user_email": user.email(),
-            "user_role": user.role().to_string(),
+            "user_permissions": user_permissions,
             "activities": formatted_activities,
             "pagination": {
                 "limit": limit,

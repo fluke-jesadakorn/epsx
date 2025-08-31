@@ -1,52 +1,50 @@
 /**
- * JWT ModuleGuard - Server Component for conditional rendering based on admin modules
- * Modern replacement for legacy role-based authentication
+ * PermissionGuard - Server Component for conditional rendering based on structured permissions
+ * Clean implementation using "platform:resource:action" permission format
  */
 
 import { ReactNode } from 'react'
 import { getServerSession } from '@/lib/auth'
 
-interface ModuleGuardProps {
+interface PermissionGuardProps {
   children: ReactNode
   fallback?: ReactNode
   
-  // Permission-based access
+  // Single permission check
   permission?: string
   
-  // Admin module-based access
-  adminModule?: string
+  // Multiple permissions (AND logic - user needs all)
+  permissions?: string[]
   
-  // Predefined capability checks
+  // Multiple permissions (OR logic - user needs any)
+  anyPermission?: string[]
+  
+  // Predefined capability checks (for common use cases)
+  requireAdmin?: boolean
   requireUserManagement?: boolean
   requireAnalyticsAccess?: boolean  
   requireBillingAccess?: boolean
-  
-  // Multiple requirements (AND logic)
-  permissions?: string[]
-  adminModules?: string[]
-  
-  // OR logic - user needs any of these
-  anyPermission?: string[]
-  anyAdminModule?: string[]
+  requireSystemManagement?: boolean
+  requireAuditAccess?: boolean
 }
 
 /**
- * Custom JWT Server Component that conditionally renders content based on admin modules
+ * Server Component that conditionally renders content based on structured permissions
  * Only renders children if user meets the specified requirements
  */
-export default async function ModuleGuard({
+export default async function PermissionGuard({
   children,
   fallback = null,
   permission,
-  adminModule,
+  permissions = [],
+  anyPermission = [],
+  requireAdmin = false,
   requireUserManagement = false,
   requireAnalyticsAccess = false,
   requireBillingAccess = false,
-  permissions = [],
-  adminModules = [],
-  anyPermission = [],
-  anyAdminModule = []
-}: ModuleGuardProps) {
+  requireSystemManagement = false,
+  requireAuditAccess = false,
+}: PermissionGuardProps) {
   
   let hasAccess = true
   
@@ -59,26 +57,77 @@ export default async function ModuleGuard({
     }
     
     const userPermissions = (session.user as any).permissions as string[] || []
-    const userAdminModules = (session.user as any).admin_modules as string[] || []
     
-    // Helper functions using custom JWT session
-    const hasPermission = (perm: string) => userPermissions.includes(perm)
-    const hasAdminModule = (module: string) => userAdminModules.includes(module)
-    const canManageUsers = () => hasAdminModule('user_operations')
-    const canViewAnalytics = () => hasAdminModule('analytics_specialist')
-    const canManageBilling = () => hasAdminModule('billing_admin')
+    // Helper function to check structured permissions with wildcard support
+    const checkPermissionAccess = (userPerms: string[], requiredPerm: string): boolean => {
+      const required = parsePermission(requiredPerm);
+      if (!required) return false;
+      
+      for (const permStr of userPerms) {
+        const userPerm = parsePermission(permStr);
+        if (!userPerm) continue;
+        
+        // Check for exact match
+        if (userPerm.platform === required.platform && 
+            userPerm.resource === required.resource && 
+            userPerm.action === required.action) {
+          return true;
+        }
+        
+        // Check for wildcard matches
+        if (userPerm.platform === required.platform) {
+          // Platform-level wildcard: "epsx:*:*"
+          if (userPerm.resource === '*' && userPerm.action === '*') {
+            return true;
+          }
+          
+          // Resource-level wildcard: "epsx:analytics:*"
+          if (userPerm.resource === required.resource && userPerm.action === '*') {
+            return true;
+          }
+        }
+        
+        // Global admin permission: "admin:*:*"
+        if (userPerm.platform === 'admin' && userPerm.resource === '*' && userPerm.action === '*') {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
+    const parsePermission = (permissionString: string): { platform: string; resource: string; action: string } | null => {
+      const parts = permissionString.split(':');
+      if (parts.length !== 3) return null;
+      
+      return {
+        platform: parts[0],
+        resource: parts[1],
+        action: parts[2]
+      };
+    };
+    
+    // Permission checking helper
+    const hasPermission = (perm: string) => checkPermissionAccess(userPermissions, perm)
+    
+    // Predefined capability helpers
+    const isAdmin = () => hasPermission('admin:*:*')
+    const canManageUsers = () => hasPermission('admin:users:manage') || hasPermission('epsx:users:manage')
+    const canViewAnalytics = () => hasPermission('epsx:analytics:view') || hasPermission('epsx:analytics:*') || hasPermission('admin:*:*')
+    const canManageBilling = () => hasPermission('epsx:billing:manage') || hasPermission('admin:*:*')
+    const canManageSystem = () => hasPermission('admin:system:manage') || hasPermission('admin:*:*')
+    const canViewAudit = () => hasPermission('admin:audit:read') || hasPermission('epsx:audit:read') || hasPermission('admin:*:*')
     
     // Single permission check
     if (permission) {
       hasAccess = hasAccess && hasPermission(permission)
     }
     
-    // Single admin module check
-    if (adminModule) {
-      hasAccess = hasAccess && hasAdminModule(adminModule)
+    // Predefined capability checks
+    if (requireAdmin) {
+      hasAccess = hasAccess && isAdmin()
     }
     
-    // Predefined capability checks
     if (requireUserManagement) {
       hasAccess = hasAccess && canManageUsers()
     }
@@ -90,21 +139,19 @@ export default async function ModuleGuard({
     if (requireBillingAccess) {
       hasAccess = hasAccess && canManageBilling()
     }
+
+    if (requireSystemManagement) {
+      hasAccess = hasAccess && canManageSystem()
+    }
+
+    if (requireAuditAccess) {
+      hasAccess = hasAccess && canViewAudit()
+    }
     
     // Multiple permissions check (AND logic)
     if (permissions.length > 0) {
       for (const perm of permissions) {
         if (!hasPermission(perm)) {
-          hasAccess = false
-          break
-        }
-      }
-    }
-    
-    // Multiple admin modules check (AND logic)
-    if (adminModules.length > 0) {
-      for (const module of adminModules) {
-        if (!hasAdminModule(module)) {
           hasAccess = false
           break
         }
@@ -123,21 +170,9 @@ export default async function ModuleGuard({
       hasAccess = hasAccess && hasAnyPermission
     }
     
-    // Any admin module check (OR logic)
-    if (anyAdminModule.length > 0) {
-      let hasAnyModule = false
-      for (const module of anyAdminModule) {
-        if (hasAdminModule(module)) {
-          hasAnyModule = true
-          break
-        }
-      }
-      hasAccess = hasAccess && hasAnyModule
-    }
-    
   } catch (error) {
     // If auth check fails, deny access
-    console.error('ModuleGuard auth check failed:', error)
+    console.error('PermissionGuard auth check failed:', error)
     hasAccess = false
   }
   
@@ -145,50 +180,93 @@ export default async function ModuleGuard({
 }
 
 /**
- * Convenience components for common access patterns using admin modules
+ * Convenience components for common access patterns using structured permissions
  */
 
-// Admin-only content (any admin module)
+// Admin-only content (global admin permission)
 export async function AdminOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
   return (
-    <ModuleGuard anyAdminModule={['user_operations', 'system_admin', 'permission_admin']} fallback={fallback}>
+    <PermissionGuard 
+      requireAdmin
+      fallback={fallback}
+    >
       {children}
-    </ModuleGuard>
+    </PermissionGuard>
   )
 }
 
 // User management access
 export async function UserManagementOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
   return (
-    <ModuleGuard requireUserManagement fallback={fallback}>
+    <PermissionGuard 
+      requireUserManagement 
+      fallback={fallback}
+    >
       {children}
-    </ModuleGuard>
+    </PermissionGuard>
   )
 }
 
 // Analytics access
 export async function AnalyticsOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
   return (
-    <ModuleGuard requireAnalyticsAccess fallback={fallback}>
+    <PermissionGuard 
+      requireAnalyticsAccess 
+      fallback={fallback}
+    >
       {children}
-    </ModuleGuard>
+    </PermissionGuard>
   )
 }
 
 // Billing access
 export async function BillingOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
   return (
-    <ModuleGuard requireBillingAccess fallback={fallback}>
+    <PermissionGuard 
+      requireBillingAccess 
+      fallback={fallback}
+    >
       {children}
-    </ModuleGuard>
+    </PermissionGuard>
   )
 }
 
-// System admin only (highest level access)
-export async function SystemAdminOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
+// System management only
+export async function SystemManagementOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
   return (
-    <ModuleGuard adminModule="system_admin" fallback={fallback}>
+    <PermissionGuard 
+      requireSystemManagement 
+      fallback={fallback}
+    >
       {children}
-    </ModuleGuard>
+    </PermissionGuard>
   )
 }
+
+// Audit access only
+export async function AuditOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
+  return (
+    <PermissionGuard 
+      requireAuditAccess 
+      fallback={fallback}
+    >
+      {children}
+    </PermissionGuard>
+  )
+}
+
+// Multi-platform admin (for cross-platform administration)
+export async function CrossPlatformAdminOnly({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) {
+  return (
+    <PermissionGuard 
+      anyPermission={['admin:*:*', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*']}
+      fallback={fallback}
+    >
+      {children}
+    </PermissionGuard>
+  )
+}
+
+// Legacy exports for backward compatibility
+export { PermissionGuard as ModuleGuard }
+export { PermissionGuard as default }

@@ -4,11 +4,10 @@ use std::sync::Arc;
 
 use crate::dom::entities::User;
 use crate::dom::values::{ UserId, Email };
-// Simple permission helpers for user management  
-use crate::auth::roles::Role;
 use crate::dom::events::{ DomainEvent, UserDeletedEvent };
 use crate::app::ports::{ EventDispatcher };
 use crate::app::ports::repositories::{ UserRepository, LevelHistoryRepository };
+use crate::app::services::PermissionApplicationService;
 use crate::app::dtos::{
   CreateUserReq,
   CreateUserRes,
@@ -37,18 +36,21 @@ pub struct UserMgmtUC {
   user_repo: Arc<dyn UserRepository>,
   event_dispatcher: Arc<dyn EventDispatcher>,
   level_history_repo: Arc<dyn LevelHistoryRepository>,
+  permission_service: Arc<PermissionApplicationService>,
 }
 
 impl UserMgmtUC {
   pub fn new(
     user_repo: Arc<dyn UserRepository>,
     event_dispatcher: Arc<dyn EventDispatcher>,
-    level_history_repo: Arc<dyn LevelHistoryRepository>
+    level_history_repo: Arc<dyn LevelHistoryRepository>,
+    permission_service: Arc<PermissionApplicationService>,
   ) -> Self {
     Self {
       user_repo,
       event_dispatcher,
       level_history_repo,
+      permission_service,
     }
   }
 
@@ -64,11 +66,12 @@ impl UserMgmtUC {
       UserUseCaseError::InvalidEmail(req.email.clone())
     )?;
 
-    let role = req.package_tier
-      .parse::<Role>()
-      .map_err(|_|
-        UserUseCaseError::InvalidPackageTier(req.package_tier.clone())
-      )?;
+    let package_tier = req.package_tier.clone();
+    
+    // Validate package tier (simple string validation)
+    if !["admin", "user", "basic", "premium"].contains(&package_tier.as_str()) {
+      return Err(UserUseCaseError::InvalidPackageTier(package_tier));
+    }
 
     // Check if user already exists
     if let Ok(Some(_)) = self.user_repo.find_by_email(&email).await {
@@ -79,7 +82,7 @@ impl UserMgmtUC {
       "firebase_{}",
       uuid::Uuid::new_v4().to_string().replace("-", "")[..28].to_string()
     );
-    let user = User::new(firebase_uid, email, role.to_string());
+    let user = User::new(firebase_uid, email);
     self.user_repo
       .save(&user).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
@@ -111,11 +114,7 @@ impl UserMgmtUC {
       .validate()
       .map_err(|e| UserUseCaseError::ValidationError(e.to_string()))?;
 
-    let new_role = req.new_package_tier
-      .parse::<Role>()
-      .map_err(|_|
-        UserUseCaseError::InvalidPackageTier(req.new_package_tier.clone())
-      )?;
+    let new_role = req.new_package_tier.clone();
 
     // Get admin user to check permissions
     let admin = self.user_repo
@@ -130,43 +129,59 @@ impl UserMgmtUC {
       .ok_or_else(|| UserUseCaseError::UserNotFound(req.usr_id.to_string()))?;
 
     // Check permissions
-    if
-      !Self::can_upgrade_user_to_role(
-        &admin,
-        &target,
-        &new_role
-      )
-    {
+    if !(self.can_upgrade_user_to_role(&admin, &target, &new_role).await) {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
     // Save old values before mutation
-    let old_package_tier = target.package_tier().to_string();
-    let old_admin_modules = target.admin_modules().clone();
+    let old_permissions = match self.permission_service.get_user_permissions(target.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch old permissions for user {}: {:?}", target.id(), e);
+            vec![] // Default to empty permissions
+        }
+    };
 
-    // Perform upgrade
-    let event = target
-      .upgrade_role(
-        new_role.clone(),
-        Some(req.new_admin_modules.clone())
-      )
-      .map_err(|e| UserUseCaseError::DomainError(e.to_string()))?;
+    // Perform upgrade - update permissions in separate table
+    if let Err(e) = self.permission_service.set_user_permissions(target.id(), req.new_permissions.clone()).await {
+        return Err(UserUseCaseError::DomainError(format!("Failed to update permissions: {:?}", e)));
+    }
+
+    // Create permission changed event
+    let permissions_added: Vec<String> = req.new_permissions.iter()
+        .filter(|p| !old_permissions.contains(p))
+        .cloned()
+        .collect();
+    let permissions_removed: Vec<String> = old_permissions.iter()
+        .filter(|p| !req.new_permissions.contains(p))
+        .cloned()
+        .collect();
+    
+    let event = crate::dom::events::UserPermissionChangedEvent::new(
+        target.id().clone(),
+        permissions_added,
+        permissions_removed,
+        "user".to_string(), // Default old tier since derived_tier removed
+        "user".to_string()  // Default new tier since derived_tier removed
+    );
 
     // Save changes
     self.user_repo
       .save(&target).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
-    // Record level change history
-    let old_role_enum = old_package_tier
-      .parse::<Role>()
-      .unwrap_or(Role::Guest);
+    // Record level change history - use string-based roles
+    let old_role_str = if old_permissions.iter().any(|p| p.starts_with("admin:")) {
+        "admin"
+    } else {
+        "user"
+    };
     self.record_level_change(
       &req.usr_id,
-      &old_role_enum,
+      &old_role_str,
       &new_role,
-      &old_admin_modules,
-      &req.new_admin_modules,
+      &old_permissions,
+      &req.new_permissions,
       &req.admin_id,
       None
     ).await?;
@@ -192,12 +207,11 @@ impl UserMgmtUC {
 
     let users = (
       if let Some(package_tier_filter) = &req.package_tier_filter {
-        let role = package_tier_filter
-          .parse::<Role>()
-          .map_err(|_|
-            UserUseCaseError::InvalidPackageTier(package_tier_filter.clone())
-          )?;
-        self.user_repo.find_by_package_tier(&role.to_string()).await
+        // Validate package tier filter
+        if !["admin", "user", "basic", "premium"].contains(&package_tier_filter.as_str()) {
+          return Err(UserUseCaseError::InvalidPackageTier(package_tier_filter.clone()));
+        }
+        self.user_repo.find_by_package_tier(package_tier_filter).await
       } else {
         self.user_repo.list(req.offset, req.limit).await
       }
@@ -256,11 +270,7 @@ impl UserMgmtUC {
     admin: &User,
     update: &crate::app::dtos::UserLevelUpdate
   ) -> Result<User, UserUseCaseError> {
-    let new_role = update.new_package_tier
-      .parse::<Role>()
-      .map_err(|_|
-        UserUseCaseError::InvalidPackageTier(update.new_package_tier.clone())
-      )?;
+    let new_role = update.new_package_tier.clone();
 
     // Get target user
     let mut target = self.user_repo
@@ -271,39 +281,59 @@ impl UserMgmtUC {
       )?;
 
     // Check permissions
-    if
-      !Self::can_upgrade_user_to_role(admin, &target, &new_role)
-    {
+    if !(self.can_upgrade_user_to_role(admin, &target, &new_role).await) {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
     // Save old values before mutation
-    let old_package_tier = target.package_tier().to_string();
-    let old_admin_modules = target.admin_modules().clone();
+    let old_permissions = match self.permission_service.get_user_permissions(target.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch old permissions for user {}: {:?}", target.id(), e);
+            vec![] // Default to empty permissions
+        }
+    };
 
-    // Perform upgrade
-    let event = target
-      .upgrade_role(
-        new_role.clone(),
-        Some(update.new_admin_modules.clone())
-      )
-      .map_err(|e| UserUseCaseError::DomainError(e.to_string()))?;
+    // Perform upgrade - update permissions in separate table
+    if let Err(e) = self.permission_service.set_user_permissions(target.id(), update.new_permissions.clone()).await {
+        return Err(UserUseCaseError::DomainError(format!("Failed to update permissions: {:?}", e)));
+    }
+
+    // Create permission changed event
+    let permissions_added: Vec<String> = update.new_permissions.iter()
+        .filter(|p| !old_permissions.contains(p))
+        .cloned()
+        .collect();
+    let permissions_removed: Vec<String> = old_permissions.iter()
+        .filter(|p| !update.new_permissions.contains(p))
+        .cloned()
+        .collect();
+    
+    let event = crate::dom::events::UserPermissionChangedEvent::new(
+        target.id().clone(),
+        permissions_added,
+        permissions_removed,
+        "user".to_string(), // Default old tier since derived_tier removed
+        "user".to_string()  // Default new tier since derived_tier removed
+    );
 
     // Save changes
     self.user_repo
       .save(&target).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
-    // Record level change history
-    let old_role_enum = old_package_tier
-      .parse::<Role>()
-      .unwrap_or(Role::Guest);
+    // Record level change history - use string-based roles
+    let old_role_str = if old_permissions.iter().any(|p| p.starts_with("admin:")) {
+        "admin"
+    } else {
+        "user"
+    };
     self.record_level_change(
       &update.usr_id,
-      &old_role_enum,
+      &old_role_str,
       &new_role,
-      &old_admin_modules,
-      &update.new_admin_modules,
+      &old_permissions,
+      &update.new_permissions,
       admin.id(),
       update.reason.clone()
     ).await?;
@@ -331,10 +361,22 @@ impl UserMgmtUC {
     let total_users = all_users.len() as u64;
     let verified_users = 0; // TODO: implement email verification tracking
     let disabled_users = 0; // TODO: implement user disabled status tracking
-    let admin_users = all_users
-      .iter()
-      .filter(|user| matches!(user.package_tier(), "admin"))
-      .count() as u64;
+    let admin_users = {
+        let mut count = 0;
+        for user in &all_users {
+            match self.permission_service.get_user_permissions(user.firebase_uid()).await {
+                Ok(permissions) => {
+                    if permissions.iter().any(|p| p.starts_with("admin:")) {
+                        count += 1;
+                    }
+                },
+                Err(e) => {
+                    tracing::error!("Failed to fetch permissions for user stats {}: {:?}", user.id(), e);
+                }
+            }
+        }
+        count as u64
+    };
 
     let verification_rate = if total_users > 0 {
       ((verified_users as f64) / (total_users as f64)) * 100.0
@@ -355,20 +397,16 @@ impl UserMgmtUC {
   async fn get_package_tier_counts(
     &self
   ) -> Result<Vec<PackageTierCount>, UserUseCaseError> {
-    let roles = [
-      Role::Guest,
-      Role::User,
-      Role::Admin,
-    ];
+    let tiers = ["user", "premium", "admin"];
     let mut counts = Vec::new();
 
-    for role in roles {
+    for tier in tiers {
       let users = self.user_repo
-        .find_by_package_tier(&role.to_string()).await
+        .find_by_package_tier(tier).await
         .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
       counts.push(PackageTierCount {
-        package_tier: role.to_string(),
+        package_tier: tier.to_string(),
         count: users.len() as u64,
       });
     }
@@ -427,10 +465,10 @@ impl UserMgmtUC {
   async fn record_level_change(
     &self,
     user_id: &UserId,
-    old_role: &Role,
-    new_role: &Role,
-    old_admin_modules: &[String],
-    new_admin_modules: &[String],
+    old_role: &str,
+    new_role: &str,
+    old_permissions: &[String],
+    new_permissions: &[String],
     admin_id: &UserId,
     reason: Option<String>
   ) -> Result<(), UserUseCaseError> {
@@ -439,8 +477,8 @@ impl UserMgmtUC {
       usr_id: user_id.to_string(),
       old_package_tier: old_role.to_string(),
       new_package_tier: new_role.to_string(),
-      old_admin_modules: old_admin_modules.to_vec(),
-      new_admin_modules: new_admin_modules.to_vec(),
+      old_permissions: old_permissions.to_vec(),
+      new_permissions: new_permissions.to_vec(),
       changed_by: admin_id.to_string(),
       reason,
       changed_at: chrono::Utc::now(),
@@ -471,8 +509,14 @@ impl UserMgmtUC {
       .ok_or_else(|| UserUseCaseError::UserNotFound(admin_id.to_string()))?;
 
     // Check admin permissions - only Admin can delete users
-    let admin_role_str = admin.package_tier();
-    if !(admin_role_str == "admin") {
+    let admin_permissions = match self.permission_service.get_user_permissions(admin.firebase_uid()).await {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            tracing::error!("Failed to fetch admin permissions for deletion {}: {:?}", admin.id(), e);
+            return Err(UserUseCaseError::PermissionDenied);
+        }
+    };
+    if !admin_permissions.iter().any(|p| p.starts_with("admin:")) {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
@@ -488,7 +532,7 @@ impl UserMgmtUC {
     }
 
     // Prevent deletion of users with higher or equal role
-    if !Self::can_admin_modify_user(&admin, &target) {
+    if !(self.can_admin_modify_user(&admin, &target).await) {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
@@ -511,10 +555,16 @@ impl UserMgmtUC {
     let deletion_record = LevelChangeRecord {
       id: uuid::Uuid::new_v4().to_string(),
       usr_id: req.usr_id.clone(),
-      old_package_tier: target.package_tier().to_string(),
+      old_package_tier: "USER".to_string(), // Default since derived_tier removed
       new_package_tier: "DELETED".to_string(),
-      old_admin_modules: target.admin_modules().clone(),
-      new_admin_modules: vec![],
+      old_permissions: match self.permission_service.get_user_permissions(target.firebase_uid()).await {
+          Ok(permissions) => permissions,
+          Err(e) => {
+              tracing::error!("Failed to fetch permissions for deletion record {}: {:?}", target.id(), e);
+              vec![]
+          }
+      },
+      new_permissions: vec![],
       changed_by: admin_id.to_string(),
       reason: req.reason.clone(),
       changed_at: chrono::Utc::now(),
@@ -542,34 +592,30 @@ impl UserMgmtUC {
   }
 
   // Helper methods for permission checking
-  fn can_upgrade_user_to_role(
+  async fn can_upgrade_user_to_role(
+    &self,
     admin: &User,
     _target: &User,
-    _new_role: &Role
+    _new_role: &str
   ) -> bool {
-    // Only admins can upgrade users
-    let admin_role = admin
-      .package_tier()
-      .parse::<Role>()
-      .unwrap_or(Role::Guest);
-    match admin_role {
-      Role::Admin => true,
-      _ => false,
+    // Only admins can upgrade users (check admin permissions via service)
+    match self.permission_service.get_user_permissions(admin.firebase_uid()).await {
+        Ok(permissions) => permissions.iter().any(|p| p.starts_with("admin:") || p == "admin:users:manage"),
+        Err(e) => {
+            tracing::error!("Failed to check admin permissions for user upgrade {}: {:?}", admin.id(), e);
+            false
+        }
     }
   }
 
-  fn can_admin_modify_user(admin: &User, target: &User) -> bool {
-    let admin_role = admin
-      .package_tier()
-      .parse::<Role>()
-      .unwrap_or(Role::Guest);
-    let target_role = target
-      .package_tier()
-      .parse::<Role>()
-      .unwrap_or(Role::Guest);
-    match (admin_role, target_role) {
-      (Role::Admin, _) => true, // Admin can modify anyone
-      _ => false, // Non-admins can't modify anyone
+  async fn can_admin_modify_user(&self, admin: &User, _target: &User) -> bool {
+    // Only admins can modify users  
+    match self.permission_service.get_user_permissions(admin.firebase_uid()).await {
+        Ok(permissions) => permissions.iter().any(|p| p.starts_with("admin:") || p == "admin:users:manage"),
+        Err(e) => {
+            tracing::error!("Failed to check admin permissions for user modification {}: {:?}", admin.id(), e);
+            false
+        }
     }
   }
 }

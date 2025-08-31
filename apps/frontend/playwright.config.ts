@@ -21,7 +21,7 @@ export default defineConfig({
   ],
   outputDir: 'test-results',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.FRONTEND_URL || 'http://localhost:3002',
     trace: 'on-first-retry',
     screenshot: 'on-failure',
     video: 'retain-on-failure',
@@ -52,6 +52,14 @@ export default defineConfig({
         '**/auth-flow.spec.ts',
         '**/comprehensive-auth-test.spec.ts'
       ],
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    
+    // Embedded Permissions System Tests
+    {
+      name: 'embedded-permissions',
+      testMatch: '**/embedded-permissions-comprehensive.spec.ts',
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },

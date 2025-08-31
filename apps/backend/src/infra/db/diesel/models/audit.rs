@@ -24,6 +24,7 @@ pub struct DieselAuditLog {
     pub user_agent: Option<String>,
     pub timestamp: DateTime<Utc>,
     pub session_id: Option<Uuid>,
+    pub platform_id: Option<Uuid>,
 }
 
 #[derive(Insertable, Debug, Clone)]
@@ -42,4 +43,5 @@ pub struct NewDieselAuditLog {
     pub user_agent: Option<String>,
     pub timestamp: DateTime<Utc>,
     pub session_id: Option<Uuid>,
+    pub platform_id: Option<Uuid>,
 }

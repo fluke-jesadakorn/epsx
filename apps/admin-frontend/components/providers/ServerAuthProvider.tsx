@@ -33,12 +33,20 @@ export async function ServerAuthProvider({
     }
 
     if (requireAdmin) {
-      // Check if user has admin access
-      const userAdminModules = (session.user as any).admin_modules as string[] || [];
+      // Check if user has admin access using permissions system
+      const user = session.user as any;
+      const userPermissions = user.permissions as string[] || [];
       
-      if (userAdminModules.length === 0) {
+      // Check permissions system
+      const hasAdminPermission = userPermissions.some(p => 
+        p.includes(':manage') || 
+        p.includes(':admin') || 
+        p === '*'
+      );
+      
+      if (!hasAdminPermission) {
         console.log('🔐 Server auth: User lacks admin access', {
-          admin_modules: userAdminModules,
+          permissions: userPermissions,
           email: session.user.email
         });
         redirect('/access-denied?reason=insufficient_admin_access');
@@ -47,7 +55,7 @@ export async function ServerAuthProvider({
       console.log('✅ Server auth: Admin access verified', {
         user_id: session.user.id,
         email: session.user.email,
-        admin_modules: userAdminModules
+        permissions: userPermissions
       });
     }
   }

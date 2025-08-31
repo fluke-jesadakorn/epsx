@@ -1,20 +1,21 @@
 // User domain entity with minimal naming conventions
+// PERMISSION-ONLY SYSTEM - No role field, using structured permissions only
 
 use chrono::{ DateTime, Utc };
 use serde::{ Serialize, Deserialize };
 
 use crate::dom::values::{ UserId, Email, Subscription };
 use crate::dom::events::UserPermissionChangedEvent;
-use crate::auth::roles::Role;
+use crate::auth::permissions::{PermissionSets, check_permission_access};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
   id: UserId,
   firebase_uid: String,
   email: Email,
-  admin_modules: Vec<String>,
-  package_tier: String,
-  role: Role,
+  // permissions: Vec<String>,  // REMOVED: Now stored in separate user_permissions table
+  // package_tier removed - using permissions only
+  // role field removed - using permissions only
   subscription: Subscription,
   created_at: DateTime<Utc>,
   updated_at: DateTime<Utc>,
@@ -22,17 +23,17 @@ pub struct User {
 }
 
 impl User {
-  pub fn new(firebase_uid: String, email: Email, package_tier: String) -> Self {
+  pub fn new(firebase_uid: String, email: Email) -> Self {
     let id = UserId::generate();
     let now = Utc::now();
 
+    // Default permissions are now handled by permission service during user creation
+    
     Self {
       id: id.clone(),
       firebase_uid,
       email,
-      admin_modules: Vec::new(),
-      package_tier,
-      role: Role::Guest, // Default to guest role
+      // permissions field removed - handled by separate table
       subscription: Subscription::free(),
       created_at: now,
       updated_at: now,
@@ -41,21 +42,19 @@ impl User {
   }
 
   /// Create user from existing database data (basic version)
+  /// Note: Permissions are now handled by separate user_permissions table
   pub fn from_existing(
     id: UserId,
     firebase_uid: String,
     email: Email,
-    package_tier: String,
-    role: Role
+    // permissions parameter removed - handled by separate table
   ) -> Self {
     let now = chrono::Utc::now();
     Self {
       id,
       firebase_uid,
       email,
-      admin_modules: Vec::new(),
-      package_tier,
-      role,
+      // permissions field removed - handled by separate table
       subscription: Subscription::free(),
       created_at: now,
       updated_at: now,
@@ -64,13 +63,12 @@ impl User {
   }
 
   /// Create user from complete existing database data
+  /// Note: Permissions are now handled by separate user_permissions table
   pub fn from_existing_complete(
     id: UserId,
     firebase_uid: String,
     email: Email,
-    admin_modules: Vec<String>,
-    package_tier: String,
-    role: Role,
+    // permissions parameter removed - handled by separate table
     subscription: Subscription,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
@@ -80,9 +78,7 @@ impl User {
       id,
       firebase_uid,
       email,
-      admin_modules,
-      package_tier,
-      role,
+      // permissions field removed - handled by separate table
       subscription,
       created_at,
       updated_at,
@@ -90,13 +86,13 @@ impl User {
     }
   }
 
+  /// Reconstruct user from complete data 
+  /// Note: Permissions are now handled by separate user_permissions table
   pub fn reconstruct(
     id: UserId,
     firebase_uid: String,
     email: Email,
-    admin_modules: Vec<String>,
-    package_tier: String,
-    role: Role,
+    // permissions parameter removed - handled by separate table
     subscription: Subscription,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -106,9 +102,7 @@ impl User {
       id,
       firebase_uid,
       email,
-      admin_modules,
-      package_tier,
-      role,
+      // permissions field removed - handled by separate table
       subscription,
       created_at,
       updated_at,
@@ -126,12 +120,8 @@ impl User {
   pub fn email(&self) -> &Email {
     &self.email
   }
-  pub fn admin_modules(&self) -> &Vec<String> {
-    &self.admin_modules
-  }
-  pub fn package_tier(&self) -> &str {
-    &self.package_tier
-  }
+  // permissions() getter removed - permissions now handled by separate user_permissions table
+  // Use PermissionApplicationService to fetch user permissions
   pub fn subscription(&self) -> &Subscription {
     &self.subscription
   }
@@ -154,91 +144,33 @@ impl User {
     self.deleted_at.is_some()
   }
 
-  /// Get user role (direct field access)
-  pub fn role(&self) -> &Role {
-    &self.role
-  }
-
   /// Check if user is active (not deleted)
   pub fn is_active(&self) -> bool {
     self.deleted_at.is_none()
   }
 
-  // Business methods
-  pub fn assign_admin_module(&mut self, module: String) {
-    if !self.admin_modules.contains(&module) {
-      self.admin_modules.push(module);
-      self.updated_at = Utc::now();
-    }
-  }
+  // Permission methods moved to PermissionApplicationService
+  // Use PermissionApplicationService for all permission operations:
+  // - grant_permission_to_user()
+  // - revoke_permission_from_user() 
+  // - set_user_permissions()
+  // - check_user_permission()
 
-  pub fn remove_admin_module(&mut self, module: &str) {
-    self.admin_modules.retain(|m| m != module);
-    self.updated_at = Utc::now();
-  }
-
-  pub fn update_package_tier(&mut self, new_tier: String) {
-    self.package_tier = new_tier;
-    self.updated_at = Utc::now();
-  }
+  // Package tier system removed - now using permissions only
+  
+  // derived_tier() method removed - tier derivation now handled by PermissionApplicationService
+  // Use PermissionApplicationService.derive_user_tier(firebase_uid) instead
   
   pub fn update_email(&mut self, new_email: Email) {
     self.email = new_email;
     self.updated_at = Utc::now();
   }
 
-  /// Simple role upgrade for the new unified role system
-  pub fn upgrade_role(
-    &mut self,
-    new_role: Role,
-    new_admin_modules: Option<Vec<String>>
-  ) -> Result<UserPermissionChangedEvent, DomainError> {
-    let _old_role = self.role.clone();
-    let old_tier = self.package_tier.clone(); 
-    let old_modules = self.admin_modules.clone();
+  // upgrade_permissions() method removed - permission upgrades now handled by PermissionApplicationService
+  // Use PermissionApplicationService.set_user_permissions() instead
 
-    self.role = new_role.clone();
-    self.package_tier = new_role.to_string();
-
-    let (modules_added, modules_removed) = if
-      let Some(modules) = new_admin_modules
-    {
-      let added = modules
-        .iter()
-        .filter(|m| !old_modules.contains(m))
-        .cloned()
-        .collect();
-      let removed = old_modules
-        .iter()
-        .filter(|m| !modules.contains(m))
-        .cloned()
-        .collect();
-      self.admin_modules = modules;
-      (added, removed)
-    } else {
-      (Vec::new(), Vec::new())
-    };
-
-    self.updated_at = Utc::now();
-
-    Ok(
-      UserPermissionChangedEvent::new(
-        self.id.clone(),
-        modules_added,
-        modules_removed,
-        old_tier,
-        new_role.to_string()
-      )
-    )
-  }
-
-  pub fn has_admin_module(&self, module: &str) -> bool {
-    self.admin_modules.contains(&module.to_string())
-  }
-
-  pub fn is_admin(&self) -> bool {
-    !self.admin_modules.is_empty()
-  }
+  // Permission check methods removed - permission checks now handled by PermissionApplicationService
+  // Use PermissionApplicationService.check_user_permission() instead
 
   pub fn update_subscription(&mut self, subscription: Subscription) {
     self.subscription = subscription;
@@ -262,20 +194,26 @@ impl User {
     self.updated_at = Utc::now();
   }
 
-  /// Get user permissions based on unified role system
-  pub fn permissions(&self) -> Vec<String> {
-    use crate::auth::roles::get_role_features;
-    get_role_features(&self.role)
-  }
+  // Permission-related methods removed - all permission operations now handled by PermissionApplicationService
+  // Use PermissionApplicationService for:
+  // - get_user_permissions()
+  // - check_user_permission()  
+  // - has_admin_permission()
+  // - derive_user_role()
 
-  pub fn has_role_or_higher(&self, required_role: &str) -> bool {
-    use crate::auth::roles::check_role_access;
-    
-    match required_role.parse::<Role>() {
-      Ok(required) => check_role_access(&self.role, &required),
-      Err(_) => false,
+  /// Convert legacy role to permissions (for migration)
+  pub fn convert_legacy_role_to_permissions(role: &str) -> Vec<String> {
+    // Legacy conversion - simplified without external function
+    match role.to_lowercase().as_str() {
+      "admin" => vec!["admin:*:*".to_string()],
+      "user" => vec!["epsx:analytics:view".to_string(), "epsx:profile:manage".to_string()],
+      "guest" => vec!["epsx:analytics:view".to_string()],
+      _ => vec!["epsx:analytics:view".to_string()],
     }
   }
+
+  // assign_tier_permissions() method removed - tier-based permission assignment now handled by PermissionApplicationService
+  // Use PermissionApplicationService.assign_tier_permissions() instead
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -286,7 +224,7 @@ pub enum DomainError {
 
   #[error("Invalid package tier: {0}")] InvalidPackageTier(String),
 
-  #[error("Invalid admin module: {0}")] InvalidAdminModule(String),
+  #[error("Invalid permission: {0}")] InvalidPermission(String),
 
   #[error("Invalid tier downgrade: {0}")] InvalidTierDowngrade(String),
 }
