@@ -11,7 +11,7 @@ import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
 export async function getJWTFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
-    return cookieStore.get('epsx_frontend_jwt')?.value || null;
+    return cookieStore.get('epsx_jwt')?.value || null;
   } catch (error) {
     console.error('❌ Failed to get JWT from cookies:', error);
     return null;

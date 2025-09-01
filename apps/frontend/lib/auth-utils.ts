@@ -1,27 +1,65 @@
-import { jwtVerify, SignJWT, JWTPayload } from 'jose';
+import { JWTPayload, jwtVerify, SignJWT } from 'jose';
 
 export interface JWTUser {
   uid: string;
   email: string;
-  firebaseUid?: string;
-  permissions: string[]; // Structured permissions only
-  package_tier: string;
+  permissions: string[];
   iat?: number;
   exp?: number;
+}
+
+export interface CreateJWTClaimsOptions {
+  id: string;
+  email: string;
+  name?: string;
+  permissions: string[];
+  role?: string;
 }
 
 export interface EPSXJWTPayload extends JWTPayload {
   sub: string;
   email: string;
   name: string;
-  permissions: string[];        // Structured permissions: ["platform:resource:action", ...]
-  package_tier: string;
-  firebase_uid: string;
-  platforms?: string[];         // Accessible platforms
-  primary_platform?: string;    // Default platform
-  platform_context?: string;    // Current platform context
+  permissions: string[];
   iat: number;
   exp: number;
+}
+
+/**
+ * Derive accessible platforms from permissions
+ */
+export function deriveAccessiblePlatformsFromPermissions(
+  permissions: string[]
+): string[] {
+  const platforms = new Set<string>();
+
+  for (const permission of permissions) {
+    const platform = permission.split(':')[0];
+    if (platform) {
+      platforms.add(platform);
+    }
+  }
+
+  return platforms.size > 0 ? Array.from(platforms) : ['epsx'];
+}
+
+/**
+ * Derive primary platform from permissions (priority: admin > epsx > epsx-pay > epsx-token)
+ */
+export function derivePrimaryPlatformFromPermissions(
+  permissions: string[]
+): string {
+  if (permissions.some(p => p.startsWith('admin:'))) {
+    return 'admin';
+  } else if (permissions.some(p => p.startsWith('epsx:'))) {
+    return 'epsx';
+  } else if (permissions.some(p => p.startsWith('epsx-pay:'))) {
+    return 'epsx-pay';
+  } else if (permissions.some(p => p.startsWith('epsx-token:'))) {
+    return 'epsx-token';
+  } else {
+    return 'epsx';
+  }
 }
 
 /**
@@ -51,93 +89,65 @@ export function getJWTTimeToExpiry(token: string): number {
 }
 
 /**
- * Verify JWT token with secret
- */
-export async function verifyJWT(token: string, secret?: string): Promise<EPSXJWTPayload | null> {
-  try {
-    const jwtSecret = secret || process.env.NEXTAUTH_SECRET || 'your-default-secret-key';
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
-    return payload as EPSXJWTPayload;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Create JWT claims for EPSX user - permission-only system
- */
-export function createJWTClaims(user: {
-  id: string;
-  email: string;
-  name: string;
-  permissions: string[];        // Required: structured permissions
-  package_tier?: string;
-  firebase_uid?: string;
-  platforms?: string[];
-  primary_platform?: string;
-  platform_context?: string;
-}): EPSXJWTPayload {
-  const now = Math.floor(Date.now() / 1000);
-  const exp = now + (24 * 60 * 60); // 24 hours from now
-  
-  return {
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    permissions: user.permissions,
-    package_tier: user.package_tier || 'FREE',
-    firebase_uid: user.firebase_uid || user.id,
-    platforms: user.platforms || ['epsx'],
-    primary_platform: user.primary_platform || 'epsx',
-    platform_context: user.platform_context,
-    iat: now,
-    exp: exp,
-  };
-}
-
-/**
- * Sign JWT token with payload
- */
-export async function signJWT(payload: EPSXJWTPayload, secret?: string, expiresIn = '24h'): Promise<string> {
-  const jwtSecret = secret || process.env.NEXTAUTH_SECRET || 'your-default-secret-key';
-  const jwt = new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(expiresIn);
-  
-  return await jwt.sign(new TextEncoder().encode(jwtSecret));
-}
-
-/**
- * Decode JWT token without verification
- */
-export function decodeJWT(token: string): JWTUser | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    
-    // Convert to permission-only format
-    return {
-      uid: payload.sub || payload.uid,
-      email: payload.email,
-      firebaseUid: payload.firebase_uid || payload.firebaseUid,
-      permissions: payload.permissions || [],
-      package_tier: payload.package_tier || 'FREE',
-      iat: payload.iat,
-      exp: payload.exp,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Check if user has permission based on JWT payload
  */
-export function hasJWTPermission(payload: EPSXJWTPayload | JWTUser, permission: string): boolean {
+export function hasJWTPermission(
+  payload: EPSXJWTPayload | JWTUser,
+  permission: string
+): boolean {
   if (!payload.permissions) return false;
-  
-  // Import permission checking logic
-  const { checkPermissionAccess } = require('@/types/permissions');
+
+  const parsePermission = (
+    permissionString: string
+  ): { platform: string; resource: string; action: string } | null => {
+    const parts = permissionString.split(':');
+    if (parts.length !== 3) return null;
+    return { platform: parts[0], resource: parts[1], action: parts[2] };
+  };
+
+  const checkPermissionAccess = (
+    userPermissions: string[],
+    requiredPermission: string
+  ): boolean => {
+    const required = parsePermission(requiredPermission);
+    if (!required) return false;
+
+    for (const permStr of userPermissions) {
+      const userPerm = parsePermission(permStr);
+      if (!userPerm) continue;
+
+      if (
+        userPerm.platform === required.platform &&
+        userPerm.resource === required.resource &&
+        userPerm.action === required.action
+      ) {
+        return true;
+      }
+
+      if (userPerm.platform === required.platform) {
+        if (userPerm.resource === '*' && userPerm.action === '*') {
+          return true;
+        }
+        if (
+          userPerm.resource === required.resource &&
+          userPerm.action === '*'
+        ) {
+          return true;
+        }
+      }
+
+      if (
+        userPerm.platform === 'admin' &&
+        userPerm.resource === '*' &&
+        userPerm.action === '*'
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   return checkPermissionAccess(payload.permissions, permission);
 }
 
@@ -158,79 +168,86 @@ export function getJWTPermissions(payload: EPSXJWTPayload | JWTUser): string[] {
 /**
  * Check if user can access platform based on JWT payload
  */
-export function canJWTAccessPlatform(payload: EPSXJWTPayload, platform: string): boolean {
-  // Check if platform is in accessible platforms
-  if (payload.platforms?.includes(platform)) {
-    return true;
-  }
-  
-  // Check if user has any permissions for this platform
-  return payload.permissions.some(perm => perm.startsWith(`${platform}:`));
+export function canJWTAccessPlatform(
+  payload: EPSXJWTPayload | JWTUser,
+  platform: string
+): boolean {
+  const accessiblePlatforms = deriveAccessiblePlatformsFromPermissions(
+    payload.permissions
+  );
+  return accessiblePlatforms.includes(platform);
 }
 
 /**
- * Get accessible platforms from JWT payload
+ * Decode JWT token without verification
  */
-export function getJWTAccessiblePlatforms(payload: EPSXJWTPayload): string[] {
-  let platforms = payload.platforms || ['epsx'];
-  
-  // Extract additional platforms from permissions
-  for (const perm of payload.permissions) {
-    const colonIndex = perm.indexOf(':');
-    if (colonIndex > 0) {
-      const platform = perm.substring(0, colonIndex);
-      if (!platforms.includes(platform)) {
-        platforms.push(platform);
-      }
-    }
+export function decodeJWT(token: string): JWTUser | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+
+    return {
+      uid: payload.sub || payload.uid,
+      email: payload.email,
+      permissions: payload.permissions || [],
+      iat: payload.iat,
+      exp: payload.exp,
+    };
+  } catch {
+    return null;
   }
-  
-  return platforms;
 }
 
 /**
- * Create permission-based user claims for backward compatibility
+ * Create JWT claims object for signing
  */
-export function createPermissionBasedClaims(legacyUser: {
-  id: string;
-  email: string;
-  name: string;
-  role?: string; // Legacy role field
-  package_tier?: string;
-  firebase_uid?: string;
-}): EPSXJWTPayload {
-  // Convert legacy role to permissions
-  let permissions: string[] = [];
-  
-  switch (legacyUser.role?.toLowerCase()) {
-    case 'admin':
-      permissions = ['admin:*:*'];
-      break;
-    case 'user':
-    case 'premium':
-      permissions = [
-        'epsx:analytics:view',
-        'epsx:analytics:export',
-        'epsx:analytics:advanced',
-        'epsx:realtime:access',
-        'epsx:profile:manage',
-        'epsx:notifications:receive',
-        'epsx:billing:manage'
-      ];
-      break;
-    case 'guest':
-    case 'basic':
-    default:
-      permissions = [
-        'epsx:analytics:view',
-        'epsx:profile:manage',
-        'epsx:notifications:receive'
-      ];
-      break;
+export function createJWTClaims(
+  options: CreateJWTClaimsOptions
+): EPSXJWTPayload {
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 24 * 60 * 60; // 24 hours
+
+  return {
+    sub: options.id,
+    email: options.email,
+    name: options.name || options.email.split('@')[0],
+    permissions: options.permissions || [],
+    iat: now,
+    exp: expiry,
+  };
+}
+
+/**
+ * Sign JWT token with secret
+ */
+export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
+  const secret =
+    process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production';
+  const encoder = new TextEncoder();
+  const key = encoder.encode(secret);
+
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(payload.exp)
+    .sign(key);
+}
+
+/**
+ * Verify and decode JWT token
+ */
+export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
+  try {
+    const secret =
+      process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production';
+    const encoder = new TextEncoder();
+    const key = encoder.encode(secret);
+
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ['HS256'],
+    });
+
+    return payload as EPSXJWTPayload;
+  } catch {
+    return null;
   }
-  
-  return createJWTClaims({
-    ...legacyUser,
-    permissions
-  });
 }

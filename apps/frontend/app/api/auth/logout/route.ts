@@ -23,32 +23,36 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Frontend: JWT cookies cleared');
 
-    // Call backend OAuth logout endpoint to properly revoke tokens (if token exists)
+    // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (accessToken) {
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-        const logoutResponse = await fetch(`${backendUrl}/oauth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+        const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        
+        // Standard OpenID Connect RP-Initiated Logout
+        const logoutParams = new URLSearchParams({
+          id_token_hint: accessToken,
+          post_logout_redirect_uri: `${frontendUrl}/`,
+          state: 'frontend-logout'
+        });
+        
+        const logoutResponse = await fetch(`${backendUrl}/oauth/logout?${logoutParams.toString()}`, {
+          method: 'GET',
           // Add timeout to prevent hanging
           signal: AbortSignal.timeout(5000),
         });
 
         if (logoutResponse.ok) {
-          const result = await logoutResponse.json();
-          console.log('✅ Frontend: Backend token revocation successful:', result.message);
+          console.log('✅ Frontend: Standard OIDC logout successful');
         } else {
-          console.warn('⚠️ Frontend: Backend token revocation failed, but cookies cleared');
+          console.warn('⚠️ Frontend: OIDC logout failed, but cookies cleared');
         }
       } catch (backendError) {
-        console.warn('⚠️ Frontend: Backend token revocation error:', backendError);
+        console.warn('⚠️ Frontend: OIDC logout error:', backendError);
         // Continue with cookie clearing even if backend fails
       }
     } else {
-      console.log('💡 Frontend: No access token found, skipping backend revocation');
+      console.log('💡 Frontend: No access token found, skipping OIDC logout');
     }
 
     console.log('✅ Frontend: Logout completed successfully');

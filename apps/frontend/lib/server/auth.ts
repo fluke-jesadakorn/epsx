@@ -5,7 +5,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
-import { type EPSXJWTPayload } from '@/lib/auth-utils';
+import { type EPSXJWTPayload, derivePackageTierFromPermissions, hasJWTPermission, isJWTAdmin } from '@/lib/auth-utils';
 
 /**
  * Get authenticated user from JWT cookies
@@ -54,13 +54,9 @@ export async function hasFeatureAccess(feature: string): Promise<boolean> {
     const user = await getAuthUser();
     if (!user) return false;
     
-    // Import the simple role system
-    const { checkFeatureAccess, roleFromString } = await import('../../types/permissions');
-    
-    // Convert user role to simple role enum
-    const role = roleFromString(user.role.toLowerCase());
-    
-    return checkFeatureAccess(role, feature);
+    // Map feature to structured permission
+    const permission = mapFeatureToPermission(feature);
+    return hasJWTPermission(user, permission);
   } catch (error) {
     console.error('❌ Failed to check feature access:', error);
     return false;
@@ -88,24 +84,12 @@ export async function requireFeatureAccess(feature: string, redirectPath?: strin
  */
 export async function hasPermission(permission: string): Promise<boolean> {
   try {
-    // Map legacy permissions to features
-    switch (permission) {
-      case 'users.view':
-      case 'dashboard.view':
-      case 'analytics.view':
-        return hasFeatureAccess('view_eps');
-      
-      case 'analytics.export':
-        return hasFeatureAccess('export_data');
-      
-      case 'admin':
-      case 'admin.users':
-        const user = await getAuthUser();
-        return user?.role.toLowerCase() === 'admin';
-      
-      default:
-        return hasFeatureAccess(permission);
-    }
+    const user = await getAuthUser();
+    if (!user) return false;
+    
+    // Map legacy permissions to structured permissions
+    const structuredPermission = mapLegacyPermission(permission);
+    return hasJWTPermission(user, structuredPermission);
   } catch (error) {
     console.error('❌ Failed to check permission:', error);
     return false;
@@ -152,7 +136,8 @@ export async function hasPackageTier(requiredTier: string): Promise<boolean> {
       'ENTERPRISE': 6
     };
     
-    const userLevel = tierHierarchy[user.package_tier] || 0;
+    const userPackageTier = derivePackageTierFromPermissions(user.permissions);
+    const userLevel = tierHierarchy[userPackageTier] || 0;
     const requiredLevel = tierHierarchy[requiredTier] || 1;
     
     return userLevel >= requiredLevel;
@@ -186,14 +171,17 @@ export async function hasRole(requiredRole: string): Promise<boolean> {
     const user = await getAuthUser();
     if (!user) return false;
     
-    // Import the simple role system
-    const { checkRoleAccess, roleFromString } = await import('../../types/permissions');
-    
-    // Convert both roles to simple role enums
-    const userRole = roleFromString(user.role.toLowerCase());
-    const requiredRoleEnum = roleFromString(requiredRole.toLowerCase());
-    
-    return checkRoleAccess(userRole, requiredRoleEnum);
+    // Map role to permission check
+    switch (requiredRole.toLowerCase()) {
+      case 'admin':
+        return isJWTAdmin(user);
+      case 'user':
+        return hasJWTPermission(user, 'epsx:analytics:view');
+      case 'guest':
+        return hasJWTPermission(user, 'epsx:analytics:view');
+      default:
+        return false;
+    }
   } catch (error) {
     console.error('❌ Failed to check role:', error);
     return false;
@@ -400,4 +388,37 @@ function base64URLEncode(array: Uint8Array): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
+}
+
+/**
+ * Map feature to structured permission
+ */
+function mapFeatureToPermission(feature: string): string {
+  const featureMap: Record<string, string> = {
+    'view_eps': 'epsx:analytics:view',
+    'export_data': 'epsx:analytics:export',
+    'advanced_analytics': 'epsx:analytics:advanced',
+    'realtime_data': 'epsx:realtime:access',
+    'manage_profile': 'epsx:profile:manage',
+    'admin_users': 'admin:users:manage',
+    'admin_system': 'admin:system:manage',
+  };
+  
+  return featureMap[feature] || `epsx:${feature}:access`;
+}
+
+/**
+ * Map legacy permission to structured permission
+ */
+function mapLegacyPermission(permission: string): string {
+  const permissionMap: Record<string, string> = {
+    'users.view': 'epsx:users:read',
+    'dashboard.view': 'epsx:analytics:view',
+    'analytics.view': 'epsx:analytics:view',
+    'analytics.export': 'epsx:analytics:export',
+    'admin': 'admin:*:*',
+    'admin.users': 'admin:users:manage',
+  };
+  
+  return permissionMap[permission] || permission;
 }

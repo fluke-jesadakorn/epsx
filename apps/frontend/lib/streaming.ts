@@ -67,7 +67,7 @@ export function createSSEStream(
       eventSource?.close();
     },
     send: (data: any) => {
-      // For bidirectional communication, you'd implement WebSocket
+      // For bidirectional communication, use regular HTTP requests
       // For now, use regular HTTP requests
       // NOTE: Stream endpoints not yet implemented in backend
       console.warn('Stream endpoint not available');

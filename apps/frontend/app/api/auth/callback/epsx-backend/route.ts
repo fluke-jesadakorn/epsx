@@ -97,14 +97,14 @@ export async function GET(request: NextRequest) {
       package_tier: userinfo.subscription_tier,
     });
 
-    // Create JWT token with user claims
+    // Create JWT token with user claims (JWT migration: use sub as primary identifier)
     const jwtClaims = createJWTClaims({
-      id: userinfo.sub || userinfo.id,
+      id: userinfo.sub, // JWT migration: use sub as primary user identifier
       email: userinfo.email,
       name: userinfo.name || userinfo.display_name,
       permissions: userinfo.permissions || ['epsx:analytics:view'],
-      package_tier: userinfo.subscription_tier || 'FREE', // Use subscription_tier from backend
-      firebase_uid: userinfo.firebase_uid || userinfo.sub,
+      package_tier: userinfo.subscription_tier || userinfo.package_tier || 'FREE',
+      firebase_uid: userinfo.sub, // JWT migration: sub is the authoritative user ID
     });
 
     const jwtToken = await signJWT(jwtClaims);

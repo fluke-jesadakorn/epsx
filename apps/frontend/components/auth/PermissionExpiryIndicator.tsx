@@ -421,21 +421,21 @@ function getOverallUrgency(expiry: ReturnType<typeof usePermissionExpiry>): 'exp
 
 function getUrgencyColors(urgency: string): string {
   return {
-    expired: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    critical: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    normal: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    none: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-  }[urgency] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+    expired: 'bg-red-100 text-red-800 border border-red-200 shadow-red-100/50 shadow-sm dark:bg-red-900 dark:text-red-200 dark:border-red-800 animate-pulse',
+    critical: 'bg-red-100 text-red-800 border border-red-200 shadow-red-100/50 shadow-sm dark:bg-red-900 dark:text-red-200 dark:border-red-800 animate-pulse',
+    warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-yellow-100/50 shadow-sm dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-800',
+    normal: 'bg-green-100 text-green-800 border border-green-200 shadow-green-100/50 shadow-sm dark:bg-green-900 dark:text-green-200 dark:border-green-800',
+    none: 'bg-gray-100 text-gray-800 border border-gray-200 shadow-gray-100/50 shadow-sm dark:bg-gray-900 dark:text-gray-200 dark:border-gray-800'
+  }[urgency] || 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-900 dark:text-gray-200'
 }
 
 function getBannerColors(urgency: string): string {
   return {
-    expired: 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800',
-    critical: 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800',
-    warning: 'bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800',
-    normal: 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800',
-    none: 'bg-gray-50 text-gray-800 border border-gray-200 dark:bg-gray-900/20 dark:text-gray-200 dark:border-gray-800'
+    expired: 'bg-red-50 text-red-800 border border-red-200 shadow-red-100/50 shadow-lg dark:bg-red-900/20 dark:text-red-200 dark:border-red-800 border-l-4 border-l-red-500',
+    critical: 'bg-red-50 text-red-800 border border-red-200 shadow-red-100/50 shadow-lg dark:bg-red-900/20 dark:text-red-200 dark:border-red-800 border-l-4 border-l-red-500 animate-pulse',
+    warning: 'bg-yellow-50 text-yellow-800 border border-yellow-200 shadow-yellow-100/50 shadow-md dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800 border-l-4 border-l-yellow-500',
+    normal: 'bg-green-50 text-green-800 border border-green-200 shadow-green-100/50 shadow-md dark:bg-green-900/20 dark:text-green-200 dark:border-green-800 border-l-4 border-l-green-500',
+    none: 'bg-gray-50 text-gray-800 border border-gray-200 shadow-gray-100/50 shadow-sm dark:bg-gray-900/20 dark:text-gray-200 dark:border-gray-800'
   }[urgency] || 'bg-gray-50 text-gray-800 border border-gray-200'
 }
 

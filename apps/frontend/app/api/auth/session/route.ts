@@ -26,10 +26,8 @@ export async function GET() {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
-        role: payload.role,
         permissions: payload.permissions,
-        package_tier: payload.package_tier,
-        firebase_uid: payload.firebase_uid,
+        platform_context: payload.platform_context,
       },
       expiresAt: payload.exp * 1000, // Convert to milliseconds
     });
