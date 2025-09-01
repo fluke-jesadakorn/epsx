@@ -293,6 +293,38 @@ export default function UsersHub({ initialData }: UsersHubProps) {
     }
   }
 
+  // Pagination handlers
+  const handlePageChange = async (page: number) => {
+    setCurrentPage(page)
+    setIsLoadingPage(true)
+    
+    try {
+      if (searchQuery || activeFilter !== 'all') {
+        // Use search API for filtered results
+        await performDirectSearch(searchQuery, activeFilter, page)
+      } else {
+        // Use regular users list API for unfiltered results
+        const result = await getUsersList({
+          page,
+          limit: itemsPerPage,
+          search: '',
+          status: 'all',
+          role: 'all',
+          sortBy: 'created_at',
+          sortOrder: 'desc'
+        })
+        
+        if (result.success) {
+          setPaginatedData(result.data)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load page:', error)
+    } finally {
+      setIsLoadingPage(false)
+    }
+  }
+
   // Multi-select handlers
   const handleToggleSelect = (user: any) => {
     setSelectedUsers(prev => {
@@ -441,13 +473,15 @@ export default function UsersHub({ initialData }: UsersHubProps) {
     }
   }
   
-  const performDirectSearch = async (query: string, filter: string) => {
-    console.log('🔍 performDirectSearch called with:', { query, filter })
+  const performDirectSearch = async (query: string, filter: string, page: number = 1) => {
+    console.log('🔍 performDirectSearch called with:', { query, filter, page })
     
     // Clear search results if no query and filter is 'all'
     if (!query.trim() && filter === 'all') {
       console.log('🔍 Clearing search results - no query and all filter')
       setSearchResults(null)
+      setPaginatedData(null)
+      setCurrentPage(1)
       return
     }
 
@@ -455,8 +489,8 @@ export default function UsersHub({ initialData }: UsersHubProps) {
     
     try {
       const searchParams: any = {
-        page: 1,
-        per_page: 50
+        page,
+        per_page: itemsPerPage
       }
       
       if (query.trim()) {
@@ -478,7 +512,14 @@ export default function UsersHub({ initialData }: UsersHubProps) {
       
       if (result.success) {
         console.log('✅ Search successful:', result.data)
-        setSearchResults(result.data)
+        const searchData = {
+          users: result.data.users,
+          total: result.data.total,
+          page: result.data.page,
+          totalPages: Math.ceil(result.data.total / itemsPerPage)
+        }
+        setSearchResults(searchData)
+        setCurrentPage(page)
       } else {
         console.error('❌ Search failed:', result.error)
         setSearchResults(null)
@@ -495,10 +536,11 @@ export default function UsersHub({ initialData }: UsersHubProps) {
   const handleFilterClick = async (filter: string) => {
     console.log('🔍 handleFilterClick called with:', filter)
     setActiveFilter(filter)
+    setCurrentPage(1) // Reset to first page when filtering
     
     // Only trigger search after client hydration
     if (isClient) {
-      await performDirectSearch(searchQuery, filter)
+      await performDirectSearch(searchQuery, filter, 1)
     }
   }
 
@@ -507,6 +549,8 @@ export default function UsersHub({ initialData }: UsersHubProps) {
     setSearchQuery('')
     setActiveFilter('all')
     setSearchResults(null)
+    setPaginatedData(null)
+    setCurrentPage(1)
   }
 
   // Helper to get consistent button classes
