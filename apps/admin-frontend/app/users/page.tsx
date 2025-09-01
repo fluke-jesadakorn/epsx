@@ -1,18 +1,17 @@
 import { Suspense } from 'react'
 import UsersHub from '@/components/hubs/UsersHub'
-import { ServerUserAPI } from '@/lib/api/admin-client'
-import { getUsersList, searchUsersAction } from '@/lib/actions/users'
+import { AdminServerAPI } from '@/lib/server/admin-api'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
 
 export interface UsersPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     page?: string
     search?: string
     filter?: string
     limit?: string
-  }
+  }>
 }
 
 function UsersHubSkeleton() {
@@ -74,11 +73,12 @@ function UsersHubSkeleton() {
 
 // Server component that fetches data and passes to client component
 async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProps['searchParams'] }) {
-  // Parse search parameters
-  const page = parseInt(searchParams?.page || '1', 10)
-  const limit = parseInt(searchParams?.limit || '20', 10)
-  const search = searchParams?.search?.trim() || ''
-  const filter = searchParams?.filter || 'all'
+  // Parse search parameters - await in Next.js 15
+  const resolvedSearchParams = await searchParams
+  const page = parseInt(resolvedSearchParams?.page || '1', 10)
+  const limit = parseInt(resolvedSearchParams?.limit || '20', 10)
+  const search = resolvedSearchParams?.search?.trim() || ''
+  const filter = resolvedSearchParams?.filter || 'all'
 
   // Determine if we should use search or regular list API
   const isFiltered = search || filter !== 'all'
@@ -90,52 +90,55 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
     if (isFiltered) {
       // Use search API for filtered results
       const searchParams = {
+        search,
         page,
         per_page: limit,
-        ...(search && { search }),
         ...(filter === 'active' && { status: 'active' }),
         ...(filter === 'premium' && { package_tier: 'premium' })
       }
       
-      const result = await searchUsersAction(searchParams)
-      if (result.success) {
-        usersData = {
-          users: result.data.users,
-          total: result.data.total,
-          page: result.data.page,
-          totalPages: Math.ceil(result.data.total / limit)
-        }
-      }
+      usersData = await AdminServerAPI.searchUsers(searchParams)
     } else {
       // Use regular list API for unfiltered results  
-      const result = await getUsersList({
+      usersData = await AdminServerAPI.getUsersList({
         page,
         limit,
         search: '',
         status: 'all',
-        role: 'all', 
         sortBy: 'created_at',
         sortOrder: 'desc'
       })
-      
-      if (result.success) {
-        usersData = result.data
-      }
     }
     
     // Get stats
-    const statsResponse = await ServerUserAPI.getUserStats()
-    stats = statsResponse || {}
+    stats = await AdminServerAPI.getUserStats()
     
   } catch (error) {
     console.error('Failed to fetch users data:', error)
   }
 
-  // Apply client-side admin filter if needed (since backend doesn't support it yet)
+  // Apply client-side admin filter with embedded timestamp support
   if (filter === 'admins') {
-    usersData.users = usersData.users.filter((user: any) => 
-      user.permissions && user.permissions.some((p: string) => p.startsWith('admin:'))
-    )
+    usersData.users = usersData.users.filter((user: any) => {
+      if (!user.permissions) return false
+      
+      // Parse permissions with embedded timestamps and check for active admin permissions
+      return user.permissions.some((permission: string) => {
+        const parts = permission.split(':')
+        
+        // Handle embedded timestamp permissions
+        if (parts.length >= 4 && /^\d+$/.test(parts[parts.length - 1])) {
+          const timestamp = parseInt(parts[parts.length - 1])
+          const permissionWithoutTimestamp = parts.slice(0, -1).join(':')
+          const isExpired = new Date(timestamp * 1000) < new Date()
+          return permissionWithoutTimestamp.startsWith('admin:') && !isExpired
+        }
+        
+        // Handle permanent permissions (no timestamp)
+        return permission.startsWith('admin:')
+      })
+    })
+    
     usersData.total = usersData.users.length
     usersData.totalPages = Math.ceil(usersData.total / limit)
   }
@@ -149,7 +152,7 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
         totalPages: usersData.totalPages,
         stats: stats
       }}
-      searchParams={searchParams}
+      searchParams={resolvedSearchParams}
     />
   )
 }

@@ -17,7 +17,7 @@ interface ResponsiveUserDisplayProps {
   endIndex: number
   filters: {
     search: string
-    role: string
+    permissions: string
     status: string
   }
 }
@@ -223,7 +223,7 @@ export function ResponsiveUserDisplay({
             <div className="flex flex-wrap justify-center gap-2">
               {page > 1 && (
                 <a 
-                  href={`/users?page=${page - 1}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
+                  href={`/users?page=${page - 1}&permissions=${filters.permissions}&search=${filters.search}&status=${filters.status}`}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Previous
@@ -236,7 +236,7 @@ export function ResponsiveUserDisplay({
               
               {page < totalPages && (
                 <a 
-                  href={`/users?page=${page + 1}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
+                  href={`/users?page=${page + 1}&permissions=${filters.permissions}&search=${filters.search}&status=${filters.status}`}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Next

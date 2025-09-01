@@ -51,8 +51,8 @@ export function ModuleAccessCard({ moduleAccess, canManage }: ModuleAccessCardPr
         </div>
 
         {canManage && (
-          <button className="p-1 hover:bg-muted rounded-md transition-colors">
-            <MoreHorizontal className="h-4 w-4" />
+          <button className="min-h-[44px] min-w-[44px] p-2 hover:bg-muted rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center">
+            <MoreHorizontal className="h-5 w-5" />
             <span className="sr-only">Module actions</span>
           </button>
         )}

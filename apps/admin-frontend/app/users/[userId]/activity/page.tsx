@@ -4,7 +4,7 @@
  */
 
 // Authentication is handled at the layout level by AdminAuthWrapper
-import { getUnifiedUserData } from '@/lib/actions/users'
+import { AdminServerAPI } from '@/lib/server/admin-api'
 import { notFound } from 'next/navigation'
 import { UserActivityContent } from '@/components/users/UserActivityContent'
 import { getServerSession } from '@/lib/auth/server-auth'
@@ -21,15 +21,17 @@ export default async function UserActivityPage({ params }: UserActivityPageProps
   const session = await getServerSession()
   const currentUser = session?.user
   
-  const userDataResult = await getUnifiedUserData(userId)
-  
-  if (!userDataResult.success || !userDataResult.data) {
+  let userData
+  try {
+    userData = await AdminServerAPI.getUserData(userId)
+  } catch (error) {
+    console.error('Failed to fetch user data:', error)
     notFound()
   }
 
   return (
     <UserActivityContent 
-      user={userDataResult.data}
+      user={userData}
       currentUser={currentUser}
     />
   )

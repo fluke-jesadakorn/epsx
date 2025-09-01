@@ -125,11 +125,12 @@ export type AdminButtonVariants = VariantProps<typeof adminButtonVariants>;
 // ============================================================================
 
 /**
- * Enhanced card variants for admin dashboards
+ * Enhanced card variants for admin dashboards - Windows Phone + PancakeSwap Design
+ * Features live tile animations, gradients, and selection patterns
  */
 export const adminCardVariants = cva([
   'rounded-2xl border backdrop-blur-sm transition-all duration-300',
-  'relative overflow-hidden',
+  'relative overflow-hidden group',
 ], {
   variants: {
     variant: {
@@ -139,89 +140,164 @@ export const adminCardVariants = cva([
         'shadow-sm hover:shadow-md',
       ],
       
-      // Enhanced PancakeSwap-style card
+      // Enhanced PancakeSwap-style card with live tile features
       pancake: [
-        'bg-gradient-to-br from-white to-orange-50/30',
-        'dark:from-gray-800 dark:to-orange-900/10',
-        'border-orange-200/50 dark:border-orange-800/30',
-        'shadow-lg hover:shadow-xl',
+        'bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-100',
+        'dark:from-gray-800 dark:via-orange-900/20 dark:to-gray-700',
+        'border-yellow-200/60 dark:border-orange-800/40',
+        'shadow-lg hover:shadow-2xl',
+        'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
+        'before:bg-gradient-to-bl before:from-yellow-400/60 before:to-transparent',
+        'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
+        'after:bg-yellow-400/80 after:rounded-full after:animate-pulse',
       ],
       
-      // User management card
+      // User management card with Windows Phone styling
       user: [
-        'bg-gradient-to-br from-white to-blue-50/30',
-        'dark:from-gray-800 dark:to-blue-900/10',
-        'border-blue-200/50 dark:border-blue-800/30',
-        'shadow-md hover:shadow-lg',
+        'bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100',
+        'dark:from-gray-800 dark:via-blue-900/20 dark:to-gray-700',
+        'border-blue-200/60 dark:border-blue-800/40',
+        'shadow-lg hover:shadow-2xl',
+        'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
+        'before:bg-gradient-to-bl before:from-blue-400/60 before:to-transparent',
+        'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
+        'after:bg-blue-400/80 after:rounded-full',
       ],
       
-      // Permission card
+      // Permission card with live tile effects
       permission: [
-        'bg-gradient-to-br from-white to-purple-50/30',
-        'dark:from-gray-800 dark:to-purple-900/10',
-        'border-purple-200/50 dark:border-purple-800/30',
-        'shadow-md hover:shadow-lg',
+        'bg-gradient-to-br from-purple-50 via-violet-50 to-purple-100',
+        'dark:from-gray-800 dark:via-purple-900/20 dark:to-gray-700',
+        'border-purple-200/60 dark:border-purple-800/40',
+        'shadow-lg hover:shadow-2xl',
+        'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
+        'before:bg-gradient-to-bl before:from-purple-400/60 before:to-transparent',
+        'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
+        'after:bg-purple-400/80 after:rounded-full',
       ],
       
-      // Billing card
+      // Billing card with tile aesthetics
       billing: [
-        'bg-gradient-to-br from-white to-green-50/30',
-        'dark:from-gray-800 dark:to-green-900/10',
-        'border-green-200/50 dark:border-green-800/30',
-        'shadow-md hover:shadow-lg',
+        'bg-gradient-to-br from-green-50 via-emerald-50 to-green-100',
+        'dark:from-gray-800 dark:via-green-900/20 dark:to-gray-700',
+        'border-green-200/60 dark:border-green-800/40',
+        'shadow-lg hover:shadow-2xl',
+        'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
+        'before:bg-gradient-to-bl before:from-green-400/60 before:to-transparent',
+        'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
+        'after:bg-green-400/80 after:rounded-full',
       ],
       
-      // Analytics card
+      // Analytics card with enhanced gradients
       analytics: [
-        'bg-gradient-to-br from-white to-indigo-50/30',
-        'dark:from-gray-800 dark:to-indigo-900/10',
-        'border-indigo-200/50 dark:border-indigo-800/30',
-        'shadow-md hover:shadow-lg',
+        'bg-gradient-to-br from-indigo-50 via-cyan-50 to-indigo-100',
+        'dark:from-gray-800 dark:via-indigo-900/20 dark:to-gray-700',
+        'border-indigo-200/60 dark:border-indigo-800/40',
+        'shadow-lg hover:shadow-2xl',
+        'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
+        'before:bg-gradient-to-bl before:from-indigo-400/60 before:to-transparent',
+        'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
+        'after:bg-indigo-400/80 after:rounded-full after:animate-pulse',
       ],
       
-      // Warning/alert card
+      // Live tile variant for Windows Phone style
+      tile: [
+        'bg-gradient-to-br from-gray-100 to-gray-200',
+        'dark:from-gray-700 dark:to-gray-800',
+        'border-0 shadow-inner',
+        'before:absolute before:inset-0 before:bg-gradient-to-br',
+        'before:from-transparent before:via-white/10 before:to-transparent',
+        'after:absolute after:bottom-1 after:right-1 after:w-2 after:h-2',
+        'after:bg-white/60 after:rounded-full',
+      ],
+      
+      // Selected state variant
+      selected: [
+        'bg-gradient-to-br from-yellow-100 to-orange-100',
+        'dark:from-yellow-900/30 dark:to-orange-900/30',
+        'border-2 border-yellow-400 dark:border-yellow-500',
+        'shadow-lg shadow-yellow-200/50 dark:shadow-yellow-900/30',
+        'ring-2 ring-yellow-300/50 ring-offset-2',
+        'before:absolute before:top-0 before:right-0 before:w-8 before:h-8',
+        'before:bg-gradient-to-bl before:from-yellow-400 before:to-transparent',
+        'after:absolute after:top-2 after:right-2 after:w-3 after:h-3',
+        'after:bg-white after:rounded-full after:flex after:items-center after:justify-center',
+      ],
+      
+      // Warning/alert card with enhanced styling
       warning: [
-        'bg-gradient-to-br from-amber-50 to-amber-100/50',
-        'dark:from-amber-900/20 dark:to-amber-800/10',
-        'border-amber-300/50 dark:border-amber-700/30',
-        'shadow-md',
+        'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100',
+        'dark:from-amber-900/20 dark:via-yellow-900/20 dark:to-amber-800/10',
+        'border-amber-300/60 dark:border-amber-700/40',
+        'shadow-lg shadow-amber-200/30 dark:shadow-amber-900/20',
       ],
       
-      // Error card
+      // Error card with enhanced styling
       error: [
-        'bg-gradient-to-br from-red-50 to-red-100/50',
-        'dark:from-red-900/20 dark:to-red-800/10',
-        'border-red-300/50 dark:border-red-700/30',
-        'shadow-md',
+        'bg-gradient-to-br from-red-50 via-pink-50 to-red-100',
+        'dark:from-red-900/20 dark:via-pink-900/20 dark:to-red-800/10',
+        'border-red-300/60 dark:border-red-700/40',
+        'shadow-lg shadow-red-200/30 dark:shadow-red-900/20',
       ],
     },
     
     hover: {
       none: '',
-      lift: 'hover:-translate-y-1 hover:scale-[1.02]',
-      glow: 'hover:shadow-xl',
-      both: 'hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl',
+      lift: 'hover:-translate-y-2 hover:rotate-[0.5deg] active:scale-[0.98]',
+      glow: 'hover:shadow-2xl hover:shadow-current/10',
+      both: 'hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:rotate-[0.5deg] active:scale-[0.98] active:rotate-0',
+      flip: 'hover:perspective-1000 hover:transform-style-preserve-3d hover:rotate-y-3 active:rotate-y-0',
+      scale: 'hover:scale-[1.05] active:scale-[0.95] hover:rotate-1 active:rotate-0',
+      intense: 'hover:-translate-y-3 hover:scale-[1.03] hover:shadow-2xl hover:rotate-1 hover:brightness-105 active:scale-[0.97] active:rotate-0 active:brightness-100',
+    },
+    
+    animation: {
+      none: '',
+      subtle: 'animate-in fade-in-50 slide-in-from-bottom-4 duration-300',
+      bounce: 'animate-in fade-in-0 zoom-in-95 duration-500',
+      slide: 'animate-in fade-in-0 slide-in-from-left-8 duration-400',
+      flip: 'animate-in fade-in-0 duration-500 [animation-fill-mode:both]',
+      pulse: 'animate-pulse-subtle',
     },
     
     padding: {
       none: 'p-0',
+      xs: 'p-2',
       sm: 'p-3',
       default: 'p-4',
       md: 'p-6',
       lg: 'p-8',
+      xl: 'p-10',
     },
     
     interactive: {
-      true: 'cursor-pointer',
+      true: 'cursor-pointer select-none touch-manipulation',
       false: '',
+    },
+    
+    selectable: {
+      true: 'group-hover:ring-2 group-hover:ring-yellow-300/50 group-hover:ring-offset-1 transition-all',
+      false: '',
+    },
+    
+    size: {
+      sm: 'min-h-[120px]',
+      default: 'min-h-[140px]',
+      md: 'min-h-[160px]',  
+      lg: 'min-h-[180px]',
+      xl: 'min-h-[220px]',
+      tile: 'min-h-[160px] aspect-square', // Windows Phone live tile proportions
     },
   },
   
   defaultVariants: {
     variant: 'default',
     hover: 'both',
+    animation: 'subtle',
     padding: 'default',
     interactive: false,
+    selectable: false,
+    size: 'default',
   },
 });
 
@@ -232,50 +308,169 @@ export type AdminCardVariants = VariantProps<typeof adminCardVariants>;
 // ============================================================================
 
 /**
- * Status badge variants for admin interfaces
+ * Windows Phone + PancakeSwap status badge variants for admin interfaces
+ * Features live tile aesthetics with gradients and animations
  */
 export const adminBadgeVariants = cva([
-  'inline-flex items-center rounded-full px-2.5 py-0.5',
-  'text-xs font-medium transition-colors',
+  'inline-flex items-center rounded-xl px-3 py-1.5 relative overflow-hidden',
+  'text-xs font-light uppercase tracking-wider transition-all duration-300',
+  'shadow-sm hover:shadow-md hover:scale-105 active:scale-95',
+  'border border-transparent min-h-[28px]',
 ], {
   variants: {
     variant: {
-      // User status badges
-      active: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-      inactive: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-      pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
-      suspended: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-      premium: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+      // User status badges with Windows Phone gradients
+      active: [
+        'bg-gradient-to-r from-green-400 to-emerald-400',
+        'text-white shadow-green-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      inactive: [
+        'bg-gradient-to-r from-gray-300 to-slate-300',
+        'dark:from-gray-600 dark:to-slate-600',
+        'text-gray-700 dark:text-gray-200',
+        'border-gray-400/30 dark:border-gray-500/30',
+      ],
+      pending: [
+        'bg-gradient-to-r from-yellow-400 to-orange-400',
+        'text-black shadow-yellow-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-black/60 after:rounded-full after:animate-pulse',
+      ],
+      suspended: [
+        'bg-gradient-to-r from-red-400 to-orange-500',
+        'text-white shadow-red-200/50',
+        'after:absolute after:top-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full',
+      ],
+      premium: [
+        'bg-gradient-to-r from-purple-400 to-pink-400',
+        'text-white shadow-purple-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'before:absolute before:top-0 before:right-0 before:w-3 before:h-3',
+        'before:bg-gradient-to-bl before:from-white/30 before:to-transparent',
+      ],
       
-      // Permission status badges
-      granted: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-      denied: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-      inherited: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+      // Permission status badges with Windows Phone styling
+      granted: [
+        'bg-gradient-to-r from-green-400 to-teal-400',
+        'text-white shadow-green-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      denied: [
+        'bg-gradient-to-r from-red-400 to-pink-400',
+        'text-white shadow-red-200/50',
+        'after:absolute after:top-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full',
+      ],
+      inherited: [
+        'bg-gradient-to-r from-blue-400 to-cyan-400',
+        'text-white shadow-blue-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      temporary: [
+        'bg-gradient-to-r from-yellow-400 to-amber-400',
+        'text-black shadow-yellow-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-black/60 after:rounded-full after:animate-pulse',
+      ],
+      expired: [
+        'bg-gradient-to-r from-gray-400 to-red-400',
+        'text-white shadow-gray-200/50',
+        'after:absolute after:top-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full',
+        'opacity-75',
+      ],
       
-      // Billing status badges
-      paid: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-      overdue: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-      trial: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
-      enterprise: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+      // Billing status badges with PancakeSwap colors
+      paid: [
+        'bg-gradient-to-r from-green-400 to-emerald-500',
+        'text-white shadow-green-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      overdue: [
+        'bg-gradient-to-r from-red-500 to-orange-500',
+        'text-white shadow-red-200/50',
+        'after:absolute after:top-1 after:right-1 after:w-1.5 after:h-1.5',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      trial: [
+        'bg-gradient-to-r from-blue-400 to-indigo-400',
+        'text-white shadow-blue-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
+      enterprise: [
+        'bg-gradient-to-r from-purple-500 to-indigo-500',
+        'text-white shadow-purple-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1.5 after:h-1.5',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'before:absolute before:top-0 before:right-0 before:w-4 before:h-4',
+        'before:bg-gradient-to-bl before:from-white/30 before:to-transparent',
+      ],
       
-      // General status badges
-      success: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-      warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
-      error: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-      info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+      // General status badges with enhanced gradients
+      success: [
+        'bg-gradient-to-r from-green-500 to-lime-400',
+        'text-white shadow-green-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1.5 after:h-1.5',
+        'after:bg-white/90 after:rounded-full after:animate-pulse',
+      ],
+      warning: [
+        'bg-gradient-to-r from-amber-400 to-yellow-400',
+        'text-black shadow-amber-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-black/70 after:rounded-full after:animate-pulse',
+      ],
+      error: [
+        'bg-gradient-to-r from-red-500 to-rose-400',
+        'text-white shadow-red-200/50',
+        'after:absolute after:top-1 after:right-1 after:w-1.5 after:h-1.5',
+        'after:bg-white/90 after:rounded-full',
+      ],
+      info: [
+        'bg-gradient-to-r from-blue-400 to-sky-400',
+        'text-white shadow-blue-200/50',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-white/80 after:rounded-full after:animate-pulse',
+      ],
       
-      // Neutral badge
-      default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+      // Neutral badge with Windows Phone style
+      default: [
+        'bg-gradient-to-r from-gray-300 to-slate-300',
+        'dark:from-gray-600 dark:to-slate-600',
+        'text-gray-700 dark:text-gray-200',
+        'border-gray-400/30 dark:border-gray-500/30',
+        'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
+        'after:bg-current after:opacity-40 after:rounded-full',
+      ],
     },
     
     size: {
-      sm: 'px-2 py-0.5 text-xs',
-      default: 'px-2.5 py-0.5 text-xs',
-      lg: 'px-3 py-1 text-sm',
+      sm: 'px-2 py-1 text-xs min-h-[24px]',
+      default: 'px-3 py-1.5 text-xs min-h-[28px]',
+      lg: 'px-4 py-2 text-sm min-h-[32px]',
     },
     
     dot: {
-      true: 'pl-1.5',
+      true: 'pl-2 [&>*:first-child]:mr-2',
+      false: '',
+    },
+    
+    animation: {
+      none: '',
+      pulse: 'animate-pulse',
+      bounce: 'animate-bounce',
+      subtle: 'hover:animate-pulse',
+    },
+    
+    interactive: {
+      true: 'cursor-pointer hover:scale-110 active:scale-90',
       false: '',
     },
   },
@@ -284,6 +479,8 @@ export const adminBadgeVariants = cva([
     variant: 'default',
     size: 'default',
     dot: false,
+    animation: 'none',
+    interactive: false,
   },
 });
 

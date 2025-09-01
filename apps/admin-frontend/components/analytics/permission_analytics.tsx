@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { formatDate, formatRelativeTime } from '@/lib/utils';
+import { PancakeSwapColors } from '@/components/charts/chartColors';
 
 // Format date and time utility function
 const fmtDateTime = (date: string | Date): string => {
@@ -54,7 +55,7 @@ interface CostAnalysisData {
   efficiency: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+const COLORS = PancakeSwapColors.chartPalette;
 
 const PermissionAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -299,7 +300,7 @@ const PermissionAnalytics: React.FC = () => {
                     <XAxis dataKey="permission" angle={-45} textAnchor="end" height={80} />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="usageCount" fill="#8884d8" />
+                    <Bar dataKey="usageCount" fill={PancakeSwapColors.primary} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -327,7 +328,7 @@ const PermissionAnalytics: React.FC = () => {
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill={PancakeSwapColors.primary}
                       dataKey="value"
                       label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
                     >
@@ -470,9 +471,9 @@ const PermissionAnalytics: React.FC = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="totalRequests" stroke="#8884d8" name="Total Requests" />
-                  <Line type="monotone" dataKey="successfulRequests" stroke="#82ca9d" name="Successful" />
-                  <Line type="monotone" dataKey="deniedRequests" stroke="#ffc658" name="Denied" />
+                  <Line type="monotone" dataKey="totalRequests" stroke={PancakeSwapColors.primary} name="Total Requests" />
+                  <Line type="monotone" dataKey="successfulRequests" stroke={PancakeSwapColors.accent} name="Successful" />
+                  <Line type="monotone" dataKey="deniedRequests" stroke={PancakeSwapColors.warning} name="Denied" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -490,7 +491,7 @@ const PermissionAnalytics: React.FC = () => {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="avgResponseTime" stroke="#ff7300" name="Avg Response Time (ms)" />
+                  <Line type="monotone" dataKey="avgResponseTime" stroke={PancakeSwapColors.secondary} name="Avg Response Time (ms)" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -553,7 +554,7 @@ const PermissionAnalytics: React.FC = () => {
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill={PancakeSwapColors.primary}
                       dataKey="totalCost"
                       label={({ permissionProfile, percent }) => `${permissionProfile} ${(percent * 100).toFixed(0)}%`}
                     >

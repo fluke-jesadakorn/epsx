@@ -837,7 +837,7 @@ export function PermissionExportImport({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="role">Role</SelectItem>
+                      <SelectItem value="permissions">Permissions</SelectItem>
                       <SelectItem value="profile">Profile</SelectItem>
                     </SelectContent>
                   </Select>

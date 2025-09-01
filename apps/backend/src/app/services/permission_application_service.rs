@@ -234,12 +234,25 @@ impl PermissionApplicationService {
     // ============================================================================
 
     /// Validate permission format (domain business rule)
+    /// Supports both standard format (platform:resource:action) and embedded timestamp format (platform:resource:action:timestamp)
     fn is_valid_permission_format(&self, permission: &str) -> bool {
         let parts: Vec<&str> = permission.split(':').collect();
-        parts.len() == 3 && 
-        !parts[0].is_empty() && 
-        !parts[1].is_empty() && 
-        !parts[2].is_empty()
+        
+        // Standard format: platform:resource:action (3 parts)
+        if parts.len() == 3 {
+            return !parts[0].is_empty() && !parts[1].is_empty() && !parts[2].is_empty();
+        }
+        
+        // Embedded timestamp format: platform:resource:action:timestamp (4 parts)
+        if parts.len() == 4 {
+            let timestamp_valid = parts[3].parse::<i64>().is_ok();
+            return !parts[0].is_empty() && 
+                   !parts[1].is_empty() && 
+                   !parts[2].is_empty() && 
+                   timestamp_valid;
+        }
+        
+        false
     }
 
     // ============================================================================

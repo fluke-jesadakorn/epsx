@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Mail, Check, Square, Activity } from 'lucide-react'
+import { Mail, Check, Square, Activity, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { EditProfileButton } from './EditProfileButton'
 import { BulkOperationsInterface } from './BulkOperationsInterface'
-import UserActivityLogModal from './UserActivityLogModal'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 
 interface UserTableWithSelectionProps {
@@ -18,7 +17,7 @@ interface UserTableWithSelectionProps {
   endIndex: number
   filters: {
     search: string
-    role: string
+    permissions: string
     status: string
   }
 }
@@ -35,7 +34,6 @@ export function UserTableWithSelection({
 }: UserTableWithSelectionProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [showBulkOps, setShowBulkOps] = useState(false)
-  const [activityModalUser, setActivityModalUser] = useState<{id: string, name: string} | null>(null)
 
   const handleUserSelect = useCallback((userId: string, selected: boolean) => {
     setSelectedUserIds(prev => {
@@ -72,26 +70,28 @@ export function UserTableWithSelection({
 
   return (
     <div className="space-y-6">
-      {/* Bulk Operations Interface */}
+      {/* Windows Phone Bulk Operations Interface */}
       {selectedUserIds.size > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="bg-gradient-to-r from-yellow-50 via-orange-50 to-yellow-100 dark:from-gray-800 dark:via-orange-900/20 dark:to-gray-700 border-2 border-yellow-400/60 dark:border-orange-800/40 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Check className="h-5 w-5 text-blue-600" />
-              <span className="font-medium text-blue-900 dark:text-blue-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
+                <CheckCircle2 className="h-5 w-5 text-white" />
+              </div>
+              <span className="font-light text-lg text-foreground uppercase tracking-wider">
                 {selectedUserIds.size} user{selectedUserIds.size !== 1 ? 's' : ''} selected
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowBulkOps(!showBulkOps)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-6 py-3 rounded-xl hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 font-medium hover:scale-105 hover:shadow-lg active:scale-95 min-h-[44px] uppercase tracking-wide text-sm"
               >
                 {showBulkOps ? 'Hide' : 'Show'} Bulk Operations
               </button>
               <button
                 onClick={() => setSelectedUserIds(new Set())}
-                className="text-blue-600 hover:text-blue-800 text-sm"
+                className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 font-light uppercase tracking-wider text-sm min-h-[44px] px-4 hover:bg-yellow-100/50 dark:hover:bg-yellow-900/20 rounded-xl transition-all duration-300"
               >
                 Clear Selection
               </button>
@@ -107,55 +107,63 @@ export function UserTableWithSelection({
         </div>
       )}
 
-      {/* User Table */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden">
-        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600">
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-            <div className="flex items-center gap-2">
+      {/* Windows Phone User Table */}
+      <div className="bg-gradient-to-br from-card via-card to-yellow-50/30 dark:from-gray-800 dark:via-gray-700 dark:to-orange-900/10 rounded-2xl overflow-hidden shadow-lg border border-yellow-200/40 dark:border-orange-800/30">
+        <div className="px-6 py-4 border-b border-yellow-200/60 dark:border-orange-800/40 bg-yellow-50/50 dark:bg-orange-900/10">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 text-sm font-light text-foreground uppercase tracking-wider">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleSelectAll}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="min-h-[44px] min-w-[44px] rounded-full hover:bg-yellow-100/50 dark:hover:bg-orange-900/30 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center group"
                 title={allSelected ? 'Deselect all' : 'Select all'}
               >
                 {allSelected ? (
-                  <div className="w-4 h-4 bg-blue-600 border border-blue-600 rounded flex items-center justify-center">
-                    <Check className="h-3 w-3 text-white" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-400 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+                    <Check className="h-5 w-5 text-white font-bold" />
                   </div>
                 ) : someSelected ? (
-                  <div className="w-4 h-4 bg-blue-600 border border-blue-600 rounded flex items-center justify-center">
-                    <div className="w-2 h-0.5 bg-white" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-yellow-400/80 to-orange-400/80 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+                    <div className="w-4 h-1 bg-white rounded-full" />
                   </div>
                 ) : (
-                  <Square className="h-4 w-4 text-gray-400" />
+                  <div className="w-8 h-8 border-2 border-yellow-300/60 dark:border-orange-700/60 rounded-full flex items-center justify-center hover:border-yellow-400 dark:hover:border-orange-600 transition-all duration-300 group-hover:scale-110">
+                    <div className="w-6 h-6 rounded-full border border-current opacity-40" />
+                  </div>
                 )}
               </button>
               <span>Select</span>
             </div>
             <div className="md:col-span-2">User</div>
-            <div>Role</div>
+            <div>Permissions</div>
             <div>Subscription</div>
             <div>Status</div>
             <div>Actions</div>
           </div>
         </div>
 
-        <div className="divide-y divide-gray-200 dark:divide-gray-600">
+        <div className="divide-y divide-yellow-200/40 dark:divide-orange-800/30">
           {users.map((user) => (
-            <div key={user.id} className="px-6 py-4 hover:bg-white dark:hover:bg-gray-700 transition-colors">
+            <div key={user.id} className={`px-6 py-4 transition-all duration-300 hover:bg-gradient-to-r hover:from-yellow-50/50 hover:to-orange-50/30 dark:hover:from-orange-900/10 dark:hover:to-yellow-900/10 ${
+              selectedUserIds.has(user.id) 
+                ? 'bg-gradient-to-r from-yellow-100/80 to-orange-100/60 dark:from-orange-900/30 dark:to-yellow-900/20 ring-2 ring-yellow-400/50 dark:ring-orange-600/50 shadow-lg scale-[1.01] hover:scale-[1.02]'
+                : 'hover:scale-[1.005]'
+            }`}>
               <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
-                {/* Selection Checkbox */}
+                {/* Windows Phone Selection Indicator */}
                 <div className="flex items-center">
                   <button
                     onClick={() => handleUserSelect(user.id, !selectedUserIds.has(user.id))}
-                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="min-h-[44px] min-w-[44px] rounded-full hover:bg-yellow-100/50 dark:hover:bg-orange-900/30 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center group"
                     title={selectedUserIds.has(user.id) ? 'Deselect user' : 'Select user'}
                   >
                     {selectedUserIds.has(user.id) ? (
-                      <div className="w-4 h-4 bg-blue-600 border border-blue-600 rounded flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white" />
+                      <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-400 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-110 animate-pulse">
+                        <Check className="h-5 w-5 text-white font-bold" />
                       </div>
                     ) : (
-                      <Square className="h-4 w-4 text-gray-400" />
+                      <div className="w-8 h-8 border-2 border-yellow-300/60 dark:border-orange-700/60 rounded-full flex items-center justify-center hover:border-yellow-400 dark:hover:border-orange-600 transition-all duration-300 group-hover:scale-110">
+                        <div className="w-6 h-6 rounded-full border border-current opacity-40" />
+                      </div>
                     )}
                   </button>
                 </div>
@@ -174,23 +182,36 @@ export function UserTableWithSelection({
                   </div>
                 </div>
 
-                {/* Permission Level */}
-                <div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.permissions?.includes('admin:*:*')
-                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
-                      : user.permissions?.some(p => p.startsWith('admin:'))
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
-                      : user.billing?.tier === 'premium' || user.billing?.tier === 'enterprise'
-                      ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                  }`}>
-                    {user.permissions?.includes('admin:*:*') ? 'Super Admin' 
-                     : user.permissions?.some(p => p.startsWith('admin:')) ? 'Admin'
-                     : user.billing?.tier === 'premium' ? 'Premium'
-                     : user.billing?.tier === 'enterprise' ? 'Enterprise'  
-                     : 'User'}
-                  </span>
+                {/* Permissions */}
+                <div className="flex flex-wrap gap-1 text-xs">
+                  {(() => {
+                    const adminPerms = user.permissions?.filter(p => p.startsWith('admin:')).length || 0
+                    const platformPerms = user.permissions?.filter(p => p.startsWith('epsx:')).length || 0
+                    const totalPerms = user.permissions?.length || 0
+                    
+                    if (totalPerms === 0) {
+                      return (
+                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400">
+                          No Permissions
+                        </span>
+                      )
+                    }
+                    
+                    return (
+                      <div className="flex flex-col gap-1">
+                        {adminPerms > 0 && (
+                          <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                            Admin ({adminPerms})
+                          </span>
+                        )}
+                        {platformPerms > 0 && (
+                          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                            Platform ({platformPerms})
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Subscription */}
@@ -228,14 +249,14 @@ export function UserTableWithSelection({
                     userId={user.id}
                     className="!px-2 !py-1 !text-xs"
                   />
-                  <button
-                    onClick={() => setActivityModalUser({id: user.id, name: user.displayName || user.email})}
-                    className="px-2 py-1 text-xs bg-[#FFC107] hover:bg-[#FFB300] text-black font-medium transition-colors flex items-center gap-1"
+                  <Link
+                    href={`/users/${user.id}/activity`}
+                    className="px-3 py-2 text-xs bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-black font-medium transition-all duration-300 flex items-center gap-1 rounded-xl hover:scale-105 hover:shadow-lg active:scale-95 min-h-[44px] uppercase tracking-wide"
                     title="View Activity Logs"
                   >
-                    <Activity className="w-3 h-3" />
+                    <Activity className="w-4 h-4" />
                     Activity
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -251,8 +272,8 @@ export function UserTableWithSelection({
         <div className="flex gap-2">
           {page > 1 && (
             <Link 
-              href={`/users?page=${page - 1}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+              href={`/users?page=${page - 1}&permissions=${filters.permissions}&search=${filters.search}&status=${filters.status}`}
+              className="px-4 py-2 border-2 border-yellow-300/60 dark:border-orange-700/60 rounded-xl text-sm hover:bg-yellow-50 dark:hover:bg-orange-900/20 hover:border-yellow-400 dark:hover:border-orange-600 transition-all duration-300 hover:scale-105 active:scale-95 font-light uppercase tracking-wider min-h-[44px] flex items-center justify-center"
             >
               Previous
             </Link>
@@ -268,11 +289,11 @@ export function UserTableWithSelection({
               pages.push(
                 <Link
                   key={pageNum}
-                  href={`/users?page=${pageNum}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
-                  className={`px-3 py-1 rounded text-sm ${
+                  href={`/users?page=${pageNum}&permissions=${filters.permissions}&search=${filters.search}&status=${filters.status}`}
+                  className={`px-4 py-2 rounded-xl text-sm transition-all duration-300 hover:scale-105 active:scale-95 font-light min-h-[44px] flex items-center justify-center ${
                     pageNum === page
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-black font-medium shadow-lg hover:shadow-xl hover:from-yellow-500 hover:to-orange-500'
+                      : 'border-2 border-yellow-300/60 dark:border-orange-700/60 hover:bg-yellow-50 dark:hover:bg-orange-900/20 hover:border-yellow-400 dark:hover:border-orange-600'
                   }`}
                 >
                   {pageNum}
@@ -285,8 +306,8 @@ export function UserTableWithSelection({
           
           {page < totalPages && (
             <Link 
-              href={`/users?page=${page + 1}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+              href={`/users?page=${page + 1}&permissions=${filters.permissions}&search=${filters.search}&status=${filters.status}`}
+              className="px-4 py-2 border-2 border-yellow-300/60 dark:border-orange-700/60 rounded-xl text-sm hover:bg-yellow-50 dark:hover:bg-orange-900/20 hover:border-yellow-400 dark:hover:border-orange-600 transition-all duration-300 hover:scale-105 active:scale-95 font-light uppercase tracking-wider min-h-[44px] flex items-center justify-center"
             >
               Next
             </Link>
@@ -294,15 +315,6 @@ export function UserTableWithSelection({
         </div>
       </div>
 
-      {/* Activity Log Modal */}
-      {activityModalUser && (
-        <UserActivityLogModal
-          isOpen={true}
-          onClose={() => setActivityModalUser(null)}
-          userId={activityModalUser.id}
-          userName={activityModalUser.name}
-        />
-      )}
     </div>
   )
 }

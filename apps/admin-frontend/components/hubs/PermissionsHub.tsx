@@ -1,8 +1,10 @@
-import React from 'react'
+'use client'
+
+import React, { useState, useEffect } from 'react'
 import { Clock, Shield, Users, TrendingUp, Plus, RefreshCw, AlertTriangle } from 'lucide-react'
 import { getUsersList } from '@/lib/actions/users'
 import PermissionActions from '@/components/ui/PermissionActions'
-import { CleanupButton } from './CleanupButton'
+// import { CleanupButton } from './CleanupButton'
 
 /**
  * Windows Phone-style Permissions Hub
@@ -133,10 +135,10 @@ function PermissionStatsCards({ analytics }: { analytics: any }) {
   )
 }
 
-export default async function PermissionsHub() {
-  // Fetch data on server side
-  const usersResult = await getUsersList({ page: 1, limit: 50 })
-  
+export default function PermissionsHub() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+
   // Mock analytics data for now (replace with actual server-side API when available)
   const analytics = {
     total_permissions: 42,
@@ -147,7 +149,23 @@ export default async function PermissionsHub() {
     recent_activity: 7
   }
 
-  const users = usersResult.success ? usersResult.data?.users || [] : []
+  // Fetch data on client side
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const usersResult = await getUsersList({ page: 1, limit: 50 })
+        const fetchedUsers = usersResult.success ? usersResult.data?.users || [] : []
+        setUsers(fetchedUsers)
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
 
   // Create mock permission data with embedded timestamps for demonstration
   const mockPermissions = users.flatMap((user: any) => {
@@ -189,6 +207,14 @@ export default async function PermissionsHub() {
     // This would trigger the revoke permission action
   }
 
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -252,7 +278,7 @@ export default async function PermissionsHub() {
             <Clock size={20} />
             Bulk Extend
           </button>
-          <CleanupButton />
+          {/* <CleanupButton /> */}
           <button className="flex items-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
             <TrendingUp size={20} />
             📊 Report

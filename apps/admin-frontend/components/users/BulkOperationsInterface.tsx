@@ -932,9 +932,13 @@ export function BulkOperationsInterface({
                               {format(new Date(result.timestamp), 'PPp')}
                             </p>
                           </div>
-                          <Badge variant={result.failed > 0 ? 'destructive' : 'default'}>
+                          <div className={`px-3 py-2 rounded-xl font-light uppercase tracking-wide text-xs min-h-[32px] flex items-center justify-center ${
+                              result.failed > 0 
+                                ? 'bg-gradient-to-r from-red-400 to-orange-400 text-white shadow-lg' 
+                                : 'bg-gradient-to-r from-green-400 to-yellow-400 text-black shadow-lg'
+                            }`}>
                             {result.successful}/{result.totalRequested} successful
-                          </Badge>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-4 gap-4 text-sm">

@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation'
 import { User, Mail, Shield, Phone, Globe, Clock, Loader2, ArrowLeft, Save } from 'lucide-react'
 import { updateUserProfile, updateUserStatus } from '@/lib/actions/users'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 interface UserEditFormProps {
   user: UnifiedUserData
@@ -42,8 +44,18 @@ export function UserEditForm({ user }: UserEditFormProps) {
     setError(null)
 
     try {
+      // Debug user object to identify correct ID field
+      console.log('🔍 User object:', user)
+      const userId = user.id || user.user_id || user.firebase_uid
+      console.log('🔍 Detected userId:', userId)
+      
+      if (!userId) {
+        setError('User ID not found')
+        return
+      }
+
       // Update profile information
-      const profileResult = await updateUserProfile(user.id, {
+      const profileResult = await updateUserProfile(userId, {
         displayName: formData.displayName.trim(),
         phoneNumber: formData.phoneNumber?.trim() || undefined,
         timezone: formData.timezone,
@@ -57,7 +69,7 @@ export function UserEditForm({ user }: UserEditFormProps) {
 
       // Update status if changed
       if (formData.status !== user.status) {
-        const statusResult = await updateUserStatus(user.id, {
+        const statusResult = await updateUserStatus(userId, {
           status: formData.status,
           reason: 'Updated via admin profile edit'
         })
@@ -68,7 +80,7 @@ export function UserEditForm({ user }: UserEditFormProps) {
         }
       }
 
-      router.push(`/users/${user.id}`)
+      router.push(`/users/${userId}`)
       router.refresh()
     } catch (_err) {
       setError('An unexpected error occurred')
@@ -101,12 +113,13 @@ export function UserEditForm({ user }: UserEditFormProps) {
               <User className="h-4 w-4" />
               Display Name
             </label>
-            <input
+            <Input
               id="displayName"
               type="text"
               value={formData.displayName}
               onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
+              variant="wp"
+              size="default"
               placeholder="Full name"
             />
           </div>
@@ -116,12 +129,13 @@ export function UserEditForm({ user }: UserEditFormProps) {
               <Mail className="h-4 w-4" />
               Email Address
             </label>
-            <input
+            <Input
               id="email"
               type="email"
               value={user.email}
               disabled
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md cursor-not-allowed"
+              variant="ghost"
+              size="default"
             />
             <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
           </div>
@@ -131,12 +145,13 @@ export function UserEditForm({ user }: UserEditFormProps) {
               <Phone className="h-4 w-4" />
               Phone Number
             </label>
-            <input
+            <Input
               id="phoneNumber"
               type="text"
               value={formData.phoneNumber}
               onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
+              variant="wp"
+              size="default"
               placeholder="Phone number (optional)"
             />
           </div>
@@ -246,24 +261,26 @@ export function UserEditForm({ user }: UserEditFormProps) {
 
         {/* Form Actions */}
         <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
+          <Button
             type="button"
             onClick={handleCancel}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+            variant="outline"
+            size="default"
           >
             <ArrowLeft className="h-4 w-4" />
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+            variant="wp"
+            size="default"
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             <Save className="h-4 w-4" />
             Save Changes
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -4,7 +4,7 @@
  */
 
 
-import { getUnifiedUserData } from '@/lib/actions/users'
+import { AdminServerAPI } from '@/lib/server/admin-api'
 import { notFound } from 'next/navigation'
 import { UserOverviewContent } from '@/components/users/UserOverviewContent'
 import { getServerSession } from '@/lib/auth/server-auth'
@@ -21,16 +21,18 @@ export default async function UserOverviewPage({ params }: UserOverviewPageProps
   const session = await getServerSession()
   const currentUser = session?.user
   
-  // Get user data (this will be cached from layout)
-  const userDataResult = await getUnifiedUserData(userId)
-  
-  if (!userDataResult.success || !userDataResult.data) {
+  // Get user data directly from AdminServerAPI
+  let userData
+  try {
+    userData = await AdminServerAPI.getUserData(userId)
+  } catch (error) {
+    console.error('Failed to fetch user data:', error)
     notFound()
   }
 
   return (
     <UserOverviewContent 
-      user={userDataResult.data}
+      user={userData}
       currentUser={currentUser}
     />
   )

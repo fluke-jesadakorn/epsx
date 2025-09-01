@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import PermissionsHub from '@/components/hubs/PermissionsHub'
+import { UserPermissionsHub } from '@/components/admin/UserPermissionsHub'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
@@ -51,7 +51,7 @@ function PermissionsHubSkeleton() {
 export default function AdminPermissionsPage() {
   return (
     <Suspense fallback={<PermissionsHubSkeleton />}>
-      <PermissionsHub />
+      <UserPermissionsHub />
     </Suspense>
   )
 }

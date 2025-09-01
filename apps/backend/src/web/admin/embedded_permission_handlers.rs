@@ -348,14 +348,42 @@ pub async fn grant_embedded_permission(
         .collect();
     new_permissions.push(request.embedded_permission.clone());
     
-    // Update permissions using the permission service
-    match state.permission_application_service.update_user_permissions(&user_id, new_permissions).await {
+    // Try to update permissions with robust ID handling
+    // First attempt: treat user_id as firebase_uid (current behavior)
+    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    
+    match update_result {
         Ok(()) => {
-            tracing::info!("Successfully granted embedded permission to user: {}", user_id);
+            tracing::info!("Successfully granted embedded permission to user (via firebase_uid): {}", user_id);
             Ok(Json(EmbeddedPermissionResponse {
                 permission: request.embedded_permission,
                 expires_at: request.expiry_timestamp,
             }))
+        },
+        Err(e) if e.to_string().contains("User not found") => {
+            // Second attempt: treat user_id as regular ID and set permissions directly
+            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
+            
+            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+                Ok(()) => {
+                    tracing::info!("Successfully granted embedded permission to user (via direct permission update): {}", user_id);
+                    Ok(Json(EmbeddedPermissionResponse {
+                        permission: request.embedded_permission,
+                        expires_at: request.expiry_timestamp,
+                    }))
+                },
+                Err(e2) => {
+                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                    Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiErrorResponse {
+                            error: "user_not_found".to_string(),
+                            message: "User not found".to_string(),
+                            details: Some(user_id),
+                        }),
+                    ))
+                }
+            }
         },
         Err(e) => {
             tracing::error!("Failed to grant embedded permission: {:?}", e);
@@ -597,7 +625,7 @@ pub async fn revoke_embedded_permission(
     State(state): State<AppState>,
     Path(user_id): Path<String>,
     Json(request): Json<RevokePermissionRequest>,
-) -> Result<StatusCode, (StatusCode, Json<ApiErrorResponse>)> {
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Revoking embedded permission for user {}: {}", user_id, request.permission);
     
     // Get current user permissions
@@ -645,11 +673,36 @@ pub async fn revoke_embedded_permission(
         .map(|p| p.permission().to_string())
         .collect();
     
-    // Update permissions
-    match state.permission_application_service.update_user_permissions(&user_id, new_permissions).await {
+    // Update permissions with robust ID handling (same pattern as grant function)
+    // First attempt: treat user_id as firebase_uid (current behavior)
+    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    
+    match update_result {
         Ok(()) => {
-            tracing::info!("Successfully revoked embedded permission for user: {}", user_id);
-            Ok(StatusCode::OK)
+            tracing::info!("Successfully revoked embedded permission from user (via firebase_uid): {}", user_id);
+            Ok((StatusCode::OK, Json(serde_json::json!({"message": "Permission revoked successfully"}))))
+        },
+        Err(e) if e.to_string().contains("User not found") => {
+            // Second attempt: treat user_id as regular ID and set permissions directly
+            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
+            
+            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+                Ok(()) => {
+                    tracing::info!("Successfully revoked embedded permission from user (via direct permission update): {}", user_id);
+                    Ok((StatusCode::OK, Json(serde_json::json!({"message": "Permission revoked successfully"}))))
+                },
+                Err(e2) => {
+                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                    Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiErrorResponse {
+                            error: "user_not_found".to_string(),
+                            message: "User not found".to_string(),
+                            details: Some(user_id),
+                        }),
+                    ))
+                }
+            }
         },
         Err(e) => {
             tracing::error!("Failed to revoke embedded permission: {:?}", e);
@@ -722,8 +775,11 @@ pub async fn extend_embedded_permission(
         .map(|p| if p.permission() == request.permission { new_permission.clone() } else { p.permission().to_string() })
         .collect();
     
-    // Update permissions
-    match state.permission_application_service.update_user_permissions(&user_id, new_permissions).await {
+    // Update permissions with robust ID handling (same pattern as grant function)
+    // First attempt: treat user_id as firebase_uid (current behavior)
+    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    
+    match update_result {
         Ok(()) => {
             let extension = if let Some(old_ts) = old_timestamp {
                 (request.new_expiry_timestamp - old_ts) * 1000 // Convert to milliseconds
@@ -731,12 +787,44 @@ pub async fn extend_embedded_permission(
                 0
             };
             
-            tracing::info!("Successfully extended embedded permission for user: {}", user_id);
+            tracing::info!("Successfully extended embedded permission for user (via firebase_uid): {}", user_id);
             Ok(Json(ExtendPermissionResponse {
                 old_permission: request.permission,
                 new_permission,
                 extension,
             }))
+        },
+        Err(e) if e.to_string().contains("User not found") => {
+            // Second attempt: treat user_id as regular ID and set permissions directly
+            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
+            
+            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+                Ok(()) => {
+                    let extension = if let Some(old_ts) = old_timestamp {
+                        (request.new_expiry_timestamp - old_ts) * 1000 // Convert to milliseconds
+                    } else {
+                        0
+                    };
+                    
+                    tracing::info!("Successfully extended embedded permission for user (via direct permission update): {}", user_id);
+                    Ok(Json(ExtendPermissionResponse {
+                        old_permission: request.permission,
+                        new_permission,
+                        extension,
+                    }))
+                },
+                Err(e2) => {
+                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                    Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiErrorResponse {
+                            error: "user_not_found".to_string(),
+                            message: "User not found".to_string(),
+                            details: Some(user_id),
+                        }),
+                    ))
+                }
+            }
         },
         Err(e) => {
             tracing::error!("Failed to extend embedded permission: {:?}", e);

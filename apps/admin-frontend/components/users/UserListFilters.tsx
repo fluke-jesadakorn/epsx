@@ -8,6 +8,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { Search, X, SortAsc, SortDesc } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 interface FilterState {
   search: string
@@ -83,18 +84,20 @@ export function UserListFilters({ currentFilters }: UserListFiltersProps) {
     <div className="space-y-4">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+        <Input
           type="text"
           placeholder="Search users..."
           value={filters.search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-muted rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          variant="pancake"
+          size="default"
+          className="pl-10 pr-12"
         />
         {filters.search && (
           <button
             onClick={() => handleSearch('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded z-10"
           >
             <X className="h-4 w-4" />
           </button>

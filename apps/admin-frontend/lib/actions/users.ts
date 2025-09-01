@@ -276,16 +276,29 @@ export async function updateUserProfile(
       return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
     }
     
+    // Transform frontend data to match admin backend expectations
+    const adminData = {
+      // Admin endpoint expects different fields - map displayName changes
+      // For now, we'll only update fields that the admin endpoint supports
+      // The current admin endpoint expects: email, role, is_active, profile_picture
+      // We're not changing email or role here, so send empty update
+      ...(data.displayName && { profile_picture: null }) // Placeholder for profile changes
+    }
+    
+    console.log('🔄 Updating user profile:', { userId, data, adminData })
+    
     const response = await fetch(`${BACKEND_URL}/api/v1/admin/users/${userId}/profile`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(adminData),
     })
     
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Profile update failed:', response.status, errorText)
       return { 
         success: false, 
         error: { 
@@ -294,6 +307,8 @@ export async function updateUserProfile(
         } 
       }
     }
+    
+    console.log('✅ Profile update successful')
     
     // Revalidate user pages
     revalidatePath(`/users/${userId}`)

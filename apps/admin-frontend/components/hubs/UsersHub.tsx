@@ -2,17 +2,7 @@
 
 import React, { useState, useTransition, useEffect, useMemo } from 'react'
 import { Search, Plus, Upload, RefreshCw, Edit, Trash2, Settings, Users, TrendingUp, Crown, Shield, DollarSign, CheckSquare, Square } from 'lucide-react'
-import { ServerUserAPI } from '@/lib/api/admin-client'
-import { searchUsersAction, getUsersList } from '@/lib/actions/users'
-import { bulkGrantPermissionsAction, bulkRevokePermissionsAction, bulkAssignRolesAction, bulkApplyTemplateAction, bulkValidatePermissionsAction } from '@/lib/actions/bulk-permissions'
 import { PancakePhoneTheme } from '@/design-system/pancake-phone-theme'
-import CreateUserModal from '@/components/users/CreateUserModal'
-import EditUserModal from '@/components/users/EditUserModal'
-import DeleteUserModal from '@/components/users/DeleteUserModal'
-import BulkActionsBar from '@/components/users/BulkActionsBar'
-import BulkGrantPermissionsModal from '@/components/users/BulkGrantPermissionsModal'
-import BulkRevokePermissionsModal from '@/components/users/BulkRevokePermissionsModal'
-import BulkAssignRolesModal from '@/components/users/BulkAssignRolesModal'
 import Pagination, { PaginationInfo } from '@/components/ui/Pagination'
 import { useRouter } from 'next/navigation'
 
@@ -24,16 +14,37 @@ import { useRouter } from 'next/navigation'
 // Windows Phone style user tile
 interface UserTileProps {
   user: any
-  onEdit: (user: any) => void
-  onDelete: (user: any) => void
   isSelected: boolean
   onToggleSelect: (user: any) => void
   selectionMode: boolean
 }
 
-function UserTile({ user, onEdit, onDelete, isSelected, onToggleSelect, selectionMode }: UserTileProps) {
+function UserTile({ user, isSelected, onToggleSelect, selectionMode }: UserTileProps) {
   const isActive = user.is_active
-  const hasAdminPerms = user.permissions.some((p: string) => p.startsWith('admin:'))
+  
+  // Parse permissions with embedded timestamps
+  const parsePermission = (permission: string) => {
+    const parts = permission.split(':')
+    if (parts.length >= 4 && /^\d+$/.test(parts[parts.length - 1])) {
+      const timestamp = parseInt(parts[parts.length - 1])
+      const permissionWithoutTimestamp = parts.slice(0, -1).join(':')
+      const expiresAt = new Date(timestamp * 1000)
+      const isExpired = expiresAt < new Date()
+      return { permission: permissionWithoutTimestamp, expiresAt, isExpired, hasTimestamp: true }
+    }
+    return { permission, expiresAt: null, isExpired: false, hasTimestamp: false }
+  }
+
+  const permissions = user.permissions?.map(parsePermission) || []
+  const activePermissions = permissions.filter(p => !p.isExpired).length
+  const hasAdminPerms = permissions.some((p: any) => p.permission.startsWith('admin:') && !p.isExpired)
+  const expiredPermissions = permissions.filter(p => p.isExpired).length
+  const expiringPermissions = permissions.filter(p => {
+    if (!p.hasTimestamp || p.isExpired) return false
+    const hoursUntilExpiry = (p.expiresAt!.getTime() - Date.now()) / (1000 * 60 * 60)
+    return hoursUntilExpiry <= 24
+  }).length
+  
   const isPremium = user.subscription_tier === 'premium'
   
   // PancakeSwap + Windows Phone color scheme
@@ -45,12 +56,12 @@ function UserTile({ user, onEdit, onDelete, isSelected, onToggleSelect, selectio
   
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onEdit(user)
+    window.location.href = `/users/${user.id}/edit`
   }
   
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onDelete(user)
+    window.location.href = `/users/${user.id}/delete`
   }
 
   const handleTileClick = () => {
@@ -130,10 +141,22 @@ function UserTile({ user, onEdit, onDelete, isSelected, onToggleSelect, selectio
         </div>
       </div>
 
-      {/* PancakeSwap-style metrics bar */}
+      {/* PancakeSwap-style metrics bar with expiry indicators */}
       <div className="text-xs opacity-90 font-light">
-        <div className="flex justify-between items-center">
-          <span>{user.permissions.length} permissions</span>
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2">
+            <span>{activePermissions} active</span>
+            {expiredPermissions > 0 && (
+              <div className="bg-red-400/20 text-red-300 px-1 py-0.5 rounded text-xs">
+                {expiredPermissions} expired
+              </div>
+            )}
+            {expiringPermissions > 0 && (
+              <div className="bg-yellow-400/20 text-yellow-300 px-1 py-0.5 rounded text-xs">
+                {expiringPermissions} expiring
+              </div>
+            )}
+          </div>
           <span className={`px-2 py-1 rounded text-xs ${isActive ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
             {isActive ? 'online' : 'offline'}
           </span>
@@ -146,59 +169,167 @@ function UserTile({ user, onEdit, onDelete, isSelected, onToggleSelect, selectio
   )
 }
 
-// PancakeSwap x Windows Phone Live Tile for stats
-function StatsTile({ title, value, subtitle, icon: Icon, color }: any) {
+// Enhanced Windows Phone Live Tile with advanced animations
+function StatsTile({ title, value, subtitle, icon: Icon, color, onClick }: any) {
+  const [isFlipped, setIsFlipped] = React.useState(false)
+  
+  React.useEffect(() => {
+    const flipInterval = setInterval(() => {
+      setIsFlipped(prev => !prev)
+    }, 4000) // Flip every 4 seconds like Windows Phone live tiles
+    
+    return () => clearInterval(flipInterval)
+  }, [])
+
   return (
-    <div className={`${color} text-white p-5 transition-all duration-300 hover:scale-105 cursor-pointer shadow-lg relative overflow-hidden border-2 border-transparent hover:border-yellow-400`}>
-      {/* PancakeSwap corner accent */}
-      <div className="absolute top-0 right-0 w-6 h-6 bg-gradient-to-bl from-yellow-400 to-transparent opacity-60"></div>
+    <div 
+      className={`${color} text-white p-5 cursor-pointer shadow-2xl relative overflow-hidden border-2 border-transparent transition-all duration-500 transform hover:scale-110 hover:rotate-1 hover:border-yellow-400 hover:shadow-yellow-400/25 group perspective-1000`}
+      onClick={onClick}
+      style={{ perspective: '1000px' }}
+    >
+      {/* Enhanced PancakeSwap corner accent with animation */}
+      <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-yellow-400 via-yellow-300 to-transparent opacity-70 group-hover:opacity-100 transition-opacity duration-300"></div>
       
-      <div className="flex items-center justify-between mb-3">
-        <div className="p-2 bg-white/10 rounded-lg">
-          <Icon size={18} />
+      {/* Windows Phone live tile flip animation */}
+      <div className={`transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+        {/* Front face */}
+        <div className="backface-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-white/15 rounded-xl backdrop-blur-sm group-hover:bg-white/25 transition-all duration-300">
+              <Icon size={20} className="group-hover:scale-110 transition-transform duration-300" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-extralight tracking-tight group-hover:text-4xl transition-all duration-300 counter-animation">
+                {value.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="text-xs font-medium opacity-90 uppercase tracking-widest group-hover:opacity-100 transition-opacity">
+              {title}
+            </div>
+            <div className="text-xs opacity-75 font-light group-hover:opacity-90 transition-opacity">
+              {subtitle}
+            </div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-extralight tracking-tight">{value.toLocaleString()}</div>
+        
+        {/* Back face with additional info */}
+        <div className="absolute inset-0 backface-hidden rotate-y-180 p-5">
+          <div className="h-full flex flex-col justify-center items-center text-center">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
+              <Icon size={24} />
+            </div>
+            <div className="text-lg font-extralight mb-2">{title}</div>
+            <div className="text-sm opacity-90">{subtitle}</div>
+            <div className="text-xs opacity-75 mt-2">tap for details</div>
+          </div>
         </div>
       </div>
-      <div className="text-xs font-normal opacity-80 mb-1 uppercase tracking-wider">{title}</div>
-      <div className="text-xs opacity-75 font-light">{subtitle}</div>
+      
+      {/* Windows Phone accent line */}
+      <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-yellow-400 via-orange-400 to-transparent opacity-60 group-hover:opacity-100 transition-opacity"></div>
+      
+      {/* Hover glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      
+      {/* Bottom right accent dot */}
+      <div className="absolute bottom-2 right-2 w-2 h-2 bg-yellow-400 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:scale-125"></div>
     </div>
   )
 }
 
-// PancakeSwap x Windows Phone Live Tiles for stats
+// Enhanced PancakeSwap x Windows Phone Live Tiles Dashboard
 function LiveTiles({ stats }: { stats: any }) {
+  const router = useRouter()
+  
+  const handleTileClick = (section: string) => {
+    switch (section) {
+      case 'users':
+        router.push('/users?filter=all')
+        break
+      case 'growth':
+        router.push('/users?filter=active')
+        break
+      case 'admins':
+        router.push('/users?filter=admins')
+        break
+      case 'security':
+        router.push('/analytics')
+        break
+      default:
+        break
+    }
+  }
+
+  // Calculate admin permissions count more accurately
+  const adminPermissionsCount = Object.entries(stats.by_permissions || {})
+    .filter(([permission]) => permission.startsWith('admin:'))
+    .reduce((sum, [, count]) => sum + (count as number), 0)
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-      <StatsTile 
-        title="TOTAL USERS"
-        value={stats.total_users || 0}
-        subtitle={`${stats.active_users || 0} active now`}
-        icon={Users}
-        color="bg-gradient-to-br from-yellow-500 to-orange-600"
-      />
-      <StatsTile 
-        title="GROWTH"
-        value={stats.recent_users_30_days || 0}
-        subtitle="new this month"
-        icon={TrendingUp}
-        color="bg-gradient-to-br from-green-500 to-green-700"
-      />
-      <StatsTile 
-        title="ADMINS"
-        value={Object.values(stats.by_permissions || {}).reduce((sum: number, count) => sum + (count as number), 0) || 0}
-        subtitle="privileged users"
-        icon={Crown}
-        color="bg-gradient-to-br from-red-600 to-red-800"
-      />
-      <StatsTile 
-        title="SECURITY"
-        value={stats.active_users || 0}
-        subtitle="protected sessions"
-        icon={Shield}
-        color="bg-gradient-to-br from-purple-600 to-purple-800"
-      />
+    <div className="mb-10">
+      {/* Main stats tiles - large and prominent */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatsTile 
+          title="TOTAL USERS"
+          value={stats.total_users || 0}
+          subtitle={`${stats.active_users || 0} active • ${Math.round((stats.active_users || 0) / (stats.total_users || 1) * 100)}% online`}
+          icon={Users}
+          color="bg-gradient-to-br from-yellow-500 via-yellow-600 to-orange-600"
+          onClick={() => handleTileClick('users')}
+        />
+        
+        <StatsTile 
+          title="NEW GROWTH"
+          value={stats.recent_users_30_days || 0}
+          subtitle={`${stats.recent_users_30_days || 0} this month • ${Math.round((stats.recent_users_30_days || 0) / 30)} daily avg`}
+          icon={TrendingUp}
+          color="bg-gradient-to-br from-green-500 via-green-600 to-emerald-700"
+          onClick={() => handleTileClick('growth')}
+        />
+        
+        <StatsTile 
+          title="ADMIN ACCESS"
+          value={adminPermissionsCount}
+          subtitle={`${adminPermissionsCount} privileged • ${Math.round(adminPermissionsCount / (stats.total_users || 1) * 100)}% admin ratio`}
+          icon={Crown}
+          color="bg-gradient-to-br from-red-600 via-red-700 to-red-800"
+          onClick={() => handleTileClick('admins')}
+        />
+        
+        <StatsTile 
+          title="SECURITY"
+          value={stats.active_users || 0}
+          subtitle={`${stats.active_users || 0} protected sessions • 100% secure`}
+          icon={Shield}
+          color="bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800"
+          onClick={() => handleTileClick('security')}
+        />
+      </div>
+      
+      {/* Secondary metrics - smaller tiles for additional insights */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Object.entries(stats.by_tier || {}).map(([tier, count]) => (
+          <div 
+            key={tier}
+            className="bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 text-white p-4 transition-all duration-300 hover:scale-105 cursor-pointer shadow-lg relative overflow-hidden group"
+            onClick={() => router.push(`/users?status=${tier}`)}
+          >
+            {/* Mini PancakeSwap accent */}
+            <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-yellow-400 to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
+            
+            <div className="text-center">
+              <div className="text-lg font-extralight">{count as number}</div>
+              <div className="text-xs uppercase tracking-wider opacity-90">{tier}</div>
+            </div>
+            
+            {/* Windows Phone accent dot */}
+            <div className="absolute bottom-1 right-1 w-1 h-1 bg-yellow-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -222,10 +353,6 @@ interface UsersHubProps {
 export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
   
   // Get current values from URL search params
   const currentPage = parseInt(searchParams?.page || '1', 10)
@@ -241,12 +368,6 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
   const [selectedUsers, setSelectedUsers] = useState<any[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
   
-  // Bulk operation modals
-  const [isBulkGrantModalOpen, setIsBulkGrantModalOpen] = useState(false)
-  const [isBulkRevokeModalOpen, setIsBulkRevokeModalOpen] = useState(false)
-  const [isBulkAssignRolesModalOpen, setIsBulkAssignRolesModalOpen] = useState(false)
-  const [isBulkApplyTemplateModalOpen, setIsBulkApplyTemplateModalOpen] = useState(false)
-  const [isBulkOperationLoading, setIsBulkOperationLoading] = useState(false)
   
   // URL navigation helpers
   const updateURL = (updates: Record<string, string | number | undefined>) => {
@@ -269,35 +390,9 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
     setIsClient(true)
   }, [])
 
-  const handleEditUser = (user: any) => {
-    setSelectedUser(user)
-    setIsEditModalOpen(true)
-  }
-
-  const handleDeleteUser = (user: any) => {
-    setSelectedUser(user)
-    setIsDeleteModalOpen(true)
-  }
-
-  const handleUserDeleted = () => {
-    // Refresh the page to show the updated user list
-    startTransition(() => {
-      router.refresh()
-    })
-  }
-  
-  const handleUserCreated = () => {
-    // Refresh the page to show the updated user list
-    startTransition(() => {
-      router.refresh()
-    })
-  }
-  
-  const handleUserUpdated = () => {
-    // Refresh the page to show the updated user list
-    startTransition(() => {
-      router.refresh()
-    })
+  // Page navigation handlers (replace modal handlers)
+  const handleCreateUser = () => {
+    router.push('/users/create')
   }
 
   // Simple pagination handler using URL navigation
@@ -336,104 +431,11 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
     setSelectionMode(true)
   }
 
-  // Bulk operation handlers
-  const handleBulkGrantPermissions = async (data: { userIds: string[], permissions: string[], reason?: string }) => {
-    setIsBulkOperationLoading(true)
-    try {
-      const result = await bulkGrantPermissionsAction(data)
-      if (result.success) {
-        console.log('Bulk grant permissions successful:', result.data)
-        // Refresh data and clear selection
-        handleDeselectAll()
-        if (searchQuery || activeFilter !== 'all') {
-          await performDirectSearch(searchQuery, activeFilter)
-        } else {
-          startTransition(() => {
-            router.refresh()
-          })
-        }
-      } else {
-        console.error('Bulk grant permissions failed:', result.error)
-      }
-    } catch (error) {
-      console.error('Bulk grant permissions error:', error)
-    } finally {
-      setIsBulkOperationLoading(false)
-    }
-  }
-
-  const handleBulkRevokePermissions = async (data: { userIds: string[], permissions: string[], reason?: string }) => {
-    setIsBulkOperationLoading(true)
-    try {
-      const result = await bulkRevokePermissionsAction(data)
-      if (result.success) {
-        console.log('Bulk revoke permissions successful:', result.data)
-        // Refresh data and clear selection
-        handleDeselectAll()
-        if (searchQuery || activeFilter !== 'all') {
-          await performDirectSearch(searchQuery, activeFilter)
-        } else {
-          startTransition(() => {
-            router.refresh()
-          })
-        }
-      } else {
-        console.error('Bulk revoke permissions failed:', result.error)
-      }
-    } catch (error) {
-      console.error('Bulk revoke permissions error:', error)
-    } finally {
-      setIsBulkOperationLoading(false)
-    }
-  }
-
-  const handleBulkAssignRoles = async (data: { userIds: string[], role: string, mergePermissions: boolean, reason?: string }) => {
-    setIsBulkOperationLoading(true)
-    try {
-      const result = await bulkAssignRolesAction(data)
-      if (result.success) {
-        console.log('Bulk assign roles successful:', result.data)
-        // Refresh data and clear selection
-        handleDeselectAll()
-        if (searchQuery || activeFilter !== 'all') {
-          await performDirectSearch(searchQuery, activeFilter)
-        } else {
-          startTransition(() => {
-            router.refresh()
-          })
-        }
-      } else {
-        console.error('Bulk assign roles failed:', result.error)
-      }
-    } catch (error) {
-      console.error('Bulk assign roles error:', error)
-    } finally {
-      setIsBulkOperationLoading(false)
-    }
-  }
-
-  const handleBulkApplyTemplate = async (userIds: string[]) => {
-    setIsBulkApplyTemplateModalOpen(true)
-  }
-
-  const handleBulkValidatePermissions = async (userIds: string[]) => {
-    setIsBulkOperationLoading(true)
-    try {
-      const result = await bulkValidatePermissionsAction({
-        userIds,
-        checkExpired: true,
-        checkConflicting: true
-      })
-      if (result.success) {
-        console.log('Bulk validation successful:', result.data)
-        // TODO: Show validation results modal
-      } else {
-        console.error('Bulk validation failed:', result.error)
-      }
-    } catch (error) {
-      console.error('Bulk validation error:', error)
-    } finally {
-      setIsBulkOperationLoading(false)
+  // Bulk operation navigation handlers (replace modal handlers)
+  const handleBulkOperations = () => {
+    const userIds = selectedUsers.map(u => u.id)
+    if (userIds.length > 0) {
+      router.push(`/users/bulk?users=${userIds.join(',')}`)
     }
   }
 
@@ -508,7 +510,7 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
             
             {/* Create User Button */}
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={handleCreateUser}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-medium hover:from-yellow-500 hover:to-orange-600 transition-all disabled:opacity-50"
               disabled={isPending}
             >
@@ -595,8 +597,6 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
             <UserTile 
               key={user.id} 
               user={user} 
-              onEdit={handleEditUser} 
-              onDelete={handleDeleteUser}
               isSelected={selectedUsers.some(u => u.id === user.id)}
               onToggleSelect={handleToggleSelect}
               selectionMode={selectionMode || selectedUsers.length > 0}
@@ -625,65 +625,28 @@ export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
         />
       </div>
 
-      {/* Create User Modal */}
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onUserCreated={handleUserCreated}
-      />
-
-      {/* Edit User Modal */}
-      <EditUserModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onUserUpdated={handleUserUpdated}
-        user={selectedUser}
-      />
-
-      {/* Delete User Modal */}
-      <DeleteUserModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onUserDeleted={handleUserDeleted}
-        user={selectedUser}
-      />
-
-      {/* Bulk Actions Bar */}
-      <BulkActionsBar
-        selectedUsers={selectedUsers}
-        totalUsers={total}
-        onDeselectAll={handleDeselectAll}
-        onBulkGrantPermissions={() => setIsBulkGrantModalOpen(true)}
-        onBulkRevokePermissions={() => setIsBulkRevokeModalOpen(true)}
-        onBulkAssignRoles={() => setIsBulkAssignRolesModalOpen(true)}
-        onBulkValidatePermissions={handleBulkValidatePermissions}
-        onBulkApplyTemplate={handleBulkApplyTemplate}
-        isLoading={isBulkOperationLoading}
-      />
-
-      {/* Bulk Grant Permissions Modal */}
-      <BulkGrantPermissionsModal
-        isOpen={isBulkGrantModalOpen}
-        onClose={() => setIsBulkGrantModalOpen(false)}
-        selectedUsers={selectedUsers}
-        onConfirm={handleBulkGrantPermissions}
-      />
-
-      {/* Bulk Revoke Permissions Modal */}
-      <BulkRevokePermissionsModal
-        isOpen={isBulkRevokeModalOpen}
-        onClose={() => setIsBulkRevokeModalOpen(false)}
-        selectedUsers={selectedUsers}
-        onConfirm={handleBulkRevokePermissions}
-      />
-
-      {/* Bulk Assign Roles Modal */}
-      <BulkAssignRolesModal
-        isOpen={isBulkAssignRolesModalOpen}
-        onClose={() => setIsBulkAssignRolesModalOpen(false)}
-        selectedUsers={selectedUsers}
-        onConfirm={handleBulkAssignRoles}
-      />
+      {/* Bulk Actions Bar - Updated for page navigation */}
+      {selectedUsers.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-[#FFC107] text-black px-6 py-3 rounded-lg shadow-lg flex items-center gap-4">
+            <span className="font-medium">
+              {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
+            </span>
+            <button
+              onClick={handleBulkOperations}
+              className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors text-sm font-medium"
+            >
+              Bulk Operations
+            </button>
+            <button
+              onClick={handleDeselectAll}
+              className="px-3 py-1 text-black/70 hover:text-black transition-colors text-sm"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@
 
 import { notFound, redirect } from 'next/navigation'
 import { User, Mail, Shield, Phone, Globe, Clock } from 'lucide-react'
-import { getUnifiedUserData } from '@/lib/actions/users'
+import { AdminServerAPI } from '@/lib/server/admin-api'
 import { UserEditForm } from '@/components/users/UserEditForm'
 
 interface Props {
@@ -19,13 +19,13 @@ export default async function UserEditPage({ params }: Props) {
     redirect('/users')
   }
 
-  const result = await getUnifiedUserData(userId)
-  
-  if (!result.success || !result.data) {
+  let user
+  try {
+    user = await AdminServerAPI.getUserData(userId)
+  } catch (error) {
+    console.error('Failed to fetch user data:', error)
     notFound()
   }
-
-  const user = result.data
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

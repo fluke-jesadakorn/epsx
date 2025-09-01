@@ -9,17 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-r from-[#FFC107] to-[#FF8F00] text-black hover:from-[#FFD54F] hover:to-[#FFA000] hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
+        default: "bg-gradient-to-r from-yellow-400 to-orange-500 text-black hover:from-yellow-300 hover:to-orange-400 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
         destructive:
-          "bg-gradient-to-r from-[#D13438] to-[#B71C1C] text-white hover:from-[#E53935] hover:to-[#C62828] hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
+          "bg-gradient-to-r from-red-500 to-red-700 text-white hover:from-red-400 hover:to-red-600 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
         outline:
-          "border-2 border-[#FFC107] bg-transparent text-[#FFC107] hover:bg-[#FFC107] hover:text-black hover:scale-[1.02] active:scale-[0.98]",
+          "border-2 border-yellow-400 bg-transparent text-yellow-600 dark:text-yellow-400 hover:bg-yellow-400 hover:text-black hover:scale-[1.02] active:scale-[0.98]",
         secondary:
-          "bg-gradient-to-r from-[#0078D4] to-[#106EBE] text-white hover:from-[#1E88E5] hover:to-[#1976D2] hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
-        ghost: "hover:bg-[#FFC107]/20 hover:text-[#FFC107] hover:scale-[1.02] active:scale-[0.98]",
-        link: "text-[#FFC107] underline-offset-4 hover:underline hover:text-[#FFD54F]",
-        pancake: "bg-gradient-to-r from-[#FFC107] via-[#FFB300] to-[#FF8F00] text-black hover:from-[#FFD54F] hover:to-[#FFA000] hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl font-normal",
-        wp: "bg-gradient-to-r from-[#0078D4] to-[#106EBE] text-white hover:from-[#1E88E5] hover:to-[#1976D2] hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl font-normal",
+          "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl",
+        ghost: "hover:bg-yellow-400/20 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-[1.02] active:scale-[0.98]",
+        link: "text-yellow-600 dark:text-yellow-400 underline-offset-4 hover:underline hover:text-yellow-500 dark:hover:text-yellow-300",
+        pancake: "bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-black hover:from-yellow-300 hover:to-orange-400 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl font-normal",
+        wp: "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl font-normal",
       },
       size: {
         default: "h-11 px-6 py-3",
