@@ -282,7 +282,7 @@ Authorization: Bearer <firebase_jwt_token>
 
 ### Export Audit Logs (Admin)
 - **GET** `/api/v1/audit/export`
-- **Description**: Export audit logs for compliance
+- **Description**: Export audit logs for reporting
 - **Authentication**: Admin
 - **Query Parameters**:
   - `format`: Export format (json, csv, xml)

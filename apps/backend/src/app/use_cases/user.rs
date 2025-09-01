@@ -2,13 +2,21 @@
 
 use std::sync::Arc;
 
+
 use crate::dom::entities::User;
+
 use crate::dom::values::{ UserId, Email };
+
 use crate::dom::events::{ DomainEvent, UserDeletedEvent };
+
 use crate::app::ports::{ EventDispatcher };
+
 use crate::app::ports::repositories::{ UserRepository, LevelHistoryRepository };
+
 use crate::app::services::PermissionApplicationService;
+
 use crate::app::dtos::{
+
   CreateUserReq,
   CreateUserRes,
   GetUserReq,
@@ -123,7 +131,7 @@ impl UserMgmtUC {
       .ok_or_else(|| UserUseCaseError::UserNotFound(req.admin_id.to_string()))?;
 
     // Get target user
-    let mut target = self.user_repo
+    let target = self.user_repo
       .get(&req.usr_id).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?
       .ok_or_else(|| UserUseCaseError::UserNotFound(req.usr_id.to_string()))?;
@@ -273,7 +281,7 @@ impl UserMgmtUC {
     let new_role = update.new_package_tier.clone();
 
     // Get target user
-    let mut target = self.user_repo
+    let target = self.user_repo
       .get(&update.usr_id).await
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?
       .ok_or_else(||

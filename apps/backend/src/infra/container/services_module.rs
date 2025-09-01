@@ -19,6 +19,8 @@ use crate::dom::services::{PermissionService, PermissionServiceFactory};
 use crate::app::services::{
     PermissionApplicationService, PermissionApplicationServiceFactory
 };
+use crate::auth::{RefreshTokenService, RefreshTokenConfig};
+use crate::infra::db::diesel::repos::{RefreshTokenRepository, RevokedTokenRepository};
 // Removed legacy service imports
 
 // ============================================================================
@@ -50,6 +52,7 @@ pub struct ServicesModule {
     pub permission_service: Arc<PermissionService>,
     pub permission_infrastructure_service: Arc<PermissionInfrastructureService>,
     pub permission_application_service: Arc<PermissionApplicationService>,
+    pub refresh_token_service: Arc<RefreshTokenService>,
 }
 
 impl ServicesModule {
@@ -59,6 +62,8 @@ impl ServicesModule {
         user_repo: Arc<dyn UserRepository>,
         user_permission_repo: Arc<dyn UserPermissionRepository>,
         _cache: Arc<dyn Cache>,
+        refresh_token_repo: Arc<RefreshTokenRepository>,
+        revoked_token_repo: Arc<RevokedTokenRepository>,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         
         // Create Firebase admin service - use test client for now to avoid async issues
@@ -91,6 +96,14 @@ impl ServicesModule {
             user_repo.clone(),
         ));
 
+        // 4. Create refresh token service
+        let refresh_token_config = RefreshTokenConfig::default();
+        let refresh_token_service = Arc::new(RefreshTokenService::new(
+            refresh_token_config,
+            refresh_token_repo,
+            revoked_token_repo,
+        ));
+
         tracing::info!("✅ Permission services created successfully");
 
         Ok(ServicesModule {
@@ -99,6 +112,7 @@ impl ServicesModule {
             permission_service,
             permission_infrastructure_service,
             permission_application_service,
+            refresh_token_service,
         })
     }
 

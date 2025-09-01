@@ -172,18 +172,22 @@ export function UserTableWithSelection({
                   </div>
                 </div>
 
-                {/* Role */}
+                {/* Permission Level */}
                 <div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.roles?.some(r => r.name === 'super_admin') 
+                    user.permissions?.includes('admin:*:*')
                       ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
-                      : user.roles?.some(r => r.name === 'admin')
+                      : user.permissions?.some(p => p.startsWith('admin:'))
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
-                      : user.roles?.some(r => r.name === 'moderator')
+                      : user.billing?.tier === 'premium' || user.billing?.tier === 'enterprise'
                       ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                   }`}>
-                    {user.roles?.[0]?.name || 'user'}
+                    {user.permissions?.includes('admin:*:*') ? 'Super Admin' 
+                     : user.permissions?.some(p => p.startsWith('admin:')) ? 'Admin'
+                     : user.billing?.tier === 'premium' ? 'Premium'
+                     : user.billing?.tier === 'enterprise' ? 'Enterprise'  
+                     : 'User'}
                   </span>
                 </div>
 

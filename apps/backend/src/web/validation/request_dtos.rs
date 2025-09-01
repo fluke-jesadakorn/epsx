@@ -485,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_validate_expiry_date() {
-        use chrono::{DateTime, Utc, Duration};
+        use chrono::{Utc, Duration};
 
         // Future date should be valid
         let future_date = (Utc::now() + Duration::days(30)).to_rfc3339();

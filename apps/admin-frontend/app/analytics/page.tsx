@@ -1,71 +1,54 @@
-import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
+import { Suspense } from 'react'
+import AnalyticsHub from '@/components/hubs/AnalyticsHub'
 
-export const dynamic = 'force-dynamic';
+// This page uses real backend data and should be dynamic
+export const dynamic = 'force-dynamic'
 
-export default async function AnalyticsPage() {
-  // Fetch analytics data via API route - prevents hydration errors
-  const fetchAnalyticsData = async () => {
-    try {
-      const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3001'}/api/v1/admin/analytics/dashboard?dateRange=7d&selectedModule=all`, {
-        next: { revalidate: 300 }
-      });
-
-      if (!response.ok) {
-        return {
-          analytics: null,
-          systemMetrics: null,
-          revenue: null,
-          realtime: null
-        };
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        return {
-          analytics: { data: result.data },
-          systemMetrics: { 
-            usage: { totalUsers: result.data.metrics.totalUsers },
-            performance: { 
-              activeSessions: result.data.metrics.totalRequests,
-              responseTime: result.data.metrics.averageResponseTime,
-              uptime: '99.9%'
-            },
-            errors: { rate: result.data.metrics.errorRate }
-          },
-          revenue: { total: result.data.metrics.totalRevenue },
-          realtime: { 
-            activeUsers: result.data.metrics.totalUsers,
-            requests: result.data.metrics.totalRequests
-          }
-        };
-      }
-
-      return {
-        analytics: null,
-        systemMetrics: null,
-        revenue: null,
-        realtime: null
-      };
-    } catch (error) {
-      console.error('Failed to fetch analytics data:', error);
-      return {
-        analytics: null,
-        systemMetrics: null,
-        revenue: null,
-        realtime: null
-      };
-    }
-  };
-
-  const { analytics, systemMetrics, revenue, realtime } = await fetchAnalyticsData();
-
+function AnalyticsHubSkeleton() {
   return (
-    <AnalyticsDashboard 
-      initialAnalytics={analytics}
-      initialSystemMetrics={systemMetrics}
-      initialRevenue={revenue}
-      initialRealtime={realtime}
-    />
-  );
+    <div className="wp-pancake-page-bg p-6">
+      <div className="mb-8">
+        <div className="h-10 bg-gray-700/50 rounded w-80 mb-2 animate-pulse"></div>
+        <div className="h-4 bg-gray-700/50 rounded w-64 animate-pulse"></div>
+      </div>
+      
+      {/* Metrics tiles skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-24 bg-gray-700/30 backdrop-blur-sm rounded-lg animate-pulse border border-yellow-500/10"></div>
+        ))}
+      </div>
+      
+      {/* Pivot navigation skeleton */}
+      <div className="mb-6">
+        <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Main widgets skeleton */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="xl:col-span-2 h-64 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+      </div>
+      
+      {/* Summary widgets skeleton */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<AnalyticsHubSkeleton />}>
+      <AnalyticsHub />
+    </Suspense>
+  )
 }

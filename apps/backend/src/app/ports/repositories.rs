@@ -1,20 +1,32 @@
 // Repository port interfaces for data persistence
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+
+
 use rust_decimal::Decimal;
+
 use serde::{Serialize, Deserialize};
 
+
 use crate::dom::entities::{User, UserPermission, PermissionId, Session, Stock};
+
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
+
 use crate::dom::ports::notification::{DomainNotification, NotificationError};
+
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
+
 use crate::dom::values::{UserId, SessId, Symbol, Email, Market};
+
 use crate::dom::error::DomainError;
+
 use crate::app::dtos::LevelChangeRecord;
+
 // use crate::web::middleware::module_auth_middleware::{UserModuleAccess, ApiKeyAccess};
 use std::collections::HashMap;
-use uuid::Uuid;
+
 
 // Simple stubs for removed module auth
 #[derive(Debug, Clone)]
@@ -52,6 +64,7 @@ pub struct UserSearchFilters {
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+
 
 #[async_trait]
 #[cfg_attr(test, automock)]

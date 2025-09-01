@@ -119,24 +119,32 @@ pub async fn assign_user_role(
     ))
 }
 
-/// Update user permissions directly
+/// Update user permissions directly (supports embedded timestamp permissions)
 /// PUT /admin/roles/users/:firebase_uid/permissions
 pub async fn update_user_permissions(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(firebase_uid): Path<String>,
-    Json(_request): Json<PermissionUpdateRequest>,
+    Json(request): Json<PermissionUpdateRequest>,
 ) -> Result<StatusCode, (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Admin: Updating permissions for Firebase user: {}", firebase_uid);
     
-    // TODO: Implement with database pool from AppState
-    Err((
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(ApiErrorResponse {
-            error: "service_unavailable".to_string(),
-            message: "Database role service not available".to_string(),
-            details: Some("Database pool not configured in AppState".to_string()),
-        }),
-    ))
+    match state.permission_application_service.update_user_permissions(&firebase_uid, request.permissions).await {
+        Ok(()) => {
+            tracing::info!("Successfully updated permissions for user: {}", firebase_uid);
+            Ok(StatusCode::OK)
+        },
+        Err(e) => {
+            tracing::error!("Failed to update permissions for user {}: {:?}", firebase_uid, e);
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiErrorResponse {
+                    error: "update_failed".to_string(),
+                    message: format!("Failed to update user permissions: {}", e),
+                    details: Some(firebase_uid),
+                }),
+            ))
+        }
+    }
 }
 
 /// Revoke user role (reset to basic user)

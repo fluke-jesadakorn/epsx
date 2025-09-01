@@ -32,7 +32,6 @@ export async function handleSignOut() {
   cookieStore.delete('epsx_admin_jwt');
   cookieStore.delete('epsx_jwt');
   
-  // Redirect to backend Chef Kitchen login - NEXT_REDIRECT error is expected behavior
-  const { redirectToBackendAdminLogin } = await import('@/lib/server/auth');
-  redirectToBackendAdminLogin();
+  // Redirect to login page with proper PKCE flow
+  redirect('/login');
 }

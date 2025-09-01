@@ -169,7 +169,7 @@ impl PermissionApplicationService {
         initial_permissions: Option<Vec<String>>
     ) -> Result<User, ApplicationPermissionError> {
         // Create user entity
-        let mut user = User::new(firebase_uid, email);
+        let user = User::new(firebase_uid, email);
 
         // Save user through repository first
         self.user_repo

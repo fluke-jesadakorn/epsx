@@ -1,4 +1,4 @@
-// Real-time routes for WebSocket, SSE, and event management
+// Real-time routes for SSE and event management
 
 use axum::{
     routing::{get, post},
@@ -17,11 +17,9 @@ use super::{
     },
 };
 
-/// Create real-time WebSocket and SSE routes (legacy, use create_realtime_routes instead)
+/// Create real-time SSE routes (legacy, use create_realtime_routes instead)
 pub fn realtime_routes() -> Router<AppState> {
     Router::new()
-        // Legacy WebSocket endpoint (DISABLED for Cloud Run stateless deployment)
-        // .route("/ws", get(websocket_handler))
         
         // Legacy Server-Sent Events endpoint (deprecated - conflicts with security events)
         .route("/events", get(sse_handler))
@@ -42,8 +40,6 @@ pub fn realtime_routes() -> Router<AppState> {
 pub fn create_realtime_routes() -> Router<AppState> {
     // Versioned routes
     let v1_routes = Router::new()
-        // WebSocket endpoint (DISABLED for Cloud Run stateless deployment)
-        // .route("/api/v1/realtime/websocket", get(websocket_handler))
         // Server-Sent Events for real-time notifications (proper versioning)
         .route("/api/v1/realtime/events", get(sse_handler))
         .route("/api/v1/realtime/health", get(sse_health_handler))

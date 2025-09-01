@@ -1,14 +1,23 @@
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use uuid::Uuid;
+
+use diesel::prelude::*;
+
+use diesel_async::RunQueryDsl;
+
 use chrono::Utc;
+
 use std::sync::Arc;
 
+
 use crate::app::ports::repositories::{SessionRepository, RepoError};
+
 use crate::dom::entities::Session;
+
 use crate::dom::values::{SessId, UserId};
+
 use crate::infra::db::diesel::{
+
     DbPool,
     schema::sessions,
     models::{DieselSession, NewDieselSession, UpdateDieselSession},
@@ -33,7 +42,7 @@ impl SessionRepository for DieselSessionRepository {
         let uuid = Uuid::parse_str(&_id.to_string())
             .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
         
-        tracing::error!("🔍 SESSION DEBUG: Looking for session with UUID: {}", uuid);
+        tracing::debug!("Looking for session with UUID: {}", uuid);
         
         let diesel_session = sessions::table
             .filter(sessions::id.eq(uuid))
@@ -42,17 +51,17 @@ impl SessionRepository for DieselSessionRepository {
             .optional()
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
         
-        tracing::error!("🔍 SESSION DEBUG: Query result: {:?}", diesel_session.is_some());
+        tracing::debug!("Session query result: found={}", diesel_session.is_some());
         
         match diesel_session {
             Some(diesel_session) => {
                 let session = diesel_session.try_into()
                     .map_err(|e| RepoError::SerializationError(format!("Failed to convert DieselSession: {:?}", e)))?;
-                tracing::error!("🔍 SESSION DEBUG: Found session, returning");
+                tracing::debug!("Session found and converted successfully");
                 Ok(Some(session))
             }
             None => {
-                tracing::error!("🔍 SESSION DEBUG: No session found for UUID: {}", uuid);
+                tracing::debug!("No session found for UUID: {}", uuid);
                 Ok(None)
             }
         }
@@ -62,12 +71,12 @@ impl SessionRepository for DieselSessionRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
-        tracing::error!("🔍 SESSION DEBUG: Saving session with ID: {}", session.id());
+        tracing::debug!("Saving session with ID: {}", session.id());
         
         let new_session: NewDieselSession = session.try_into()
             .map_err(|e| RepoError::SerializationError(format!("Failed to convert Session: {:?}", e)))?;
         
-        tracing::error!("🔍 SESSION DEBUG: Converted to NewDieselSession with ID: {}", new_session.id);
+        tracing::debug!("Converted to NewDieselSession with ID: {}", new_session.id);
         
         let result = diesel::insert_into(sessions::table)
             .values(&new_session)
@@ -78,7 +87,7 @@ impl SessionRepository for DieselSessionRepository {
             .await
             .map_err(|e| RepoError::QueryError(e.to_string()))?;
         
-        tracing::error!("🔍 SESSION DEBUG: Save result: {} rows affected", result);
+        tracing::debug!("Session save result: {} rows affected", result);
         
         Ok(())
     }

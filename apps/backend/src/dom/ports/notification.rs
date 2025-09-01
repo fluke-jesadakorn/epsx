@@ -1,6 +1,6 @@
 // Domain notification port - abstracts notification infrastructure
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use crate::dom::values::UserId;
 

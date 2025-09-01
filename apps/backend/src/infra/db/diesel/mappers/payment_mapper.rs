@@ -1,10 +1,15 @@
-use uuid::Uuid;
 use chrono::Utc;
+use uuid::Uuid;
+
 
 use crate::dom::entities::Payment;
+
 use crate::dom::values::{PayId, UserId, PayStatus};
+
 use crate::infra::db::diesel::models::{DieselPayment, NewDieselPayment, UpdateDieselPayment};
+
 use crate::app::ports::repositories::RepoError;
+
 
 impl TryFrom<DieselPayment> for Payment {
     type Error = RepoError;

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
+use uuid::Uuid;
 use std::sync::Arc;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 use crate::app::ports::repositories::ModuleRepository;
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};

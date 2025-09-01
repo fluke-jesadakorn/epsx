@@ -1,10 +1,14 @@
-use uuid::Uuid;
 // use chrono::Utc;
+use uuid::Uuid;
 
 use crate::dom::entities::Session;
+
 use crate::dom::values::{SessId, UserId};
+
 use crate::infra::db::diesel::models::{DieselSession, NewDieselSession, UpdateDieselSession};
+
 use crate::app::ports::repositories::RepoError;
+
 
 impl TryFrom<DieselSession> for Session {
     type Error = RepoError;

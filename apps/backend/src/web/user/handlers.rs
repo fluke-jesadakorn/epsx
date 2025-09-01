@@ -236,8 +236,7 @@ pub async fn get_profile_handler(
     user_id
   );
 
-  // Get user roles - TODO: Implement role loading from database
-  let user_roles = vec!["user".to_string()];
+  // Get user permissions - now using permission-based system
 
   // Get user permissions from the permission service
   let user_permissions = match app_state.permission_application_service.get_user_permissions(firebase_uid).await {
@@ -259,7 +258,6 @@ pub async fn get_profile_handler(
       json!({
         "user_id": user.id().to_string(),
         "email": user.email(),
-        "roles": user_roles,
         "permissions": user_permissions,
         "subscription_tier": user.subscription().tier().to_string(),
         "package_tier": user.subscription().tier().to_string(), // Same as subscription tier

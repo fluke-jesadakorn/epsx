@@ -25,32 +25,36 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Admin: JWT cookies cleared');
 
-    // Call backend OAuth logout endpoint to properly revoke tokens (if token exists)
+    // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-        const logoutResponse = await fetch(`${backendUrl}/oauth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${jwt}`,
-            'Content-Type': 'application/json',
-          },
+        const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+        
+        // Standard OpenID Connect RP-Initiated Logout
+        const logoutParams = new URLSearchParams({
+          id_token_hint: jwt,
+          post_logout_redirect_uri: `${adminUrl}/login`,
+          state: 'admin-logout'
+        });
+        
+        const logoutResponse = await fetch(`${backendUrl}/oauth/logout?${logoutParams.toString()}`, {
+          method: 'GET',
           // Add timeout to prevent hanging
           signal: AbortSignal.timeout(5000),
         });
 
         if (logoutResponse.ok) {
-          const result = await logoutResponse.json();
-          console.log('✅ Admin: Backend token revocation successful:', result.message);
+          console.log('✅ Admin: Standard OIDC logout successful');
         } else {
-          console.warn('⚠️ Admin: Backend token revocation failed, but cookies cleared');
+          console.warn('⚠️ Admin: OIDC logout failed, but cookies cleared');
         }
       } catch (backendError) {
-        console.warn('⚠️ Admin: Backend token revocation error:', backendError);
+        console.warn('⚠️ Admin: OIDC logout error:', backendError);
         // Continue with cookie clearing even if backend fails
       }
     } else {
-      console.log('💡 Admin: No access token found, skipping backend revocation');
+      console.log('💡 Admin: No access token found, skipping OIDC logout');
     }
 
     console.log('✅ Admin: Logout completed successfully');
@@ -90,21 +94,26 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Admin: JWT cookies cleared, redirecting to login');
 
-    // Call backend OAuth logout endpoint to revoke tokens (if token exists)
+    // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-        await fetch(`${backendUrl}/oauth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${jwt}`,
-            'Content-Type': 'application/json',
-          },
+        const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+        
+        // Standard OpenID Connect RP-Initiated Logout
+        const logoutParams = new URLSearchParams({
+          id_token_hint: jwt,
+          post_logout_redirect_uri: `${adminUrl}/login`,
+          state: 'admin-logout'
+        });
+        
+        await fetch(`${backendUrl}/oauth/logout?${logoutParams.toString()}`, {
+          method: 'GET',
           signal: AbortSignal.timeout(5000),
         });
-        console.log('✅ Admin: Backend token revocation successful during GET');
+        console.log('✅ Admin: Standard OIDC logout successful during GET');
       } catch (backendError) {
-        console.warn('⚠️ Admin: Backend token revocation error during GET:', backendError);
+        console.warn('⚠️ Admin: OIDC logout error during GET:', backendError);
         // Continue with redirect even if backend fails
       }
     }

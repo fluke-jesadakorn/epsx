@@ -47,7 +47,7 @@ export function UserAnalyticsDashboard({
     }).length
     
     const premiumUsers = users.filter(u => u.billing?.tier === 'premium' || u.billing?.tier === 'enterprise').length
-    const adminUsers = users.filter(u => u.roles?.some(r => r.name === 'admin' || r.name === 'super_admin')).length
+    const adminUsers = users.filter(u => u.permissions?.some(p => p === 'admin:*:*' || p.startsWith('admin:'))).length
     
     const totalRevenue = users.reduce((sum, u) => {
       const tierValue = u.billing?.tier === 'premium' ? 29.99 : u.billing?.tier === 'enterprise' ? 99.99 : 0
@@ -67,11 +67,10 @@ export function UserAnalyticsDashboard({
       suspended: users.filter(u => u.status === 'suspended').length,
     }
     
-    const roleDistribution = {
-      admin: users.filter(u => u.roles?.some(r => r.name === 'admin' || r.name === 'super_admin')).length,
-      moderator: users.filter(u => u.roles?.some(r => r.name === 'moderator')).length,
-      premium: users.filter(u => u.roles?.some(r => r.name === 'premium')).length,
-      user: users.filter(u => !u.roles?.some(r => ['admin', 'super_admin', 'moderator', 'premium'].includes(r.name))).length,
+    const permissionDistribution = {
+      admin: users.filter(u => u.permissions?.some(p => p === 'admin:*:*' || p.startsWith('admin:'))).length,
+      premium: users.filter(u => u.billing?.tier === 'premium' || u.billing?.tier === 'enterprise').length,
+      user: users.filter(u => !u.permissions?.some(p => p.startsWith('admin:')) && (u.billing?.tier === 'free' || !u.billing?.tier)).length,
     }
 
     return {
@@ -85,7 +84,7 @@ export function UserAnalyticsDashboard({
       twoFactorEnabled,
       emailVerified,
       statusDistribution,
-      roleDistribution,
+      permissionDistribution,
       securityScore: Math.round((twoFactorEnabled / users.length) * 100),
       verificationRate: Math.round((emailVerified / users.length) * 100),
     }
@@ -288,37 +287,37 @@ export function UserAnalyticsDashboard({
           <>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-red-600">{userMetrics.roleDistribution.admin}</div>
-                <div className="text-sm text-gray-600">Administrators</div>
+                <div className="text-2xl font-bold text-red-600">{userMetrics.permissionDistribution.admin}</div>
+                <div className="text-sm text-gray-600">Admin Users</div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {Math.round((userMetrics.roleDistribution.admin / total) * 100)}% of users
+                  {Math.round((userMetrics.permissionDistribution.admin / total) * 100)}% of users
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-orange-600">{userMetrics.roleDistribution.moderator}</div>
-                <div className="text-sm text-gray-600">Moderators</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {Math.round((userMetrics.roleDistribution.moderator / total) * 100)}% of users
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-purple-600">{userMetrics.roleDistribution.premium}</div>
+                <div className="text-2xl font-bold text-purple-600">{userMetrics.permissionDistribution.premium}</div>
                 <div className="text-sm text-gray-600">Premium Users</div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {Math.round((userMetrics.roleDistribution.premium / total) * 100)}% of users
+                  {Math.round((userMetrics.permissionDistribution.premium / total) * 100)}% of users
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-gray-600">{userMetrics.roleDistribution.user}</div>
+                <div className="text-2xl font-bold text-gray-600">{userMetrics.permissionDistribution.user}</div>
                 <div className="text-sm text-gray-600">Basic Users</div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {Math.round((userMetrics.roleDistribution.user / total) * 100)}% of users
+                  {Math.round((userMetrics.permissionDistribution.user / total) * 100)}% of users
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-gray-600">{userMetrics.permissionDistribution.user}</div>
+                <div className="text-sm text-gray-600">Basic Users</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {Math.round((userMetrics.permissionDistribution.user / total) * 100)}% of users
                 </div>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 // Data Transfer Objects for notification API
-
 use chrono::{DateTime, Utc};
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

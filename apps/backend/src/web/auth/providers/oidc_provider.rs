@@ -1,10 +1,10 @@
 // OpenID Connect Provider
+use chrono::{DateTime, Utc};
 // Handles custom OIDC JWT tokens issued by our backend
 
 use async_trait::async_trait;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};

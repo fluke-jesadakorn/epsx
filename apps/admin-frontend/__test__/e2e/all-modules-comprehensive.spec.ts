@@ -19,7 +19,6 @@ const ALL_ADMIN_MODULES = [
   { path: '/users', name: 'Users List', permission: 'admin:users:view' },
   { path: '/users/create', name: 'Create User', permission: 'admin:users:create' },
   { path: '/users/permissions', name: 'User Permissions Overview', permission: 'admin:users:permissions' },
-  { path: '/users/roles', name: 'User Roles', permission: 'admin:users:manage' },
   
   // Permission management module (NEW: Permission-based)
   { path: '/permission-profiles', name: 'Permission Profiles', permission: 'admin:permissions:view' },
@@ -473,7 +472,6 @@ test.describe('🎯 Individual Module Deep Testing', () => {
       '/users',
       '/users/create', 
       '/users/permissions',
-      '/users/roles'
     ];
     
     for (const userPage of userMgmtPages) {

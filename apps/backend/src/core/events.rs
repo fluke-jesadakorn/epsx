@@ -1,7 +1,7 @@
 // Enhanced event system for microservices-ready patterns
+use chrono::{DateTime, Utc};
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fmt::Debug;

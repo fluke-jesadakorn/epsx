@@ -1,9 +1,9 @@
 // UserPermission domain entity - separate permission management
 // Individual permissions stored in dedicated table for better flexibility and audit
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 use crate::dom::values::UserId;
 

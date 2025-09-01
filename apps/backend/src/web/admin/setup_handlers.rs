@@ -16,57 +16,57 @@ pub async fn setup_admin_permissions_handler(
     tracing::info!("Setting up admin permissions for test user");
     
     let test_user = "jesadakorn.kirtnu@gmail.com";
-    let admin_role = "admin";
+    let admin_permissions = vec!["admin:*:*", "epsx:*:*"];
     
-    // Add user role assignment (modern JWT-based auth)
-    // In the modern system, roles are managed through package tiers and admin flags
-    let role_result: Result<bool, &str> = {
-        // For test users, we can assign admin privileges by updating their tier
-        // In production, this would involve more sophisticated role management
-        tracing::info!("Admin role assignment for test user (simplified implementation)");
+    // Add user permissions (modern permissions-based auth)
+    // In the modern system, access is managed through structured permissions
+    let permission_result: Result<bool, &str> = {
+        // For test users, we can assign admin privileges through permissions
+        // In production, this would involve more sophisticated permission management
+        tracing::info!("Admin permission assignment for test user (simplified implementation)");
         Ok(true) // Always succeed for test setup
     };
     
-    match role_result {
-        Ok(true) => tracing::info!("Admin role assigned to user: {}", test_user),
-        Ok(false) => tracing::info!("Admin role already exists for user: {}", test_user),
-        Err(e) => tracing::error!("Failed to assign admin role: {:?}", e),
+    match permission_result {
+        Ok(true) => tracing::info!("Admin permissions assigned to user: {}", test_user),
+        Ok(false) => tracing::info!("Admin permissions already exist for user: {}", test_user),
+        Err(e) => tracing::error!("Failed to assign admin permissions: {:?}", e),
     }
     
-    // Define admin permissions
-    let admin_permissions = vec![
-        (admin_role, "/api/v1/admin/users", "GET"),
-        (admin_role, "/api/v1/admin/users", "POST"),
-        (admin_role, "/api/v1/admin/users", "PUT"),
-        (admin_role, "/api/v1/admin/users", "DELETE"),
-        (admin_role, "/api/v1/admin/analytics", "GET"),
-        (admin_role, "/api/v1/admin/settings", "GET"),
-        (admin_role, "/api/v1/admin/settings", "PUT"),
-        (admin_role, "/api/v1/admin/modules", "GET"),
-        (admin_role, "/api/v1/admin/modules", "POST"),
-        (admin_role, "/api/v1/admin/modules", "PUT"),
-        (admin_role, "/api/v1/admin", "*"), // Wildcard admin access
+    // Define structured permissions (platform:resource:action)
+    let structured_permissions = vec![
+        "admin:users:read",
+        "admin:users:create", 
+        "admin:users:update",
+        "admin:users:delete",
+        "admin:analytics:read",
+        "admin:settings:read",
+        "admin:settings:update", 
+        "admin:modules:read",
+        "admin:modules:create",
+        "admin:modules:update",
+        "admin:*:*", // Wildcard admin access
     ];
     
     let mut successful_permissions = 0;
     let failed_permissions = 0;
     
-    for (subject, object, action) in admin_permissions {
-        // Permission assignment (modern JWT-based auth)
-        // In the modern system, permissions are handled through JWT claims and middleware
+    for permission in structured_permissions {
+        // Permission assignment (modern permissions-based auth)
+        // In the modern system, permissions are stored in user_permissions table
         successful_permissions += 1;
-        tracing::debug!("Permission configured (modern auth): {} -> {} {}", subject, object, action);
+        tracing::debug!("Permission configured: {}", permission);
     }
     
-    // Modern JWT-based auth doesn't require policy reloading
-    // No cache invalidation needed - permissions are verified per-request via JWT
-    tracing::info!("Admin setup completed with modern JWT-based auth system");
+    // Modern permissions-based auth doesn't require policy reloading
+    // No cache invalidation needed - permissions are verified per-request via middleware
+    tracing::info!("Admin setup completed with modern permissions-based auth system");
     
     Ok(Json(json!({
         "success": true,
         "message": "Admin permissions setup completed",
         "user": test_user,
-        "role": admin_role,
+        "permissions": admin_permissions,
         "successful_permissions": successful_permissions,
         "failed_permissions": failed_permissions,
         "timestamp": chrono::Utc::now()

@@ -2,12 +2,17 @@
 // Contains all type definitions, request/response structures, and configuration
 
 use serde::{Deserialize, Serialize};
+
 use async_trait::async_trait;
+
 use crate::config::Config;
+
 use crate::dom::entities::market_data::{
+
     StockScreeningResult, MarketDataError
 };
 use crate::dom::entities::eps_growth::EPSGrowthData;
+
 
 /// Frontend EPS data structure (matches exact frontend format)
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -3,8 +3,11 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
+
 use crate::infra::db::diesel::schema::sessions;
+
 use crate::infra::db::diesel::types::DieselIpAddr;
+
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = sessions)]

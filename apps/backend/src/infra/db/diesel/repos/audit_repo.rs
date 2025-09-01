@@ -1,13 +1,20 @@
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use uuid::Uuid;
 use chrono::{DateTime, Utc, Duration};
+use uuid::Uuid;
+
+use diesel::prelude::*;
+
+use diesel_async::RunQueryDsl;
+
 use std::sync::Arc;
 
+
 use crate::app::ports::repositories::{AuditRepository, ExportFormat};
+
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
+
 use crate::infra::db::diesel::{
+
     DbPool,
     schema::audit_logs,
     models::{DieselAuditLog, NewDieselAuditLog},

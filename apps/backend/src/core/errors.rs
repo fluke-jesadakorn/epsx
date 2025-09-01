@@ -1,11 +1,12 @@
 // Enhanced error handling system with context and correlation
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
+
 use axum::{response::{IntoResponse, Response}, http::StatusCode, Json};
 use serde_json::json;
 

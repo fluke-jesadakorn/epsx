@@ -1,20 +1,34 @@
 // TradingView WebSocket service for real-time EPS data
-use std::time::Duration;
-use tokio::time::sleep;
-use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
-use futures_util::{ SinkExt, StreamExt };
-use serde::{ Deserialize, Serialize };
-use serde_json::{ json, Value };
-use tracing::{ debug, info, warn };
 use uuid::Uuid;
+use std::time::Duration;
+
+use tokio::time::sleep;
+
+use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
+
+use futures_util::{ SinkExt, StreamExt };
+
+use serde::{ Deserialize, Serialize };
+
+use serde_json::{ json, Value };
+
+use tracing::{ debug, info, warn };
+
 use chrono::{Datelike, TimeZone};
+
 use http;
+
 use base64::{self, prelude::*};
+
 use rand;
+
 use url;
 
+
 use crate::dom::entities::market_data::MarketDataError;
+
 use crate::infra::services::tradingview::FrontendEPSData;
+
 
 /// TradingView WebSocket message structure
 #[derive(Debug, Serialize, Deserialize)]

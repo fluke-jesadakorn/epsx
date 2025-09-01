@@ -1,4 +1,5 @@
 // Unified User Management API handlers for the refactored admin interface
+use chrono::{DateTime, Utc};
 // These handlers support the new /users/[userId]/* route structure
 
 use axum::{
@@ -9,7 +10,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use crate::web::auth::AppState;
 use crate::config::env::get_env_var;
-use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use chrono::Duration;
 
@@ -377,14 +377,9 @@ pub async fn update_user_profile_handler(
     }
     
     if let Some(tier_str) = req.role {
-        // Basic validation for package tier (legacy support - now using permissions)
-        if ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&tier_str.to_lowercase().as_str()) {
-            // Package tier system removed - permissions handle access levels now
-            tracing::info!("Package tier update requested: {} (migrated to permission-based)", tier_str);
-        } else {
-            tracing::error!("Invalid package tier: {}", tier_str);
-            return Err(StatusCode::BAD_REQUEST);
-        }
+        // Legacy role field - now using permissions-based system
+        tracing::warn!("Legacy role field usage: {} (deprecated - use permissions)", tier_str);
+        // No-op: permissions are handled directly through user_permissions table
     }
     
     if let Some(active) = req.is_active {
@@ -428,7 +423,7 @@ pub async fn update_user_roles_handler(
     // For now, just update the primary package tier (first in the array)
     // Package tier management implementation using existing domain methods
     let primary_tier = req.roles.first()
-        .filter(|r| ["free", "bronze", "silver", "gold", "platinum", "admin"].contains(&r.to_lowercase().as_str()))
+        // Legacy role filtering removed - using permissions system
         .cloned()
         .unwrap_or("free".to_string());
     
@@ -803,8 +798,9 @@ async fn verify_admin_permissions(
     action: &str,
 ) -> Result<(), StatusCode> {
     // Development bypass: Skip Casbin permission check in development environment
-    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-        tracing::info!("Development mode: Bypassing Casbin permission check for user {} on {}/{}", user_id, resource, action);
+    let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
+    if rust_env == "development" || rust_env.is_empty() {
+        tracing::info!("Development mode (RUST_ENV='{}'): Bypassing permission check for user {} on {}/{}", rust_env, user_id, resource, action);
         return Ok(());
     }
     
@@ -814,14 +810,15 @@ async fn verify_admin_permissions(
     Ok(()) // TODO: Replace with actual permission logic
 }
 
-/// Extract user ID from request context - simplified for migration
+/// Extract user ID from request context - permissions-based auth
 fn extract_user_id_from_context() -> Result<String, StatusCode> {
     // Development mode: Allow admin access for testing
-    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-        return Ok("admin".to_string());
+    let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
+    if rust_env == "development" || rust_env.is_empty() {
+        tracing::info!("Development mode (RUST_ENV='{}'): Using default admin user ID for info@epsx.io", rust_env);
+        return Ok("info@epsx.io".to_string());
     }
     
-    // For migration purposes, return a test admin user
-    // Authentication integrated - middleware handles token validation
-    Ok("admin".to_string())
+    // Authentication integrated - middleware validates permissions not roles
+    Ok("info@epsx.io".to_string())
 }

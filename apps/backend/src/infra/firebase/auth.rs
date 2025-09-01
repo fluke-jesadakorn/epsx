@@ -1,4 +1,5 @@
 // Firebase Authentication and Token Verification
+use chrono::{DateTime, Utc};
 // Focused module handling authentication logic and JWT token verification
 
 use std::collections::HashMap;
@@ -6,7 +7,6 @@ use serde_json::{Value, json};
 use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use chrono::{DateTime, Utc};
 use tracing::{error, warn, info};
 
 use crate::config::env::get_env_var;

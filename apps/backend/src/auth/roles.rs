@@ -1,4 +1,6 @@
 // ============================================================================
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 // PERMISSION-BASED ACCESS CONTROL HELPERS
 // ============================================================================
 // This file provides permission-based access control helpers and database utilities
@@ -6,13 +8,14 @@
 // No role enum - purely permission-based system leveraging auth/permissions.rs
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
+
+
 use std::collections::HashMap;
-use std::sync::Arc;
+
 
 // Import the comprehensive permission system
 use crate::auth::permissions::{
+
     check_permission_access, 
     has_admin_access,
     can_view_analytics,
@@ -23,11 +26,11 @@ use crate::auth::permissions::{
     can_manage_billing,
     can_use_advanced_filters,
     PermissionSets,
-    UserClaims,
 };
 
 // Import clean architecture services
 use crate::app::services::{PermissionApplicationService, ApplicationPermissionError};
+
 
 // ============================================================================
 // PERMISSION-BASED USER CLAIMS (REPLACES ROLE-BASED CLAIMS)
@@ -283,6 +286,7 @@ pub fn get_user_claims_from_db(conn: &mut diesel::pg::PgConnection, firebase_uid
 }
 
 #[deprecated(note = "Use clean architecture services instead. Direct database access bypasses the permission migration system.")]
+#[allow(deprecated)]
 pub fn check_user_feature_access_db(
     conn: &mut diesel::pg::PgConnection,
     firebase_uid: &str, 
@@ -296,6 +300,7 @@ pub fn check_user_feature_access_db(
 }
 
 #[deprecated(note = "Use check_user_permission_access_service instead. Direct database access bypasses clean architecture.")]
+#[allow(deprecated)]
 pub fn check_user_permission_access_db(
     conn: &mut diesel::pg::PgConnection,
     firebase_uid: &str,
@@ -401,6 +406,7 @@ pub async fn require_admin_async(
 // ============================================================================
 
 #[deprecated(note = "Use require_permission_async instead. Direct database access bypasses clean architecture.")]
+#[allow(deprecated)]
 pub fn require_permission_sync(
     conn: &mut diesel::pg::PgConnection,
     firebase_uid: &str,
@@ -419,6 +425,7 @@ pub fn require_permission_sync(
 }
 
 #[deprecated(note = "Use require_feature_async instead. Direct database access bypasses clean architecture.")]
+#[allow(deprecated)]
 pub fn require_feature_sync(
     conn: &mut diesel::pg::PgConnection,
     firebase_uid: &str,
@@ -437,6 +444,7 @@ pub fn require_feature_sync(
 }
 
 #[deprecated(note = "Use require_admin_async instead. Direct database access bypasses clean architecture.")]
+#[allow(deprecated)]
 pub fn require_admin_sync(
     conn: &mut diesel::pg::PgConnection,
     firebase_uid: &str,

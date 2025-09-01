@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{warn, info};
 use std::sync::Arc;
 
-use crate::app::ports::repositories::{UserRepository, UserSearchFilters};
+use crate::app::ports::repositories::{UserRepository, UserPermissionRepository, UserSearchFilters};
 use crate::infra::db::diesel::DbPool;
 use crate::web::auth::routes::AppState;
 
@@ -36,20 +36,25 @@ pub struct UserSearchResult {
     pub display_name: Option<String>,
     pub firebase_uid: Option<String>,
     pub package_tier: Option<String>,
+    pub subscription_tier: Option<String>,
+    pub permissions: Vec<String>,
     pub created_at: String,
     pub email_verified: Option<bool>,
+    pub status: String,
+    pub is_active: bool,
 }
 
 pub async fn search_users_handler(
     State(state): State<AppState>,
     Query(query): Query<UserSearchQuery>
 ) -> Result<Json<SearchUsersResponse>, (StatusCode, String)> {
-    use crate::infra::db::diesel::repos::DieselUserRepository;
+    use crate::infra::db::diesel::repos::{DieselUserRepository, DieselUserPermissionRepository};
     
     info!("Searching users with query: {:?}", query);
     
-    // Create repository instance
+    // Create repository instances
     let user_repo = DieselUserRepository::new(state.db_pool.clone());
+    let permission_repo = DieselUserPermissionRepository::new(state.db_pool.clone());
     
     // Set pagination parameters
     let page = query.page.unwrap_or(1).max(1);
@@ -83,17 +88,45 @@ pub async fn search_users_handler(
     
     match (users_result, total_result) {
         (Ok(users), Ok(total)) => {
-            let user_results: Vec<UserSearchResult> = users.into_iter().map(|user| {
-                UserSearchResult {
+            let mut user_results: Vec<UserSearchResult> = Vec::new();
+            
+            // Process each user and fetch their permissions
+            for user in users {
+                let is_active = user.is_active();
+                let status = if is_active { "active".to_string() } else { "inactive".to_string() };
+                
+                // Fetch user permissions
+                let permissions = match permission_repo.get_user_permissions(user.id()).await {
+                    Ok(perms) => perms.into_iter().map(|p| p.permission().to_string()).collect(),
+                    Err(e) => {
+                        warn!("Failed to fetch permissions for user {}: {}", user.id().0, e);
+                        vec![] // Empty permissions on error
+                    }
+                };
+                
+                // Determine subscription tier based on permissions
+                let subscription_tier = if permissions.iter().any(|p| p.starts_with("admin:")) {
+                    Some("admin".to_string())
+                } else if permissions.iter().any(|p| p.contains("premium") || p.contains("pro")) {
+                    Some("premium".to_string())
+                } else {
+                    Some("basic".to_string())
+                };
+                
+                user_results.push(UserSearchResult {
                     id: user.id().0.to_string(),
                     email: user.email().to_string(),
-                    display_name: None, // User entity doesn't have display_name field
+                    display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()), // Extract name from email
                     firebase_uid: Some(user.firebase_uid().to_string()),
-                    package_tier: Some("user".to_string()), // Default since derived_tier removed
+                    package_tier: Some("basic".to_string()), // Default tier
+                    subscription_tier,
+                    permissions,
                     created_at: user.created_at().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                    email_verified: None, // User entity doesn't have email_verified field
-                }
-            }).collect();
+                    email_verified: Some(true), // Default to true for simplicity
+                    status,
+                    is_active,
+                });
+            }
             
             info!("Found {} users (total: {})", user_results.len(), total);
             

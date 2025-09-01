@@ -8,7 +8,7 @@ import { validateAdminSession } from '@/lib/session-validator';
 
 // Public routes that don't require authentication
 const publicRoutes = [
-  '/login', // Allow access to login page for PKCE initiation
+  '/login', // Allow access to login route for PKCE initiation
   '/api/auth/callback/epsx-backend',
   '/api/auth/initiate',
   '/api/auth/login',
@@ -125,8 +125,8 @@ export async function middleware(request: NextRequest) {
       const requiredPermission = `${platform}:${requiredModule}:access`;
       
       const hasAccess = user.permissions?.includes(requiredPermission) || 
-                       user.permissions?.some(p => p.includes(':admin:') || p.includes(':manage:')) ||
-                       user.role === 'admin';
+                       user.permissions?.includes('admin:*:*') ||
+                       user.permissions?.some(p => p.startsWith('admin:'));
       
       if (!hasAccess) {
         const permissionCheckTime = performance.now() - permissionCheckStartTime;

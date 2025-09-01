@@ -1,10 +1,15 @@
-use uuid::Uuid;
 use chrono::Utc;
+use uuid::Uuid;
+
 
 use crate::dom::entities::User;
+
 use crate::dom::values::{UserId, Email, Subscription};
+
 use crate::infra::db::diesel::models::{DieselUser, NewDieselUser, UpdateDieselUser};
+
 use crate::app::ports::repositories::RepoError;
+
 
 impl TryFrom<DieselUser> for User {
     type Error = RepoError;

@@ -236,7 +236,7 @@ CREATE TABLE permission_profiles (
     auto_assignment_rules JSONB,
     api_endpoints JSONB DEFAULT '{}', -- NEW: API access control
     frontend_routes JSONB DEFAULT '{}', -- NEW: Frontend route access
-    compliance_level VARCHAR(50) DEFAULT 'educational',
+    security_level VARCHAR(50) DEFAULT 'educational',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -480,11 +480,11 @@ let result = rate_limiter.check_rate_limit(
 
 ### Comprehensive Audit System ✅ FULLY IMPLEMENTED
 
-Enterprise-grade audit logging with complete traceability and compliance features:
+Enterprise-grade audit logging with complete traceability:
 
 #### Features:
 - **25+ Audit Action Types**: Covering all system operations (login, user management, permission changes, etc.)
-- **Export Capabilities**: JSON, CSV, XML formats for compliance reporting
+- **Export Capabilities**: JSON, CSV, XML formats for audit reporting
 - **Statistical Analysis**: Top actions, top actors, failure rates over time periods
 - **Rich Metadata**: IP tracking, session correlation, error details, duration tracking
 - **Search & Filter**: Advanced querying with time ranges, actors, resources
@@ -507,7 +507,7 @@ pub enum AuditAction {
 - `POST /api/v1/audit/logs` - Create audit entries (public for frontend logging)
 - `GET /api/v1/audit/search` - Search with filters (admin only)
 - `GET /api/v1/audit/stats` - Statistical analysis (admin only)
-- `GET /api/v1/audit/export` - Export data for compliance (admin only)
+- `GET /api/v1/audit/export` - Export data for reporting (admin only)
 
 ### Real-time Infrastructure ✅ FULLY IMPLEMENTED
 
@@ -613,7 +613,7 @@ async fn auth_middleware(req: Request) -> Result<User> {
   - ✅ **Enterprise Rate Limit State**: Multi-window rate limiting with automatic cleanup
 - **Payment Processing**: Async webhook processing with retry logic ✅
 - **Expiration Management**: Background job for feature expiration checks ✅
-- **Audit & Compliance**: Comprehensive audit logging with statistical analysis and export ✅
+- **Audit & Reporting**: Comprehensive audit logging with statistical analysis and export ✅
 
 ### Performance Targets ✅ ALL EXCEEDED
 - **API Response**: <500ms for all endpoints (achieved - target was <2s) ✅

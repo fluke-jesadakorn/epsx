@@ -1,5 +1,5 @@
 use bb8::{Pool, PooledConnection};
-use diesel_async::{AsyncPgConnection, pooled_connection::{AsyncDieselConnectionManager, ManagerConfig}};
+use diesel_async::{pooled_connection::{AsyncDieselConnectionManager, ManagerConfig}, AsyncPgConnection};
 use diesel::result::{ConnectionResult, ConnectionError};
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;

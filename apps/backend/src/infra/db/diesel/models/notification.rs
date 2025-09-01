@@ -1,17 +1,23 @@
 // ============================================================================
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 // SIMPLE NOTIFICATION MODELS - REPLACING COMPLEX NOTIFICATION SYSTEM
 // ============================================================================
 // This file replaces complex notification models with simple ones using actual schema fields
 // Works with the simple role system from auth/roles.rs
 
 use diesel::prelude::*;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
+
+
 use serde::{Serialize, Deserialize};
+
 use serde_json::Value as JsonValue;
 
+
 use crate::infra::db::diesel::schema::notifications;
+
 use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
+
 
 // ============================================================================
 // SIMPLE NOTIFICATION MODEL (USING ONLY EXISTING FIELDS)

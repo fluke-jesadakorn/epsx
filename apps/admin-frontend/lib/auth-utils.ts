@@ -4,11 +4,19 @@ import { env } from '@/config/env';
 export interface JWTUser {
   uid: string;
   email: string;
-  firebaseUid?: string;
   permissions: string[]; // Structured permissions only
-  package_tier: string;
   iat?: number;
   exp?: number;
+  // firebaseUid, package_tier removed - derived from permissions
+}
+
+export interface CreateJWTClaimsOptions {
+  id: string;
+  email: string;
+  name?: string;
+  permissions: string[];
+  role?: string;
+  package_tier?: string;
 }
 
 export interface EPSXJWTPayload extends JWTPayload {
@@ -16,13 +24,103 @@ export interface EPSXJWTPayload extends JWTPayload {
   email: string;
   name: string;
   permissions: string[];  // Structured permissions: "platform:resource:action"
-  package_tier: string;
-  firebase_uid: string;
-  platforms?: string[];         // Accessible platforms
-  primary_platform?: string;    // Default platform
-  platform_context?: string;    // Current platform context
   iat: number;
   exp: number;
+  // package_tier, firebase_uid, platforms, primary_platform removed - derived from permissions
+}
+
+/**
+ * Derive package tier from permissions (matches backend logic)
+ */
+export function derivePackageTierFromPermissions(permissions: string[]): string {
+  if (hasEnterprisePermissions(permissions)) {
+    return 'ENTERPRISE';
+  } else if (hasPlatinumPermissions(permissions)) {
+    return 'PLATINUM';
+  } else if (hasGoldPermissions(permissions)) {
+    return 'GOLD';
+  } else if (hasSilverPermissions(permissions)) {
+    return 'SILVER';
+  } else if (hasBronzePermissions(permissions)) {
+    return 'BRONZE';
+  } else {
+    return 'FREE';
+  }
+}
+
+/**
+ * Derive accessible platforms from permissions
+ */
+export function deriveAccessiblePlatformsFromPermissions(permissions: string[]): string[] {
+  const platforms = new Set<string>();
+  
+  for (const permission of permissions) {
+    const platform = permission.split(':')[0];
+    if (platform) {
+      platforms.add(platform);
+    }
+  }
+  
+  return platforms.size > 0 ? Array.from(platforms) : ['epsx'];
+}
+
+/**
+ * Derive primary platform from permissions (priority: admin > epsx > epsx-pay > epsx-token)
+ */
+export function derivePrimaryPlatformFromPermissions(permissions: string[]): string {
+  if (permissions.some(p => p.startsWith('admin:'))) {
+    return 'admin';
+  } else if (permissions.some(p => p.startsWith('epsx:'))) {
+    return 'epsx';
+  } else if (permissions.some(p => p.startsWith('epsx-pay:'))) {
+    return 'epsx-pay';
+  } else if (permissions.some(p => p.startsWith('epsx-token:'))) {
+    return 'epsx-token';
+  } else {
+    return 'epsx';
+  }
+}
+
+// Helper functions for tier detection
+function hasEnterprisePermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('enterprise:') || 
+    p === 'admin:*:*' ||
+    p.includes('enterprise') ||
+    permissions.some(perm => perm.startsWith('admin:'))
+  );
+}
+
+function hasPlatinumPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('platinum:') ||
+    p.includes('platinum') ||
+    permissions.length >= 10 // Many permissions indicate higher tier
+  );
+}
+
+function hasGoldPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('gold:') ||
+    p.includes('gold') ||
+    permissions.some(perm => perm.includes('export') || perm.includes('advanced'))
+  );
+}
+
+function hasSilverPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('silver:') ||
+    p.includes('silver') ||
+    permissions.length >= 5 // Several permissions indicate silver tier
+  );
+}
+
+function hasBronzePermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('bronze:') ||
+    p.includes('bronze') ||
+    permissions.length >= 3 // Few permissions indicate bronze tier
+  );
 }
 
 /**
@@ -84,26 +182,16 @@ export function createJWTClaims(user: {
   id: string;
   email: string;
   name: string;
-  permissions: string[];        // Required: structured permissions
-  package_tier?: string;
-  firebase_uid?: string;
-  platforms?: string[];
-  primary_platform?: string;
-  platform_context?: string;
-}): EPSXJWTPayload {
+  permissions: string[];
+} | CreateJWTClaimsOptions): EPSXJWTPayload {
   const now = Math.floor(Date.now() / 1000);
-  const exp = now + (24 * 60 * 60); // 24 hours from now
+  const exp = now + (24 * 60 * 60);
   
   return {
     sub: user.id,
     email: user.email,
-    name: user.name,
-    permissions: user.permissions,
-    package_tier: user.package_tier || 'FREE',
-    firebase_uid: user.firebase_uid || user.id,
-    platforms: user.platforms || ['epsx', 'admin'],
-    primary_platform: user.primary_platform || 'admin',
-    platform_context: user.platform_context,
+    name: user.name || user.email.split('@')[0],
+    permissions: user.permissions || [],
     iat: now,
     exp: exp,
   };
@@ -116,13 +204,10 @@ export function decodeJWT(token: string): JWTUser | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     
-    // Convert to permission-only format
     return {
       uid: payload.sub || payload.uid,
       email: payload.email,
-      firebaseUid: payload.firebase_uid || payload.firebaseUid,
       permissions: payload.permissions || [],
-      package_tier: payload.package_tier || 'FREE',
       iat: payload.iat,
       exp: payload.exp,
     };
@@ -197,14 +282,9 @@ export function getJWTPermissions(payload: EPSXJWTPayload | JWTUser): string[] {
 /**
  * Check if user can access platform based on JWT payload
  */
-export function canJWTAccessPlatform(payload: EPSXJWTPayload, platform: string): boolean {
-  // Check if platform is in accessible platforms
-  if (payload.platforms?.includes(platform)) {
-    return true;
-  }
-  
-  // Check if user has any permissions for this platform
-  return payload.permissions.some(perm => perm.startsWith(`${platform}:`));
+export function canJWTAccessPlatform(payload: EPSXJWTPayload | JWTUser, platform: string): boolean {
+  const accessiblePlatforms = deriveAccessiblePlatformsFromPermissions(payload.permissions);
+  return accessiblePlatforms.includes(platform);
 }
 
 /**
@@ -214,11 +294,8 @@ export function createPermissionBasedClaims(legacyUser: {
   id: string;
   email: string;
   name: string;
-  role?: string; // Legacy role field
-  package_tier?: string;
-  firebase_uid?: string;
+  role?: string;
 }): EPSXJWTPayload {
-  // Convert legacy role to permissions
   let permissions: string[] = [];
   
   switch (legacyUser.role?.toLowerCase()) {
@@ -249,7 +326,9 @@ export function createPermissionBasedClaims(legacyUser: {
   }
   
   return createJWTClaims({
-    ...legacyUser,
-    permissions
+    id: legacyUser.id,
+    email: legacyUser.email,
+    name: legacyUser.name,
+    permissions,
   });
 }

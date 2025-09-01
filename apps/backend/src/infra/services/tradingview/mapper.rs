@@ -1,12 +1,16 @@
 // TradingView Mapper - Focused Module for Data Transformation and Mapping
+use uuid::Uuid;
 // Handles conversion between TradingView data and internal/frontend formats
 
-use uuid::Uuid;
 use tracing::{debug, error, info, warn};
 
+
 use crate::dom::entities::market_data::{TradingViewStock, StockDataField};
+
 use crate::dom::entities::eps_growth::EPSGrowthData;
+
 use super::types::{FrontendEPSData, StockDataResult};
+
 
 /// Data mapper for TradingView API responses
 pub struct TradingViewMapper;

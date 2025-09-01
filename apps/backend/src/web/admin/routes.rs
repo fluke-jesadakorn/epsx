@@ -44,6 +44,23 @@ use super::analytics_handlers::{
 use super::search_handlers::{
     search_users_handler,
 };
+// Embedded timestamp permission handlers
+use super::embedded_permission_handlers::{
+    grant_embedded_permission,
+    grant_bulk_embedded_permissions,
+    validate_embedded_permissions,
+    get_permission_expiry_status,
+    revoke_embedded_permission,
+    extend_embedded_permission,
+    cleanup_expired_permissions,
+};
+use super::bulk_permission_handlers::{
+    bulk_grant_permissions,
+    bulk_revoke_permissions,
+    bulk_assign_roles,
+    bulk_apply_permission_template,
+    bulk_validate_permissions,
+};
 use super::firebase_user_management::{
     create_user as firebase_create_user,
     get_user as firebase_get_user,
@@ -123,6 +140,13 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/bulk-update", post(bulk_update_users_handler))
         .route("/users/level-history", get(get_level_history_handler))
         
+        // Bulk Permission Management routes (require user-management module)
+        .route("/users/bulk/permissions/grant", post(bulk_grant_permissions))
+        .route("/users/bulk/permissions/revoke", post(bulk_revoke_permissions))
+        .route("/users/bulk/roles/assign", post(bulk_assign_roles))
+        .route("/users/bulk/templates/apply", post(bulk_apply_permission_template))
+        .route("/users/bulk/permissions/validate", post(bulk_validate_permissions))
+        
         // Unified User Management routes (require user-management module)
         .route("/users/:user_id/unified", get(get_unified_user_data_handler))
         .route("/users/:user_id/profile", put(update_user_profile_handler))
@@ -130,6 +154,15 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/modules", put(update_user_modules_handler))
         .route("/users/:user_id/billing", put(update_user_billing_handler))
         .route("/users/:user_id/activity", get(get_user_activity_handler))
+        
+        // Embedded Timestamp Permission Management routes (require user-management module)
+        .route("/users/:user_id/embedded-permissions", post(grant_embedded_permission))
+        .route("/users/bulk/embedded-permissions", post(grant_bulk_embedded_permissions))
+        .route("/users/:user_id/embedded-permissions/validate", post(validate_embedded_permissions))
+        .route("/users/:user_id/permissions/expiry-status", get(get_permission_expiry_status))
+        .route("/users/:user_id/embedded-permissions/revoke", post(revoke_embedded_permission))
+        .route("/users/:user_id/embedded-permissions/extend", post(extend_embedded_permission))
+        .route("/embedded-permissions/cleanup-expired", post(cleanup_expired_permissions))
         
         // Simple role system: complex permission management routes removed
         // Use basic user role updates through /users/:user_id endpoints

@@ -1,11 +1,17 @@
 use diesel::prelude::*;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
+
+
 use serde::{Serialize, Deserialize};
 
+
 use crate::infra::db::diesel::schema::user_permissions;
+
 use crate::dom::entities::{UserPermission, PermissionId};
+
 use crate::dom::values::UserId;
+
 
 // ============================================================================
 // USER PERMISSION MODELS - SEPARATE PERMISSION STORAGE

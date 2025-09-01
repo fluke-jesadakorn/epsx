@@ -1,11 +1,12 @@
 // ============================================================================
+use uuid::Uuid;
 // SIMPLE MODULE AUTH MIDDLEWARE STUB - REPLACING COMPLEX MODULE AUTH
 // ============================================================================
 // This file provides simple stubs for deleted module auth middleware
 // Works with the simple role system from auth/roles.rs
 
 use serde::{Serialize, Deserialize};
-use uuid::Uuid;
+
 
 // ============================================================================
 // SIMPLE AUTH CONTEXT STUBS

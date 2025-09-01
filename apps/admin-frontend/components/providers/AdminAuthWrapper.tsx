@@ -46,29 +46,22 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   const sessionData = await getSessionFromJWT();
   
   if (!sessionData?.isAuthenticated || !sessionData?.user) {
-    const { redirectToBackendAdminLogin } = await import('@/lib/server/auth');
-    redirectToBackendAdminLogin();
+    redirect('/login');
   }
   
   // Check if user has admin access using new permissions system
   const user = sessionData.user;
   
-  // Check permissions system
-  const hasPermissionAccess = user.permissions?.some((p: string) => 
-    p.includes(':manage') || 
-    p.includes(':admin') || 
-    p === '*'
+  // Check structured permissions only (no role-based fallbacks)
+  const hasAdminAccess = user.permissions?.some((p: string) => 
+    p === 'admin:*:*' ||           // Full admin access
+    p.startsWith('admin:')         // Any admin-scoped permission
   ) || false;
-  
-  // Check role-based access
-  const hasRoleAccess = user.role === 'admin' || user.role === 'moderator';
-  
-  const hasAdminAccess = hasPermissionAccess || hasRoleAccess;
   
   if (!hasAdminAccess) {
     console.warn('⚠️ AdminAuthWrapper: User lacks admin permissions', {
       permissions: user.permissions,
-      role: user.role
+      required: 'admin:*:* or admin:{resource}:{action}'
     });
     redirect('/access-denied?reason=insufficient_admin_permissions');
   }

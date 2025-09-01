@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_async::{RunQueryDsl, AsyncConnection};
-use uuid::Uuid;
 use chrono::Utc;
+use uuid::Uuid;
 use std::sync::Arc;
 
 use crate::app::ports::repositories::{UserPermissionRepository, RepoError, PermissionStats};

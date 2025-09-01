@@ -1,4 +1,5 @@
 // Domain entities with business rules and behavior
+use chrono::{DateTime, Utc};
 
 pub mod user;
 pub mod user_permission;
@@ -22,7 +23,6 @@ pub use module::*;
 pub use market_data::*;
 pub use eps_growth::*;
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
 

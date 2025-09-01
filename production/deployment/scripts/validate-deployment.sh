@@ -372,7 +372,7 @@ else
     log_result "FAIL" "CORS Configuration" "Unable to test CORS configuration"
 fi
 
-echo -e "\n${PURPLE}=== 5. COMPLIANCE VALIDATION ===${NC}"
+echo -e "\n${PURPLE}=== 5. SECURITY VALIDATION ===${NC}"
 
 # 5.1 Audit Logging
 echo -e "\n${YELLOW}5.1 Audit Logging${NC}"

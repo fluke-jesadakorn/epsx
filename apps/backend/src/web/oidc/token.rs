@@ -1,21 +1,31 @@
 // OIDC Token Endpoint implementation
+use chrono::{DateTime, Utc, Duration};
+use uuid::Uuid;
 
 use axum::{
+
     extract::{State, Form, FromRequest},
     response::Json,
     http::{StatusCode, HeaderMap},
     async_trait,
 };
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+
 use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
+
 use std::collections::HashMap;
+
 use base64::Engine;
+
 use crate::config::env::get_env_var;
 
+
 use crate::web::auth::AppState;
+
 use crate::web::oidc::authorization::AuthorizationCodeData;
+
 use crate::infra::firebase_admin::FirebaseUser;
+
 
 /// OIDC Error Response
 #[derive(Debug, Serialize)]
@@ -127,15 +137,14 @@ pub async fn oidc_token(
     State(app_state): State<AppState>,
     JsonForm(token_request): JsonForm<TokenRequest>,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
-    tracing::error!("🔍 AUTH.JS DEBUG: Token endpoint request");
-    tracing::error!("🔍 Full request: {:?}", token_request);
+    tracing::debug!("Token endpoint request: {:?}", token_request);
     
     // Validate required fields and return proper JSON errors
     let grant_type = token_request.grant_type.as_deref().unwrap_or("");
     let client_id = match token_request.client_id.as_deref() {
         Some(id) => id,
         None => {
-            tracing::error!("🔍 AUTH.JS ERROR: Missing client_id parameter");
+            tracing::warn!("Missing client_id parameter");
             return Err((
                 StatusCode::BAD_REQUEST,
                 Json(TokenErrorResponse {
@@ -147,8 +156,8 @@ pub async fn oidc_token(
         }
     };
     
-    tracing::error!("🔍 AUTH.JS DEBUG: grant_type={}, client_id={}, code={:?}, redirect_uri={:?}, code_verifier={:?}", 
-                   grant_type, client_id, token_request.code, token_request.redirect_uri, token_request.code_verifier);
+    tracing::debug!("Token request - grant_type={}, client_id={}, has_code={}, has_redirect_uri={}, has_code_verifier={}", 
+                   grant_type, client_id, token_request.code.is_some(), token_request.redirect_uri.is_some(), token_request.code_verifier.is_some());
 
     match grant_type {
         "authorization_code" => handle_authorization_code_grant(app_state, token_request).await,
@@ -177,11 +186,11 @@ async fn handle_authorization_code_grant(
     app_state: AppState,
     token_request: TokenRequest,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
-    tracing::error!("🔍 AUTH.JS DEBUG: Handling authorization code grant");
+    tracing::debug!("Handling authorization code grant");
     
     // Validate required parameters
     let code = token_request.code.ok_or_else(|| {
-        tracing::error!("🔍 AUTH.JS ERROR: Missing code parameter");
+        tracing::warn!("Missing code parameter");
         (
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -193,7 +202,7 @@ async fn handle_authorization_code_grant(
     })?;
 
     let redirect_uri = token_request.redirect_uri.ok_or_else(|| {
-        tracing::error!("🔍 AUTH.JS ERROR: Missing redirect_uri parameter");
+        tracing::warn!("Missing redirect_uri parameter");
         (
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -204,12 +213,12 @@ async fn handle_authorization_code_grant(
         )
     })?;
 
-    tracing::error!("🔍 AUTH.JS DEBUG: Validating authorization code: {}", code);
+    tracing::debug!("Validating authorization code");
     
     // Validate and consume authorization code
     let auth_data = validate_and_consume_authorization_code(&app_state, &code).await
         .map_err(|e| {
-            tracing::error!("🔍 AUTH.JS ERROR: Authorization code validation failed: {}", e);
+            tracing::warn!("Authorization code validation failed: {}", e);
             (
                 StatusCode::UNAUTHORIZED,
                 Json(TokenErrorResponse {
@@ -436,11 +445,10 @@ async fn validate_and_consume_authorization_code(
     
     // Get session for authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
-    tracing::error!("🔍 AUTH.JS DEBUG: Looking for session with ID: {}", session_id);
-    tracing::error!("🔍 AUTH.JS DEBUG: Session UUID: {:?}", session_id);
+    tracing::debug!("Looking for session with ID: {}", session_id);
     
     let session_result = app_state.session_repo.get(&session_id).await;
-    tracing::error!("🔍 AUTH.JS DEBUG: Session repo result: {:?}", session_result);
+    tracing::debug!("Session repo result: success={}", session_result.is_ok());
     
     let session = session_result?
         .ok_or("Authorization code not found")?;
@@ -714,7 +722,6 @@ fn get_jwt_secret() -> String {
 
 /// Generate a unique JWT ID (JTI) for token revocation support
 fn generate_jti() -> String {
-    use uuid::Uuid;
     Uuid::new_v4().to_string()
 }
 
@@ -766,10 +773,7 @@ async fn get_user_database_info(
     let _admin_modules_placeholder = vec![];
     
     // Get user data from database using Firebase UID for package tier and permissions
-    use crate::dom::values::UserId;
-    let user_id = UserId::new(firebase_uid.to_string());
-    
-    let (package_tier, permissions) = match app_state.user_repo.get(&user_id).await {
+    let (package_tier, permissions) = match app_state.user_repo.find_by_firebase_uid(firebase_uid).await {
         Ok(Some(user)) => {
             let tier = match user.subscription().tier {
                 crate::dom::values::SubscriptionTier::Free => "FREE".to_string(),

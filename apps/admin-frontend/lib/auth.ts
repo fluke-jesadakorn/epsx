@@ -4,19 +4,13 @@
 export { getServerSession, getAuthUser } from './server/auth';
 
 import { create } from 'zustand'
+import { derivePackageTierFromPermissions, deriveAccessiblePlatformsFromPermissions, derivePrimaryPlatformFromPermissions } from './auth-utils'
 
 export interface User {
   id: string
   email: string
   name?: string
   permissions: string[]  // Structured permissions only: "platform:resource:action"
-  package_tier: string
-  firebase_uid?: string
-  
-  // Cross-platform fields
-  platforms: string[]          // Available platforms: ['epsx', 'epsx-pay', 'epsx-token']
-  primary_platform: string     // Default platform
-  platform_context?: string    // Current platform context
 }
 
 export interface AuthState {
@@ -238,13 +232,6 @@ export const useAuth = create<AuthState>((set, get) => ({
         email: data.user.email,
         name: data.user.name,
         permissions: data.user.permissions || [],
-        package_tier: data.user.package_tier || 'FREE',
-        firebase_uid: data.user.firebase_uid,
-        
-        // Cross-platform fields
-        platforms: data.user.platforms || ['epsx'],
-        primary_platform: data.user.primary_platform || 'epsx',
-        platform_context: data.user.platform_context,
       }
 
       set({ 
@@ -295,7 +282,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     // If permission doesn't contain platform prefix, add current platform
     let checkPermission = permission
     if (!permission.includes(':')) {
-      const currentPlatform = user.platform_context || user.primary_platform
+      const currentPlatform = derivePrimaryPlatformFromPermissions(user.permissions)
       checkPermission = `${currentPlatform}:${permission}`
     }
     
@@ -329,7 +316,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       ENTERPRISE: 6,
     }
     
-    const userLevel = tierHierarchy[user.package_tier as keyof typeof tierHierarchy] || 0
+    const userPackageTier = derivePackageTierFromPermissions(user.permissions)
+    const userLevel = tierHierarchy[userPackageTier as keyof typeof tierHierarchy] || 0
     const requiredLevel = tierHierarchy[tier as keyof typeof tierHierarchy] || 1
     
     return userLevel >= requiredLevel
@@ -341,7 +329,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!user) return
     
     // Check if user can access the platform
-    if (!user.platforms.includes(platform)) {
+    const availablePlatforms = deriveAccessiblePlatformsFromPermissions(user.permissions)
+    if (!availablePlatforms.includes(platform)) {
       set({ error: `Access denied to platform: ${platform}` })
       return
     }
@@ -367,7 +356,6 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ 
         user: { 
           ...user, 
-          platform_context: platform 
         },
         isLoading: false
       })
@@ -383,19 +371,20 @@ export const useAuth = create<AuthState>((set, get) => ({
   
   getCurrentPlatform: () => {
     const { user } = get()
-    return user?.platform_context || user?.primary_platform || 'epsx'
+    return derivePrimaryPlatformFromPermissions(user?.permissions || []) || 'epsx'
   },
   
   getAvailablePlatforms: () => {
     const { user } = get()
-    return user?.platforms || ['epsx']
+    return deriveAccessiblePlatformsFromPermissions(user?.permissions || [])
   },
   
   canAccessPlatform: (platform: string) => {
     const { user } = get()
     if (!user) return false
     
-    return user.platforms.includes(platform)
+    const availablePlatforms = deriveAccessiblePlatformsFromPermissions(user.permissions)
+    return availablePlatforms.includes(platform)
   },
   
   // Admin-specific permission checks - using structured permissions

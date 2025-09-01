@@ -93,7 +93,6 @@ test.describe('👥 Complete User Management Module Coverage', () => {
       { path: '/users', name: 'Users List' },
       { path: '/users/create', name: 'Create User' },
       { path: '/users/permissions', name: 'User Permissions' },
-      { path: '/users/roles', name: 'User Roles' },
     ];
 
     for (const userPage of userPages) {

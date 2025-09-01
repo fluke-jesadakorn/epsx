@@ -11,7 +11,15 @@ export async function getJWTFromCookies(): Promise<string | null> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    return cookieStore.get('epsx_admin_jwt')?.value || null;
+    
+    // Debug: Log all cookies to see what's available
+    const allCookies = cookieStore.getAll();
+    console.log('🔍 All available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
+    
+    const jwtCookie = cookieStore.get('epsx_admin_jwt');
+    console.log('🔍 JWT cookie lookup result:', { found: !!jwtCookie, hasValue: !!jwtCookie?.value });
+    
+    return jwtCookie?.value || null;
   } catch (error) {
     console.error('❌ Failed to get JWT from cookies:', error);
     return null;

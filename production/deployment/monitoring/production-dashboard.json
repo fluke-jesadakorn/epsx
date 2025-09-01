@@ -321,37 +321,6 @@
             }
           }
         }
-      },
-      {
-        "xPos": 6,
-        "yPos": 19,
-        "width": 6,
-        "height": 4,
-        "widget": {
-          "title": "Compliance Status",
-          "scorecard": {
-            "timeSeriesQuery": {
-              "timeSeriesFilter": {
-                "filter": "metric.type=\"custom.googleapis.com/epsx/compliance/violations\"",
-                "aggregation": {
-                  "alignmentPeriod": "3600s",
-                  "perSeriesAligner": "ALIGN_SUM",
-                  "crossSeriesReducer": "REDUCE_SUM"
-                }
-              }
-            },
-            "sparkChartView": {
-              "sparkChartType": "SPARK_BAR"
-            },
-            "thresholds": [
-              {
-                "value": 1,
-                "color": "RED",
-                "direction": "DIRECTION_GREATER"
-              }
-            ]
-          }
-        }
       }
     ]
   },

@@ -318,7 +318,7 @@ test.describe('📋 Bulk Operations Interface', () => {
   });
 });
 
-test.describe('🌐 Real-time Updates and WebSocket Connectivity', () => {
+test.describe('🌐 Real-time Updates and SSE Connectivity', () => {
   test.beforeEach(async ({ page }) => {
     await loginAdmin(page);
   });
@@ -329,7 +329,7 @@ test.describe('🌐 Real-time Updates and WebSocket Connectivity', () => {
     await page.goto('/users');
     await page.waitForLoadState('networkidle');
 
-    // Wait for WebSocket connection
+    // Wait for SSE connection
     await page.waitForTimeout(3000);
 
     // Check for real-time status indicators

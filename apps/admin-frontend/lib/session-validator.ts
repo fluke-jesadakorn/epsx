@@ -26,7 +26,6 @@ interface UserProfile {
   // Cross-platform fields
   platforms?: string[]
   primary_platform?: string
-  platform_context?: string
 }
 
 interface SessionValidationResponse {
@@ -44,7 +43,6 @@ interface SessionValidationResponse {
   
   // Cross-platform fields
   platforms?: string[]
-  platform_context?: string
 }
 
 interface SessionValidatorCache {
@@ -56,7 +54,6 @@ interface SessionValidatorCache {
   
   // Cross-platform fields
   platforms?: string[]
-  platform_context?: string
 }
 
 export class AdminSessionValidator {
@@ -117,7 +114,6 @@ export class AdminSessionValidator {
           user: cached.user,
           permissions: cached.permissions,
           platforms: cached.platforms,
-          platform_context: cached.platform_context,
           package_tier: cached.package_tier,
           expires_at: cached.expires_at,
           performance: {
@@ -157,8 +153,7 @@ export class AdminSessionValidator {
         
         // Cross-platform fields
         platforms: payload.platforms || ['epsx'],
-        primary_platform: payload.primary_platform || 'epsx',
-        platform_context: payload.platform_context
+        primary_platform: payload.primary_platform || 'epsx'
       }
       
       // Validate admin permissions
@@ -183,8 +178,7 @@ export class AdminSessionValidator {
         package_tier: user.package_tier,
         expires_at,
         cached_at: Date.now(),
-        platforms: user.platforms,
-        platform_context: user.platform_context
+        platforms: user.platforms
       })
       
       return {
@@ -192,7 +186,6 @@ export class AdminSessionValidator {
         user,
         permissions: user.permissions,
         platforms: user.platforms,
-        platform_context: user.platform_context,
         package_tier: user.package_tier,
         expires_at,
         performance: {
@@ -215,28 +208,23 @@ export class AdminSessionValidator {
   }
   
   /**
-   * Check if user has admin access
+   * Check if user has admin access using structured permissions only
    */
   private hasAdminAccess(user: UserProfile): boolean {
-    // Check if user has admin or moderator role
-    if (user.role === 'admin' || user.role === 'moderator') {
+    // Check for admin wildcard permission
+    if (user.permissions && user.permissions.includes('admin:*:*')) {
       return true
     }
     
-    // Check if user has any admin permissions (indicating admin access)
+    // Check if user has any admin-scoped permissions
     if (user.permissions && user.permissions.some(p => 
-      p.includes(':manage') || 
-      p.includes(':admin') ||
-      p.includes('users:') ||
-      p.includes('system:')
+      p.startsWith('admin:')
     )) {
       return true
     }
     
-    // For now, allow users who successfully authenticated through OAuth admin flow
-    // TODO: Add proper admin role assignment in backend
-    console.warn('⚠️ Admin access granted based on OAuth authentication - user should have proper admin role assigned')
-    return true
+    // No valid admin permissions found
+    return false
   }
   
   /**
@@ -361,38 +349,27 @@ export function hasPermission(user: UserProfile, permission: string): boolean {
   })
 }
 
-export function hasRole(user: UserProfile, role: string): boolean {
-  const roleHierarchy: Record<string, number> = {
-    user: 1,
-    premium: 2,
-    moderator: 3,
-    admin: 4,
-  }
-  
-  const userLevel = roleHierarchy[user.role] || 0
-  const requiredLevel = roleHierarchy[role] || 1
-  
-  return userLevel >= requiredLevel
-}
 
 export function hasAdminPermission(user: UserProfile, permission: string): boolean {
+  // Check for admin wildcard permission
+  if (user.permissions && user.permissions.includes('admin:*:*')) {
+    return true
+  }
+  
   // Check if user has the specific permission
   if (user.permissions && user.permissions.includes(permission)) {
     return true
   }
   
-  // Check for platform-specific permission if not already specified
-  if (!permission.includes(':')) {
-    const platform = user.platform_context || user.primary_platform || 'epsx'
-    const fullPermission = `${platform}:${permission}`
-    if (user.permissions && user.permissions.includes(fullPermission)) {
+  // Check for broader permissions (e.g., admin:users:* covers admin:users:manage)
+  if (permission.includes(':')) {
+    const [platform, resource] = permission.split(':')
+    if (user.permissions && user.permissions.some(p => 
+      p === `${platform}:${resource}:*` || 
+      p === `${platform}:*:*`
+    )) {
       return true
     }
-  }
-  
-  // Super admin has access to all modules
-  if (user.role === 'admin') {
-    return true
   }
   
   return false
@@ -414,38 +391,31 @@ export function hasPackageTier(user: UserProfile, tier: string): boolean {
   return userLevel >= requiredLevel
 }
 
-// Path-based admin access checking with structured permissions
+// Path-based admin access checking with structured permissions only
 export function canAccessAdminPath(user: UserProfile, path: string): boolean {
-  // Super admin can access everything
-  if (user.role === 'admin') {
+  // Check for admin wildcard permission
+  if (user.permissions && user.permissions.includes('admin:*:*')) {
     return true
   }
   
-  const platform = user.platform_context || user.primary_platform || 'epsx'
-  
-  // Check permission-based access
-  if (path.includes('/admin/users') || path.includes('/users')) {
-    return hasAdminPermission(user, `${platform}:users:manage`)
+  // Map paths to required permissions
+  const pathPermissions: Record<string, string> = {
+    '/users': 'admin:users:manage',
+    '/analytics': 'admin:analytics:view',
+    '/permissions': 'admin:permissions:manage',
+    '/notifications': 'admin:notifications:manage',
+    '/settings': 'admin:system:configure',
+    '/developer-portal': 'admin:developer:access',
+    '/stock-ranking-packages': 'admin:packages:manage',
   }
   
-  if (path.includes('/admin/analytics') || path.includes('/analytics')) {
-    return hasAdminPermission(user, `${platform}:analytics:read`)
+  // Check specific path permissions
+  for (const [pathPrefix, permission] of Object.entries(pathPermissions)) {
+    if (path.includes(pathPrefix)) {
+      return hasAdminPermission(user, permission)
+    }
   }
   
-  if (path.includes('/admin/reports') || path.includes('/reports')) {
-    return hasAdminPermission(user, `${platform}:reports:read`)
-  }
-  
-  if (path.includes('/admin/audit') || path.includes('/audit')) {
-    return hasAdminPermission(user, `${platform}:audit:read`)
-  }
-  
-  if (path.includes('/admin/config') || path.includes('/system')) {
-    return hasAdminPermission(user, `${platform}:system:manage`)
-  }
-  
-  // Default: allow if user has any admin permissions
-  return user.permissions && user.permissions.some(p => 
-    p.includes(':manage') || p.includes(':admin') || p.includes('system:')
-  )
+  // Default: allow if user has any admin-scoped permissions
+  return user.permissions && user.permissions.some(p => p.startsWith('admin:'))
 }

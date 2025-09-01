@@ -24,21 +24,8 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Admin module types (streamlined to 8 core modules)
-DO $$ BEGIN
-    CREATE TYPE admin_module AS ENUM (
-        'user-management',     -- User CRUD, profile management
-        'analytics-access',    -- Analytics dashboards and reports  
-        'billing-admin',       -- Payment and subscription management
-        'system-admin',        -- System configuration and monitoring
-        'content-management',  -- Content and resource management
-        'support-access',      -- User support and troubleshooting
-        'security-management', -- Security monitoring and compliance
-        'api-management'       -- API keys and developer tools
-    );
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- Admin module types removed - migrated to structured permissions system
+-- Legacy admin_module enum no longer needed
 
 -- Notification system types
 DO $$ BEGIN
@@ -115,43 +102,15 @@ CREATE TABLE IF NOT EXISTS firebase_sessions (
 -- SIMPLIFIED ADMIN PERMISSION SYSTEM
 -- ============================================================================
 
--- Admin modules definition
-CREATE TABLE IF NOT EXISTS admin_modules (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    module_code admin_module UNIQUE NOT NULL,
-    module_name VARCHAR(100) NOT NULL,
-    description TEXT NOT NULL,
-    icon VARCHAR(50),
-    color VARCHAR(20),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- User admin role assignments (simplified)
-CREATE TABLE IF NOT EXISTS user_admin_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    firebase_uid VARCHAR(128) NOT NULL,
-    module_code admin_module NOT NULL,
-    granted_by VARCHAR(128),
-    expires_at TIMESTAMPTZ,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_firebase_uid_module UNIQUE (firebase_uid, module_code)
-);
-
--- Admin role assignment audit
-CREATE TABLE IF NOT EXISTS admin_role_audit (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    firebase_uid VARCHAR(128) NOT NULL,
-    module_code admin_module NOT NULL,
-    action VARCHAR(50) NOT NULL, -- 'granted', 'revoked', 'expired'
-    performed_by VARCHAR(128),
-    reason TEXT,
-    metadata JSONB DEFAULT '{}',
-    timestamp TIMESTAMPTZ DEFAULT NOW()
-);
+-- ============================================================================
+-- LEGACY ADMIN MODULES SYSTEM REMOVED
+-- ============================================================================
+-- The following tables have been migrated to structured permissions:
+-- - admin_modules -> replaced by structured permission format "platform:resource:action"
+-- - user_admin_roles -> replaced by user_permissions table
+-- - admin_role_audit -> replaced by audit_logs table
+-- Migration completed: 2025-01-31
+-- ============================================================================
 
 -- ============================================================================
 -- NOTIFICATIONS SYSTEM
@@ -382,17 +341,9 @@ $BODY$;
 -- ESSENTIAL SEED DATA
 -- ============================================================================
 
--- Core admin modules (8 essential modules)
-INSERT INTO admin_modules (module_code, module_name, description, icon, color) VALUES
-('user-management', 'User Management', 'User CRUD operations, profile management, and account administration', 'users', 'blue'),
-('analytics-access', 'Analytics Access', 'Dashboard access, reporting, and data analysis capabilities', 'chart-bar', 'green'),
-('billing-admin', 'Billing Administration', 'Payment management, subscriptions, and package assignments', 'credit-card', 'emerald'),
-('system-admin', 'System Administration', 'Database management, system configuration, and infrastructure monitoring', 'server', 'red'),
-('content-management', 'Content Management', 'Content creation, editing, and resource management', 'document-text', 'purple'),
-('support-access', 'Support Access', 'User support tools, ticketing, and troubleshooting capabilities', 'support', 'yellow'),
-('security-management', 'Security Management', 'Security monitoring, compliance, and audit management', 'shield-check', 'orange'),
-('api-management', 'API Management', 'API key management, developer tools, and integration oversight', 'code', 'indigo')
-ON CONFLICT (module_code) DO NOTHING;
+-- Legacy admin modules data removed - migrated to structured permissions
+-- These permissions are now handled via user_permissions table with format:
+-- "epsx:users:manage", "admin:analytics:access", etc.
 
 -- Sample EPS analytics data for development and testing
 INSERT INTO eps_growth_analytics (symbol, name, country, sector, exchange, current_eps, qoq_growth_rate, price_current, market_cap, volume, ranking_score) VALUES
@@ -420,28 +371,28 @@ BEGIN
     VALUES ('admin-sample-uid-12345', 'admin@epsx.io', 'Admin User', 'EPSX Admin', 'admin', 'admin', true)
     ON CONFLICT (firebase_uid) DO NOTHING;
     
-    -- Grant all admin modules to sample admin user
-    INSERT INTO user_admin_roles (firebase_uid, module_code, granted_by, is_active)
-    SELECT 'admin-sample-uid-12345', module_code, 'system', true
-    FROM admin_modules
-    ON CONFLICT (firebase_uid, module_code) DO NOTHING;
+    -- Grant admin permissions to sample admin user (structured permissions)
+    INSERT INTO user_permissions (user_id, permission, granted_at, granted_by, is_active)
+    VALUES ((SELECT id FROM users WHERE firebase_uid = 'admin-sample-uid-12345'), 'admin:*:*', NOW(), 'admin-sample-uid-12345', true)
+    ON CONFLICT DO NOTHING;
 END $$;
 
 -- ============================================================================
 -- DATA MIGRATION AND CLEANUP
 -- ============================================================================
 
--- Update role column based on existing admin_modules and package_tier
+-- Update role column based on structured permissions and package_tier
 UPDATE users 
 SET role = CASE
-    -- Users with admin modules get admin role
+    -- Users with admin permissions get admin role
     WHEN EXISTS (
-        SELECT 1 FROM user_admin_roles uar 
-        WHERE uar.firebase_uid = users.firebase_uid 
-        AND uar.is_active = true 
-        AND (uar.expires_at IS NULL OR uar.expires_at > NOW())
+        SELECT 1 FROM user_permissions up 
+        WHERE up.user_id = users.id 
+        AND up.is_active = true 
+        AND (up.expires_at IS NULL OR up.expires_at > NOW())
+        AND up.permission LIKE 'admin:%'
     ) THEN 'admin'::user_role
-    -- Users with admin or premium package tiers get user role  
+    -- Users with premium package tiers get user role  
     WHEN package_tier IN ('admin', 'platinum', 'gold', 'silver', 'bronze') THEN 'user'::user_role
     -- Everyone else gets guest role (including 'free' tier)
     ELSE 'guest'::user_role

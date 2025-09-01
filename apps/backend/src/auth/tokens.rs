@@ -222,13 +222,8 @@ async fn create_access_token(
         email: firebase_user.email.clone().unwrap_or_default(),
         name: firebase_user.display_name.clone(),
         permissions: Some(permissions),
-        package_tier: Some(get_tier(&firebase_user.custom_claims)),
-        firebase_uid: Some(firebase_user.uid.clone()),
         audience: Some("epsx-api".to_string()),
         ttl_seconds: Some(expires_in as usize),
-        platforms: Some(vec!["epsx".to_string()]), // Default platform access
-        primary_platform: Some("epsx".to_string()),
-        platform_context: None,
     };
 
     jwt::JWT.create(user_data)
@@ -309,7 +304,7 @@ async fn get_refresh_data(
         .map_err(|e| Error::ServerError(format!("Failed to parse refresh data: {}", e)))?;
 
     // Check expiration
-    if Utc::now() - refresh_data.created_at > Duration::days(7) {
+    if refresh_data.created_at + Duration::days(7) < Utc::now() {
         return Err(Error::InvalidGrant);
     }
 
@@ -388,7 +383,7 @@ pub async fn userinfo(
     let token = &auth_header[7..];
     
     // Validate token and get permissions from separate table
-    let (user, permissions) = match jwt::JWT.decode_with_permissions(token) {
+    let (user, permissions) = match jwt::JWT.decode_with_permissions(token).await {
         Ok((user, permissions)) => (user, permissions),
         Err(_) => return Err(Error::InvalidRequest("Invalid or expired token".to_string()).to_response()),
     };
@@ -399,7 +394,7 @@ pub async fn userinfo(
         "email_verified": true,
         "name": user.name,
         "permissions": permissions,
-        "package_tier": user.package_tier
+        "package_tier": crate::auth::jwt::derive_package_tier_from_permissions(&permissions)
     });
     
     Ok(Json(userinfo))

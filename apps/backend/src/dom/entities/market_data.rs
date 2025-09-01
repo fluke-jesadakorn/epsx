@@ -212,13 +212,13 @@ pub enum MarketDataError {
     SerializationError(String),
 }
 
-impl From<crate::infra::services::websocket::WebSocketError> for MarketDataError {
-    fn from(err: crate::infra::services::websocket::WebSocketError) -> Self {
+impl From<crate::app::ports::services::WebSocketError> for MarketDataError {
+    fn from(err: crate::app::ports::services::WebSocketError) -> Self {
         match err {
-            crate::infra::services::websocket::WebSocketError::ConnectionError(msg) => MarketDataError::NetworkError(msg),
-            crate::infra::services::websocket::WebSocketError::AuthenticationError(msg) => MarketDataError::ExternalApiError(msg),
-            crate::infra::services::websocket::WebSocketError::ParsingError(msg) => MarketDataError::ParsingError(msg),
-            crate::infra::services::websocket::WebSocketError::NetworkError(msg) => MarketDataError::NetworkError(msg),
+            crate::app::ports::services::WebSocketError::ConnectionError(msg) => MarketDataError::NetworkError(msg),
+            crate::app::ports::services::WebSocketError::UserNotConnected(msg) => MarketDataError::ExternalApiError(msg),
+            crate::app::ports::services::WebSocketError::BroadcastFailed(msg) => MarketDataError::NetworkError(msg),
+            crate::app::ports::services::WebSocketError::MessageTooLarge => MarketDataError::ParsingError("Message too large".to_string()),
         }
     }
 }

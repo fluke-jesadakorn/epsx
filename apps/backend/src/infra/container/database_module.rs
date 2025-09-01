@@ -7,7 +7,7 @@ use crate::infra::db::diesel::{
     DbPool, create_pool,
     repos::{
         DieselUserRepository, DieselUserPermissionRepository, DieselSessionRepository, DieselAuditRepository,
-        DieselModuleRepository, StubStockRepository
+        DieselModuleRepository, StubStockRepository, RefreshTokenRepository, RevokedTokenRepository
     }
 };
 
@@ -20,6 +20,8 @@ pub struct DatabaseModule {
     pub session_repo: Arc<dyn SessionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
     pub stock_repo: Arc<dyn StockRepository>,
+    pub refresh_token_repo: Arc<RefreshTokenRepository>,
+    pub revoked_token_repo: Arc<RevokedTokenRepository>,
 }
 
 impl DatabaseModule {
@@ -34,6 +36,8 @@ impl DatabaseModule {
         let audit_repo = Arc::new(DieselAuditRepository::new(database_pool.clone())) as Arc<dyn AuditRepository>;
         // Stock repository removed - replaced with EPS analytics system
         let stock_repo = Arc::new(StubStockRepository::new()) as Arc<dyn StockRepository>;
+        let refresh_token_repo = Arc::new(RefreshTokenRepository::new(database_pool.clone()));
+        let revoked_token_repo = Arc::new(RevokedTokenRepository::new(database_pool.clone()));
         
         tracing::info!("✅ Repository layer created successfully with user permissions");
         
@@ -44,6 +48,8 @@ impl DatabaseModule {
             session_repo,
             audit_repo,
             stock_repo,
+            refresh_token_repo,
+            revoked_token_repo,
         })
     }
 

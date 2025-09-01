@@ -200,29 +200,6 @@ security:
       availability_threshold: 0.999  # 99.9%
       alert_on_threshold_breach: true
 
-  # Compliance
-  compliance:
-    # Regulatory Requirements
-    regulations:
-      sox_compliance: true
-      pci_dss_compliance: true
-      gdpr_compliance: true
-      ccpa_compliance: true
-    
-    # Audit Requirements
-    audit:
-      log_all_admin_actions: true
-      log_all_user_actions: true
-      log_all_api_calls: true
-      immutable_audit_trail: true
-      regular_compliance_checks: true
-    
-    # Data Retention
-    retention:
-      user_data_retention_days: 2555200  # 7 years (SOX)
-      log_retention_days: 365
-      backup_retention_days: 2555200
-      secure_deletion: true
 
 # Environment-Specific Overrides
 environments:

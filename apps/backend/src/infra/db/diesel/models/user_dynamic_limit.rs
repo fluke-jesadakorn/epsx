@@ -1,8 +1,12 @@
 use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use serde::{Deserialize, Serialize};
+
 use chrono::{DateTime, Utc, NaiveDateTime};
+
 use crate::infra::db::diesel::schema::user_dynamic_limits;
+
 
 /// Diesel model for user_dynamic_limits table
 #[derive(Queryable, Selectable, Debug, Clone, Serialize, Deserialize)]

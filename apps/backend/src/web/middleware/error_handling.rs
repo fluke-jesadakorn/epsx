@@ -1,6 +1,8 @@
 // Enhanced error handling middleware with comprehensive logging and context
+use uuid::Uuid;
 
 use axum::{
+
     extract::Request,
     http::{StatusCode, HeaderMap},
     middleware::Next,
@@ -8,10 +10,12 @@ use axum::{
     Json,
 };
 use serde_json::json;
+
 use std::time::Instant;
-use uuid::Uuid;
+
 
 use crate::core::errors::{AppError, ErrorKind, ErrorLogger, ErrorSanitizer, ErrorContextBuilder};
+
 
 /// Error response format for API clients
 #[derive(serde::Serialize)]

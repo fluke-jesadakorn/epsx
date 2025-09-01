@@ -180,5 +180,5 @@ function useToast() {
   }
 }
 
-export { useToast }
+export { useToast, toast }
 export type Toast = Omit<ToasterToast, "id">

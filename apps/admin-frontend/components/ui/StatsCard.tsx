@@ -6,8 +6,11 @@
  */
 
 import { LucideIcon } from 'lucide-react';
-import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system';
-import type { AdminCardVariants } from '@/design-system';
+
+// Simple className utility to replace design system cn function
+function cn(...classes: (string | undefined | null | false)[]): string {
+  return classes.filter(Boolean).join(' ');
+}
 
 export interface StatsCardProps {
   title: string;
@@ -22,7 +25,7 @@ export interface StatsCardProps {
   className?: string;
   change?: string;
   // New design system props
-  cardVariant?: AdminCardVariants['variant'];
+  cardVariant?: 'default' | 'pancake' | 'user' | 'permission' | 'billing' | 'analytics' | 'warning' | 'error';
   trend?: 'up' | 'down' | 'neutral';
 }
 
@@ -43,8 +46,8 @@ export function StatsCard({
   trend,
 }: StatsCardProps) {
   
-  // Map legacy variants to new design system variants
-  const getCardVariant = (): AdminCardVariants['variant'] => {
+  // Map legacy variants to card variants
+  const getCardVariant = () => {
     if (cardVariant) return cardVariant;
     
     // Legacy mapping
@@ -68,13 +71,16 @@ export function StatsCard({
     return variantMap[variant] || variantMap.default;
   };
 
-  // Use design system variants
-  const cardClasses = adminCardVariants({
-    variant: getCardVariant(),
-    hover: variant === 'enhanced' ? 'both' : 'lift',
-    padding: variant === 'inline' ? 'sm' : 'default',
-    interactive: false,
-  });
+  // Use standard Tailwind classes instead of design system
+  const getCardClasses = () => {
+    const baseClasses = 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700';
+    const paddingClasses = variant === 'inline' ? 'p-4' : 'p-6';
+    const hoverClasses = 'hover:shadow-lg transition-shadow duration-200';
+    
+    return cn(baseClasses, paddingClasses, hoverClasses);
+  };
+
+  const cardClasses = getCardClasses();
 
   const iconColors = getIconColors();
 
@@ -103,10 +109,9 @@ export function StatsCard({
                 <div className="mt-1">
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-1 text-xs font-medium',
-                    adminBadgeVariants({ 
-                      variant: trend === 'up' ? 'success' : trend === 'down' ? 'error' : 'default',
-                      size: 'sm' 
-                    })
+                    trend === 'up' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 
+                    trend === 'down' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' : 
+                    'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                   )}>
                     {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'} {change}
                   </span>

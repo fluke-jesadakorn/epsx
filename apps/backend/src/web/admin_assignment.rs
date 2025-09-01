@@ -147,16 +147,13 @@ pub async fn assign_admin_role_handler(
 ) -> Result<Json<AdminAssignmentResponse>, StatusCode> {
     tracing::info!("Admin assignment request for user {} with role {}", user_id, request.role);
     
-    // Create admin custom claims
+    // Create admin custom claims - using structured permissions
     let mut custom_claims = HashMap::new();
     custom_claims.insert("admin".to_string(), Value::Bool(true));
     custom_claims.insert("access_level".to_string(), Value::String("full".to_string()));
-    custom_claims.insert("role".to_string(), Value::String("admin".to_string()));
     custom_claims.insert("permissions".to_string(), Value::Array(vec![
-        Value::String("user_management".to_string()),
-        Value::String("iam_management".to_string()),
-        Value::String("analytics_access".to_string()),
-        Value::String("billing_management".to_string()),
+        Value::String("admin:*:*".to_string()),
+        Value::String("epsx:*:*".to_string()),
         Value::String("system_admin".to_string()),
         Value::String("module_management".to_string()),
         Value::String("database_access".to_string()),

@@ -10,13 +10,14 @@ import type { EPSXJWTPayload } from '@/lib/auth-utils';
 export interface SessionData {
   isLoggedIn: boolean;
   user?: EPSXJWTPayload;
+  accessToken?: string;
   expiresAt?: number;
 }
 
 /**
  * Get current session from JWT cookie
  */
-export async function getSession(): Promise<SessionData | null> {
+export async function getSession(): Promise<SessionData> {
   try {
     const payload = await verifyJWTFromCookies();
     
@@ -24,9 +25,14 @@ export async function getSession(): Promise<SessionData | null> {
       return { isLoggedIn: false };
     }
 
+    // Get the raw JWT token for API calls
+    const { getJWTFromCookies } = await import('@/lib/server/jwt');
+    const accessToken = await getJWTFromCookies();
+
     return {
       isLoggedIn: true,
       user: payload,
+      accessToken,
       expiresAt: payload.exp * 1000, // Convert to milliseconds
     };
   } catch (error) {

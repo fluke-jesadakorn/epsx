@@ -6,7 +6,7 @@ pub mod payment_service;
 pub mod market_data_service;
 pub mod encryption_service;
 pub mod tradingview;
-pub mod websocket_service;
+// pub mod websocket_service; // Removed during WebSocket cleanup
 pub mod tradingview_websocket_service;
 pub mod permission_infrastructure;
 
@@ -28,10 +28,10 @@ pub use market_data_service::{
 };
 pub use encryption_service::{EncryptionService, EncryptionError};
 pub use tradingview::{TradingViewService, TradingViewApiService, TradingViewConfig};
-pub use websocket_service::{WebSocketClient, WebSocketConnection, WebSocketError};
+// pub use websocket_service::{WebSocketClient, WebSocketConnection, WebSocketError}; // Removed during WebSocket cleanup
 
 // Re-export websocket_service as websocket for backward compatibility  
-pub use websocket_service as websocket;
+// pub use websocket_service as websocket; // Removed during WebSocket cleanup
 pub use tradingview_websocket_service::TradingViewWebSocketService;
 pub use api_key_service::{ApiKeyService, ApiKeyError};
 pub use permission_infrastructure::{

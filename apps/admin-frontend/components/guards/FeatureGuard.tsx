@@ -8,7 +8,7 @@
 
 import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Role, checkFeatureAccess, checkRoleAccess, SimpleUserClaims } from '@/lib/auth/roles';
+import { hasJWTPermission, isJWTAdmin } from '@/lib/auth-utils';
 
 // ============================================================================
 // SIMPLE FEATURE GUARD PROPS
@@ -16,8 +16,9 @@ import { Role, checkFeatureAccess, checkRoleAccess, SimpleUserClaims } from '@/l
 
 interface FeatureGuardProps {
   children: ReactNode;
-  feature?: string;           // Feature-based access (e.g., 'view_eps', 'export_data')
-  role?: Role;               // Role-based access (admin, user, guest)
+  permission?: string;        // Structured permission (e.g., 'epsx:analytics:view')
+  feature?: string;          // Legacy feature (will be mapped to permission)
+  isAdmin?: boolean;         // Admin-only access
   fallback?: ReactNode;      // What to show when access is denied
   loading?: ReactNode;       // What to show while loading user data
 }
@@ -28,45 +29,37 @@ interface FeatureGuardProps {
 
 export function FeatureGuard({
   children,
+  permission,
   feature,
-  role,
+  isAdmin,
   fallback = <AccessDenied />,
   loading = <Loading />
 }: FeatureGuardProps) {
   const { user, isLoading } = useAuth();
 
-  // Show loading while fetching user data
   if (isLoading) {
     return <>{loading}</>;
   }
 
-  // No user - deny access
   if (!user) {
     return <>{fallback}</>;
   }
 
-  const userClaims: SimpleUserClaims = {
-    firebase_uid: user.firebase_uid || '',
-    email: user.email || '',
-    role: (user as any).role || Role.Guest, // Default to guest if no role
-    display_name: user.name || undefined,
-    name: user.name || undefined,
-    avatar_url: undefined,
-    is_active: true,
-    last_login_at: new Date().toISOString()
-  };
-
-  // Check feature access
-  if (feature && !checkFeatureAccess(userClaims.role, feature)) {
+  if (isAdmin && !isJWTAdmin(user)) {
     return <>{fallback}</>;
   }
 
-  // Check role access
-  if (role && !checkRoleAccess(userClaims.role, role)) {
+  if (permission && !hasJWTPermission(user, permission)) {
     return <>{fallback}</>;
   }
 
-  // Access granted
+  if (feature) {
+    const mappedPermission = mapFeatureToPermission(feature);
+    if (!hasJWTPermission(user, mappedPermission)) {
+      return <>{fallback}</>;
+    }
+  }
+
   return <>{children}</>;
 }
 
@@ -102,15 +95,15 @@ function Loading() {
 // ============================================================================
 
 export const AdminOnly = ({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) => (
-  <FeatureGuard role={Role.Admin} fallback={fallback}>{children}</FeatureGuard>
+  <FeatureGuard isAdmin fallback={fallback}>{children}</FeatureGuard>
 );
 
 export const UserOnly = ({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) => (
-  <FeatureGuard role={Role.User} fallback={fallback}>{children}</FeatureGuard>
+  <FeatureGuard permission="epsx:analytics:view" fallback={fallback}>{children}</FeatureGuard>
 );
 
 export const GuestOnly = ({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) => (
-  <FeatureGuard role={Role.Guest} fallback={fallback}>{children}</FeatureGuard>
+  <FeatureGuard permission="epsx:analytics:view" fallback={fallback}>{children}</FeatureGuard>
 );
 
 // Feature-specific guards
@@ -141,3 +134,17 @@ export const BillingOnly = ({ children, fallback }: { children: ReactNode, fallb
 export const AdvancedFiltersOnly = ({ children, fallback }: { children: ReactNode, fallback?: ReactNode }) => (
   <FeatureGuard feature="advanced_filters" fallback={fallback}>{children}</FeatureGuard>
 );
+
+function mapFeatureToPermission(feature: string): string {
+  const featureMap: Record<string, string> = {
+    'view_eps': 'epsx:analytics:view',
+    'export_data': 'epsx:analytics:export',
+    'realtime': 'epsx:realtime:access',
+    'profile': 'epsx:profile:manage',
+    'notifications': 'epsx:notifications:receive',
+    'billing': 'epsx:billing:manage',
+    'advanced_filters': 'epsx:analytics:advanced',
+  };
+  
+  return featureMap[feature] || `epsx:${feature}:access`;
+}

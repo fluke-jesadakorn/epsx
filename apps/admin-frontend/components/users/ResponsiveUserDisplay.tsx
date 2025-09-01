@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { LayoutGrid, LayoutList, Smartphone, Monitor, Wifi, WifiOff, Clock } from 'lucide-react'
+import { LayoutGrid, LayoutList, Smartphone, Monitor } from 'lucide-react'
 import { VirtualizedUserTable } from './VirtualizedUserTable'
 import { UserCard } from './UserCard'
 import { BulkOperationsInterface } from './BulkOperationsInterface'
-import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 
 interface ResponsiveUserDisplayProps {
@@ -40,38 +39,8 @@ export function ResponsiveUserDisplay({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [showBulkOps, setShowBulkOps] = useState(false)
 
-  // Real-time updates with optimistic UI
-  const {
-    isConnected,
-    connectionStatus,
-    lastUpdate,
-    users: realtimeUsers,
-    pendingUpdates,
-    addOptimisticUpdate,
-    confirmUpdate,
-  } = useRealtimeUpdates(users, {
-    events: ['user', 'notification'],
-    autoConnect: true,
-    onUserStatusUpdate: (update) => {
-      console.log('User status updated:', update)
-      // Optional: Show toast notification
-    },
-    onUserProfileUpdate: (update) => {
-      console.log('User profile updated:', update)
-    },
-    onUserRoleUpdate: (update) => {
-      console.log('User role updated:', update)
-    },
-    onConnect: () => {
-      console.log('Real-time updates connected')
-    },
-    onDisconnect: () => {
-      console.log('Real-time updates disconnected')
-    },
-    onError: (error) => {
-      console.error('Real-time connection error:', error)
-    }
-  })
+  // Use static users data (WebSocket removed for TradingView-only setup)
+  const displayUsers = users
 
   // Detect screen size and set mobile mode
   useEffect(() => {
@@ -104,39 +73,6 @@ export function ResponsiveUserDisplay({
     window.location.reload()
   }, [])
 
-  // Use real-time users data with optimistic updates
-  const displayUsers = realtimeUsers
-
-  // Connection status indicator
-  const getConnectionStatusIcon = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return <Wifi className="h-4 w-4 text-green-500" />
-      case 'connecting':
-        return <Clock className="h-4 w-4 text-yellow-500 animate-pulse" />
-      case 'disconnected':
-      case 'error':
-        return <WifiOff className="h-4 w-4 text-red-500" />
-      default:
-        return <WifiOff className="h-4 w-4 text-gray-400" />
-    }
-  }
-
-  const getConnectionStatusText = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return 'Real-time updates active'
-      case 'connecting':
-        return 'Connecting to real-time updates...'
-      case 'disconnected':
-        return 'Real-time updates disconnected'
-      case 'error':
-        return 'Real-time connection error'
-      default:
-        return 'Real-time updates unavailable'
-    }
-  }
-
   const handleCardSelection = useCallback((userId: string, selected: boolean) => {
     setSelectedUserIds(prev => {
       const newSet = new Set(prev)
@@ -153,34 +89,28 @@ export function ResponsiveUserDisplay({
 
   return (
     <div className="space-y-6">
-      {/* View Toggle and Selection Info */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* View Mode Toggle */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-            {isMobile ? <Smartphone className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
-            View:
-          </span>
-          
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex">
+      {/* Header with View Controls and Stats */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-4">
+          {/* View Mode Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             <button
               onClick={() => handleViewModeChange('table')}
-              className={`px-3 py-1 rounded-md text-sm transition-colors flex items-center gap-1 ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 viewMode === 'table'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
-              disabled={isMobile} // Disable table view on mobile for better UX
             >
               <LayoutList className="h-4 w-4" />
               Table
             </button>
             <button
               onClick={() => handleViewModeChange('cards')}
-              className={`px-3 py-1 rounded-md text-sm transition-colors flex items-center gap-1 ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 viewMode === 'cards'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               <LayoutGrid className="h-4 w-4" />
@@ -188,6 +118,19 @@ export function ResponsiveUserDisplay({
             </button>
           </div>
 
+          {/* Display Mode Indicator */}
+          <div className="flex items-center gap-2">
+            {isMobile ? (
+              <Smartphone className="h-4 w-4 text-blue-500" />
+            ) : (
+              <Monitor className="h-4 w-4 text-blue-500" />
+            )}
+            <span className="text-sm font-medium">
+              {startIndex + 1}-{Math.min(endIndex, total)} of {total.toLocaleString()} users
+            </span>
+          </div>
+
+          {/* Mobile Optimized Badge */}
           {isMobile && (
             <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
               Mobile optimized
@@ -195,29 +138,8 @@ export function ResponsiveUserDisplay({
           )}
         </div>
 
-        {/* Real-time Status & Selection Info */}
+        {/* Selection Info */}
         <div className="flex items-center gap-4">
-          {/* Real-time Connection Status */}
-          <div className="flex items-center gap-2 text-sm">
-            {getConnectionStatusIcon()}
-            <span className={`${
-              connectionStatus === 'connected' ? 'text-green-600' :
-              connectionStatus === 'connecting' ? 'text-yellow-600' :
-              'text-gray-600'
-            }`}>
-              {getConnectionStatusText()}
-            </span>
-            {pendingUpdates.length > 0 && (
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                {pendingUpdates.length} pending
-              </span>
-            )}
-            {lastUpdate && connectionStatus === 'connected' && (
-              <span className="text-xs text-gray-500">
-                Last update: {lastUpdate.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
 
           {/* Selection Info */}
           {selectedUserIds.size > 0 && (
@@ -260,51 +182,40 @@ export function ResponsiveUserDisplay({
           page={page}
           totalPages={totalPages}
           limit={limit}
-          startIndex={startIndex}
-          endIndex={endIndex}
           filters={filters}
+          onSelectionChange={setSelectedUserIds}
+          selectedUserIds={selectedUserIds}
         />
       ) : (
         <div className="space-y-4">
-          {/* Cards View */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Card Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {displayUsers.map((user) => (
               <div key={user.id} className="relative">
-                {/* Selection Checkbox for Cards */}
-                <div className="absolute top-4 left-4 z-10">
+                <UserCard user={user} />
+                
+                {/* Card Selection Overlay */}
+                <div className="absolute top-3 left-3">
                   <input
                     type="checkbox"
                     checked={selectedUserIds.has(user.id)}
                     onChange={(e) => handleCardSelection(user.id, e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
-                </div>
-                
-                {/* User Card with Selection Styling */}
-                <div className={`${
-                  selectedUserIds.has(user.id) 
-                    ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/10' 
-                    : ''
-                }`}>
-                  <UserCard user={user} />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Cards View Pagination */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {displayUsers.length > 0 ? startIndex : 0} to {endIndex} of {total} users
+          {/* Card View Pagination */}
+          <div className="flex flex-col items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+              <span>
+                Showing {startIndex + 1}-{Math.min(endIndex, total)} of {total.toLocaleString()} users
+              </span>
               {selectedUserIds.size > 0 && (
                 <span className="ml-2 text-blue-600">
                   • {selectedUserIds.size} selected
-                </span>
-              )}
-              {pendingUpdates.length > 0 && (
-                <span className="ml-2 text-orange-600">
-                  • {pendingUpdates.length} pending updates
                 </span>
               )}
             </div>
@@ -319,30 +230,9 @@ export function ResponsiveUserDisplay({
                 </a>
               )}
               
-              {(() => {
-                const maxVisiblePages = Math.min(5, totalPages)
-                const startPage = Math.max(1, page - 2)
-                const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-                const pages = []
-                
-                for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
-                  pages.push(
-                    <a
-                      key={pageNum}
-                      href={`/users?page=${pageNum}&role=${filters.role}&search=${filters.search}&status=${filters.status}`}
-                      className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                        pageNum === page
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {pageNum}
-                    </a>
-                  )
-                }
-                
-                return pages
-              })()}
+              <span className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                Page {page} of {totalPages}
+              </span>
               
               {page < totalPages && (
                 <a 
@@ -359,7 +249,6 @@ export function ResponsiveUserDisplay({
           {isMobile && (
             <div className="text-xs text-gray-500 text-center pt-4">
               Mobile-optimized card view • {displayUsers.length} users displayed
-              {isConnected && ' • Real-time updates active'}
             </div>
           )}
         </div>

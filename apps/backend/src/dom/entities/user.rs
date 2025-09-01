@@ -5,8 +5,6 @@ use chrono::{ DateTime, Utc };
 use serde::{ Serialize, Deserialize };
 
 use crate::dom::values::{ UserId, Email, Subscription };
-use crate::dom::events::UserPermissionChangedEvent;
-use crate::auth::permissions::{PermissionSets, check_permission_access};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {

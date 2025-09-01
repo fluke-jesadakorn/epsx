@@ -1,4 +1,5 @@
 // Pure OIDC Authorization Code Flow implementation
+use chrono::{DateTime, Utc};
 
 use axum::{
     extract::{Query, Form},
@@ -6,7 +7,6 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use base64::Engine;
 #[cfg(feature = "templates")]
 use askama::Template;
@@ -66,6 +66,7 @@ pub struct LoginFormData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizationCodeData {
     pub firebase_user: FirebaseUser,
+    pub user_id: crate::dom::values::UserId, // JWT migration: store user UUID (sub field)
     pub client_id: String,
     pub redirect_uri: String,
     pub scope: String,
@@ -245,9 +246,42 @@ async fn handle_authenticated_user_flow_direct(
     // Generate authorization code
     let code = generate_authorization_code();
     
+    // Look up user by email to get UUID for JWT migration (sub field)
+    use crate::infra::db::diesel::create_pool;
+    use crate::infra::db::diesel::repos::DieselUserRepository;
+    use crate::app::ports::repositories::UserRepository;
+    use crate::dom::values::Email;
+    use std::sync::Arc;
+    
+    // Get database URL
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Create database pool
+    let pool = create_pool(&database_url).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pool = Arc::new(pool);
+    
+    // Create user repository
+    let user_repo = DieselUserRepository::new(pool.clone());
+    
+    // Look up user by email
+    let user_email = firebase_user.email
+        .as_ref()
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let email = Email::new(user_email.to_string())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let user = user_repo.find_by_email(&email).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let user_id = user.id().clone();
+    
     // Store authorization code data in simplified manner
     let auth_data = AuthorizationCodeData {
         firebase_user: firebase_user.clone(),
+        user_id, // JWT migration: include user UUID as sub field
         client_id: form_data.client_id.clone(),
         redirect_uri: form_data.redirect_uri.clone(),
         scope: form_data.scope.clone(),
@@ -463,9 +497,33 @@ async fn handle_authenticated_user_flow(
     // Generate authorization code
     let auth_code = generate_authorization_code();
     
+    // Look up user by email to get UUID for JWT migration (sub field)
+    use crate::dom::values::Email;
+    let user_email = firebase_user.email
+        .as_ref()
+        .ok_or_else(|| {
+            tracing::error!("Firebase user missing email during auth code creation");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let email = Email::new(user_email.to_string())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let user = app_state.user_repo.find_by_email(&email).await
+        .map_err(|e| {
+            tracing::error!("Database error looking up user: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .ok_or_else(|| {
+            tracing::error!("User not found for email: {}", user_email);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    let user_id = user.id().clone();
+    
     // Store authorization code data with PKCE parameters and validated scopes
     let auth_data = AuthorizationCodeData {
         firebase_user: firebase_user.clone(),
+        user_id, // JWT migration: include user UUID as sub field
         client_id: form_data.client_id.clone(),
         redirect_uri: form_data.redirect_uri.clone(),
         scope: validated_scopes.granted_scopes.clone(), // Use validated scopes, not raw request
@@ -530,15 +588,8 @@ async fn store_authorization_code(
     use crate::dom::values::SessId;
     use chrono::{Utc, Duration};
     
-    // First, look up the user by firebase_uid to get their actual UUID
-    let user = app_state.user_repo.find_by_firebase_uid(&auth_data.firebase_user.uid).await?;
-    let user_id = match user {
-        Some(user) => user.id().clone(),
-        None => {
-            tracing::error!("User not found for firebase_uid: {}", auth_data.firebase_user.uid);
-            return Err("User not found in database".into());
-        }
-    };
+    // Use the user_id from auth_data (JWT migration: already looked up by email)
+    let user_id = auth_data.user_id.clone();
     
     // Create a temporary session for the authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));
@@ -754,7 +805,7 @@ fn determine_user_role_for_registration(email: &str) -> String {
 async fn create_database_user(
     app_state: &AppState,
     firebase_user: &FirebaseUser,
-    role: &str,
+    _role: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::dom::entities::User;
     use crate::dom::values::Email;
@@ -985,7 +1036,7 @@ async fn store_authorization_code_direct(
     use crate::infra::db::diesel::repos::DieselSessionRepository;
     use crate::dom::entities::auth::Session;
     use crate::dom::values::SessId;
-    use crate::app::ports::repositories::{UserRepository, SessionRepository};
+    use crate::app::ports::repositories::SessionRepository;
     use crate::infra::db::diesel::repos::DieselUserRepository;
     use std::sync::Arc;
     use chrono::{Utc, Duration};
@@ -1001,14 +1052,10 @@ async fn store_authorization_code_direct(
     
     // Create repositories
     let session_repo = DieselSessionRepository::new(pool.clone());
-    let user_repo = DieselUserRepository::new(pool.clone());
+    let _user_repo = DieselUserRepository::new(pool.clone());
     
-    // Find user by Firebase UID
-    let user = user_repo.find_by_firebase_uid(&auth_data.firebase_user.uid).await
-        .map_err(|e| format!("Database error: {}", e))?
-        .ok_or("User not found in database")?;
-    
-    let user_id = user.id().clone();
+    // Use the user_id from auth_data (JWT migration: already looked up by email)
+    let user_id = auth_data.user_id.clone();
     
     // Create session ID for authorization code
     let session_id = SessId::from_string(format!("auth_code:{}", code));

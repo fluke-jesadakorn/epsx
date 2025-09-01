@@ -6,25 +6,12 @@
 -- ============================================================================
 
 -- ============================================================================
--- ADMIN MODULES SEED DATA
+-- LEGACY ADMIN MODULES REMOVED - MIGRATED TO STRUCTURED PERMISSIONS
 -- ============================================================================
-
--- Insert core admin modules (8 essential modules)
-INSERT INTO admin_modules (module_code, module_name, description, icon, color) VALUES
-('user-management', 'User Management', 'User CRUD operations, profile management, and account administration', 'users', 'blue'),
-('analytics-access', 'Analytics Access', 'Dashboard access, reporting, and data analysis capabilities', 'chart-bar', 'green'),
-('billing-admin', 'Billing Administration', 'Payment management, subscriptions, and package assignments', 'credit-card', 'emerald'),
-('system-admin', 'System Administration', 'Database management, system configuration, and infrastructure monitoring', 'server', 'red'),
-('content-management', 'Content Management', 'Content creation, editing, and resource management', 'document-text', 'purple'),
-('support-access', 'Support Access', 'User support tools, ticketing, and troubleshooting capabilities', 'support', 'yellow'),
-('security-management', 'Security Management', 'Security monitoring, compliance, and audit management', 'shield-check', 'orange'),
-('api-management', 'API Management', 'API key management, developer tools, and integration oversight', 'code', 'indigo')
-ON CONFLICT (module_code) DO UPDATE SET
-    module_name = EXCLUDED.module_name,
-    description = EXCLUDED.description,
-    icon = EXCLUDED.icon,
-    color = EXCLUDED.color,
-    updated_at = NOW();
+-- Admin modules system has been completely migrated to structured permissions.
+-- Permissions are now stored in user_permissions table with format: "platform:resource:action"
+-- Migration completed: 2025-01-31
+-- ============================================================================
 
 -- ============================================================================
 -- EPS ANALYTICS SEED DATA

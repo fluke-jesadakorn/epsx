@@ -26,12 +26,7 @@ export async function GET() {
         id: sessionData.user.sub,
         email: sessionData.user.email,
         name: sessionData.user.name,
-        role: sessionData.user.role,
         permissions: sessionData.user.permissions || [],
-        platform_context: sessionData.user.platform_context || 'epsx',
-        primary_platform: sessionData.user.primary_platform || 'epsx',
-        package_tier: sessionData.user.package_tier,
-        firebase_uid: sessionData.user.firebase_uid,
       },
       expiresAt: sessionData.user.exp * 1000, // Convert to milliseconds
     });

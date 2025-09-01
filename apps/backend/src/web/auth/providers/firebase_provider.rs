@@ -1,11 +1,11 @@
 // Firebase Authentication Provider
+use chrono::{DateTime, Utc};
 // Handles Firebase JWT token validation and user mapping
 
 use async_trait::async_trait;
 use jsonwebtoken::{decode_header, jwk::JwkSet, Algorithm};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};

@@ -44,7 +44,13 @@ const getBearerToken = async () => {
     userEmail: session.user?.email,
     tokenLength: session.accessToken?.length
   });
-  return session.accessToken || null;
+  
+  if (!session.accessToken) {
+    console.error('❌ No access token found in session');
+    return null;
+  }
+  
+  return session.accessToken;
 };
 
 /**
@@ -194,28 +200,29 @@ export async function getUnifiedUserData(userId: string): Promise<UserOperationR
       language: 'en',
       twoFactorEnabled: false, // Placeholder
       
-      // Map permissions & roles
-      roles: rawData.permissions.roles.map((role: string) => ({
-        id: role,
-        name: role,
-        description: `${role} role`,
-        permissions: [],
-        createdAt: new Date()
-      })),
-      customPermissions: [],
-      permissionProfiles: [],
+      // Map structured permissions and profiles
+      roles: [], // Roles deprecated - using structured permissions
+      customPermissions: rawData.permissions?.individual_permissions || [],
+      permissionProfiles: rawData.permissions?.permission_profiles?.map((profile: any) => ({
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        permissions: profile.permissions,
+        assignedAt: new Date(profile.assigned_at),
+        expiresAt: profile.expires_at ? new Date(profile.expires_at) : null
+      })) || [],
       
-      // Map modules
-      moduleAccess: rawData.modules.enabled_modules || [],
-      moduleQuotas: [
+      // Map modules (handle new structure)
+      moduleAccess: rawData.modules?.enabled_modules || [],
+      moduleQuotas: rawData.modules?.quotas ? [
         {
           moduleId: 'api',
           quotaType: 'api_calls',
-          limit: rawData.modules.quotas.api_calls_per_day,
-          used: rawData.modules.quotas.api_calls_used,
+          limit: rawData.modules.quotas.api_calls_per_day || 1000,
+          used: rawData.modules.quotas.api_calls_used || 0,
           period: 'daily'
         }
-      ],
+      ] : [],
       stockRankingPackages: [],
       
       // Developer access
@@ -225,11 +232,19 @@ export async function getUnifiedUserData(userId: string): Promise<UserOperationR
       recentActivity: [],
       loginHistory: [],
       usageMetrics: {
-        apiCallsThisMonth: rawData.modules.quotas.api_calls_used,
+        apiCallsThisMonth: rawData.modules?.quotas?.api_calls_used || 0,
         storageUsed: 0,
-        lastActiveDate: rawData.activity.last_activity ? new Date(rawData.activity.last_activity) : new Date(),
-        sessionsThisMonth: rawData.activity.total_logins,
+        lastActiveDate: rawData.activity?.last_activity ? new Date(rawData.activity.last_activity) : new Date(),
+        sessionsThisMonth: rawData.activity?.total_logins || 0,
         averageSessionDuration: 0
+      },
+      
+      // Billing information
+      billing: {
+        tier: rawData.billing?.tier || rawData.user?.subscription_tier || 'free',
+        status: rawData.billing?.status || 'active',
+        monthlySpend: rawData.billing?.monthly_spend || 0,
+        nextBillingDate: rawData.billing?.next_billing_date ? new Date(rawData.billing.next_billing_date) : null
       }
     }
     
@@ -1392,6 +1407,97 @@ export async function getPermissionImpact(userId: string): Promise<UserOperation
     
   } catch (error) {
     console.error('Get permission impact error:', error)
+    return { 
+      success: false, 
+      error: { 
+        code: 'UNKNOWN_ERROR', 
+        message: 'An unexpected error occurred' 
+      } 
+    }
+  }
+}
+
+// ========================================
+// USER SEARCH FUNCTIONALITY - SERVER ACTIONS
+// ========================================
+
+/**
+ * Search users with server-side authentication and Bearer token
+ */
+export async function searchUsersAction(searchParams: {
+  search?: string;
+  email?: string;
+  package_tier?: string;
+  status?: string;
+  page?: number;
+  per_page?: number;
+  sort_by?: string;
+  sort_order?: string;
+}): Promise<UserOperationResult<{
+  users: any[];
+  total: number;
+  page: number;
+  per_page: number;
+}>> {
+  try {
+    const token = await getBearerToken()
+    
+    if (!token) {
+      return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
+    }
+    
+    // Build search parameters
+    const queryParams = new URLSearchParams()
+    
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString())
+      }
+    })
+    
+    const queryString = queryParams.toString()
+    const url = `${BACKEND_URL}/api/v1/admin/users/search${queryString ? `?${queryString}` : ''}`
+    
+    console.log('🔍 Search users server action:', {
+      url,
+      searchParams,
+      hasToken: !!token
+    })
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
+      return { 
+        success: false, 
+        error: { 
+          code: 'SEARCH_ERROR', 
+          message: `Failed to search users: ${response.status} ${errorText}` 
+        } 
+      }
+    }
+    
+    const result = await response.json()
+    
+    console.log('✅ Search users server action success:', {
+      resultsCount: result.users?.length || 0,
+      total: result.total
+    })
+    
+    return { success: true, data: result }
+    
+  } catch (error) {
+    console.error('Search users server action error:', error)
     return { 
       success: false, 
       error: { 

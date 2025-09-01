@@ -7,6 +7,8 @@ pub mod stub_stock_repo;
 pub mod module_repo;
 pub mod usage_repo;
 pub mod eps_repo;
+pub mod refresh_token_repo;
+pub mod revoked_token_repo;
 
 // Re-export all repositories for convenience
 pub use user_repo::DieselUserRepository;
@@ -18,3 +20,5 @@ pub use stub_stock_repo::StubStockRepository;
 pub use module_repo::{DieselModuleRepository, StubModuleRepository};
 pub use usage_repo::{DieselUsageRepository, StubUsageRepository};
 pub use eps_repo::DieselEPSRepository;
+pub use refresh_token_repo::RefreshTokenRepository;
+pub use revoked_token_repo::{RevokedTokenRepository, RevocationStats};

@@ -1,15 +1,20 @@
 // Admin API handlers for user management with Casbin authorization
+use chrono::{DateTime, Utc, Datelike};
 
 use axum::{
+
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
+
 use crate::web::auth::AppState;
+
 use crate::config::env::get_env_var;
-use chrono::{DateTime, Utc, Datelike};
+
 use serde_json::{json, Value};
+
 
 // Request/Response DTOs for admin endpoints
 
@@ -219,7 +224,7 @@ pub async fn create_user_handler(
     }
     
     // Set default package tier based on permissions
-    let package_tier = if req.permissions.contains(&"admin:*:*".to_string()) {
+    let _package_tier = if req.permissions.contains(&"admin:*:*".to_string()) {
         "admin".to_string()
     } else if req.permissions.iter().any(|p| p.starts_with("epsx:analytics:export") || p.starts_with("epsx:analytics:advanced")) {
         "premium".to_string()
@@ -231,7 +236,7 @@ pub async fn create_user_handler(
     let firebase_uid = req.fb_token.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     
     // Clone permissions for later use
-    let permissions_for_user = req.permissions.clone();
+    let _permissions_for_user = req.permissions.clone();
     let permissions_for_response = req.permissions.clone();
     
     // Create new user (permissions handled separately)
@@ -344,7 +349,7 @@ pub async fn update_user_handler(
     let target_user_id = crate::dom::values::UserId::new(user_id.clone());
     
     // Get user from database
-    let mut user = match app_state.user_repo.get(&target_user_id).await {
+    let user = match app_state.user_repo.get(&target_user_id).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             tracing::warn!("User not found for update: {}", user_id);
@@ -687,7 +692,7 @@ pub async fn bulk_update_users_handler(
         let target_user_id = crate::dom::values::UserId::new(user_id.clone());
         
         // Get user from database
-        let mut user = match app_state.user_repo.get(&target_user_id).await {
+        let user = match app_state.user_repo.get(&target_user_id).await {
             Ok(Some(user)) => user,
             Ok(None) => {
                 failed_updates.push(json!({
@@ -1164,8 +1169,9 @@ async fn verify_admin_permissions(
     action: &str,
 ) -> Result<(), StatusCode> {
     // Development bypass: Skip Casbin permission check in development environment
-    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-        tracing::info!("Development mode: Bypassing Casbin permission check for user {} on {}/{}", user_id, resource, action);
+    let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
+    if rust_env == "development" || rust_env.is_empty() {
+        tracing::info!("Development mode (RUST_ENV='{}'): Bypassing permission check for user {} on {}/{}", rust_env, user_id, resource, action);
         return Ok(());
     }
     
@@ -1179,9 +1185,10 @@ async fn verify_admin_permissions(
 /// Supports both Authorization header and session-based authentication
 fn extract_user_id_from_context() -> Result<String, StatusCode> {
     // Development mode: Allow admin access for testing
-    if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-        tracing::info!("Development mode: Using default admin user ID for jesadakorn.kirtnu@gmail.com");
-        return Ok("jesadakorn.kirtnu@gmail.com".to_string());
+    let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
+    if rust_env == "development" || rust_env.is_empty() {
+        tracing::info!("Development mode (RUST_ENV='{}'): Using default admin user ID for info@epsx.io", rust_env);
+        return Ok("info@epsx.io".to_string());
     }
     
     // TODO: In production, extract user ID from:
@@ -1190,7 +1197,7 @@ fn extract_user_id_from_context() -> Result<String, StatusCode> {
     // 3. NextAuth session data
     // For now, return the test user ID that matches NextAuth configuration
     tracing::info!("Using test user ID for admin operations");
-    Ok("jesadakorn.kirtnu@gmail.com".to_string())
+    Ok("info@epsx.io".to_string())
 }
 
 // Removed bulk_assign_modules_handler - using simple roles

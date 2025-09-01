@@ -7,6 +7,7 @@ use crate::app::ports::repositories::{UserRepository, SessionRepository};
 use crate::app::dtos::auth::{LoginReq, LoginRes, LogoutReq, ValidateReq, RefreshReq, UserSession, AutoRegistrationRequest, RegistrationResponse};
 use crate::app::services::PermissionApplicationService;
 use crate::infra::FirebaseAdmin;
+use crate::auth::{RefreshTokenService, DeviceInfo};
 use std::sync::Arc;
 
 pub struct AuthUC {
@@ -14,6 +15,7 @@ pub struct AuthUC {
     session_repo: Arc<dyn SessionRepository>,
     firebase_admin: Arc<FirebaseAdmin>,
     permission_service: Arc<PermissionApplicationService>,
+    refresh_token_service: Arc<RefreshTokenService>,
 }
 
 impl AuthUC {
@@ -22,12 +24,14 @@ impl AuthUC {
         session_repo: Arc<dyn SessionRepository>,
         firebase_admin: Arc<FirebaseAdmin>,
         permission_service: Arc<PermissionApplicationService>,
+        refresh_token_service: Arc<RefreshTokenService>,
     ) -> Self {
         Self { 
             user_repo,
             session_repo,
             firebase_admin,
             permission_service,
+            refresh_token_service,
         }
     }
 
@@ -156,9 +160,60 @@ impl AuthUC {
 
     // Removed get_simple_permissions - using structured permissions from user entity
 
-    pub async fn refresh(&self, _req: RefreshReq) -> Result<LoginRes, Box<dyn std::error::Error>> {
-        // Stub implementation - in real app would validate refresh token
-        Err("Refresh not implemented".into())
+    pub async fn refresh(&self, req: RefreshReq) -> Result<LoginRes, Box<dyn std::error::Error>> {
+        // Validate the refresh token
+        let token_record = self.refresh_token_service.validate_token(&req.refresh_token).await
+            .map_err(|e| format!("Invalid refresh token: {}", e))?;
+
+        // Get user by ID
+        let user_id = UserId::new(token_record.user_id.clone());
+        let user = self.user_repo.find_by_id(&user_id).await
+            .map_err(|e| format!("User not found: {}", e))?;
+
+        // Rotate the refresh token (generate new one)
+        let device_info = DeviceInfo {
+            device_type: None,
+            os: None, 
+            browser: None,
+            fingerprint: None,
+            screen_resolution: None,
+            timezone: None,
+            language: None,
+            platform: None,
+            user_agent: None,
+        };
+        
+        let _new_token_response = self.refresh_token_service.rotate_token(
+            &req.refresh_token,
+            Some(device_info),
+            None, // IP address would come from request context
+            None, // User agent would come from request headers
+        ).await.map_err(|e| format!("Token rotation failed: {}", e))?;
+
+        // Generate new JWT access token
+        let access_token = self.firebase_admin.generate_jwt_token(user.firebase_uid()).await?;
+
+        // Create new session
+        let session = self.create_session(user.id().clone(), access_token.clone()).await?;
+        self.session_repo.save(&session).await?;
+
+        // Fetch user permissions
+        let user_permissions = match self.permission_service.get_user_permissions(user.firebase_uid()).await {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                tracing::error!("Failed to fetch user permissions for refresh {}: {:?}", user.id(), e);
+                vec![] // Return empty permissions on error
+            }
+        };
+
+        Ok(LoginRes {
+            user_id: user.id().clone(),
+            package_tier: "user".to_string(),
+            permissions: user_permissions,
+            access_token,
+            expires_in: 86400, // 24 hours
+            sess_id: session.id.to_string(),
+        })
     }
 
     /// Registration with automatic permission profile assignment

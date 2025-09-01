@@ -47,30 +47,50 @@ export function hasAdminModule(
 }
 
 /**
- * Check if user is system admin
+ * Check if user is system admin using structured permissions only
  */
 export function isSystemAdmin(
   user: SessionData['user'] | null | undefined
 ): boolean {
   if (!user) return false;
   
-  // Check permissions first
-  if (user.permissions?.includes('*')) return true;
-  if (user.role === 'admin') return true;
+  // Check for admin wildcard permission
+  if (user.permissions?.includes('admin:*:*')) return true;
   
-  // Check for system admin permissions
-  return hasPermission(user, '*');
+  // Check for legacy wildcard permission (for backward compatibility)
+  if (user.permissions?.includes('*')) return true;
+  
+  return false;
 }
 
 /**
- * Check if user has specific permission
+ * Check if user has specific permission using structured permission system
  */
 export function hasPermission(
   user: SessionData['user'] | null | undefined,
   permission: string
 ): boolean {
   if (!user?.permissions) return false;
-  return user.permissions.includes(permission) || user.permissions.includes('*');
+  
+  // Check for exact permission match
+  if (user.permissions.includes(permission)) return true;
+  
+  // Check for admin wildcard permission
+  if (user.permissions.includes('admin:*:*')) return true;
+  
+  // Check for legacy wildcard permission
+  if (user.permissions.includes('*')) return true;
+  
+  // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
+  if (permission.includes(':')) {
+    const [platform, resource] = permission.split(':');
+    return user.permissions.some(p => 
+      p === `${platform}:${resource}:*` || 
+      p === `${platform}:*:*`
+    );
+  }
+  
+  return false;
 }
 
 /**

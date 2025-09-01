@@ -5,14 +5,18 @@
  * Each refresh token use generates a new token and revokes the old one.
  */
 
+use chrono::{DateTime, Utc, Duration};
+use uuid::Uuid;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use chrono::{DateTime, Utc, Duration};
+
 use serde::{Serialize, Deserialize};
-use uuid::Uuid;
+
 use sha2::{Sha256, Digest};
+
 use base64::{Engine as _, engine::general_purpose};
+
 
 /// Refresh token data stored in the service
 #[derive(Debug, Clone, Serialize, Deserialize)]

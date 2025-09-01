@@ -5,12 +5,17 @@
  * Implements RFC 7009 OAuth Token Revocation specification.
  */
 
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
 use uuid::Uuid;
+use std::sync::Arc;
+
+
+use serde::{Serialize, Deserialize};
+
 use tracing::{debug, info, warn};
+
 use crate::infra::cache::{Cache, CacheExt};
+
 
 /// Token revocation entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -360,7 +365,7 @@ mod tests {
         let user_id = "user_789";
 
         // Revoke all tokens for user
-        let count = service.revoke_all_user_tokens(user_id, "admin", "security_breach").await.unwrap();
+        let count = service.revoke_all_user_tokens(user_id, "system-admin", "security_breach").await.unwrap();
         assert_eq!(count, 1); // Global revocation entry
 
         // Stats should reflect the revocation

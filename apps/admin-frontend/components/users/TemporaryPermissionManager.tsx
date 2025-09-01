@@ -60,6 +60,7 @@ import {
   deleteTemporaryPermission,
   cleanupExpiredPermissions,
 } from '@/lib/actions/temporary-permission-actions';
+import { AdminPermissionExpiryIndicator, parseEmbeddedPermissions } from '../auth/AdminPermissionExpiryIndicator';
 
 // Embedded timestamp permissions support
 interface EmbeddedPermissionData {
@@ -116,10 +117,19 @@ const PERMISSION_TEMPLATES = [
 ] as const;
 
 const STATUS_COLORS = {
-  active: 'bg-green-100 text-green-800',
-  suspended: 'bg-yellow-100 text-yellow-800',
-  expired: 'bg-gray-100 text-gray-800',
-  revoked: 'bg-red-100 text-red-800',
+  active: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200 border border-green-200 dark:border-green-800',
+  suspended: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800',
+  expired: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-200 border border-gray-200 dark:border-gray-800',
+  revoked: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200 border border-red-200 dark:border-red-800',
+};
+
+const STATUS_COLORS_ENHANCED = {
+  active: 'bg-green-50 text-green-900 border border-green-200 shadow-green-100/50 shadow-sm dark:bg-green-950/30 dark:text-green-100 dark:border-green-800',
+  suspended: 'bg-yellow-50 text-yellow-900 border border-yellow-200 shadow-yellow-100/50 shadow-sm dark:bg-yellow-950/30 dark:text-yellow-100 dark:border-yellow-800',
+  expired: 'bg-gray-50 text-gray-900 border border-gray-200 shadow-gray-100/50 shadow-sm dark:bg-gray-950/30 dark:text-gray-100 dark:border-gray-800',
+  revoked: 'bg-red-50 text-red-900 border border-red-200 shadow-red-100/50 shadow-sm dark:bg-red-950/30 dark:text-red-100 dark:border-red-800',
+  expiring_critical: 'bg-orange-50 text-orange-900 border border-orange-200 shadow-orange-100/50 shadow-sm dark:bg-orange-950/30 dark:text-orange-100 dark:border-orange-800',
+  expiring_soon: 'bg-amber-50 text-amber-900 border border-amber-200 shadow-amber-100/50 shadow-sm dark:bg-amber-950/30 dark:text-amber-100 dark:border-amber-800',
 };
 
 const STATUS_ICONS = {
@@ -484,48 +494,112 @@ export function TemporaryPermissionManager({
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Enhanced Stats with Visual Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 dark:from-green-950/20 dark:to-emerald-950/20 dark:border-green-800">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold">{activePermissions.length}</p>
-                <p className="text-sm text-muted-foreground">Active</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/30">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">{activePermissions.length}</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">Active</p>
+                </div>
+              </div>
+              {activePermissions.length > 0 && (
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`${expiredPermissions.length > 0 
+          ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200 dark:from-red-950/20 dark:to-rose-950/20 dark:border-red-800' 
+          : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200 dark:from-gray-950/20 dark:to-slate-950/20 dark:border-gray-700'
+        }`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${expiredPermissions.length > 0 
+                  ? 'bg-red-100 dark:bg-red-900/30' 
+                  : 'bg-gray-100 dark:bg-gray-900/30'
+                }`}>
+                  <XCircle className={`h-6 w-6 ${expiredPermissions.length > 0 
+                    ? 'text-red-600 dark:text-red-400' 
+                    : 'text-gray-500 dark:text-gray-400'
+                  }`} />
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold ${expiredPermissions.length > 0 
+                    ? 'text-red-700 dark:text-red-300' 
+                    : 'text-gray-700 dark:text-gray-300'
+                  }`}>{expiredPermissions.length}</p>
+                  <p className={`text-sm ${expiredPermissions.length > 0 
+                    ? 'text-red-600 dark:text-red-400' 
+                    : 'text-gray-600 dark:text-gray-400'
+                  }`}>Expired</p>
+                </div>
+              </div>
+              {expiredPermissions.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
+                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`${revokedPermissions.length > 0 
+          ? 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 dark:from-orange-950/20 dark:to-amber-950/20 dark:border-orange-700' 
+          : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200 dark:from-gray-950/20 dark:to-slate-950/20 dark:border-gray-700'
+        }`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${revokedPermissions.length > 0 
+                  ? 'bg-orange-100 dark:bg-orange-900/30' 
+                  : 'bg-gray-100 dark:bg-gray-900/30'
+                }`}>
+                  <Ban className={`h-6 w-6 ${revokedPermissions.length > 0 
+                    ? 'text-orange-600 dark:text-orange-400' 
+                    : 'text-gray-500 dark:text-gray-400'
+                  }`} />
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold ${revokedPermissions.length > 0 
+                    ? 'text-orange-700 dark:text-orange-300' 
+                    : 'text-gray-700 dark:text-gray-300'
+                  }`}>{revokedPermissions.length}</p>
+                  <p className={`text-sm ${revokedPermissions.length > 0 
+                    ? 'text-orange-600 dark:text-orange-400' 
+                    : 'text-gray-600 dark:text-gray-400'
+                  }`}>Revoked</p>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-950/20 dark:to-indigo-950/20 dark:border-blue-800">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-gray-500" />
-              <div>
-                <p className="text-2xl font-bold">{expiredPermissions.length}</p>
-                <p className="text-sm text-muted-foreground">Expired</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/30">
+                  <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{permissions.length}</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">Total</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <div>
-                <p className="text-2xl font-bold">{revokedPermissions.length}</p>
-                <p className="text-sm text-muted-foreground">Revoked</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{permissions.length}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
+              <div className="text-right text-xs">
+                <div className="text-blue-600 dark:text-blue-400 font-medium">
+                  {permissions.length > 0 ? Math.round((activePermissions.length / permissions.length) * 100) : 0}% Active
+                </div>
+                <div className="text-muted-foreground">Health Score</div>
               </div>
             </div>
           </CardContent>
@@ -592,21 +666,52 @@ export function TemporaryPermissionManager({
             const StatusIcon = STATUS_ICONS[permission.status];
             const isExpiringSoon = !permission.is_expired && 
               new Date(permission.expires_at) < addHours(new Date(), 24);
+            const isCritical = !permission.is_expired && 
+              new Date(permission.expires_at) < addHours(new Date(), 1); // Less than 1 hour
+            
+            // Enhanced visual styling based on expiry status
+            let cardClassName = "p-4"
+            let badgeClassName = STATUS_COLORS[permission.status]
+            
+            if (isCritical && permission.status === 'active') {
+              cardClassName = "p-4 bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400 dark:from-orange-950/20 dark:to-red-950/20"
+              badgeClassName = STATUS_COLORS_ENHANCED.expiring_critical
+            } else if (isExpiringSoon && permission.status === 'active') {
+              cardClassName = "p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-400 dark:from-yellow-950/20 dark:to-amber-950/20"
+              badgeClassName = STATUS_COLORS_ENHANCED.expiring_soon
+            } else if (permission.status === 'expired') {
+              cardClassName = "p-4 bg-gradient-to-r from-gray-50 to-slate-50 border-l-4 border-gray-400 opacity-80 dark:from-gray-950/20 dark:to-slate-950/20"
+            }
             
             return (
-              <Card key={permission.id}>
-                <CardContent className="p-4">
+              <Card key={permission.id} className={permission.is_expired ? "opacity-75" : ""}>
+                <CardContent className={cardClassName}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className={STATUS_COLORS[permission.status]}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge className={badgeClassName}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {permission.status}
                         </Badge>
-                        {isExpiringSoon && (
-                          <Badge variant="destructive" className="text-xs">
+                        
+                        {isCritical && permission.status === 'active' && (
+                          <Badge className="bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 animate-pulse">
                             <AlertTriangle className="h-3 w-3 mr-1" />
+                            Critical - Expires in &lt;1h
+                          </Badge>
+                        )}
+                        
+                        {isExpiringSoon && !isCritical && permission.status === 'active' && (
+                          <Badge className="bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-200">
+                            <Clock className="h-3 w-3 mr-1" />
                             Expiring Soon
+                          </Badge>
+                        )}
+                        
+                        {permission.is_expired && (
+                          <Badge className="bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-900/20 dark:text-gray-200">
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Expired
                           </Badge>
                         )}
                       </div>

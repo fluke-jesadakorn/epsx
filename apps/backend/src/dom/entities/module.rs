@@ -1,8 +1,8 @@
 // Domain entities for the module system
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 use crate::dom::values::UserId;
 

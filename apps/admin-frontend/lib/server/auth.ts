@@ -2,6 +2,8 @@
  * Server-side OAuth utilities for admin-frontend
  */
 
+import { redirect } from 'next/navigation';
+
 /**
  * Generate PKCE code verifier
  */
@@ -204,18 +206,60 @@ export async function getUserInfo(accessToken: string) {
 }
 
 /**
- * Redirect to backend Chef Kitchen login with callback URL
+ * Redirect to backend Chef Kitchen login with proper PKCE parameters
  */
-export function redirectToBackendAdminLogin(callbackUrl?: string): never {
-  const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
-  backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin'); // Admin client ID for Chef Kitchen theme
-  backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`);
-  backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
-  backendAdminLoginUrl.searchParams.set('response_type', 'code');
-  if (callbackUrl) {
-    backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise<never> {
+  try {
+    // Generate proper PKCE parameters
+    const { url, codeVerifier, state } = await getAuthorizationUrl();
+    
+    // Set PKCE cookies for callback
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    
+    // Store PKCE parameters in cookies for callback
+    cookieStore.set('oauth_code_verifier', codeVerifier, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600, // 10 minutes
+      path: '/'
+    });
+    
+    cookieStore.set('oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600, // 10 minutes  
+      path: '/'
+    });
+    
+    // Store callback URL for after authentication
+    if (callbackUrl) {
+      cookieStore.set('oauth_redirect_to', callbackUrl, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600, // 10 minutes
+        path: '/'
+      });
+    }
+    
+    console.log('✅ Admin: PKCE parameters stored in cookies, redirecting to OAuth');
+    redirect(url);
+  } catch (error) {
+    console.error('❌ Admin: Failed to setup PKCE redirect:', error);
+    // Fallback to simple redirect without PKCE
+    const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+    backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
+    backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`);
+    backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
+    backendAdminLoginUrl.searchParams.set('response_type', 'code');
+    if (callbackUrl) {
+      backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+    }
+    redirect(backendAdminLoginUrl.toString());
   }
-  redirect(backendAdminLoginUrl.toString());
 }
 
 // ============================================================================
@@ -229,7 +273,9 @@ export async function requireAuth(redirectPath?: string) {
   const user = await getAuthUser();
   
   if (!user) {
-    redirectToBackendAdminLogin(redirectPath);
+    const { redirect } = await import('next/navigation');
+    const loginUrl = redirectPath ? `/login?redirectTo=${encodeURIComponent(redirectPath)}` : '/login';
+    redirect(loginUrl);
   }
   
   return user;
@@ -269,43 +315,34 @@ export async function hasAdminPermission(permission: string): Promise<boolean> {
 }
 
 /**
- * Check if user has access to specific admin module
+ * Check if user has specific permission
  */
-export async function hasAdminModule(module: string): Promise<boolean> {
+export async function hasPermission(permission: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
     if (!user) return false;
     
-    // Check structured permissions
-    const platform = user.platform_context || user.primary_platform || 'epsx';
-    const permission = `${platform}:${module}:access`;
-    if (user.permissions && user.permissions.includes(permission)) {
-      return true;
-    }
-    
-    // Super admin has access to all modules
-    if (user.role === 'admin') {
-      return true;
-    }
-    
-    return false;
+    // Admin users have broader permissions
+    return user.permissions.includes(permission) || 
+           user.permissions.includes('admin:*:*') ||
+           user.permissions.some(p => p.startsWith('admin:'));
   } catch (error) {
-    console.error('❌ Admin: Failed to check module access:', error);
+    console.error('❌ Admin: Failed to check permission:', error);
     return false;
   }
 }
 
 /**
- * Require specific admin module access
+ * Require specific structured permission
  */
-export async function requireAdminModule(module: string, redirectPath?: string) {
+export async function requirePermission(permission: string, redirectPath?: string) {
   const { redirect } = await import('next/navigation');
   const user = await requireAuth(redirectPath);
   
-  const hasModule = await hasAdminModule(module);
+  const hasRequiredPermission = await hasPermission(permission);
   
-  if (!hasModule) {
-    const accessDeniedUrl = `/access-denied?module=${encodeURIComponent(module)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
+  if (!hasRequiredPermission) {
+    const accessDeniedUrl = `/access-denied?permission=${encodeURIComponent(permission)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
     redirect(accessDeniedUrl);
   }
   

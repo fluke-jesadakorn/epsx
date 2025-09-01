@@ -2,21 +2,30 @@
 // Core orchestration component for handling authentication across multiple providers
 
 use std::collections::HashMap;
+
 use jsonwebtoken::{ EncodingKey, Algorithm, Header, encode };
+
 use serde::{ Serialize, Deserialize };
+
 use chrono::{ DateTime, Utc, Duration };
+
 use crate::config::env::get_env_var;
+
 
 // use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 use super::providers::{
+
   ProviderRegistry,
   UserClaims,
   AuthProviderError,
   ProviderType,
 };
 use super::providers::firebase_provider::FirebaseProvider;
+
 use super::providers::oidc_provider::OIDCProvider;
+
 use crate::dom::values::UserId;
+
 
 /// Unified JWT claims issued by the token broker
 /// These JWTs are what the frontend and backend will use consistently
@@ -447,15 +456,6 @@ impl TokenBroker {
       
       // Authorization (minimal defaults for refresh token scenario)
       permissions: vec!["epsx:dashboard:read".to_string()],
-      package_tier: "FREE".to_string(),
-      
-      // Firebase integration
-      firebase_uid: Some(refresh_claims.sub.clone()),
-      
-      // Cross-platform fields (defaults for token broker)
-      platforms: Some(vec!["epsx".to_string()]),
-      primary_platform: Some("epsx".to_string()),
-      platform_context: None,
     };
 
     let header = Header::new(Algorithm::HS256);

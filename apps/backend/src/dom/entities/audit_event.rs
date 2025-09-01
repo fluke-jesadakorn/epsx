@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {

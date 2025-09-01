@@ -2,10 +2,14 @@ use diesel::prelude::*;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+
 use serde_json::Value as JsonValue;
 
+
 use crate::infra::db::diesel::schema::audit_logs;
+
 use crate::infra::db::diesel::types::DieselIpAddr;
+
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = audit_logs)]

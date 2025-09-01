@@ -1,6 +1,6 @@
 /**
  * Server-Side Admin Layout
- * Renders the layout with our custom session management
+ * Fetches session data and passes it to the client layout
  */
 
 import { ReactNode } from 'react';
@@ -11,12 +11,24 @@ interface AdminLayoutServerProps {
   children: ReactNode;
 }
 
+interface Session {
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+    permissions: string[];
+    packageTier: string;
+  };
+  isLoggedIn: boolean;
+}
+
 /**
  * Server component that fetches session and passes it to the client layout
  */
 export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
   // Fetch session on the server
-  let session = null;
+  let session: Session | null = null;
   try {
     const sessionData = await getSessionFromJWT();
     if (sessionData?.isAuthenticated && sessionData.user) {
@@ -29,7 +41,6 @@ export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
     console.error('Failed to get session data in layout:', error);
   }
 
-  // Pass server data to client component
   return (
     <AdminLayoutClient session={session}>
       {children}

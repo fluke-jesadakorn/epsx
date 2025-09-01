@@ -1,21 +1,32 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tracing::warn;
-use uuid::Uuid;
-use tracing::{info, debug};
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
+
+use serde::{Deserialize, Serialize};
+
+use std::collections::HashMap;
+
+use std::sync::Arc;
+
+use tracing::warn;
+
+use tracing::{info, debug};
+
+
 
 use crate::app::ports::services::NotificationServiceError;
+
 use crate::dom::ports::notification::{
+
     NotificationPort, DomainNotification, NotificationRecipient, 
     DomainNotificationType, DomainNotificationPriority, NotificationStatus, NotificationError
 };
 use crate::infra::db::diesel::{
+
     models::{DieselNotification},
 };
 use crate::infra::cache::Cache;
+
 
 /// Enhanced notification with full feature support
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +85,6 @@ pub enum NotificationDeliveryStatus {
 pub struct NotificationPreferences {
     pub email_enabled: bool,
     pub push_enabled: bool,
-    pub websocket_enabled: bool,
     pub digest_mode: bool,
     pub digest_frequency: String,
     pub quiet_hours_start: Option<chrono::NaiveTime>,
@@ -89,7 +99,6 @@ pub struct NotificationPreferences {
 pub struct TypePreference {
     pub email: bool,
     pub push: bool,
-    pub websocket: bool,
 }
 
 /// Notification query parameters
@@ -152,7 +161,6 @@ pub trait NotificationService: Send + Sync {
 pub struct DatabaseNotificationService {
     repo: Arc<dyn crate::app::ports::repositories::NotificationRepository>,
     cache: Option<Arc<dyn Cache>>,
-    // websocket_manager: Option<Arc<ConnectionManager>>, // TODO: Add when WebSocket is implemented
 }
 
 impl DatabaseNotificationService {
@@ -160,7 +168,6 @@ impl DatabaseNotificationService {
         Self {
             repo,
             cache: None,
-            // websocket_manager: None,
         }
     }
     
@@ -169,11 +176,6 @@ impl DatabaseNotificationService {
         self
     }
     
-    // TODO: Add when WebSocket is implemented
-    // pub fn with_websocket_manager(mut self, websocket_manager: Arc<ConnectionManager>) -> Self {
-    //     self.websocket_manager = Some(websocket_manager);
-    //     self
-    // }
     
     /// Convert database notification to service notification
     fn db_to_service_notification(&self, db_notif: DieselNotification) -> Notification {
@@ -249,7 +251,6 @@ impl DatabaseNotificationService {
                     type_preferences.insert(key.clone(), TypePreference {
                         email: pref_obj.get("email").and_then(|v| v.as_bool()).unwrap_or(true),
                         push: pref_obj.get("push").and_then(|v| v.as_bool()).unwrap_or(true),
-                        websocket: pref_obj.get("websocket").and_then(|v| v.as_bool()).unwrap_or(true),
                     });
                 }
             }
@@ -258,7 +259,6 @@ impl DatabaseNotificationService {
         NotificationPreferences {
             email_enabled: true, // Default value - preferences not in main notification model
             push_enabled: true, // Default value
-            websocket_enabled: true, // Default value
             digest_mode: true, // Default value - immediate digest
             digest_frequency: "immediate".to_string(), // Default value
             quiet_hours_start: None, // Default value
@@ -415,8 +415,6 @@ impl NotificationService for DatabaseNotificationService {
             
         let notification_id = uuid::Uuid::new_v4().to_string();
         
-        // TODO: Attempt real-time delivery when WebSocket is implemented
-        // if let Some(ws_manager) = &self.websocket_manager {
         //     let _ = self.deliver_real_time(&notification.user_id, &notification).await;
         // }
         
@@ -444,8 +442,6 @@ impl NotificationService for DatabaseNotificationService {
             notification_ids.push(uuid::Uuid::new_v4());
         }
         
-        // TODO: Attempt real-time delivery when WebSocket is implemented
-        // if let Some(_ws_manager) = &self.websocket_manager {
         //     for notification in &notifications {
         //         let _ = self.deliver_real_time(&notification.user_id, notification).await;
         //     }
@@ -640,7 +636,6 @@ impl NotificationService for DatabaseNotificationService {
                 let service_prefs = NotificationPreferences {
                     email_enabled: prefs.email_enabled,
                     push_enabled: prefs.push_enabled,
-                    websocket_enabled: true, // Default for now
                     digest_mode: false, // Default
                     digest_frequency: "daily".to_string(), // Default
                     quiet_hours_start: None,
@@ -681,27 +676,7 @@ impl NotificationService for DatabaseNotificationService {
     }
     
     async fn deliver_real_time(&self, user_id: &str, _notification: &Notification) -> Result<bool, NotificationServiceError> {
-        // TODO: Implement WebSocket real-time delivery when WebSocket module is available
-        // if let Some(ws_manager) = &self.websocket_manager {
-        //     if let Ok(user_uuid) = Uuid::parse_str(user_id) {
-        //         // Create WebSocket event message
-        //         use crate::web::realtime::events::{EventMessage, RealtimeEvent};
-        //         
-        //         let event = EventMessage {
-        //             event_type: RealtimeEvent::Notification,
-        //             user_id: Some(user_uuid),
-        //             data: serde_json::to_value(notification).unwrap_or_default(),
-        //             timestamp: Utc::now(),
-        //             metadata: HashMap::new(),
-        //         };
-        //         
-        //         ws_manager.send_to_user(&user_uuid, event).await;
-        //         debug!("Sent real-time notification to user {}", user_id);
-        //         return Ok(true);
-        //     }
-        // }
-        
-        debug!("Real-time delivery not implemented yet for user {}", user_id);
+        debug!("Real-time delivery not available for user {}", user_id);
         Ok(false)
     }
     

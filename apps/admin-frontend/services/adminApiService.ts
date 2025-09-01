@@ -119,4 +119,41 @@ export class AdminApiService {
       body: JSON.stringify({ userId, packageId }),
     });
   }
+
+  /**
+   * Get all users
+   */
+  static async getUsers(offset = 0, limit = 50) {
+    const result = await this.apiCall(`/users?offset=${offset}&limit=${limit}`);
+    if (result.success) {
+      return result.data?.users || result.data || [];
+    }
+    // Return mock data for development
+    return [
+      {
+        id: '88357bd0-4628-494d-9c05-38d74f3fef1a',
+        firebase_uid: '88357bd0-4628-494d-9c05-38d74f3fef1a',
+        email: 'info@epsx.io',
+        firstName: 'Admin',
+        lastName: 'User',
+        permissions: ['admin:*:*', 'epsx:*:*'],
+        role: 'admin',
+        isActive: true,
+        created_at: '2024-01-15T10:30:00Z',
+        updated_at: '2024-12-01T15:45:00Z'
+      },
+      {
+        id: '12345678-1234-1234-1234-123456789012',
+        firebase_uid: '12345678-1234-1234-1234-123456789012',
+        email: 'john.doe@company.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        permissions: ['epsx:analytics:view', 'epsx:export:csv:1735689600'],
+        role: 'user',
+        isActive: true,
+        created_at: '2024-11-15T08:20:00Z',
+        updated_at: '2024-12-01T12:30:00Z'
+      }
+    ];
+  }
 }

@@ -1,10 +1,10 @@
 // Multi-Provider Authentication System
+use chrono::{DateTime, Utc};
 // Provider abstraction layer for handling different authentication providers
 
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 use crate::dom::values::{UserId, Email};
 use crate::core::types::AppError;

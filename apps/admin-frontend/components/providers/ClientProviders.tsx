@@ -1,15 +1,25 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { ThemeProvider } from 'next-themes';
 
 interface ClientProvidersProps {
   children: ReactNode;
 }
 
 /**
- * Simplified client providers
- * Auth state is managed by Zustand store, no provider needed
+ * Client providers with theme support
+ * Auth state is managed by Zustand store, direct next-themes integration
  */
 export function ClientProviders({ children }: ClientProvidersProps) {
-  return <>{children}</>;
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      {children}
+    </ThemeProvider>
+  );
 }

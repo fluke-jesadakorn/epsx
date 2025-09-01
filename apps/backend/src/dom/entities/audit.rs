@@ -1,10 +1,13 @@
 // Audit logging domain entities for compliance and security tracking
-
 use chrono::{DateTime, Utc};
+
 use serde::{Serialize, Deserialize};
+
 use std::collections::HashMap;
 
+
 use crate::dom::values::UserId;
+
 
 /// Unique identifier for audit log entries
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

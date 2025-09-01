@@ -1,10 +1,15 @@
-use uuid::Uuid;
 
+use uuid::Uuid;
 use crate::dom::entities::audit::AuditLogEntry;
+
 use crate::dom::entities::audit::AuditLogId;
+
 use crate::dom::values::UserId;
+
 use crate::infra::db::diesel::models::{DieselAuditLog, NewDieselAuditLog};
+
 use crate::dom::entities::audit::AuditError;
+
 
 impl TryFrom<DieselAuditLog> for AuditLogEntry {
     type Error = AuditError;

@@ -33,7 +33,7 @@ This production-ready monorepo is organized with clean separation of concerns:
   - Axum framework with PostgreSQL (Diesel ORM 2.2) and WebSocket support
   - **Database**: Complete Diesel ORM migration with compile-time SQL validation and bb8 connection pooling
   - **Core Features**: EPS ranking analytics engine, TradingView integration, authentication/IAM, payment processing, security monitoring
-  - **Enterprise Security**: Brute force detection, GDPR/SOX/HIPAA compliance, audit logging, webhook system
+  - **Enterprise Security**: Brute force detection, audit logging, webhook system
   - **Architecture**: Clean Architecture with 210+ Rust files and production-ready migration system
   - Includes CLI tools for admin operations and user management
 
@@ -43,7 +43,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **Real-time Market Data** - Live stock data streaming with WebSocket support and advanced caching
 - **Advanced Filtering** - Multi-dimensional filtering by country, sector, growth metrics, and custom criteria
 - **Mobile-Optimized** - Touch-friendly interface with responsive design for all device sizes
-- **Enterprise Security** - Complete compliance system (GDPR, SOX, HIPAA) with audit logging
+- **Enterprise Security** - Complete audit logging and threat monitoring system
 - **High Performance** - Redis caching, connection pooling, and optimized database queries
 
 ---
@@ -304,12 +304,11 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 ---
 
-## 🛡️ Enterprise Security & Compliance
+## 🛡️ Enterprise Security
 
 ### Production-Grade Security Systems
 
 - **Advanced Threat Detection**: ML-powered brute force detection with pattern analysis and automated response
-- **Compliance Framework**: Complete GDPR, SOX, HIPAA implementation with automated audit trails and data retention policies
 - **Multi-Provider Authentication**: OIDC, Firebase, and JWT with secure token rotation and session management
 - **Structured Permission System**: Modern permission architecture with platform-scoped access control
   - **Format**: `"platform:resource:action"` (e.g., `"epsx:users:manage"`, `"epsx-pay:transactions:read"`)
@@ -323,7 +322,6 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 - **EPS Analytics Engine**: Complete stock analysis with TradingView integration and real-time data
 - **Enterprise Security**: Brute force detection, security alerts, threat monitoring with ML-based analysis
-- **Compliance Framework**: Full GDPR, SOX, HIPAA compliance with automated audit trails
 - **Performance Monitoring**: Advanced caching, connection pooling, and system health monitoring
 - **WebSocket Support**: Real-time data streaming for analytics and admin notifications
 - **Payment Integration**: Complete subscription management with webhook processing
@@ -340,7 +338,7 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - **Unit Tests**: Rust native testing framework for core business logic with Diesel integration
 - **Integration Tests**: EPS analytics, authentication flows, and database operations using Diesel repositories
 - **Architecture Testing**: Clean Architecture layers (domain, application, infrastructure, presentation)
-- **Security Testing**: Brute force detection, compliance validation, and threat monitoring with Diesel audit trails
+- **Security Testing**: Brute force detection and threat monitoring with Diesel audit trails
 - **Performance Testing**: Load testing for analytics endpoints, caching systems, and Diesel connection pooling
 - **Database Testing**: Diesel ORM validation, migration testing, and compile-time SQL verification
 - **API Testing**: Comprehensive endpoint validation for analytics, auth, and admin functions

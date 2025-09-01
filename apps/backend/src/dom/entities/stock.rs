@@ -1,6 +1,6 @@
 // Stock domain entity with minimal naming
-
 use chrono::{DateTime, Utc};
+
 use rust_decimal::Decimal;
 use serde::{Serialize, Deserialize};
 

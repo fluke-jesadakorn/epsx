@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const authorizationEndpoint = `${backendUrl}/oauth/authorize`;
     const clientId = 'epsx-admin';
     const redirectUri = `${adminUrl}/api/auth/callback/epsx-backend`;
-    const scope = 'openid profile email permissions platform_context'; // Structured permissions only
+    const scope = 'openid profile email permissions'; // Structured permissions only
     
     console.log('🔧 Admin: OAuth configuration:', {
       authorizationEndpoint,
@@ -84,21 +84,24 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 300 // 5 minutes
+      maxAge: 900, // 15 minutes
+      path: '/'
     });
     
     response.cookies.set('oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 300 // 5 minutes
+      maxAge: 900, // 15 minutes
+      path: '/'
     });
     
     response.cookies.set('oauth_redirect_to', redirectTo, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 300 // 5 minutes
+      maxAge: 900, // 15 minutes
+      path: '/'
     });
     
     return response;

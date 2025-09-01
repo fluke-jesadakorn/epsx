@@ -6,7 +6,6 @@ import { ReactNode } from 'react';
 import { 
   getAuthUser, 
   hasPermission, 
-  hasAdminModule,
   isSystemAdmin,
   canManageUsers,
   canAccessAnalytics,

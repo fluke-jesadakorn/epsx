@@ -65,6 +65,7 @@ impl AppContainer {
             self.database.session_repo.clone(),
             self.services.firebase_admin.clone(),
             self.services.permission_application_service.clone(),
+            self.services.refresh_token_service.clone(),
         ));
         
         let user_mgmt_uc = Arc::new(UserMgmtUC::new(
@@ -168,6 +169,8 @@ impl AppContainerBuilder {
             database.user_repo.clone(),
             database.user_permission_repo.clone(),
             cache.cache.clone(),
+            database.refresh_token_repo.clone(),
+            database.revoked_token_repo.clone(),
         ).await?;
         
         // 4. Legacy compatibility

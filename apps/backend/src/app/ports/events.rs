@@ -1,12 +1,15 @@
 // Event handling port interfaces
+use uuid::Uuid;
 
 use async_trait::async_trait;
-use uuid::Uuid;
+
 
 use crate::dom::events::DomainEvent;
 
+
 #[cfg(test)]
 use mockall::{automock, predicate::*};
+
 
 #[async_trait]
 #[cfg_attr(test, automock)]

@@ -42,7 +42,9 @@ export function UserPermissionsContent({
   currentUser, 
   onUserUpdated 
 }: UserPermissionsContentProps) {
-  const canManagePermissions = currentUser.role === 'admin' || currentUser.canManageUsers
+  const canManagePermissions = currentUser.permissions?.includes('admin:users:permissions') || 
+                            currentUser.permissions?.includes('admin:*:*') ||
+                            currentUser.canManageUsers
   
 
   // Calculate permission stats

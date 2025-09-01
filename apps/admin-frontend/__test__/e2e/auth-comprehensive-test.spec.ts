@@ -115,8 +115,8 @@ test.describe('Admin Frontend Comprehensive Tests', () => {
     await expect(page).toHaveURL(/.*\/login.*/);
   });
   
-  test('admin breadcrumb navigation', async ({ page }) => {
-    // Login and test breadcrumbs
+  test('admin header navigation', async ({ page }) => {
+    // Login and test modern header navigation
     await page.goto(ADMIN_URL);
     await page.getByRole('link', { name: 'Sign in with EPSX Backend' }).click();
     await page.getByRole('textbox', { name: 'Email' }).fill(TEST_CREDENTIALS.email);
@@ -124,10 +124,10 @@ test.describe('Admin Frontend Comprehensive Tests', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
     await expect(page).toHaveURL(ADMIN_URL);
     
-    // Check breadcrumb elements
-    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
-    await expect(page.getByLabel('Breadcrumb').getByText('Dashboard')).toBeVisible();
+    // Check modern header elements
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'EPSX Admin' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     
     // Check date display
     await expect(page.getByText(/Mon, Aug 18, 2025/)).toBeVisible();

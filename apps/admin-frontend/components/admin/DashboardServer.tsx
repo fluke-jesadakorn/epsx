@@ -13,8 +13,7 @@ interface Session {
     email: string;
     name?: string;
     role: string;
-    adminModules: string[];
-    permissions: string[];
+    permissions: string[];  // Structured permissions only: "platform:resource:action"
     packageTier: string;
   };
   isLoggedIn: boolean;

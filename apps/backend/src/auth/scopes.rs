@@ -180,6 +180,15 @@ impl ScopeService {
             permissions: vec!["permissions:read", "permissions:validate", "epsx:*"].iter().map(|s| s.to_string()).collect(),
             sensitive: true,
         });
+
+        self.register_scope(Scope {
+            name: "platform_context".to_string(),
+            description: "Platform context information for multi-platform access".to_string(),
+            category: ScopeCategory::Admin,
+            required_role: None,
+            permissions: vec!["platform:read", "context:access"].iter().map(|s| s.to_string()).collect(),
+            sensitive: false,
+        });
     }
 
     /// Register a new scope

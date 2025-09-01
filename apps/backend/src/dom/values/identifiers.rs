@@ -1,9 +1,12 @@
 // Typed identifiers for domain entities
 
 use serde::{ Serialize, Deserialize };
-use std::fmt::{ Display, Formatter, Result as FmtResult };
-use std::ops::Deref;
 use uuid::Uuid;
+
+use std::fmt::{ Display, Formatter, Result as FmtResult };
+
+use std::ops::Deref;
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(pub Uuid);

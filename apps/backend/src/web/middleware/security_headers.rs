@@ -1,18 +1,21 @@
 // Security Headers Middleware
+use uuid::Uuid;
 //
 // Provides comprehensive security headers for all HTTP responses to protect against
 // common web vulnerabilities and enhance security posture of the EPSX platform.
 
 use axum::{
+
     extract::{Request, State},
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode},
     middleware::Next,
     response::Response,
 };
 use std::time::SystemTime;
-use uuid::Uuid;
+
 
 use crate::{
+
     infra::container::AppContainer,
     web::middleware::auth_monitoring::AuthContext,
 };

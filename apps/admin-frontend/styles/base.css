@@ -48,41 +48,41 @@
      ADMIN COLOR SYSTEM - Tailwind v4 Format
      ======================================================================== */
   
-  /* Primary Color Scale (Admin Orange) */
-  --color-primary-50: hsl(31 100% 95%);
-  --color-primary-100: hsl(31 90% 90%);
-  --color-primary-200: hsl(31 95% 85%);
-  --color-primary-300: hsl(31 95% 75%);
-  --color-primary-400: hsl(31 95% 65%);
-  --color-primary-500: hsl(31 100% 50%);
-  --color-primary-600: hsl(31 95% 45%);
-  --color-primary-700: hsl(31 90% 40%);
-  --color-primary-800: hsl(31 85% 35%);
-  --color-primary-900: hsl(31 80% 30%);
+  /* Primary Color Scale (PancakeSwap Yellow) */
+  --color-primary-50: hsl(47 100% 95%);
+  --color-primary-100: hsl(47 100% 90%);
+  --color-primary-200: hsl(47 100% 82%);
+  --color-primary-300: hsl(47 100% 75%);
+  --color-primary-400: hsl(47 100% 65%);
+  --color-primary-500: hsl(47 100% 63%);
+  --color-primary-600: hsl(45 100% 58%);
+  --color-primary-700: hsl(43 100% 50%);
+  --color-primary-800: hsl(39 100% 44%);
+  --color-primary-900: hsl(36 100% 38%);
   
-  /* Secondary Color Scale (Admin Yellow) */
-  --color-secondary-50: hsl(42 100% 95%);
-  --color-secondary-100: hsl(42 95% 88%);
-  --color-secondary-200: hsl(42 90% 80%);
-  --color-secondary-300: hsl(42 95% 75%);
-  --color-secondary-400: hsl(42 100% 70%);
-  --color-secondary-500: hsl(42 100% 70%);
-  --color-secondary-600: hsl(42 95% 65%);
-  --color-secondary-700: hsl(42 90% 60%);
-  --color-secondary-800: hsl(42 85% 55%);
-  --color-secondary-900: hsl(42 80% 50%);
+  /* Secondary Color Scale (Windows Phone Blue) */
+  --color-secondary-50: hsl(207 100% 95%);
+  --color-secondary-100: hsl(207 90% 88%);
+  --color-secondary-200: hsl(207 85% 80%);
+  --color-secondary-300: hsl(207 80% 72%);
+  --color-secondary-400: hsl(207 75% 64%);
+  --color-secondary-500: hsl(207 90% 54%);
+  --color-secondary-600: hsl(207 85% 48%);
+  --color-secondary-700: hsl(207 80% 42%);
+  --color-secondary-800: hsl(207 75% 36%);
+  --color-secondary-900: hsl(207 70% 30%);
   
-  /* Success Color Scale */
-  --color-success-50: hsl(142 76% 95%);
-  --color-success-100: hsl(142 71% 88%);
-  --color-success-200: hsl(142 71% 75%);
-  --color-success-300: hsl(142 71% 65%);
-  --color-success-400: hsl(142 71% 55%);
-  --color-success-500: hsl(142 71% 45%);
-  --color-success-600: hsl(142 66% 40%);
-  --color-success-700: hsl(142 61% 35%);
-  --color-success-800: hsl(142 56% 30%);
-  --color-success-900: hsl(142 51% 25%);
+  /* Success Color Scale (PancakeSwap Mint) */
+  --color-success-50: hsl(174 70% 95%);
+  --color-success-100: hsl(174 65% 88%);
+  --color-success-200: hsl(174 65% 80%);
+  --color-success-300: hsl(174 65% 70%);
+  --color-success-400: hsl(174 60% 60%);
+  --color-success-500: hsl(174 60% 53%);
+  --color-success-600: hsl(174 55% 46%);
+  --color-success-700: hsl(174 50% 39%);
+  --color-success-800: hsl(174 45% 32%);
+  --color-success-900: hsl(174 40% 25%);
   
   /* Warning Color Scale */
   --color-warning-50: hsl(45 98% 95%);
@@ -272,8 +272,8 @@
 
 @layer base {
   :root {
-    /* Light theme - Analytics platform with admin enhancements */
-    --background: 251 100% 98%; /* Softer white */
+    /* Light theme - PancakeSwap x Windows Phone */
+    --background: 45 100% 96%; /* Very light yellow background */
     --foreground: 220 26% 14%; /* Dark blue-gray */
 
     --card: 0 0% 100%;
@@ -282,26 +282,26 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 26% 14%;
 
-    --primary: 217 91% 60%; /* Analytics blue */
-    --primary-foreground: 0 0% 100%;
+    --primary: 47 100% 63%; /* PancakeSwap Yellow */
+    --primary-foreground: 220 26% 14%;
 
-    --secondary: 42 100% 70%; /* Light golden */
-    --secondary-foreground: 220 26% 14%;
+    --secondary: 207 90% 54%; /* Windows Phone Blue */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217 32% 96%; /* Light blue-gray */
+    --muted: 45 50% 96%; /* Light yellow-gray */
     --muted-foreground: 215 16% 47%;
 
-    --accent: 31 100% 95%; /* Very light orange */
-    --accent-foreground: 31 100% 40%;
+    --accent: 272 60% 58%; /* Windows Phone Purple */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 85% 60%;
+    --destructive: 0 84% 60%; /* Windows Phone Red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217 32% 91%; /* Light border */
-    --input: 217 32% 91%;
-    --ring: 31 100% 50%;
+    --border: 45 30% 85%; /* Light yellow border */
+    --input: 45 30% 90%;
+    --ring: 47 100% 63%; /* PancakeSwap Yellow */
 
-    --radius: 1rem;
+    --radius: 0rem; /* Windows Phone sharp corners */
 
     /* Analytics platform specific colors */
     --insight-primary: 217 91% 60%; /* Analytics blue */
@@ -349,36 +349,36 @@
   }
 
   .dark {
-    /* Dark theme - Analytics platform with admin enhancements */
-    --background: 220 26% 8%; /* Deep dark blue-gray */
-    --foreground: 210 40% 95%; /* Higher contrast light blue-gray */
+    /* Dark theme - PancakeSwap x Windows Phone Black */
+    --background: 220 26% 3%; /* Windows Phone Black */
+    --foreground: 45 100% 95%; /* Light with yellow tint */
 
-    --card: 220 26% 10%; /* Slightly lighter dark */
-    --card-foreground: 210 40% 95%;
+    --card: 220 26% 5%; /* Slightly lighter black */
+    --card-foreground: 45 100% 95%;
 
-    --popover: 220 26% 10%;
-    --popover-foreground: 210 40% 95%;
+    --popover: 220 26% 5%;
+    --popover-foreground: 45 100% 95%;
 
-    --primary: 31 100% 50%; /* Keep orange vibrant */
-    --primary-foreground: 0 0% 100%;
+    --primary: 47 100% 63%; /* Keep PancakeSwap Yellow bright */
+    --primary-foreground: 220 26% 8%;
 
-    --secondary: 42 100% 70%; /* Keep yellow vibrant */
-    --secondary-foreground: 220 26% 8%;
+    --secondary: 207 90% 64%; /* Brighter Windows Phone Blue */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 215 28% 17%; /* Darker muted */
-    --muted-foreground: 217 9% 75%; /* Improved contrast from 61% to 75% */
+    --muted: 220 26% 12%; /* Darker muted */
+    --muted-foreground: 45 20% 70%; /* Yellow-tinted gray */
 
-    --accent: 31 100% 25%; /* Darker orange accent */
-    --accent-foreground: 31 100% 85%;
+    --accent: 272 60% 68%; /* Brighter Windows Phone Purple */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 85% 55%; /* Slightly darker red */
+    --destructive: 0 84% 65%; /* Brighter red for contrast */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 28% 22%; /* Slightly lighter border for better visibility */
-    --input: 215 28% 22%;
-    --ring: 31 100% 50%;
+    --border: 45 15% 20%; /* Dark yellow-tinted border */
+    --input: 45 15% 15%;
+    --ring: 47 100% 63%; /* PancakeSwap Yellow */
 
-    --radius: 1rem;
+    --radius: 0rem; /* Windows Phone sharp corners */
 
     /* Analytics platform specific colors - adjusted for dark mode */
     --insight-primary: 217 91% 65%; /* Analytics blue */
@@ -432,12 +432,55 @@
   }
   
   body {
-    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+    @apply text-[hsl(var(--foreground))];
+    overflow-x: hidden; /* Fix horizontal overflow issues */
+    /* Windows Phone + PancakeSwap unified background */
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 25%, #2d2d2d 50%, #1a1a1a 75%, #000000 100%);
+    background-attachment: fixed;
+    position: relative;
   }
   
-  /* Smooth theme transitions */
+  /* Windows Phone + PancakeSwap background pattern overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    /* Subtle grid pattern inspired by Windows Phone tiles */
+    background-image: 
+      linear-gradient(rgba(255, 193, 7, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 193, 7, 0.02) 1px, transparent 1px);
+    background-size: 20px 20px;
+    /* Add subtle gradient overlay for depth */
+    background-blend-mode: overlay;
+  }
+  
+  /* Enhanced PancakeSwap accent dots */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    /* Subtle radial dots pattern */
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(255, 193, 7, 0.03) 1px, transparent 2px),
+      radial-gradient(circle at 80% 70%, rgba(255, 193, 7, 0.03) 1px, transparent 2px),
+      radial-gradient(circle at 40% 80%, rgba(255, 193, 7, 0.02) 1px, transparent 2px);
+  }
+  
+  /* Smooth theme transitions, prevent horizontal overflow, and better scrolling */
   html {
+    overflow-x: hidden; /* Prevent horizontal overflow */
     transition: color-scheme 0.3s ease-out;
+    scroll-behavior: smooth; /* Better scrolling behavior */
   }
   
   html.dark {
@@ -466,11 +509,6 @@
   .focus-visible-ring:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
-  }
-
-  /* Better scrolling behavior */
-  html {
-    scroll-behavior: smooth;
   }
 
   /* Improved form elements */

@@ -15,6 +15,8 @@ pub mod templates;
 pub mod admin_assignment;
 pub mod notifications;
 pub mod realtime;
+pub mod session_management_handlers;
+pub mod session_management_routes;
 
 use axum::{ routing::{ get, post }, Router, response::Json, http::Method };
 use serde_json::{ json, Value };

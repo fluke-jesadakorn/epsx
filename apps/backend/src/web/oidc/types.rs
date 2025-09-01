@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 /// OIDC Authorization Request
 #[derive(Debug, Deserialize)]
@@ -71,6 +71,12 @@ pub struct OidcDiscoveryDocument {
     pub token_endpoint: String,
     pub userinfo_endpoint: String,
     pub jwks_uri: String,
+    
+    // Standard OpenID Connect endpoints (RFC compliance)
+    pub revocation_endpoint: String,        // RFC 7009
+    pub introspection_endpoint: String,     // RFC 7662  
+    pub end_session_endpoint: String,       // OpenID Connect Session Management
+    
     pub scopes_supported: Vec<String>,
     pub response_types_supported: Vec<String>,
     pub grant_types_supported: Vec<String>,
@@ -78,6 +84,10 @@ pub struct OidcDiscoveryDocument {
     pub id_token_signing_alg_values_supported: Vec<String>,
     pub claims_supported: Vec<String>,
     pub code_challenge_methods_supported: Vec<String>,
+    
+    // Additional RFC 7009/7662 support indicators
+    pub revocation_endpoint_auth_methods_supported: Vec<String>,
+    pub introspection_endpoint_auth_methods_supported: Vec<String>,
 }
 
 /// Authorization Code Storage

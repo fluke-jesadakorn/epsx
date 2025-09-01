@@ -173,7 +173,7 @@ policies:
         1. Secure audit log systems
         2. Review access controls
         3. Check for insider threat indicators
-        4. Notify compliance team
+        4. Escalate to security lead
       mimeType: "text/markdown"
     conditions:
       - displayName: "Audit log modification attempt"
@@ -190,7 +190,6 @@ policies:
     enabled: true
     notificationChannels:
       - "projects/epsx-production/notificationChannels/security-pager"
-      - "projects/epsx-production/notificationChannels/compliance-team"
 
   # Permission System Alerts
   - displayName: "Permission System Failure"
@@ -310,36 +309,6 @@ policies:
     notificationChannels:
       - "projects/epsx-production/notificationChannels/security-email"
 
-  # Compliance Alerts
-  - displayName: "Compliance Violation Detected"
-    documentation:
-      content: |
-        **COMPLIANCE ALERT: Violation Detected**
-        
-        Regulatory compliance violation detected.
-        
-        **Actions:**
-        1. Review compliance logs
-        2. Identify violation source
-        3. Implement corrective measures
-        4. Notify compliance team
-      mimeType: "text/markdown"
-    conditions:
-      - displayName: "Compliance violation"
-        conditionThreshold:
-          filter: 'metric.type="custom.googleapis.com/epsx/compliance/violations" resource.type="global"'
-          comparison: "COMPARISON_GREATER_THAN"
-          thresholdValue: 0
-          duration: "60s"
-          aggregations:
-            - alignmentPeriod: "60s"
-              perSeriesAligner: "ALIGN_SUM"
-              crossSeriesReducer: "REDUCE_SUM"
-    combiner: "OR"
-    enabled: true
-    notificationChannels:
-      - "projects/epsx-production/notificationChannels/compliance-team"
-      - "projects/epsx-production/notificationChannels/legal-team"
 
 # Notification Channels Configuration
 notificationChannels:
@@ -364,10 +333,6 @@ notificationChannels:
     labels:
       email_address: "admin@epsx.io"
     
-  - type: "email"
-    displayName: "Compliance Team"
-    labels:
-      email_address: "compliance@epsx.io"
     
   - type: "email"
     displayName: "Engineering Team"

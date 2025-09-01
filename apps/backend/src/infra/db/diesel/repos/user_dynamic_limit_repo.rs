@@ -1,13 +1,13 @@
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use uuid::Uuid;
+use diesel_async::{RunQueryDsl, AsyncPgConnection};
+
 use std::collections::HashMap;
 use chrono::{DateTime, Utc, NaiveDateTime};
 use std::result::Result;
 use crate::app::ports::repositories::RepoError;
 use crate::infra::db::diesel::models::{
-    DieselUserDynamicLimit, NewDieselUserDynamicLimit, UpdateDieselUserDynamicLimit,
-    ResolvedUserLimits, LimitSource
+    DieselUserDynamicLimit, NewDieselUserDynamicLimit, UpdateDieselUserDynamicLimit
 };
 use crate::infra::db::diesel::schema::user_dynamic_limits;
 

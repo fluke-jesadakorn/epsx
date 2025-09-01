@@ -1,21 +1,120 @@
 use jsonwebtoken::{decode, encode, Header, Validation, Algorithm, errors::ErrorKind};
-use serde::{Deserialize, Serialize};
-use super::key_manager::KeyManager;
-use std::sync::Arc;
 use uuid::Uuid;
+
+use serde::{Deserialize, Serialize};
+
+use super::key_manager::KeyManager;
+
+use std::sync::Arc;
+
 use crate::config::env::get_env_var;
-use crate::auth::permissions::check_permission_access;
+
+use std::collections::HashSet;
+
+use crate::infra::db::diesel::repos::RevokedTokenRepository;
+
 
 /// Check if user has admin permissions
 fn has_admin_permissions(permissions: &[String]) -> bool {
     permissions.iter().any(|p| p == "admin:*:*" || p.starts_with("admin:"))
 }
 
+/// Derive package tier from permissions
+pub fn derive_package_tier_from_permissions(permissions: &[String]) -> String {
+    if has_enterprise_permissions(permissions) {
+        "ENTERPRISE".to_string()
+    } else if has_platinum_permissions(permissions) {
+        "PLATINUM".to_string()
+    } else if has_gold_permissions(permissions) {
+        "GOLD".to_string()
+    } else if has_silver_permissions(permissions) {
+        "SILVER".to_string()
+    } else if has_bronze_permissions(permissions) {
+        "BRONZE".to_string()
+    } else {
+        "FREE".to_string()
+    }
+}
+
+/// Derive accessible platforms from permissions
+pub fn derive_accessible_platforms_from_permissions(permissions: &[String]) -> Vec<String> {
+    let mut platforms = HashSet::new();
+    
+    for permission in permissions {
+        if let Some(platform) = permission.split(':').next() {
+            platforms.insert(platform.to_string());
+        }
+    }
+    
+    if platforms.is_empty() {
+        vec!["epsx".to_string()] // Default fallback
+    } else {
+        platforms.into_iter().collect()
+    }
+}
+
+/// Derive primary platform from permissions (priority: admin > epsx > epsx-pay > epsx-token)
+pub fn derive_primary_platform_from_permissions(permissions: &[String]) -> String {
+    if permissions.iter().any(|p| p.starts_with("admin:")) {
+        "admin".to_string()
+    } else if permissions.iter().any(|p| p.starts_with("epsx:")) {
+        "epsx".to_string()
+    } else if permissions.iter().any(|p| p.starts_with("epsx-pay:")) {
+        "epsx-pay".to_string()
+    } else if permissions.iter().any(|p| p.starts_with("epsx-token:")) {
+        "epsx-token".to_string()
+    } else {
+        "epsx".to_string() // Default fallback
+    }
+}
+
+/// Helper functions for tier detection
+fn has_enterprise_permissions(permissions: &[String]) -> bool {
+    permissions.iter().any(|p| {
+        p.starts_with("enterprise:") || 
+        p == "admin:*:*" ||
+        p.contains("enterprise") ||
+        has_admin_permissions(permissions)
+    })
+}
+
+fn has_platinum_permissions(permissions: &[String]) -> bool {
+    permissions.iter().any(|p| {
+        p.starts_with("platinum:") ||
+        p.contains("platinum") ||
+        permissions.len() >= 10 // Many permissions indicate higher tier
+    })
+}
+
+fn has_gold_permissions(permissions: &[String]) -> bool {
+    permissions.iter().any(|p| {
+        p.starts_with("gold:") ||
+        p.contains("gold") ||
+        permissions.iter().any(|perm| perm.contains("export") || perm.contains("advanced"))
+    })
+}
+
+fn has_silver_permissions(permissions: &[String]) -> bool {
+    permissions.iter().any(|p| {
+        p.starts_with("silver:") ||
+        p.contains("silver") ||
+        permissions.len() >= 5 // Several permissions indicate silver tier
+    })
+}
+
+fn has_bronze_permissions(permissions: &[String]) -> bool {
+    permissions.iter().any(|p| {
+        p.starts_with("bronze:") ||
+        p.contains("bronze") ||
+        permissions.len() >= 3 // Few permissions indicate bronze tier
+    })
+}
+
 /// JWT claims following RFC 7519 standard with permission-only system
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     // Standard JWT claims (RFC 7519)
-    pub sub: String,        // Subject (User ID)
+    pub sub: String,        // Subject (User ID) - same as firebase_uid
     pub iss: String,        // Issuer 
     pub aud: String,        // Audience
     pub exp: usize,         // Expiration Time
@@ -29,15 +128,6 @@ pub struct Claims {
     
     // Permission-only authorization system
     pub permissions: Vec<String>,        // Structured Platform:Resource:Action format
-    pub package_tier: String,           // Package tier
-    
-    // Cross-platform fields
-    pub platforms: Option<Vec<String>>,      // Accessible platforms ["epsx", "epsx-pay", "epsx-token"]
-    pub primary_platform: Option<String>,   // Default platform
-    pub platform_context: Option<String>,   // Current platform context
-    
-    // Firebase integration
-    pub firebase_uid: Option<String>,
 }
 
 /// Refresh token claims (simplified)
@@ -58,13 +148,7 @@ pub struct User {
     pub email: String,
     pub name: Option<String>,
     // permissions field removed - handled by separate table
-    pub package_tier: String,
-    pub firebase_uid: Option<String>,
-    
-    // Cross-platform fields
-    pub platforms: Vec<String>,          // Accessible platforms
-    pub primary_platform: String,       // Default platform
-    pub platform_context: Option<String>, // Current platform context
+    // package_tier, platforms, firebase_uid, primary_platform removed - derived from permissions
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -73,6 +157,8 @@ pub enum Error {
     Invalid(String),
     #[error("Token expired")]
     Expired,
+    #[error("Token revoked")]
+    Revoked,
     #[error("Missing claims: {0}")]
     MissingClaims(String),
     #[error("Invalid signature")]
@@ -86,6 +172,7 @@ pub enum Error {
 pub struct Service {
     key_manager: Arc<KeyManager>,
     issuer: String,
+    revoked_token_repo: Option<Arc<RevokedTokenRepository>>,
 }
 
 impl Service {
@@ -99,7 +186,13 @@ impl Service {
         Ok(Self {
             key_manager,
             issuer,
+            revoked_token_repo: None,
         })
+    }
+
+    pub fn with_revoked_token_repo(mut self, revoked_token_repo: Arc<RevokedTokenRepository>) -> Self {
+        self.revoked_token_repo = Some(revoked_token_repo);
+        self
     }
 
     /// Create JWT token with complete standard claims (permission-only)
@@ -122,15 +215,6 @@ impl Service {
             
             // Permission-only authorization
             permissions: user_data.permissions.clone().unwrap_or_default(),
-            package_tier: user_data.package_tier.unwrap_or_else(|| "FREE".to_string()),
-            
-            // Cross-platform fields
-            platforms: user_data.platforms.clone().or_else(|| Some(vec!["epsx".to_string()])),
-            primary_platform: user_data.primary_platform.clone().or_else(|| Some("epsx".to_string())),
-            platform_context: user_data.platform_context.clone(),
-            
-            // Firebase integration
-            firebase_uid: user_data.firebase_uid,
         };
         
         let current_key = self.key_manager.current_key();
@@ -142,7 +226,7 @@ impl Service {
     }
 
     /// Verify and decode JWT token
-    pub fn verify(&self, token: &str) -> Result<Claims, Error> {
+    pub async fn verify(&self, token: &str) -> Result<Claims, Error> {
         // Try RSA validation first
         if let Ok(header) = jsonwebtoken::decode_header(token) {
             // Try with specific key ID
@@ -158,6 +242,18 @@ impl Service {
                             // Check not before
                             if token_data.claims.nbf > now {
                                 return Err(Error::NotYetValid);
+                            }
+                            
+                            // Check if token is revoked (JTI blacklist)
+                            if let Some(ref revoked_repo) = self.revoked_token_repo {
+                                match revoked_repo.is_revoked(&token_data.claims.jti).await {
+                                    Ok(true) => return Err(Error::Revoked),
+                                    Ok(false) => {}, // Token is not revoked, continue
+                                    Err(e) => {
+                                        tracing::error!("Failed to check token revocation status for JTI {}: {}", token_data.claims.jti, e);
+                                        // Continue anyway - don't fail auth if revocation check fails
+                                    }
+                                }
                             }
                             
                             return Ok(token_data.claims);
@@ -177,7 +273,28 @@ impl Service {
             validation.set_issuer(&[&self.issuer]);
             
             match decode::<Claims>(token, &current_key.decoding_key, &validation) {
-                Ok(token_data) => return Ok(token_data.claims),
+                Ok(token_data) => {
+                    let now = chrono::Utc::now().timestamp() as usize;
+                    
+                    // Check not before
+                    if token_data.claims.nbf > now {
+                        return Err(Error::NotYetValid);
+                    }
+                    
+                    // Check if token is revoked (JTI blacklist)
+                    if let Some(ref revoked_repo) = self.revoked_token_repo {
+                        match revoked_repo.is_revoked(&token_data.claims.jti).await {
+                            Ok(true) => return Err(Error::Revoked),
+                            Ok(false) => {}, // Token is not revoked, continue
+                            Err(e) => {
+                                tracing::error!("Failed to check token revocation status for JTI {}: {}", token_data.claims.jti, e);
+                                // Continue anyway - don't fail auth if revocation check fails
+                            }
+                        }
+                    }
+                    
+                    return Ok(token_data.claims);
+                }
                 Err(err) => match err.kind() {
                     ErrorKind::ExpiredSignature => return Err(Error::Expired),
                     ErrorKind::InvalidSignature => return Err(Error::InvalidSignature),
@@ -190,39 +307,28 @@ impl Service {
     }
 
     /// Decode token to user (without permissions field - permissions moved to separate table)
-    pub fn decode(&self, token: &str) -> Result<User, Error> {
-        let claims = self.verify(token)?;
+    pub async fn decode(&self, token: &str) -> Result<User, Error> {
+        let claims = self.verify(token).await?;
         
         Ok(User {
             id: claims.sub,
             email: claims.email,
             name: claims.name,
             // permissions field removed - handled by separate table
-            package_tier: claims.package_tier,
-            firebase_uid: claims.firebase_uid,
-            
-            // Cross-platform fields with backward compatibility defaults
-            platforms: claims.platforms.unwrap_or_else(|| vec!["epsx".to_string()]),
-            primary_platform: claims.primary_platform.unwrap_or_else(|| "epsx".to_string()),
-            platform_context: claims.platform_context,
+            // package_tier, platforms, firebase_uid, primary_platform removed - derived from permissions
         })
     }
     
     /// Extract both user and permissions from JWT claims
-    pub fn decode_with_permissions(&self, token: &str) -> Result<(User, Vec<String>), Error> {
-        let claims = self.verify(token)?;
+    pub async fn decode_with_permissions(&self, token: &str) -> Result<(User, Vec<String>), Error> {
+        let claims = self.verify(token).await?;
         
         let user = User {
             id: claims.sub,
             email: claims.email,
             name: claims.name,
-            package_tier: claims.package_tier,
-            firebase_uid: claims.firebase_uid,
-            
-            // Cross-platform fields with backward compatibility defaults
-            platforms: claims.platforms.unwrap_or_else(|| vec!["epsx".to_string()]),
-            primary_platform: claims.primary_platform.unwrap_or_else(|| "epsx".to_string()),
-            platform_context: claims.platform_context,
+            // permissions field removed - handled by separate table
+            // package_tier, platforms, firebase_uid, primary_platform removed - derived from permissions
         };
         
         // Apply timestamp validation to permissions from JWT
@@ -235,8 +341,8 @@ impl Service {
     // Permission checking methods removed - permissions are now handled by separate PermissionService
     // Use PermissionApplicationService.has_permission() instead
 
-    /// Check if user has package tier
-    pub fn has_tier(&self, user: &User, required_tier: &str) -> bool {
+    /// Check if user has package tier (now requires permissions parameter)
+    pub fn has_tier_with_permissions(&self, permissions: &[String], required_tier: &str) -> bool {
         let tier_hierarchy = [
             ("FREE", 1),
             ("BRONZE", 2),
@@ -246,7 +352,8 @@ impl Service {
             ("ENTERPRISE", 6),
         ].iter().cloned().collect::<std::collections::HashMap<_, _>>();
 
-        let user_level = tier_hierarchy.get(user.package_tier.as_str()).unwrap_or(&0);
+        let user_tier = derive_package_tier_from_permissions(permissions);
+        let user_level = tier_hierarchy.get(user_tier.as_str()).unwrap_or(&0);
         let required_level = tier_hierarchy.get(required_tier).unwrap_or(&1);
 
         user_level >= required_level
@@ -263,8 +370,8 @@ impl Service {
     // Middleware compatibility methods
     
     /// Extract user from token (for middleware)
-    pub fn extract_user(&self, token: &str) -> Result<User, Error> {
-        self.decode(token)
+    pub async fn extract_user(&self, token: &str) -> Result<User, Error> {
+        self.decode(token).await
     }
     
     // Admin endpoint validation removed - use middleware with PermissionApplicationService instead
@@ -275,9 +382,9 @@ impl Service {
         true
     }
     
-    /// Check if user has package tier (alias for has_tier())
-    pub fn has_package_tier(&self, user: &User, required_tier: &str) -> bool {
-        self.has_tier(user, required_tier)
+    /// Check if user has package tier (alias for has_tier_with_permissions())
+    pub fn has_package_tier_with_permissions(&self, permissions: &[String], required_tier: &str) -> bool {
+        self.has_tier_with_permissions(permissions, required_tier)
     }
 }
 
@@ -297,17 +404,16 @@ impl CrossPlatformPermissionService {
         true
     }
 
-    /// Check if user can access a specific platform
-    pub fn can_access_platform(&self, user: &User, platform: &str) -> bool {
-        // Check if platform is in user's accessible platforms list
-        user.platforms.contains(&platform.to_string())
-        // Note: Permission-based platform access checking moved to PermissionApplicationService
+    /// Check if user can access a specific platform (now requires permissions parameter)
+    pub fn can_access_platform_with_permissions(&self, permissions: &[String], platform: &str) -> bool {
+        // Check if platform is in user's accessible platforms based on permissions
+        let accessible_platforms = derive_accessible_platforms_from_permissions(permissions);
+        accessible_platforms.contains(&platform.to_string())
     }
 
-    /// Get all platforms user can access (from user.platforms field only)
-    pub fn get_accessible_platforms(&self, user: &User) -> Vec<String> {
-        user.platforms.clone()
-        // Note: Platform access based on permissions now requires PermissionApplicationService
+    /// Get all platforms user can access (from permissions)
+    pub fn get_accessible_platforms_from_permissions(&self, permissions: &[String]) -> Vec<String> {
+        derive_accessible_platforms_from_permissions(permissions)
     }
 
     /// Parse permission string into components
@@ -359,15 +465,10 @@ pub struct UserData {
     pub email: String,
     pub name: Option<String>,
     pub permissions: Option<Vec<String>>, // Structured permissions only
-    pub package_tier: Option<String>,
-    pub firebase_uid: Option<String>,
     pub audience: Option<String>,
     pub ttl_seconds: Option<usize>,
     
-    // Cross-platform fields
-    pub platforms: Option<Vec<String>>,
-    pub primary_platform: Option<String>,
-    pub platform_context: Option<String>,
+    // Removed: package_tier, firebase_uid, platforms, primary_platform
 }
 
 impl Default for Service {
@@ -385,8 +486,8 @@ lazy_static::lazy_static! {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_create_and_verify_token() {
+    #[tokio::test]
+    async fn test_create_and_verify_token() {
         let service = Service::new().unwrap();
         
         let user_data = UserData {
@@ -394,17 +495,12 @@ mod tests {
             email: "test@example.com".to_string(),
             name: Some("Test User".to_string()),
             permissions: Some(vec!["epsx:analytics:view".to_string()]),
-            package_tier: Some("FREE".to_string()),
-            firebase_uid: None,
             audience: None,
             ttl_seconds: Some(3600),
-            platforms: Some(vec!["epsx".to_string()]),
-            primary_platform: Some("epsx".to_string()),
-            platform_context: None,
         };
         
         let token = service.create(user_data).unwrap();
-        let claims = service.verify(&token).unwrap();
+        let claims = service.verify(&token).await.unwrap();
         
         assert_eq!(claims.sub, "user123");
         assert_eq!(claims.email, "test@example.com");
@@ -415,25 +511,16 @@ mod tests {
     fn test_permission_check() {
         let service = Service::new().unwrap();
         let permissions = vec!["admin:*:*".to_string()];
-        let user = User {
-            id: "user123".to_string(),
-            email: "test@example.com".to_string(),
-            name: None,
-            permissions: permissions.clone(),
-            package_tier: "GOLD".to_string(),
-            firebase_uid: None,
-            platforms: vec!["epsx".to_string()],
-            primary_platform: "epsx".to_string(),
-            platform_context: None,
-        };
         
-        assert!(service.has_permission(&user, "epsx:users:manage"));
-        assert!(service.is_admin(&user));
-        assert!(service.has_tier(&user, "SILVER"));
+        // Test permission derivation functions
+        assert_eq!(derive_package_tier_from_permissions(&permissions), "ENTERPRISE");
+        assert!(service.has_tier_with_permissions(&permissions, "SILVER"));
+        assert!(derive_accessible_platforms_from_permissions(&permissions).contains(&"admin".to_string()));
+        assert_eq!(derive_primary_platform_from_permissions(&permissions), "admin");
     }
 
-    #[test]
-    fn test_cross_platform_jwt_claims() {
+    #[tokio::test]
+    async fn test_cross_platform_jwt_claims() {
         let service = Service::new().unwrap();
         
         let user_data = UserData {
@@ -445,24 +532,21 @@ mod tests {
                 "epsx-pay:transactions:create".to_string(),
                 "epsx-token:governance:vote".to_string()
             ]),
-            package_tier: Some("PREMIUM".to_string()),
-            firebase_uid: None,
             audience: None,
             ttl_seconds: Some(3600),
-            platforms: Some(vec!["epsx".to_string(), "epsx-pay".to_string(), "epsx-token".to_string()]),
-            primary_platform: Some("epsx".to_string()),
-            platform_context: Some("epsx-pay".to_string()),
         };
         
         let token = service.create(user_data).unwrap();
-        let claims = service.verify(&token).unwrap();
+        let claims = service.verify(&token).await.unwrap();
         
         assert_eq!(claims.sub, "cross_user");
         assert_eq!(claims.aud, "epsx-ecosystem");
-        assert!(claims.platforms.as_ref().unwrap().contains(&"epsx-pay".to_string()));
-        assert_eq!(claims.primary_platform.as_ref().unwrap(), "epsx");
-        assert_eq!(claims.platform_context.as_ref().unwrap(), "epsx-pay");
         assert!(claims.permissions.contains(&"epsx-token:governance:vote".to_string()));
+        
+        // Test derivation functions with these permissions
+        let accessible_platforms = derive_accessible_platforms_from_permissions(&claims.permissions);
+        assert!(accessible_platforms.contains(&"epsx-pay".to_string()));
+        assert_eq!(derive_primary_platform_from_permissions(&claims.permissions), "epsx");
     }
 
     #[test] 
@@ -474,59 +558,36 @@ mod tests {
             "epsx-pay:transactions:*".to_string(),
             "epsx-token:governance:vote".to_string()
         ];
-        let user = User {
-            id: "platform_user".to_string(),
-            email: "platform@example.com".to_string(),
-            name: None,
-            permissions: permissions.clone(),
-            package_tier: "PREMIUM".to_string(),
-            firebase_uid: None,
-            platforms: vec!["epsx".to_string(), "epsx-pay".to_string(), "epsx-token".to_string()],
-            primary_platform: "epsx".to_string(),
-            platform_context: None,
-        };
 
-        // Test exact permission match
-        assert!(permission_service.validate_platform_permission(&user, "epsx", "analytics", "view"));
-        assert!(permission_service.validate_platform_permission(&user, "epsx", "analytics", "export"));
+        // Test derivation functions
+        let accessible_platforms = derive_accessible_platforms_from_permissions(&permissions);
+        assert!(accessible_platforms.contains(&"epsx".to_string()));
+        assert!(accessible_platforms.contains(&"epsx-pay".to_string()));
+        assert!(accessible_platforms.contains(&"epsx-token".to_string()));
         
-        // Test wildcard permission  
-        assert!(permission_service.validate_platform_permission(&user, "epsx-pay", "transactions", "create"));
-        assert!(permission_service.validate_platform_permission(&user, "epsx-pay", "transactions", "process"));
-        assert!(permission_service.validate_platform_permission(&user, "epsx-pay", "transactions", "refund"));
+        // Test platform access with new method
+        assert!(permission_service.can_access_platform_with_permissions(&permissions, "epsx"));
+        assert!(permission_service.can_access_platform_with_permissions(&permissions, "epsx-pay"));
+        assert!(permission_service.can_access_platform_with_permissions(&permissions, "epsx-token"));
         
-        // Test specific permission
-        assert!(permission_service.validate_platform_permission(&user, "epsx-token", "governance", "vote"));
-        assert!(!permission_service.validate_platform_permission(&user, "epsx-token", "governance", "propose"));
-        
-        // Test platform access
-        assert!(permission_service.can_access_platform(&user, "epsx"));
-        assert!(permission_service.can_access_platform(&user, "epsx-pay"));
-        assert!(permission_service.can_access_platform(&user, "epsx-token"));
+        // Test primary platform derivation
+        assert_eq!(derive_primary_platform_from_permissions(&permissions), "epsx");
     }
 
     #[test]
     fn test_admin_cross_platform_access() {
         let permission_service = CrossPlatformPermissionService::new();
         let admin_permissions = vec!["admin:*:*".to_string()];
-        let admin_user = User {
-            id: "admin_user".to_string(),
-            email: "admin@example.com".to_string(),
-            name: None,
-            permissions: admin_permissions.clone(),
-            package_tier: "ENTERPRISE".to_string(),
-            firebase_uid: None,
-            platforms: vec!["epsx".to_string()],
-            primary_platform: "epsx".to_string(),
-            platform_context: None,
-        };
 
-        // Admin should have access to all platforms and resources
-        assert!(permission_service.validate_platform_permission(&admin_user, "epsx", "users", "manage"));
-        assert!(permission_service.validate_platform_permission(&admin_user, "epsx-pay", "transactions", "create"));
-        assert!(permission_service.validate_platform_permission(&admin_user, "epsx-token", "treasury", "approve"));
-        assert!(permission_service.has_platform_admin_access(&admin_user, "epsx"));
-        assert!(permission_service.has_platform_admin_access(&admin_user, "epsx-pay"));
-        assert!(permission_service.has_platform_admin_access(&admin_user, "epsx-token"));
+        // Test admin derivations
+        assert_eq!(derive_package_tier_from_permissions(&admin_permissions), "ENTERPRISE");
+        assert_eq!(derive_primary_platform_from_permissions(&admin_permissions), "admin");
+        
+        // Admin should have access to all platforms through admin permissions
+        let accessible_platforms = derive_accessible_platforms_from_permissions(&admin_permissions);
+        assert!(accessible_platforms.contains(&"admin".to_string()));
+        
+        // Test platform access with admin permissions
+        assert!(permission_service.can_access_platform_with_permissions(&admin_permissions, "admin"));
     }
 }

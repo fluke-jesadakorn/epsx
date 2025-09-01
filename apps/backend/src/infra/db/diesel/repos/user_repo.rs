@@ -1,14 +1,23 @@
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
+
+use diesel::prelude::*;
+
+use diesel_async::RunQueryDsl;
+
+
 use std::sync::Arc;
 
+
 use crate::app::ports::repositories::{UserRepository, RepoError, UserSearchFilters};
+
 use crate::dom::entities::User;
+
 use crate::dom::values::{UserId, Email};
+
 use crate::infra::db::diesel::{
+
     DbPool,
     schema::users,
     models::{DieselUser, NewDieselUser},
@@ -55,13 +64,43 @@ impl UserRepository for DieselUserRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
-        let new_user: NewDieselUser = user.into();
+        let uuid = Uuid::parse_str(&user.id().to_string())
+            .map_err(|e| RepoError::InvalidData(format!("Invalid UUID: {}", e)))?;
         
-        diesel::insert_into(users::table)
-            .values(&new_user)
-            .execute(&mut conn)
+        // First check if the user exists
+        let exists = users::table
+            .filter(users::id.eq(&uuid))
+            .select(DieselUser::as_select())
+            .first::<DieselUser>(&mut conn)
             .await
-            .map_err(|e| RepoError::QueryError(e.to_string()))?;
+            .optional()
+            .map_err(|e| RepoError::QueryError(e.to_string()))?
+            .is_some();
+        
+        if exists {
+            // UPDATE existing user - only update the fields we can change
+            // Note: Some fields like display_name, name, avatar_url are not part of the User domain entity
+            // so we can't update them here. We only update the core fields.
+            diesel::update(users::table.filter(users::id.eq(&uuid)))
+                .set((
+                    users::firebase_uid.eq(user.firebase_uid()),
+                    users::email.eq(user.email().to_string()),
+                    users::is_active.eq(Some(user.is_active())),
+                    users::updated_at.eq(chrono::Utc::now())
+                ))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        } else {
+            // INSERT new user
+            let new_user: NewDieselUser = user.into();
+            
+            diesel::insert_into(users::table)
+                .values(&new_user)
+                .execute(&mut conn)
+                .await
+                .map_err(|e| RepoError::QueryError(e.to_string()))?;
+        }
         
         Ok(())
     }
@@ -297,6 +336,11 @@ impl UserRepository for DieselUserRepository {
         
         let mut query = users::table.into_boxed();
         
+        // Handle general search across email
+        if let Some(search_term) = &filters.search {
+            query = query.filter(users::email.ilike(format!("%{}%", search_term)));
+        }
+        
         if let Some(email) = &filters.email {
             query = query.filter(users::email.ilike(format!("%{}%", email)));
         }
@@ -328,6 +372,11 @@ impl UserRepository for DieselUserRepository {
             .map_err(|e| RepoError::ConnectionError(e.to_string()))?;
         
         let mut query = users::table.into_boxed();
+        
+        // Handle general search across email
+        if let Some(search_term) = &filters.search {
+            query = query.filter(users::email.ilike(format!("%{}%", search_term)));
+        }
         
         if let Some(email) = &filters.email {
             query = query.filter(users::email.ilike(format!("%{}%", email)));

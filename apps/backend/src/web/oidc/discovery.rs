@@ -101,6 +101,11 @@ pub async fn oidc_discovery() -> Result<
     token_endpoint: format!("{}/oauth/token", base_url),
     userinfo_endpoint: format!("{}/oauth/userinfo", base_url),
     jwks_uri: format!("{}/oauth/jwks", base_url),
+    
+    // Standard OpenID Connect endpoints (RFC compliance)
+    revocation_endpoint: format!("{}/oauth/revoke", base_url),
+    introspection_endpoint: format!("{}/oauth/introspect", base_url),
+    end_session_endpoint: format!("{}/oauth/logout", base_url),
     scopes_supported: vec![
       "openid".to_string(),
       "profile".to_string(),
@@ -147,6 +152,18 @@ pub async fn oidc_discovery() -> Result<
     code_challenge_methods_supported: vec![
       "plain".to_string(),
       "S256".to_string()
+    ],
+    
+    // RFC 7009/7662 auth methods
+    revocation_endpoint_auth_methods_supported: vec![
+      "client_secret_basic".to_string(),
+      "client_secret_post".to_string(),
+      "none".to_string(), // For public clients
+    ],
+    introspection_endpoint_auth_methods_supported: vec![
+      "client_secret_basic".to_string(),
+      "client_secret_post".to_string(),
+      "none".to_string(), // For public clients  
     ],
   };
 

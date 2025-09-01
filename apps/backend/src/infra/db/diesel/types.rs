@@ -1,7 +1,7 @@
 use diesel::{deserialize, serialize, sql_types, AsExpression, FromSqlRow};
+use std::net::IpAddr;
 use diesel::pg::PgValue;
 use std::io::Write;
-use std::net::IpAddr;
 use rust_decimal::Decimal;
 use serde::{Serialize, Deserialize};
 
