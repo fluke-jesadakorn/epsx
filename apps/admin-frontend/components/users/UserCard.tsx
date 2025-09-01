@@ -7,10 +7,12 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { User, Calendar, Shield, Package, MoreHorizontal } from 'lucide-react'
+import { useState } from 'react'
+import { User, Calendar, Shield, Package, Activity, MoreHorizontal } from 'lucide-react'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 import { UserStatusBadge } from './UserStatusBadge'
 import { adminCardVariants, cn } from '@/design-system'
+import UserActivityLogModal from './UserActivityLogModal'
 
 interface UserCardProps {
   user: UnifiedUserData
@@ -19,6 +21,7 @@ interface UserCardProps {
 export function UserCard({ user }: UserCardProps) {
   const searchParams = useSearchParams()
   const view = searchParams?.get('view')
+  const [showActivityModal, setShowActivityModal] = useState(false)
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -115,10 +118,20 @@ export function UserCard({ user }: UserCardProps) {
           </div>
 
           {/* Actions */}
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">User actions</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowActivityModal(true)}
+              className="p-2 hover:bg-[#FFC107]/10 hover:text-[#FFC107] rounded-lg transition-colors group"
+              title="View Activity Logs"
+            >
+              <Activity className="h-4 w-4" />
+              <span className="sr-only">View activity logs</span>
+            </button>
+            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">More actions</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -146,6 +159,14 @@ export function UserCard({ user }: UserCardProps) {
           </div>
         </div>
       </div>
+
+      {/* Activity Log Modal */}
+      <UserActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        userId={user.id}
+        userName={user.displayName || user.email}
+      />
     </div>
   )
 }

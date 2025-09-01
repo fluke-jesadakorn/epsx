@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Mail, Check, Square } from 'lucide-react'
+import { Mail, Check, Square, Activity } from 'lucide-react'
 import Link from 'next/link'
 import { EditProfileButton } from './EditProfileButton'
 import { BulkOperationsInterface } from './BulkOperationsInterface'
+import UserActivityLogModal from './UserActivityLogModal'
 import type { UnifiedUserData } from '@/lib/types/unified-user'
 
 interface UserTableWithSelectionProps {
@@ -34,6 +35,7 @@ export function UserTableWithSelection({
 }: UserTableWithSelectionProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [showBulkOps, setShowBulkOps] = useState(false)
+  const [activityModalUser, setActivityModalUser] = useState<{id: string, name: string} | null>(null)
 
   const handleUserSelect = useCallback((userId: string, selected: boolean) => {
     setSelectedUserIds(prev => {
@@ -226,6 +228,14 @@ export function UserTableWithSelection({
                     userId={user.id}
                     className="!px-2 !py-1 !text-xs"
                   />
+                  <button
+                    onClick={() => setActivityModalUser({id: user.id, name: user.displayName || user.email})}
+                    className="px-2 py-1 text-xs bg-[#FFC107] hover:bg-[#FFB300] text-black font-medium transition-colors flex items-center gap-1"
+                    title="View Activity Logs"
+                  >
+                    <Activity className="w-3 h-3" />
+                    Activity
+                  </button>
                 </div>
               </div>
             </div>
@@ -283,6 +293,16 @@ export function UserTableWithSelection({
           )}
         </div>
       </div>
+
+      {/* Activity Log Modal */}
+      {activityModalUser && (
+        <UserActivityLogModal
+          isOpen={true}
+          onClose={() => setActivityModalUser(null)}
+          userId={activityModalUser.id}
+          userName={activityModalUser.name}
+        />
+      )}
     </div>
   )
 }

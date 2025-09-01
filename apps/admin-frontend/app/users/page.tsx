@@ -1,9 +1,19 @@
 import { Suspense } from 'react'
 import UsersHub from '@/components/hubs/UsersHub'
 import { ServerUserAPI } from '@/lib/api/admin-client'
+import { getUsersList, searchUsersAction } from '@/lib/actions/users'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
+
+export interface UsersPageProps {
+  searchParams?: {
+    page?: string
+    search?: string
+    filter?: string
+    limit?: string
+  }
+}
 
 function UsersHubSkeleton() {
   return (
@@ -63,31 +73,91 @@ function UsersHubSkeleton() {
 }
 
 // Server component that fetches data and passes to client component
-async function UsersDataWrapper() {
-  // Fetch data server-side
-  const [usersResponse, statsResponse] = await Promise.allSettled([
-    ServerUserAPI.getUsers(0, 50),
-    ServerUserAPI.getUserStats()
-  ])
+async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProps['searchParams'] }) {
+  // Parse search parameters
+  const page = parseInt(searchParams?.page || '1', 10)
+  const limit = parseInt(searchParams?.limit || '20', 10)
+  const search = searchParams?.search?.trim() || ''
+  const filter = searchParams?.filter || 'all'
+
+  // Determine if we should use search or regular list API
+  const isFiltered = search || filter !== 'all'
   
-  const usersData = usersResponse.status === 'fulfilled' ? usersResponse.value : { users: [], total: 0 }
-  const stats = statsResponse.status === 'fulfilled' ? statsResponse.value : {}
+  let usersData = { users: [], total: 0, page: 1, totalPages: 1 }
+  let stats = {}
+
+  try {
+    if (isFiltered) {
+      // Use search API for filtered results
+      const searchParams = {
+        page,
+        per_page: limit,
+        ...(search && { search }),
+        ...(filter === 'active' && { status: 'active' }),
+        ...(filter === 'premium' && { package_tier: 'premium' })
+      }
+      
+      const result = await searchUsersAction(searchParams)
+      if (result.success) {
+        usersData = {
+          users: result.data.users,
+          total: result.data.total,
+          page: result.data.page,
+          totalPages: Math.ceil(result.data.total / limit)
+        }
+      }
+    } else {
+      // Use regular list API for unfiltered results  
+      const result = await getUsersList({
+        page,
+        limit,
+        search: '',
+        status: 'all',
+        role: 'all', 
+        sortBy: 'created_at',
+        sortOrder: 'desc'
+      })
+      
+      if (result.success) {
+        usersData = result.data
+      }
+    }
+    
+    // Get stats
+    const statsResponse = await ServerUserAPI.getUserStats()
+    stats = statsResponse || {}
+    
+  } catch (error) {
+    console.error('Failed to fetch users data:', error)
+  }
+
+  // Apply client-side admin filter if needed (since backend doesn't support it yet)
+  if (filter === 'admins') {
+    usersData.users = usersData.users.filter((user: any) => 
+      user.permissions && user.permissions.some((p: string) => p.startsWith('admin:'))
+    )
+    usersData.total = usersData.users.length
+    usersData.totalPages = Math.ceil(usersData.total / limit)
+  }
   
   return (
     <UsersHub 
       initialData={{
         users: usersData.users,
         total: usersData.total,
+        page: usersData.page,
+        totalPages: usersData.totalPages,
         stats: stats
       }}
+      searchParams={searchParams}
     />
   )
 }
 
-export default function UsersPage() {
+export default function UsersPage(props: UsersPageProps) {
   return (
     <Suspense fallback={<UsersHubSkeleton />}>
-      <UsersDataWrapper />
+      <UsersDataWrapper searchParams={props.searchParams} />
     </Suspense>
   )
 }

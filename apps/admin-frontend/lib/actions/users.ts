@@ -969,6 +969,33 @@ export interface PermissionHistoryEntry {
   expires?: Date
 }
 
+export interface ActivityLogEntry {
+  id: string
+  action: string
+  resource_type: string
+  resource_id: string
+  result: 'success' | 'failure' | 'partial_success' | 'denied' | 'error'
+  timestamp: Date
+  client_ip?: string
+  user_agent?: string
+  session_id?: string
+  metadata: {
+    previous_values?: Record<string, string>
+    new_values?: Record<string, string>
+    error_message?: string
+    duration_ms?: number
+    additional_data?: Record<string, string>
+  }
+}
+
+export interface ActivityLogParams {
+  limit?: number
+  offset?: number
+  start_date?: string
+  end_date?: string
+  action_type?: string
+}
+
 /**
  * Get permission history for a user
  */
@@ -1031,6 +1058,109 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
     
   } catch (error) {
     console.error('Get permission history error:', error)
+    return { 
+      success: false, 
+      error: { 
+        code: 'UNKNOWN_ERROR', 
+        message: 'An unexpected error occurred' 
+      } 
+    }
+  }
+}
+
+/**
+ * Get comprehensive activity logs for a user (all activities, not just permissions)
+ */
+export async function getUserActivityLogs(userId: string, params: ActivityLogParams = {}): Promise<UserOperationResult<{
+  activities: ActivityLogEntry[]
+  statistics: {
+    total_activities: number
+    login_activities: number
+    failed_activities: number
+    recent_activities: number
+    activity_breakdown: Record<string, number>
+  }
+  pagination: {
+    limit: number
+    offset: number
+    total: number
+  }
+}>> {
+  try {
+    const token = await getBearerToken()
+    
+    if (!token) {
+      return { success: false, error: { code: 'UNAUTHORIZED', message: 'No auth token' } }
+    }
+
+    // Build query parameters
+    const queryParams = new URLSearchParams()
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.offset) queryParams.append('offset', params.offset.toString())
+    if (params.start_date) queryParams.append('start_date', params.start_date)
+    if (params.end_date) queryParams.append('end_date', params.end_date)
+    if (params.action_type) queryParams.append('action_type', params.action_type)
+    
+    const response = await fetch(`${BACKEND_URL}/api/v1/admin/users/${userId}/activity?${queryParams.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      let errorText = 'Unknown error'
+      try {
+        errorText = await response.text()
+      } catch {
+        // Use default error text if parsing fails
+      }
+      return { 
+        success: false, 
+        error: { 
+          code: 'FETCH_ERROR', 
+          message: `Failed to fetch activity logs: ${response.status} ${errorText}` 
+        } 
+      }
+    }
+    
+    const result = await response.json()
+    
+    // Transform activities to our format
+    const activities: ActivityLogEntry[] = (result.activities || []).map((activity: any) => ({
+      id: activity.id,
+      action: activity.action,
+      resource_type: activity.resource_type,
+      resource_id: activity.resource_id,
+      result: activity.result,
+      timestamp: new Date(activity.timestamp),
+      client_ip: activity.client_ip,
+      user_agent: activity.user_agent,
+      session_id: activity.session_id,
+      metadata: activity.metadata || {}
+    }))
+
+    return { 
+      success: true, 
+      data: {
+        activities,
+        statistics: {
+          total_activities: result.statistics?.total_activities || activities.length,
+          login_activities: result.statistics?.login_activities || 0,
+          failed_activities: result.statistics?.failed_activities || 0,
+          recent_activities: result.statistics?.recent_activities || 0,
+          activity_breakdown: result.statistics?.activity_breakdown || {}
+        },
+        pagination: {
+          limit: params.limit || 50,
+          offset: params.offset || 0,
+          total: result.statistics?.total_activities || activities.length
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('Get user activity logs error:', error)
     return { 
       success: false, 
       error: { 

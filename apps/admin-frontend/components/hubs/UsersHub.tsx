@@ -207,11 +207,19 @@ interface UsersHubProps {
   initialData?: {
     users: any[]
     total: number
+    page?: number
+    totalPages?: number
     stats: any
+  }
+  searchParams?: {
+    page?: string
+    search?: string
+    filter?: string
+    limit?: string
   }
 }
 
-export default function UsersHub({ initialData }: UsersHubProps) {
+export default function UsersHub({ initialData, searchParams }: UsersHubProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -219,18 +227,15 @@ export default function UsersHub({ initialData }: UsersHubProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   
-  // Search state - ensure consistent SSR/client initialization
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState('all')
-  const [searchResults, setSearchResults] = useState<any>(null)
+  // Get current values from URL search params
+  const currentPage = parseInt(searchParams?.page || '1', 10)
+  const searchQuery = searchParams?.search || ''
+  const activeFilter = searchParams?.filter || 'all'
+  const itemsPerPage = parseInt(searchParams?.limit || '20', 10)
+  
+  // Client-side state for UI interactions only
   const [isSearching, setIsSearching] = useState(false)
   const [isClient, setIsClient] = useState(false)
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(20) // Fixed items per page
-  const [paginatedData, setPaginatedData] = useState<any>(null)
-  const [isLoadingPage, setIsLoadingPage] = useState(false)
 
   // Multi-select state
   const [selectedUsers, setSelectedUsers] = useState<any[]>([])
@@ -243,6 +248,22 @@ export default function UsersHub({ initialData }: UsersHubProps) {
   const [isBulkApplyTemplateModalOpen, setIsBulkApplyTemplateModalOpen] = useState(false)
   const [isBulkOperationLoading, setIsBulkOperationLoading] = useState(false)
   
+  // URL navigation helpers
+  const updateURL = (updates: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams(window.location.search)
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '' || value === 'all' || (key === 'page' && value === 1)) {
+        params.delete(key)
+      } else {
+        params.set(key, value.toString())
+      }
+    })
+    
+    const newUrl = `/users${params.toString() ? `?${params.toString()}` : ''}`
+    router.push(newUrl)
+  }
+
   // Client-side hydration effect
   useEffect(() => {
     setIsClient(true)
@@ -260,69 +281,28 @@ export default function UsersHub({ initialData }: UsersHubProps) {
 
   const handleUserDeleted = () => {
     // Refresh the page to show the updated user list
-    if (searchQuery || activeFilter !== 'all') {
-      // If we're in search mode, refresh search results
-      performDirectSearch(searchQuery, activeFilter)
-    } else {
-      // Otherwise refresh the page
-      startTransition(() => {
-        router.refresh()
-      })
-    }
+    startTransition(() => {
+      router.refresh()
+    })
   }
   
   const handleUserCreated = () => {
-    // Refresh search results or page data
-    if (searchQuery || activeFilter !== 'all') {
-      performDirectSearch(searchQuery, activeFilter)
-    } else {
-      startTransition(() => {
-        router.refresh()
-      })
-    }
+    // Refresh the page to show the updated user list
+    startTransition(() => {
+      router.refresh()
+    })
   }
   
   const handleUserUpdated = () => {
-    // Refresh search results or page data  
-    if (searchQuery || activeFilter !== 'all') {
-      performDirectSearch(searchQuery, activeFilter)
-    } else {
-      startTransition(() => {
-        router.refresh()
-      })
-    }
+    // Refresh the page to show the updated user list
+    startTransition(() => {
+      router.refresh()
+    })
   }
 
-  // Pagination handlers
-  const handlePageChange = async (page: number) => {
-    setCurrentPage(page)
-    setIsLoadingPage(true)
-    
-    try {
-      if (searchQuery || activeFilter !== 'all') {
-        // Use search API for filtered results
-        await performDirectSearch(searchQuery, activeFilter, page)
-      } else {
-        // Use regular users list API for unfiltered results
-        const result = await getUsersList({
-          page,
-          limit: itemsPerPage,
-          search: '',
-          status: 'all',
-          role: 'all',
-          sortBy: 'created_at',
-          sortOrder: 'desc'
-        })
-        
-        if (result.success) {
-          setPaginatedData(result.data)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load page:', error)
-    } finally {
-      setIsLoadingPage(false)
-    }
+  // Simple pagination handler using URL navigation
+  const handlePageChange = (page: number) => {
+    updateURL({ page })
   }
 
   // Multi-select handlers
@@ -460,112 +440,28 @@ export default function UsersHub({ initialData }: UsersHubProps) {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    console.log('🔍 handleSearchChange called with:', value)
-    setSearchQuery(value)
     
-    // Only trigger search after client hydration
+    // Debounce search updates
     if (isClient) {
-      // Trigger search directly instead of relying on useEffect
       setTimeout(() => {
-        console.log('🔍 Direct search triggered for:', value)
-        performDirectSearch(value, activeFilter)
+        updateURL({ search: value, page: 1 }) // Reset to page 1 when searching
       }, 500)
     }
   }
   
-  const performDirectSearch = async (query: string, filter: string, page: number = 1) => {
-    console.log('🔍 performDirectSearch called with:', { query, filter, page })
-    
-    // Clear search results if no query and filter is 'all'
-    if (!query.trim() && filter === 'all') {
-      console.log('🔍 Clearing search results - no query and all filter')
-      setSearchResults(null)
-      setPaginatedData(null)
-      setCurrentPage(1)
-      return
-    }
-
-    setIsSearching(true)
-    
-    try {
-      const searchParams: any = {
-        page,
-        per_page: itemsPerPage
-      }
-      
-      if (query.trim()) {
-        searchParams.search = query.trim()
-      }
-      
-      if (filter !== 'all') {
-        if (filter === 'active') {
-          searchParams.status = 'active'
-        } else if (filter === 'premium') {
-          searchParams.package_tier = 'premium'
-        }
-        // 'admins' filter applied client-side for now
-      }
-      
-      console.log('🔍 Making search API call with params:', searchParams)
-      
-      const result = await searchUsersAction(searchParams)
-      
-      if (result.success) {
-        console.log('✅ Search successful:', result.data)
-        const searchData = {
-          users: result.data.users,
-          total: result.data.total,
-          page: result.data.page,
-          totalPages: Math.ceil(result.data.total / itemsPerPage)
-        }
-        setSearchResults(searchData)
-        setCurrentPage(page)
-      } else {
-        console.error('❌ Search failed:', result.error)
-        setSearchResults(null)
-      }
-      
-    } catch (error) {
-      console.error('❌ Search error:', error)
-      setSearchResults(null)
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  const handleFilterClick = async (filter: string) => {
-    console.log('🔍 handleFilterClick called with:', filter)
-    setActiveFilter(filter)
-    setCurrentPage(1) // Reset to first page when filtering
-    
-    // Only trigger search after client hydration
-    if (isClient) {
-      await performDirectSearch(searchQuery, filter, 1)
-    }
+  const handleFilterClick = (filter: string) => {
+    updateURL({ filter, page: 1 }) // Reset to page 1 when filtering
   }
 
   // Clear search and return to initial data
   const clearSearch = () => {
-    setSearchQuery('')
-    setActiveFilter('all')
-    setSearchResults(null)
-    setPaginatedData(null)
-    setCurrentPage(1)
+    updateURL({ search: undefined, filter: undefined, page: undefined })
   }
 
   // Helper to get consistent button classes
   const getFilterButtonClass = (filter: string) => {
     const baseClass = 'font-light text-lg pb-3 whitespace-nowrap transition-all border-b-2'
     
-    // During SSR or before client hydration, show consistent default state
-    if (!isClient) {
-      if (filter === 'all') {
-        return `${baseClass} text-gray-900 dark:text-white border-yellow-400`
-      }
-      return `${baseClass} text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-white`
-    }
-    
-    // After client hydration, use active filter state
     const isActive = activeFilter === filter
     if (isActive) {
       return `${baseClass} text-gray-900 dark:text-white border-yellow-400`
@@ -573,111 +469,8 @@ export default function UsersHub({ initialData }: UsersHubProps) {
     return `${baseClass} text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-white`
   }
 
-  // Debounced search effect - only run after client hydration
-  useEffect(() => {
-    // Don't run search effects until client is hydrated
-    if (!isClient) return
-    
-    console.log('🔍 Search effect triggered with:', { searchQuery, activeFilter, isClient })
-    
-    // Clear search results if no query and filter is 'all'
-    if (!searchQuery.trim() && activeFilter === 'all') {
-      console.log('🔍 Clearing search results - no query and all filter')
-      setSearchResults(null)
-      return
-    }
-
-    // Debounce the search
-    const timeoutId = setTimeout(async () => {
-      console.log('⏰ Debounced search triggered for:', { searchQuery, activeFilter })
-      setIsSearching(true)
-      
-      try {
-        const searchParams: any = {
-          page: 1,
-          per_page: 50
-        }
-        
-        if (searchQuery.trim()) {
-          searchParams.search = searchQuery.trim()
-        }
-        
-        if (activeFilter !== 'all') {
-          if (activeFilter === 'active') {
-            searchParams.status = 'active'
-          } else if (activeFilter === 'premium') {
-            searchParams.package_tier = 'premium'
-          }
-          // 'admins' filter applied client-side for now
-        }
-        
-        console.log('🔍 Making search API call with params:', searchParams)
-        
-        const result = await searchUsersAction(searchParams)
-        
-        if (result.success) {
-          console.log('✅ Search successful:', result.data)
-          setSearchResults(result.data)
-        } else {
-          console.error('❌ Search failed:', result.error)
-          setSearchResults(null)
-        }
-        
-      } catch (error) {
-        console.error('❌ Search error:', error)
-        setSearchResults(null)
-      } finally {
-        setIsSearching(false)
-      }
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, activeFilter, isClient])
-
-  // Use search results or initial data
-  const displayData = useMemo(() => {
-    if (searchResults) {
-      let filteredUsers = searchResults.users
-      
-      // Client-side filtering for features not supported by backend yet
-      if (activeFilter === 'admins') {
-        filteredUsers = filteredUsers.filter((user: any) => 
-          user.permissions && user.permissions.some((p: string) => p.startsWith('admin:'))
-        )
-      }
-      
-      return {
-        users: filteredUsers,
-        total: searchResults.total,
-        stats: initialData?.stats || {}
-      }
-    }
-    
-    // Apply client-side filtering to initial data
-    const { users = [], total = 0, stats = {} } = initialData || {}
-    if (activeFilter === 'all') {
-      return { users, total, stats }
-    }
-    
-    let filteredUsers = users
-    if (activeFilter === 'active') {
-      filteredUsers = users.filter((user: any) => user.is_active)
-    } else if (activeFilter === 'admins') {
-      filteredUsers = users.filter((user: any) => 
-        user.permissions && user.permissions.some((p: string) => p.startsWith('admin:'))
-      )
-    } else if (activeFilter === 'premium') {
-      filteredUsers = users.filter((user: any) => user.package_tier === 'premium')
-    }
-    
-    return {
-      users: filteredUsers,
-      total: filteredUsers.length,
-      stats
-    }
-  }, [searchResults, initialData, activeFilter])
-
-  const { users, total, stats } = displayData
+  // Use server-fetched data directly
+  const { users = [], total = 0, page = 1, totalPages = 1, stats = {} } = initialData || {}
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white overflow-x-hidden">
@@ -737,28 +530,24 @@ export default function UsersHub({ initialData }: UsersHubProps) {
           <button 
             onClick={() => handleFilterClick('all')}
             className={getFilterButtonClass('all')}
-            disabled={isSearching}
           >
             all users
           </button>
           <button 
             onClick={() => handleFilterClick('active')}
             className={getFilterButtonClass('active')}
-            disabled={isSearching}
           >
             active
           </button>
           <button 
             onClick={() => handleFilterClick('admins')}
             className={getFilterButtonClass('admins')}
-            disabled={isSearching}
           >
             admins
           </button>
           <button 
             onClick={() => handleFilterClick('premium')}
             className={getFilterButtonClass('premium')}
-            disabled={isSearching}
           >
             premium
           </button>
@@ -771,11 +560,8 @@ export default function UsersHub({ initialData }: UsersHubProps) {
           <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${isSearching ? 'animate-spin text-yellow-400' : 'text-gray-500 dark:text-gray-400'}`} size={18} />
           <input 
             type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              console.log('🔍 Input onChange fired:', e.target.value)
-              handleSearchChange(e)
-            }}
+            defaultValue={searchQuery}
+            onChange={handleSearchChange}
             placeholder="search users by email or permissions..."
             className="w-full pl-12 pr-4 py-4 bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 font-light focus:border-yellow-400 focus:outline-none transition-all"
           />
@@ -791,17 +577,13 @@ export default function UsersHub({ initialData }: UsersHubProps) {
         </div>
         
         {/* Search info */}
-        {(searchResults || activeFilter !== 'all') && (
+        {(searchQuery || activeFilter !== 'all') && (
           <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 font-light">
-            {isSearching ? (
-              <span>Searching...</span>
-            ) : (
-              <span>
-                {searchQuery && `"${searchQuery}" • `}
-                {activeFilter !== 'all' && `${activeFilter} • `}
-                {total.toLocaleString()} results
-              </span>
-            )}
+            <span>
+              {searchQuery && `"${searchQuery}" • `}
+              {activeFilter !== 'all' && `${activeFilter} • `}
+              {total.toLocaleString()} results
+            </span>
           </div>
         )}
       </div>
@@ -823,24 +605,24 @@ export default function UsersHub({ initialData }: UsersHubProps) {
         </div>
       </div>
 
-      {/* PancakeSwap-style Pagination */}
-      <div className="px-6 pb-10">
-        <div className="flex items-center justify-between border-t border-gray-300 dark:border-gray-700 pt-6">
-          <p className="text-gray-600 dark:text-gray-400 font-light text-sm">
-            showing {users.length} of {total.toLocaleString()} users
-          </p>
-          <div className="flex gap-3">
-            <button className="px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 transition-all font-light border border-gray-400 dark:border-gray-600">
-              previous
-            </button>
-            <button className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-medium">
-              1
-            </button>
-            <button className="px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 transition-all font-light border border-gray-400 dark:border-gray-600">
-              next
-            </button>
-          </div>
+      {/* Server-side Pagination */}
+      <div className="px-6 pb-6">
+        <div className="mb-4">
+          <PaginationInfo
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={total}
+            itemsPerPage={itemsPerPage}
+            itemName="users"
+          />
         </div>
+        
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          disabled={isPending}
+        />
       </div>
 
       {/* Create User Modal */}
