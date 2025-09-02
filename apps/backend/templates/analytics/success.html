@@ -1,518 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌟 Golden Brown Success - EPSX</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --golden-primary: #FFD700;
-            --golden-secondary: #FFA500;
-            --golden-dark: #B8860B;
-            --success-green: #32CD32;
-            --pancake-cream: #FFF8DC;
-            --golden-gradient: linear-gradient(135deg, var(--golden-primary) 0%, var(--golden-secondary) 100%);
-            --success-gradient: linear-gradient(135deg, var(--success-green) 0%, var(--golden-primary) 100%);
-            --celebration-gradient: linear-gradient(135deg, #FFE4B5 0%, var(--pancake-cream) 100%);
-        }
-        
-        .success-theme { 
-            background: var(--celebration-gradient);
-            font-family: 'Inter', sans-serif;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .celebration-rays {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 200%;
-            height: 200%;
-            background: 
-                conic-gradient(from 0deg, 
-                    transparent 0deg,
-                    rgba(255, 215, 0, 0.1) 30deg,
-                    transparent 60deg,
-                    rgba(255, 165, 0, 0.1) 90deg,
-                    transparent 120deg,
-                    rgba(255, 215, 0, 0.1) 150deg,
-                    transparent 180deg,
-                    rgba(255, 165, 0, 0.1) 210deg,
-                    transparent 240deg,
-                    rgba(255, 215, 0, 0.1) 270deg,
-                    transparent 300deg,
-                    rgba(255, 165, 0, 0.1) 330deg,
-                    transparent 360deg
-                );
-            animation: celebrate-rotate 20s linear infinite;
-            transform: translate(-50%, -50%);
-        }
-        
-        @keyframes celebrate-rotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        
-        .golden-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
-            border-radius: 40px;
-            padding: 48px;
-            box-shadow: 
-                0 30px 80px rgba(255, 215, 0, 0.3),
-                0 20px 40px rgba(255, 165, 0, 0.2),
-                inset 0 2px 0 rgba(255, 215, 0, 0.4);
-            border: 3px solid rgba(255, 215, 0, 0.5);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .golden-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.3), transparent);
-            animation: golden-shine 4s linear infinite;
-        }
-        
-        @keyframes golden-shine {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
-        .success-logo {
-            background: var(--success-gradient);
-            border-radius: 50%;
-            width: 140px;
-            height: 140px;
-            box-shadow: 
-                0 25px 60px rgba(50, 205, 50, 0.4),
-                0 15px 30px rgba(255, 215, 0, 0.3),
-                inset 0 4px 8px rgba(255, 255, 255, 0.4);
-            animation: success-bounce 3s ease-in-out infinite;
-            position: relative;
-        }
-        
-        .success-logo::after {
-            content: '✨';
-            position: absolute;
-            top: -20px;
-            right: -15px;
-            font-size: 36px;
-            animation: sparkle-dance 2s ease-in-out infinite;
-        }
-        
-        @keyframes success-bounce {
-            0%, 100% { transform: translateY(0) scale(1); }
-            30% { transform: translateY(-10px) scale(1.05); }
-            60% { transform: translateY(-5px) scale(1.02); }
-        }
-        
-        @keyframes sparkle-dance {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            25% { transform: rotate(10deg) scale(1.1); }
-            50% { transform: rotate(-5deg) scale(1.15); }
-            75% { transform: rotate(5deg) scale(1.05); }
-        }
-        
-        .celebrate-button {
-            background: var(--golden-gradient);
-            border-radius: 30px;
-            padding: 20px 40px;
-            color: white;
-            font-weight: 700;
-            font-size: 18px;
-            box-shadow: 
-                0 10px 30px rgba(255, 215, 0, 0.5),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-            transition: all 0.4s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .celebrate-button:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 
-                0 15px 40px rgba(255, 215, 0, 0.7),
-                inset 0 2px 4px rgba(255, 255, 255, 0.4);
-        }
-        
-        .celebrate-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-            transition: left 0.6s;
-        }
-        
-        .celebrate-button:hover::before {
-            left: 100%;
-        }
-        
-        .success-alert {
-            background: var(--success-gradient);
-            border-radius: 28px;
-            padding: 32px;
-            color: white;
-            box-shadow: 
-                0 15px 40px rgba(50, 205, 50, 0.4),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .success-alert::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -50%;
-            width: 50%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            animation: success-sweep 4s linear infinite;
-        }
-        
-        @keyframes success-sweep {
-            0% { left: -50%; }
-            100% { left: 100%; }
-        }
-        
-        .achievement-badge {
-            background: var(--golden-gradient);
-            border-radius: 20px;
-            padding: 12px 20px;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
-            animation: badge-glow 3s ease-in-out infinite;
-            position: relative;
-        }
-        
-        @keyframes badge-glow {
-            0%, 100% { 
-                box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
-                transform: scale(1);
-            }
-            50% { 
-                box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
-                transform: scale(1.02);
-            }
-        }
-        
-        .confetti-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-            top: 0;
-            left: 0;
-        }
-        
-        .confetti {
-            position: absolute;
-            font-size: 24px;
-            animation: confetti-fall 4s linear infinite;
-        }
-        
-        @keyframes confetti-fall {
-            0% { 
-                transform: translateY(-100vh) rotate(0deg) scale(1);
-                opacity: 1;
-            }
-            100% { 
-                transform: translateY(100vh) rotate(720deg) scale(0.5);
-                opacity: 0;
-            }
-        }
-        
-        .progress-bar {
-            background: linear-gradient(90deg, 
-                var(--success-green) 0%,
-                var(--golden-primary) 50%,
-                var(--golden-secondary) 100%
-            );
-            height: 12px;
-            border-radius: 6px;
-            animation: progress-celebrate 3s ease-in-out infinite;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -30%;
-            width: 30%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-            animation: progress-shine 2s linear infinite;
-        }
-        
-        @keyframes progress-celebrate {
-            0%, 100% { transform: scaleX(1); }
-            50% { transform: scaleX(1.02); }
-        }
-        
-        @keyframes progress-shine {
-            0% { left: -30%; }
-            100% { left: 100%; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✅ EPSX Success</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="theme.js" defer></script>
 </head>
-<body class="success-theme min-h-screen flex items-center justify-center py-12 px-4">
-    <div class="celebration-rays"></div>
-    <div class="confetti-container" id="confetti-container"></div>
-    
-    <div class="max-w-3xl w-full space-y-8 relative z-10">
-        <!-- Golden Success Header -->
-        <div class="text-center">
-            <div class="success-logo mx-auto flex items-center justify-center mb-8">
-                <i class="fas fa-check-circle text-white text-5xl"></i>
-            </div>
-            <h1 class="text-6xl font-bold text-green-600 mb-4">
-                🌟 Perfect Golden Brown!
-            </h1>
-            <p class="text-3xl text-orange-600 mb-8">
-                Your pancakes are absolutely delicious!
-            </p>
-            
-            <!-- Achievement Badges -->
-            <div class="flex justify-center gap-4 mb-8">
-                <div class="achievement-badge flex items-center gap-2">
-                    <i class="fas fa-trophy"></i>
-                    <span>Master Chef</span>
-                </div>
-                <div class="achievement-badge flex items-center gap-2">
-                    <i class="fas fa-star"></i>
-                    <span>Perfect Stack</span>
-                </div>
-                <div class="achievement-badge flex items-center gap-2">
-                    <i class="fas fa-heart"></i>
-                    <span>Made with Love</span>
-                </div>
-            </div>
+<body class="metro-theme">
+  <div class="centered-screen">
+    <div class="container-500 stack-6">
+      <!-- Header -->
+      <div class="inline-center stack-4">
+        <div class="metro-logo metro-live-tile" style="background:#107C10;">
+          <span class="icon">✅</span>
         </div>
-
-        <!-- Success Progress -->
-        <div class="text-center mb-8">
-            <div class="bg-white bg-opacity-60 rounded-2xl p-8 border-2 border-golden-200">
-                <div class="flex items-center justify-between text-lg font-bold mb-4">
-                    <span class="text-green-600">🎯 Success Level</span>
-                    <span class="text-golden-dark">🔥 MAXIMUM DELICIOUSNESS!</span>
-                </div>
-                <div class="progress-bar"></div>
-                <div class="flex justify-between text-sm text-green-600 mt-3">
-                    <span>Raw Batter</span>
-                    <span>Perfectly Fluffy</span>
-                    <span>Golden Brown Excellence</span>
-                </div>
-            </div>
+        <div class="tile-row-4">
+          <div class="metro-tile small inline-center tile-sm" style="background:#107C10;">🟢</div>
+          <div class="metro-tile small inline-center tile-sm bg-pancake">🎉</div>
+          <div class="metro-tile small inline-center tile-sm bg-pancake-accent">⭐</div>
+          <div class="metro-tile small inline-center tile-sm bg-pancake">🥞</div>
         </div>
+      </div>
 
-        <!-- Success Message -->
-        <div class="success-alert">
-            <div class="flex items-start">
-                <div class="flex-shrink-0">
-                    <span class="text-6xl">🎉</span>
-                </div>
-                <div class="ml-8 flex-1">
-                    <h2 class="text-3xl font-bold mb-4">Congratulations!</h2>
-                    <p class="text-xl opacity-95 mb-6">{{ success_message }}</p>
-                    
-                    {% if success_details %}
-                    <div class="bg-white bg-opacity-20 rounded-xl p-6">
-                        <h3 class="text-lg font-semibold mb-3">🍯 Sweet Details:</h3>
-                        <p class="text-base opacity-90">{{ success_details }}</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+      <!-- Status -->
+      <div class="metro-card green">
+        <div class="flex items-center gap-4">
+          <div class="badge badge-green">🎯</div>
+          <div style="flex:1;">
+            <div style="font-size: 14px; color:#107C10;">{{ success_message }}</div>
+            <div class="status-bar mt-2"><div class="fill" style="width:100%; background:#107C10;"></div></div>
+          </div>
         </div>
+      </div>
 
-        <!-- Celebration Actions -->
-        <div class="golden-card">
-            <div class="text-center mb-8">
-                <h2 class="text-4xl font-bold text-golden-dark mb-4">🥞 What's Next?</h2>
-                <p class="text-xl text-gray-700">Your perfect pancakes are ready to serve!</p>
-            </div>
+      <!-- Loading -->
+      <div id="loading" class="hidden inline-center">
+        <div class="metro-spinner" style="margin: 0 auto; background:#107C10;"></div>
+      </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Continue Journey -->
-                <div class="text-center">
-                    <div class="mb-6 text-5xl">🚀</div>
-                    <h3 class="text-2xl font-bold text-green-600 mb-4">Continue Your Journey</h3>
-                    <p class="text-gray-600 mb-6">Keep exploring and creating more delicious moments</p>
-                    <a
-                        href="/dashboard"
-                        class="celebrate-button w-full flex justify-center items-center inline-block"
-                    >
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-6">
-                            <i class="fas fa-rocket text-2xl"></i>
-                        </span>
-                        🌟 Enter Your Kitchen
-                    </a>
-                </div>
-
-                <!-- Share Success -->
-                <div class="text-center">
-                    <div class="mb-6 text-5xl">📢</div>
-                    <h3 class="text-2xl font-bold text-orange-600 mb-4">Share the Joy</h3>
-                    <p class="text-gray-600 mb-6">Tell the world about your perfect pancake moment</p>
-                    <button
-                        onclick="shareSuccess()"
-                        class="celebrate-button w-full flex justify-center items-center bg-gradient-to-r from-pink-500 to-orange-500"
-                    >
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-6">
-                            <i class="fas fa-share-alt text-2xl"></i>
-                        </span>
-                        💫 Share My Success
-                    </button>
-                </div>
-            </div>
-
-            <!-- Recipe Stats -->
-            <div class="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="text-center bg-green-50 rounded-xl p-6">
-                    <div class="text-3xl mb-2">⏱️</div>
-                    <div class="text-lg font-bold text-green-600">Perfect Timing</div>
-                    <div class="text-sm text-green-500">Just right!</div>
-                </div>
-                <div class="text-center bg-yellow-50 rounded-xl p-6">
-                    <div class="text-3xl mb-2">🌡️</div>
-                    <div class="text-lg font-bold text-yellow-600">Golden Heat</div>
-                    <div class="text-sm text-yellow-500">Optimal temperature</div>
-                </div>
-                <div class="text-center bg-orange-50 rounded-xl p-6">
-                    <div class="text-3xl mb-2">💯</div>
-                    <div class="text-lg font-bold text-orange-600">Quality Score</div>
-                    <div class="text-sm text-orange-500">Absolutely perfect</div>
-                </div>
-                <div class="text-center bg-pink-50 rounded-xl p-6">
-                    <div class="text-3xl mb-2">💕</div>
-                    <div class="text-lg font-bold text-pink-600">Love Level</div>
-                    <div class="text-sm text-pink-500">Maximum sweetness</div>
-                </div>
-            </div>
+      <!-- Actions -->
+      <div class="metro-card green stack-4">
+        <div class="inline-center">
+          <div class="badge badge-green">🎉 {{ success_details }}</div>
         </div>
-
-        <!-- Success Tips -->
-        <div class="text-center bg-white bg-opacity-70 rounded-3xl p-8">
-            <h3 class="text-2xl font-bold text-golden-dark mb-6">🏆 Master Chef Tips for Next Time</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div class="bg-green-100 rounded-2xl p-4">
-                    <div class="text-3xl mb-3">🥞</div>
-                    <div class="font-bold text-green-700">Perfect Consistency</div>
-                    <div class="text-green-600">You nailed the fluffiness!</div>
-                </div>
-                <div class="bg-yellow-100 rounded-2xl p-4">
-                    <div class="text-3xl mb-3">🧈</div>
-                    <div class="font-bold text-yellow-700">Golden Finish</div>
-                    <div class="text-yellow-600">Beautiful golden brown color</div>
-                </div>
-                <div class="bg-orange-100 rounded-2xl p-4">
-                    <div class="text-3xl mb-3">🍯</div>
-                    <div class="font-bold text-orange-700">Sweet Success</div>
-                    <div class="text-orange-600">Ready for syrup drizzling!</div>
-                </div>
-            </div>
+        <div class="grid-2">
+          <button onclick="window.location.href='/dashboard'" class="metro-button success" style="background:#107C10;">🚀</button>
+          <button onclick="window.location.href='/'" class="metro-button secondary" style="background:#FF8C42;">🏠</button>
         </div>
+      </div>
+
+      <!-- Badges -->
+      <div class="grid-2">
+        <div class="metro-security-badge" style="background:#107C10; justify-content:center;">🏆 ⭐</div>
+        <div class="metro-security-badge" style="background:#FFE135; justify-content:center;">🎖️ ✨</div>
+      </div>
+
+      <!-- Celebration -->
+      <div id="celebration-tiles" class="tile-row">
+        <div class="metro-tile small inline-center tile-compact bg-pancake">🎊</div>
+        <div class="metro-tile small inline-center tile-compact" style="background:#107C10;">🥳</div>
+        <div class="metro-tile small inline-center tile-compact bg-pancake-accent">🌟</div>
+      </div>
     </div>
-
-    <script>
-        // Create celebration confetti
-        function createConfetti() {
-            const container = document.getElementById('confetti-container');
-            const emojis = ['🥞', '🧈', '🍯', '🌟', '✨', '🎉', '💛', '🏆', '💫', '🔥'];
-            
-            for (let i = 0; i < 50; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.animationDelay = Math.random() * 4 + 's';
-                confetti.style.animationDuration = (3 + Math.random() * 2) + 's';
-                container.appendChild(confetti);
-                
-                setTimeout(() => confetti.remove(), 5000);
-            }
-        }
-        
-        // Share success function
-        function shareSuccess() {
-            if (navigator.share) {
-                navigator.share({
-                    title: '🥞 Perfect Pancake Success!',
-                    text: 'I just made the most perfect golden brown pancakes! 🌟',
-                    url: window.location.href
-                });
-            } else {
-                // Fallback for browsers that don't support Web Share API
-                const text = '🥞 I just made the most perfect golden brown pancakes! 🌟 #PerfectPancakes #GoldenBrown';
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('Success message copied to clipboard! 📋✨');
-                });
-            }
-        }
-        
-        // Start the celebration
-        createConfetti();
-        setInterval(createConfetti, 8000); // Create new confetti every 8 seconds
-        
-        // Play a success sound (if available)
-        function playSuccessSound() {
-            // You can add audio here if needed
-            console.log('🎵 Success sound would play here!');
-        }
-        
-        // Trigger celebration on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            playSuccessSound();
-            
-            // Add a small delay before showing success content
-            setTimeout(() => {
-                document.body.style.opacity = '1';
-            }, 100);
-        });
-        
-        // Auto-redirect after 10 seconds (optional)
-        let redirectTimer = null;
-        
-        function startAutoRedirect(url = '/dashboard', seconds = 15) {
-            let countdown = seconds;
-            const countdownElement = document.createElement('div');
-            countdownElement.className = 'fixed bottom-4 right-4 bg-golden-gradient text-white px-4 py-2 rounded-full text-sm';
-            countdownElement.innerHTML = `Auto-redirect in <span id="countdown">${countdown}</span>s`;
-            document.body.appendChild(countdownElement);
-            
-            redirectTimer = setInterval(() => {
-                countdown--;
-                document.getElementById('countdown').textContent = countdown;
-                
-                if (countdown <= 0) {
-                    clearInterval(redirectTimer);
-                    window.location.href = url;
-                }
-            }, 1000);
-        }
-        
-        // Uncomment to enable auto-redirect
-        // startAutoRedirect();
-    </script>
+  </div>
 </body>
 </html>

@@ -1,548 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 Join Data Insights Portal - EPSX Analytics</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --insight-primary: #3B82F6;
-            --insight-secondary: #1E40AF;
-            --insight-accent: #2563EB;
-            --insight-surface: #F8FAFC;
-            --insight-gradient: linear-gradient(135deg, var(--insight-primary) 0%, var(--insight-secondary) 100%);
-        }
-        
-        .analytics-theme { 
-            background: linear-gradient(135deg, #F1F5F9 0%, var(--insight-surface) 100%);
-            font-family: 'Inter', sans-serif;
-        }
-        
-        .insight-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            box-shadow: 
-                0 20px 60px rgba(59, 130, 246, 0.2),
-                0 10px 30px rgba(37, 99, 235, 0.1),
-                inset 0 1px 0 rgba(59, 130, 246, 0.3);
-            border: 2px solid rgba(59, 130, 246, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .family-card::before {
-            content: '🥞🧈🍯';
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            font-size: 3rem;
-            opacity: 0.1;
-            animation: float-decoration 6s ease-in-out infinite;
-        }
-        
-        @keyframes float-decoration {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(-10px, -5px) rotate(2deg); }
-            66% { transform: translate(5px, -8px) rotate(-1deg); }
-        }
-        
-        .family-logo {
-            background: var(--love-gradient);
-            border-radius: 50%;
-            width: 120px;
-            height: 120px;
-            box-shadow: 
-                0 15px 40px rgba(255, 105, 180, 0.4),
-                inset 0 4px 8px rgba(255, 255, 255, 0.3);
-            animation: love-pulse 4s ease-in-out infinite;
-            position: relative;
-        }
-        
-        .family-logo::after {
-            content: '💕';
-            position: absolute;
-            top: -12px;
-            right: -8px;
-            font-size: 28px;
-            animation: heart-beat 2s ease-in-out infinite;
-        }
-        
-        @keyframes love-pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.08); }
-        }
-        
-        @keyframes heart-beat {
-            0%, 100% { transform: scale(1); }
-            25%, 75% { transform: scale(1.2); }
-            50% { transform: scale(0.95); }
-        }
-        
-        .family-input {
-            background: rgba(255, 248, 220, 0.8);
-            border: 3px solid rgba(255, 179, 71, 0.3);
-            border-radius: 24px;
-            padding: 20px 24px 20px 60px;
-            transition: all 0.4s ease;
-            color: var(--family-brown);
-            font-weight: 500;
-            font-size: 16px;
-        }
-        
-        .family-input:focus {
-            outline: none;
-            border-color: var(--family-love);
-            background: white;
-            box-shadow: 
-                0 8px 30px rgba(255, 105, 180, 0.25),
-                0 0 0 6px rgba(255, 105, 180, 0.1);
-            transform: translateY(-2px);
-        }
-        
-        .family-input::placeholder {
-            color: rgba(255, 105, 180, 0.6);
-            font-style: italic;
-        }
-        
-        .welcome-button {
-            background: var(--love-gradient);
-            border-radius: 28px;
-            padding: 20px 40px;
-            color: white;
-            font-weight: 700;
-            font-size: 18px;
-            box-shadow: 
-                0 8px 25px rgba(255, 105, 180, 0.4),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-            transition: all 0.4s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .welcome-button:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 
-                0 15px 40px rgba(255, 105, 180, 0.6),
-                inset 0 2px 4px rgba(255, 255, 255, 0.4);
-        }
-        
-        .welcome-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.7s;
-        }
-        
-        .welcome-button:hover::before {
-            left: 100%;
-        }
-        
-        .strength-meter {
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 8px;
-        }
-        
-        .strength-fill {
-            height: 100%;
-            transition: all 0.3s ease;
-            border-radius: 4px;
-        }
-        
-        .strength-weak { background: linear-gradient(90deg, #ffcccb, #ff6b6b); width: 25%; }
-        .strength-medium { background: linear-gradient(90deg, #fff5b7, #ffd93d); width: 60%; }
-        .strength-strong { background: linear-gradient(90deg, #c8e6c9, #4caf50); width: 100%; }
-        
-        .family-alert {
-            background: var(--love-gradient);
-            border-radius: 24px;
-            padding: 20px;
-            color: white;
-            box-shadow: 0 8px 25px rgba(255, 105, 180, 0.4);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .family-spinner {
-            width: 64px;
-            height: 64px;
-            background: var(--love-gradient);
-            border-radius: 50%;
-            animation: family-welcome 2s ease-in-out infinite;
-            position: relative;
-        }
-        
-        .family-spinner::after {
-            content: '🤗';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 32px;
-        }
-        
-        @keyframes family-welcome {
-            0%, 100% { transform: scale(1) rotate(0deg); }
-            25% { transform: scale(1.1) rotate(5deg); }
-            50% { transform: scale(1.15) rotate(0deg); }
-            75% { transform: scale(1.1) rotate(-5deg); }
-        }
-        
-        .celebration-confetti {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-        }
-        
-        .confetti {
-            position: absolute;
-            font-size: 20px;
-            animation: confetti-fall 3s linear infinite;
-        }
-        
-        @keyframes confetti-fall {
-            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🆕 EPSX Join</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="theme.js" defer></script>
 </head>
-<body class="analytics-theme min-h-screen flex items-center justify-center py-12 px-4">
-    <div class="celebration-confetti" id="confetti-container"></div>
-    
-    <div class="max-w-2xl w-full space-y-8">
-        <!-- Family Welcome Header -->
-        <div class="text-center">
-            <div class="family-logo mx-auto flex items-center justify-center mb-6">
-                <i class="fas fa-users text-white text-4xl"></i>
+<body class="metro-theme">
+  <div class="centered-screen">
+    <div class="container-500 stack-6">
+      <!-- Header -->
+      <div class="inline-center stack-4">
+        <div class="metro-logo metro-live-tile" style="background: #107C10;">
+          <span class="icon">🆕</span>
+        </div>
+        <div class="tile-row-4">
+          <div class="metro-tile small bg-pancake inline-center tile-sm">🏠</div>
+          <div class="metro-tile small bg-pancake inline-center tile-sm">🤝</div>
+          <div class="metro-tile small bg-pancake-accent inline-center tile-sm">🌟</div>
+          <div class="metro-tile small bg-pancake inline-center tile-sm">🥞</div>
+        </div>
+      </div>
+
+      <!-- Success -->
+      <div id="success-message" class="metro-toast success hidden">
+        🎉 Welcome to the Family!
+      </div>
+
+      <!-- Error -->
+      {% if !error.is_empty() %}
+      <div class="metro-toast error">
+        ❌ {{ error }}
+      </div>
+      {% endif %}
+
+      <!-- Loading -->
+      <div id="loading" class="hidden inline-center">
+        <div class="metro-spinner" style="margin: 0 auto; background: #107C10;"></div>
+      </div>
+
+      <!-- Card -->
+      <div class="metro-card green">
+        <form method="POST" action="/api/auth/register" id="register-form" class="stack-4">
+          <!-- Name -->
+          <div class="stack-2">
+            <div class="flex items-center gap-2">
+              <div class="metro-tile small inline-center tile-compact" style="background:#107C10;">👤</div>
             </div>
-            <h1 class="text-5xl font-bold text-blue-600 mb-4">
-                📊 Join Data Insights Portal
-            </h1>
-            <p class="text-2xl text-slate-700 mb-6">
-                Where data drives every decision
-            </p>
-            
-            <!-- Family Benefits -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                <div class="bg-white bg-opacity-60 rounded-2xl p-4 border-2 border-pink-200">
-                    <div class="text-3xl mb-2">🏠</div>
-                    <div class="text-sm font-semibold text-pink-700">Warm Welcome</div>
-                    <div class="text-xs text-pink-600">Feel at home</div>
-                </div>
-                <div class="bg-white bg-opacity-60 rounded-2xl p-4 border-2 border-orange-200">
-                    <div class="text-3xl mb-2">🤝</div>
-                    <div class="text-sm font-semibold text-orange-700">Supportive Community</div>
-                    <div class="text-xs text-orange-600">We've got your back</div>
-                </div>
-                <div class="bg-white bg-opacity-60 rounded-2xl p-4 border-2 border-yellow-200">
-                    <div class="text-3xl mb-2">🌟</div>
-                    <div class="text-sm font-semibold text-yellow-700">Endless Possibilities</div>
-                    <div class="text-xs text-yellow-600">Dream big</div>
-                </div>
+            <input id="name" name="name" type="text" required class="metro-input" placeholder="👤" data-autofocus>
+          </div>
+
+          <!-- Email -->
+          <div class="stack-2">
+            <div class="flex items-center gap-2">
+              <div class="metro-tile small inline-center tile-compact" style="background:#107C10;">📧</div>
             </div>
-        </div>
+            <input id="email" name="email" type="email" autocomplete="email" required class="metro-input" placeholder="📧">
+          </div>
 
-        <!-- Success Message -->
-        <div id="success-message" class="family-alert" style="display: none;">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <span class="text-4xl">🎉</span>
-                </div>
-                <div class="ml-4">
-                    <h3 class="text-xl font-bold">Welcome to the Family!</h3>
-                    <p class="text-sm opacity-90 mt-2">Your pancake journey begins now. Check your email for the secret family recipes!</p>
-                </div>
+          <!-- Password -->
+          <div class="stack-2">
+            <div class="flex items-center gap-2">
+              <div class="metro-tile small inline-center tile-compact" style="background:#107C10;">🔐</div>
+              <button type="button" class="metro-button secondary btn-compact btn-icon"
+                data-toggle="password" data-target="#password" aria-label="Toggle password visibility" style="background:#FF8C42;">👁️</button>
             </div>
-        </div>
+            <input id="password" name="password" type="password" autocomplete="new-password" required class="metro-input" placeholder="🔐">
+          </div>
 
-        <!-- Error Message -->
-        <div id="error-message" class="bg-gradient-to-r from-red-500 to-red-600 border-2 border-red-400 rounded-2xl p-5" style="display: none;">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <span class="text-3xl">😞</span>
-                </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-bold text-white">Oops! Something went wrong</h3>
-                    <p class="text-sm text-red-100 mt-1" id="error-text"></p>
-                </div>
+          <!-- Confirm -->
+          <div class="stack-2">
+            <div class="flex items-center gap-2">
+              <div class="metro-tile small inline-center tile-compact" style="background:#107C10;">✅</div>
             </div>
-        </div>
+            <input id="confirm-password" name="confirm_password" type="password" required class="metro-input" placeholder="✅">
+          </div>
 
-        <!-- Loading State -->
-        <div id="loading" class="text-center p-8" style="display: none;">
-            <div class="family-spinner mx-auto mb-4"></div>
-            <p class="text-pink-600 font-medium text-xl">Preparing your family welcome...</p>
-        </div>
+          <!-- Submit -->
+          <button type="submit" id="register-button" class="metro-button success" style="width: 100%; background:#107C10;">
+            🆕
+          </button>
+        </form>
+      </div>
 
-        <!-- Registration Form -->
-        <div class="insight-card p-8">
-            <form class="space-y-8" id="family-form" action="/api/auth/register" method="POST">
-                <div class="text-center mb-8">
-                    <div class="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mb-6">
-                        <i class="fas fa-chart-line text-white text-2xl"></i>
-                    </div>
-                    <h2 class="text-3xl font-bold text-gray-900 mb-2">📊 Join Data Insights Portal</h2>
-                    <p class="text-gray-600">Create your analytics platform account</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Full Name -->
-                    <div class="md:col-span-2">
-                        <label for="display_name" class="block text-lg font-bold text-pink-700 mb-3">
-                            👋 What should we call you?
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="display_name"
-                                name="display_name"
-                                type="text"
-                                class="family-input block w-full"
-                                placeholder="Your wonderful name"
-                            >
-                            <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                                <i class="fas fa-user-heart text-pink-500 text-xl"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Email -->
-                    <div class="md:col-span-2">
-                        <label for="email" class="block text-lg font-bold text-pink-700 mb-3">
-                            📧 Your email address
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                required
-                                class="family-input block w-full"
-                                placeholder="your@email.com"
-                            >
-                            <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                                <i class="fas fa-envelope-heart text-pink-500 text-xl"></i>
-                            </div>
-                            <div id="email-status" class="absolute inset-y-0 right-0 pr-6 flex items-center">
-                                <!-- Email validation status will appear here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="md:col-span-2">
-                        <label for="password" class="block text-lg font-bold text-pink-700 mb-3">
-                            🔐 Create your secret recipe password
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                class="family-input block w-full pr-14"
-                                placeholder="Mix your secret ingredients here"
-                            >
-                            <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                                <i class="fas fa-key text-pink-500 text-xl"></i>
-                            </div>
-                            <button
-                                type="button"
-                                onclick="toggleFamilyPassword()"
-                                class="absolute inset-y-0 right-0 pr-6 flex items-center text-pink-500 hover:text-pink-700 transition-colors"
-                            >
-                                <i id="family-password-toggle" class="fas fa-eye text-lg"></i>
-                            </button>
-                        </div>
-                        <div class="strength-meter">
-                            <div id="strength-fill" class="strength-fill strength-weak"></div>
-                        </div>
-                        <p id="strength-text" class="text-sm text-pink-600 mt-2">Make it as strong as grandma's pancakes!</p>
-                    </div>
-                </div>
-
-                <!-- Family Agreement -->
-                <div class="bg-pink-50 rounded-2xl p-6 border-2 border-pink-200">
-                    <div class="flex items-start">
-                        <input
-                            id="family_agreement"
-                            name="agree_terms"
-                            type="checkbox"
-                            required
-                            class="h-6 w-6 text-pink-600 focus:ring-pink-500 border-pink-300 rounded mt-1"
-                        >
-                        <label for="family_agreement" class="ml-4 text-base text-pink-800">
-                            <span class="font-semibold">💕 I'm ready to join the Pancake Family!</span>
-                            <p class="text-sm text-pink-600 mt-2">
-                                By joining, you agree to spread pancake joy, share syrup with others, and always stack with love. 
-                                You also accept our <a href="#" class="underline hover:text-pink-800">Terms of Sweetness</a> 
-                                and <a href="#" class="underline hover:text-pink-800">Privacy Pancake Policy</a>.
-                            </p>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Welcome Button -->
-                <div>
-                    <button
-                        type="submit"
-                        id="welcome-button"
-                        class="welcome-button w-full flex justify-center items-center"
-                    >
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-6">
-                            <i class="fas fa-heart text-3xl"></i>
-                        </span>
-                        🤗 Welcome me to the Pancake Family!
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Family Promise -->
-        <div class="text-center bg-white bg-opacity-60 rounded-3xl p-8 border-2 border-pink-200">
-            <h3 class="text-2xl font-bold text-pink-700 mb-4">🥞 Our Family Promise</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div>
-                    <div class="text-2xl mb-2">🛡️</div>
-                    <div class="font-semibold text-pink-600">Safe & Secure</div>
-                    <div class="text-pink-500">Your privacy is our priority</div>
-                </div>
-                <div>
-                    <div class="text-2xl mb-2">💌</div>
-                    <div class="font-semibold text-pink-600">Always Welcome</div>
-                    <div class="text-pink-500">Support whenever you need it</div>
-                </div>
-                <div>
-                    <div class="text-2xl mb-2">🌈</div>
-                    <div class="font-semibold text-pink-600">Inclusive Love</div>
-                    <div class="text-pink-500">Everyone belongs here</div>
-                </div>
-            </div>
-        </div>
+      <!-- Welcome Grid -->
+      <div class="grid-2">
+        <div class="metro-security-badge" style="background:#FF8C42; justify-content:center;">🏠 🤝</div>
+        <div class="metro-security-badge" style="background:#FFE135; justify-content:center;">🌟 ✨</div>
+      </div>
     </div>
-
-    <script>
-        function toggleFamilyPassword() {
-            const passwordField = document.getElementById('password');
-            const toggleIcon = document.getElementById('family-password-toggle');
-            
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                toggleIcon.className = 'fas fa-eye-slash text-lg';
-            } else {
-                passwordField.type = 'password';
-                toggleIcon.className = 'fas fa-eye text-lg';
-            }
-        }
-
-        function checkPasswordStrength(password) {
-            const strengthFill = document.getElementById('strength-fill');
-            const strengthText = document.getElementById('strength-text');
-            
-            let score = 0;
-            if (password.length >= 8) score++;
-            if (/[a-z]/.test(password)) score++;
-            if (/[A-Z]/.test(password)) score++;
-            if (/[0-9]/.test(password)) score++;
-            if (/[^A-Za-z0-9]/.test(password)) score++;
-
-            if (score <= 2) {
-                strengthFill.className = 'strength-fill strength-weak';
-                strengthText.textContent = 'Make it stronger than a pancake stack! 💪';
-            } else if (score <= 4) {
-                strengthFill.className = 'strength-fill strength-medium';
-                strengthText.textContent = 'Getting better! Like a fluffy pancake! 🥞';
-            } else {
-                strengthFill.className = 'strength-fill strength-strong';
-                strengthText.textContent = 'Perfect! Strong as grandma\'s secret recipe! ❤️';
-            }
-        }
-
-        function createConfetti() {
-            const container = document.getElementById('confetti-container');
-            const emojis = ['🥞', '🧈', '🍯', '💕', '🌟', '🎉', '✨'];
-            
-            for (let i = 0; i < 20; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.animationDelay = Math.random() * 3 + 's';
-                container.appendChild(confetti);
-                
-                setTimeout(() => confetti.remove(), 3000);
-            }
-        }
-
-        // Password strength checker
-        document.getElementById('password').addEventListener('input', function() {
-            checkPasswordStrength(this.value);
-        });
-
-        // Form submission
-        document.getElementById('family-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const loading = document.getElementById('loading');
-            const button = document.getElementById('welcome-button');
-            const errorDiv = document.getElementById('error-message');
-            const successDiv = document.getElementById('success-message');
-            
-            loading.style.display = 'block';
-            button.style.opacity = '0.6';
-            button.disabled = true;
-            errorDiv.style.display = 'none';
-            successDiv.style.display = 'none';
-            
-            try {
-                const formData = new FormData(this);
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: formData.get('email'),
-                        password: formData.get('password'),
-                        display_name: formData.get('display_name'),
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    successDiv.style.display = 'block';
-                    createConfetti();
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 3000);
-                } else {
-                    throw new Error(result.error || 'Registration failed');
-                }
-            } catch (error) {
-                document.getElementById('error-text').textContent = error.message;
-                errorDiv.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-                button.style.opacity = '1';
-                button.disabled = false;
-            }
-        });
-
-        // Auto-focus display name field
-        document.getElementById('display_name').focus();
-    </script>
+  </div>
 </body>
 </html>

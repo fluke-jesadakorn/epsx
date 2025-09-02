@@ -1,444 +1,800 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎯 Analytics Command Center - EPSX</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --command-primary: #1E40AF;
-            --command-secondary: #1E3A8A;
-            --command-accent: #3B82F6;
-            --command-success: #059669;
-            --command-warning: #D97706;
-            --command-surface: #F8FAFC;
-            --command-dark: #0F172A;
-            --command-text: #1E293B;
-            --command-gradient: linear-gradient(135deg, var(--command-primary) 0%, var(--command-secondary) 100%);
-            --command-bg-gradient: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-        }
-        
-        .command-theme { 
-            background: var(--command-bg-gradient);
-            font-family: 'Inter', sans-serif;
-            color: #F1F5F9;
-        }
-        
-        .command-card {
-            background: rgba(248, 250, 252, 0.98);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 
-                0 25px 70px rgba(0, 0, 0, 0.3),
-                0 15px 40px rgba(30, 64, 175, 0.2),
-                inset 0 1px 0 rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            color: var(--command-text);
-        }
-        
-        .command-logo {
-            background: var(--command-gradient);
-            border-radius: 20px;
-            width: 96px;
-            height: 96px;
-            box-shadow: 
-                0 12px 35px rgba(30, 64, 175, 0.4),
-                inset 0 2px 8px rgba(59, 130, 246, 0.2);
-            animation: command-pulse 4s ease-in-out infinite;
-            position: relative;
-        }
-        
-        .command-logo::after {
-            content: '⚡';
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            font-size: 24px;
-            animation: power-blink 2s ease-in-out infinite;
-        }
-        
-        @keyframes command-pulse {
-            0%, 100% { 
-                box-shadow: 0 12px 35px rgba(30, 64, 175, 0.4), inset 0 2px 8px rgba(59, 130, 246, 0.2);
-            }
-            50% { 
-                box-shadow: 0 16px 45px rgba(30, 64, 175, 0.6), inset 0 2px 8px rgba(59, 130, 246, 0.4);
-            }
-        }
-        
-        @keyframes power-blink {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        
-        .control-input {
-            background: rgba(255, 255, 255, 0.95);
-            border: 2px solid rgba(30, 64, 175, 0.2);
-            border-radius: 12px;
-            padding: 18px 24px 18px 56px;
-            transition: all 0.3s ease;
-            color: var(--command-text);
-            font-weight: 500;
-        }
-        
-        .control-input:focus {
-            outline: none;
-            border-color: var(--command-accent);
-            background: white;
-            box-shadow: 
-                0 8px 25px rgba(59, 130, 246, 0.15),
-                0 0 0 4px rgba(59, 130, 246, 0.05);
-            transform: translateY(-2px);
-        }
-        
-        .command-button {
-            background: var(--command-gradient);
-            border-radius: 12px;
-            padding: 18px 36px;
-            color: white;
-            font-weight: 700;
-            box-shadow: 0 8px 25px rgba(30, 64, 175, 0.3);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .command-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 35px rgba(30, 64, 175, 0.4);
-        }
-        
-        .command-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.6s;
-        }
-        
-        .command-button:hover::before {
-            left: 100%;
-        }
-        
-        .status-alert {
-            background: linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(30, 58, 138, 0.9) 100%);
-            border-radius: 16px;
-            padding: 20px 24px;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            backdrop-filter: blur(10px);
-        }
-        
-        .security-badge {
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 20px;
-            padding: 8px 16px;
-            color: #60A5FA;
-            backdrop-filter: blur(10px);
-        }
-        
-        .system-spinner {
-            width: 48px;
-            height: 48px;
-            background: var(--command-gradient);
-            border-radius: 50%;
-            animation: system-scan 2s linear infinite;
-            position: relative;
-        }
-        
-        .system-spinner::after {
-            content: '🎯';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-        }
-        
-        @keyframes system-scan {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .error-display {
-            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
-            border-radius: 12px;
-            padding: 16px 24px;
-            color: white;
-            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.25);
-        }
-        
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-        
-        .status-online { background: #059669; animation: status-pulse 2s infinite; }
-        .status-secure { background: #3B82F6; animation: status-pulse 2s infinite 0.5s; }
-        .status-monitored { background: #D97706; animation: status-pulse 2s infinite 1s; }
-        
-        @keyframes status-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        
-        .progress-bar {
-            background: rgba(59, 130, 246, 0.2);
-            border-radius: 4px;
-            height: 6px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            background: linear-gradient(90deg, var(--command-accent) 0%, var(--command-success) 100%);
-            height: 100%;
-            width: 87%;
-            border-radius: 4px;
-            animation: progress-scan 3s ease-in-out infinite;
-        }
-        
-        @keyframes progress-scan {
-            0%, 100% { width: 87%; }
-            50% { width: 95%; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ EPSX Admin Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --metro-blue: #0078d4;
+      --metro-blue-light: #40e0d0;
+      --metro-green: #00cc6a;
+      --metro-red: #d13438;
+      --metro-purple: #8764b8;
+      --metro-purple-light: #b794f6;
+      --metro-orange: #ff8c00;
+      --metro-yellow: #ffb900;
+      --neutral-700: #605e5c;
+      --text-sm: 14px;
+      --text-lg: 18px;
+      --text-xl: 20px;
+      --text-2xl: 24px;
+      --space-2: 8px;
+      --gradient-admin: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-glow: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #667eea 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Animated Background Elements */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+      animation: rotate 20s linear infinite;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 20%;
+      right: 10%;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(118, 75, 162, 0.15) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+      z-index: 0;
+    }
+
+    @keyframes rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.6); }
+    }
+
+    .centered-screen {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .container-450 {
+      width: 100%;
+    }
+
+    .stack-8 > * + * { margin-top: 32px; }
+    .stack-6 > * + * { margin-top: 24px; }
+    .stack-4 > * + * { margin-top: 16px; }
+    .stack-2 > * + * { margin-top: 8px; }
+
+    .inline-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .metro-logo {
+      width: 80px;
+      height: 80px;
+      background: var(--gradient-admin);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      animation: glow 3s ease-in-out infinite;
+      position: relative;
+      transform: rotate(-5deg);
+      transition: transform 0.3s ease;
+    }
+
+    .metro-logo:hover {
+      transform: rotate(0deg) scale(1.05);
+    }
+
+    .metro-live-tile {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metro-live-tile::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+
+    .tile-row {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .metro-tile {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .small { animation-delay: 0.5s; }
+    .small:nth-child(2) { animation-delay: 1s; }
+    .small:nth-child(3) { animation-delay: 1.5s; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    .bg-metro-green { background: var(--metro-green); }
+    .bg-metro-red { background: var(--metro-red); }
+    .bg-metro-purple { background: var(--metro-purple); }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .status-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--metro-green), var(--metro-blue));
+      border-radius: 2px;
+      animation: progress 2s ease-out;
+    }
+
+    @keyframes progress {
+      0% { width: 0%; }
+      100% { width: var(--width, 87%); }
+    }
+
+    .metro-toast {
+      background: linear-gradient(135deg, #e53e3e, #fc8181);
+      color: white;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(229, 62, 62, 0.3);
+      animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+      0% { transform: translateY(-20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    #loading {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .metro-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-left-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .metro-card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metro-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--gradient-admin);
+    }
+
+    .card-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .card-header div:first-child {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      background: var(--gradient-admin);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      height: 3px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--gradient-admin);
+      animation: progressGrow 1s ease-out;
+    }
+
+    @keyframes progressGrow {
+      0% { width: 0%; }
+    }
+
+    .metro-input {
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      background: #f7fafc;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    .metro-input:focus {
+      border-color: var(--metro-blue);
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+      background: white;
+      transform: translateY(-2px);
+    }
+
+    .metro-button {
+      padding: 16px 24px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      min-height: 56px;
+    }
+
+    .metro-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .metro-button:active {
+      transform: translateY(0);
+    }
+
+    .metro-button.secondary {
+      background: var(--gradient-admin);
+      color: white;
+    }
+
+    .btn-icon {
+      padding: 12px;
+      min-width: 48px;
+      min-height: 48px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      text-align: center;
+    }
+
+    .metro-security-badge {
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: white;
+      font-weight: 600;
+    }
+
+    .card-subtle {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .justify-between {
+      justify-content: space-between;
+    }
+
+    .gap-3 {
+      gap: 12px;
+    }
+
+    .mb-2 {
+      margin-bottom: 8px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+      body {
+        padding: 16px;
+      }
+
+      .metro-card {
+        padding: 24px 20px;
+      }
+
+      .metro-input {
+        padding: 14px 16px;
+        font-size: 16px; /* Prevent zoom on iOS */
+      }
+
+      .metro-button {
+        padding: 14px 20px;
+        font-size: 16px;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    /* Enhanced animations and interactions */
+    .tile-sm:hover {
+      transform: scale(1.1);
+      transition: transform 0.2s ease;
+    }
+
+    .progress-bar .fill[style*="40%"] {
+      animation: progressPulse 2s ease-in-out infinite;
+    }
+
+    .progress-bar .fill[style*="60%"] {
+      animation: progressPulse 2s ease-in-out infinite 0.5s;
+    }
+
+    @keyframes progressPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Password toggle button styling */
+    button[data-toggle="password"] {
+      background: linear-gradient(135deg, var(--metro-purple), var(--metro-purple-light));
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    button[data-toggle="password"]:hover {
+      background: linear-gradient(135deg, var(--metro-purple-light), var(--metro-purple));
+      transform: scale(1.05);
+    }
+  </style>
 </head>
-<body class="command-theme min-h-screen flex items-center justify-center py-12 px-4">
-    <div class="max-w-lg w-full space-y-8">
-        <!-- Command Center Header -->
-        <div class="text-center">
-            <div class="command-logo mx-auto flex items-center justify-center">
-                <i class="fas fa-crosshairs text-white text-3xl"></i>
+<body class="metro-theme">
+  <div class="centered-screen">
+    <div class="container-450 stack-8">
+      <!-- Header -->
+      <div class="inline-center stack-6">
+        <div class="metro-logo metro-live-tile bg-metro-blue">
+          <span class="icon">⚡</span>
+        </div>
+
+        <!-- Status Tiles -->
+        <div class="tile-row">
+          <div class="metro-tile small bg-metro-green inline-center">🟢</div>
+          <div class="metro-tile small bg-metro-red inline-center">🔴</div>
+          <div class="metro-tile small bg-metro-purple inline-center">🟣</div>
+        </div>
+
+        <!-- System Status -->
+        <div class="panel">
+          <div class="flex items-center justify-between mb-2">
+            <span style="font-size: var(--text-sm); color: var(--metro-blue); font-weight: 600;">System Status</span>
+            <span style="font-size: var(--text-sm); color: var(--metro-green); font-weight: 600;">🟢 ONLINE</span>
+          </div>
+          <div class="status-bar">
+            <div class="fill" style="width: 87%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error -->
+      {% if !error.is_empty() %}
+      <div class="metro-toast error">
+        <div class="flex items-center gap-3">
+          <span style="font-size: var(--text-xl);">🚨</span>
+          <span>{{ error }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Loading -->
+      <div id="loading" class="hidden inline-center">
+        <div class="metro-spinner" style="margin: 0 auto;"></div>
+        <div style="color: var(--neutral-700); font-size: var(--text-sm);">Authenticating...</div>
+      </div>
+
+      <!-- Card -->
+      <div class="metro-card blue stack-6">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div style="font-size: var(--text-2xl); font-weight: 600; color: var(--metro-blue);">Admin Portal</div>
+          <div style="font-size: var(--text-sm); color: var(--neutral-700);">Secure administrative access</div>
+        </div>
+
+        <form method="POST" action="/oauth/authorize" id="admin-form" class="stack-6">
+          <!-- Hidden OAuth -->
+          <input type="hidden" name="client_id" value="{{ client_id }}">
+          <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+          <input type="hidden" name="state" value="{{ state }}">
+          <input type="hidden" name="scope" value="{{ scope }}">
+          <input type="hidden" name="response_type" value="code">
+          {% if code_challenge.is_some() %}
+          <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
+          {% endif %}
+          {% if code_challenge_method.is_some() %}
+          <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
+          {% endif %}
+
+          <!-- Email -->
+          <div class="stack-2">
+            <div class="flex items-center gap-3">
+              <div class="metro-tile small inline-center bg-metro-blue tile-sm">🔑</div>
+              <div class="progress-bar" style="flex:1;">
+                <div class="fill" style="width: 40%;"></div>
+              </div>
             </div>
-            <h1 class="mt-6 text-4xl font-bold text-blue-100">
-                🎯 Analytics Command Center
-            </h1>
-            <p class="mt-3 text-lg text-blue-200">
-                Advanced Operations Access
-            </p>
-            
-            <!-- System Status Indicators -->
-            <div class="mt-6 flex justify-center space-x-6 text-sm">
-                <div class="security-badge flex items-center gap-2">
-                    <span class="status-indicator status-online"></span>
-                    <span>Systems Online</span>
-                </div>
-                <div class="security-badge flex items-center gap-2">
-                    <span class="status-indicator status-monitored"></span>
-                    <span>Activity Monitored</span>
-                </div>
-                <div class="security-badge flex items-center gap-2">
-                    <span class="status-indicator status-secure"></span>
-                    <span>Secure Channel</span>
-                </div>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              class="metro-input"
+              placeholder="🔑 Administrator Email"
+              data-autofocus
+            >
+          </div>
+
+          <!-- Password -->
+          <div class="stack-2">
+            <div class="flex items-center gap-3">
+              <div class="metro-tile small inline-center bg-metro-blue tile-sm">🛡️</div>
+              <div class="progress-bar" style="flex:1;">
+                <div class="fill" style="width: 60%;"></div>
+              </div>
+              <button
+                type="button"
+                class="metro-button secondary btn-compact btn-icon"
+                data-toggle="password"
+                data-target="#password"
+                aria-label="Toggle password visibility"
+                style="background: linear-gradient(135deg, var(--metro-purple) 0%, var(--metro-purple-light) 100%);"
+              >👁️</button>
             </div>
-        </div>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="metro-input"
+              placeholder="🛡️ Secure Passphrase"
+            >
+          </div>
 
-        <!-- System Status Alert -->
-        <div class="status-alert">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <span class="text-2xl">🛡️</span>
-                </div>
-                <div class="ml-4 flex-1">
-                    <h3 class="text-base font-bold text-white">Command Center Access Control</h3>
-                    <p class="text-sm text-blue-100 mt-1">
-                        This is the administrative command center. All access attempts are logged and monitored by security systems.
-                    </p>
-                    <div class="mt-3">
-                        <div class="flex items-center justify-between text-xs text-blue-200 mb-1">
-                            <span>System Integrity</span>
-                            <span>Optimal ⚡</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill"></div>
-                        </div>
-                    </div>
-                </div>
+          <!-- Submit -->
+          <button
+            type="submit"
+            id="login-button"
+            class="metro-button secondary"
+            style="width: 100%; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--metro-blue) 0%, #0066CC 100%); font-size: var(--text-lg);"
+          >
+            <span style="font-size: var(--text-xl); margin-right: var(--space-2);">⚡</span>
+            <span>Access Portal</span>
+          </button>
+
+          <!-- Security Badges -->
+          <div class="grid-2">
+            <div class="metro-security-badge" style="background: linear-gradient(135deg, var(--metro-blue) 0%, var(--metro-blue-light) 100%); justify-content: center;">
+              <span>🔒</span><span>⚡</span>
             </div>
-        </div>
-
-        <!-- Error Display -->
-        {% if !error.is_empty() %}
-        <div class="error-display">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <span class="text-2xl">🚨</span>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium">Access Denied</p>
-                    <p class="text-xs opacity-90 mt-1">{{ error }}</p>
-                </div>
+            <div class="metro-security-badge" style="background: linear-gradient(135deg, var(--metro-purple) 0%, var(--metro-purple-light) 100%); justify-content: center;">
+              <span>🛡️</span><span>📡</span>
             </div>
-        </div>
-        {% endif %}
+          </div>
+        </form>
+      </div>
 
-        <!-- Loading State -->
-        <div id="loading" class="loading text-center p-8" style="display: none;">
-            <div class="system-spinner mx-auto mb-4"></div>
-            <p class="text-blue-200 font-medium">Authenticating command access...</p>
-        </div>
-
-        <!-- Command Access Form -->
-        <div class="command-card">
-            <form class="space-y-6" method="POST" action="/oauth/authorize" id="command-form">
-                <!-- Hidden OAuth Fields -->
-                <input type="hidden" name="client_id" value="{{ client_id }}">
-                <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
-                <input type="hidden" name="state" value="{{ state }}">
-                <input type="hidden" name="scope" value="{{ scope }}">
-                <input type="hidden" name="response_type" value="code">
-                {% if code_challenge.is_some() %}
-                <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}">
-                {% endif %}
-                {% if code_challenge_method.is_some() %}
-                <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}">
-                {% endif %}
-
-                <div class="space-y-5">
-                    <!-- Admin Email -->
-                    <div>
-                        <label for="email" class="block text-base font-semibold text-slate-800 mb-2">
-                            🔑 Administrator Email
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                autocomplete="email"
-                                required
-                                class="control-input block w-full placeholder-slate-400"
-                                placeholder="admin@command.center"
-                            >
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-user-shield text-blue-600 text-lg"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Security Credentials -->
-                    <div>
-                        <label for="password" class="block text-base font-semibold text-slate-800 mb-2">
-                            🔐 Security Credentials
-                        </label>
-                        <div class="relative">
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                autocomplete="current-password"
-                                required
-                                class="control-input block w-full placeholder-slate-400 pr-12"
-                                placeholder="Command center access key"
-                            >
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-lock text-blue-600 text-lg"></i>
-                            </div>
-                            <button
-                                type="button"
-                                onclick="togglePassword()"
-                                class="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                            >
-                                <i id="password-toggle" class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Command Access Button -->
-                <div>
-                    <button
-                        type="submit"
-                        id="login-button"
-                        class="command-button w-full flex justify-center items-center text-lg font-bold"
-                    >
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-4">
-                            <i class="fas fa-terminal text-xl"></i>
-                        </span>
-                        🎯 Access Command Center
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Command Footer -->
-        <div class="text-center space-y-3">
-            <div class="flex justify-center items-center gap-4 text-sm text-blue-300">
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Military-grade encryption</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-satellite"></i>
-                    <span>Real-time monitoring</span>
-                </div>
+      <!-- Footer -->
+      <div class="inline-center">
+        <div class="card-subtle">
+          <div class="grid-3 inline-center">
+            <div>
+              <div style="font-size: var(--text-2xl);">🆘</div>
+              <div style="font-size: var(--text-xs); color: var(--neutral-700);">24/7 Support</div>
             </div>
-            <p class="text-xs text-blue-400">
-                🛡️ Protected by advanced security protocols • All sessions are encrypted and audited
-            </p>
+            <div>
+              <div style="font-size: var(--text-2xl);">📧</div>
+              <div style="font-size: var(--text-xs); color: var(--neutral-700);">Secure Email</div>
+            </div>
+            <div>
+              <div style="font-size: var(--text-2xl);">🔍</div>
+              <div style="font-size: var(--text-xs); color: var(--neutral-700);">Audit Trail</div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        function togglePassword() {
-            const passwordField = document.getElementById('password');
-            const toggleIcon = document.getElementById('password-toggle');
-            
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                toggleIcon.className = 'fas fa-eye-slash';
-            } else {
-                passwordField.type = 'password';
-                toggleIcon.className = 'fas fa-eye';
-            }
-        }
-
-        // Show loading when form is submitted
-        document.getElementById('command-form').addEventListener('submit', function() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('login-button').style.opacity = '0.6';
-            document.getElementById('login-button').disabled = true;
+  <script>
+    // Enhanced Admin Portal JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+      // Password toggle functionality
+      const passwordToggle = document.querySelector('[data-toggle="password"]');
+      const passwordInput = document.querySelector('#password');
+      
+      if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+          const type = passwordInput.type === 'password' ? 'text' : 'password';
+          passwordInput.type = type;
+          this.textContent = type === 'password' ? '👁️' : '🙈';
         });
+      }
 
-        // Auto-focus email field
-        document.getElementById('email').focus();
+      // Form submission handling
+      const form = document.getElementById('admin-form');
+      const loginButton = document.getElementById('login-button');
+      const loadingElement = document.getElementById('loading');
 
-        // Command center access animation
-        function activateCommandCenter() {
-            const logo = document.querySelector('.command-logo');
-            logo.style.animation = 'system-scan 1s ease-in-out';
-            setTimeout(() => {
-                logo.style.animation = 'command-pulse 4s ease-in-out infinite';
-            }, 1000);
-        }
+      if (form) {
+        form.addEventListener('submit', function(e) {
+          // Show loading state
+          if (loginButton) {
+            loginButton.innerHTML = '<div style="margin-right: 8px; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-left-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>Authenticating...';
+            loginButton.disabled = true;
+          }
+          
+          if (loadingElement) {
+            loadingElement.classList.remove('hidden');
+          }
+          
+          // Add loading class to form
+          form.classList.add('loading');
+          
+          // If there's an error during submission, re-enable the button
+          setTimeout(function() {
+            if (!form.hasAttribute('data-submitted')) {
+              if (loginButton) {
+                loginButton.innerHTML = '<span style="font-size: var(--text-xl); margin-right: var(--space-2);">⚡</span><span>Access Portal</span>';
+                loginButton.disabled = false;
+              }
+              if (loadingElement) {
+                loadingElement.classList.add('hidden');
+              }
+            }
+          }, 10000); // Reset after 10 seconds if no redirect
+        });
+      }
+
+      // Enhanced focus management
+      const inputs = document.querySelectorAll('.metro-input');
+      inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+          this.parentElement.classList.add('focused');
+        });
         
-        // Accessibility: Reduced motion
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            document.documentElement.style.setProperty('--animation-duration', '0s');
-        }
+        input.addEventListener('blur', function() {
+          this.parentElement.classList.remove('focused');
+        });
+      });
 
-        // System status updates
-        setInterval(() => {
-            const indicators = document.querySelectorAll('.status-indicator');
-            indicators.forEach((indicator, index) => {
-                indicator.style.animationDelay = `${index * 0.5}s`;
-            });
-        }, 5000);
-    </script>
+      // Auto-focus on the first input
+      const firstInput = document.querySelector('[data-autofocus]');
+      if (firstInput) {
+        setTimeout(() => firstInput.focus(), 100);
+      }
+
+      // Metro tile animations
+      const tiles = document.querySelectorAll('.metro-tile');
+      tiles.forEach((tile, index) => {
+        tile.addEventListener('mouseenter', function() {
+          this.style.transform = 'scale(1.1) rotate(5deg)';
+        });
+        
+        tile.addEventListener('mouseleave', function() {
+          this.style.transform = 'scale(1) rotate(0deg)';
+        });
+      });
+
+      // Progress bar animations
+      const progressBars = document.querySelectorAll('.progress-bar .fill');
+      progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+          bar.style.width = width;
+          bar.style.transition = 'width 1s ease-out';
+        }, 200);
+      });
+
+      // Add particle effect on logo hover
+      const logo = document.querySelector('.metro-logo');
+      if (logo) {
+        logo.addEventListener('mouseenter', function() {
+          // Create sparkle effect
+          for (let i = 0; i < 6; i++) {
+            setTimeout(() => {
+              createSparkle(this);
+            }, i * 100);
+          }
+        });
+      }
+
+      function createSparkle(element) {
+        const sparkle = document.createElement('div');
+        sparkle.style.position = 'absolute';
+        sparkle.style.width = '4px';
+        sparkle.style.height = '4px';
+        sparkle.style.background = 'linear-gradient(45deg, #fff, #667eea)';
+        sparkle.style.borderRadius = '50%';
+        sparkle.style.pointerEvents = 'none';
+        sparkle.style.zIndex = '1000';
+        
+        const rect = element.getBoundingClientRect();
+        sparkle.style.left = (rect.left + Math.random() * rect.width) + 'px';
+        sparkle.style.top = (rect.top + Math.random() * rect.height) + 'px';
+        
+        document.body.appendChild(sparkle);
+        
+        // Animate sparkle
+        sparkle.animate([
+          { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+          { transform: 'scale(1) rotate(180deg)', opacity: 1, offset: 0.5 },
+          { transform: 'scale(0) rotate(360deg)', opacity: 0 }
+        ], {
+          duration: 1000,
+          easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)'
+        }).onfinish = () => sparkle.remove();
+      }
+
+      // Enhanced keyboard navigation
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.target.classList.contains('metro-input')) {
+          e.preventDefault();
+          const inputs = Array.from(document.querySelectorAll('.metro-input'));
+          const currentIndex = inputs.indexOf(e.target);
+          
+          if (currentIndex < inputs.length - 1) {
+            inputs[currentIndex + 1].focus();
+          } else {
+            form.submit();
+          }
+        }
+      });
+
+      // Add subtle breathing animation to security badges
+      const securityBadges = document.querySelectorAll('.metro-security-badge');
+      securityBadges.forEach((badge, index) => {
+        badge.style.animationDelay = `${index * 0.5}s`;
+        badge.style.animation = 'breathe 3s ease-in-out infinite';
+      });
+
+      // CSS for breathing animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.02); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      console.log('🔐 EPSX Admin Portal initialized');
+    });
+  </script>
 </body>
 </html>

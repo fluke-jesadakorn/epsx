@@ -2139,3 +2139,147 @@ Quarterly Performance:
   Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 224.56
   Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 201.90
 
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 600900, Rank: 101, Status: 'TRACK', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Aug 29, 2025', Date: 'Aug 29, 2025', EPS: 0.32, Price: 28.21
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 0.21, Price: 17.59
+
+Symbol: HCA, Rank: 102, Status: 'TRACK', Value: 406.97
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 406.97
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 364.58
+
+Symbol: RCL, Rank: 103, Status: 'TRACK', Value: 350.01
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 350.01
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 205.73
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: CME, Rank: 100, Status: 'TRACK', Value: 264.62
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 264.62
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 237.80
+
+Symbol: 600900, Rank: 101, Status: 'WATCH', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Sep 2, 2025', Date: 'Sep 2, 2025', EPS: 0.04, Price: 28.21
+  Quarter: 'Jun 4, 2025', Date: 'Jun 4, 2025', EPS: 0.04, Price: 25.64
+
+Symbol: HCA, Rank: 102, Status: 'TRACK', Value: 406.74
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 406.74
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 364.37
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 600900, Rank: 100, Status: 'TRACK', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Aug 29, 2025', Date: 'Aug 29, 2025', EPS: 0.32, Price: 28.21
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 0.21, Price: 17.59
+
+Symbol: HCA, Rank: 101, Status: 'TRACK', Value: 406.92
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 406.92
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 364.53
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.70
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: HCA, Rank: 101, Status: 'TRACK', Value: 406.92
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 406.92
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 364.53
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.70
+
+Symbol: RCL, Rank: 103, Status: 'TRACK', Value: 348.65
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 348.65
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 204.93
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: RCL, Rank: 101, Status: 'TRACK', Value: 350.21
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 350.21
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 205.85
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.10
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.10
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.43
+
+Symbol: HCA, Rank: 103, Status: 'TRACK', Value: 405.15
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 405.15
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 362.95
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 600900, Rank: 100, Status: 'WATCH', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Sep 2, 2025', Date: 'Sep 2, 2025', EPS: 0.04, Price: 28.21
+  Quarter: 'Jun 4, 2025', Date: 'Jun 4, 2025', EPS: 0.04, Price: 25.64
+
+Symbol: RCL, Rank: 101, Status: 'TRACK', Value: 350.21
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 350.21
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 205.85
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.10
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.10
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.43
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: 600900, Rank: 100, Status: 'TRACK', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Aug 29, 2025', Date: 'Aug 29, 2025', EPS: 0.32, Price: 28.21
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 0.21, Price: 17.59
+
+Symbol: RCL, Rank: 101, Status: 'TRACK', Value: 350.90
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 350.90
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 206.25
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.00
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.00
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.34
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: RCL, Rank: 101, Status: 'TRACK', Value: 350.90
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 350.90
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 206.25
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 263.00
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 263.00
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 236.34
+
+Symbol: HCA, Rank: 103, Status: 'TRACK', Value: 405.05
+Quarterly Performance:
+  Quarter: 'Jul 25, 2025', Date: 'Jul 25, 2025', EPS: 6.84, Price: 405.05
+  Quarter: 'Apr 25, 2025', Date: 'Apr 25, 2025', EPS: 6.45, Price: 362.86
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: NVDA, Rank: 1, Status: 'TRACK', Value: 168.98
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 1.05, Price: 168.98
+  Quarter: 'May 28, 2025', Date: 'May 28, 2025', EPS: 0.81, Price: 123.84
+
+Symbol: MSFT, Rank: 2, Status: 'TRACK', Value: 501.64
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 501.64
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 451.75
+
+Symbol: AMZN, Rank: 3, Status: 'TRACK', Value: 224.47
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 224.47
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 201.82
+
