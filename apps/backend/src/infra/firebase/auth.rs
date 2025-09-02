@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use tracing::{error, warn, info};
+use tracing::{error, info};
 
 use crate::config::env::get_env_var;
 use super::types::{FirebaseAdmin, FirebaseUser, FirebasePublicKey, GetUserResponse, AuthRequest, FirebaseUserRecord};
@@ -143,12 +143,6 @@ impl FirebaseAdmin {
         }
     }
 
-    /// Generate JWT token for Firebase user (for internal use)
-    pub async fn generate_jwt_token(&self, firebase_uid: &str) -> Result<String, Box<dyn std::error::Error>> {
-        // This would need proper JWT signing implementation with service account
-        warn!("JWT token generation not fully implemented - returning placeholder");
-        Ok(format!("jwt_token_for_{}", firebase_uid))
-    }
 
     /// Authenticate user with email and password
     pub async fn authenticate_user(&self, email: &str, password: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
@@ -208,39 +202,82 @@ impl FirebaseAdmin {
                 Err("Authentication failed".into())
             }
         } else {
-            // Fallback to test credentials for development
-            info!("FIREBASE_API_KEY not configured, using test credentials for development");
-            if self.is_test_credential(email, password) {
-                info!("Test credential validation successful for {}", email);
-                self.create_test_firebase_user(email, password)
-            } else {
-                error!("Invalid test credentials for {}", email);
-                Err("Invalid email or password".into())
-            }
+            Err("FIREBASE_API_KEY not configured".into())
         }
+    }
+
+    /// Generate OIDC-compliant JWT access token for Firebase user
+    pub async fn generate_jwt_token(&self, firebase_uid: &str) -> Result<String, Box<dyn std::error::Error>> {
+        use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Create JWT claims with OIDC-compliant structure
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        let claims = serde_json::json!({
+            "sub": firebase_uid,                    // Subject (user ID)
+            "iss": format!("https://api.epsx.io"),  // Issuer
+            "aud": "epsx-platform",                 // Audience
+            "exp": now + 3600,                      // Expires in 1 hour
+            "iat": now,                             // Issued at
+            "auth_time": now,                       // Authentication time
+            "token_use": "access"                   // Token purpose
+        });
+        
+        // Use a simple signing key for now (in production, use proper RSA keys)
+        let secret = crate::config::env::get_env_var("JWT_SECRET")
+            .unwrap_or_else(|_| "epsx-jwt-secret-2024-change-in-production".to_string());
+        
+        let header = Header::new(Algorithm::HS256);
+        let encoding_key = EncodingKey::from_secret(secret.as_bytes());
+        
+        let token = encode(&header, &claims, &encoding_key)?;
+        Ok(token)
     }
 
     /// Parse Firebase certificate to extract public key components
     pub fn parse_firebase_cert(&self, cert_pem: &str) -> Result<FirebasePublicKey, Box<dyn std::error::Error>> {
-        // Simplified certificate parsing - in production, use proper X.509 parsing
-        // For now, create a placeholder public key structure
-        warn!("Certificate parsing not fully implemented - using placeholder");
+        use x509_parser::pem::parse_x509_pem;
+        use pkcs8::DecodePublicKey;
+        use rsa::traits::PublicKeyParts;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use base64::Engine;
         
-        // Extract some basic info from PEM format for placeholder
-        let cert_lines: Vec<&str> = cert_pem.lines().collect();
-        let kid = if cert_lines.len() > 2 {
-            format!("key_{}", cert_lines[1].chars().take(8).collect::<String>())
-        } else {
-            "placeholder_kid".to_string()
-        };
-
+        // Parse PEM format certificate
+        let (_, pem) = parse_x509_pem(cert_pem.as_bytes())?;
+        let cert = pem.parse_x509()?;
+        
+        // Extract public key from certificate
+        let public_key_info = cert.public_key();
+        
+        // Parse RSA public key from the DER-encoded public key
+        let rsa_public_key = rsa::RsaPublicKey::from_public_key_der(&public_key_info.raw)?;
+        
+        // Extract RSA components (n = modulus, e = exponent)
+        let modulus = rsa_public_key.n().to_bytes_be();
+        let exponent = rsa_public_key.e().to_bytes_be();
+        
+        // Convert to base64url format (without padding)
+        let n_b64 = URL_SAFE_NO_PAD.encode(&modulus);
+        let e_b64 = URL_SAFE_NO_PAD.encode(&exponent);
+        
+        // Generate key ID from certificate fingerprint (first 8 bytes of SHA-256)
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(&pem.contents);
+        let fingerprint = hasher.finalize();
+        let kid = hex::encode(&fingerprint[..8]);
+        
         Ok(FirebasePublicKey {
             kty: "RSA".to_string(),
             alg: "RS256".to_string(),
             r#use: "sig".to_string(),
             kid,
-            n: "placeholder_modulus".to_string(),
-            e: "AQAB".to_string(),
+            n: n_b64,
+            e: e_b64,
         })
     }
 

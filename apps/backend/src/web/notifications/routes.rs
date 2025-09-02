@@ -9,7 +9,7 @@ use axum::{
 use super::handlers::*;
 use crate::web::{
     auth::routes::AppState,
-    middleware::{modern_auth::modern_jwt_auth_middleware, add_deprecation_headers},
+    middleware::{modern_auth::modern_jwt_auth_middleware},
 };
 
 /// Create notification routes for user endpoints
@@ -56,7 +56,6 @@ pub fn create_legacy_notification_routes() -> Router<AppState> {
         .route("/me/notifications/mark-read", post(mark_all_notifications_read_handler))
         
         // Apply deprecation headers first, then auth middleware
-        .layer(middleware::from_fn(add_deprecation_headers))
         .layer(middleware::from_fn(modern_jwt_auth_middleware))
 }
 

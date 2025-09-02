@@ -26,13 +26,11 @@ mod tests {
         assert!(!admin.get_project_id().is_empty());
         assert!(!admin.get_auth_config_summary().is_empty());
         
-        // Test user management
-        let test_user = admin.create_test_firebase_user("test@example.com", "password").unwrap();
-        assert_eq!(test_user.email, Some("test@example.com".to_string()));
-        
-        // Test IAM profile mapping
-        let profile = admin.get_iam_profile_from_custom_claims(&test_user.custom_claims);
-        assert!(!profile.is_empty());
+        // Test IAM profile mapping with proper custom claims
+        let mut test_claims = std::collections::HashMap::new();
+        test_claims.insert("role".to_string(), serde_json::Value::String("User".to_string()));
+        let profile = admin.get_iam_profile_from_custom_claims(&test_claims);
+        assert_eq!(profile, "user-basic-001");
     }
 
     #[test]
@@ -44,10 +42,25 @@ mod tests {
         let validation_result = admin.validate_id_token_format("header.payload.signature");
         assert!(validation_result.is_ok());
 
-        // Test users module
-        assert!(admin.is_test_credential("info@epsx.io", "P@ssword"));
+        // Test user access checking with proper Firebase user structure
+        let mut admin_claims = std::collections::HashMap::new();
+        admin_claims.insert("admin".to_string(), serde_json::Value::Bool(true));
+        admin_claims.insert("access_level".to_string(), serde_json::Value::String("admin".to_string()));
         
-        let admin_user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
+        let admin_user = FirebaseUser {
+            uid: "test-admin-uid".to_string(),
+            email: Some("admin@example.com".to_string()),
+            email_verified: true,
+            display_name: Some("Test Admin".to_string()),
+            photo_url: None,
+            phone_number: None,
+            disabled: false,
+            custom_claims: admin_claims,
+            provider_data: vec![],
+            created_at: chrono::Utc::now(),
+            last_login_at: Some(chrono::Utc::now()),
+        };
+        
         assert!(admin.user_has_admin_access(&admin_user));
         assert_eq!(admin.get_admin_access_level(&admin_user), "admin");
 

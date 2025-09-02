@@ -10,4 +10,4 @@ pub mod services;
 pub use use_cases::{AuthUC, UserMgmtUC};
 pub use ports::repositories::{UserRepository, SessionRepository, AuditRepository};
 pub use dtos::auth::{LoginReq, LoginRes, LogoutReq};
-pub use services::{AppService, PermissionApplicationService};
+pub use services::PermissionApplicationService;

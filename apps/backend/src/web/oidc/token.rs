@@ -467,7 +467,7 @@ async fn validate_and_consume_authorization_code(
     Ok(auth_data)
 }
 
-/// Generate access token with database user data
+/// Generate access token with database user data and admin/user context detection
 async fn generate_access_token(
     app_state: &AppState,
     firebase_user: &FirebaseUser,
@@ -487,36 +487,140 @@ async fn generate_access_token(
         get_user_permissions_from_role(&firebase_user.custom_claims) // Fallback to Firebase role-based permissions
     };
     
-    let claims = AccessTokenClaims {
-        jti: generate_jti(),
-        iss: get_issuer_url(),
-        sub: firebase_user.uid.clone(),
-        aud: "epsx-api".to_string(),
-        exp: (now + Duration::seconds(expires_in)).timestamp(),
-        iat: now.timestamp(),
-        nbf: now.timestamp(),
-        scope: scope.to_string(),
-        email: firebase_user.email.clone().unwrap_or_default(),
-        role: firebase_role,
-        permissions: effective_permissions.clone(),
-        package_tier,
+    // Detect admin context based on role and permissions
+    let is_admin_context = is_admin_user(&firebase_role, &effective_permissions, scope);
+    
+    if is_admin_context {
+        generate_admin_access_token(firebase_user, &firebase_role, &effective_permissions, now, expires_in)
+    } else {
+        generate_user_access_token(firebase_user, &firebase_role, &effective_permissions, &package_tier, now, expires_in).await
+    }
+}
+
+/// Generate admin access token using AdminJWTService
+fn generate_admin_access_token(
+    firebase_user: &FirebaseUser,
+    role: &str,
+    permissions: &[String],
+    now: DateTime<Utc>,
+    _expires_in: i64,
+) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
+    use crate::auth::admin_jwt::{AdminJWTService, AdminSecurityContext, AdminPermissionMatrix};
+    use std::collections::HashMap;
+    
+    let jwt_secret = get_jwt_secret();
+    let admin_service = AdminJWTService::new(jwt_secret.as_bytes(), get_issuer_url());
+    
+    // Build admin security context
+    let security_context = AdminSecurityContext {
+        mfa_verified: true, // TODO: Get from actual MFA status
+        mfa_timestamp: Some(now.timestamp() as u64),
+        risk_score: 0.1, // Low risk for initial login
+        risk_factors: vec![],
+        device_binding: "web-session".to_string(), // TODO: Generate from request
+        ip_restrictions: vec![],
+        current_ip: "0.0.0.0".to_string(), // TODO: Extract from request
+        location_hash: "unknown".to_string(),
+        session_start: now.timestamp() as u64,
+        last_activity: now.timestamp() as u64,
     };
+    
+    // Build admin permission matrix
+    let admin_permissions = AdminPermissionMatrix {
+        platforms: HashMap::new(), // TODO: Build from permissions
+        system_access: crate::auth::admin_jwt::SystemAccessLevel {
+            level: role.to_string(),
+            capabilities: permissions.to_vec(),
+            restrictions: vec![],
+            monitoring_level: "standard".to_string(),
+        },
+        delegation_rights: vec![],
+        emergency_access: None,
+        version: 1,
+        hash: "admin-permissions-v1".to_string(), // TODO: Proper hash generation
+    };
+    
+    admin_service.generate_admin_token(
+        firebase_user.uid.clone(),
+        firebase_user.email.clone().unwrap_or_default(),
+        firebase_user.display_name.clone().unwrap_or_else(|| "Admin".to_string()),
+        role.to_string(),
+        security_context,
+        admin_permissions,
+    ).map_err(|e| {
+        tracing::error!("Failed to generate admin access token: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(TokenErrorResponse {
+                error: "server_error".to_string(),
+                error_description: Some("Failed to generate admin access token".to_string()),
+                error_uri: None,
+            }),
+        )
+    })
+}
 
-    let header = Header::new(Algorithm::HS256);
-    let encoding_key = EncodingKey::from_secret(get_jwt_secret().as_ref());
-
-    encode(&header, &claims, &encoding_key)
-        .map_err(|e| {
-            tracing::error!("Failed to generate access token: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(TokenErrorResponse {
-                    error: "server_error".to_string(),
-                    error_description: Some("Failed to generate access token".to_string()),
-                    error_uri: None,
-                }),
-            )
+/// Generate user access token using UserJWTService
+async fn generate_user_access_token(
+    firebase_user: &FirebaseUser,
+    _role: &str,
+    permissions: &[String],
+    package_tier: &str,
+    now: DateTime<Utc>,
+    _expires_in: i64,
+) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
+    use crate::auth::user_jwt::{UserJWTService, UserContext, UserPreferences, UserSubscription};
+    use std::collections::HashMap;
+    
+    let jwt_secret = get_jwt_secret();
+    let user_service = UserJWTService::new(jwt_secret.as_bytes(), get_issuer_url());
+    
+    // Build user context
+    let user_context = UserContext {
+        tier: package_tier.to_string(),
+        verified: firebase_user.email_verified,
+        created_at: firebase_user.created_at.timestamp() as u64,
+        last_login: now.timestamp() as u64,
+        preferences: UserPreferences {
+            language: "en".to_string(),
+            timezone: "UTC".to_string(),
+            currency: "USD".to_string(),
+            theme: Some("light".to_string()),
+        },
+    };
+    
+    // Build subscription based on package tier
+    let subscription = if package_tier != "FREE" {
+        Some(UserSubscription {
+            tier: package_tier.to_string(),
+            status: "active".to_string(),
+            expires_at: None, // TODO: Get from database
+            features: determine_features_for_tier(package_tier),
+            limits: determine_limits_for_tier(package_tier),
+            usage: HashMap::new(),
         })
+    } else {
+        None
+    };
+    
+    user_service.generate_user_token(
+        firebase_user.uid.clone(),
+        firebase_user.email.clone().unwrap_or_default(),
+        firebase_user.display_name.clone(),
+        user_context,
+        permissions.to_vec(),
+        subscription,
+    ).map_err(|e| {
+        tracing::error!("Failed to generate user access token: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(TokenErrorResponse {
+                error: "server_error".to_string(),
+                error_description: Some("Failed to generate user access token".to_string()),
+                error_uri: None,
+            }),
+        )
+    })
 }
 
 /// Generate access token without database lookup (for refresh token flow)
@@ -725,7 +829,70 @@ fn generate_jti() -> String {
     Uuid::new_v4().to_string()
 }
 
-/// Validate access token and extract claims
+/// Validate unified access token (supports both admin and user tokens)
+/// Returns (sub, email, permissions, package_tier)
+fn validate_unified_access_token(token: &str) -> Result<(String, String, Vec<String>, String), Box<dyn std::error::Error>> {
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+    
+    let decoding_key = DecodingKey::from_secret(get_jwt_secret().as_ref());
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_audience(&["epsx-api"]);
+    validation.set_issuer(&[&get_issuer_url()]);
+    
+    // Try to decode as admin token first by checking token_type
+    if let Ok(admin_token) = decode::<crate::auth::admin_jwt::AdminJWTClaims>(token, &decoding_key, &validation) {
+        if admin_token.claims.token_type == "admin_access" {
+            tracing::debug!("Validated as admin token for user: {}", admin_token.claims.email);
+            
+            // Extract permissions from admin token
+            let permissions: Vec<String> = admin_token.claims.permissions.system_access.capabilities;
+            
+            return Ok((
+                admin_token.claims.sub,
+                admin_token.claims.email,
+                permissions,
+                "ADMIN".to_string(), // Admin users get special package tier
+            ));
+        }
+    }
+    
+    // Try to decode as user token by checking token_type
+    if let Ok(user_token) = decode::<crate::auth::user_jwt::UserJWTClaims>(token, &decoding_key, &validation) {
+        if user_token.claims.token_type == "user_access" {
+            tracing::debug!("Validated as user token for user: {}", user_token.claims.email);
+            
+            // Extract permissions from user token
+            let permissions = user_token.claims.permissions.permissions;
+            let package_tier = user_token.claims.subscription
+                .as_ref()
+                .map(|s| s.tier.clone())
+                .unwrap_or_else(|| "FREE".to_string());
+            
+            return Ok((
+                user_token.claims.sub,
+                user_token.claims.email,
+                permissions,
+                package_tier,
+            ));
+        }
+    }
+    
+    // Try legacy token format as fallback (no token_type field)
+    if let Ok(legacy_token) = decode::<AccessTokenClaims>(token, &decoding_key, &validation) {
+        tracing::debug!("Validated as legacy token for user: {}", legacy_token.claims.email);
+        
+        return Ok((
+            legacy_token.claims.sub,
+            legacy_token.claims.email,
+            legacy_token.claims.permissions,
+            legacy_token.claims.package_tier,
+        ));
+    }
+    
+    Err("Token validation failed for all supported formats".into())
+}
+
+/// Validate access token and extract claims (legacy function)
 fn validate_access_token(token: &str) -> Result<AccessTokenClaims, Box<dyn std::error::Error>> {
     use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 
@@ -947,7 +1114,7 @@ fn validate_pkce(
 
 /// GET /oauth/userinfo - UserInfo endpoint
 pub async fn oidc_userinfo(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<TokenErrorResponse>)> {
     tracing::debug!("UserInfo endpoint request");
@@ -981,8 +1148,8 @@ pub async fn oidc_userinfo(
     
     let access_token = &auth_header[7..]; // Remove "Bearer " prefix
     
-    // Validate and decode the access token
-    let token_claims = validate_access_token(access_token)
+    // Validate and decode the access token (supports both admin and user tokens)
+    let (sub, email, permissions, package_tier) = validate_unified_access_token(access_token)
         .map_err(|e| {
             tracing::error!("Access token validation failed: {}", e);
             (
@@ -998,23 +1165,88 @@ pub async fn oidc_userinfo(
     // Check if token is revoked (if we implement token revocation)
     // TODO: Check JTI against revoked tokens list
     
-    // No additional user information needed - using structured permissions from token
-
-    let package_tier = get_user_package_tier(&app_state, &token_claims.email).await
-        .unwrap_or_else(|_| "FREE".to_string());
-    
     // Build OpenID Connect UserInfo response
     let userinfo = serde_json::json!({
-        "sub": token_claims.sub,
-        "email": token_claims.email,
+        "sub": sub,
+        "email": email,
         "email_verified": true, // This should come from the user data
-        "name": token_claims.email.split('@').next().unwrap_or("User"),
-        "permissions": token_claims.permissions,
+        "name": email.split('@').next().unwrap_or("User"),
+        "permissions": permissions,
         "package_tier": package_tier
     });
     
-    tracing::debug!("UserInfo endpoint returning response for user: {}", token_claims.email);
+    tracing::debug!("UserInfo endpoint returning response for user: {}", email);
     Ok(Json(userinfo))
+}
+
+/// Detect if user should get admin-level JWT tokens
+fn is_admin_user(role: &str, permissions: &[String], scope: &str) -> bool {
+    // Check role-based admin detection
+    let is_admin_role = matches!(role, "admin" | "super_admin" | "moderator");
+    
+    // Check permission-based admin detection
+    let has_admin_permissions = permissions.iter().any(|p| {
+        p.starts_with("admin:") || p.starts_with("system:") || p.contains("admin")
+    });
+    
+    // Check scope-based admin detection (if admin scopes requested)
+    let has_admin_scope = scope.contains("admin") || scope.contains("system");
+    
+    is_admin_role || has_admin_permissions || has_admin_scope
+}
+
+/// Determine features available for subscription tier
+fn determine_features_for_tier(tier: &str) -> Vec<String> {
+    match tier {
+        "ENTERPRISE" => vec![
+            "premium_analytics".to_string(),
+            "api_access".to_string(),
+            "custom_alerts".to_string(),
+            "priority_support".to_string(),
+            "white_label".to_string(),
+        ],
+        "PREMIUM" => vec![
+            "premium_analytics".to_string(),
+            "api_access".to_string(),
+            "custom_alerts".to_string(),
+            "priority_support".to_string(),
+        ],
+        "BASIC" => vec![
+            "basic_analytics".to_string(),
+            "standard_alerts".to_string(),
+        ],
+        _ => vec!["basic_access".to_string()],
+    }
+}
+
+/// Determine usage limits for subscription tier
+fn determine_limits_for_tier(tier: &str) -> std::collections::HashMap<String, u32> {
+    use std::collections::HashMap;
+    
+    let mut limits = HashMap::new();
+    match tier {
+        "ENTERPRISE" => {
+            limits.insert("api_calls_per_hour".to_string(), 10000);
+            limits.insert("data_exports_per_day".to_string(), 100);
+            limits.insert("custom_alerts".to_string(), 1000);
+        }
+        "PREMIUM" => {
+            limits.insert("api_calls_per_hour".to_string(), 1000);
+            limits.insert("data_exports_per_day".to_string(), 20);
+            limits.insert("custom_alerts".to_string(), 100);
+        }
+        "BASIC" => {
+            limits.insert("api_calls_per_hour".to_string(), 100);
+            limits.insert("data_exports_per_day".to_string(), 5);
+            limits.insert("custom_alerts".to_string(), 10);
+        }
+        _ => {
+            limits.insert("api_calls_per_hour".to_string(), 20);
+            limits.insert("data_exports_per_day".to_string(), 1);
+            limits.insert("custom_alerts".to_string(), 1);
+        }
+    }
+    limits
 }
 
 #[cfg(test)]

@@ -78,6 +78,15 @@ use super::database_role_management::{
     get_role_assignment_history as db_get_role_assignment_history,
     cleanup_expired_roles as db_cleanup_expired_roles,
 };
+// V1 Granular permission management handlers
+use super::granular_permissions::{
+    grant_permission,
+    revoke_permission,
+    list_user_permissions,
+    extend_permission,
+    bulk_grant_permissions as granular_bulk_grant_permissions,
+    get_permission_statistics,
+};
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
 
@@ -163,6 +172,14 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id/embedded-permissions/revoke", post(revoke_embedded_permission))
         .route("/users/:user_id/embedded-permissions/extend", post(extend_embedded_permission))
         .route("/embedded-permissions/cleanup-expired", post(cleanup_expired_permissions))
+        
+        // V1 Granular Permission Management API (require user-management module)
+        .route("/users/:user_id/granular-permissions/grant", post(grant_permission))
+        .route("/users/:user_id/granular-permissions/revoke", post(revoke_permission))
+        .route("/users/:user_id/granular-permissions", get(list_user_permissions))
+        .route("/users/:user_id/granular-permissions/extend", post(extend_permission))
+        .route("/granular-permissions/bulk/grant", post(granular_bulk_grant_permissions))
+        .route("/granular-permissions/statistics", get(get_permission_statistics))
         
         // Simple role system: complex permission management routes removed
         // Use basic user role updates through /users/:user_id endpoints

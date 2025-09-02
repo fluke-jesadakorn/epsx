@@ -607,8 +607,8 @@ pub async fn bulk_validate_permissions(
     }
     
     let mut user_validations = Vec::new();
-    let check_expired = request.check_expired.unwrap_or(true);
-    let check_conflicting = request.check_conflicting.unwrap_or(true);
+    let _check_expired = request.check_expired.unwrap_or(true);
+    let _check_conflicting = request.check_conflicting.unwrap_or(true);
     
     for user_id in &request.user_ids {
         let user_id_typed = match UserId::from_str(user_id) {
@@ -637,8 +637,8 @@ pub async fn bulk_validate_permissions(
         
         // Validate permissions
         let mut valid_permissions = Vec::new();
-        let mut expired_permissions = Vec::new();
-        let mut conflicting_permissions = Vec::new();
+        let expired_permissions = Vec::new();
+        let conflicting_permissions = Vec::new();
         
         for permission in &permission_strings {
             // Check if permission is valid (basic format validation)

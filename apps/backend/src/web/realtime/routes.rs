@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use super::super::auth::routes::AppState;
-use crate::web::middleware::add_deprecation_headers;
+
 use super::{
     sse::{sse_handler, sse_health_handler},
     handlers::{
@@ -33,7 +33,6 @@ pub fn realtime_routes() -> Router<AppState> {
         .route("/admin/notify/:user_id", post(send_user_notification_handler))
         
         // Apply deprecation headers
-        .layer(axum::middleware::from_fn(add_deprecation_headers))
 }
 
 /// Create real-time routes for SSE and events with proper versioning

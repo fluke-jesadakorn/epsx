@@ -82,9 +82,26 @@ mod tests {
         // Health check may fail in test environment, but shouldn't panic
         let _ = health_result; 
         
-        // Test users module
-        let test_user = admin.create_test_firebase_user("test@example.com", "password").unwrap();
+        // Test users module - user access checking
+        let mut test_claims = std::collections::HashMap::new();
+        test_claims.insert("access_level".to_string(), serde_json::Value::String("user".to_string()));
+        
+        let test_user = FirebaseUser {
+            uid: "test-uid-001".to_string(),
+            email: Some("test@example.com".to_string()),
+            email_verified: true,
+            display_name: Some("Test User".to_string()),
+            photo_url: None,
+            phone_number: None,
+            disabled: false,
+            custom_claims: test_claims,
+            provider_data: vec![],
+            created_at: chrono::Utc::now(),
+            last_login_at: Some(chrono::Utc::now()),
+        };
+        
         assert_eq!(test_user.email, Some("test@example.com".to_string()));
+        assert_eq!(admin.get_admin_access_level(&test_user), "user");
         
         // Test auth module functionality
         let is_valid = admin.validate_id_token_format("header.payload.signature");
@@ -105,8 +122,11 @@ mod tests {
         // Client functionality
         assert!(!admin.get_project_id().is_empty());
         
-        // User management functionality
-        assert!(admin.is_test_credential("info@epsx.io", "P@ssword"));
+        // User management functionality - IAM profile mapping
+        let mut admin_claims = std::collections::HashMap::new();
+        admin_claims.insert("role".to_string(), serde_json::Value::String("Admin".to_string()));
+        let profile = admin.get_iam_profile_from_custom_claims(&admin_claims);
+        assert_eq!(profile, "admin-full-004");
         
         // Auth functionality  
         let unverified_result = admin.extract_unverified_claims("invalid");

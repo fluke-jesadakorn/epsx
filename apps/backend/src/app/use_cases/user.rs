@@ -141,14 +141,12 @@ impl UserMgmtUC {
       return Err(UserUseCaseError::PermissionDenied);
     }
 
-    // Save old values before mutation
-    let old_permissions = match self.permission_service.get_user_permissions(target.firebase_uid()).await {
-        Ok(permissions) => permissions,
-        Err(e) => {
-            tracing::error!("Failed to fetch old permissions for user {}: {:?}", target.id(), e);
-            vec![] // Default to empty permissions
-        }
-    };
+    // Get current permissions for audit logging
+    let current_permissions = self.permission_service.get_user_permissions(target.firebase_uid()).await
+        .unwrap_or_else(|e| {
+            tracing::error!("Failed to fetch current permissions for user {}: {:?}", target.id(), e);
+            vec![]
+        });
 
     // Perform upgrade - update permissions in separate table
     if let Err(e) = self.permission_service.set_user_permissions(target.id(), req.new_permissions.clone()).await {
@@ -157,10 +155,10 @@ impl UserMgmtUC {
 
     // Create permission changed event
     let permissions_added: Vec<String> = req.new_permissions.iter()
-        .filter(|p| !old_permissions.contains(p))
+        .filter(|p| !current_permissions.contains(p))
         .cloned()
         .collect();
-    let permissions_removed: Vec<String> = old_permissions.iter()
+    let permissions_removed: Vec<String> = current_permissions.iter()
         .filter(|p| !req.new_permissions.contains(p))
         .cloned()
         .collect();
@@ -179,16 +177,16 @@ impl UserMgmtUC {
       .map_err(|e| UserUseCaseError::RepositoryError(e.to_string()))?;
 
     // Record level change history - use string-based roles
-    let old_role_str = if old_permissions.iter().any(|p| p.starts_with("admin:")) {
+    let current_role_str = if current_permissions.iter().any(|p| p.starts_with("admin:")) {
         "admin"
     } else {
         "user"
     };
     self.record_level_change(
       &req.usr_id,
-      &old_role_str,
+      &current_role_str,
       &new_role,
-      &old_permissions,
+      &current_permissions,
       &req.new_permissions,
       &req.admin_id,
       None

@@ -6,15 +6,18 @@ pub mod services;
 pub mod events;
 pub mod firebase_admin;
 pub mod firebase;  // New focused modules architecture
+pub mod oidc;      // OIDC Bearer authentication system
 // pub mod jobs; // Module not implemented yet
 pub mod container;
 
 // Re-export essential implementations only
 pub use db::{DbPool, create_diesel_pool, DieselUserRepository, DieselAuditRepository, DieselSessionRepository};
 pub use container::{AppContainer, AppContainerBuilder};
-pub use services::{MockEmailService, notification_service::*};
+pub use services::{MockEmailService};
 pub use events::SimpleEventDispatcher;
 pub use firebase_admin::FirebaseAdmin;
+pub use oidc::{OIDCService, OIDCTokens, TokenStore};
+pub use oidc::middleware::BearerAuthState;
 // pub use jobs::{NotificationService as JobNotificationService}; // Module not implemented yet
 
 

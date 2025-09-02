@@ -22,7 +22,7 @@ pub struct AppContainer {
     services: ServicesModule,
     cache: CacheModule,
     
-    // Legacy compatibility fields - exposed for backward compatibility
+    // Public service access fields
     pub database_pool: Arc<DbPool>,
     pub db_pool: Arc<DbPool>,
     pub infra: crate::infra::InfraFactory,
@@ -90,7 +90,7 @@ impl AppContainer {
             self.cache.cache.clone(),
             None, // Removed security_cache 
             None, // Removed brute_force_service
-            self.services.notification_service.clone(),
+            self.services.notification_port.clone(),
             // Clean architecture services
             self.permission_application_service.clone(),
         ))
@@ -122,6 +122,16 @@ impl AppContainer {
     /// Get the cache system - delegates to cache module
     pub async fn get_cache(&self) -> Result<Arc<dyn crate::infra::cache::Cache>, Box<dyn std::error::Error + Send + Sync>> {
         Ok(self.cache.cache.clone())
+    }
+
+    /// Get FCM token service
+    pub fn fcm_token_service(&self) -> Arc<dyn crate::infra::services::fcm_token_service::FcmTokenService> {
+        self.services.fcm_token_service.clone()
+    }
+
+    /// Get FCM push service  
+    pub fn fcm_push_service(&self) -> Arc<dyn crate::infra::services::fcm_push_service::FcmPushService> {
+        self.services.fcm_push_service.clone()
     }
 }
 
@@ -212,7 +222,7 @@ impl Default for AppContainerBuilder {
     }
 }
 
-/// Convenience methods for backward compatibility
+/// Convenience methods
 impl AppContainer {
     /// Create AppContainer with default configuration using focused modules
     pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {

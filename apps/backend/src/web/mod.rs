@@ -17,6 +17,7 @@ pub mod notifications;
 pub mod realtime;
 pub mod session_management_handlers;
 pub mod session_management_routes;
+pub mod fcm;
 
 use axum::{ routing::{ get, post }, Router, response::Json, http::Method };
 use serde_json::{ json, Value };
@@ -369,6 +370,9 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   let analytics_routes = create_standalone_analytics_routes(
     &container.infra
   ).await;
+  
+  // Create FCM routes  
+  let fcm_routes = fcm::fcm_routes().with_state((*container).clone());
 
   // Create core routes
   let core_routes = Router::new()
@@ -379,7 +383,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with analytics, notifications, admin, and permissions support
+  // Merge routes with analytics, notifications, admin, FCM, and permissions support
   Ok(core_routes
     .merge(oidc_routes)
     .merge(notification_routes)
@@ -387,6 +391,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .merge(legacy_notification_routes)
     .merge(realtime_routes)
     .merge(analytics_routes)
+    .nest("/api/v1/fcm", fcm_routes)
     .nest("/api/v1/admin", admin_routes)
     .merge(admin_public_routes)
     // Add comprehensive security middleware stack

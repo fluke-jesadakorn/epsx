@@ -4,6 +4,7 @@ pub mod flow;
 pub mod tokens;
 pub mod key_manager;
 pub mod permissions; // New permission-only system
+pub mod granular_permissions; // Clean granular permission system
 pub mod revocation;
 pub mod refresh_tokens;
 pub mod refresh_token_service;
@@ -12,6 +13,10 @@ pub mod cleanup;
 pub mod session_cleanup_service;
 pub mod session_security_service;
 pub mod roles; // TODO: Remove after migration complete
+
+// Separated JWT systems
+pub mod admin_jwt;
+pub mod user_jwt;
 
 
 // Clean exports - use new simplified modules
@@ -28,6 +33,20 @@ pub use session_cleanup_service::{SessionCleanupService, SessionCleanupConfig, C
 pub use session_security_service::{SessionSecurityService, SessionSecurityConfig, DeviceFingerprint, GeoLocation, SecurityEvent, SecurityEventType, SecurityAnalysisResult, UserSessionInfo};
 pub use roles::{SimpleUserClaims, check_feature_access, require_feature_async, require_admin_async, require_permission_async}; // Updated exports
 pub use permissions::{Permission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
+pub use granular_permissions::{
+    GranularPermissionClaim, PermissionSource, GranularPermissionSet, 
+    PermissionValidationResult, ValidationContext, GranularPermissionError
+};
+
+// Separated JWT exports
+pub use admin_jwt::{
+    AdminJWTService, AdminJWTClaims, AdminValidationResult, AdminSecurityContext,
+    AdminPermissionMatrix, PrivilegedOperationContext, RiskAssessment
+};
+pub use user_jwt::{
+    UserJWTService, UserJWTClaims, UserValidationResult, UserContext,
+    UserPermissionSet, UserSubscription, CacheHints
+};
 
 // Create simplified global JWT service
 lazy_static::lazy_static! {

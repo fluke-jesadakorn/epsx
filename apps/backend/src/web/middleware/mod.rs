@@ -6,6 +6,13 @@ pub mod security_headers;
 // Modern Auth.js v5 middleware (replaces Casbin)
 pub mod modern_auth;
 
+// Clean authentication with granular permissions
+pub mod clean_auth;
+
+// Separated authentication middleware
+pub mod admin_auth;
+pub mod user_auth;
+
 // Core middleware modules
 pub mod rate_limiter;
 pub mod error_handling;
@@ -20,7 +27,6 @@ pub use security_headers::{
   performance_headers_middleware,
   enhanced_cors_middleware,
   enhanced_security_monitoring_middleware,
-  add_deprecation_headers,
 };
 
 // Modern middleware exports
@@ -31,7 +37,31 @@ pub use modern_auth::{
   AuthCtx,
 };
 
-// All legacy permission middleware removed - replaced by simple roles
+// Clean auth exports
+pub use clean_auth::{
+  clean_auth_middleware,
+  require_permission,
+  AuthenticatedUser,
+  PlatformContext,
+};
+
+// Separated auth middleware exports
+pub use admin_auth::{
+  admin_auth_middleware,
+  require_admin_permission_middleware,
+  AuthenticatedAdmin,
+  AdminPlatformContext,
+  AdminSecurityInfo,
+};
+
+pub use user_auth::{
+  user_auth_middleware,
+  require_user_permission_middleware,
+  AuthenticatedUser as AuthenticatedUserV2,
+  UserPlatformContext,
+  UserCacheInfo,
+};
+
 pub use rate_limiter::{
   UnifiedRateLimiter,
   RateLimiter,

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 
 
-use crate::infra::services::notification_service::{Notification, NotificationPreferences, ServiceNotificationStats};
+use crate::infra::services::fcm_notification_service::{Notification, NotificationPreferences, ServiceNotificationStats};
 
 
 /// Cache keys for notification system

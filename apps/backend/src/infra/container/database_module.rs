@@ -75,7 +75,7 @@ impl DatabaseModule {
         Arc::new(DieselModuleRepository::new(self.database_pool.clone())) as Arc<dyn ModuleRepository>
     }
     
-    /// Create stub repositories for backward compatibility
+    /// Create stub repositories
     pub fn create_stub_repos(&self) -> Arc<dyn ModuleRepository> {
         self.create_module_repo()
     }

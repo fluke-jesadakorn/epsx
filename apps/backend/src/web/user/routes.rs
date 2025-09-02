@@ -5,7 +5,6 @@ use axum::{
     Router,
 };
 use crate::web::auth::AppState;
-use crate::web::middleware::add_deprecation_headers;
 use super::handlers::{
     get_profile_handler,
     update_profile_handler,
@@ -18,6 +17,10 @@ use super::handlers::{
     get_notifications_handler,
     mark_notifications_read_handler,
 };
+use super::permissions::{
+    get_user_permissions,
+    check_user_permission,
+};
 
 /// Create v1 API routes for user operations with RESTful patterns
 pub fn user_routes_v1() -> Router<AppState> {
@@ -27,7 +30,9 @@ pub fn user_routes_v1() -> Router<AppState> {
         .route("/api/v1/users/me", put(update_profile_handler))
         .route("/api/v1/users/me/expiration", get(get_expiration_status_handler))
         .route("/api/v1/users/me/notifications", get(get_notifications_handler))
-        .route("/api/v1/users/me/notifications/mark-read", post(mark_notifications_read_handler));
+        .route("/api/v1/users/me/notifications/mark-read", post(mark_notifications_read_handler))
+        .route("/api/v1/users/me/permissions", get(get_user_permissions))
+        .route("/api/v1/users/me/permissions/check", get(check_user_permission));
     
     // Premium features (user role and above - simple role system)
     let premium_routes = Router::new()
@@ -48,7 +53,7 @@ pub fn user_routes_v1() -> Router<AppState> {
         .route("/users/request-expiration-check", post(request_expiration_check_handler))
         .route("/users", get(list_users_handler))
         .route("/users/:id", delete(delete_user_handler))
-        .layer(axum::middleware::from_fn(add_deprecation_headers));
+;
     
     Router::new()
         .merge(user_routes)
@@ -79,6 +84,4 @@ pub fn user_routes() -> Router<AppState> {
         .route("/me/notifications", get(get_notifications_handler))
         .route("/me/notifications/mark-read", post(mark_notifications_read_handler))
         
-        // Apply deprecation headers to all legacy routes
-        .layer(axum::middleware::from_fn(add_deprecation_headers))
 }

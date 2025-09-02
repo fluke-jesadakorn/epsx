@@ -215,3 +215,49 @@ impl std::fmt::Display for NotificationType {
         }
     }
 }
+
+// ============================================================================
+// DEVICE PLATFORM ENUM FOR FCM TOKENS
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::DevicePlatform)]
+pub enum DevicePlatform {
+    Web,
+    Android,
+    Ios,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::DevicePlatform, diesel::pg::Pg> for DevicePlatform {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            DevicePlatform::Web => "web",
+            DevicePlatform::Android => "android", 
+            DevicePlatform::Ios => "ios",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::DevicePlatform, diesel::pg::Pg> for DevicePlatform {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "web" => Ok(DevicePlatform::Web),
+            "android" => Ok(DevicePlatform::Android),
+            "ios" => Ok(DevicePlatform::Ios),
+            _ => Err("Unrecognized DevicePlatform variant".into()),
+        }
+    }
+}
+
+impl std::fmt::Display for DevicePlatform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DevicePlatform::Web => write!(f, "web"),
+            DevicePlatform::Android => write!(f, "android"),
+            DevicePlatform::Ios => write!(f, "ios"),
+        }
+    }
+}

@@ -19,10 +19,6 @@ name = "migrate"
 path = "src/bin/migrate.rs"
 required-features = ["cli-tools"]
 
-[[bin]]
-name = "promote_admin"
-path = "src/bin/promote_admin.rs"
-required-features = ["cli-tools"]
 
 
 
@@ -35,7 +31,7 @@ websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
 database = ["dep:diesel", "dep:diesel-async"]
 postgres = ["database", "diesel/postgres", "diesel-async/postgres"]
 cache = ["dep:redis"]
-auth = ["jwt", "crypto"]
+auth = ["jwt", "crypto", "dep:sha2"]
 jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
 crypto = ["dep:argon2", "dep:aes-gcm", "dep:ring"]
 http-client = ["dep:reqwest", "tls-rustls"]
@@ -65,6 +61,7 @@ rust_decimal = { version = "1.33", features = ["serde-with-str"] }
 rust_decimal_macros = "1.33"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_urlencoded = "0.7"
 thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -97,6 +94,7 @@ aes-gcm = { version = "0.10", optional = true }
 
 # RSA and X509 dependencies (required for Firebase integration)
 rsa = { version = "0.9" }
+pkcs8 = { version = "0.10", features = ["std"] }
 x509-parser = { version = "0.16" }
 
 # Optional HTTP client with TLS choice

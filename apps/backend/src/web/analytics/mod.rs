@@ -12,7 +12,6 @@ use axum::{
 use serde::Deserialize;
 
 use crate::web::AppState;
-use crate::web::middleware::add_deprecation_headers;
 use crate::infra::services::tradingview::TradingViewApiService;
 use crate::infra::InfraFactory;
 use crate::config::Config;
@@ -161,8 +160,7 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
         .route("/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
         .route("/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
-        .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
-        .layer(axum::middleware::from_fn(add_deprecation_headers));
+        .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check));
 
     Router::new()
         .merge(v1_routes)

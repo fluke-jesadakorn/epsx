@@ -140,6 +140,7 @@ pub mod constants {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn test_frontend_eps_data_creation() {

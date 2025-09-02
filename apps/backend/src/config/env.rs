@@ -211,15 +211,6 @@ lazy_static::lazy_static! {
             default_value: None,
         });
 
-        schema.insert("NEXTAUTH_SECRET", EnvVarDefinition {
-            objective: "Legacy JWT secret for backward compatibility with existing tokens",
-            required: false,
-            var_type: EnvVarType::JwtSecret,
-            category: EnvCategory::Authentication,
-            example: "epsx-legacy-jwt-secret-for-compatibility",
-            default_value: None,
-        });
-
         // Payment Configuration (MusePay)
         schema.insert("MUSEPAY_PARTNER_ID", EnvVarDefinition {
             objective: "MusePay partner identifier for payment processing integration",
@@ -503,6 +494,33 @@ lazy_static::lazy_static! {
             category: EnvCategory::Authentication,
             example: "http://localhost:8080",
             default_value: Some("http://localhost:8080"),
+        });
+
+        schema.insert("OIDC_AUDIENCE", EnvVarDefinition {
+            objective: "OIDC audience identifier for token validation",
+            required: false,
+            var_type: EnvVarType::String,
+            category: EnvCategory::Authentication,
+            example: "epsx-platform",
+            default_value: Some("epsx-platform"),
+        });
+
+        schema.insert("OIDC_PRIVATE_KEY", EnvVarDefinition {
+            objective: "RSA private key for OIDC token signing in production",
+            required: false,
+            var_type: EnvVarType::PrivateKey,
+            category: EnvCategory::Security,
+            example: "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BA...\\n-----END PRIVATE KEY-----",
+            default_value: None,
+        });
+
+        schema.insert("JWT_SECRET", EnvVarDefinition {
+            objective: "JWT signing secret for development/legacy compatibility",
+            required: false,
+            var_type: EnvVarType::JwtSecret,
+            category: EnvCategory::Authentication,
+            example: "epsx-jwt-secret-2024-change-in-production",
+            default_value: Some("epsx-jwt-secret-2024-change-in-production"),
         });
 
         schema.insert("OIDC_AUTHORIZATION_ENDPOINT", EnvVarDefinition {

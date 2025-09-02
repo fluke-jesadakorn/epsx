@@ -5,41 +5,6 @@ use async_trait::async_trait;
 use crate::infra::cache::Cache;
 
 use crate::dom::values::UserId;
-use crate::app::use_cases::{AuthUC, UserMgmtUC, StockUC};
-
-// Main application service that coordinates use cases
-pub struct AppService {
-    auth_uc: Arc<AuthUC>,
-    user_mgmt_uc: Arc<UserMgmtUC>,
-    stock_uc: Arc<StockUC>,
-}
-
-impl AppService {
-    pub fn new(
-        auth_uc: Arc<AuthUC>,
-        user_mgmt_uc: Arc<UserMgmtUC>,
-        stock_uc: Arc<StockUC>,
-    ) -> Self {
-        Self {
-            auth_uc,
-            user_mgmt_uc,
-            stock_uc,
-        }
-    }
-    
-    pub fn auth(&self) -> &AuthUC {
-        &self.auth_uc
-    }
-    
-    pub fn user_mgmt(&self) -> &UserMgmtUC {
-        &self.user_mgmt_uc
-    }
-    
-    
-    pub fn stocks(&self) -> &StockUC {
-        &self.stock_uc
-    }
-}
 
 // AuthorizationService is now re-exported from domain layer as UnifiedPermissionService
 

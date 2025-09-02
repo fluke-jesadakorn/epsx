@@ -170,6 +170,7 @@ impl PermissionInfrastructureServiceFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::ports::UserPermissionRepository;
     use crate::dom::services::PermissionService;
     use crate::dom::values::Email;
     use std::collections::HashMap;
@@ -197,33 +198,84 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserRepository for MockUserRepo {
-        async fn get_user_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError> {
+        async fn get(&self, _id: &UserId) -> Result<Option<User>, RepoError> {
+            Ok(None)
+        }
+
+        async fn save(&self, _user: &User) -> Result<(), RepoError> {
+            Ok(())
+        }
+
+        async fn delete(&self, _id: &UserId) -> Result<(), RepoError> {
+            Ok(())
+        }
+
+        async fn find_by_email(&self, _email: &Email) -> Result<Option<User>, RepoError> {
+            Ok(None)
+        }
+
+        async fn find_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<User>, RepoError> {
             let users = self.users.lock().unwrap();
             Ok(users.get(firebase_uid).cloned())
         }
 
-        async fn create_user(&self, _user: &User) -> Result<(), RepoError> {
-            Ok(())
-        }
-
-        async fn update_user(&self, _user: &User) -> Result<(), RepoError> {
-            Ok(())
-        }
-
-        async fn delete_user(&self, _user_id: &UserId) -> Result<bool, RepoError> {
-            Ok(true)
-        }
-
-        async fn get_user_by_id(&self, _user_id: &UserId) -> Result<Option<User>, RepoError> {
-            Ok(None)
-        }
-
-        async fn get_user_by_email(&self, _email: &str) -> Result<Option<User>, RepoError> {
-            Ok(None)
-        }
-
-        async fn list_users(&self, _limit: Option<i64>, _offset: Option<i64>) -> Result<Vec<User>, RepoError> {
+        async fn find_by_package_tier(&self, _package_tier: &str) -> Result<Vec<User>, RepoError> {
             Ok(vec![])
+        }
+
+        async fn list(&self, _offset: u32, _limit: u32) -> Result<Vec<User>, RepoError> {
+            Ok(vec![])
+        }
+
+        async fn count(&self) -> Result<u64, RepoError> {
+            Ok(0)
+        }
+
+        async fn save_batch(&self, _users: &[User]) -> Result<(), RepoError> {
+            Ok(())
+        }
+
+        async fn find_all(&self) -> Result<Vec<User>, RepoError> {
+            Ok(vec![])
+        }
+
+        async fn find_by_id(&self, _id: &UserId) -> Result<User, RepoError> {
+            Err(RepoError::NotFound)
+        }
+
+        async fn find_users_for_auto_assignment(&self) -> Result<Vec<User>, RepoError> {
+            Ok(vec![])
+        }
+
+        async fn count_total_users(&self) -> Result<i64, RepoError> {
+            Ok(0)
+        }
+
+        async fn is_user_active_since(&self, _user_id: &UserId, _since: chrono::DateTime<chrono::Utc>) -> Result<bool, RepoError> {
+            Ok(false)
+        }
+
+        async fn has_good_payment_history(&self, _user_id: &UserId, _days: i64) -> Result<bool, RepoError> {
+            Ok(false)
+        }
+
+        async fn health_check(&self) -> Result<(), RepoError> {
+            Ok(())
+        }
+
+        async fn search_users(
+            &self,
+            _filters: &crate::app::ports::UserSearchFilters,
+            _offset: u32,
+            _limit: u32,
+            _sort_by: &str,
+            _sort_order: &str
+        ) -> Result<Vec<User>, RepoError> {
+            Ok(vec![])
+        }
+
+        async fn count_search_users(&self, _filters: &crate::app::ports::UserSearchFilters) -> Result<u64, RepoError> {
+            Ok(0)
         }
     }
 

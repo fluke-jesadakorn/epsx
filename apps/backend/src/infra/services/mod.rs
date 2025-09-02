@@ -1,7 +1,9 @@
 // External service implementations
 
 pub mod email_service;
-pub mod notification_service;
+pub mod fcm_notification_service;
+pub mod fcm_token_service;
+pub mod fcm_push_service;
 pub mod payment_service;
 pub mod market_data_service;
 pub mod encryption_service;
@@ -15,9 +17,17 @@ pub use tradingview_websocket_service as tradingview_websocket;
 pub mod api_key_service;
 
 pub use email_service::{SendGridEmailService, MockEmailService, SentEmail};
-pub use notification_service::{
-    Notification, NotificationType, NotificationPriority, NotificationService,
-    InMemoryNotificationService, NotificationPortAdapter
+pub use fcm_token_service::{
+    FcmTokenService, SimpleFcmTokenService, FcmTokenInfo, FcmTokenError
+};
+pub use fcm_notification_service::{
+    FcmNotificationService, NotificationService, Notification, NotificationType,
+    NotificationPriority, NotificationDeliveryStatus, NotificationPreferences,
+    NotificationQuery, ServiceNotificationStats
+};
+pub use fcm_push_service::{
+    FcmPushService, ComprehensiveFcmPushService, FcmMessage, FcmPriority,
+    FcmSendResult, FcmBatchResult, FcmPushError
 };
 pub use payment_service::{
     PaymentGatewayConfig, NetworkConfig, MultiGatewayPaymentService,

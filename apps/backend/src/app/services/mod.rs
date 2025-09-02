@@ -3,8 +3,6 @@
 
 pub mod permission_application_service;
 
-// Re-export legacy services for backward compatibility
-pub use crate::app::services_legacy::*;
 
 // Re-export new clean architecture services
 pub use permission_application_service::{

@@ -363,63 +363,6 @@ impl FirebaseAdmin {
         }
     }
 
-    /// Check if we're in development environment
-    pub fn is_development_environment(&self) -> bool {
-        get_env_var("RUST_ENV").unwrap_or_else(|_| "production".to_string()) == "development"
-    }
-    
-    /// Check if credentials match test/development credentials
-    pub fn is_test_credential(&self, email: &str, password: &str) -> bool {
-        let test_credentials = vec![
-            ("info@epsx.io", "P@ssword"),
-            ("admin@epsx.io", "admin123"),
-            ("test@epsx.io", "test123"),
-        ];
-        
-        test_credentials.iter().any(|(test_email, test_password)| {
-            email == *test_email && password == *test_password
-        })
-    }
-    
-    /// Create test Firebase user for development
-    pub fn create_test_firebase_user(&self, email: &str, _password: &str) -> Result<FirebaseUser, Box<dyn std::error::Error>> {
-        let mut custom_claims = HashMap::new();
-        
-        // Set role and permissions based on email
-        match email {
-            "info@epsx.io" => {
-                custom_claims.insert("admin".to_string(), Value::Bool(true));
-                custom_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
-                custom_claims.insert("role".to_string(), Value::String("Admin".to_string()));
-            },
-            "admin@epsx.io" => {
-                custom_claims.insert("admin".to_string(), Value::Bool(true));
-                custom_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
-                custom_claims.insert("role".to_string(), Value::String("Admin".to_string()));
-            },
-            _ => {
-                custom_claims.insert("access_level".to_string(), Value::String("user".to_string()));
-                custom_claims.insert("role".to_string(), Value::String("User".to_string()));
-            }
-        }
-        
-        // Generate a consistent but unique UID for test users
-        let test_uid = format!("test_user_{}", email.replace("@", "_").replace(".", "_"));
-        
-        Ok(FirebaseUser {
-            uid: test_uid,
-            email: Some(email.to_string()),
-            email_verified: true,
-            display_name: Some(email.split('@').next().unwrap_or("Test User").to_string()),
-            photo_url: None,
-            phone_number: None,
-            disabled: false,
-            custom_claims,
-            provider_data: vec![],
-            created_at: Utc::now(),
-            last_login_at: Some(Utc::now()),
-        })
-    }
 
     /// Get IAM profile from custom claims
     pub fn get_iam_profile_from_custom_claims(&self, custom_claims: &HashMap<String, Value>) -> String {
@@ -497,24 +440,6 @@ impl FirebaseAdmin {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_test_credential_validation() {
-        let admin = FirebaseAdmin::create_test_client();
-        
-        assert!(admin.is_test_credential("info@epsx.io", "P@ssword"));
-        assert!(admin.is_test_credential("admin@epsx.io", "admin123"));
-        assert!(!admin.is_test_credential("user@example.com", "wrong_password"));
-    }
-
-    #[test]
-    fn test_create_test_firebase_user() {
-        let admin = FirebaseAdmin::create_test_client();
-        
-        let user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
-        assert_eq!(user.email, Some("info@epsx.io".to_string()));
-        assert!(admin.user_has_admin_access(&user));
-        assert_eq!(admin.get_admin_access_level(&user), "admin");
-    }
 
     #[test]
     fn test_iam_profile_from_custom_claims() {
@@ -532,22 +457,51 @@ mod tests {
 
     #[test]
     fn test_user_admin_access() {
+        // Test with real Firebase user data structure
         let admin = FirebaseAdmin::create_test_client();
         
-        let admin_user = admin.create_test_firebase_user("info@epsx.io", "P@ssword").unwrap();
+        // Create admin user with proper claims
+        let mut admin_claims = HashMap::new();
+        admin_claims.insert("admin".to_string(), Value::Bool(true));
+        admin_claims.insert("access_level".to_string(), Value::String("admin".to_string()));
+        
+        let admin_user = FirebaseUser {
+            uid: "admin_uid_001".to_string(),
+            email: Some("admin@example.com".to_string()),
+            email_verified: true,
+            display_name: Some("Admin User".to_string()),
+            photo_url: None,
+            phone_number: None,
+            disabled: false,
+            custom_claims: admin_claims,
+            provider_data: vec![],
+            created_at: Utc::now(),
+            last_login_at: Some(Utc::now()),
+        };
+        
         assert!(admin.user_has_admin_access(&admin_user));
         assert_eq!(admin.get_admin_access_level(&admin_user), "admin");
 
-        let regular_user = admin.create_test_firebase_user("user@example.com", "password").unwrap();
+        // Create regular user
+        let mut user_claims = HashMap::new();
+        user_claims.insert("access_level".to_string(), Value::String("user".to_string()));
+        
+        let regular_user = FirebaseUser {
+            uid: "user_uid_001".to_string(),
+            email: Some("user@example.com".to_string()),
+            email_verified: true,
+            display_name: Some("Regular User".to_string()),
+            photo_url: None,
+            phone_number: None,
+            disabled: false,
+            custom_claims: user_claims,
+            provider_data: vec![],
+            created_at: Utc::now(),
+            last_login_at: Some(Utc::now()),
+        };
+        
         assert!(!admin.user_has_admin_access(&regular_user));
         assert_eq!(admin.get_admin_access_level(&regular_user), "user");
     }
 
-    #[test]
-    fn test_development_environment_check() {
-        let admin = FirebaseAdmin::create_test_client();
-        // This will depend on the actual environment variable
-        let _is_dev = admin.is_development_environment();
-        // Just ensure it doesn't panic
-    }
 }

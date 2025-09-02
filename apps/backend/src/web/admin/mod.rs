@@ -15,5 +15,7 @@ pub mod search_handlers;
 pub mod embedded_permission_handlers;
 // Bulk permission management
 pub mod bulk_permission_handlers;
+// V1 Granular permission management API
+pub mod granular_permissions;
 
 pub use routes::{create_admin_routes, create_admin_public_routes};
