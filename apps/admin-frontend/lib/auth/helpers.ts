@@ -72,19 +72,21 @@ export function hasPermission(
 ): boolean {
   if (!user?.permissions) return false;
   
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  
   // Check for exact permission match
-  if (user.permissions.includes(permission)) return true;
+  if (permissions.includes(permission)) return true;
   
   // Check for admin wildcard permission
-  if (user.permissions.includes('admin:*:*')) return true;
+  if (permissions.includes('admin:*:*')) return true;
   
   // Check for legacy wildcard permission
-  if (user.permissions.includes('*')) return true;
+  if (permissions.includes('*')) return true;
   
   // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
   if (permission.includes(':')) {
     const [platform, resource] = permission.split(':');
-    return user.permissions.some(p => 
+    return permissions.some(p => 
       p === `${platform}:${resource}:*` || 
       p === `${platform}:*:*`
     );

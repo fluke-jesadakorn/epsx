@@ -4,13 +4,11 @@
  */
 
 import { 
-  createPayment, 
-  validatePayment, 
-  getPaymentStatus, 
-  getTransactionHistory, 
-  initQRPayment, 
-  getPlanDetails 
-} from '@/lib/server-actions';
+  createPayment,
+  getPaymentStatus,
+  verifyPayment,
+  cancelPayment
+} from '@/app/actions/payment-server';
 
 interface CreatePaymentRequest {
   amount: number;
@@ -43,16 +41,16 @@ export const paymentClient = {
 
   async validatePayment(data: ValidatePaymentRequest) {
     try {
-      return await validatePayment(data);
+      return await verifyPayment(data.paymentId);
     } catch (error) {
       console.error('Error validating payment:', error);
       throw error;
     }
   },
 
-  async getPaymentStatus(paymentId: string) {
+  async getPaymentStatus(paymentId?: string) {
     try {
-      return await getPaymentStatus(paymentId);
+      return await getPaymentStatus();
     } catch (error) {
       console.error('Error getting payment status:', error);
       throw error;
@@ -61,7 +59,8 @@ export const paymentClient = {
 
   async getTransactionHistory() {
     try {
-      return await getTransactionHistory();
+      // This would need to be implemented
+      throw new Error('getTransactionHistory needs to be implemented');
     } catch (error) {
       console.error('Error getting transaction history:', error);
       throw error;
@@ -70,7 +69,8 @@ export const paymentClient = {
 
   async initQRPayment(data: QRPaymentRequest) {
     try {
-      return await initQRPayment(data);
+      // This would need to be implemented
+      throw new Error('initQRPayment needs to be implemented');
     } catch (error) {
       console.error('Error initializing QR payment:', error);
       throw error;
@@ -79,7 +79,8 @@ export const paymentClient = {
 
   async getPlanDetails(planId?: string) {
     try {
-      return await getPlanDetails(planId);
+      // This would need to be implemented
+      throw new Error('getPlanDetails needs to be implemented');
     } catch (error) {
       console.error('Error getting plan details:', error);
       throw error;

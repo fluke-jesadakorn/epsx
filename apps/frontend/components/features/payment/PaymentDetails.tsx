@@ -13,8 +13,9 @@ import {
   Loader2,
   CreditCard
 } from 'lucide-react';
-import { realtimeClient  } from '@/lib/api-client.client';
-import type {PaymentStatusUpdate} from '@/lib/api-client.client';
+// TODO: Fix realtime client imports
+// import { realtimeClient  } from '@/lib/api-client';
+// import type {PaymentStatusUpdate} from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Badge } from '@/components/ui';
 // PaymentRequest type moved to local types since musepay.service was removed
 interface _PaymentRequest {
@@ -93,23 +94,24 @@ export default function PaymentDetails({
 
     // Setting up payment monitoring
     
-    const unsubscribe = realtimeClient.connectToPaymentUpdates(
-      activePayment.paymentRequest.customerRefId,
-      (update: PaymentStatusUpdate) => {
-        // Payment status updated
-        
-        if (update.status === 'completed') {
-          setPaymentStatus('confirmed');
-          setTimeout(() => {
-            onSuccess();
-          }, 1500);
-        } else if (update.status === 'failed') {
-          setPaymentStatus('failed');
-        }
-      }
-    );
+    // TODO: Re-implement realtime payment monitoring
+    // const unsubscribe = realtimeClient.connectToPaymentUpdates(
+    //   activePayment.paymentRequest.customerRefId,
+    //   (update: PaymentStatusUpdate) => {
+    //     // Payment status updated
+    //     
+    //     if (update.status === 'completed') {
+    //       setPaymentStatus('confirmed');
+    //       setTimeout(() => {
+    //         onSuccess();
+    //       }, 1500);
+    //     } else if (update.status === 'failed') {
+    //       setPaymentStatus('failed');
+    //     }
+    //   }
+    // );
 
-    return () => unsubscribe();
+    // return () => unsubscribe();
   }, [activePayment?.paymentRequest?.customerRefId, onSuccess]);
 
   const paymentAddress = activePayment?.paymentRequest?.receiveAddress || PAYMENT_ADDRESSES[selectedMethod]?.address || '';

@@ -51,6 +51,9 @@ const StockCard = memo<StockCardAllProps>(props => {
     latestGrowth = latestQuarter?.eps_growth || ranking.growth_factor || 0;
     previousGrowth = previousQuarter?.eps_growth || 0;
 
+    // Use backend's TRACK/STOP status directly
+    let activeStatus = ranking.active_status || 'STOP';
+
     // Convert to card format
     cardData = {
       rank: rank,
@@ -61,7 +64,7 @@ const StockCard = memo<StockCardAllProps>(props => {
         day: 'numeric',
       }),
       value: ranking.price_current || 0,
-      active_status: ranking.active_status || 'Non Active',
+      active_status: activeStatus,
       quarterly_performance: quarters.map(q => ({
         quarter: q.quarter || q.period || 'Q4',
         date:
@@ -79,178 +82,96 @@ const StockCard = memo<StockCardAllProps>(props => {
     };
   }
 
+  // Convert backend TRACK/STOP to frontend Active/Inactive display
+  let displayStatus = cardData.active_status;
+  if (displayStatus === 'TRACK') displayStatus = 'Active';
+  if (displayStatus === 'STOP') displayStatus = 'Inactive';
+
+  const isActive = displayStatus === 'Active';
+  const isInactive = displayStatus === 'Inactive';
+
+  // Calculate days left for next action (mock for now)
+  const daysLeft = Math.floor(Math.random() * 90) + 1; // 1-90 days
+  const progressPercentage = Math.max(10, Math.min(90, (90 - daysLeft) / 90 * 100));
+
   return (
-    <div className="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden touch-manipulation">
-      {/* Row 1: Header with symbol and status */}
-      <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">#{cardData.rank}</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-xl text-gray-900 truncate">{cardData.symbol}</h3>
-            <p className="text-sm text-gray-500 truncate">{cardData.latest_date}</p>
-          </div>
-        </div>
-        <div className={`px-3 py-1 rounded-full text-sm font-medium self-start sm:self-auto ${
-          cardData.active_status === 'Active' 
-            ? 'bg-green-100 text-green-700' 
-            : 'bg-gray-100 text-gray-700'
-        }`}>
-          {cardData.active_status}
-        </div>
-      </div>
-
-      {quarters.length >= 2 ? (
-        <>
-          {/* Row 2: Quarter headers */}
-          <div className="px-4 sm:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-sm font-medium text-gray-700">
-                  {previousQuarter?.quarter || '2025-Q2'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm font-medium text-gray-700">
-                  {latestQuarter?.quarter || '2025-Q3'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 3: EPS Growth label */}
-          <div className="px-4 sm:px-6 py-1">
-            <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-              EPS GROWTH
-            </div>
-          </div>
-
-          {/* Row 4: EPS Growth percentages */}
-          <div className="px-4 sm:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4 min-h-[48px] items-center">
-              <div className="text-center">
-                <div className={`text-xl sm:text-2xl font-bold ${
-                  previousGrowth >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(previousGrowth)}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className={`text-xl sm:text-2xl font-bold ${
-                  latestGrowth >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(latestGrowth)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 5: EPS values */}
-          <div className="px-4 sm:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{previousEPS.toFixed(2)}</span>
-                  <span className="ml-1 text-gray-400">EPS</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{latestEPS.toFixed(2)}</span>
-                  <span className="ml-1 text-gray-400">EPS</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 6: Price Growth label */}
-          <div className="px-4 sm:px-6 py-1 pt-4 border-t border-gray-100">
-            <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-              PRICE GROWTH
-            </div>
-          </div>
-
-          {/* Row 7: Price Growth percentages */}
-          <div className="px-4 sm:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4 min-h-[44px] items-center">
-              <div className="text-center">
-                <div className={`text-lg sm:text-xl font-bold ${
-                  (previousQuarter?.price_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(previousQuarter?.price_growth || 0)}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className={`text-lg sm:text-xl font-bold ${
-                  (latestQuarter?.price_growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(latestQuarter?.price_growth || 0)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 8: Price values */}
-          <div className="px-4 sm:px-6 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-sm font-medium text-gray-600">
-                  ${(previousQuarter?.price || 0).toFixed(2)}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm font-medium text-gray-600">
-                  ${(latestQuarter?.price || 0).toFixed(2)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        /* Fallback for single quarter */
-        <div className="px-4 sm:px-6 py-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-2">Current Price</p>
-            <p className="text-2xl font-bold text-gray-900">${cardData.value.toFixed(2)}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Row 9: Current Price */}
-      <div className="px-4 sm:px-6 py-4 border-t border-gray-100">
-        <div className="flex items-center justify-between min-h-[44px]">
-          <span className="text-sm text-gray-600">Current Price:</span>
-          <span className="text-xl sm:text-2xl font-bold text-gray-900">
-            ${cardData.value.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
-      {/* Row 10: Status */}
-      <div className="px-4 sm:px-6 py-3">
-        <div className="flex items-center justify-between min-h-[44px]">
-          <span className="text-sm text-gray-600">Status:</span>
-          <span className={`px-3 py-2 rounded-full text-sm font-medium ${
-            cardData.active_status === 'Active'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-gray-100 text-gray-700'
+    <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+      {/* Header Section */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+            isActive 
+              ? 'bg-green-400 text-purple-800' 
+              : isInactive
+              ? 'bg-red-400 text-white'
+              : 'bg-gray-400 text-purple-800'
           }`}>
-            {cardData.active_status}
-          </span>
+            <span className="font-bold text-lg">{cardData.rank}</span>
+          </div>
+          <h3 className="font-bold text-3xl text-white">{cardData.symbol}</h3>
+        </div>
+        <button className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 transition-colors ${
+          isActive 
+            ? 'bg-green-400 text-purple-800 hover:bg-green-300' 
+            : isInactive
+            ? 'bg-red-400 text-white hover:bg-red-300'
+            : 'bg-gray-400 text-purple-800 hover:bg-gray-300'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${
+            isActive ? 'bg-purple-800' : 'bg-current'
+          }`}></span>
+          View 🔗
+        </button>
+      </div>
+
+      {/* Status Button */}
+      <div className="mb-6 flex justify-center">
+        <button className={`px-8 py-3 rounded-full font-bold text-lg transition-colors ${
+          isActive 
+            ? 'bg-green-400 text-purple-800 hover:bg-green-300' 
+            : isInactive
+            ? 'bg-red-400 text-white hover:bg-red-300'
+            : 'bg-gray-400 text-purple-800 hover:bg-gray-300'
+        }`}>
+          ● {displayStatus.toUpperCase()}
+        </button>
+      </div>
+
+      {/* Next Action Progress */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-white font-medium">Next Action</span>
+          <span className="text-white font-medium">{daysLeft}d left</span>
+        </div>
+        <div className="w-full bg-purple-500/50 rounded-full h-3">
+          <div 
+            className="bg-green-400 h-3 rounded-full transition-all duration-1000"
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
         </div>
       </div>
 
-      {/* Row 11: Action button */}
-      <div className="px-4 sm:px-6 py-4">
-        <a
-          href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full min-h-[48px] flex items-center justify-center bg-blue-500 text-white rounded-lg font-medium text-sm py-3 px-4 transition-colors duration-200 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation"
-        >
-          📊 View EPS Analysis
-        </a>
+      {/* Growth and Price Section */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Growth */}
+        <div className={`rounded-2xl p-4 text-center ${
+          latestGrowth >= 0 
+            ? 'bg-green-400 text-purple-800' 
+            : 'bg-red-500 text-white'
+        }`}>
+          <div className="font-bold text-sm mb-1">Growth</div>
+          <div className="font-bold text-xl">
+            {latestGrowth >= 0 ? '+' : ''}{formatPercentage(latestGrowth)}
+          </div>
+        </div>
+        
+        {/* Price */}
+        <div className="text-center flex flex-col justify-center">
+          <div className="text-white/80 font-medium text-sm mb-1">Price</div>
+          <div className="text-white font-bold text-xl">
+            ${cardData.value.toFixed(2)}
+          </div>
+        </div>
       </div>
     </div>
   );

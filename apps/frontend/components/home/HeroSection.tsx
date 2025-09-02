@@ -78,7 +78,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
               </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight">
                 <span className="block">📈 Track Your</span>
-                <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-gradient-x">
+                <span className="block bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent animate-gradient-x">
                   Performance Growth
                 </span>
                 <span className="block mt-2">Metrics ✨</span>

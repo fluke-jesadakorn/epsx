@@ -394,8 +394,11 @@ export default function AnalyticsDashboard() {
                   
                   <div className="relative z-10">
                     <div className="mb-6 text-center sm:text-left">
-                      <h2 className="animate-gradient-x mb-3 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
-                        🏆 QoQ Performance Leaders
+                      <h2 className="mb-3 text-xl font-bold sm:text-2xl">
+                        <span className="mr-2">🏆</span>
+                        <span className="animate-gradient-x bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent">
+                          QoQ Performance Leaders
+                        </span>
                       </h2>
                       <p className="text-gray-600 dark:text-gray-300">
                         Top performers in EPS and price quarter-over-quarter growth
@@ -508,8 +511,11 @@ export default function AnalyticsDashboard() {
                 
                 <div className="relative z-10">
                   <div className="mb-6 text-center sm:text-left">
-                    <h2 className="animate-gradient-x mb-3 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-600 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
-                      🚀 Advanced Analytics Engine
+                    <h2 className="mb-3 text-xl font-bold sm:text-2xl">
+                      <span className="mr-2">🚀</span>
+                      <span className="animate-gradient-x bg-gradient-to-r from-purple-500 via-blue-500 to-purple-600 bg-clip-text text-transparent">
+                        Advanced Analytics Engine
+                      </span>
                     </h2>
                     <p className="text-gray-600 dark:text-gray-300">
                       Powered by Diesel ORM with real-time processing and intelligent caching

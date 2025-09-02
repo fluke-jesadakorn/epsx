@@ -16,62 +16,57 @@ interface AnalyticsPageProps {
 
 export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-purple-900/30 dark:to-pink-900/20">
-      {/* PancakeSwap-inspired vibrant background */}
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-orange-50 to-yellow-100 dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
+      {/* PancakeSwap + Windows Phone inspired background */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-pink-100/60 via-orange-100/50 to-yellow-100/60 dark:from-gray-900/90 dark:via-purple-900/40 dark:to-pink-900/30" />
+        {/* PancakeSwap-style vibrant patterns */}
+        <div className="absolute inset-0 opacity-20 dark:opacity-10">
+          <div className="absolute top-20 left-20 h-32 w-32 rotate-45 bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl"></div>
+          <div className="absolute top-40 right-32 h-24 w-24 rotate-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full"></div>
+          <div className="absolute bottom-32 left-1/3 h-28 w-28 -rotate-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-2xl"></div>
+          <div className="absolute bottom-20 right-20 h-20 w-20 rotate-45 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full"></div>
+        </div>
         
-        {/* Floating gradient orbs - PancakeSwap style */}
-        <div className="absolute -top-40 -left-40 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-pink-400/30 to-orange-400/30 blur-3xl" />
-        <div className="absolute top-20 -right-32 h-80 w-80 animate-bounce rounded-full bg-gradient-to-br from-yellow-400/25 to-pink-400/25 blur-3xl" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-20 left-20 h-72 w-72 animate-pulse rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-3xl" style={{ animationDelay: '2s' }} />
-        
-        {/* Mesh gradient overlays */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,_rgba(236,72,153,0.1)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(251,191,36,0.08)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_80%,_rgba(249,115,22,0.06)_0%,_transparent_60%)]" />
+        {/* Enhanced PancakeSwap-style floating elements */}
+        <div className="absolute top-1/4 left-10 h-6 w-6 animate-pulse rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 opacity-80"></div>
+        <div className="absolute top-1/3 right-16 h-4 w-4 animate-bounce rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 opacity-90" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-1/4 left-1/4 h-8 w-8 animate-pulse rounded-full bg-gradient-to-r from-green-400 to-teal-500 opacity-70" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 right-1/3 h-5 w-5 animate-bounce rounded-full bg-gradient-to-r from-pink-400 to-purple-500 opacity-60" style={{ animationDelay: '3s' }}></div>
       </div>
 
       {/* Main content */}
       <div className="relative z-10">
         <div className="container mx-auto px-4 py-8">
-          {/* PancakeSwap-inspired header */}
-          <div className="mb-8 text-center">
-            <div className="relative mb-6">
-              {/* Floating decorative elements */}
-              <div className="absolute -top-4 -left-8 h-6 w-6 animate-bounce rounded-full bg-gradient-to-br from-pink-400/60 to-orange-400/60 blur-sm" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute -top-6 -right-8 h-4 w-4 animate-pulse rounded-full bg-gradient-to-br from-yellow-400/70 to-pink-400/70 blur-sm" />
-              
-              <h1 className="mb-4 bg-gradient-to-r from-pink-600 via-orange-500 to-yellow-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl dark:from-pink-400 dark:via-orange-400 dark:to-yellow-400">
-                🚀 Analytics Hub
-              </h1>
-            </div>
-            
-            <p className="mx-auto max-w-2xl text-lg font-medium text-slate-700 dark:text-slate-200">
-              Sweet analytics with delicious insights and 
-              <span className="bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text font-bold text-transparent dark:from-pink-400 dark:to-orange-400"> real-time data</span>
-            </p>
-            
-            {/* PancakeSwap-style badges */}
-            <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-              <div className="group cursor-pointer rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-4 py-2 shadow-lg transition-all hover:scale-105 hover:shadow-xl">
-                <span className="text-sm font-bold text-white">🔥 Live Data</span>
+          {/* PancakeSwap inspired header with Windows Phone structure */}
+          <div className="mb-12">
+            {/* Vibrant header block */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-orange-500 to-yellow-500 p-8 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
+              <div className="relative z-10">
+                <h1 className="mb-4 text-4xl font-bold tracking-wide text-white sm:text-5xl drop-shadow-lg">
+                  🥞 Analytics Hub
+                </h1>
+                <p className="text-lg font-medium text-white/95 max-w-2xl drop-shadow-sm">
+                  Sweet DeFi analytics with delicious insights and powerful data
+                </p>
+                
+                {/* PancakeSwap-style action tiles */}
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                    <div className="text-3xl mb-2">🔥</div>
+                    <div className="text-white font-bold text-sm drop-shadow-sm">Live Data</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                    <div className="text-3xl mb-2">⚡</div>
+                    <div className="text-white font-bold text-sm drop-shadow-sm">Fast Analytics</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                    <div className="text-3xl mb-2">🎯</div>
+                    <div className="text-white font-bold text-sm drop-shadow-sm">Smart Insights</div>
+                  </div>
+                </div>
               </div>
-              <div className="group cursor-pointer rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 px-4 py-2 shadow-lg transition-all hover:scale-105 hover:shadow-xl">
-                <span className="text-sm font-bold text-white">⚡ Fast Analytics</span>
-              </div>
-              <div className="group cursor-pointer rounded-full bg-gradient-to-r from-purple-400 to-pink-500 px-4 py-2 shadow-lg transition-all hover:scale-105 hover:shadow-xl">
-                <span className="text-sm font-bold text-white">🎯 Smart Insights</span>
-              </div>
-            </div>
-
-            {/* Decorative dots */}
-            <div className="mt-6 flex items-center justify-center gap-2">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-pink-400 to-orange-400" />
-              <div className="h-1 w-8 animate-pulse rounded-full bg-gradient-to-r from-yellow-400 to-pink-400" style={{ animationDelay: '0.3s' }} />
-              <div className="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-orange-400 to-yellow-400" style={{ animationDelay: '0.6s' }} />
-              <div className="h-1 w-8 animate-pulse rounded-full bg-gradient-to-r from-pink-400 to-purple-400" style={{ animationDelay: '0.9s' }} />
-              <div className="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-yellow-400 to-orange-400" style={{ animationDelay: '1.2s' }} />
             </div>
           </div>
 

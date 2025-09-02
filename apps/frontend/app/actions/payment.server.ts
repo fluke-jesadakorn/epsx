@@ -25,11 +25,12 @@ export async function createDepositAddress(
       throw new Error('Failed to get deposit address');
     }
 
-    if (!response.data.deposit) {
+    const data = response.data as any;
+    if (!data.deposit) {
       throw new Error('No deposit address returned');
     }
 
-    return { success: true, deposit: response.data.deposit };
+    return { success: true, deposit: data.deposit };
   } catch (error) {
     return { 
       success: false, 
@@ -111,15 +112,13 @@ export async function getPaymentDetails(
       qrCodePath: selectedNetwork.qrPath,
       tag: 'tag' in selectedNetwork ? selectedNetwork.tag : '',
       paymentStatus: {
-        lastPaymentDate: status.lastPayDate || new Date(),
-        expirationDate:
-          status.expireDate ||
-          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        lastPaymentDate: new Date(),
+        expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         paymentMethod: 'USDT' as const,
         transactionId: 'N/A', // Transaction ID not available in status, placeholder
         amount: 0, // Amount not available in status, placeholder
       },
-      userLevel: (status.userLevel || 'Basic') as any, // Cast to bypass type checking temporarily
+      userLevel: 'Basic'
     };
   } catch (error) {
     console.error('Failed to get payment details:', error);

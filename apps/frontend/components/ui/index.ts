@@ -5,7 +5,11 @@ export { Badge, type BadgeProps } from './badge';
 export { Skeleton } from './skeleton';
 export { Input } from './input';
 export { InputWithIcon } from './input-with-icon';
+export { Textarea } from './textarea';
 export { Label } from './label';
+export { Alert, AlertDescription } from './alert';
+export { Switch } from './switch';
+export { Separator } from './separator';
 export { 
   Select,
   SelectContent,

@@ -16,8 +16,9 @@ export async function getJWTFromCookies(): Promise<string | null> {
     const allCookies = cookieStore.getAll();
     console.log('🔍 All available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
     
-    const jwtCookie = cookieStore.get('epsx_admin_jwt');
-    console.log('🔍 JWT cookie lookup result:', { found: !!jwtCookie, hasValue: !!jwtCookie?.value });
+    // OIDC Migration: Get access token instead of legacy JWT
+    const jwtCookie = cookieStore.get('access_token');
+    console.log('🔍 OIDC access token lookup result:', { found: !!jwtCookie, hasValue: !!jwtCookie?.value });
     
     return jwtCookie?.value || null;
   } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
-import { apiClient, isApiError   } from '@/lib/api-client.client';
-import type {ProfileUpdateRequest as _ProfileUpdateRequest, PasswordChangeRequest as _PasswordChangeRequest} from '@/lib/api-client.client';
+import { apiClient, isApiError   } from '@/lib/api-client';
+import type {ProfileUpdateRequest as _ProfileUpdateRequest, PasswordChangeRequest as _PasswordChangeRequest} from '@/lib/api-client';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Input, Label } from '@/components/ui';
 

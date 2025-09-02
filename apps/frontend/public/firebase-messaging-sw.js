@@ -1,8 +1,8 @@
-// Import Firebase scripts for service worker
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+// Import Firebase scripts for service worker (v9+ modular SDK)
+importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
-// Firebase configuration
+// Firebase configuration - using environment variables pattern
 const firebaseConfig = {
   apiKey: "AIzaSyBof2MIWdFMfpvfl21Di2fOH08ElTgAurU",
   authDomain: "epsx-449804.firebaseapp.com", 
@@ -19,36 +19,60 @@ firebase.initializeApp(firebaseConfig);
 // Get Firebase Messaging instance
 const messaging = firebase.messaging();
 
+// Cache for notification click tracking
+let notificationClickQueue = [];
+
 // Handle background messages
 messaging.onBackgroundMessage(function(payload) {
   console.log('Background message received:', payload);
 
-  const notificationTitle = payload.notification?.title || payload.data?.title || 'New Notification';
+  const notificationTitle = payload.notification?.title || payload.data?.title || 'EPSX Notification';
   const notificationOptions = {
-    body: payload.notification?.body || payload.data?.body || 'You have a new notification',
+    body: payload.notification?.body || payload.data?.body || 'You have a new notification from EPSX',
     icon: payload.notification?.icon || payload.data?.icon || '/logo.png',
     badge: '/logo.png',
-    tag: payload.data?.tag || 'epsx-notification',
+    tag: payload.data?.tag || `epsx-${Date.now()}`,
+    timestamp: Date.now(),
     data: {
       url: payload.data?.url || payload.fcmOptions?.link || '/',
+      notificationId: payload.data?.notificationId || Math.random().toString(36),
+      type: payload.data?.type || 'system',
+      userId: payload.data?.userId,
+      trackingEnabled: payload.data?.trackingEnabled !== 'false',
       ...payload.data
     },
     actions: payload.data?.actions ? JSON.parse(payload.data.actions) : [
       {
         action: 'view',
-        title: 'View',
-        icon: '/icons/view.png'
+        title: 'Open',
+        icon: '/logo.png'
       },
       {
         action: 'dismiss',
-        title: 'Dismiss',
-        icon: '/icons/dismiss.png'
+        title: 'Dismiss'
       }
     ],
     requireInteraction: payload.data?.requireInteraction === 'true',
     silent: payload.data?.silent === 'true',
-    vibrate: payload.data?.vibrate ? JSON.parse(payload.data.vibrate) : [200, 100, 200]
+    vibrate: payload.data?.vibrate ? JSON.parse(payload.data.vibrate) : [200, 100, 200],
+    renotify: payload.data?.renotify === 'true',
+    dir: 'ltr',
+    lang: 'en'
   };
+
+  // Store notification for analytics
+  if (notificationOptions.data.trackingEnabled) {
+    try {
+      notificationClickQueue.push({
+        notificationId: notificationOptions.data.notificationId,
+        action: 'received',
+        timestamp: Date.now(),
+        payload: payload
+      });
+    } catch (error) {
+      console.error('Error storing notification tracking data:', error);
+    }
+  }
 
   // Show notification
   return self.registration.showNotification(notificationTitle, notificationOptions);
@@ -62,41 +86,116 @@ self.addEventListener('notificationclick', function(event) {
   const action = event.action;
   const data = notification.data || {};
 
+  // Track notification interaction
+  if (data.trackingEnabled && data.notificationId) {
+    try {
+      notificationClickQueue.push({
+        notificationId: data.notificationId,
+        action: action || 'click',
+        timestamp: Date.now(),
+        url: data.url
+      });
+      
+      // Send tracking data to backend (async)
+      sendTrackingData(data.notificationId, action || 'click', data.url);
+    } catch (error) {
+      console.error('Error tracking notification click:', error);
+    }
+  }
+
   notification.close();
 
   if (action === 'dismiss') {
     return;
   }
 
-  // Handle notification click
-  const urlToOpen = data.url || '/notifications';
+  // Determine URL to open based on notification type
+  let urlToOpen = data.url || '/notifications';
   
+  // Smart routing based on notification type
+  if (data.type === 'trading' && !data.url) {
+    urlToOpen = '/analytics';
+  } else if (data.type === 'account' && !data.url) {
+    urlToOpen = '/settings';
+  } else if (data.type === 'system' && !data.url) {
+    urlToOpen = '/notifications';
+  }
+
   event.waitUntil(
-    clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then(function(clientList) {
-      // Check if there's already a window/tab open with the target URL
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      
-      // If no window is open, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    }).catch(function(error) {
-      console.error('Error handling notification click:', error);
-      // Fallback: try to open a new window
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
+    handleNotificationNavigation(urlToOpen, data)
   );
 });
+
+// Enhanced navigation handling with fallback mechanisms
+async function handleNotificationNavigation(urlToOpen, data) {
+  try {
+    const clientList = await clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    });
+
+    // Try to find existing EPSX window/tab
+    for (const client of clientList) {
+      if (client.url.includes('localhost:3000') || 
+          client.url.includes(self.location.origin) ||
+          client.url.includes('epsx')) {
+        
+        // Focus existing window and navigate if needed
+        await client.focus();
+        
+        // Send message to client to navigate to specific URL
+        if (client.postMessage) {
+          client.postMessage({
+            type: 'FCM_NOTIFICATION_CLICK',
+            url: urlToOpen,
+            data: data
+          });
+        }
+        
+        return;
+      }
+    }
+    
+    // No existing window found, open new one
+    if (clients.openWindow) {
+      await clients.openWindow(urlToOpen);
+    }
+  } catch (error) {
+    console.error('Error handling notification navigation:', error);
+    
+    // Fallback: try to open any window
+    try {
+      if (clients.openWindow) {
+        await clients.openWindow(urlToOpen);
+      }
+    } catch (fallbackError) {
+      console.error('Fallback navigation also failed:', fallbackError);
+    }
+  }
+}
+
+// Send tracking data to backend
+async function sendTrackingData(notificationId, action, url) {
+  try {
+    const trackingData = {
+      notificationId,
+      action,
+      url,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    };
+
+    await fetch('/api/v1/notifications/analytics/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(trackingData)
+    });
+  } catch (error) {
+    console.error('Failed to send notification tracking data:', error);
+  }
+}
 
 // Handle notification close events
 self.addEventListener('notificationclose', function(event) {
@@ -143,13 +242,98 @@ self.addEventListener('push', function(event) {
   }
 });
 
+// Periodic sync for notification queue (if supported)
+if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+  self.addEventListener('sync', function(event) {
+    if (event.tag === 'fcm-tracking-sync') {
+      event.waitUntil(syncNotificationData());
+    }
+  });
+}
+
+// Sync notification tracking data
+async function syncNotificationData() {
+  if (notificationClickQueue.length === 0) return;
+
+  try {
+    const dataToSync = [...notificationClickQueue];
+    notificationClickQueue = []; // Clear the queue
+
+    for (const trackingData of dataToSync) {
+      await sendTrackingData(
+        trackingData.notificationId, 
+        trackingData.action, 
+        trackingData.url
+      );
+    }
+  } catch (error) {
+    console.error('Error syncing notification data:', error);
+    // Re-add failed items to queue (with limit)
+    if (notificationClickQueue.length < 50) {
+      notificationClickQueue.unshift(...dataToSync.slice(0, 10));
+    }
+  }
+}
+
+// Listen for messages from main thread
+self.addEventListener('message', function(event) {
+  console.log('Service worker received message:', event.data);
+  
+  if (event.data && event.data.type) {
+    switch (event.data.type) {
+      case 'SKIP_WAITING':
+        self.skipWaiting();
+        break;
+      case 'GET_VERSION':
+        event.ports[0].postMessage({
+          type: 'VERSION_RESPONSE',
+          version: '1.0.0',
+          timestamp: Date.now()
+        });
+        break;
+      case 'SYNC_TRACKING_DATA':
+        syncNotificationData();
+        break;
+      case 'CLEAR_TRACKING_QUEUE':
+        notificationClickQueue = [];
+        break;
+    }
+  }
+});
+
 // Service worker activation
 self.addEventListener('activate', function(event) {
   console.log('Firebase messaging service worker activated');
+  
+  event.waitUntil(
+    Promise.all([
+      // Clean up old caches if any
+      self.clients.claim(),
+      // Sync any pending tracking data
+      syncNotificationData()
+    ])
+  );
 });
 
 // Service worker installation
 self.addEventListener('install', function(event) {
   console.log('Firebase messaging service worker installed');
-  self.skipWaiting();
+  
+  event.waitUntil(
+    // Pre-cache essential assets if needed
+    Promise.resolve().then(() => {
+      self.skipWaiting();
+    })
+  );
+});
+
+// Handle service worker errors
+self.addEventListener('error', function(event) {
+  console.error('Service worker error:', event.error);
+});
+
+// Handle unhandled promise rejections
+self.addEventListener('unhandledrejection', function(event) {
+  console.error('Service worker unhandled promise rejection:', event.reason);
+  event.preventDefault();
 });

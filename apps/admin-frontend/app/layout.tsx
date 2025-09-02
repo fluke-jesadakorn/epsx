@@ -6,6 +6,7 @@
 
 import './globals.css';
 import { AdminAuthWrapper } from '@/components/providers/AdminAuthWrapper';
+import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
 
@@ -70,11 +71,13 @@ export default function RootLayout({
         
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
-          <AdminAuthWrapper>
-            <main className="flex-1 relative">
-              {children}
-            </main>
-          </AdminAuthWrapper>
+          <ErrorBoundary>
+            <AdminAuthWrapper>
+              <main className="flex-1 relative">
+                {children}
+              </main>
+            </AdminAuthWrapper>
+          </ErrorBoundary>
         </div>
 
         {/* Enhanced Windows Phone + PancakeSwap Toast Notifications */}

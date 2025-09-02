@@ -1,16 +1,16 @@
 import { 
-  createPayment, 
-  validatePayment, 
+  createPayment,
   getPaymentStatus as getPaymentStatusAction,
-  getTransactionHistory,
-  initQRPayment,
-  getPlanDetails
-} from '@/lib/server-actions';
-import type { PaymentStatus, PaymentTransaction as PaymentTx } from '@/lib/server-actions';
-import { nanoid } from 'nanoid';
+  verifyPayment
+} from '@/app/actions/payment-server';
+import type { PaymentStatus, PaymentTransaction } from '@/types/payment-types';
+
+// Simple ID generator to replace nanoid
+const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 // Re-export types for compatibility
-export type { PaymentStatus, PaymentTx };
+export type { PaymentStatus };
+export type PaymentTx = PaymentTransaction;
 
 export const createPaymentService = () => {
   const recordPayment = async (
@@ -20,10 +20,10 @@ export const createPaymentService = () => {
   ): Promise<string | null> => {
     try {
       const response = await createPayment({
-        amount,
         currency,
-        description,
-        orderNo: nanoid(),
+        amount: amount.toString(),
+        payment_method: 'on_chain',
+        product_name: description || 'Payment',
       });
 
       if (response) {
@@ -46,7 +46,7 @@ export const createPaymentService = () => {
     message: string;
   }> => {
     try {
-      const response = await validatePayment(txId);
+      const response = await verifyPayment(txId);
 
       if (response) {
         return { success: true, message: 'Payment confirmed successfully' };

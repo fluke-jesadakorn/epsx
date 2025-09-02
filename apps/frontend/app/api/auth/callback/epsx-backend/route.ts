@@ -3,8 +3,7 @@
  * Handles OAuth authorization callback and creates user session
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens, getUserInfo } from '@/lib/server/auth';
-import { signJWT, createJWTClaims } from '@/lib/auth-utils';
+import { exchangeCodeForTokens } from '@/lib/server/auth';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -80,36 +79,28 @@ export async function GET(request: NextRequest) {
     
     console.log('✅ Frontend: State validation passed');
 
-    // Exchange authorization code for access token using PKCE
-    console.log('🔄 Frontend: Exchanging authorization code for tokens...');
+    // Exchange authorization code for OIDC tokens using backend OIDC service
+    console.log('🔄 Frontend: Exchanging authorization code for OIDC tokens...');
     const tokens = await exchangeCodeForTokens(code, storedCodeVerifier, state);
-    const accessToken = tokens.accessToken;
-    console.log('✅ Frontend: Successfully exchanged code for access token');
-
-    // Get user information from userinfo endpoint
-    console.log('🔄 Frontend: Fetching user information from EPSX backend');
-    const userinfo = await getUserInfo(accessToken);
-
-    console.log('✅ Frontend: Successfully received user info from EPSX backend:', {
-      email: userinfo.email,
-      role: userinfo.role,
-      permissions: userinfo.permissions,
-      package_tier: userinfo.subscription_tier,
+    
+    // OIDC Migration: Receive all three standard OIDC tokens
+    const accessToken = tokens.accessToken;   // Bearer token for API access
+    const refreshToken = tokens.refreshToken; // Token for refreshing access
+    const idToken = tokens.idToken;           // User identity claims
+    
+    console.log('✅ Frontend: Successfully received OIDC tokens:', {
+      accessToken: accessToken ? 'present' : 'missing',
+      refreshToken: refreshToken ? 'present' : 'missing', 
+      idToken: idToken ? 'present' : 'missing'
     });
 
-    // Create JWT token with user claims (JWT migration: use sub as primary identifier)
-    const jwtClaims = createJWTClaims({
-      id: userinfo.sub, // JWT migration: use sub as primary user identifier
-      email: userinfo.email,
-      name: userinfo.name || userinfo.display_name,
-      permissions: userinfo.permissions || ['epsx:analytics:view'],
-      package_tier: userinfo.subscription_tier || userinfo.package_tier || 'FREE',
-      firebase_uid: userinfo.sub, // JWT migration: sub is the authoritative user ID
-    });
-
-    const jwtToken = await signJWT(jwtClaims);
-
-    console.log('✅ Frontend: JWT token created successfully');
+    // Validate that we received all required OIDC tokens
+    if (!accessToken || !refreshToken || !idToken) {
+      console.error('❌ Frontend: Missing required OIDC tokens');
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('error', 'incomplete_oidc_tokens');
+      return NextResponse.redirect(loginUrl);
+    }
 
     // Get callback URL from cookies or default to dashboard
     const callbackUrl = storedCallbackUrl || '/dashboard';
@@ -133,18 +124,42 @@ export async function GET(request: NextRequest) {
       console.log('✅ Cleaned oauth_callback_url cookie');
     }
     
-    // Set JWT cookie AFTER cleanup
-    console.log('🔧 Frontend: Setting JWT cookie for redirect...');
-    response.cookies.set('epsx_frontend_jwt', jwtToken, {
+    // OIDC Migration: Set standard OIDC cookies instead of custom JWT
+    console.log('🔧 Frontend: Setting OIDC-compliant cookies...');
+    
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60, // 24 hours
+      sameSite: 'lax' as const,
       path: '/'
+    };
+    
+    // Access Token - Short-lived (1 hour)
+    response.cookies.set('access_token', accessToken, {
+      ...cookieOptions,
+      maxAge: 60 * 60, // 1 hour
     });
-    console.log('✅ Frontend JWT cookie set successfully');
+    console.log('✅ OIDC access_token cookie set (1 hour expiry)');
+    
+    // ID Token - Contains user identity claims (same as access token)
+    response.cookies.set('id_token', idToken, {
+      ...cookieOptions,
+      maxAge: 60 * 60, // 1 hour
+    });
+    console.log('✅ OIDC id_token cookie set (1 hour expiry)');
+    
+    // Refresh Token - Long-lived (30 days)
+    response.cookies.set('refresh_token', refreshToken, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+    console.log('✅ OIDC refresh_token cookie set (30 days expiry)');
 
-    console.log('✅ Frontend: Callback completed successfully, redirecting with clean cookies');
+    // Clean up legacy JWT cookie if it exists
+    response.cookies.delete('epsx_frontend_jwt');
+    console.log('✅ Legacy JWT cookie cleaned up');
+
+    console.log('✅ Frontend: Callback completed successfully with OIDC cookies');
     console.log('🚨 FRONTEND CALLBACK ROUTE CALLED - END');
     return response;
 

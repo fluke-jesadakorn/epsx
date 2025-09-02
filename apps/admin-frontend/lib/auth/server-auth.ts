@@ -3,7 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
-import type { EPSXJWTPayload } from '@/lib/auth/jwt-utils';
+import type { EPSXJWTPayload } from '@/lib/auth-utils';
 
 /**
  * Enhanced auth user type based on our JWT structure
@@ -40,7 +40,8 @@ export async function getServerSession(): Promise<ServerSession | null> {
     const { verifyJWT } = await import('@/lib/auth-utils');
     
     const cookieStore = await cookies();
-    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
+    // OIDC Migration: Use only OIDC access token
+    const jwt = cookieStore.get('access_token')?.value;
     
     if (!jwt) return null;
     
@@ -80,7 +81,8 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
  */
 export function hasPermission(user: EnhancedAuthUser | null, permission: string): boolean {
   if (!user?.permissions) return false;
-  return user.permissions.includes(permission) || user.permissions.includes('*');
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  return permissions.includes(permission) || permissions.includes('*');
 }
 
 /**

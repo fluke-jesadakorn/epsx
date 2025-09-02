@@ -48,6 +48,9 @@ export interface AnalyticsData {
   recommendations?: any[]
 }
 
+// Re-export ServerNotificationAPI
+export { ServerNotificationAPI } from './notification-client'
+
 export interface SystemConfig {
   jwt_secret_configured: boolean
   api_base_url: string
@@ -68,7 +71,8 @@ export interface PermissionAnalytics {
 async function serverAdminFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get('epsx_admin_jwt')?.value
+    // OIDC Migration: Get access token instead of legacy JWT
+    const token = cookieStore.get('access_token')?.value
     
     // Log authentication attempt
     console.log('🔍 Admin API Request:', {
@@ -198,21 +202,7 @@ export class ServerAnalyticsAPI {
   }
 }
 
-// Server Notifications APIs
-export class ServerNotificationAPI {
-  static async getNotifications(offset = 0, limit = 50): Promise<Notification[]> {
-    const result = await serverAdminFetch(`/api/v1/notifications?offset=${offset}&limit=${limit}`)
-    if (result) {
-      return result.notifications || result
-    }
-    return MockData.notifications()
-  }
-
-  static async getUnreadCount(): Promise<{ count: number }> {
-    const result = await serverAdminFetch('/api/v1/notifications/unread-count')
-    return result || { count: 12 }
-  }
-}
+// Server Notifications APIs are now provided by the comprehensive notification-client
 
 // Server System Configuration APIs
 export class ServerSystemAPI {

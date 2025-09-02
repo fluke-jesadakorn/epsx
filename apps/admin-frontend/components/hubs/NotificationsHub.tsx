@@ -3,6 +3,8 @@ import { Bell, AlertTriangle, Info, CheckCircle, Clock, Users, Shield, Settings 
 import { ServerNotificationAPI } from '@/lib/api/admin-client'
 import NotificationActions from '@/components/notifications/NotificationActions'
 import InteractiveNotificationCard from '@/components/notifications/InteractiveNotificationCard'
+import PushMessageManager from '@/components/notifications/PushMessageManager'
+import SystemSettingsDashboard from '@/components/notifications/SystemSettingsDashboard'
 
 /**
  * Windows Phone-style Notifications Hub
@@ -162,6 +164,35 @@ export default async function NotificationsHub() {
         </div>
       )}
 
+      {/* Push Message Manager */}
+      <div className="mt-12">
+        <PushMessageManager />
+      </div>
+
+      {/* System Settings Dashboard */}
+      <div className="mt-12">
+        <SystemSettingsDashboard />
+      </div>
+
+      {/* Admin FCM Quick Status */}
+      <div className="mt-8 bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
+              <Shield size={20} />
+              🔔 Admin Push Notifications
+            </h3>
+            <p className="text-sm opacity-90">
+              Real-time admin alerts delivered directly to your devices
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold mb-1">FCM</div>
+            <div className="text-xs opacity-90">Enhanced Admin</div>
+          </div>
+        </div>
+      </div>
+
       {/* Notification Settings */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -185,6 +216,10 @@ export default async function NotificationsHub() {
               <span className="text-gray-600 dark:text-gray-400">Performance Alerts:</span>
               <span className="text-orange-600 font-medium">🟡 Limited</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-400">FCM Push Notifications:</span>
+              <span className="text-green-600 font-medium">🟢 Available</span>
+            </div>
           </div>
         </div>
 
@@ -198,16 +233,20 @@ export default async function NotificationsHub() {
               <span className="text-green-600 font-medium">🟢 Active</span>
             </div>
             <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Admin FCM Push:</span>
+              <span className="text-green-600 font-medium">🟢 Enhanced</span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-400">Email Notifications:</span>
               <span className="text-green-600 font-medium">🟢 Active</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Webhook Integration:</span>
-              <span className="text-blue-600 font-medium">🔵 Configured</span>
+              <span className="text-gray-600 dark:text-gray-400">Real-time Events:</span>
+              <span className="text-blue-600 font-medium">🔵 SSE + FCM</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">SMS Alerts:</span>
-              <span className="text-gray-600 font-medium">🔵 Not Setup</span>
+              <span className="text-gray-600 dark:text-gray-400">Admin Webhooks:</span>
+              <span className="text-blue-600 font-medium">🔵 Configured</span>
             </div>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { apiClient } from '@/lib/api-client'
 
-import type { CreatePaymentRequest, CreatePaymentResponse, AssetInfo } from '@/types/payment'
+import type { CreatePaymentRequest, CreatePaymentResponse, AssetInfo } from '@/types/payment.d'
 
 async function getCreatePaymentSchema() {
   return z.object({

@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
 import {
   getAnalyticsData,
   type EPSQueryParams,
@@ -57,194 +56,6 @@ const formatPercentage = (value: number) => {
 const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
   const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
   const latestQuarter = quarters[0];
-  const previousQuarter = quarters[1];
-
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'TRACK':
-        return {
-          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
-          border: 'border-green-300/60',
-          cardBg:
-            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
-          text: 'text-green-700 dark:text-green-300',
-        };
-      case 'WATCH':
-        return {
-          bg: 'bg-gradient-to-br from-yellow-400 via-orange-400 to-amber-500',
-          border: 'border-yellow-300/60',
-          cardBg:
-            'bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 dark:from-yellow-900/20 dark:via-orange-900/20 dark:to-amber-900/20',
-          text: 'text-yellow-700 dark:text-yellow-300',
-        };
-      case 'STOP':
-        return {
-          bg: 'bg-gradient-to-br from-red-400 via-rose-400 to-pink-500',
-          border: 'border-red-300/60',
-          cardBg:
-            'bg-gradient-to-br from-red-50 via-rose-50 to-pink-50 dark:from-red-900/20 dark:via-rose-900/20 dark:to-pink-900/20',
-          text: 'text-red-700 dark:text-red-300',
-        };
-      default:
-        return {
-          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
-          border: 'border-green-300/60',
-          cardBg:
-            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
-          text: 'text-green-700 dark:text-green-300',
-        };
-    }
-  };
-
-  const statusConfig = getStatusConfig(cardData.active_status);
-  const daysUntil =
-    cardData.next_quarter_estimate?.days_until_announcement || 185;
-
-  // Calculate progress (assuming 90 days max between quarters)
-  const maxDays = 90;
-  const progressPercentage = Math.max(
-    0,
-    Math.min(100, ((maxDays - daysUntil) / maxDays) * 100)
-  );
-
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border-2 ${statusConfig.border} ${statusConfig.cardBg} shadow-lg p-4 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:rotate-1 hover:shadow-xl`}
-    >
-      <div className="absolute -top-8 -right-8 h-16 w-16 rounded-full bg-white/20 blur-xl" />
-
-      {/* Header with PancakeSwap-style badge */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg} shadow-lg transition-all duration-300`}
-          >
-            <span className="text-xs font-bold text-white">
-              {cardData.rank}
-            </span>
-          </div>
-          <div className="flex flex-col">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-              {cardData.symbol}
-            </h3>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <a
-            href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-all hover:scale-110 ${statusConfig.bg} text-white shadow-md`}
-          >
-            View 🔗
-          </a>
-        </div>
-      </div>
-
-      {/* Status Badge */}
-      <div className="mb-3 flex justify-center">
-        <div
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 ${statusConfig.bg} shadow-lg`}
-        >
-          <div className="h-2 w-2 animate-pulse rounded-full bg-white/80" />
-          <span className="text-sm font-bold text-white">
-            {cardData.active_status}
-          </span>
-        </div>
-      </div>
-
-      {/* Progress Bar for Next Action */}
-      <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-white">
-          <span>Next Action</span>
-          <span>{daysUntil}d left</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/60 shadow-inner">
-          <div
-            className={`h-full rounded-full transition-all duration-1000 ${statusConfig.bg} shadow-sm`}
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Essential Data */}
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div
-          className={`rounded-xl text-center p-2 shadow-lg backdrop-blur-sm ${
-            (latestQuarter?.eps_growth || 0) >= 0
-              ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-              : 'bg-gradient-to-br from-red-500 to-rose-600'
-          }`}
-        >
-          <div className="mb-1 font-bold text-white/90 text-xs">
-            Growth
-          </div>
-          <div className="font-bold text-white text-sm">
-            {formatPercentage(latestQuarter?.eps_growth || 0)}
-          </div>
-        </div>
-        <div className="rounded-xl text-center p-2 shadow-lg backdrop-blur-sm bg-white/50 dark:bg-slate-700/60">
-          <div className="text-slate-600 dark:text-slate-300 mb-1 font-bold text-xs">
-            Price
-          </div>
-          <div className="font-bold text-sm text-slate-800 dark:text-white">
-            {formatCurrency(latestQuarter?.price || 0)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
-  const getTopRankStyle = (rank: number) => {
-    if (rank === 1)
-      return {
-        crown: '👑',
-        glow: 'shadow-2xl shadow-yellow-500/80 hover:shadow-3xl hover:shadow-yellow-400/90',
-        border: 'border-4 border-yellow-400 hover:border-yellow-300',
-        bg: 'bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 dark:from-yellow-800 dark:via-amber-700 dark:to-orange-800',
-        sparkle: '✨',
-        special: '🏆 CHAMPION',
-      };
-    if (rank === 2)
-      return {
-        crown: '🥈',
-        glow: 'shadow-2xl shadow-slate-500/80 hover:shadow-3xl hover:shadow-slate-400/90',
-        border: 'border-4 border-slate-400 hover:border-slate-300',
-        bg: 'bg-gradient-to-br from-slate-200 via-gray-100 to-zinc-200 dark:from-slate-800 dark:via-gray-700 dark:to-zinc-800',
-        sparkle: '🌟',
-        special: '🥈 ELITE',
-      };
-    if (rank === 3)
-      return {
-        crown: '🥉',
-        glow: 'shadow-2xl shadow-orange-500/80 hover:shadow-3xl hover:shadow-orange-400/90',
-        border: 'border-4 border-orange-400 hover:border-orange-300',
-        bg: 'bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-200 dark:from-orange-800 dark:via-amber-700 dark:to-yellow-800',
-        sparkle: '💫',
-        special: '🥉 LEGEND',
-      };
-    if (rank === 4)
-      return {
-        crown: '⭐',
-        glow: 'shadow-2xl shadow-purple-500/80 hover:shadow-3xl hover:shadow-purple-400/90',
-        border: 'border-4 border-purple-400 hover:border-purple-300',
-        bg: 'bg-gradient-to-br from-purple-200 via-pink-100 to-fuchsia-200 dark:from-purple-800 dark:via-pink-700 dark:to-fuchsia-800',
-        sparkle: '🌟',
-        special: '⭐ MASTER',
-      };
-    if (rank === 5)
-      return {
-        crown: '💎',
-        glow: 'shadow-2xl shadow-cyan-500/80 hover:shadow-3xl hover:shadow-cyan-400/90',
-        border: 'border-4 border-cyan-400 hover:border-cyan-300',
-        bg: 'bg-gradient-to-br from-cyan-200 via-blue-100 to-sky-200 dark:from-cyan-800 dark:via-blue-700 dark:to-sky-800',
-        sparkle: '✨',
-        special: '💎 DIAMOND',
-      };
-    return null;
-  };
 
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
@@ -259,183 +70,457 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
     }).format(value);
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'TRACK':
-        return {
-          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
-          border: 'border-green-300/60',
-          cardBg:
-            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
-          text: 'text-green-700 dark:text-green-300',
-        };
-      case 'WATCH':
-        return {
-          bg: 'bg-gradient-to-br from-yellow-400 via-orange-400 to-amber-500',
-          border: 'border-yellow-300/60',
-          cardBg:
-            'bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 dark:from-yellow-900/20 dark:via-orange-900/20 dark:to-amber-900/20',
-          text: 'text-yellow-700 dark:text-yellow-300',
-        };
-      case 'STOP':
-        return {
-          bg: 'bg-gradient-to-br from-red-400 via-rose-400 to-pink-500',
-          border: 'border-red-300/60',
-          cardBg:
-            'bg-gradient-to-br from-red-50 via-rose-50 to-pink-50 dark:from-red-900/20 dark:via-rose-900/20 dark:to-pink-900/20',
-          text: 'text-red-700 dark:text-red-300',
-        };
-      default:
-        return {
-          bg: 'bg-gradient-to-br from-emerald-400 via-green-400 to-teal-500',
-          border: 'border-green-300/60',
-          cardBg:
-            'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20',
-          text: 'text-green-700 dark:text-green-300',
-        };
-    }
+  return (
+    <div
+      className={`hover:shadow-3xl relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 shadow-2xl transition-all duration-300 hover:scale-105 sm:min-w-[280px] ${
+        cardData.active_status === 'TRACK'
+          ? 'border-green-300 shadow-green-500/20 hover:shadow-green-500/30'
+          : cardData.active_status === 'STOP'
+            ? 'border-red-300 shadow-red-500/20 hover:shadow-red-500/30'
+            : 'border-orange-300 shadow-orange-500/20 hover:shadow-orange-500/30'
+      }`}
+    >
+      {/* Decorative corner accent */}
+      <div
+        className={`absolute top-0 right-0 h-16 w-16 bg-gradient-to-bl ${
+          cardData.active_status === 'TRACK'
+            ? 'from-green-400/20 to-transparent'
+            : cardData.active_status === 'STOP'
+              ? 'from-red-400/20 to-transparent'
+              : 'from-orange-400/20 to-transparent'
+        } rounded-bl-3xl`}
+      ></div>
+
+      <div className="p-6">
+        {/* Premium header design */}
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                  Rank #{cardData.rank}
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 sm:text-xl">
+                  {cardData.symbol}
+                </h3>
+              </div>
+            </div>
+            <div>
+              <a
+                href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg transition-all hover:scale-105 ${
+                  cardData.active_status === 'TRACK'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                    : cardData.active_status === 'STOP'
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                }`}
+              >
+                📊 View
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Premium status display */}
+        <div className="mb-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                cardData.active_status === 'TRACK'
+                  ? 'border border-green-200 bg-green-100 text-green-800'
+                  : cardData.active_status === 'STOP'
+                    ? 'border border-red-200 bg-red-100 text-red-800'
+                    : 'border border-orange-200 bg-orange-100 text-orange-800'
+              }`}
+            >
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  cardData.active_status === 'TRACK'
+                    ? 'bg-green-500'
+                    : cardData.active_status === 'STOP'
+                      ? 'bg-red-500'
+                      : 'bg-orange-500'
+                }`}
+              ></div>
+              {cardData.active_status === 'TRACK'
+                ? 'ACTIVE'
+                : cardData.active_status === 'STOP'
+                  ? 'INACTIVE'
+                  : cardData.active_status}
+            </div>
+
+            <div className="text-right">
+              <div className="text-xs text-slate-500">Next Action</div>
+              <div
+                className={`text-sm font-bold ${
+                  cardData.active_status === 'TRACK'
+                    ? 'text-green-600'
+                    : cardData.active_status === 'STOP'
+                      ? 'text-red-600'
+                      : 'text-orange-600'
+                }`}
+              >
+                {cardData.next_quarter_estimate?.days_until_announcement || 185}{' '}
+                days
+              </div>
+            </div>
+          </div>
+
+          <div className="h-1 rounded-full bg-slate-200">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                cardData.active_status === 'TRACK'
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                  : cardData.active_status === 'STOP'
+                    ? 'bg-gradient-to-r from-red-400 to-pink-500'
+                    : 'bg-gradient-to-r from-orange-400 to-yellow-500'
+              }`}
+              style={{
+                width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Premium data display */}
+        <div className="flex flex-col gap-3">
+          <div className="rounded-2xl border border-slate-200/50 bg-white/50 p-4 text-center backdrop-blur-sm">
+            <div className="mb-2 flex items-center justify-center gap-2">
+              <span
+                className={`text-base sm:text-lg ${(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}`}
+              ></span>
+              <span className="text-sm font-medium text-slate-600">Growth</span>
+            </div>
+            <div
+              className={`text-center text-base leading-tight font-bold sm:text-xl ${
+                (latestQuarter?.eps_growth || 0) >= 0
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {formatPercentage(latestQuarter?.eps_growth || 0)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/50 bg-white/50 p-4 text-center backdrop-blur-sm">
+            <div className="mb-2 flex items-center justify-center gap-2">
+              <span className="text-base sm:text-lg">💰</span>
+              <span className="text-sm font-medium text-slate-600">Price</span>
+            </div>
+            <div className="text-center text-base leading-tight font-bold text-slate-800 sm:text-xl">
+              {formatCurrency(latestQuarter?.price || 0)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const getLeaderInsights = (data: SymbolCardData[]) => {
+    const avgGrowth =
+      data.reduce(
+        (sum, card) => sum + (card.quarterly_performance?.[0]?.eps_growth || 0),
+        0
+      ) / data.length;
+    const activeCount = data.filter(
+      card => card.active_status === 'TRACK'
+    ).length;
+    const totalValue = data.reduce(
+      (sum, card) => sum + (card.quarterly_performance?.[0]?.price || 0),
+      0
+    );
+
+    return { avgGrowth, activeCount, totalValue };
+  };
+
+  const insights = getLeaderInsights(top5Data);
 
   return (
     <div className="mb-8">
-      {/* Special Header */}
-      <div className="mb-6 text-center">
-        <div className="relative inline-block">
-          {/* Floating sparkles */}
-          <div className="absolute -top-6 -left-6 animate-ping text-2xl">
-            ✨
-          </div>
-          <div
-            className="absolute -top-4 -right-6 animate-pulse text-xl"
-            style={{ animationDelay: '0.5s' }}
-          >
-            🌟
-          </div>
-          <div
-            className="absolute -bottom-4 -left-4 animate-bounce text-lg"
-            style={{ animationDelay: '1s' }}
-          >
-            💫
-          </div>
-          <div
-            className="absolute -right-4 -bottom-6 animate-spin text-2xl"
-            style={{ animationDuration: '3s' }}
-          >
-            ⭐
-          </div>
+      {/* Cohesive cards grid using same styling as regular cards */}
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-4 sm:px-0 overflow-visible">
+        {top5Data.map(cardData => {
+          const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
+          const latestQuarter = quarters[0];
 
-          <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 px-8 py-4 shadow-2xl ring-4 shadow-purple-500/40 ring-purple-200 ring-offset-4 ring-offset-white">
-            <span className="animate-bounce text-3xl">👑</span>
-            <h2 className="text-2xl font-bold tracking-wide text-white">
-              TOP 5 ULTIMATE LEGENDS
-            </h2>
-            <span
-              className="animate-bounce text-3xl"
-              style={{ animationDelay: '0.5s' }}
+          const getRankBadge = (rank: number) => {
+            if (rank === 1)
+              return { badge: '👑', color: 'from-yellow-400 to-orange-500' };
+            if (rank === 2)
+              return { badge: '🥈', color: 'from-slate-400 to-slate-500' };
+            if (rank === 3)
+              return { badge: '🥉', color: 'from-orange-400 to-amber-500' };
+            if (rank === 4)
+              return { badge: '⭐', color: 'from-purple-400 to-pink-500' };
+            if (rank === 5)
+              return { badge: '💎', color: 'from-blue-400 to-cyan-500' };
+            return { badge: '🔥', color: 'from-green-400 to-emerald-500' };
+          };
+
+          const rankInfo = getRankBadge(cardData.rank);
+
+          const getUltraPremiumStyle = (rank: number) => {
+            if (rank === 1)
+              return {
+                container:
+                  'bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-4 border-yellow-400/50 shadow-yellow-500/40 hover:shadow-yellow-500/60 hover:border-yellow-400/70',
+                shine:
+                  'bg-gradient-to-r from-transparent via-yellow-300/30 to-transparent',
+                glow: 'shadow-2xl shadow-yellow-500/50 hover:shadow-yellow-500/70',
+                halo: 'before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-r before:from-yellow-400/20 before:via-transparent before:to-yellow-400/20 before:blur-xl',
+              };
+            if (rank === 2)
+              return {
+                container:
+                  'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 border-4 border-slate-400/50 shadow-slate-500/40 hover:shadow-slate-500/60 hover:border-slate-400/70',
+                shine:
+                  'bg-gradient-to-r from-transparent via-slate-300/30 to-transparent',
+                glow: 'shadow-2xl shadow-slate-500/50 hover:shadow-slate-500/70',
+                halo: 'before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-r before:from-slate-400/20 before:via-transparent before:to-slate-400/20 before:blur-xl',
+              };
+            if (rank === 3)
+              return {
+                container:
+                  'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-4 border-orange-400/50 shadow-orange-500/40 hover:shadow-orange-500/60 hover:border-orange-400/70',
+                shine:
+                  'bg-gradient-to-r from-transparent via-orange-300/30 to-transparent',
+                glow: 'shadow-2xl shadow-orange-500/50 hover:shadow-orange-500/70',
+                halo: 'before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-r before:from-orange-400/20 before:via-transparent before:to-orange-400/20 before:blur-xl',
+              };
+            if (rank === 4)
+              return {
+                container:
+                  'bg-gradient-to-br from-purple-50 via-pink-50 to-fuchsia-50 border-4 border-purple-400/50 shadow-purple-500/40 hover:shadow-purple-500/60 hover:border-purple-400/70',
+                shine:
+                  'bg-gradient-to-r from-transparent via-purple-300/30 to-transparent',
+                glow: 'shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70',
+                halo: 'before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-r before:from-purple-400/20 before:via-transparent before:to-purple-400/20 before:blur-xl',
+              };
+            if (rank === 5)
+              return {
+                container:
+                  'bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-50 border-4 border-cyan-400/50 shadow-cyan-500/40 hover:shadow-cyan-500/60 hover:border-cyan-400/70',
+                shine:
+                  'bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent',
+                glow: 'shadow-2xl shadow-cyan-500/50 hover:shadow-cyan-500/70',
+                halo: 'before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-r before:from-cyan-400/20 before:via-transparent before:to-cyan-400/20 before:blur-xl',
+              };
+            return {
+              container:
+                'bg-gradient-to-br from-white via-slate-50 to-gray-100 border-2 border-slate-300',
+              shine: '',
+              glow: '',
+              halo: '',
+            };
+          };
+
+          const ultraStyle = getUltraPremiumStyle(cardData.rank);
+
+          return (
+            <div
+              key={cardData.symbol}
+              className={`group relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl transition-all duration-500 hover:z-20 hover:scale-110 sm:min-w-[300px] ${ultraStyle.container} ${ultraStyle.glow} ${ultraStyle.halo}`}
             >
-              👑
-            </span>
-          </div>
-        </div>
-        <p className="mt-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-lg font-semibold text-transparent">
-          🏆 The Ultimate Elite Circle - Where Champions Reign Supreme 🏆
-        </p>
-      </div>
-
-      {/* Special Box Container */}
-      <div className="rounded-3xl bg-gradient-to-br from-purple-900 via-pink-900 to-red-900 p-4 shadow-2xl ring-4 ring-purple-300/50 ring-offset-4 ring-offset-white">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {top5Data.map((cardData) => {
-            const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
-            const latestQuarter = quarters[0];
-            const statusConfig = getStatusConfig(cardData.active_status);
-            
-            return (
+              {/* Animated shine effect */}
               <div
-                key={cardData.symbol}
-                className={`relative overflow-hidden rounded-xl border-2 ${statusConfig.border} ${statusConfig.cardBg} shadow-lg p-3 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:rotate-1 hover:shadow-xl`}
-              >
-                <div className="absolute -top-8 -right-8 h-16 w-16 rounded-full bg-white/20 blur-xl" />
+                className={`absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 ${ultraStyle.shine} animate-pulse`}
+              ></div>
 
-                {/* Header */}
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg} shadow-lg transition-all duration-300`}>
-                      <span className="text-xs font-bold text-white">
-                        {cardData.rank}
-                      </span>
+              {/* Ultra-premium floating rank badge */}
+              <div
+                className={`absolute -top-4 -left-4 h-16 w-16 bg-gradient-to-br ${rankInfo.color} flex rotate-12 transform animate-bounce items-center justify-center rounded-full border-4 border-white text-2xl text-white shadow-2xl transition-transform duration-500 hover:rotate-0 z-30`}
+              >
+                {rankInfo.badge}
+              </div>
+
+              {/* Holographic corner effects */}
+              <div
+                className={`bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 via-transparent to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100`}
+              ></div>
+              <div
+                className={`bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 via-transparent to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100`}
+              ></div>
+
+              {/* Premium content wrapper with extra padding */}
+
+              <div className="p-8 pt-16">
+                {/* Ultra-premium header with luxury typography */}
+                <div className="mb-6 text-center">
+                  <div className="mb-3">
+                    <div className="mb-1 text-xs font-light tracking-[0.2em] text-slate-400 uppercase">
+                      {cardData.rank === 1
+                        ? '👑 CHAMPION'
+                        : cardData.rank === 2
+                          ? '🥈 ELITE'
+                          : cardData.rank === 3
+                            ? '🥉 LEGEND'
+                            : cardData.rank === 4
+                              ? '⭐ MASTER'
+                              : '💎 DIAMOND'}{' '}
+                      · RANK #{cardData.rank}
                     </div>
-                    <div className="flex flex-col">
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                        {cardData.symbol}
-                      </h3>
-                    </div>
+                    <h3 className="mb-2 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-700 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
+                      {cardData.symbol}
+                    </h3>
+                    <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+
+                  <div className="flex justify-center">
                     <a
-                      href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+                      href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-all hover:scale-110 ${statusConfig.bg} text-white shadow-md`}
+                      className={`group inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                        cardData.active_status === 'TRACK'
+                          ? 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700'
+                          : cardData.active_status === 'STOP'
+                            ? 'bg-gradient-to-r from-red-600 via-red-500 to-rose-600 hover:from-red-700 hover:via-red-600 hover:to-rose-700'
+                            : 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-600 hover:from-orange-700 hover:via-orange-600 hover:to-amber-700'
+                      }`}
                     >
-                      View 🔗
+                      <span className="text-base transition-transform duration-300 group-hover:scale-110 sm:text-lg">
+                        📊
+                      </span>
+                      <span className="tracking-wide text-sm sm:text-base">VIEW DETAILS</span>
+                      <span className="text-xs opacity-75">→</span>
                     </a>
                   </div>
                 </div>
 
-                {/* Status Badge */}
-                <div className="mb-2 flex justify-center">
-                  <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 ${statusConfig.bg} shadow-lg`}>
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-white/80" />
-                    <span className="text-sm font-bold text-white">
-                      {cardData.active_status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-2">
-                  <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-white">
-                    <span>Next Action</span>
-                    <span>{cardData.next_quarter_estimate?.days_until_announcement || 185}d left</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/60 shadow-inner">
+                {/* Ultra-premium status section */}
+                <div className="mb-6">
+                  <div className="mb-4 flex items-center justify-between">
                     <div
-                      className={`h-full rounded-full transition-all duration-1000 ${statusConfig.bg} shadow-sm`}
-                      style={{ width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%` }}
-                    />
+                      className={`relative inline-flex items-center gap-3 rounded-2xl border-2 px-4 py-2 text-sm font-bold backdrop-blur-md ${
+                        cardData.active_status === 'TRACK'
+                          ? 'border-green-400/50 bg-green-500/20 text-green-900 shadow-green-400/20'
+                          : cardData.active_status === 'STOP'
+                            ? 'border-red-400/50 bg-red-500/20 text-red-900 shadow-red-400/20'
+                            : 'border-orange-400/50 bg-orange-500/20 text-orange-900 shadow-orange-400/20'
+                      } shadow-lg`}
+                    >
+                      <div
+                        className={`h-3 w-3 animate-pulse rounded-full ${
+                          cardData.active_status === 'TRACK'
+                            ? 'bg-green-500 shadow-lg shadow-green-500/50'
+                            : cardData.active_status === 'STOP'
+                              ? 'bg-red-500 shadow-lg shadow-red-500/50'
+                              : 'bg-orange-500 shadow-lg shadow-orange-500/50'
+                        }`}
+                      ></div>
+                      <span className="tracking-wide">
+                        {cardData.active_status === 'TRACK'
+                          ? 'ACTIVE'
+                          : cardData.active_status === 'STOP'
+                            ? 'INACTIVE'
+                            : cardData.active_status}
+                      </span>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="mb-1 text-xs font-light tracking-wider text-slate-400 uppercase">
+                        Next Action
+                      </div>
+                      <div
+                        className={`text-lg font-bold ${
+                          cardData.active_status === 'TRACK'
+                            ? 'text-green-700'
+                            : cardData.active_status === 'STOP'
+                              ? 'text-red-700'
+                              : 'text-orange-700'
+                        }`}
+                      >
+                        {cardData.next_quarter_estimate
+                          ?.days_until_announcement || 185}
+                        d
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Luxury progress indicator */}
+                  <div className="relative h-2 overflow-hidden rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200">
+                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/50 via-transparent to-white/50"></div>
+                    <div
+                      className={`relative h-full overflow-hidden rounded-full transition-all duration-2000 ease-out ${
+                        cardData.active_status === 'TRACK'
+                          ? 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-600'
+                          : cardData.active_status === 'STOP'
+                            ? 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600'
+                            : 'bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600'
+                      }`}
+                      style={{
+                        width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%`,
+                      }}
+                    >
+                      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Essential Data */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div
-                    className={`rounded-lg text-center p-1.5 shadow-md backdrop-blur-sm ${
-                      (latestQuarter?.eps_growth || 0) >= 0
-                        ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                        : 'bg-gradient-to-br from-red-500 to-rose-600'
-                    }`}
-                  >
-                    <div className="mb-0.5 font-bold text-white/90 text-xs">
-                      Growth
+                {/* Ultra-premium data showcase */}
+                <div className="flex flex-col gap-4">
+                  <div className="group rounded-3xl border-2 border-white/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                    <div className="mb-4 flex items-center justify-center gap-3">
+                      <span
+                        className={`text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl ${(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}`}
+                      ></span>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-slate-700">
+                          Growth
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-bold text-white text-xs">
+                    <div
+                      className={`mb-2 text-center text-lg leading-tight font-black sm:text-2xl ${
+                        (latestQuarter?.eps_growth || 0) >= 0
+                          ? 'text-green-700'
+                          : 'text-red-700'
+                      }`}
+                    >
                       {formatPercentage(latestQuarter?.eps_growth || 0)}
                     </div>
+                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
                   </div>
-                  <div className="rounded-lg text-center p-1.5 shadow-md backdrop-blur-sm bg-white/50 dark:bg-slate-700/60">
-                    <div className="text-slate-600 dark:text-slate-300 mb-0.5 font-bold text-xs">
-                      Price
+
+                  <div className="group rounded-3xl border-2 border-white/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                    <div className="mb-4 flex items-center justify-center gap-3">
+                      <span className="text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl">
+                        💰
+                      </span>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-slate-700">
+                          Price
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-bold text-xs text-slate-800 dark:text-white">
+                    <div className="mb-2 text-center text-lg leading-tight font-black text-slate-800 sm:text-2xl">
                       {formatCurrency(latestQuarter?.price || 0)}
                     </div>
+                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -463,12 +548,14 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
         <Top5SpecialBox top5Data={top5Data} />
       )}
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        {data.data.map(cardData =>
-          cardData && cardData.symbol ? (
-            <SymbolCard key={cardData.symbol} cardData={cardData} />
-          ) : null
-        )}
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-6 sm:px-0">
+        {data.data
+          .filter(cardData => cardData.rank > 5) // Skip ranks 1-5 to avoid duplication with Top 5 section
+          .map(cardData =>
+            cardData && cardData.symbol ? (
+              <SymbolCard key={cardData.symbol} cardData={cardData} />
+            ) : null
+          )}
       </div>
 
       {data.pagination && data.pagination.totalPages > 1 && (
@@ -541,20 +628,25 @@ export default async function ServerCardDashboard({
     <div className="space-y-6">
       {/* Header with search and filters */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="bg-gradient-to-r from-pink-600 via-orange-600 to-yellow-600 bg-clip-text text-2xl font-bold text-transparent dark:from-pink-400 dark:via-orange-400 dark:to-yellow-400">
-              🍰 Performance Analytics
-            </h2>
-            <Suspense
-              fallback={
-                <div className="text-slate-600 dark:text-slate-200">
-                  Loading sweet stats...
-                </div>
-              }
-            >
-              <StatsDisplay params={params} />
-            </Suspense>
+        <div className="mb-8 rounded-2xl border-l-4 border-orange-500 bg-gradient-to-r from-orange-100 to-yellow-100 p-6 shadow-xl dark:from-orange-900/30 dark:to-yellow-900/30">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-500 text-xl font-bold text-white shadow-lg">
+              🍰
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+                🚀 Performance Analytics
+              </h2>
+              <Suspense
+                fallback={
+                  <div className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Loading sweet analytics...
+                  </div>
+                }
+              >
+                <StatsDisplay params={params} />
+              </Suspense>
+            </div>
           </div>
         </div>
       </div>
@@ -570,38 +662,39 @@ export default async function ServerCardDashboard({
         <ServerFilters currentParams={params} />
       </Suspense>
 
-      {/* PancakeSwap-inspired Status Legend */}
-      <Card className="border-2 border-pink-200/60 bg-gradient-to-r from-pink-50/80 via-orange-50/60 to-yellow-50/80 shadow-xl shadow-pink-500/10 backdrop-blur-sm dark:border-pink-400/30 dark:bg-gradient-to-r dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h4 className="bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-sm font-bold text-transparent dark:from-pink-400 dark:to-orange-400">
-                🎯 Legend :
-              </h4>
+      {/* PancakeSwap-style Status Legend */}
+      <div className="rounded-3xl border border-pink-200/50 bg-gradient-to-r from-pink-50 via-orange-50 to-yellow-50 p-6 shadow-xl dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-lg text-white shadow-lg">
+              🎯
             </div>
-            <div className="flex items-center gap-4">
-              <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 px-3 py-1 shadow-lg transition-all hover:scale-105">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-white/90"></div>
-                <span className="text-xs font-bold text-white">TRACK</span>
-              </div>
-              <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-3 py-1 shadow-lg transition-all hover:scale-105">
-                <div
-                  className="h-2 w-2 animate-pulse rounded-full bg-white/90"
-                  style={{ animationDelay: '0.3s' }}
-                ></div>
-                <span className="text-xs font-bold text-white">WATCH</span>
-              </div>
-              <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-rose-500 px-3 py-1 shadow-lg transition-all hover:scale-105">
-                <div
-                  className="h-2 w-2 animate-pulse rounded-full bg-white/90"
-                  style={{ animationDelay: '0.6s' }}
-                ></div>
-                <span className="text-xs font-bold text-white">STOP</span>
-              </div>
+            <h4 className="text-xl font-bold text-pink-700 dark:text-pink-300">
+              💫 Status Legend
+            </h4>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-500 hover:to-emerald-600 hover:shadow-xl sm:px-5 sm:py-3">
+              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
+              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
+                ACTIVE
+              </span>
+            </div>
+            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-orange-500 hover:to-yellow-600 hover:shadow-xl sm:px-5 sm:py-3">
+              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
+              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
+                WATCH
+              </span>
+            </div>
+            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-pink-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-red-500 hover:to-pink-600 hover:shadow-xl sm:px-5 sm:py-3">
+              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
+              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
+                INACTIVE
+              </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Cards grid */}
       <Suspense fallback={<LoadingGrid />}>

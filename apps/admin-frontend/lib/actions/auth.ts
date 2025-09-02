@@ -8,9 +8,9 @@ export async function handleSignOut() {
   // Use OIDC logout endpoint to properly revoke tokens
   const backendUrl = env.BACKEND_URL;
   
-  // Get current JWT from cookie for revocation (check admin cookie first)
+  // OIDC Migration: Get current OIDC access token for revocation
   const cookieStore = await cookies();
-  const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
+  const jwt = cookieStore.get('access_token')?.value;
   
   if (jwt) {
     try {
@@ -28,9 +28,10 @@ export async function handleSignOut() {
     }
   }
   
-  // Clear JWT cookies locally (both admin and standard)
-  cookieStore.delete('epsx_admin_jwt');
-  cookieStore.delete('epsx_jwt');
+  // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+  cookieStore.delete('access_token');
+  cookieStore.delete('id_token'); 
+  cookieStore.delete('refresh_token');
   
   // Redirect to login page with proper PKCE flow
   redirect('/login');

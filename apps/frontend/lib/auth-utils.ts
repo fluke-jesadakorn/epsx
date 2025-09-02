@@ -44,6 +44,25 @@ export function deriveAccessiblePlatformsFromPermissions(
 }
 
 /**
+ * Derive package tier from permissions (matches backend logic)
+ */
+export function derivePackageTierFromPermissions(permissions: string[]): string {
+  if (hasEnterprisePermissions(permissions)) {
+    return 'ENTERPRISE';
+  } else if (hasPlatinumPermissions(permissions)) {
+    return 'PLATINUM';
+  } else if (hasGoldPermissions(permissions)) {
+    return 'GOLD';
+  } else if (hasSilverPermissions(permissions)) {
+    return 'SILVER';
+  } else if (hasBronzePermissions(permissions)) {
+    return 'BRONZE';
+  } else {
+    return 'FREE';
+  }
+}
+
+/**
  * Derive primary platform from permissions (priority: admin > epsx > epsx-pay > epsx-token)
  */
 export function derivePrimaryPlatformFromPermissions(
@@ -60,6 +79,51 @@ export function derivePrimaryPlatformFromPermissions(
   } else {
     return 'epsx';
   }
+}
+
+// Helper functions for tier detection
+function hasEnterprisePermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('enterprise:') || 
+    p === 'admin:*:*' ||
+    p.includes('enterprise') ||
+    permissions.some(perm => perm.startsWith('admin:'))
+  );
+}
+
+function hasPlatinumPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('platinum:') ||
+    p.includes('platinum') ||
+    permissions.length >= 10 // Many permissions indicate higher tier
+  );
+}
+
+function hasGoldPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('gold:') ||
+    p.includes('gold') ||
+    p.includes(':premium:') ||
+    permissions.length >= 5
+  );
+}
+
+function hasSilverPermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('silver:') ||
+    p.includes('silver') ||
+    p.includes(':advanced:') ||
+    permissions.length >= 3
+  );
+}
+
+function hasBronzePermissions(permissions: string[]): boolean {
+  return permissions.some(p => 
+    p.startsWith('bronze:') ||
+    p.includes('bronze') ||
+    p.includes(':basic:') ||
+    permissions.length >= 1
+  );
 }
 
 /**

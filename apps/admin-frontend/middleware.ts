@@ -217,7 +217,9 @@ export async function middleware(request: NextRequest) {
  * Create redirect response to login page (which will initiate PKCE OAuth)
  */
 function redirectToLogin(request: NextRequest): NextResponse {
-  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+  // Use dynamic URL construction based on current request
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 
+                   `${request.nextUrl.protocol}//${request.nextUrl.host}`;
   const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
   
   // Redirect to our login page which will initiate PKCE OAuth
@@ -226,7 +228,11 @@ function redirectToLogin(request: NextRequest): NextResponse {
   
   const redirect = NextResponse.redirect(loginUrl.toString());
   
-  // Clear any invalid JWT token
+  // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+  redirect.cookies.delete('access_token');
+  redirect.cookies.delete('id_token');
+  redirect.cookies.delete('refresh_token');
+  // Also clear legacy cookie for migration
   redirect.cookies.delete('epsx_admin_jwt');
   
   return redirect;

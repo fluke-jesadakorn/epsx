@@ -360,7 +360,15 @@ export function AdminLayoutClient({
   // Filter menu items based on structured permissions
   const hasUserPermission = (permission: string | null) => {
     if (!permission) return true; // No permission required
-    const permissions = session?.user?.permissions || [];
+    
+    // Ensure permissions is always treated as an array
+    if (!session?.user?.permissions) return false;
+    const permissions = Array.isArray(session.user.permissions) 
+      ? session.user.permissions 
+      : [];
+
+    // Additional safety check
+    if (permissions.length === 0) return false;
 
     // Check for admin wildcard permission
     if (permissions.includes('admin:*:*')) return true;
@@ -369,10 +377,14 @@ export function AdminLayoutClient({
     if (permissions.includes(permission)) return true;
 
     // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
-    const [platform, resource] = permission.split(':');
-    return permissions.some(
-      p => p === `${platform}:${resource}:*` || p === `${platform}:*:*`
-    );
+    if (permission.includes(':')) {
+      const [platform, resource] = permission.split(':');
+      return permissions.some(
+        p => p === `${platform}:${resource}:*` || p === `${platform}:*:*`
+      );
+    }
+    
+    return false;
   };
 
   const filteredMenuGroups = menuGroups

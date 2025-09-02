@@ -130,9 +130,9 @@ export class AdminServerAPI {
     }
 
     try {
-      // Fallback to cookies (for server components)
+      // OIDC Migration: Fallback to OIDC access token from cookies (for server components)
       const cookieStore = await cookies()
-      const token = cookieStore.get('epsx_admin_jwt')?.value
+      const token = cookieStore.get('access_token')?.value
       if (token) {
         console.log('🔑 Using cookie token for auth')
         return token

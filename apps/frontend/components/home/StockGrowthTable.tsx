@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
 
 import {
   Table,
@@ -9,11 +9,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 
-import { Button } from "../ui/button";
+import { Button } from '../ui/button';
 
-import type { TableDataMetrics } from "@/types/stockFetchData";
+import type { TableDataMetrics } from '@/types/stockFetchData';
 
 interface StockGrowthTableProps {
   style?: React.CSSProperties;
@@ -27,51 +27,51 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
   data,
 }) => {
   return (
-    <div className={`w-full ${className || ""}`} style={style}>
-      <div className="scroll-shadow-container custom-scrollbar rounded-xl border bg-card">
+    <div className={`w-full ${className || ''}`} style={style}>
+      <div className="scroll-shadow-container custom-scrollbar bg-card rounded-xl border">
         <Table>
           <TableHeader className="bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 backdrop-blur-sm">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 No.
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Symbol
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Name
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Growth %
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Current Index
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Next Index
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Value
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 <span title="Value Change Percentage">Change %</span>
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 <span title="Data Volume">Volume</span>
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Sector
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 Country
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
-                Last Report
+              <TableHead className="text-primary/70 font-semibold">
+                Last Action
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
-                Next Report
+              <TableHead className="text-primary/70 font-semibold">
+                Next Action
               </TableHead>
-              <TableHead className="font-semibold text-primary/70">
+              <TableHead className="text-primary/70 font-semibold">
                 <span title="Open Analytics View">Chart</span>
               </TableHead>
             </TableRow>
@@ -90,7 +90,9 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                     {row.epsGrowth}
                   </span>
                 </TableCell>
-                <TableCell className="font-medium">{row.currentQuarterEps}</TableCell>
+                <TableCell className="font-medium">
+                  {row.currentQuarterEps}
+                </TableCell>
                 <TableCell className="font-medium">{row.nextEps}</TableCell>
                 <TableCell className="font-medium">
                   {row.dataValue} {row.currency}
@@ -98,12 +100,12 @@ const StockGrowthTable: React.FC<StockGrowthTableProps> = ({
                 <TableCell>
                   <span
                     className={`font-medium ${
-                      parseFloat(row.changePercent || "0") >= 0
-                        ? "text-green-500"
-                        : "text-rose-500"
+                      parseFloat(row.changePercent || '0') >= 0
+                        ? 'text-green-500'
+                        : 'text-rose-500'
                     }`}
                   >
-                    {parseFloat(row.changePercent || "0") >= 0 ? "+" : ""}
+                    {parseFloat(row.changePercent || '0') >= 0 ? '+' : ''}
                     {row.changePercent}%
                   </span>
                 </TableCell>

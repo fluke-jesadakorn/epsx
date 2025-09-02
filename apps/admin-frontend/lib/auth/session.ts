@@ -42,16 +42,18 @@ export async function getSession(): Promise<SessionData> {
 }
 
 /**
- * Clear session by removing JWT cookie
+ * Clear session by removing OIDC cookies
  */
 export async function clearSession(): Promise<void> {
   try {
     const cookieStore = await cookies();
     
-    // Remove the JWT cookie
-    cookieStore.delete('epsx_jwt');
+    // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+    cookieStore.delete('access_token');
+    cookieStore.delete('id_token');
+    cookieStore.delete('refresh_token');
     
-    console.log('✅ Session cleared successfully');
+    console.log('✅ OIDC session cleared successfully');
   } catch (error) {
     console.error('❌ Failed to clear session:', error);
   }

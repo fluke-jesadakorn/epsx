@@ -6,6 +6,9 @@
 // Re-export existing types
 export * from './userLevel';
 
+// Export separated authentication types
+export * from './auth-separation';
+
 // Payment and Subscription Types
 export enum PaymentTier {
   BRONZE = 'bronze',

@@ -3,13 +3,23 @@
 
 import { z } from 'zod';
 
+// Dynamic URL construction for admin frontend
+function getAdminUrl(): string {
+  if (process.env.NEXT_PUBLIC_ADMIN_URL) {
+    return process.env.NEXT_PUBLIC_ADMIN_URL;
+  }
+  
+  // Default to port 3001 for admin frontend
+  return 'http://localhost:3001';
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3001),
-  ADMIN_URL: z.string().url().default('http://localhost:3001'),
+  ADMIN_URL: z.string().url().default(getAdminUrl()),
   BACKEND_URL: z.string().url().default('http://localhost:8080'),
   NEXT_PUBLIC_BACKEND_URL: z.string().url().default('http://localhost:8080'),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default('http://localhost:3001'),
+  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
   NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),

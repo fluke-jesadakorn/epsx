@@ -6,8 +6,11 @@ export function CardDashboardViewSimple() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-            📋 Performance Watch
+          <h2 className="text-2xl font-bold">
+            <span className="mr-2">📋</span>
+            <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+              Performance Watch
+            </span>
           </h2>
           <p className="text-gray-600 dark:text-gray-300">
             Analytics dashboard is loading...

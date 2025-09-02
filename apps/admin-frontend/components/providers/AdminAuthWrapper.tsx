@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { getSessionFromJWT } from '@/lib/server/jwt';
+import { adminOIDCAuth } from '@/lib/admin-client';
 import { redirect } from 'next/navigation';
 import { AdminLayoutServer } from '@/components/layout/AdminLayoutServer';
 import { ClientProviders } from './ClientProviders';
@@ -11,7 +11,8 @@ interface AdminAuthWrapperProps {
 
 /**
  * Server-side Authentication Wrapper
- * Handles authentication on the server and determines if layout is needed
+ * OIDC Migration: Uses OIDC tokens instead of legacy JWT
+ * Handles admin authentication and determines if layout is needed
  */
 export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   // Get the current pathname from headers
@@ -42,38 +43,59 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
     );
   }
   
-  // For protected routes, validate authentication
-  const sessionData = await getSessionFromJWT();
+  // OIDC Migration: Validate authentication using OIDC tokens
+  const adminSession = await adminOIDCAuth.getSession();
   
-  if (!sessionData?.isAuthenticated || !sessionData?.user) {
+  if (!adminSession.isAuthenticated || !adminSession.user) {
+    console.log('❌ AdminAuthWrapper: No valid OIDC session found');
     redirect('/login');
   }
   
-  // Check if user has admin access using new permissions system
-  const user = sessionData.user;
-  
-  // Check structured permissions only (no role-based fallbacks)
-  const hasAdminAccess = user.permissions?.some((p: string) => 
-    p === 'admin:*:*' ||           // Full admin access
-    p.startsWith('admin:')         // Any admin-scoped permission
-  ) || false;
-  
-  if (!hasAdminAccess) {
+  // Check admin access using structured permissions system
+  if (!adminSession.hasAdminAccess) {
     console.warn('⚠️ AdminAuthWrapper: User lacks admin permissions', {
-      permissions: user.permissions,
-      required: 'admin:*:* or admin:{resource}:{action}'
+      user: adminSession.user?.email,
+      permissions: adminSession.user?.permissions,
+      required: 'admin:*:* or admin:{resource}:{action}',
+      error: adminSession.error
     });
     redirect('/access-denied?reason=insufficient_admin_permissions');
   }
   
+  console.log('✅ AdminAuthWrapper: Admin OIDC authentication successful', {
+    user: adminSession.user?.email,
+    permissions: adminSession.user?.permissions.filter(p => p.startsWith('admin:')).length,
+    hasAdminAccess: adminSession.hasAdminAccess
+  });
+  
   // For protected routes, render with authentication and layout
-  return (
-    <ClientProviders>
-      <AdminLayoutServer>
-        {children}
-      </AdminLayoutServer>
-    </ClientProviders>
-  );
+  try {
+    return (
+      <ClientProviders>
+        <AdminLayoutServer>
+          {children}
+        </AdminLayoutServer>
+      </ClientProviders>
+    );
+  } catch (error) {
+    console.error('Critical AdminAuthWrapper error:', error);
+    return (
+      <ClientProviders>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <h1 className="text-xl font-bold">Authentication Error</h1>
+            <p className="text-gray-300">Failed to load admin interface</p>
+            <a 
+              href="/login" 
+              className="inline-block bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-600"
+            >
+              Return to Login
+            </a>
+          </div>
+        </div>
+      </ClientProviders>
+    );
+  }
 }
 
 export default AdminAuthWrapper;

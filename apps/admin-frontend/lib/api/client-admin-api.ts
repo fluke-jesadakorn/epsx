@@ -9,10 +9,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:80
 // Client-side fetch with JWT authentication for client components
 async function clientAdminFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   try {
-    // Extract JWT from document.cookie (client-side)
+    // OIDC Migration: Extract access token from document.cookie (client-side)
     const token = document.cookie
       .split('; ')
-      .find(row => row.startsWith('epsx_admin_jwt='))
+      .find(row => row.startsWith('access_token='))
       ?.split('=')[1]
 
     console.log('🔍 Client API Request:', {

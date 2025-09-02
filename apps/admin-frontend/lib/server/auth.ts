@@ -135,12 +135,12 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
   try {
     console.log('🔄 Admin: Exchanging authorization code for access token...')
     
-    // Use internal Docker network URL for server-side requests
-    const apiUrl = process.env.NODE_ENV === 'production' 
-      ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
-      : 'http://localhost:8080'
-    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-admin'
-    const redirectUri = `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`
+    // Use consolidated auth config for consistency
+    const { authConfig } = await import('../../config/env');
+    
+    const apiUrl = authConfig.apiUrl;
+    const clientId = authConfig.clientId;
+    const redirectUri = authConfig.callbackUrl;
     
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: 'POST',
@@ -170,6 +170,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
       accessToken: tokens.access_token,
       idToken: tokens.id_token,
       refreshToken: tokens.refresh_token,
+      expiresIn: tokens.expires_in || 3600, // Include expiry information
     }
   } catch (error) {
     console.error('❌ Admin: Token exchange error:', error)
@@ -181,10 +182,9 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
-  // Use internal Docker network URL for server-side requests
-  const apiUrl = process.env.NODE_ENV === 'production' 
-    ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
-    : 'http://localhost:8080';
+  // Use consolidated auth config for consistency
+  const { authConfig } = await import('../../config/env');
+  const apiUrl = authConfig.apiUrl;
   
   console.log('🔄 Admin: Fetching user info from backend userinfo endpoint:', apiUrl);
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
@@ -249,10 +249,11 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     redirect(url);
   } catch (error) {
     console.error('❌ Admin: Failed to setup PKCE redirect:', error);
-    // Fallback to simple redirect without PKCE
-    const backendAdminLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
-    backendAdminLoginUrl.searchParams.set('client_id', 'epsx-admin');
-    backendAdminLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'}/api/auth/callback/epsx-backend`);
+    // Fallback to simple redirect without PKCE using consolidated config
+    const { authConfig } = await import('../../config/env');
+    const backendAdminLoginUrl = new URL('/oauth/authorize', authConfig.apiUrl);
+    backendAdminLoginUrl.searchParams.set('client_id', authConfig.clientId);
+    backendAdminLoginUrl.searchParams.set('redirect_uri', authConfig.callbackUrl);
     backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
     backendAdminLoginUrl.searchParams.set('response_type', 'code');
     if (callbackUrl) {
@@ -288,8 +289,13 @@ export async function clearSession(): Promise<void> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
+    // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+    cookieStore.delete('access_token');
+    cookieStore.delete('id_token');
+    cookieStore.delete('refresh_token');
+    // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
-    console.log('✅ Admin: User session cleared successfully');
+    console.log('✅ Admin: OIDC session cleared successfully');
   } catch (error) {
     console.error('❌ Admin: Failed to clear session:', error);
     throw error;
@@ -305,9 +311,10 @@ export async function hasAdminPermission(permission: string): Promise<boolean> {
     if (!user) return false;
     
     // Admin users have broader permissions
-    return user.permissions.includes(permission) || 
-           user.permissions.includes('admin:*') ||
-           user.permissions.includes('*');
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    return permissions.includes(permission) || 
+           permissions.includes('admin:*') ||
+           permissions.includes('*');
   } catch (error) {
     console.error('❌ Admin: Failed to check permission:', error);
     return false;
@@ -323,9 +330,10 @@ export async function hasPermission(permission: string): Promise<boolean> {
     if (!user) return false;
     
     // Admin users have broader permissions
-    return user.permissions.includes(permission) || 
-           user.permissions.includes('admin:*:*') ||
-           user.permissions.some(p => p.startsWith('admin:'));
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    return permissions.includes(permission) || 
+           permissions.includes('admin:*:*') ||
+           permissions.some(p => p.startsWith('admin:'));
   } catch (error) {
     console.error('❌ Admin: Failed to check permission:', error);
     return false;

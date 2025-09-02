@@ -59,44 +59,44 @@ export const api = new ApiService();
 // Domain-specific API endpoints using the new client structure
 export const stockApi = {
   getStocks: async () => {
-    const result = await apiClient.analytics.getStockRankings();
+    const result = await apiClient.get('/api/v1/analytics/eps-rankings');
     return result;
   },
   
   getSymbols: async (query?: string) => {
-    const result = await apiClient.analytics.searchStocks(query || '');
+    const result = await apiClient.get('/api/v1/analytics/search', { query: query || '' });
     return result;
   },
   
   getStock: async (symbol: string) => {
-    return await apiClient.analytics.getStockDetails(symbol);
+    return await apiClient.get(`/api/v1/analytics/stocks/${symbol}`);
   },
   
   searchStocks: async (query: string, limit?: number) => {
-    return await apiClient.analytics.searchStocks(query, limit);
+    return await apiClient.get('/api/v1/analytics/search', { query, limit });
   },
   
   getStockHistory: async (symbol: string) => {
-    return await apiClient.analytics.getStockFinancials(symbol);
+    return await apiClient.get(`/api/v1/analytics/stocks/${symbol}/financials`);
   },
 
   // Watchlist operations
   getWatchlist: async () => {
-    return await apiClient.analytics.getWatchlist();
+    return await apiClient.get('/api/v1/analytics/watchlist');
   },
 
   addToWatchlist: async (symbol: string, notes?: string) => {
-    return await apiClient.analytics.addToWatchlist({ symbol, notes });
+    return await apiClient.post('/api/v1/analytics/watchlist', { symbol, notes });
   },
 
   removeFromWatchlist: async (symbol: string) => {
-    return await apiClient.analytics.removeFromWatchlist(symbol);
+    return await apiClient.delete(`/api/v1/analytics/watchlist/${symbol}`);
   },
 };
 
 export const rankingApi = {
   getRankings: async (category?: string, limit?: number, page?: number) => {
-    return await apiClient.analytics.getStockRankings(category, limit, page);
+    return await apiClient.get('/api/v1/analytics/eps-rankings', { category, limit, page });
   },
   
   getUserRanking: async (_userId: string) => {
@@ -117,11 +117,11 @@ export const paymentApi = {
     billingAddress?: any;
     couponCode?: string;
   }) => {
-    return await apiClient.payments.createPayment(data);
+    return await apiClient.post('/api/payments', data);
   },
   
   getPaymentStatus: async (paymentIntentId: string) => {
-    return await apiClient.payments.getPaymentStatus(paymentIntentId);
+    return await apiClient.get(`/api/payments/status/${paymentIntentId}`);
   },
   
   verifyPayment: async (paymentId: string) => {
@@ -129,23 +129,23 @@ export const paymentApi = {
   },
   
   getPlans: async () => {
-    return await apiClient.payments.getPlans();
+    return await apiClient.get('/api/payments/plans');
   },
 
   getPlan: async (id: string) => {
-    return await apiClient.payments.getPlan(id);
+    return await apiClient.get(`/api/payments/plans/${id}`);
   },
 
   getUserSubscription: async () => {
-    return await apiClient.payments.getUserSubscription();
+    return await apiClient.get('/api/payments/subscription');
   },
 
   cancelSubscription: async (subscriptionId: string) => {
-    return await apiClient.payments.cancelSubscription(subscriptionId);
+    return await apiClient.delete(`/api/payments/subscription/${subscriptionId}`);
   },
 
   getPaymentHistory: async (page: number = 1, limit: number = 10) => {
-    return await apiClient.payments.getPaymentHistory(page, limit);
+    return await apiClient.get('/api/payments/history', { page, limit });
   },
   
   getCryptoDepositAddress: async () => {
@@ -161,7 +161,7 @@ export const paymentApi = {
 
 export const userApi = {
   getProfile: async () => {
-    return await apiClient.auth.getCurrentUser();
+    return await apiClient.get('/api/user/profile');
   },
   
   updateProfile: async (data: {
@@ -170,11 +170,11 @@ export const userApi = {
     avatar?: string;
     preferences?: any;
   }) => {
-    return await apiClient.auth.updateProfile(data);
+    return await apiClient.put('/api/user/profile', data);
   },
   
   getUserData: async () => {
-    return await apiClient.auth.getCurrentUser();
+    return await apiClient.get('/api/user/profile');
   },
   
   updateUserData: async (data: {
@@ -183,27 +183,27 @@ export const userApi = {
     avatar?: string;
     preferences?: any;
   }) => {
-    return await apiClient.auth.updateProfile(data);
+    return await apiClient.put('/api/user/profile', data);
   },
   
   login: async (email: string, password: string) => {
-    return await apiClient.auth.login({ type: 'credentials', email, password });
+    return await apiClient.post('/oauth/token', { email, password, grant_type: 'password' });
   },
 
   register: async (data: { email: string; password: string; name?: string; package_tier?: string }) => {
-    return await apiClient.auth.register(data);
+    return await apiClient.post('/api/auth/register', data);
   },
 
   logout: async () => {
-    return await apiClient.auth.logout();
+    return await apiClient.post('/api/auth/logout');
   },
 
   changePassword: async (currentPassword: string, newPassword: string) => {
-    return await apiClient.auth.changePassword({ currentPassword, newPassword });
+    return await apiClient.post('/api/user/change-password', { currentPassword, newPassword });
   },
 
   resetPassword: async (email: string) => {
-    return await apiClient.auth.resetPassword({ email });
+    return await apiClient.post('/api/auth/reset-password', { email });
   },
   
   getUserById: async (_id: string) => {

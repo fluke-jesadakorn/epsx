@@ -249,7 +249,11 @@ export const array = {
    */
   flatten<T>(arr: (T | T[])[]): T[] {
     return arr.reduce((acc, val) => {
-      return acc.concat(Array.isArray(val) ? array.flatten(val) : val);
+      if (Array.isArray(val)) {
+        return acc.concat(array.flatten(val));
+      } else {
+        return acc.concat([val]);
+      }
     }, [] as T[]);
   }
 };
@@ -261,7 +265,7 @@ export const object = {
   /**
    * Pick specific keys from object
    */
-  pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+  pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
     const result = {} as Pick<T, K>;
     keys.forEach(key => {
       if (key in obj) {
@@ -274,7 +278,7 @@ export const object = {
   /**
    * Omit specific keys from object
    */
-  omit<T, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
+  omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
     const result = { ...obj };
     keys.forEach(key => {
       delete result[key];

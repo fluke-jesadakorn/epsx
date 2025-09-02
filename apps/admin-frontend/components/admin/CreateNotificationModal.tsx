@@ -258,6 +258,9 @@ export function CreateNotificationModal({ open, onClose, onSuccess }: CreateNoti
                 <option value="compliance">Compliance</option>
                 <option value="account">Account</option>
                 <option value="price_alert">Price Alert</option>
+                <option value="admin_alert">🔔 Admin Alert (FCM)</option>
+                <option value="user_management">👥 User Management</option>
+                <option value="permission_change">🔐 Permission Change</option>
               </select>
             </div>
 
@@ -272,9 +275,42 @@ export function CreateNotificationModal({ open, onClose, onSuccess }: CreateNoti
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
+                <option value="high">High (FCM High Priority)</option>
+                <option value="critical">Critical (FCM High Priority)</option>
               </select>
+            </div>
+          </div>
+
+          {/* FCM Options */}
+          <div className="border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <Label className="text-base font-medium">🔔 FCM Push Notification Options</Label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fcm-sound">Sound</Label>
+                <select
+                  id="fcm-sound"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                >
+                  <option value="default">Default</option>
+                  <option value="alert">Alert (Security)</option>
+                  <option value="system">System</option>
+                  <option value="user">User Management</option>
+                  <option value="none">Silent</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="fcm-badge">Badge Count</Label>
+                <Input
+                  id="fcm-badge"
+                  type="number"
+                  placeholder="1"
+                  className="text-sm"
+                  min="0"
+                />
+              </div>
             </div>
           </div>
 
@@ -317,13 +353,13 @@ export function CreateNotificationModal({ open, onClose, onSuccess }: CreateNoti
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex items-center gap-2">
+            <Button type="submit" disabled={loading} className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700">
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {deliveryMode === 'broadcast' ? 'Broadcast' : 'Send'} Notification
+              {deliveryMode === 'broadcast' ? 'Broadcast' : 'Send'} FCM Notification 🔔
             </Button>
           </div>
         </form>

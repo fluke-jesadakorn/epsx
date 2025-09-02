@@ -201,8 +201,11 @@ const PricingSection = () => {
         {/* Personal Plans */}
         <div className="space-y-8 sm:space-y-12">
           <div className="text-center space-y-6 sm:space-y-8 animate-slide-up">
-            <h2 className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
-              💰 Personal Plans
+            <h2 className="text-4xl sm:text-6xl font-bold">
+              <span className="mr-2">💰</span>
+              <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
+                Personal Plans
+              </span>
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
               🚀 Choose the perfect plan for individual use and start your

@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Admin: Processing logout request');
 
-    // Get access token from cookies before clearing (use admin-specific cookie)
+    // OIDC Migration: Get access token from OIDC cookies
     const cookieStore = await cookies();
-    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
+    const jwt = cookieStore.get('access_token')?.value;
 
     // Create success response
     const response = NextResponse.json({ 
@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
       message: 'Admin logged out successfully' 
     });
 
-    // Clear authentication cookies (both admin and standard)
-    response.cookies.delete('epsx_admin_jwt');
-    response.cookies.delete('epsx_jwt');
+    // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+    response.cookies.delete('access_token');
+    response.cookies.delete('id_token');
+    response.cookies.delete('refresh_token');
 
-    console.log('✅ Admin: JWT cookies cleared');
+    console.log('✅ Admin: OIDC cookies cleared');
 
     // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
@@ -70,7 +71,10 @@ export async function POST(request: NextRequest) {
       message: 'An error occurred during admin logout'
     }, { status: 500 });
 
-    response.cookies.delete('epsx_jwt');
+    // OIDC Migration: Clear OIDC tokens on error
+    response.cookies.delete('access_token');
+    response.cookies.delete('id_token');
+    response.cookies.delete('refresh_token');
 
     return response;
   }
@@ -80,19 +84,20 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🔄 Admin: Processing logout request (GET)');
 
-    // Get access token from cookies before clearing (use admin-specific cookie)
+    // OIDC Migration: Get access token from OIDC cookies
     const cookieStore = await cookies();
-    const jwt = cookieStore.get('epsx_admin_jwt')?.value || cookieStore.get('epsx_jwt')?.value;
+    const jwt = cookieStore.get('access_token')?.value;
 
     // Create redirect response
     const loginUrl = new URL('/login', request.url);
     const response = NextResponse.redirect(loginUrl);
 
-    // Clear authentication cookies (both admin and standard)
-    response.cookies.delete('epsx_admin_jwt');
-    response.cookies.delete('epsx_jwt');
+    // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+    response.cookies.delete('access_token');
+    response.cookies.delete('id_token'); 
+    response.cookies.delete('refresh_token');
 
-    console.log('✅ Admin: JWT cookies cleared, redirecting to login');
+    console.log('✅ Admin: OIDC cookies cleared, redirecting to login');
 
     // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
@@ -128,7 +133,10 @@ export async function GET(request: NextRequest) {
     loginUrl.searchParams.set('error', 'logout_error');
     const response = NextResponse.redirect(loginUrl);
     
-    response.cookies.delete('epsx_jwt');
+    // OIDC Migration: Clear OIDC tokens on error
+    response.cookies.delete('access_token');
+    response.cookies.delete('id_token');
+    response.cookies.delete('refresh_token');
 
     return response;
   }

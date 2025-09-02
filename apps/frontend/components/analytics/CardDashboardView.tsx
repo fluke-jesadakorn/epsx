@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -248,10 +247,10 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   }, [filters]);
 
   const updateFilters = (newFilters: Partial<AdvancedFilters>) => {
-    setFilters(prev => ({ 
-      ...prev, 
+    setFilters(prev => ({
+      ...prev,
       ...newFilters,
-      page: 'page' in newFilters ? newFilters.page! : 1
+      page: 'page' in newFilters ? newFilters.page! : 1,
     }));
   };
 
@@ -398,13 +397,15 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         <div className="bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className="text-4xl font-black text-white drop-shadow-lg tracking-wide">
+              <span className="text-4xl font-black tracking-wide text-white drop-shadow-lg">
                 {cardData.symbol}
               </span>
-              <span className="text-2xl font-bold text-pink-100 opacity-80">#{cardData.rank}</span>
+              <span className="text-2xl font-bold text-pink-100 opacity-80">
+                #{cardData.rank}
+              </span>
             </div>
             <a
-              href={`https://www.tradingview.com/symbols/${cardData.symbol}/financials-earnings/?earnings-period=FQ&revenues-period=FQ`}
+              href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xl text-white transition-transform hover:scale-125 hover:text-yellow-300"
@@ -461,11 +462,13 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
 
         {/* Main Growth with enhanced styling */}
         <div className="bg-white py-6 text-center dark:bg-slate-900">
-          <div className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${
-            (latestQuarter?.eps_growth || 0) >= 0
-              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-              : 'bg-gradient-to-r from-red-400 to-red-500'
-          }`}>
+          <div
+            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${
+              (latestQuarter?.eps_growth || 0) >= 0
+                ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                : 'bg-gradient-to-r from-red-400 to-red-500'
+            }`}
+          >
             <span className="text-2xl">
               {(latestQuarter?.eps_growth || 0) >= 0 ? '↗️' : '↘️'}
             </span>
@@ -575,8 +578,11 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       {/* Header with filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-2xl font-bold text-transparent">
-            📋 Performance Watch
+          <h2 className="text-2xl font-bold">
+            <span className="mr-2">📋</span>
+            <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+              Performance Watch
+            </span>
           </h2>
           {data && (
             <p className="text-gray-600 dark:text-gray-300">
@@ -706,36 +712,44 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       )}
 
       {/* Status Legend */}
-      <div className="bg-slate-800/90 border border-slate-600 rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="mb-6 rounded-lg border border-slate-600 bg-slate-800/90 p-4">
+        <div className="mb-4 flex items-center gap-2">
           <span className="text-blue-400">📊</span>
           <h3 className="text-lg font-semibold text-white">Status Legend</h3>
         </div>
-        
+
         <div className="mb-3">
-          <h4 className="text-sm font-medium text-slate-300 mb-3">Status Indicators</h4>
+          <h4 className="mb-3 text-sm font-medium text-slate-300">
+            Status Indicators
+          </h4>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200">
-            <span className="inline-flex items-center px-2 py-1 bg-green-500 text-white text-xs font-medium rounded">
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="flex items-center gap-3 rounded-lg border border-slate-600/40 bg-slate-700/60 p-3 transition-all duration-200 hover:bg-slate-700">
+            <span className="inline-flex items-center rounded bg-green-500 px-2 py-1 text-xs font-medium text-white">
               TRACK
             </span>
-            <span className="text-sm text-slate-300">Strong performance, actively tracking</span>
+            <span className="text-sm text-slate-300">
+              Strong performance, actively tracking
+            </span>
           </div>
-          
-          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200">
-            <span className="inline-flex items-center px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded">
+
+          <div className="flex items-center gap-3 rounded-lg border border-slate-600/40 bg-slate-700/60 p-3 transition-all duration-200 hover:bg-slate-700">
+            <span className="inline-flex items-center rounded bg-yellow-500 px-2 py-1 text-xs font-medium text-white">
               WATCH
             </span>
-            <span className="text-sm text-slate-300">Watch closely, mixed signals</span>
+            <span className="text-sm text-slate-300">
+              Watch closely, mixed signals
+            </span>
           </div>
-          
-          <div className="flex items-center gap-3 p-3 bg-slate-700/60 rounded-lg border border-slate-600/40 hover:bg-slate-700 transition-all duration-200 md:col-span-1">
-            <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-medium rounded">
+
+          <div className="flex items-center gap-3 rounded-lg border border-slate-600/40 bg-slate-700/60 p-3 transition-all duration-200 hover:bg-slate-700 md:col-span-1">
+            <span className="inline-flex items-center rounded bg-red-500 px-2 py-1 text-xs font-medium text-white">
               STOP
             </span>
-            <span className="text-sm text-slate-300">Weak performance, avoid investment</span>
+            <span className="text-sm text-slate-300">
+              Weak performance, avoid investment
+            </span>
           </div>
         </div>
       </div>

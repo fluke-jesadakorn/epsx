@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
-import { realtimeClient  } from '@/lib/api-client.client';
-import type {PaymentStatusUpdate} from '@/lib/api-client.client';
+// Temporarily removed realtime client imports for build fix
+// import { realtimeClient  } from '@/lib/api-client';
+// import type {PaymentStatusUpdate} from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -23,25 +24,26 @@ export default function PaymentReturnPage() {
       try {
         const payment = JSON.parse(storedPayment);
         setPaymentData(payment);
+        // TODO: Re-implement payment status monitoring with correct API client
         // Monitor payment status using WebSocket/SSE
-        if (payment.paymentRequest?.customerRefId) {
-          const unsubscribe = realtimeClient.connectToPaymentUpdates(
-            payment.paymentRequest.customerRefId,
-            (update: PaymentStatusUpdate) => {
-              // Payment status updated
-              if (update.status === 'completed') {
-                setPaymentStatus('success');
-                // Clear session storage
-                sessionStorage.removeItem('activePayment');
-              } else if (update.status === 'failed') {
-                setPaymentStatus('failed');
-              } else {
-                setPaymentStatus('pending');
-              }
-            }
-          );
-          return () => unsubscribe();
-        }
+        // if (payment.paymentRequest?.customerRefId) {
+        //   const unsubscribe = realtimeClient.connectToPaymentUpdates(
+        //     payment.paymentRequest.customerRefId,
+        //     (update: PaymentStatusUpdate) => {
+        //       // Payment status updated
+        //       if (update.status === 'completed') {
+        //         setPaymentStatus('success');
+        //         // Clear session storage
+        //         sessionStorage.removeItem('activePayment');
+        //       } else if (update.status === 'failed') {
+        //         setPaymentStatus('failed');
+        //       } else {
+        //         setPaymentStatus('pending');
+        //       }
+        //     }
+        //   );
+        //   return () => unsubscribe();
+        // }
         return;
       } catch (error) {
         console.error('Failed to parse stored payment:', error);

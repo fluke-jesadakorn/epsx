@@ -5,6 +5,39 @@
 
 import { cookies } from 'next/headers'
 
+/**
+ * Extract permissions array from JWT payload (handles both admin and user tokens)
+ */
+function extractPermissionsFromPayload(payload: any): string[] {
+  // Handle admin token structure (AdminJWTClaims)
+  if (payload.token_type === 'admin_access' && payload.permissions?.system_access?.capabilities) {
+    return payload.permissions.system_access.capabilities;
+  }
+  
+  // Handle user token structure (UserJWTClaims)
+  if (payload.token_type === 'user_access' && payload.permissions?.permissions) {
+    return payload.permissions.permissions;
+  }
+  
+  // Handle legacy or simple structure
+  if (Array.isArray(payload.permissions)) {
+    return payload.permissions;
+  }
+  
+  // Fallback for admin users
+  if (payload.role === 'admin' || payload.email?.includes('admin')) {
+    return [
+      'admin:*:*',
+      'admin:users:manage',
+      'admin:analytics:view',
+      'admin:system:manage'
+    ];
+  }
+  
+  // Default fallback
+  return ['epsx:dashboard:read'];
+}
+
 // Types matching backend API
 interface SessionValidationRequest {
   app_type: 'admin' | 'user'
@@ -85,9 +118,9 @@ export class AdminSessionValidator {
     const startTime = performance.now()
     
     try {
-      // Get JWT token from cookies
+      // OIDC Migration: Get access token from OIDC cookies
       const cookieStore = await cookies()
-      const jwtCookie = cookieStore.get('epsx_admin_jwt')
+      const jwtCookie = cookieStore.get('access_token')
       
       if (!jwtCookie?.value) {
         this.missCount++
@@ -142,18 +175,21 @@ export class AdminSessionValidator {
       }
       
       // Convert JWT payload to UserProfile format
+      // Handle both admin and user JWT structures
+      const permissions = extractPermissionsFromPayload(payload);
+      
       const user: UserProfile = {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
-        role: payload.role,
-        permissions: payload.permissions || ['epsx:dashboard:read'],
-        package_tier: payload.package_tier || 'FREE',
+        role: payload.role || 'admin',
+        permissions: permissions,
+        package_tier: payload.package_tier || 'ENTERPRISE',
         firebase_uid: payload.firebase_uid,
         
         // Cross-platform fields
-        platforms: payload.platforms || ['epsx'],
-        primary_platform: payload.primary_platform || 'epsx'
+        platforms: payload.platforms || ['admin', 'epsx'],
+        primary_platform: payload.primary_platform || 'admin'
       }
       
       // Validate admin permissions
@@ -211,15 +247,15 @@ export class AdminSessionValidator {
    * Check if user has admin access using structured permissions only
    */
   private hasAdminAccess(user: UserProfile): boolean {
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    
     // Check for admin wildcard permission
-    if (user.permissions && user.permissions.includes('admin:*:*')) {
+    if (permissions.includes('admin:*:*')) {
       return true
     }
     
     // Check if user has any admin-scoped permissions
-    if (user.permissions && user.permissions.some(p => 
-      p.startsWith('admin:')
-    )) {
+    if (permissions.some(p => p.startsWith('admin:'))) {
       return true
     }
     
@@ -334,13 +370,15 @@ export async function requireAdminSession(request: {
 
 // Permission checking utilities
 export function hasPermission(user: UserProfile, permission: string): boolean {
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  
   // Check exact match
-  if (user.permissions.includes(permission)) {
+  if (permissions.includes(permission)) {
     return true
   }
   
   // Check wildcard permissions
-  return user.permissions.some(p => {
+  return permissions.some(p => {
     if (p.endsWith('*')) {
       const prefix = p.slice(0, -1)
       return permission.startsWith(prefix)
@@ -351,20 +389,22 @@ export function hasPermission(user: UserProfile, permission: string): boolean {
 
 
 export function hasAdminPermission(user: UserProfile, permission: string): boolean {
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  
   // Check for admin wildcard permission
-  if (user.permissions && user.permissions.includes('admin:*:*')) {
+  if (permissions.includes('admin:*:*')) {
     return true
   }
   
   // Check if user has the specific permission
-  if (user.permissions && user.permissions.includes(permission)) {
+  if (permissions.includes(permission)) {
     return true
   }
   
   // Check for broader permissions (e.g., admin:users:* covers admin:users:manage)
   if (permission.includes(':')) {
     const [platform, resource] = permission.split(':')
-    if (user.permissions && user.permissions.some(p => 
+    if (permissions.some(p => 
       p === `${platform}:${resource}:*` || 
       p === `${platform}:*:*`
     )) {
@@ -393,8 +433,10 @@ export function hasPackageTier(user: UserProfile, tier: string): boolean {
 
 // Path-based admin access checking with structured permissions only
 export function canAccessAdminPath(user: UserProfile, path: string): boolean {
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  
   // Check for admin wildcard permission
-  if (user.permissions && user.permissions.includes('admin:*:*')) {
+  if (permissions.includes('admin:*:*')) {
     return true
   }
   

@@ -1,9 +1,9 @@
 /**
- * OAuth Callback Route for EPSX Backend
- * Handles OAuth authorization callback and creates user session
+ * OIDC Callback Route for EPSX Backend
+ * Handles OIDC authorization callback and sets OIDC tokens as HttpOnly cookies
+ * OIDC Migration: Uses standard OIDC tokens instead of custom JWT
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { signJWT, createJWTClaims } from '@/lib/auth-utils';
 import { getUserInfo, exchangeCodeForTokens } from '@/lib/server/auth';
 import { cookies } from 'next/headers';
 
@@ -78,32 +78,39 @@ export async function GET(request: NextRequest) {
     
     console.log('✅ Admin: State validation passed');
 
-    // Exchange authorization code for access token using PKCE
-    console.log('🔄 Admin: Exchanging authorization code for tokens...');
+    // OIDC Migration: Exchange authorization code for OIDC tokens
+    console.log('🔄 Admin: Exchanging authorization code for OIDC tokens...');
     const tokens = await exchangeCodeForTokens(code, storedCodeVerifier, state);
-    console.log('✅ Admin: Successfully exchanged authorization code for access token');
+    console.log('✅ Admin: Successfully exchanged authorization code for OIDC tokens:', {
+      hasAccessToken: !!tokens.accessToken,
+      hasIdToken: !!tokens.idToken,
+      hasRefreshToken: !!tokens.refreshToken,
+      expiresIn: tokens.expiresIn
+    });
 
-    // Get user information from userinfo endpoint using access token
-    console.log('🔄 Admin: Fetching user information from EPSX backend');
+    // Validate user has admin permissions using access token
+    console.log('🔄 Admin: Validating admin permissions...');
     const userinfo = await getUserInfo(tokens.accessToken);
+    
+    // Check for admin permissions using structured permission system
+    const hasAdminAccess = userinfo.permissions && userinfo.permissions.some((permission: string) => 
+      permission === 'admin:*:*' || permission.startsWith('admin:')
+    );
+    
+    if (!hasAdminAccess) {
+      console.error('❌ Admin: User lacks admin permissions', {
+        email: userinfo.email,
+        permissions: userinfo.permissions
+      });
+      const loginUrl = new URL('/access-denied', request.url);
+      loginUrl.searchParams.set('reason', 'insufficient_admin_permissions');
+      return NextResponse.redirect(loginUrl);
+    }
 
-    console.log('✅ Successfully received user info from EPSX backend:', {
+    console.log('✅ Admin: User validated with admin permissions:', {
       email: userinfo.email,
-      role: userinfo.role,
-      permissions: userinfo.permissions,
+      adminPermissions: userinfo.permissions.filter((p: string) => p.startsWith('admin:'))
     });
-
-    // Create JWT token with user claims (JWT migration: use sub as primary identifier)
-    console.log('🔄 Creating JWT token with userinfo:', { email: userinfo.email, sub: userinfo.sub || userinfo.id });
-    const jwtClaims = createJWTClaims({
-      id: userinfo.sub || userinfo.id || userinfo.email, // Use fallback IDs if sub is missing
-      email: userinfo.email,
-      name: userinfo.name || userinfo.display_name || userinfo.email.split('@')[0],
-      permissions: userinfo.permissions || ['admin:*:*'], // Default admin permissions for admin users
-    });
-
-    const jwtToken = await signJWT(jwtClaims);
-    console.log('✅ JWT token created successfully');
 
     // Get callback URL from cookies or default to dashboard
     const callbackUrl = storedCallbackUrl || '/';
@@ -112,38 +119,58 @@ export async function GET(request: NextRequest) {
     const redirectUrl = new URL(callbackUrl, request.url);
     const response = NextResponse.redirect(redirectUrl);
     
-    // Clean up OAuth cookies FIRST
-    console.log('🔧 Admin: Cleaning up OAuth cookies...');
-    if (storedCodeVerifier) {
-      response.cookies.delete('oauth_code_verifier');
-      console.log('✅ Cleaned oauth_code_verifier cookie');
-    }
-    if (storedState) {
-      response.cookies.delete('oauth_state');
-      console.log('✅ Cleaned oauth_state cookie');  
-    }
-    if (storedCallbackUrl) {
-      response.cookies.delete('oauth_callback_url');
-      console.log('✅ Cleaned oauth_callback_url cookie');
-    }
+    // OIDC Migration: Set OIDC tokens as HttpOnly cookies
+    console.log('🔧 Admin: Setting OIDC tokens as HttpOnly cookies...');
     
-    // Set JWT cookie AFTER cleanup
-    console.log('🔧 Admin: Setting JWT cookie for redirect...');
-    response.cookies.set('epsx_admin_jwt', jwtToken, {
+    // Set access token (primary authentication token)
+    response.cookies.set('access_token', tokens.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60, // 24 hours
+      maxAge: tokens.expiresIn || 3600, // Use token expiry or default 1 hour
       path: '/'
     });
-    console.log('✅ Admin JWT cookie set successfully');
+    console.log('✅ OIDC access_token cookie set');
     
-    console.log('✅ Callback completed successfully, redirecting with clean cookies');
-    console.log('🚨 CALLBACK ROUTE CALLED - END');
+    // Set ID token (user identity information)
+    if (tokens.idToken) {
+      response.cookies.set('id_token', tokens.idToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: tokens.expiresIn || 3600,
+        path: '/'
+      });
+      console.log('✅ OIDC id_token cookie set');
+    }
+    
+    // Set refresh token (for token renewal)
+    if (tokens.refreshToken) {
+      response.cookies.set('refresh_token', tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60, // 30 days for refresh token
+        path: '/'
+      });
+      console.log('✅ OIDC refresh_token cookie set');
+    }
+    
+    // Clean up OAuth PKCE cookies
+    console.log('🔧 Admin: Cleaning up OAuth PKCE cookies...');
+    response.cookies.delete('oauth_code_verifier');
+    response.cookies.delete('oauth_state');
+    response.cookies.delete('oauth_callback_url');
+    // Also clean up legacy cookie during migration
+    response.cookies.delete('epsx_admin_jwt');
+    console.log('✅ OAuth PKCE cookies cleaned up');
+    
+    console.log('✅ OIDC callback completed successfully, redirecting with OIDC cookies');
+    console.log('🚨 OIDC CALLBACK ROUTE COMPLETED - END');
     return response;
 
   } catch (error) {
-    console.error('❌ EPSX Backend OAuth callback processing error:', error);
+    console.error('❌ OIDC callback processing error:', error);
     
     // Log detailed error for debugging
     if (error instanceof Error) {
@@ -156,9 +183,9 @@ export async function GET(request: NextRequest) {
     // Enhanced error logging
     console.error('❌ Full error object:', JSON.stringify(error, null, 2));
 
-    // Redirect to login page with error (use current request domain)
+    // Redirect to login page with error
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('error', 'callback_error');
+    loginUrl.searchParams.set('error', 'oidc_callback_error');
     loginUrl.searchParams.set('error_details', encodeURIComponent(error instanceof Error ? error.message : 'Unknown error'));
     
     return NextResponse.redirect(loginUrl);

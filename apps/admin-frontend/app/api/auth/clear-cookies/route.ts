@@ -8,16 +8,17 @@ export async function POST() {
   try {
     const response = NextResponse.json({ success: true, message: 'All cookies cleared' });
     
-    // Clear shared JWT cookies
-    response.cookies.delete('epsx_jwt');
-    response.cookies.delete('epsx_refresh');
+    // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+    response.cookies.delete('access_token');
+    response.cookies.delete('id_token');
+    response.cookies.delete('refresh_token');
     
     // Clear OAuth cookies
     response.cookies.delete('oauth_code_verifier');
     response.cookies.delete('oauth_state');
     response.cookies.delete('oauth_callback_url');
     
-    console.log('✅ Shared authentication cookies cleared');
+    console.log('✅ OIDC authentication cookies cleared');
     return response;
     
   } catch (error) {

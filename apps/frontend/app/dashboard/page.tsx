@@ -14,22 +14,23 @@ export default async function DashboardPage() {
     redirectToBackendLogin('/dashboard');
   }
 
-  // Transform session data to structured format
+  // Transform session data to structured format with null checks
   const user = {
-    id: session.user.id || '',
-    email: session.user.email || '',
-    name: session.user.name || session.user.email?.split('@')[0] || 'User',
-    permissions: session.user.permissions || ['epsx:analytics:view'],
-    package_tier: session.user.package_tier || 'FREE',
-    firebase_uid: session.user.firebase_uid,
+    id: session.user?.id || '',
+    email: session.user?.email || '',
+    name: session.user?.name || session.user?.email?.split('@')[0] || 'User',
+    permissions: session.user?.permissions || ['epsx:analytics:view'],
+    package_tier: session.user?.package_tier || 'FREE',
+    firebase_uid: session.user?.firebase_uid,
     
     // Cross-platform fields
-    platforms: session.user.platforms || ['epsx'],
-    primary_platform: session.user.primary_platform || 'epsx',
-    platform_context: session.user.platform_context,
+    platforms: session.user?.platforms || ['epsx'],
+    primary_platform: session.user?.primary_platform || 'epsx',
+    platform_context: session.user?.platform_context,
   };
 
   const permissions = {
+    role: 'user', // Add required role property
     permissions: user.permissions,
     platforms: user.platforms,
     platform_context: user.platform_context,
