@@ -12,13 +12,7 @@ interface PaymentPageProps {
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   // Server-side auth check - redirect to login if not authenticated
-  let user = null;
-  try {
-    const result = await getCurrentUser({});
-    user = result?.success ? result.data : null;
-  } catch (error) {
-    console.error('PaymentPage: Failed to get user:', error);
-  }
+  const user = await getCurrentUser();
 
   if (!user) {
     const { redirectToBackendLogin } = await import('@/lib/server/auth');

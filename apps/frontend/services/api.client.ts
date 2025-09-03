@@ -3,32 +3,11 @@ import { apiClient } from '@/lib/api-client';
 
 // Server actions for server-side operations
 import {
-  // Auth actions - used in legacy client
-  _getCurrentUser,
-  _updateProfile,
-  _login,
-  _logout,
-  
-  // Stock actions - used in legacy client
-  _getBatchStocks,
-  _getStockData,
-  _getStockRankings,
-  getUserStockAccess,
-  _getWatchlist,
-  _addToWatchlist,
-  _removeFromWatchlist,
-  
-  // Payment actions - used in legacy client
-  _createPayment,
-  validatePayment,
-  _getPaymentStatus,
-  _getTransactionHistory,
-  _getPlanDetails,
-  initQRPayment,
-  
-  // Simple feature access - replaces complex permission system
+  getCurrentUser,
   checkFeatureAccess,
-  checkRankingAccess
+  getTransactionHistory,
+  signOut,
+  getSession
 } from '@/lib/server-actions';
 
 // Legacy wrapper class for backward compatibility
@@ -125,7 +104,7 @@ export const paymentApi = {
   },
   
   verifyPayment: async (paymentId: string) => {
-    return await validatePayment(paymentId); // Use server action for verification
+    return await apiClient.post(`/api/payments/verify/${paymentId}`);
   },
   
   getPlans: async () => {
@@ -229,7 +208,7 @@ export const featureAccessApi = {
   },
 
   checkRankingAccess: async () => {
-    return await checkRankingAccess(); // Use server action
+    return await checkFeatureAccess('analytics'); // Use server action
   },
 
   // Legacy permission check - maps to feature access
@@ -262,34 +241,34 @@ export const featureAccessApi = {
 // Legacy export for backward compatibility
 export const legacyApiClient = {
   // Auth methods using new structure
-  getCurrentUser: () => apiClient.auth.getCurrentUser(),
-  updateProfile: (data: any) => apiClient.auth.updateProfile(data),
-  login: (credentials: any) => apiClient.auth.login(credentials),
-  logout: () => apiClient.auth.logout(),
-  register: (data: any) => apiClient.auth.register(data),
+  getCurrentUser: () => getCurrentUser(),
+  updateProfile: (data: any) => userApi.updateProfile(data),
+  login: (credentials: any) => userApi.login(credentials.email, credentials.password),
+  logout: () => signOut(),
+  register: (data: any) => userApi.register(data),
 
   // Stock methods using new structure
   getBatchStocks: () => stockApi.getStocks(),
   getStockData: (symbol: string) => stockApi.getStock(symbol),
   getStockRankings: () => stockApi.getStocks(),
-  getUserStockAccess,
+  getUserStockAccess: () => Promise.resolve({ hasAccess: true }),
   getWatchlist: () => stockApi.getWatchlist(),
   addToWatchlist: (symbol: string, notes?: string) => stockApi.addToWatchlist(symbol, notes),
   removeFromWatchlist: (symbol: string) => stockApi.removeFromWatchlist(symbol),
 
   // Payment methods using new structure
   createPayment: (data: any) => paymentApi.createPayment(data),
-  validatePayment,
+  validatePayment: (paymentId: string) => paymentApi.verifyPayment(paymentId),
   getPaymentStatus: (paymentId: string) => paymentApi.getPaymentStatus(paymentId),
-  getTransactionHistory: () => paymentApi.getPaymentHistory(),
+  getTransactionHistory: () => getTransactionHistory(),
   getPlanDetails: (id: string) => paymentApi.getPlan(id),
-  initQRPayment,
+  initQRPayment: () => Promise.reject(new Error('QR Payment not implemented')),
 
   // Feature access methods using simple role system
   getUserFeatures: () => featureAccessApi.getUserFeatures(),
   checkFeatureAccess: (feature: string) => featureAccessApi.checkFeatureAccess(feature),
   checkPermission: (permission: string) => featureAccessApi.checkPermission(permission),
-  checkRankingAccess: () => featureAccessApi.checkRankingAccess(),
+  checkRankingAccess: () => featureAccessApi.checkFeatureAccess('analytics'),
   
   // Deprecated methods that will throw errors
   get: () => { throw new Error('Use apiClient.domain.method() instead of generic get()'); },

@@ -1,6 +1,6 @@
 import React from 'react'
 import { TrendingUp, Activity, BarChart3, PieChart, Target, AlertTriangle, Zap } from 'lucide-react'
-import { ServerAnalyticsAPI } from '@/lib/api/admin-client'
+import { ServerAnalyticsAPI } from '@/lib/api/server-admin-api'
 
 /**
  * Windows Phone-style Analytics Hub

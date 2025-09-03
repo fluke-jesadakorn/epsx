@@ -1,6 +1,6 @@
 import React from 'react'
 import { Bell, AlertTriangle, Info, CheckCircle, Clock, Users, Shield, Settings } from 'lucide-react'
-import { ServerNotificationAPI } from '@/lib/api/admin-client'
+import { ServerNotificationAPI } from '@/lib/api/notification-client'
 import NotificationActions from '@/components/notifications/NotificationActions'
 import InteractiveNotificationCard from '@/components/notifications/InteractiveNotificationCard'
 import PushMessageManager from '@/components/notifications/PushMessageManager'

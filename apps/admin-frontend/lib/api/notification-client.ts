@@ -139,27 +139,38 @@ export const ServerNotificationAPI = {
   // Basic notification operations
   async getNotifications(offset: number = 0, limit: number = 50): Promise<Notification[]> {
     try {
-      // For now, return mock data - replace with actual API call when backend is ready
-      return [
-        {
-          id: "notif_001",
-          type: "system",
-          title: "System Maintenance Scheduled",
-          message: "Scheduled maintenance will occur tomorrow from 2-4 AM UTC",
-          is_read: false,
-          created_at: new Date().toISOString(),
-          metadata: { severity: "medium" }
+      const cookieStore = cookies()
+      const token = getJWTFromCookies(cookieStore)
+      
+      if (!token) {
+        console.error('No auth token available')
+        return []
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/notifications?page=${Math.floor(offset/limit) + 1}&per_page=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        {
-          id: "notif_002", 
-          type: "security",
-          title: "Security Alert",
-          message: "Multiple failed login attempts detected",
-          is_read: false,
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          metadata: { severity: "high" }
-        }
-      ]
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Convert backend format to our client format
+      return data.notifications?.map((notification: any) => ({
+        id: notification.id,
+        type: notification.notification_type,
+        title: notification.title,
+        message: notification.message,
+        is_read: notification.status === 'read',
+        created_at: notification.created_at,
+        metadata: notification.metadata || {}
+      })) || []
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
       return []
@@ -168,8 +179,28 @@ export const ServerNotificationAPI = {
 
   async getUnreadCount(): Promise<{ count: number }> {
     try {
-      // Mock implementation
-      return { count: 3 }
+      const cookieStore = cookies()
+      const token = getJWTFromCookies(cookieStore)
+      
+      if (!token) {
+        console.error('No auth token available')
+        return { count: 0 }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/notifications/unread-count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return { count: data.unread_count || 0 }
     } catch (error) {
       console.error('Failed to fetch unread count:', error)
       return { count: 0 }
@@ -178,8 +209,27 @@ export const ServerNotificationAPI = {
 
   async markAsRead(notificationId: string): Promise<void> {
     try {
-      // Mock implementation
-      console.log(`Marked notification ${notificationId} as read`)
+      const cookieStore = cookies()
+      const token = getJWTFromCookies(cookieStore)
+      
+      if (!token) {
+        console.error('No auth token available')
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/notifications/read/${notificationId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      console.log(`Successfully marked notification ${notificationId} as read`)
     } catch (error) {
       console.error('Failed to mark notification as read:', error)
     }
@@ -187,8 +237,31 @@ export const ServerNotificationAPI = {
 
   async markAllAsRead(): Promise<void> {
     try {
-      // Mock implementation
-      console.log('Marked all notifications as read')
+      const cookieStore = cookies()
+      const token = getJWTFromCookies(cookieStore)
+      
+      if (!token) {
+        console.error('No auth token available')
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/notifications/read-all`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mark_all: true,
+          notification_ids: []
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      console.log('Successfully marked all notifications as read')
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error)
     }

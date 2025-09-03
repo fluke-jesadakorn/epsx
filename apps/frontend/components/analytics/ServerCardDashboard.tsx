@@ -8,7 +8,7 @@ import ServerFilters from './ServerFilters';
 import ServerPagination from './ServerPagination';
 
 interface ServerCardDashboardProps {
-  searchParams: Promise<{
+  searchParams: {
     page?: string;
     limit?: string;
     country?: string;
@@ -18,11 +18,11 @@ interface ServerCardDashboardProps {
     min_growth?: string;
     showFilters?: string;
     search?: string;
-  }>;
+  };
 }
 
 function parseSearchParams(
-  searchParams: Awaited<ServerCardDashboardProps['searchParams']>
+  searchParams: ServerCardDashboardProps['searchParams']
 ): EPSQueryParams {
   return {
     page: parseInt(searchParams.page || '1', 10),

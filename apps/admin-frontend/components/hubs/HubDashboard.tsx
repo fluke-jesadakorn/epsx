@@ -1,10 +1,10 @@
 import {
   ServerAnalyticsAPI,
-  ServerNotificationAPI,
   ServerPermissionAPI,
   ServerSystemAPI,
   ServerUserAPI,
-} from '@/lib/api/admin-client';
+} from '@/lib/api/server-admin-api';
+import { ServerNotificationAPI } from '@/lib/api/notification-client';
 import {
   Activity,
   BarChart3,

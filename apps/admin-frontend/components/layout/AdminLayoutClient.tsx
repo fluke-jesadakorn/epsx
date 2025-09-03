@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { ServerBreadcrumb } from './ServerBreadcrumb';
+import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell';
 
 interface Session {
   user?: {
@@ -927,13 +928,8 @@ export function AdminLayoutClient({
                   )}
                 </button>
 
-                {/* DeFi Notification Bell */}
-                <button className="group relative flex h-11 min-h-[44px] w-11 min-w-[44px] touch-manipulation items-center justify-center rounded-xl bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg transition-all duration-200 hover:from-red-500 hover:to-red-600 focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-gray-900 focus:outline-none">
-                  <Bell className="h-5 w-5 transition-transform group-hover:scale-110" />
-                  <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-gray-900 bg-gradient-to-r from-red-500 to-red-600">
-                    <span className="text-xs font-bold text-white">12</span>
-                  </div>
-                </button>
+                {/* Real Admin Notification Bell */}
+                <AdminNotificationBell />
               </div>
             </div>
 

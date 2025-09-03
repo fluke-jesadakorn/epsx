@@ -1,7 +1,9 @@
 "use client"
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Bell, AlertTriangle, Info, CheckCircle, Clock, Users, Shield, Settings } from 'lucide-react'
+import { ClientNotificationAPI } from '@/lib/api/client-notification-api'
+import { useToast } from '@/components/ui/use-toast'
 
 interface NotificationCardProps {
   notification: {
@@ -15,9 +17,10 @@ interface NotificationCardProps {
   }
   onMarkAsRead: (id: string) => void
   onDelete: (id: string) => void
+  loading?: boolean
 }
 
-function NotificationCard({ notification, onMarkAsRead, onDelete }: NotificationCardProps) {
+function NotificationCard({ notification, onMarkAsRead, onDelete, loading = false }: NotificationCardProps) {
   const getTypeInfo = (type: string) => {
     switch (type) {
       case 'security':
@@ -84,16 +87,26 @@ function NotificationCard({ notification, onMarkAsRead, onDelete }: Notification
               {!notification.is_read && (
                 <button 
                   onClick={() => onMarkAsRead(notification.id)}
-                  className="px-2 py-1 text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 rounded transition-colors"
+                  disabled={loading}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    loading 
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
                 >
-                  ✓ Read
+                  {loading ? '...' : '✓ Read'}
                 </button>
               )}
               <button 
                 onClick={() => onDelete(notification.id)}
-                className="px-2 py-1 text-xs bg-red-100 text-red-800 hover:bg-red-200 rounded transition-colors"
+                disabled={loading}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  loading 
+                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-100 text-red-800 hover:bg-red-200'
+                }`}
               >
-                🗑️ Delete
+                {loading ? '...' : '🗑️ Delete'}
               </button>
             </div>
           </div>
@@ -104,12 +117,75 @@ function NotificationCard({ notification, onMarkAsRead, onDelete }: Notification
 }
 
 export default function InteractiveNotificationCard({ notification }: { notification: any }) {
-  const handleMarkAsRead = (id: string) => {
-    console.log('Mark as read:', id)
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
+
+  const handleMarkAsRead = async (id: string) => {
+    if (loading) return
+    
+    setLoading(true)
+    try {
+      await ClientNotificationAPI.markAsRead(id)
+      toast({
+        title: "✅ Success",
+        description: "Notification marked as read"
+      })
+      
+      // Update the notification state locally
+      notification.is_read = true
+      
+      // Refresh the page to update the notification list
+      setTimeout(() => window.location.reload(), 1000)
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error)
+      toast({
+        title: "❌ Error",
+        description: "Failed to mark notification as read",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    console.log('Delete notification:', id)
+  const handleDelete = async (id: string) => {
+    if (loading) return
+    
+    if (!confirm('Are you sure you want to delete this notification? This action cannot be undone.')) {
+      return
+    }
+    
+    setLoading(true)
+    try {
+      // Call the delete API endpoint directly since ServerNotificationAPI doesn't have deleteNotification
+      const response = await fetch(`/api/v1/notifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (response.ok) {
+        toast({
+          title: "🗑️ Deleted",
+          description: "Notification deleted successfully"
+        })
+        
+        // Refresh the page to update the notification list
+        setTimeout(() => window.location.reload(), 1000)
+      } else {
+        throw new Error('Failed to delete notification')
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+      toast({
+        title: "❌ Error",
+        description: "Failed to delete notification",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -117,6 +193,7 @@ export default function InteractiveNotificationCard({ notification }: { notifica
       notification={notification}
       onMarkAsRead={handleMarkAsRead}
       onDelete={handleDelete}
+      loading={loading}
     />
   )
 }

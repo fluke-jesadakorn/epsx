@@ -48,8 +48,7 @@ export interface AnalyticsData {
   recommendations?: any[]
 }
 
-// Re-export ServerNotificationAPI
-export { ServerNotificationAPI } from './notification-client'
+// Note: ServerNotificationAPI is available in ./notification-client for server components
 
 export interface SystemConfig {
   jwt_secret_configured: boolean

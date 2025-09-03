@@ -1,6 +1,6 @@
 import React from 'react'
 import { Settings, Server, Shield, Database, Wifi, AlertCircle, CheckCircle, Clock } from 'lucide-react'
-import { ServerSystemAPI } from '@/lib/api/admin-client'
+import { ServerSystemAPI } from '@/lib/api/server-admin-api'
 
 /**
  * Windows Phone-style System Hub

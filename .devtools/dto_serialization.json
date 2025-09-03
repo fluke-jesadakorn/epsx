@@ -2283,3 +2283,99 @@ Quarterly Performance:
   Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 224.47
   Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 201.82
 
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: CEG, Rank: 100, Status: 'STOP', Value: 307.19
+Quarterly Performance:
+  Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.19
+  Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 326.97
+
+Symbol: CME, Rank: 101, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+Symbol: BAM, Rank: 102, Status: 'TRACK', Value: 59.13
+Quarterly Performance:
+  Quarter: 'Aug 13, 2025', Date: 'Aug 13, 2025', EPS: 0.40, Price: 59.13
+  Quarter: 'May 13, 2025', Date: 'May 13, 2025', EPS: 0.07, Price: 9.83
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: CME, Rank: 101, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+Symbol: BAM, Rank: 102, Status: 'TRACK', Value: 59.13
+Quarterly Performance:
+  Quarter: 'Aug 13, 2025', Date: 'Aug 13, 2025', EPS: 0.40, Price: 59.13
+  Quarter: 'May 13, 2025', Date: 'May 13, 2025', EPS: 0.07, Price: 9.83
+
+Symbol: 600900, Rank: 103, Status: 'WATCH', Value: 28.21
+Quarterly Performance:
+  Quarter: 'Sep 2, 2025', Date: 'Sep 2, 2025', EPS: 0.04, Price: 28.21
+  Quarter: 'Jun 4, 2025', Date: 'Jun 4, 2025', EPS: 0.04, Price: 25.64
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: RCL, Rank: 100, Status: 'TRACK', Value: 354.08
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 354.08
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 208.12
+
+Symbol: CEG, Rank: 101, Status: 'STOP', Value: 307.19
+Quarterly Performance:
+  Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.19
+  Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 326.97
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: RCL, Rank: 100, Status: 'TRACK', Value: 354.08
+Quarterly Performance:
+  Quarter: 'Jul 29, 2025', Date: 'Jul 29, 2025', EPS: 4.38, Price: 354.08
+  Quarter: 'Apr 29, 2025', Date: 'Apr 29, 2025', EPS: 2.71, Price: 208.12
+
+Symbol: CEG, Rank: 101, Status: 'STOP', Value: 307.19
+Quarterly Performance:
+  Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.19
+  Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 326.97
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: CEG, Rank: 101, Status: 'STOP', Value: 307.19
+Quarterly Performance:
+  Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.19
+  Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 326.97
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+Symbol: BAM, Rank: 103, Status: 'TRACK', Value: 59.13
+Quarterly Performance:
+  Quarter: 'Aug 13, 2025', Date: 'Aug 13, 2025', EPS: 0.40, Price: 59.13
+  Quarter: 'May 13, 2025', Date: 'May 13, 2025', EPS: 0.07, Price: 9.83
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: CEG, Rank: 101, Status: 'STOP', Value: 307.19
+Quarterly Performance:
+  Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.19
+  Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 326.97
+
+Symbol: CME, Rank: 102, Status: 'TRACK', Value: 265.40
+Quarterly Performance:
+  Quarter: 'Jul 23, 2025', Date: 'Jul 23, 2025', EPS: 2.96, Price: 265.40
+  Quarter: 'Apr 23, 2025', Date: 'Apr 23, 2025', EPS: 2.80, Price: 238.50
+
+Symbol: BAM, Rank: 103, Status: 'TRACK', Value: 59.13
+Quarterly Performance:
+  Quarter: 'Aug 13, 2025', Date: 'Aug 13, 2025', EPS: 0.40, Price: 59.13
+  Quarter: 'May 13, 2025', Date: 'May 13, 2025', EPS: 0.07, Price: 9.83
+

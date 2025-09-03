@@ -20,7 +20,8 @@ import { useEffect, useState } from 'react';
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NavigationMenu } from '@/components/ui/navigation-menu';
-// Notifications completely disabled to fix webpack bundling issues
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+// Notifications re-enabled with working API client
 import {
   Sheet,
   SheetContent,
@@ -176,7 +177,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
           {/* Notifications - Only for authenticated users */}
           {user && (
             <div className="relative">
-              {/* Notifications disabled due to webpack bundling issues */}
+              <NotificationBell variant="default" />
             </div>
           )}
           
@@ -245,14 +246,10 @@ export function NavigationClient({ user }: NavigationClientProps) {
               <div className="mt-6 flex flex-col gap-4">
                 {/* Notifications - Mobile */}
                 {user && (
-                  <Link
-                    href="/notifications"
-                    onClick={() => setIsOpen(false)}
-                    className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors"
-                  >
+                  <div className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors">
                     <span className="text-sm font-medium">Notifications</span>
-                    {/* Notifications disabled due to webpack bundling issues */}
-                  </Link>
+                    <NotificationBell variant="mobile" />
+                  </div>
                 )}
                 
                 {/* Theme Toggle - Mobile */}

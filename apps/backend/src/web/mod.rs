@@ -357,7 +357,6 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Create notification routes (user and admin)
   let notification_routes = notifications::routes::create_notification_routes().with_state(app_state.clone());
   let admin_notification_routes = notifications::routes::create_admin_notification_routes().with_state(app_state.clone());
-  let legacy_notification_routes = notifications::routes::create_legacy_notification_routes().with_state(app_state.clone());
 
   // Create admin routes (core admin functionality)
   let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
@@ -388,7 +387,6 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .merge(oidc_routes)
     .merge(notification_routes)
     .merge(admin_notification_routes)
-    .merge(legacy_notification_routes)
     .merge(realtime_routes)
     .merge(analytics_routes)
     .nest("/api/v1/fcm", fcm_routes)

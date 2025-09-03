@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: new URLSearchParams({
-            token: tokenToRevoke,
-            token_type_hint: tokenTypeHint
-          }),
+          body: new URLSearchParams([
+            ['token', tokenToRevoke!],
+            ['token_type_hint', tokenTypeHint]
+          ]).toString(),
           signal: AbortSignal.timeout(5000), // 5 second timeout
         });
 

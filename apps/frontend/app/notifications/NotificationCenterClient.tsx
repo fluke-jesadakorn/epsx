@@ -168,7 +168,7 @@ export function NotificationCenterClient() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!('Notification' in window) ? (
+                  {!(typeof window !== 'undefined' && 'Notification' in window) ? (
                     <Badge variant="secondary">Not supported</Badge>
                   ) : !pushEnabled ? (
                     <Button

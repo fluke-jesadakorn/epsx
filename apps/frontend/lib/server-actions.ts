@@ -21,21 +21,20 @@ export interface FeatureAccess {
 /**
  * Get current authenticated user from session
  */
-export async function getCurrentUser(params?: any): Promise<{ success: boolean; data?: User; error?: string } | User | null> {
+export async function getCurrentUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
     
     if (!token) {
-      // Return null for backward compatibility, or success format if params provided
-      return params ? { success: false, error: 'No authentication token found' } : null;
+      return null;
     }
 
     const secret = process.env.NEXTAUTH_SECRET || 'default-secret';
-    const payload = await verifyJWT(token, secret);
+    const payload = await verifyJWT(token);
     
     if (!payload) {
-      return params ? { success: false, error: 'Invalid authentication token' } : null;
+      return null;
     }
 
     const user: User = {
@@ -43,15 +42,32 @@ export async function getCurrentUser(params?: any): Promise<{ success: boolean; 
       uid: payload.uid,
       email: payload.email,
       firebaseUid: payload.firebaseUid,
-      role: payload.role,
+      role: String(payload.role || 'user'),
       name: payload.email?.split('@')[0], // Fallback name from email
     };
 
-    // Return success format if params provided, otherwise just the user
-    return params ? { success: true, data: user } : user;
+    return user;
   } catch (error) {
     console.error('Failed to get current user:', error);
-    return params ? { success: false, error: error instanceof Error ? error.message : 'Unknown error' } : null;
+    return null;
+  }
+}
+
+/**
+ * Get current authenticated user with result format
+ */
+export async function getCurrentUserWithResult(): Promise<{ success: boolean; data?: User; error?: string }> {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return { success: false, error: 'No authenticated user found' };
+    }
+
+    return { success: true, data: user };
+  } catch (error) {
+    console.error('Failed to get current user:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
@@ -71,7 +87,7 @@ export async function checkFeatureAccess(feature: string): Promise<FeatureAccess
   }
 
   // Basic feature access logic - can be expanded
-  const userTier = user.role || 'basic';
+  const userTier = String(user.role || 'basic');
   const basicFeatures = ['dashboard', 'basic-analytics'];
   const premiumFeatures = ['advanced-analytics', 'alerts', 'export'];
   const adminFeatures = ['admin-panel', 'user-management'];
@@ -125,7 +141,15 @@ export async function getTransactionHistory(excludePending?: boolean): Promise<P
   }
 }
 
-export type { PaymentStatus, PaymentTransaction } from './api-client';
+export type { PaymentStatus } from './api-client';
+
+export interface PaymentTransaction {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
 
 // Analytics Server Actions
 interface AnalyticsFilterParams {

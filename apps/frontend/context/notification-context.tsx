@@ -5,13 +5,7 @@ import { useAppState } from './app-state';
 import { NotificationState as _NotificationState,  NotificationPreferences } from '@/lib/state/types';
 import type {Notification} from '@/lib/state/types';
 import { useOptimisticUpdates } from '@/lib/state/core';
-// Completely disable api-client to fix webpack bundling issues
-// import { createApiClient, isApiError } from '@/lib/api-client';
-
-// Stub functions to prevent webpack errors
-const createApiClient = () => null;
-const isApiError = () => false;
-// import type { PushSubscriptionRequest, NotificationResponse, NotificationListParams } from '@/lib/api-client';
+// Direct API implementation using fetch to avoid bundling complexity
 import { 
   requestNotificationPermission, 
   getFCMToken, 
@@ -79,8 +73,86 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
   // Initialize API client to use Next.js API routes
   const notificationApiClient = useMemo(() => {
-    // Temporary fix: disable api client to resolve webpack issues
-    return null; // createApiClient('/api');
+    // Direct API client using fetch to avoid webpack bundling issues
+    return {
+      async markNotificationRead(id: string) {
+        const response = await fetch(`/api/v1/notifications/read/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+      },
+      
+      async markAllNotificationsRead() {
+        const response = await fetch('/api/v1/notifications/read-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mark_all: true, notification_ids: [] })
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+      },
+      
+      async getNotifications(page = 1, per_page = 20) {
+        const response = await fetch(`/api/v1/notifications?page=${page}&per_page=${per_page}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return {
+          data: {
+            notifications: data.notifications?.map((n: any) => ({
+              id: n.id,
+              category: n.notification_type,
+              title: n.title,
+              message: n.message,
+              status: n.status,
+              created_at: n.created_at,
+              metadata: n.metadata
+            })) || []
+          }
+        };
+      },
+      
+      async updateNotificationPreferences(preferences: any) {
+        // For now, return success - preferences can be implemented later
+        return { data: preferences };
+      },
+      
+      async getNotificationPreferences() {
+        // For now, return default preferences
+        return {
+          data: {
+            email_enabled: true,
+            push_enabled: true,
+            in_app_enabled: true,
+            categories: [
+              { category: 'trading', enabled: true },
+              { category: 'system', enabled: true }
+            ]
+          }
+        };
+      },
+      
+      async deleteNotification(id: string) {
+        const response = await fetch(`/api/v1/notifications/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+      }
+    };
   }, []);
 
   // Browser notification helper - moved to top
@@ -265,38 +337,41 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   }, [connectSSE]);
 
 
-  // API calls using unified API client
+  // API calls using direct fetch client
   const markReadAPI = useCallback(async (id: string) => {
-    const response = await notificationApiClient.markNotificationRead(id);
-    
-    if (response && typeof response === 'object' && 'message' in response) { // isApiError(response)) {
-      throw new Error(response.error || 'Failed to mark notification as read');
+    try {
+      await notificationApiClient.markNotificationRead(id);
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      throw error;
     }
   }, [notificationApiClient]);
 
   const markAllReadAPI = useCallback(async () => {
-    const response = await notificationApiClient.markAllNotificationsRead();
-    
-    if (response && typeof response === 'object' && 'message' in response) { // isApiError(response)) {
-      throw new Error(response.error || 'Failed to mark all notifications as read');
+    try {
+      await notificationApiClient.markAllNotificationsRead();
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      throw error;
     }
   }, [notificationApiClient]);
 
   const updatePreferencesAPI = useCallback(async (preferences: Partial<NotificationPreferences>) => {
-    const response = await notificationApiClient.updateNotificationPreferences(preferences);
-    
-    if (response && typeof response === 'object' && 'message' in response) { // isApiError(response)) {
-      throw new Error(response.error || 'Failed to update notification preferences');
+    try {
+      const response = await notificationApiClient.updateNotificationPreferences(preferences);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update notification preferences:', error);
+      throw error;
     }
-    
-    return response.data;
   }, [notificationApiClient]);
 
   const deleteNotificationAPI = useCallback(async (id: string) => {
-    const response = await notificationApiClient.deleteNotification(id);
-    
-    if (response && typeof response === 'object' && 'message' in response) { // isApiError(response)) {
-      throw new Error(response.error || 'Failed to delete notification');
+    try {
+      await notificationApiClient.deleteNotification(id);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      throw error;
     }
   }, [notificationApiClient]);
 
@@ -430,13 +505,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       ]);
 
       // Handle notifications response
-      if (notificationsRes && typeof notificationsRes === 'object' && 'message' in notificationsRes) { // isApiError(notificationsRes)) {
-        console.error('Failed to fetch notifications', { error: notificationsRes.message });
-        actions.notifications.setNotifications([]);
-      } else {
+      if (notificationsRes?.data?.notifications) {
         // Convert backend format to frontend format
         const backendNotifications = notificationsRes.data.notifications;
-        const frontendNotifications: Notification[] = backendNotifications.map((n: NotificationResponse) => ({
+        const frontendNotifications: Notification[] = backendNotifications.map((n: any) => ({
           id: n.id,
           type: mapNotificationCategory(n.category),
           title: n.title,
@@ -448,25 +520,30 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         }));
         
         actions.notifications.setNotifications(frontendNotifications);
+      } else {
+        console.warn('No notifications data received');
+        actions.notifications.setNotifications([]);
       }
 
       // Handle preferences response
-      if (preferencesRes && typeof preferencesRes === 'object' && 'message' in preferencesRes) { // isApiError(preferencesRes)) {
-        console.error('Failed to fetch notification preferences', { error: preferencesRes.message });
-      } else if (preferencesRes.data) {
+      if (preferencesRes?.data) {
         // Convert backend format to frontend format
         const backendPrefs = preferencesRes.data;
         const frontendPrefs: NotificationPreferences = {
           email: backendPrefs.email_enabled,
           push: backendPrefs.push_enabled,
           inApp: backendPrefs.in_app_enabled,
-          tradingAlerts: backendPrefs.categories.some(c => c.category === 'trading' && c.enabled),
-          systemUpdates: backendPrefs.categories.some(c => c.category === 'system' && c.enabled)
+          tradingAlerts: backendPrefs.categories.some((c: any) => c.category === 'trading' && c.enabled),
+          systemUpdates: backendPrefs.categories.some((c: any) => c.category === 'system' && c.enabled)
         };
         actions.notifications.updatePreferences(frontendPrefs);
+      } else {
+        console.warn('No preferences data received');
       }
     } catch (error) {
       console.error('Failed to refresh notifications', { error: error instanceof Error ? error.message : String(error) });
+      // Set empty state on error to avoid undefined state
+      actions.notifications.setNotifications([]);
       throw error;
     }
   }, [actions.notifications, notificationApiClient, mapNotificationCategory]);

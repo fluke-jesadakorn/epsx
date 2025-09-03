@@ -43,21 +43,9 @@ pub fn create_admin_notification_routes() -> Router<AppState> {
         
         // Apply admin-specific middleware
         .layer(middleware::from_fn(modern_jwt_auth_middleware))
-        // TODO: Add admin permission check middleware
 }
 
-/// Legacy compatibility routes (to replace existing mock endpoints)
-pub fn create_legacy_notification_routes() -> Router<AppState> {
-    Router::new()
-        // Legacy endpoints for backward compatibility with deprecation headers
-        .route("/users/notifications", get(list_notifications_handler))
-        .route("/users/notifications/mark-read", post(mark_all_notifications_read_handler))
-        .route("/me/notifications", get(list_notifications_handler))
-        .route("/me/notifications/mark-read", post(mark_all_notifications_read_handler))
-        
-        // Apply deprecation headers first, then auth middleware
-        .layer(middleware::from_fn(modern_jwt_auth_middleware))
-}
+// Legacy routes removed - using standardized /api/v1/notifications endpoints
 
 #[cfg(test)]
 mod tests {

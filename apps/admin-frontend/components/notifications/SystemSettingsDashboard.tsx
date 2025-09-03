@@ -15,7 +15,8 @@ import {
   Bell,
   Shield
 } from 'lucide-react'
-import { ServerNotificationAPI, SystemStats, NotificationTemplate } from '@/lib/api/notification-client'
+// Using client-side API with server-side types imported separately
+import { SystemStats, NotificationTemplate } from '@/lib/api/notification-client'
 
 interface SystemSettingsDashboardProps {
   onStatsUpdate?: (stats: any) => void

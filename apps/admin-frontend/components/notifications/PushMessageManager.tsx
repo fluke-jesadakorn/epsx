@@ -15,7 +15,8 @@ import {
   Target,
   PlayCircle
 } from 'lucide-react'
-import { ServerNotificationAPI, SystemMessage, NotificationTemplate, TestMessageRequest } from '@/lib/api/notification-client'
+// Using client-side API with server-side types imported separately
+import { SystemMessage, NotificationTemplate, TestMessageRequest } from '@/lib/api/notification-client'
 
 interface PushMessageManagerProps {
   onMessageSent?: (result: any) => void

@@ -1,4 +1,4 @@
-// Using native fetch instead of axios to avoid bundling issues
+// Using native fetch for lightweight API calls
 
 export interface ApiError {
   message: string;
