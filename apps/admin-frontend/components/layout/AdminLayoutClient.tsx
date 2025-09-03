@@ -25,7 +25,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { ServerBreadcrumb } from './ServerBreadcrumb';
-import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell';
 
 interface Session {
   user?: {
@@ -928,8 +927,13 @@ export function AdminLayoutClient({
                   )}
                 </button>
 
-                {/* Real Admin Notification Bell */}
-                <AdminNotificationBell />
+                {/* Admin Notification Bell - Temporarily disabled */}
+                <button
+                  className="group flex h-11 min-h-[44px] w-11 min-w-[44px] touch-manipulation items-center justify-center rounded-xl bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg transition-all duration-200 hover:from-yellow-400 hover:to-orange-500 hover:text-black focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-gray-900 focus:outline-none"
+                  title="Notifications"
+                >
+                  <Bell className="h-5 w-5 transition-transform group-hover:scale-110" />
+                </button>
               </div>
             </div>
 

@@ -7,6 +7,7 @@ pub mod services;
 pub mod events;
 pub mod error;
 pub mod ports;
+pub mod notification;
 
 // Selective re-exports to prevent namespace pollution
 pub use entities::{AggregateRoot, UnitOfWork};

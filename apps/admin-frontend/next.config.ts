@@ -81,11 +81,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: `
               default-src 'self';
-              script-src 'self' 'unsafe-eval' 'unsafe-inline';
+              script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com;
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob:;
               font-src 'self';
-              connect-src 'self' ${backendUrl} ws: wss:;
+              connect-src 'self' ${backendUrl} ws: wss: https://firebase.googleapis.com https://fcm.googleapis.com https://*.googleapis.com;
               frame-src 'none';
               object-src 'none';
               base-uri 'self';

@@ -53,6 +53,16 @@ export interface PermissionAnalytics {
   recent_activity: number
 }
 
+export interface Notification {
+  id: string
+  type: string
+  title: string
+  message: string
+  is_read: boolean
+  created_at: string
+  metadata?: Record<string, any>
+}
+
 // Server-side fetch with JWT authentication for server components
 async function serverAdminFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   try {
@@ -180,5 +190,71 @@ export class ServerSystemAPI {
       'security_alerts': true,
       'data_export': true
     }
+  }
+}
+
+export class ServerNotificationAPI {
+  static async getUnreadCount(): Promise<{ count: number }> {
+    const result = await serverAdminFetch('/api/v1/notifications/unread-count')
+    return result || { count: 0 }
+  }
+
+  static async getNotifications(page: number = 1, limit: number = 20): Promise<Notification[]> {
+    const result = await serverAdminFetch(`/api/v1/notifications?page=${page}&per_page=${limit}`)
+    if (!result) return []
+    
+    // Convert backend format to our client format
+    return result.notifications?.map((notification: any) => ({
+      id: notification.id,
+      type: notification.notification_type,
+      title: notification.title,
+      message: notification.message,
+      is_read: notification.status === 'read',
+      created_at: notification.created_at,
+      metadata: notification.metadata || {}
+    })) || []
+  }
+
+  static async sendToUser(userIdOrEmail: string, title: string, body: string, priority: 'normal' | 'high' = 'normal'): Promise<any> {
+    const result = await serverAdminFetch('/api/v1/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        message: body,
+        notification_type: 'admin_message',
+        category: 'admin',
+        priority,
+        target_user_email: userIdOrEmail.includes('@') ? userIdOrEmail : null,
+        target_users: userIdOrEmail.includes('@') ? null : [userIdOrEmail],
+        channels: ['push', 'in_app'],
+        metadata: null,
+        template_id: null,
+        template_data: null,
+        expires_at: null,
+        scheduled_for: null
+      })
+    })
+    return result || { success: false, message: 'Failed to send', sent_count: 0, failed_count: 1 }
+  }
+
+  static async sendBroadcast(title: string, body: string, priority: 'normal' | 'high' = 'normal'): Promise<any> {
+    const result = await serverAdminFetch('/api/v1/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        message: body,
+        notification_type: 'admin_broadcast',
+        category: 'admin',
+        priority,
+        target_users: null,
+        channels: ['push', 'in_app'],
+        metadata: null,
+        template_id: null,
+        template_data: null,
+        expires_at: null,
+        scheduled_for: null
+      })
+    })
+    return result || { success: false, message: 'Failed to send', sent_count: 0, failed_count: 1 }
   }
 }

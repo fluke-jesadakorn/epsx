@@ -1,6 +1,6 @@
 import React from 'react'
 import { Bell, AlertTriangle, Info, CheckCircle, Clock, Users, Shield, Settings } from 'lucide-react'
-import { ServerNotificationAPI } from '@/lib/api/notification-client'
+import { ServerNotificationAPI } from '@/lib/api/server-admin-api'
 import NotificationActions from '@/components/notifications/NotificationActions'
 import InteractiveNotificationCard from '@/components/notifications/InteractiveNotificationCard'
 import PushMessageManager from '@/components/notifications/PushMessageManager'
@@ -61,13 +61,13 @@ function NotificationStatsCards({ notifications, unreadCount }: {
 
 
 export default async function NotificationsHub() {
-  // Fetch notifications data
-  const [notificationsData, unreadCountData] = await Promise.allSettled([
-    ServerNotificationAPI.getNotifications(0, 50),
+  // Fetch data server-side
+  const [notifications, unreadCountData] = await Promise.allSettled([
+    ServerNotificationAPI.getNotifications(1, 50),
     ServerNotificationAPI.getUnreadCount()
   ])
 
-  const notifications = notificationsData.status === 'fulfilled' ? notificationsData.value : []
+  const notificationList = notifications.status === 'fulfilled' ? notifications.value : []
   const unreadCount = unreadCountData.status === 'fulfilled' ? unreadCountData.value.count : 0
 
   return (
@@ -83,7 +83,7 @@ export default async function NotificationsHub() {
       </div>
 
       {/* Statistics Cards */}
-      <NotificationStatsCards notifications={notifications} unreadCount={unreadCount} />
+      <NotificationStatsCards notifications={notificationList} unreadCount={unreadCount} />
 
       {/* Pivot Navigation */}
       <div className="mb-6">
@@ -139,8 +139,8 @@ export default async function NotificationsHub() {
 
       {/* Notifications List */}
       <div className="space-y-4">
-        {notifications.length > 0 ? (
-          notifications.map((notification: any) => (
+        {notificationList.length > 0 ? (
+          notificationList.map((notification: any) => (
             <InteractiveNotificationCard
               key={notification.id}
               notification={notification}
@@ -156,7 +156,7 @@ export default async function NotificationsHub() {
       </div>
 
       {/* Load More */}
-      {notifications.length > 0 && (
+      {notificationList.length > 0 && (
         <div className="text-center mt-8">
           <button className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
             Load More Notifications

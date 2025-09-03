@@ -9,7 +9,7 @@ use serde::{Serialize, Deserialize};
 use crate::dom::values::{UserId, PayId};
 
 
-pub mod notification_events;
+// Removed: notification_events - will be re-implemented
 
 pub trait DomainEvent: Send + Sync {
     fn event_id(&self) -> &Uuid;

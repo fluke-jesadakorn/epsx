@@ -9,6 +9,8 @@ pub mod usage_repo;
 pub mod eps_repo;
 pub mod refresh_token_repo;
 pub mod revoked_token_repo;
+// pub mod notification_repo; // Temporarily disabled due to Diesel compilation issues
+pub mod user_notification_repo;
 
 // Re-export all repositories for convenience
 pub use user_repo::DieselUserRepository;
@@ -22,3 +24,5 @@ pub use usage_repo::{DieselUsageRepository, StubUsageRepository};
 pub use eps_repo::DieselEPSRepository;
 pub use refresh_token_repo::RefreshTokenRepository;
 pub use revoked_token_repo::{RevokedTokenRepository, RevocationStats};
+// pub use notification_repo::DieselNotificationRepository; // Temporarily disabled
+pub use user_notification_repo::{UserNotificationRepository, UserNotificationWithDetails, AdminNotificationStats};

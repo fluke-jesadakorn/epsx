@@ -1,256 +1,143 @@
-// ============================================================================
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
-// SIMPLE NOTIFICATION MODELS - REPLACING COMPLEX NOTIFICATION SYSTEM
-// ============================================================================
-// This file replaces complex notification models with simple ones using actual schema fields
-// Works with the simple role system from auth/roles.rs
-
+use chrono::{DateTime, Utc, NaiveTime};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use serde::{Serialize, Deserialize};
-use serde_json::Value as JsonValue;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
+use crate::infra::db::diesel::schema::{notifications, fcm_tokens, fcm_topics, notification_deliveries, user_notification_preferences};
+use crate::infra::db::diesel::types::{NotificationPriority, NotificationType, DeliveryChannel, DeliveryStatus};
 
-use crate::infra::db::diesel::schema::notifications;
-
-use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
-
-
-// ============================================================================
-// SIMPLE NOTIFICATION MODEL (USING ONLY EXISTING FIELDS)
-// ============================================================================
-
-#[derive(Queryable, Selectable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = notifications)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselNotification {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub recipient_user_id: Option<Uuid>,
+    pub fcm_topic_id: Option<Uuid>,
     pub title: String,
-    pub message: String,
+    pub body: String,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,
-    pub is_read: bool,
-    pub delivery_status: Option<String>,
-    pub delivered_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
+    pub channels: Vec<DeliveryChannel>,
+    pub data_payload: Option<serde_json::Value>,
+    pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub metadata: Option<JsonValue>,
-    pub platform_id: Option<Uuid>,
-    // FCM fields
-    pub fcm_sent: Option<bool>,
-    pub fcm_message_id: Option<String>,
-    pub fcm_delivered_at: Option<DateTime<Utc>>,
-    pub fcm_failed_reason: Option<String>,
-    pub delivery_attempts: Option<i32>,
-    pub fcm_data: Option<JsonValue>,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
+#[derive(Insertable, Debug)]
 #[diesel(table_name = notifications)]
 pub struct NewDieselNotification {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub recipient_user_id: Option<Uuid>,
+    pub fcm_topic_id: Option<Uuid>,
     pub title: String,
-    pub message: String,
+    pub body: String,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,
-    pub is_read: bool,
-    pub delivery_status: Option<String>,
-    pub delivered_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
+    pub channels: Vec<DeliveryChannel>,
+    pub data_payload: Option<serde_json::Value>,
+    pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub metadata: Option<JsonValue>,
-    pub platform_id: Option<Uuid>,
-    // FCM fields
-    pub fcm_sent: Option<bool>,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[diesel(table_name = fcm_tokens)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct DieselFcmToken {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub token: String,
+    pub platform: String,
+    pub device_info: Option<serde_json::Value>,
+    pub topics: serde_json::Value,
+    pub is_active: bool,
+    pub last_used_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Insertable, Debug)]
+#[diesel(table_name = fcm_tokens)]
+pub struct NewDieselFcmToken {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub token: String,
+    pub platform: String,
+    pub device_info: Option<serde_json::Value>,
+    pub topics: serde_json::Value,
+    pub is_active: bool,
+    pub last_used_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[diesel(table_name = fcm_topics)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct DieselFcmTopic {
+    pub id: Uuid,
+    pub name: String,
+    pub display_name: String,
+    pub description: Option<String>,
+    pub target_permissions: Option<serde_json::Value>,
+    pub is_active: bool,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[diesel(table_name = notification_deliveries)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct DieselNotificationDelivery {
+    pub id: Uuid,
+    pub notification_id: Uuid,
+    pub user_id: Uuid,
+    pub channel: DeliveryChannel,
+    pub status: DeliveryStatus,
     pub fcm_message_id: Option<String>,
-    pub fcm_delivered_at: Option<DateTime<Utc>>,
-    pub fcm_failed_reason: Option<String>,
-    pub delivery_attempts: Option<i32>,
-    pub fcm_data: Option<JsonValue>,
+    pub error_message: Option<String>,
+    pub delivered_at: Option<DateTime<Utc>>,
+    pub read_at: Option<DateTime<Utc>>,
+    pub clicked_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
 
-
-// ============================================================================
-// SIMPLE NOTIFICATION HELPER FUNCTIONS
-// ============================================================================
-
-impl NewDieselNotification {
-    pub fn new(
-        user_id: Uuid,
-        title: &str,
-        message: &str,
-        notification_type: NotificationType,
-        priority: NotificationPriority,
-        expires_at: Option<DateTime<Utc>>,
-        metadata: Option<JsonValue>,
-    ) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            user_id,
-            title: title.to_string(),
-            message: message.to_string(),
-            notification_type,
-            priority,
-            is_read: false,
-            delivery_status: None,
-            delivered_at: None,
-            created_at: Utc::now(),
-            expires_at,
-            metadata,
-            platform_id: None,
-            // FCM fields - initialized as None for new notifications
-            fcm_sent: Some(false),
-            fcm_message_id: None,
-            fcm_delivered_at: None,
-            fcm_failed_reason: None,
-            delivery_attempts: Some(0),
-            fcm_data: None,
-        }
-    }
-    
-    pub fn info_notification(user_id: Uuid, title: &str, message: &str) -> Self {
-        Self::new(
-            user_id,
-            title,
-            message,
-            NotificationType::Info,
-            NotificationPriority::Low,
-            None,
-            None,
-        )
-    }
-    
-    pub fn warning_notification(user_id: Uuid, title: &str, message: &str) -> Self {
-        Self::new(
-            user_id,
-            title,
-            message,
-            NotificationType::Warning,
-            NotificationPriority::Medium,
-            None,
-            None,
-        )
-    }
-    
-    pub fn error_notification(user_id: Uuid, title: &str, message: &str) -> Self {
-        Self::new(
-            user_id,
-            title,
-            message,
-            NotificationType::Error,
-            NotificationPriority::High,
-            None,
-            None,
-        )
-    }
-    
-    pub fn success_notification(user_id: Uuid, title: &str, message: &str) -> Self {
-        Self::new(
-            user_id,
-            title,
-            message,
-            NotificationType::Success,
-            NotificationPriority::Low,
-            None,
-            None,
-        )
-    }
-    
-    pub fn role_change_notification(user_id: Uuid, new_role: &str) -> Self {
-        Self::new(
-            user_id,
-            "Role Changed",
-            &format!("Your role has been changed to: {}", new_role),
-            NotificationType::RoleChange,
-            NotificationPriority::High,
-            None,
-            Some(serde_json::json!({ "new_role": new_role })),
-        )
-    }
+#[derive(Insertable, Debug)]
+#[diesel(table_name = notification_deliveries)]
+pub struct NewDieselNotificationDelivery {
+    pub id: Uuid,
+    pub notification_id: Uuid,
+    pub user_id: Uuid,
+    pub channel: DeliveryChannel,
+    pub status: DeliveryStatus,
+    pub fcm_message_id: Option<String>,
+    pub error_message: Option<String>,
+    pub delivered_at: Option<DateTime<Utc>>,
+    pub read_at: Option<DateTime<Utc>>,
+    pub clicked_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
 
-// ============================================================================
-// DATABASE OPERATIONS (SIMPLE)
-// ============================================================================
-
-pub async fn create_notification(
-    conn: &mut diesel_async::AsyncPgConnection,
-    notification: NewDieselNotification,
-) -> Result<DieselNotification, diesel::result::Error> {
-    diesel::insert_into(notifications::table)
-        .values(&notification)
-        .returning(DieselNotification::as_returning())
-        .get_result(conn)
-        .await
-}
-
-pub async fn get_user_notifications(
-    conn: &mut diesel_async::AsyncPgConnection,
-    user_id: Uuid,
-    limit: i64,
-) -> Result<Vec<DieselNotification>, diesel::result::Error> {
-    notifications::table
-        .filter(notifications::user_id.eq(user_id))
-        .order(notifications::created_at.desc())
-        .limit(limit)
-        .select(DieselNotification::as_select())
-        .load(conn)
-        .await
-}
-
-pub async fn mark_notification_read(
-    conn: &mut diesel_async::AsyncPgConnection,
-    notification_id: Uuid,
-) -> Result<DieselNotification, diesel::result::Error> {
-    diesel::update(notifications::table.filter(notifications::id.eq(notification_id)))
-        .set(notifications::is_read.eq(true))
-        .returning(DieselNotification::as_returning())
-        .get_result(conn)
-        .await
-}
-
-pub async fn get_unread_count(
-    conn: &mut diesel_async::AsyncPgConnection,
-    user_id: Uuid,
-) -> Result<i64, diesel::result::Error> {
-    notifications::table
-        .filter(notifications::user_id.eq(user_id))
-        .filter(notifications::is_read.eq(false))
-        .count()
-        .get_result(conn)
-        .await
-}
-
-// ============================================================================
-// FCM STATUS UPDATE FUNCTIONS
-// ============================================================================
-
-/// Update FCM delivery status for a notification
-pub async fn update_notification_fcm_status(
-    conn: &mut diesel_async::AsyncPgConnection,
-    notification_id: Uuid,
-    success: bool,
-    message_id: Option<String>,
-    error_reason: Option<String>,
-    attempt_number: u32,
-) -> Result<DieselNotification, diesel::result::Error> {
-    let now = Utc::now();
-    
-    let update_values = (
-        notifications::fcm_sent.eq(success),
-        notifications::fcm_message_id.eq(message_id),
-        notifications::fcm_delivered_at.eq(if success { Some(now) } else { None }),
-        notifications::fcm_failed_reason.eq(error_reason),
-        notifications::delivery_attempts.eq(attempt_number as i32),
-        notifications::delivery_status.eq(if success { Some("delivered".to_string()) } else { Some("failed".to_string()) }),
-    );
-    
-    diesel::update(notifications::table.filter(notifications::id.eq(notification_id)))
-        .set(update_values)
-        .returning(DieselNotification::as_returning())
-        .get_result(conn)
-        .await
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
+#[diesel(table_name = user_notification_preferences)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct DieselUserNotificationPreferences {
+    pub user_id: Uuid,
+    pub fcm_enabled: bool,
+    pub in_app_enabled: bool,
+    pub email_enabled: bool,
+    pub quiet_hours_start: Option<NaiveTime>,
+    pub quiet_hours_end: Option<NaiveTime>,
+    pub timezone: String,
+    pub blocked_topics: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

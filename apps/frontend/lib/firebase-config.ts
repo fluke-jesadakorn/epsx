@@ -1,5 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging, deleteToken, onTokenRefresh } from 'firebase/messaging';
+// Future analytics imports (commented for now):
+// import { getAnalytics, Analytics } from 'firebase/analytics';
+// import { getPerformance, Performance } from 'firebase/performance';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,7 +14,9 @@ const firebaseConfig = {
 };
 
 let firebaseApp: FirebaseApp;
-let messaging: Messaging | null = null;
+// Future analytics variables (commented for now):
+// let analytics: Analytics | null = null;
+// let performance: Performance | null = null;
 
 // Initialize Firebase
 if (!getApps().length) {
@@ -21,126 +25,19 @@ if (!getApps().length) {
   firebaseApp = getApps()[0];
 }
 
-// Initialize Firebase Cloud Messaging and get a reference to the service
-// Only initialize messaging in the browser and if supported
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  try {
-    messaging = getMessaging(firebaseApp);
-  } catch (error) {
-    console.warn('Firebase messaging not available:', error);
-  }
-}
+// Future analytics initialization (commented for now):
+// if (typeof window !== 'undefined') {
+//   try {
+//     analytics = getAnalytics(firebaseApp);
+//     performance = getPerformance(firebaseApp);
+//   } catch (error) {
+//     console.warn('Firebase analytics/performance not available:', error);
+//   }
+// }
 
-export { firebaseApp, messaging };
+export { firebaseApp };
+// Future exports:
+// export { analytics, performance };
 
-export const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-
-export interface FCMToken {
-  token: string;
-  createdAt: Date;
-  userAgent: string;
-}
-
-export interface FCMSubscription {
-  token: string;
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-}
-
-// Request notification permission and get FCM token
-export async function requestNotificationPermission(): Promise<string | null> {
-  if (!messaging) {
-    console.warn('Firebase messaging not initialized');
-    return null;
-  }
-
-  try {
-    // Check if notification permissions are already granted
-    if (Notification.permission === 'granted') {
-      return await getFCMToken();
-    }
-
-    // Request permission
-    const permission = await Notification.requestPermission();
-    
-    if (permission === 'granted') {
-      return await getFCMToken();
-    } else {
-      console.warn('Notification permission denied');
-      return null;
-    }
-  } catch (error) {
-    console.error('Error requesting notification permission:', error);
-    return null;
-  }
-}
-
-// Get FCM registration token
-export async function getFCMToken(): Promise<string | null> {
-  if (!messaging || !vapidKey) {
-    console.warn('Firebase messaging or VAPID key not available');
-    return null;
-  }
-
-  try {
-    const token = await getToken(messaging, {
-      vapidKey: vapidKey
-    });
-    
-    if (token) {
-      console.log('FCM registration token:', token);
-      return token;
-    } else {
-      console.warn('No FCM registration token available');
-      return null;
-    }
-  } catch (error) {
-    console.error('Error getting FCM token:', error);
-    return null;
-  }
-}
-
-// Set up foreground message handler
-export function onForegroundMessage(callback: (payload: any) => void) {
-  if (!messaging) {
-    console.warn('Firebase messaging not initialized');
-    return () => {};
-  }
-
-  try {
-    return onMessage(messaging, (payload) => {
-      console.log('Foreground message received:', payload);
-      callback(payload);
-    });
-  } catch (error) {
-    console.error('Error setting up foreground message handler:', error);
-    return () => {};
-  }
-}
-
-// Check if push notifications are supported
-export function isPushNotificationSupported(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    'Notification' in window &&
-    messaging !== null
-  );
-}
-
-// Get current notification permission status
-export function getNotificationPermissionStatus(): NotificationPermission | null {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return null;
-  }
-  return Notification.permission;
-}
-
-// Check if the browser supports FCM
-export function isFCMSupported(): boolean {
-  return isPushNotificationSupported() && !!vapidKey;
-}
+// FCM functionality moved to backend - frontend only keeps Firebase app for future analytics
+// All notification handling now done via server components and backend API

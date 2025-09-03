@@ -16,7 +16,7 @@ use crate::auth::granular_permissions::{
 };
 use crate::web::middleware::clean_auth::AuthenticatedUser;
 use crate::web::auth::AppState;
-use crate::dom::events::notification_events::{NotificationTriggerEvent, NotificationContext, DeliveryChannel, NotificationEventDispatcher};
+// Removed: notification events - will be re-implemented
 use crate::infra::cache::permission_cache::PermissionCacheService;
 
 /// Request to grant a permission
@@ -200,7 +200,8 @@ pub async fn grant_permission(
     };
 
     // Fire notification event
-    let event = NotificationTriggerEvent::PermissionGranted {
+    // Removed: notification events - will be re-implemented
+    /*let event = NotificationTriggerEvent::PermissionGranted {
         user_id: crate::dom::values::UserId::new(user_id.clone()),
         permission: request.permission.clone(),
         granted_by: crate::dom::values::UserId::new(admin.user_id.clone()),
@@ -232,7 +233,7 @@ pub async fn grant_permission(
                 user_id, e
             );
         }
-    }
+    }*/
 
     info!(
         "Permission '{}' granted to user {} by admin {}",
@@ -283,7 +284,8 @@ pub async fn revoke_permission(
     }
 
     // Fire notification event
-    let event = NotificationTriggerEvent::PermissionRevoked {
+    // Removed: notification events - will be re-implemented
+    /*let event = NotificationTriggerEvent::PermissionRevoked {
         user_id: crate::dom::values::UserId::new(user_id.clone()),
         permission: request.permission.clone(),
         revoked_by: crate::dom::values::UserId::new(admin.user_id.clone()),
@@ -314,7 +316,7 @@ pub async fn revoke_permission(
                 user_id, e
             );
         }
-    }
+    }*/
 
     info!(
         "Permission '{}' revoked from user {} by admin {}",

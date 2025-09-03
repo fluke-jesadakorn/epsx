@@ -1,266 +1,139 @@
-// Data Transfer Objects for notification API
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+// Temporarily use strings instead of enum types
+// use crate::infra::db::diesel::types::{NotificationPriority, NotificationType, DeliveryChannel};
 
-/// Response for notification listing
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationListResponse {
-    pub notifications: Vec<NotificationResponse>,
-    pub pagination: PaginationResponse,
-    pub unread_count: u64,
-    pub total_count: u64,
-    pub fetched_at: DateTime<Utc>,
-}
-
-/// Individual notification response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationResponse {
-    pub id: String,
-    pub user_id: String,
-    pub title: String,
-    pub message: String,
-    pub notification_type: String,
-    pub category: String,
-    pub priority: String,
-    pub status: String,
-    pub channel: String,
-    pub metadata: Option<Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub read_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub scheduled_for: Option<DateTime<Utc>>,
-    pub sent_at: Option<DateTime<Utc>>,
-    pub delivery_status: Option<String>,
-    pub error_message: Option<String>,
-    pub retry_count: i32,
-}
-
-/// Pagination metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PaginationResponse {
-    pub page: u64,
-    pub per_page: u64,
-    pub total_pages: u64,
-    pub has_next: bool,
-    pub has_prev: bool,
-}
-
-/// Request for marking notifications as read
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MarkNotificationsReadRequest {
-    pub notification_ids: Vec<String>,
-    pub mark_all: Option<bool>,
-}
-
-/// Response for mark as read operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MarkNotificationsReadResponse {
-    pub user_id: String,
-    pub marked_count: u64,
-    pub notification_ids: Vec<String>,
-    pub mark_all: bool,
-    pub marked_at: DateTime<Utc>,
-}
-
-/// Request for updating notification preferences
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationPreferencesRequest {
-    pub email_enabled: Option<bool>,
-    pub push_enabled: Option<bool>,
-    pub in_app_enabled: Option<bool>,
-    pub categories: Option<Vec<CategoryPreference>>,
-    pub quiet_hours: Option<QuietHours>,
-}
-
-/// Category-specific preferences
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CategoryPreference {
-    pub category: String,
-    pub enabled: bool,
-    pub channels: Vec<String>, // email, push, in_app
-    pub min_priority: String,  // low, normal, high, critical
-}
-
-/// Quiet hours configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QuietHours {
-    pub enabled: bool,
-    pub start_time: String, // "22:00"
-    pub end_time: String,   // "08:00"
-    pub timezone: String,   // "America/New_York"
-    pub days: Vec<String>,  // ["monday", "tuesday", ...]
-}
-
-/// Request for registering FCM device token
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviceTokenRequest {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegisterFcmTokenRequest {
     pub token: String,
-    pub device_type: String, // "android", "ios", "web"
-    pub device_id: Option<String>,
-    pub app_version: Option<String>,
+    pub platform: String,
+    pub device_info: Option<serde_json::Value>,
 }
 
-/// Response for device token registration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviceTokenResponse {
-    pub user_id: String,
-    pub token_id: String,
-    pub device_type: String,
-    pub registered_at: DateTime<Utc>,
-    pub status: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegisterFcmTokenResponse {
+    pub id: Uuid,
+    pub message: String,
+    pub subscribed_topics: Vec<String>,
 }
 
-/// Request for creating admin notification
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateNotificationRequest {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SendNotificationRequest {
+    pub recipient_user_id: Option<Uuid>,
+    pub fcm_topic_id: Option<String>,
     pub title: String,
-    pub message: String,
+    pub body: String,
     pub notification_type: String,
-    pub category: String,
     pub priority: String,
-    pub target_users: Option<Vec<String>>, // None for broadcast
-    pub channels: Vec<String>, // email, push, in_app
-    pub metadata: Option<Value>,
+    pub channels: Vec<String>,
+    pub data_payload: Option<serde_json::Value>,
+    pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub scheduled_for: Option<DateTime<Utc>>,
-    pub template_id: Option<String>,
-    pub template_data: Option<Value>,
 }
 
-/// Response for notification creation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateNotificationResponse {
-    pub notification_id: String,
-    pub target_count: u64,
-    pub created_at: DateTime<Utc>,
-    pub scheduled_for: Option<DateTime<Utc>>,
-    pub status: String,
-}
-
-/// Notification query parameters
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationQuery {
-    pub page: Option<u64>,
-    pub per_page: Option<u64>,
-    pub status: Option<String>, // read, unread, all
-    pub category: Option<String>,
-    pub priority: Option<String>,
-    pub from_date: Option<DateTime<Utc>>,
-    pub to_date: Option<DateTime<Utc>>,
-    pub notification_type: Option<String>,
-}
-
-impl Default for NotificationQuery {
-    fn default() -> Self {
-        Self {
-            page: Some(1),
-            per_page: Some(20),
-            status: Some("all".to_string()),
-            category: None,
-            priority: None,
-            from_date: None,
-            to_date: None,
-            notification_type: None,
-        }
-    }
-}
-
-/// Unread count response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnreadCountResponse {
-    pub user_id: String,
-    pub unread_count: u64,
-    pub by_category: Vec<CategoryCount>,
-    pub by_priority: Vec<PriorityCount>,
-    pub last_checked: DateTime<Utc>,
-}
-
-/// Category count breakdown
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CategoryCount {
-    pub category: String,
-    pub count: u64,
-}
-
-/// Priority count breakdown
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PriorityCount {
-    pub priority: String,
-    pub count: u64,
-}
-
-/// Notification preferences response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationPreferencesResponse {
-    pub user_id: String,
-    pub email_enabled: bool,
-    pub push_enabled: bool,
-    pub in_app_enabled: bool,
-    pub categories: Vec<CategoryPreference>,
-    pub quiet_hours: Option<QuietHours>,
-    pub updated_at: DateTime<Utc>,
-}
-
-/// Error response for API endpoints
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationErrorResponse {
-    pub error: String,
-    pub code: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SendNotificationResponse {
+    pub id: Uuid,
     pub message: String,
-    pub details: Option<Value>,
-    pub timestamp: DateTime<Utc>,
+    pub recipient_count: Option<u32>,
+    pub delivery_ids: Vec<Uuid>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BroadcastRequest {
+    pub topic: String,
+    pub title: String,
+    pub body: String,
+    pub data: Option<serde_json::Value>,
+    pub priority: String,
+}
 
-    #[test]
-    fn should_serialize_notification_response() {
-        let notification = NotificationResponse {
-            id: "notif_123".to_string(),
-            user_id: "user_456".to_string(),
-            title: "Test Notification".to_string(),
-            message: "This is a test".to_string(),
-            notification_type: "system".to_string(),
-            category: "general".to_string(),
-            priority: "normal".to_string(),
-            status: "unread".to_string(),
-            channel: "in_app".to_string(),
-            metadata: None,
-            created_at: Utc::now(),
-            updated_at: None,
-            read_at: None,
-            expires_at: None,
-            scheduled_for: None,
-            sent_at: None,
-            delivery_status: None,
-            error_message: None,
-            retry_count: 0,
-        };
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BroadcastResponse {
+    pub message_id: String,
+    pub topic: String,
+    pub sent_at: DateTime<Utc>,
+}
 
-        let json = serde_json::to_string(&notification).unwrap();
-        assert!(json.contains("notif_123"));
-        assert!(json.contains("Test Notification"));
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TrackNotificationRequest {
+    pub notification_id: Uuid,
+    pub action: String, // "received", "clicked", "dismissed"
+    pub timestamp: DateTime<Utc>,
+    pub context: Option<String>,
+}
 
-    #[test]
-    fn should_deserialize_mark_read_request() {
-        let json = r#"{"notification_ids":["1","2","3"],"mark_all":false}"#;
-        let request: MarkNotificationsReadRequest = serde_json::from_str(json).unwrap();
-        
-        assert_eq!(request.notification_ids.len(), 3);
-        assert_eq!(request.mark_all, Some(false));
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TrackNotificationResponse {
+    pub success: bool,
+    pub message: String,
+}
 
-    #[test]
-    fn should_create_default_query() {
-        let query = NotificationQuery::default();
-        assert_eq!(query.page, Some(1));
-        assert_eq!(query.per_page, Some(20));
-        assert_eq!(query.status, Some("all".to_string()));
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NotificationStatsResponse {
+    pub total_sent: i64,
+    pub total_delivered: i64,
+    pub total_failed: i64,
+    pub total_pending: i64,
+    pub delivery_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserNotificationsResponse {
+    pub notifications: Vec<UserNotification>,
+    pub total_count: i64,
+    pub unread_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserNotification {
+    pub id: Uuid,
+    pub title: String,
+    pub body: String,
+    pub notification_type: String,
+    pub priority: String,
+    pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub data_payload: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub read_at: Option<DateTime<Utc>>,
+    pub clicked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdatePreferencesRequest {
+    pub fcm_enabled: Option<bool>,
+    pub in_app_enabled: Option<bool>,
+    pub email_enabled: Option<bool>,
+    pub quiet_hours_start: Option<String>, // HH:MM format
+    pub quiet_hours_end: Option<String>,   // HH:MM format
+    pub timezone: Option<String>,
+    pub blocked_topics: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NotificationPreferencesResponse {
+    pub fcm_enabled: bool,
+    pub in_app_enabled: bool,
+    pub email_enabled: bool,
+    pub quiet_hours_start: Option<String>,
+    pub quiet_hours_end: Option<String>,
+    pub timezone: String,
+    pub blocked_topics: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TopicSubscriptionRequest {
+    pub topics: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TopicSubscriptionResponse {
+    pub subscribed: Vec<String>,
+    pub failed: Vec<String>,
+    pub message: String,
 }

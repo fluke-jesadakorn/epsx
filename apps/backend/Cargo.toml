@@ -19,6 +19,8 @@ name = "migrate"
 path = "src/bin/migrate.rs"
 required-features = ["cli-tools"]
 
+# Removed: fcm_cleanup binary - will be re-implemented
+
 
 
 

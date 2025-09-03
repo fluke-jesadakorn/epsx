@@ -14,7 +14,7 @@ use crate::dom::entities::{User, UserPermission, PermissionId, Session, Stock};
 
 use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditStatistics, AuditError};
 
-use crate::dom::ports::notification::{DomainNotification, NotificationError};
+// Removed: notification ports - will be re-implemented
 
 use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
 
@@ -298,70 +298,9 @@ pub trait UsageRepository: Send + Sync {
 }
 
 
-#[async_trait]
-#[cfg_attr(test, automock)]
-pub trait NotificationRepository: Send + Sync {
-    /// Send a notification to a user
-    async fn send_notification(&self, user_id: &UserId, notification: &DomainNotification) -> Result<(), NotificationError>;
-    
-    /// Get notifications for a user
-    async fn get_user_notifications(&self, user_id: &UserId, offset: u32, limit: u32) -> Result<Vec<DomainNotification>, NotificationError>;
-    
-    /// Mark notification as read
-    async fn mark_as_read(&self, notification_id: &str) -> Result<(), NotificationError>;
-    
-    /// Get notification count for user
-    async fn count_user_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
-    
-    /// Get unread notification count for user
-    async fn count_unread_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
+// Removed: NotificationRepository trait - will be re-implemented
 
-    // NEW: Missing methods identified from notification service analysis
-    
-    /// Get a notification by ID (for specific user)
-    async fn get_by_id(&self, notification_id: &str, user_id: &UserId) -> Result<Option<DomainNotification>, NotificationError>;
-    
-    /// Mark all notifications as read for a user
-    async fn mark_all_as_read(&self, user_id: &UserId) -> Result<u64, NotificationError>;
-    
-    /// Update delivery status of a notification
-    async fn update_delivery_status(&self, notification_id: &str, status: &str) -> Result<(), NotificationError>;
-    
-    /// Delete a notification
-    async fn delete(&self, notification_id: &str, user_id: &UserId) -> Result<bool, NotificationError>;
-    
-    /// Get user notification preferences
-    async fn get_user_preferences(&self, user_id: &UserId) -> Result<Option<NotificationPreferences>, NotificationError>;
-    
-    /// Update user notification preferences
-    async fn upsert_user_preferences(&self, user_id: &UserId, preferences: &NotificationPreferences) -> Result<(), NotificationError>;
-    
-    /// Get pending notifications for processing
-    async fn get_pending_notifications(&self, limit: u32) -> Result<Vec<DomainNotification>, NotificationError>;
-    
-    /// Cleanup expired notifications
-    async fn cleanup_expired(&self, before: DateTime<Utc>) -> Result<u64, NotificationError>;
-    
-    /// Get critical notifications count for user
-    async fn count_critical_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
-    
-    /// Get today's notifications count for user  
-    async fn count_today_notifications(&self, user_id: &UserId) -> Result<u64, NotificationError>;
-    
-    /// Get last notification timestamp for user
-    async fn get_last_notification_time(&self, user_id: &UserId) -> Result<Option<DateTime<Utc>>, NotificationError>;
-}
-
-/// User notification preferences
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationPreferences {
-    pub email_enabled: bool,
-    pub push_enabled: bool,
-    pub feature_expiration: bool,
-    pub security_alerts: bool,
-    pub account_updates: bool,
-    pub marketing: bool,
-}
+// Removed: NotificationPreferences struct - will be re-implemented
 
 
 // Supporting types

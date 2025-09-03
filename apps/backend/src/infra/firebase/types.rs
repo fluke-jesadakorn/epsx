@@ -4,7 +4,24 @@ use chrono::{DateTime, Utc};
 
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
+
+// Access token cache for thread-safe caching
+#[derive(Debug)]
+pub struct AccessTokenCache {
+    pub token: Option<String>,
+    pub expires_at: DateTime<Utc>,
+}
+
+impl Default for AccessTokenCache {
+    fn default() -> Self {
+        Self {
+            token: None,
+            expires_at: Utc::now() - chrono::Duration::hours(1), // Force initial fetch
+        }
+    }
+}
 
 // Core Firebase Admin Structure
 #[derive(Debug, Clone)]
@@ -14,6 +31,8 @@ pub struct FirebaseAdmin {
     pub service_account_key: Option<String>,
     pub jwks_cache: HashMap<String, FirebasePublicKey>,
     pub jwks_cache_expiry: DateTime<Utc>,
+    // Access token caching (thread-safe)
+    pub access_token_cache: Arc<Mutex<AccessTokenCache>>,
 }
 
 // Firebase User Data Structures

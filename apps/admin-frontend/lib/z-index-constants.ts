@@ -14,10 +14,10 @@ export const Z_INDEX_LAYERS = {
     ELEVATED_CONTENT: 'z-10',
   },
   
-  // Dropdowns and tooltips: z-20 to z-30
+  // Dropdowns and tooltips: z-[9999] to z-[10000]
   DROPDOWNS: {
-    DROPDOWN: 'z-20',
-    TOOLTIP: 'z-30',
+    DROPDOWN: 'z-[10000]',
+    TOOLTIP: 'z-[9999]',
   },
   
   // Sidebar and navigation overlays: z-40 to z-50

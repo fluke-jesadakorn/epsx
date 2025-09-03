@@ -3,7 +3,6 @@
  * Provides server-side data fetching and server actions for interactions
  */
 
-import { getJWTFromCookies } from '@/lib/server/jwt'
 import { cookies } from 'next/headers'
 
 // Base configuration
@@ -48,7 +47,6 @@ export interface AnalyticsData {
   recommendations?: any[]
 }
 
-// Note: ServerNotificationAPI is available in ./notification-client for server components
 
 export interface SystemConfig {
   jwt_secret_configured: boolean

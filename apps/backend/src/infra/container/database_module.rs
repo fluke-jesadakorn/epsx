@@ -7,7 +7,8 @@ use crate::infra::db::diesel::{
     DbPool, create_pool,
     repos::{
         DieselUserRepository, DieselUserPermissionRepository, DieselSessionRepository, DieselAuditRepository,
-        DieselModuleRepository, StubStockRepository, RefreshTokenRepository, RevokedTokenRepository
+        DieselModuleRepository, StubStockRepository, RefreshTokenRepository, RevokedTokenRepository,
+        UserNotificationRepository
     }
 };
 
@@ -22,6 +23,7 @@ pub struct DatabaseModule {
     pub stock_repo: Arc<dyn StockRepository>,
     pub refresh_token_repo: Arc<RefreshTokenRepository>,
     pub revoked_token_repo: Arc<RevokedTokenRepository>,
+    pub user_notification_repo: Arc<UserNotificationRepository>,
 }
 
 impl DatabaseModule {
@@ -38,8 +40,9 @@ impl DatabaseModule {
         let stock_repo = Arc::new(StubStockRepository::new()) as Arc<dyn StockRepository>;
         let refresh_token_repo = Arc::new(RefreshTokenRepository::new(database_pool.clone()));
         let revoked_token_repo = Arc::new(RevokedTokenRepository::new(database_pool.clone()));
+        let user_notification_repo = Arc::new(UserNotificationRepository::new(database_pool.clone()));
         
-        tracing::info!("✅ Repository layer created successfully with user permissions");
+        tracing::info!("✅ Repository layer created successfully with user permissions and notifications");
         
         Ok(DatabaseModule {
             database_pool,
@@ -50,6 +53,7 @@ impl DatabaseModule {
             stock_repo,
             refresh_token_repo,
             revoked_token_repo,
+            user_notification_repo,
         })
     }
 

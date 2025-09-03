@@ -37,6 +37,13 @@ pub struct AppContainer {
     pub permission_infrastructure_service: Arc<PermissionInfrastructureService>,
     pub permission_application_service: Arc<PermissionApplicationService>,
     // Removed admin_module_service - using simple roles
+    
+    // FCM services
+    pub fcm_service: Arc<crate::infra::services::FcmService>,
+    pub fcm_topic_service: Arc<crate::infra::services::FcmTopicService>,
+    
+    // Notification repository
+    pub user_notification_repo: Arc<crate::infra::db::diesel::repos::UserNotificationRepository>,
 }
 
 impl AppContainer {
@@ -90,7 +97,7 @@ impl AppContainer {
             self.cache.cache.clone(),
             None, // Removed security_cache 
             None, // Removed brute_force_service
-            self.services.notification_port.clone(),
+            None, // Removed notification_port - will be re-implemented
             // Clean architecture services
             self.permission_application_service.clone(),
         ))
@@ -124,15 +131,7 @@ impl AppContainer {
         Ok(self.cache.cache.clone())
     }
 
-    /// Get FCM token service
-    pub fn fcm_token_service(&self) -> Arc<dyn crate::infra::services::fcm_token_service::FcmTokenService> {
-        self.services.fcm_token_service.clone()
-    }
-
-    /// Get FCM push service  
-    pub fn fcm_push_service(&self) -> Arc<dyn crate::infra::services::fcm_push_service::FcmPushService> {
-        self.services.fcm_push_service.clone()
-    }
+    // Removed: FCM services - will be re-implemented
 }
 
 /// Builder for creating the refined AppContainer with focused modules
@@ -205,6 +204,11 @@ impl AppContainerBuilder {
             permission_service: services.permission_service.clone(),
             permission_infrastructure_service: services.permission_infrastructure_service.clone(),
             permission_application_service: services.permission_application_service.clone(),
+            // FCM services
+            fcm_service: services.fcm_service.clone(),
+            fcm_topic_service: services.fcm_topic_service.clone(),
+            // Notification repository
+            user_notification_repo: database.user_notification_repo.clone(),
             // Removed admin_module_service field - using simple roles
             infra,
             

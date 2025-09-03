@@ -1,9 +1,6 @@
 // External service implementations
 
 pub mod email_service;
-pub mod fcm_notification_service;
-pub mod fcm_token_service;
-pub mod fcm_push_service;
 pub mod payment_service;
 pub mod market_data_service;
 pub mod encryption_service;
@@ -11,24 +8,14 @@ pub mod tradingview;
 // pub mod websocket_service; // Removed during WebSocket cleanup
 pub mod tradingview_websocket_service;
 pub mod permission_infrastructure;
+pub mod fcm_service;
+pub mod fcm_topic_service;
 
 // Re-export with shorter alias for backward compatibility
 pub use tradingview_websocket_service as tradingview_websocket;
 pub mod api_key_service;
 
 pub use email_service::{SendGridEmailService, MockEmailService, SentEmail};
-pub use fcm_token_service::{
-    FcmTokenService, SimpleFcmTokenService, FcmTokenInfo, FcmTokenError
-};
-pub use fcm_notification_service::{
-    FcmNotificationService, NotificationService, Notification, NotificationType,
-    NotificationPriority, NotificationDeliveryStatus, NotificationPreferences,
-    NotificationQuery, ServiceNotificationStats
-};
-pub use fcm_push_service::{
-    FcmPushService, ComprehensiveFcmPushService, FcmMessage, FcmPriority,
-    FcmSendResult, FcmBatchResult, FcmPushError
-};
 pub use payment_service::{
     PaymentGatewayConfig, NetworkConfig, MultiGatewayPaymentService,
     CoinPaymentsGateway, MockPaymentGateway
@@ -48,6 +35,8 @@ pub use permission_infrastructure::{
     PermissionInfrastructureService, PermissionInfrastructureServiceFactory, 
     InfrastructurePermissionError
 };
+pub use fcm_service::{FcmService, FcmMessage, FcmNotification, FcmTarget, DeliveryStats};
+pub use fcm_topic_service::{FcmTopicService, PlatformTopics, TopicSubscriptionRequest, TopicSubscriptionResponse};
 
 // TODO: Implement remaining external services like:
 // - WebSocketService (real-time communication)

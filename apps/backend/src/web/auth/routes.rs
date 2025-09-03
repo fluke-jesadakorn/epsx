@@ -18,7 +18,7 @@ use crate::infra::firebase_admin::FirebaseAdmin;
 // Removed admin module service import - using simple roles
 use crate::infra::AppContainer;
 use crate::infra::cache::Cache;
-use crate::dom::ports::notification::NotificationPort;
+// Removed: notification port - will be re-implemented
 use crate::app::services::PermissionApplicationService;
 
 use crate::web::user::handlers::{
@@ -55,7 +55,7 @@ pub struct AppState {
     // Removed admin_module_service - using simple roles
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
-    pub notification_service: Arc<dyn NotificationPort>,
+    // Removed: notification service - will be re-implemented
     // Clean architecture services
     pub permission_application_service: Arc<PermissionApplicationService>,
 }
@@ -76,7 +76,7 @@ impl AppState {
         cache: Arc<dyn Cache>,
         _security_cache: Option<()>, // Removed security_cache
         _brute_force_service: Option<()>, // Removed brute_force_service
-        notification_service: Arc<dyn NotificationPort>,
+        _notification_service: Option<()>, // Removed: notification service - will be re-implemented
         // Clean architecture services
         permission_application_service: Arc<PermissionApplicationService>,
     ) -> Self {
@@ -93,7 +93,7 @@ impl AppState {
             // Removed admin_module_service field - using simple roles
             db_pool,
             cache,
-            notification_service,
+            // Removed: notification service field
             // Clean architecture services
             permission_application_service,
         }

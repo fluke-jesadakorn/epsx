@@ -13,11 +13,10 @@ pub mod analytics;
 pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
-pub mod notifications;
 pub mod realtime;
 pub mod session_management_handlers;
 pub mod session_management_routes;
-pub mod fcm;
+pub mod notifications;
 
 use axum::{ routing::{ get, post }, Router, response::Json, http::Method };
 use serde_json::{ json, Value };
@@ -354,9 +353,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
 
   // Permission routes removed - replaced by simple roles middleware
 
-  // Create notification routes (user and admin)
-  let notification_routes = notifications::routes::create_notification_routes().with_state(app_state.clone());
-  let admin_notification_routes = notifications::routes::create_admin_notification_routes().with_state(app_state.clone());
+  // Notification routes removed - will be re-implemented
 
   // Create admin routes (core admin functionality)
   let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
@@ -365,13 +362,13 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Create realtime routes for SSE
   let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
 
+
   // Create analytics routes that use the container's InfraFactory
   let analytics_routes = create_standalone_analytics_routes(
     &container.infra
   ).await;
   
-  // Create FCM routes  
-  let fcm_routes = fcm::fcm_routes().with_state((*container).clone());
+  // FCM routes removed - will be re-implemented
 
   // Create core routes
   let core_routes = Router::new()
@@ -382,15 +379,25 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with analytics, notifications, admin, FCM, and permissions support
+  // Merge routes with analytics, admin, and permissions support
   Ok(core_routes
     .merge(oidc_routes)
-    .merge(notification_routes)
-    .merge(admin_notification_routes)
     .merge(realtime_routes)
     .merge(analytics_routes)
-    .nest("/api/v1/fcm", fcm_routes)
-    .nest("/api/v1/admin", admin_routes)
+    .nest("/api/v1/notifications", notifications::notification_routes()
+      .layer(axum::Extension(container.fcm_service.clone()))
+      .layer(axum::Extension(container.fcm_topic_service.clone()))
+      .layer(axum::Extension(container.user_notification_repo.clone()))
+      .layer(axum_middleware::from_fn_with_state(
+        app_state.clone(),
+        crate::web::middleware::clean_auth_middleware
+      ))
+    )
+    .nest("/api/v1/admin", admin_routes
+      .layer(axum::Extension(container.fcm_service.clone()))
+      .layer(axum::Extension(container.fcm_topic_service.clone()))
+      .layer(axum::Extension(container.user_notification_repo.clone()))
+    )
     .merge(admin_public_routes)
     // Add comprehensive security middleware stack
     // TODO: Fix middleware state type compatibility

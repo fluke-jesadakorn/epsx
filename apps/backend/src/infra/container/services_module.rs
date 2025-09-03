@@ -6,15 +6,12 @@
 
 use std::sync::Arc;
 use crate::app::ports::repositories::{UserRepository, UserPermissionRepository};
-use crate::dom::ports::notification::NotificationPort;
+// Removed: notification and FCM service imports - will be re-implemented
 use crate::infra::{
     firebase_admin::FirebaseAdmin,
-    services::fcm_notification_service::{FcmNotificationService, NotificationService},
     services::permission_infrastructure::{
         PermissionInfrastructureService, PermissionInfrastructureServiceFactory
     },
-    services::fcm_token_service::{FcmTokenService, SimpleFcmTokenService},
-    services::fcm_push_service::{FcmPushService, ComprehensiveFcmPushService},
     db::diesel::DbPool,
     cache::Cache,
 };
@@ -51,14 +48,13 @@ impl PermissionSystems {
 #[derive(Clone)]
 pub struct ServicesModule {
     pub firebase_admin: Arc<FirebaseAdmin>,
-    pub notification_service: Arc<dyn NotificationService>,
-    pub notification_port: Arc<dyn NotificationPort>,
+    // FCM services
+    pub fcm_service: Arc<crate::infra::services::FcmService>,
+    pub fcm_topic_service: Arc<crate::infra::services::FcmTopicService>,
     pub permission_service: Arc<PermissionService>,
     pub permission_infrastructure_service: Arc<PermissionInfrastructureService>,
     pub permission_application_service: Arc<PermissionApplicationService>,
     pub refresh_token_service: Arc<RefreshTokenService>,
-    pub fcm_token_service: Arc<dyn FcmTokenService>,
-    pub fcm_push_service: Arc<dyn FcmPushService>,
 }
 
 impl ServicesModule {
@@ -75,7 +71,14 @@ impl ServicesModule {
         // Create Firebase admin service - use test client for now to avoid async issues
         let firebase_admin = Arc::new(FirebaseAdmin::create_test_client());
 
-        // Clean FCM notification service will be created after FCM services
+        // Create FCM services
+        let fcm_service = Arc::new(crate::infra::services::FcmService::new(
+            firebase_admin.clone()
+        ));
+        let fcm_topic_service = Arc::new(crate::infra::services::FcmTopicService::new(
+            (*firebase_admin).clone(), 
+            "epsx-449804".to_string()
+        ));
 
         // Create permission services with clean architecture
         tracing::info!("🔐 Creating permission services with environment configuration...");
@@ -109,42 +112,16 @@ impl ServicesModule {
             revoked_token_repo,
         ));
 
-        // 5. Create FCM services
-        tracing::info!("🔔 Creating FCM services...");
-        
-        let fcm_token_service: Arc<dyn FcmTokenService> = Arc::new(SimpleFcmTokenService::new(
-            _database_pool.clone(),
-            firebase_admin.clone(),
-        ));
-        
-        let fcm_push_service: Arc<dyn FcmPushService> = Arc::new(ComprehensiveFcmPushService::new(
-            _database_pool.clone(),
-            firebase_admin.clone(),
-            fcm_token_service.clone(),
-        ));
-
-        // 6. Create clean FCM notification service
-        tracing::info!("🔗 Creating clean FCM notification service...");
-        let fcm_notification_service = Arc::new(FcmNotificationService::new(
-            fcm_push_service.clone(),
-            fcm_token_service.clone(),
-        ));
-        
-        let notification_service: Arc<dyn NotificationService> = fcm_notification_service.clone();
-        let notification_port: Arc<dyn NotificationPort> = fcm_notification_service.clone();
-
         tracing::info!("✅ All services created successfully");
 
         Ok(ServicesModule {
             firebase_admin,
-            notification_service,
-            notification_port,
+            fcm_service,
+            fcm_topic_service,
             permission_service,
             permission_infrastructure_service,
             permission_application_service,
             refresh_token_service,
-            fcm_token_service,
-            fcm_push_service,
         })
     }
 
@@ -156,9 +133,7 @@ impl ServicesModule {
         self.firebase_admin.clone()
     }
 
-    pub fn get_notification_service(&self) -> Arc<dyn NotificationService> {
-        self.notification_service.clone()
-    }
+    // Removed: notification service accessor - will be re-implemented
 
     pub fn get_permission_service(&self) -> Arc<PermissionService> {
         self.permission_service.clone()

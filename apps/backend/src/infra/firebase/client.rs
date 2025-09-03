@@ -2,12 +2,13 @@
 // Focused module handling Firebase client initialization and connection management
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use reqwest::Client;
 use chrono::{Utc, Duration};
 use tracing::{info, warn};
 
 use crate::config::env::get_env_var;
-use super::types::{FirebaseAdmin, FirebasePublicKey};
+use super::types::{FirebaseAdmin, FirebasePublicKey, AccessTokenCache};
 
 impl FirebaseAdmin {
     /// Create a new Firebase Admin SDK instance
@@ -26,22 +27,93 @@ impl FirebaseAdmin {
             service_account_key,
             jwks_cache: HashMap::new(),
             jwks_cache_expiry: Utc::now() - Duration::hours(1), // Force initial fetch
+            access_token_cache: Arc::new(Mutex::new(AccessTokenCache::default())),
         })
     }
 
-    /// Get Firebase Admin SDK access token using service account
+    /// Get Firebase Admin SDK access token using service account with caching
     pub async fn get_access_token(&self) -> Result<String, Box<dyn std::error::Error>> {
-        // For Firebase Admin SDK, we need to generate a JWT and exchange it for an access token
-        // For now, let's use a simpler approach that works with the Identity Toolkit API
+        // Check if we have a valid cached token
+        {
+            let cache = self.access_token_cache.lock().unwrap();
+            if let Some(token) = &cache.token {
+                if cache.expires_at > Utc::now() + Duration::minutes(5) { // 5 min buffer
+                    info!("🔄 Using cached Firebase access token");
+                    return Ok(token.clone());
+                }
+            }
+            info!("♻️ Access token expired or not cached, refreshing...");
+        } // Release lock
         
-        // Check if we have service account credentials from environment variables
-        if let Ok(client_email) = get_env_var("FIREBASE_CLIENT_EMAIL") {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Check if we have service account credentials
+        if let (Ok(client_email), Ok(private_key_pem)) = (
+            get_env_var("FIREBASE_CLIENT_EMAIL"),
+            get_env_var("FIREBASE_PRIVATE_KEY"),
+        ) {
             info!("Using Firebase service account: {}", client_email);
             
-            // For demonstration, return a mock token that indicates we have proper service account setup
-            // In a full implementation, we would use the private key to sign the JWT
-            warn!("Firebase service account configured but JWT signing not fully implemented");
-            Ok(format!("service_account_token_{}", client_email))
+            // Create JWT claims
+            let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+            let exp = now + 3600; // 1 hour expiration
+            
+            let claims = serde_json::json!({
+                "iss": client_email,
+                "scope": "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/firebase.messaging",
+                "aud": "https://oauth2.googleapis.com/token",
+                "iat": now,
+                "exp": exp
+            });
+            
+            // Use jsonwebtoken library for proper JWT signing
+            use jsonwebtoken::{encode, Header, Algorithm, EncodingKey};
+            
+            let header = Header::new(Algorithm::RS256);
+            let key = EncodingKey::from_rsa_pem(private_key_pem.as_bytes())?;
+            let jwt = encode(&header, &claims, &key)?;
+            
+            info!("Generated JWT for service account authentication");
+            
+            // Exchange JWT for access token
+            let token_url = "https://oauth2.googleapis.com/token";
+            let params = [
+                ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
+                ("assertion", &jwt),
+            ];
+            
+            let response = self.client
+                .post(token_url)
+                .form(&params)
+                .send()
+                .await?;
+                
+            if response.status().is_success() {
+                let token_response: serde_json::Value = response.json().await?;
+                if let Some(access_token) = token_response.get("access_token") {
+                    let token = access_token.as_str().unwrap().to_string();
+                    let expires_in = token_response.get("expires_in")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(3600); // Default 1 hour
+                    
+                    // Cache the token
+                    {
+                        let mut cache = self.access_token_cache.lock().unwrap();
+                        cache.token = Some(token.clone());
+                        cache.expires_at = Utc::now() + Duration::seconds(expires_in as i64);
+                    }
+                    
+                    info!("✅ Successfully obtained and cached Firebase access token (expires in {}s)", expires_in);
+                    return Ok(token);
+                } else {
+                    warn!("No access token in response: {:?}", token_response);
+                }
+            } else {
+                let error_text = response.text().await?;
+                warn!("Failed to exchange JWT for access token: {}", error_text);
+            }
+            
+            Err("Failed to exchange JWT for access token".into())
         } else {
             // Fallback to API key for development
             if let Ok(api_key) = get_env_var("FIREBASE_API_KEY") {
@@ -149,6 +221,7 @@ impl FirebaseAdmin {
             service_account_key,
             jwks_cache: HashMap::new(),
             jwks_cache_expiry: Utc::now() - Duration::hours(1),
+            access_token_cache: Arc::new(Mutex::new(AccessTokenCache::default())),
         })
     }
 
@@ -166,6 +239,7 @@ impl FirebaseAdmin {
             service_account_key,
             jwks_cache: HashMap::new(),
             jwks_cache_expiry: Utc::now() - Duration::hours(1),
+            access_token_cache: Arc::new(Mutex::new(AccessTokenCache::default())),
         })
     }
 
@@ -177,6 +251,7 @@ impl FirebaseAdmin {
             service_account_key: Some("test-key".to_string()),
             jwks_cache: HashMap::new(),
             jwks_cache_expiry: Utc::now() + Duration::hours(1),
+            access_token_cache: Arc::new(Mutex::new(AccessTokenCache::default())),
         }
     }
 }

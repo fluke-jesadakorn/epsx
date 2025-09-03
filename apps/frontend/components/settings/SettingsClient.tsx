@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
-import { FCMNotificationManager } from '@/components/notifications/FCMNotificationManager';
+import Link from 'next/link';
 import { Bell, User, Settings, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -112,8 +112,35 @@ export function SettingsClient() {
               🔔 Push Notification Settings
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <FCMNotificationManager />
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground mb-4">
+              Manage your EPSX notification preferences and view your notification history.
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/notifications">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Bell className="h-4 w-4 mr-2" />
+                  View Notifications
+                </Button>
+              </Link>
+              <Link href="/notifications/preferences">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Notification Settings
+                </Button>
+              </Link>
+            </div>
+            
+            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <Bell className="h-4 w-4" />
+                <span className="font-medium">Push Notifications Enabled</span>
+              </div>
+              <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                You'll receive important updates about your account and trading activity.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

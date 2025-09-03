@@ -23,12 +23,20 @@ if (!getApps().length) {
 
 // Initialize Firebase Cloud Messaging for admin interface
 // Only initialize messaging in the browser and if supported
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && vapidKey) {
   try {
     messaging = getMessaging(firebaseApp);
+    console.log('✅ Admin Firebase messaging initialized successfully');
   } catch (error) {
-    console.warn('Admin Firebase messaging not available:', error);
+    console.warn('⚠️  Admin Firebase messaging not available:', error);
+    messaging = null;
   }
+} else {
+  console.log('🔍 Admin Firebase messaging initialization skipped:', {
+    hasWindow: typeof window !== 'undefined',
+    hasServiceWorker: typeof window !== 'undefined' && 'serviceWorker' in navigator,
+    hasVapidKey: !!vapidKey
+  });
 }
 
 export { firebaseApp, messaging };

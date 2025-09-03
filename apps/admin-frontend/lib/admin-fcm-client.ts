@@ -210,6 +210,7 @@ class AdminFCMClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(subscriptionData)
     });
 
@@ -250,6 +251,7 @@ class AdminFCMClient {
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: JSON.stringify({ fcmToken: this.currentToken })
         });
         
@@ -284,6 +286,7 @@ class AdminFCMClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({
         ...notification,
         fcmToken: this.currentToken,
@@ -307,7 +310,8 @@ class AdminFCMClient {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      credentials: 'include'
     });
 
     if (!response.ok) {

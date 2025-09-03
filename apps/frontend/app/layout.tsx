@@ -2,8 +2,6 @@ import { NavigationClient } from '@/components/nav/NavigationClient';
 import { getAuthUser } from '@/lib/server/auth';
 import { Kanit } from 'next/font/google';
 import { type EPSXJWTPayload } from '@/lib/auth-utils';
-// Notifications re-enabled with working API client
-import { NotificationProvider } from '@/context/notification-context';
 import { Toaster } from 'sonner';
 import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
 import { ClientProviders } from '@/components/providers/ClientProviders';
@@ -105,30 +103,30 @@ export default async function RootLayout({
       </head>
       <body className={`${kanit.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
         <ClientProviders>
-          <NotificationProvider>
-            {/* Service Worker Registration */}
-            <ServiceWorkerInitializer />
-            
-            {/* Mobile navigation optimized for touch */}
-            <NavigationClient user={user} />
-            
-            {/* Main content with mobile scroll optimization */}
-            <main className="relative min-h-screen">
-              {children}
-            </main>
-            
-            {/* Toast notifications */}
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                style: {
-                  background: 'hsl(var(--background))',
-                  color: 'hsl(var(--foreground))',
-                  border: '1px solid hsl(var(--border))',
-                },
-              }}
-            />
-          </NotificationProvider>
+          {/* Service Worker Registration */}
+          <ServiceWorkerInitializer />
+          
+          {/* Notifications now handled in NavigationClient with server components */}
+          
+          {/* Mobile navigation optimized for touch */}
+          <NavigationClient user={user} />
+          
+          {/* Main content with mobile scroll optimization */}
+          <main className="relative min-h-screen">
+            {children}
+          </main>
+          
+          {/* Toast notifications */}
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--border))',
+              },
+            }}
+          />
         </ClientProviders>
       </body>
     </html>

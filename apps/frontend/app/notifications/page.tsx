@@ -1,12 +1,33 @@
-import React from 'react';
-import type { Metadata } from 'next';
-import { NotificationCenterClient } from './NotificationCenterClient';
+import { getUserNotifications } from '@/lib/api/notifications'
+import { NotificationHistoryClient } from '@/components/notifications/NotificationHistoryClient'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Notifications | EPSX',
-  description: 'View and manage your notifications from the EPSX analytics platform.',
-};
+  title: 'Notifications - EPSX Platform',
+  description: 'View and manage your notifications from the EPSX platform',
+}
 
-export default function NotificationsPage() {
-  return <NotificationCenterClient />;
+export default async function NotificationsPage() {
+  const notificationData = await getUserNotifications(50, 0)
+  
+  console.log('NotificationData:', JSON.stringify(notificationData, null, 2))
+  
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          📊 Notification Center
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">
+          Stay updated with system alerts, data updates, and platform messages
+        </p>
+      </div>
+
+      <NotificationHistoryClient 
+        initialNotifications={notificationData.notifications}
+        totalCount={notificationData.totalCount}
+        unreadCount={notificationData.unreadCount}
+      />
+    </div>
+  )
 }

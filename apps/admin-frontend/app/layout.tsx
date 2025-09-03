@@ -7,6 +7,7 @@
 import './globals.css';
 import { AdminAuthWrapper } from '@/components/providers/AdminAuthWrapper';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
+import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
 import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
 
@@ -80,6 +81,9 @@ export default function RootLayout({
           </ErrorBoundary>
         </div>
 
+        {/* Service Worker for FCM notifications */}
+        <ServiceWorkerInitializer />
+
         {/* Enhanced Windows Phone + PancakeSwap Toast Notifications */}
         <Toaster
           position="top-right"
@@ -88,7 +92,7 @@ export default function RootLayout({
           containerStyle={{
             top: 24,
             right: 24,
-            zIndex: 9999,
+            zIndex: 9998,
           }}
           toastOptions={{
             duration: 5000,

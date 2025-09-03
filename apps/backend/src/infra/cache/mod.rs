@@ -9,14 +9,12 @@ use crate::config::env::get_env_var;
 pub mod memory_cache;
 pub mod redis_cache;
 pub mod unified_cache;
-pub mod notification_cache;
 pub mod permission_cache;
 
 // Re-export implementations
 pub use memory_cache::InMemoryCache;
 pub use redis_cache::RedisCache;
 pub use unified_cache::UnifiedCache;
-pub use notification_cache::{NotificationCache, NotificationCacheImpl, NotificationCacheConfig, NotificationCacheKeys, NotificationCacheStats};
 pub use permission_cache::{PermissionCacheService, PermissionCacheEntry, HashValidationResult, PermissionCacheError, CacheStatistics};
 
 /// Cache backend configuration

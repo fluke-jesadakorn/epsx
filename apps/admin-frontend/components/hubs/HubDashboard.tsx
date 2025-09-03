@@ -1,10 +1,12 @@
+'use client'
+
 import {
-  ServerAnalyticsAPI,
-  ServerPermissionAPI,
-  ServerSystemAPI,
-  ServerUserAPI,
-} from '@/lib/api/server-admin-api';
-import { ServerNotificationAPI } from '@/lib/api/notification-client';
+  ClientAnalyticsAPI,
+  ClientPermissionAPI,
+  ClientSystemAPI,
+  ClientUserAPI,
+  ClientNotificationAPI,
+} from '@/lib/api/client-admin-api';
 import {
   Activity,
   BarChart3,
@@ -16,7 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * PancakeSwap x Windows Phone Fusion Hub Dashboard
@@ -130,67 +132,42 @@ function HubTile({
   );
 }
 
-export default async function HubDashboard() {
-  // Fetch real data from multiple sources in parallel
-  const [
-    userStats,
-    permissionAnalytics,
-    unreadNotifications,
-    systemConfig,
-    epsHealth,
-    performanceMetrics,
-  ] = await Promise.allSettled([
-    ServerUserAPI.getUserStats(),
-    ServerPermissionAPI.getPermissionAnalytics(),
-    ServerNotificationAPI.getUnreadCount(),
-    ServerSystemAPI.getSystemConfig(),
-    ServerAnalyticsAPI.getEPSHealth(),
-    ServerAnalyticsAPI.getPerformanceMetrics(),
-  ]);
 
-  // Extract values with fallbacks
-  const stats =
-    userStats.status === 'fulfilled'
-      ? userStats.value
-      : {
-          total_users: 0,
-          active_users: 0,
-          recent_users_30_days: 0,
-        };
+export default function HubDashboard() {
+  const [stats, setStats] = useState({ total_users: 0, active_users: 0, recent_users_30_days: 0 })
+  const [permissions, setPermissions] = useState({ total_permissions: 0, expiring_soon: 0, health_score: 100 })
+  const [notifications, setNotifications] = useState({ count: 0 })
+  const [system, setSystem] = useState({ jwt_secret_configured: true, smtp_configured: true, oauth_configured: true })
+  const [eps, setEps] = useState({ uptime: 99.9 })
+  const [performance, setPerformance] = useState({ active_users: 0, api_response_time: 0 })
 
-  const permissions =
-    permissionAnalytics.status === 'fulfilled'
-      ? permissionAnalytics.value
-      : {
-          total_permissions: 0,
-          expiring_soon: 0,
-          health_score: 100,
-        };
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [userStatsData, permissionAnalyticsData, unreadNotificationsData, systemConfigData, epsHealthData, performanceMetricsData] = 
+          await Promise.allSettled([
+            ClientUserAPI.getUserStats(),
+            ClientPermissionAPI.getPermissionAnalytics(),
+            ClientNotificationAPI.getUnreadCount(),
+            ClientSystemAPI.getSystemConfig(),
+            ClientAnalyticsAPI.getEPSHealth(),
+            ClientAnalyticsAPI.getPerformanceMetrics(),
+          ])
 
-  const notifications =
-    unreadNotifications.status === 'fulfilled'
-      ? unreadNotifications.value
-      : { count: 0 };
+        if (userStatsData.status === 'fulfilled') setStats(userStatsData.value)
+        if (permissionAnalyticsData.status === 'fulfilled') setPermissions(permissionAnalyticsData.value)
+        if (unreadNotificationsData.status === 'fulfilled') setNotifications(unreadNotificationsData.value)
+        if (systemConfigData.status === 'fulfilled') setSystem(systemConfigData.value)
+        if (epsHealthData.status === 'fulfilled') setEps(epsHealthData.value)
+        if (performanceMetricsData.status === 'fulfilled') setPerformance(performanceMetricsData.value)
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error)
+      }
+    }
 
-  const system =
-    systemConfig.status === 'fulfilled'
-      ? systemConfig.value
-      : {
-          jwt_secret_configured: true,
-          smtp_configured: true,
-          oauth_configured: true,
-        };
+    loadData()
+  }, [])
 
-  const eps =
-    epsHealth.status === 'fulfilled' ? epsHealth.value : { uptime: 99.9 };
-
-  const performance =
-    performanceMetrics.status === 'fulfilled'
-      ? performanceMetrics.value
-      : {
-          active_users: 0,
-          api_response_time: 0,
-        };
 
   const getSystemStatus = () => {
     const configured = [

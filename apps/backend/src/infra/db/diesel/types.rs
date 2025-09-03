@@ -113,18 +113,18 @@ impl deserialize::FromSql<sql_types::Numeric, diesel::pg::Pg> for DieselDecimal 
 #[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::NotificationPriority)]
 pub enum NotificationPriority {
     Low,
-    Medium,
+    Normal,
     High,
-    Critical,
+    Urgent,
 }
 
 impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::NotificationPriority, diesel::pg::Pg> for NotificationPriority {
     fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
         let value = match *self {
             NotificationPriority::Low => "low",
-            NotificationPriority::Medium => "medium",
+            NotificationPriority::Normal => "normal",
             NotificationPriority::High => "high",
-            NotificationPriority::Critical => "critical",
+            NotificationPriority::Urgent => "urgent",
         };
         out.write_all(value.as_bytes())?;
         Ok(serialize::IsNull::No)
@@ -135,9 +135,9 @@ impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::Notificat
     fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
             "low" => Ok(NotificationPriority::Low),
-            "medium" => Ok(NotificationPriority::Medium),
+            "normal" => Ok(NotificationPriority::Normal),
             "high" => Ok(NotificationPriority::High),
-            "critical" => Ok(NotificationPriority::Critical),
+            "urgent" => Ok(NotificationPriority::Urgent),
             _ => Err("Unrecognized NotificationPriority variant".into()),
         }
     }
@@ -147,9 +147,9 @@ impl std::fmt::Display for NotificationPriority {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NotificationPriority::Low => write!(f, "low"),
-            NotificationPriority::Medium => write!(f, "medium"),
+            NotificationPriority::Normal => write!(f, "normal"),
             NotificationPriority::High => write!(f, "high"),
-            NotificationPriority::Critical => write!(f, "critical"),
+            NotificationPriority::Urgent => write!(f, "urgent"),
         }
     }
 }
@@ -162,25 +162,21 @@ impl std::fmt::Display for NotificationPriority {
 #[derive(AsExpression, FromSqlRow)]
 #[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::NotificationType)]
 pub enum NotificationType {
-    Info,
-    Warning,
-    Error,
-    Success,
-    FeatureAccess,
-    RoleChange,
-    SystemUpdate,
+    System,
+    Admin,
+    Security,
+    Feature,
+    Marketing,
 }
 
 impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::NotificationType, diesel::pg::Pg> for NotificationType {
     fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
         let value = match *self {
-            NotificationType::Info => "info",
-            NotificationType::Warning => "warning",
-            NotificationType::Error => "error",
-            NotificationType::Success => "success",
-            NotificationType::FeatureAccess => "feature_access",
-            NotificationType::RoleChange => "role_change",
-            NotificationType::SystemUpdate => "system_update",
+            NotificationType::System => "system",
+            NotificationType::Admin => "admin",
+            NotificationType::Security => "security",
+            NotificationType::Feature => "feature",
+            NotificationType::Marketing => "marketing",
         };
         out.write_all(value.as_bytes())?;
         Ok(serialize::IsNull::No)
@@ -190,13 +186,11 @@ impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::NotificationT
 impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::NotificationType, diesel::pg::Pg> for NotificationType {
     fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
-            "info" => Ok(NotificationType::Info),
-            "warning" => Ok(NotificationType::Warning),
-            "error" => Ok(NotificationType::Error),
-            "success" => Ok(NotificationType::Success),
-            "feature_access" => Ok(NotificationType::FeatureAccess),
-            "role_change" => Ok(NotificationType::RoleChange),
-            "system_update" => Ok(NotificationType::SystemUpdate),
+            "system" => Ok(NotificationType::System),
+            "admin" => Ok(NotificationType::Admin),
+            "security" => Ok(NotificationType::Security),
+            "feature" => Ok(NotificationType::Feature),
+            "marketing" => Ok(NotificationType::Marketing),
             _ => Err("Unrecognized NotificationType variant".into()),
         }
     }
@@ -205,59 +199,115 @@ impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::Notificat
 impl std::fmt::Display for NotificationType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NotificationType::Info => write!(f, "info"),
-            NotificationType::Warning => write!(f, "warning"),
-            NotificationType::Error => write!(f, "error"),
-            NotificationType::Success => write!(f, "success"),
-            NotificationType::FeatureAccess => write!(f, "feature_access"),
-            NotificationType::RoleChange => write!(f, "role_change"),
-            NotificationType::SystemUpdate => write!(f, "system_update"),
+            NotificationType::System => write!(f, "system"),
+            NotificationType::Admin => write!(f, "admin"),
+            NotificationType::Security => write!(f, "security"),
+            NotificationType::Feature => write!(f, "feature"),
+            NotificationType::Marketing => write!(f, "marketing"),
         }
     }
 }
 
 // ============================================================================
-// DEVICE PLATFORM ENUM FOR FCM TOKENS
+// DELIVERY CHANNEL ENUM
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[derive(AsExpression, FromSqlRow)]
-#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::DevicePlatform)]
-pub enum DevicePlatform {
-    Web,
-    Android,
-    Ios,
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::DeliveryChannel)]
+pub enum DeliveryChannel {
+    FcmPush,
+    InApp,
+    Email,
+    Sms,
 }
 
-impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::DevicePlatform, diesel::pg::Pg> for DevicePlatform {
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::DeliveryChannel, diesel::pg::Pg> for DeliveryChannel {
     fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
         let value = match *self {
-            DevicePlatform::Web => "web",
-            DevicePlatform::Android => "android", 
-            DevicePlatform::Ios => "ios",
+            DeliveryChannel::FcmPush => "fcm_push",
+            DeliveryChannel::InApp => "in_app",
+            DeliveryChannel::Email => "email",
+            DeliveryChannel::Sms => "sms",
         };
         out.write_all(value.as_bytes())?;
         Ok(serialize::IsNull::No)
     }
 }
 
-impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::DevicePlatform, diesel::pg::Pg> for DevicePlatform {
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::DeliveryChannel, diesel::pg::Pg> for DeliveryChannel {
     fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
-            "web" => Ok(DevicePlatform::Web),
-            "android" => Ok(DevicePlatform::Android),
-            "ios" => Ok(DevicePlatform::Ios),
-            _ => Err("Unrecognized DevicePlatform variant".into()),
+            "fcm_push" => Ok(DeliveryChannel::FcmPush),
+            "in_app" => Ok(DeliveryChannel::InApp),
+            "email" => Ok(DeliveryChannel::Email),
+            "sms" => Ok(DeliveryChannel::Sms),
+            _ => Err("Unrecognized DeliveryChannel variant".into()),
         }
     }
 }
 
-impl std::fmt::Display for DevicePlatform {
+impl std::fmt::Display for DeliveryChannel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DevicePlatform::Web => write!(f, "web"),
-            DevicePlatform::Android => write!(f, "android"),
-            DevicePlatform::Ios => write!(f, "ios"),
+            DeliveryChannel::FcmPush => write!(f, "fcm_push"),
+            DeliveryChannel::InApp => write!(f, "in_app"),
+            DeliveryChannel::Email => write!(f, "email"),
+            DeliveryChannel::Sms => write!(f, "sms"),
+        }
+    }
+}
+
+// ============================================================================
+// DELIVERY STATUS ENUM
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(AsExpression, FromSqlRow)]
+#[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::DeliveryStatus)]
+pub enum DeliveryStatus {
+    Pending,
+    Sent,
+    Delivered,
+    Failed,
+    Expired,
+}
+
+impl serialize::ToSql<crate::infra::db::diesel::schema::sql_types::DeliveryStatus, diesel::pg::Pg> for DeliveryStatus {
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, diesel::pg::Pg>) -> serialize::Result {
+        let value = match *self {
+            DeliveryStatus::Pending => "pending",
+            DeliveryStatus::Sent => "sent",
+            DeliveryStatus::Delivered => "delivered",
+            DeliveryStatus::Failed => "failed",
+            DeliveryStatus::Expired => "expired",
+        };
+        out.write_all(value.as_bytes())?;
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl deserialize::FromSql<crate::infra::db::diesel::schema::sql_types::DeliveryStatus, diesel::pg::Pg> for DeliveryStatus {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
+        match std::str::from_utf8(bytes.as_bytes())? {
+            "pending" => Ok(DeliveryStatus::Pending),
+            "sent" => Ok(DeliveryStatus::Sent),
+            "delivered" => Ok(DeliveryStatus::Delivered),
+            "failed" => Ok(DeliveryStatus::Failed),
+            "expired" => Ok(DeliveryStatus::Expired),
+            _ => Err("Unrecognized DeliveryStatus variant".into()),
+        }
+    }
+}
+
+impl std::fmt::Display for DeliveryStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeliveryStatus::Pending => write!(f, "pending"),
+            DeliveryStatus::Sent => write!(f, "sent"),
+            DeliveryStatus::Delivered => write!(f, "delivered"),
+            DeliveryStatus::Failed => write!(f, "failed"),
+            DeliveryStatus::Expired => write!(f, "expired"),
         }
     }
 }

@@ -87,6 +87,16 @@ use super::granular_permissions::{
     bulk_grant_permissions as granular_bulk_grant_permissions,
     get_permission_statistics,
 };
+// Admin notification handlers
+use super::notification_handlers::{
+    admin_send_notification,
+    admin_broadcast_to_topic,
+    admin_get_notification_stats,
+    admin_send_security_alert,
+    admin_get_recent_notifications,
+    admin_get_unread_notifications,
+    admin_get_notification_history,
+};
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
 
@@ -101,7 +111,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/users/:user_id", delete(delete_user_handler))
         .route("/users/search", get(search_users_handler))
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::modern_jwt_auth_middleware
+            crate::web::middleware::clean_auth_middleware
         ));
         
     // System administration routes (require system-configuration module)
@@ -109,13 +119,13 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/api-keys", get(list_api_keys_handler))
         .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::modern_jwt_auth_middleware
+            crate::web::middleware::clean_auth_middleware
         ));
         
     // Security management routes (require security-management module)
     let security_mgmt_routes = Router::new()
         .layer(axum::middleware::from_fn(
-            crate::web::middleware::modern_jwt_auth_middleware
+            crate::web::middleware::clean_auth_middleware
         ));
         
     Router::new()
@@ -189,6 +199,18 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/analytics/recommendations", get(get_permission_recommendations_handler))
         .route("/analytics/performance", get(get_performance_metrics_handler))
         .route("/analytics/security-risks", get(get_security_risk_analysis_handler))
+        
+        // Admin notification routes (require admin permissions)
+        .route("/notifications/send", post(admin_send_notification))
+        .route("/notifications/broadcast", post(admin_broadcast_to_topic))
+        .route("/notifications/stats", get(admin_get_notification_stats))
+        .route("/notifications/recent", get(admin_get_recent_notifications))
+        .route("/notifications/unread", get(admin_get_unread_notifications))
+        .route("/notifications/history", get(admin_get_notification_history))
+        .route("/notifications/security-alert", post(admin_send_security_alert))
+        .layer(axum::middleware::from_fn(
+            crate::web::middleware::clean_auth_middleware
+        ))
 }
 
 pub fn create_admin_public_routes() -> Router<AppState> {
