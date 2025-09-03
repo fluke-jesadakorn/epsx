@@ -20,8 +20,7 @@ import { useEffect, useState } from 'react';
 import ThemeToggle from '@/components/features/theme/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NavigationMenu } from '@/components/ui/navigation-menu';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
-// Notifications re-enabled with working API client
+import { NotificationBellSimple } from '@/components/notifications/NotificationBellSimple'
 import {
   Sheet,
   SheetContent,
@@ -71,7 +70,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
     setIsMounted(true);
   }, []);
 
-  // Don't render until mounted
+  // Don't render until mounted - simplified header with notification bell
   if (!isMounted) {
     return (
       <div className="relative z-50 border-b bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-sm">
@@ -83,17 +82,38 @@ export function NavigationClient({ user }: NavigationClientProps) {
               </span>
             </Link>
           </div>
-          <div className="flex items-center gap-4 md:gap-6">
-            <Button
-              variant="ghost"
-              disabled
-              className="focus-visible:ring-ring hover:bg-primary/10 hover:text-accent-foreground text-muted-foreground hover:text-primary flex flex-col items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-            >
-              <span className="relative block">
-                <Settings className="h-4 w-4" />
-              </span>
-              <span className="mt-1">Theme</span>
-            </Button>
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+            {/* Notification Bell - Show even during hydration if user exists */}
+            {user && (
+              <NotificationBellSimple />
+            )}
+            
+            {/* Theme Toggle */}
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
+            
+            {/* User info */}
+            {user?.email && (
+              <Link
+                href="/settings"
+                className="hover:bg-muted/50 flex items-center gap-2 rounded-lg p-1 transition-all duration-200 hover:scale-105 md:p-2"
+              >
+                <Avatar className="border-primary/20 h-8 w-8 border-2 md:h-10 md:w-10">
+                  <AvatarFallback>
+                    <User className="h-4 w-4 md:h-5 md:w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden lg:block">
+                  <div className="text-foreground text-sm font-medium">
+                    {userEmail}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    Settings
+                  </div>
+                </div>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -176,9 +196,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
           {/* Notifications - Only for authenticated users */}
           {user && (
-            <div className="relative">
-              <NotificationBell variant="default" />
-            </div>
+            <NotificationBellSimple />
           )}
           
           {/* Theme Toggle - Responsive */}
@@ -246,10 +264,12 @@ export function NavigationClient({ user }: NavigationClientProps) {
               <div className="mt-6 flex flex-col gap-4">
                 {/* Notifications - Mobile */}
                 {user && (
-                  <div className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors">
-                    <span className="text-sm font-medium">Notifications</span>
-                    <NotificationBell variant="mobile" />
-                  </div>
+                  <Link href="/notifications" onClick={() => setIsOpen(false)}>
+                    <div className="bg-primary/5 flex items-center justify-between rounded-lg p-3 hover:bg-primary/10 transition-colors">
+                      <span className="text-sm font-medium">Notifications</span>
+                      <NotificationBellSimple className="h-6 w-6" showBadge={true} />
+                    </div>
+                  </Link>
                 )}
                 
                 {/* Theme Toggle - Mobile */}
