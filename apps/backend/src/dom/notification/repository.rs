@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use super::models::*;
-use crate::infra::db::diesel::types::{DeliveryStatus, DeliveryChannel};
+use crate::infra::db::diesel::types::DeliveryStatus;
 use crate::core::errors::AppError;
 
 #[async_trait]

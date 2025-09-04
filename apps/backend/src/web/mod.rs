@@ -25,7 +25,6 @@ use tower_http::cors::CorsLayer;
 use axum::middleware as axum_middleware;
 
 use crate::infra::AppContainer;
-use auth::AppState;
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -168,12 +167,11 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create standalone analytics routes without AppState dependency
 async fn create_standalone_analytics_routes(
-  infra_factory: &crate::infra::InfraFactory
+  _infra_factory: &crate::infra::InfraFactory
 ) -> Router {
   use axum::Extension;
 
   // Create services for analytics
-  let eps_ranking_service = infra_factory.create_eps_ranking_service();
 
   // Create cache-based EPS service with TradingView integration
   let config = match crate::config::Config::from_env() {
@@ -244,16 +242,8 @@ async fn create_standalone_analytics_routes(
       })
     }
   };
-  let tradingview_service = std::sync::Arc::new(
+  let _tradingview_service = std::sync::Arc::new(
     crate::infra::services::tradingview::TradingViewApiService::new(config)
-  );
-  let eps_repository = infra_factory.create_eps_repo();
-  let eps_cache_service = std::sync::Arc::new(
-    crate::dom::services::eps_cache_service::EPSCacheService::new(
-      tradingview_service,
-      eps_repository,
-      None // Use default cache config
-    )
   );
 
   // Create unified cache service (automatically selects InMemory or Redis)
@@ -333,8 +323,6 @@ async fn create_standalone_analytics_routes(
       get(analytics::eps_handlers::cache_health_check)
     )
     // Add services as extensions
-    .layer(Extension(eps_ranking_service))
-    .layer(Extension(eps_cache_service))
     .layer(Extension(unified_cache_service))
 }
 
@@ -385,7 +373,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .nest("/api/v1/notifications", notifications::notification_routes()
       .layer(axum::Extension(container.fcm_service.clone()))
       .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
+      // Removed user_notification_repo extension - using stub implementation
       .layer(axum_middleware::from_fn_with_state(
         app_state.clone(),
         crate::web::middleware::clean_auth_middleware
@@ -394,7 +382,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .nest("/api/v1/admin", admin_routes
       .layer(axum::Extension(container.fcm_service.clone()))
       .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
+      // Removed user_notification_repo extension - using stub implementation
     )
     .merge(admin_public_routes)
     // Add comprehensive security middleware stack

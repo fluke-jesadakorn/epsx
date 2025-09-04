@@ -1,8 +1,8 @@
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl, AsyncPgConnection};
+use diesel_async::RunQueryDsl;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use crate::infra::db::diesel::{DbPool, schema::{notifications, user_notifications, user_notification_preferences}};
+use crate::infra::db::diesel::{DbPool, schema::user_notifications};
 use crate::core::errors::AppError;
 use std::sync::Arc;
 

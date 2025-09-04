@@ -587,9 +587,8 @@ pub async fn bulk_apply_permission_template(
     let mut response = bulk_grant_permissions(State(state), Json(grant_request)).await?;
     
     // Update operation name to reflect template application
-    if let Json(ref mut response_data) = response {
-        response_data.operation = format!("bulk_apply_template_{}", request.template_id);
-    }
+    let Json(ref mut response_data) = response;
+    response_data.operation = format!("bulk_apply_template_{}", request.template_id);
     
     Ok(response)
 }

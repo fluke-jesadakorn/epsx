@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
     Extension,
-    extract::{State, Request},
+    extract::Request,
     http::StatusCode,
     response::{Json, Response, IntoResponse},
     middleware::{from_fn, Next},
@@ -28,9 +28,8 @@ pub struct AnalyticsQuery {
 }
 
 
-pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router {
+pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
     // Create services for both database and cache approaches
-    let eps_ranking_service = infra_factory.create_eps_ranking_service();
     
     // Create cache-based EPS service with TradingView integration
     let config = match Config::from_env() {
@@ -101,15 +100,7 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router {
             })
         }
     };
-    let tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config));
-    let eps_repository = infra_factory.create_eps_repo();
-    let eps_cache_service = std::sync::Arc::new(
-        crate::dom::services::eps_cache_service::EPSCacheService::new(
-            tradingview_service,
-            eps_repository,
-            None // Use default cache config
-        )
-    );
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config));
 
     // Create unified cache service (automatically selects InMemory or Redis)
     let unified_cache_service = match CacheFactory::from_env().await {
@@ -174,8 +165,6 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router {
         .merge(v1_routes)
         .merge(legacy_routes)
         // Add services as extensions
-        .layer(Extension(eps_ranking_service))
-        .layer(Extension(eps_cache_service))
         .layer(Extension(unified_cache_service))
 }
 

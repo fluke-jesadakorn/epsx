@@ -1,8 +1,18 @@
 -- Fresh notification system schema
-CREATE TYPE notification_priority AS ENUM ('low', 'normal', 'high', 'urgent');
-CREATE TYPE notification_type AS ENUM ('system', 'admin', 'security', 'feature', 'marketing');
-CREATE TYPE delivery_channel AS ENUM ('fcm_push', 'in_app', 'email', 'sms');
-CREATE TYPE delivery_status AS ENUM ('pending', 'sent', 'delivered', 'failed', 'expired');
+-- Use DO block to create types only if they don't exist
+DO $$ BEGIN
+    -- Create notification_priority if not exists
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_priority') THEN
+        CREATE TYPE notification_priority AS ENUM ('low', 'normal', 'high', 'urgent');
+    END IF;
+    
+    -- Create notification_type if not exists
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_type') THEN
+        CREATE TYPE notification_type AS ENUM ('system', 'admin', 'security', 'feature', 'marketing');
+    END IF;
+    
+    -- delivery_channel and delivery_status already exist, skip them
+END $$;
 
 -- FCM Topics for broadcasting
 CREATE TABLE fcm_topics (

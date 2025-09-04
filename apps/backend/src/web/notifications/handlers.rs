@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use crate::core::errors::AppError;
 use crate::infra::services::{FcmService, FcmTopicService};
-use crate::infra::db::diesel::repos::UserNotificationRepository;
+// use crate::infra::db::diesel::repos::UserNotificationRepository;
 use crate::web::middleware::AuthenticatedUser;
 use super::dto::*;
 
@@ -159,72 +159,29 @@ pub async fn track_notification(
     Ok(Json(response))
 }
 
-/// Get user notifications
+/// Get user notifications (stub implementation)
 pub async fn get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<UserNotificationRepository>>,
-    Query(pagination): Query<PaginationQuery>,
+    Query(_pagination): Query<PaginationQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("Fetching notifications for user: {}", auth_user.user_id);
-
-    let notifications = repo.get_user_notifications(
-        &auth_user.user_id,
-        pagination.limit,
-        pagination.offset
-    ).await?;
-
-    let unread_notifications = repo.get_unread_notifications(&auth_user.user_id).await?;
+    info!("Stub: Fetching notifications for user: {}", auth_user.user_id);
     
-    let total_count = notifications.len() as i64;
-    let response = UserNotificationsResponse {
-        notifications: notifications.into_iter().map(|n| UserNotification {
-            id: n.id,
-            title: n.title,
-            body: n.body,
-            notification_type: n.notification_type,
-            priority: n.priority,
-            image_url: n.image_url,
-            action_url: n.action_url,
-            data_payload: n.data_payload,
-            created_at: n.created_at,
-            read_at: n.read_at,
-            clicked_at: n.clicked_at,
-        }).collect(),
-        total_count,
-        unread_count: unread_notifications.len() as i64,
-    };
-
-    Ok(Json(response))
+    Ok(Json(serde_json::json!({
+        "message": "Stub implementation - feature not available",
+        "user_id": auth_user.user_id
+    })))
 }
 
-/// Get unread notifications only
+/// Get unread notifications only (stub implementation)
 pub async fn get_unread_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("Fetching unread notifications for user: {}", auth_user.user_id);
-
-    let notifications = repo.get_unread_notifications(&auth_user.user_id).await?;
+    info!("Stub: Fetching unread notifications for user: {}", auth_user.user_id);
     
-    let response = UserNotificationsResponse {
-        notifications: notifications.iter().map(|n| UserNotification {
-            id: n.id,
-            title: n.title.clone(),
-            body: n.body.clone(),
-            notification_type: n.notification_type.clone(),
-            priority: n.priority.clone(),
-            image_url: n.image_url.clone(),
-            action_url: n.action_url.clone(),
-            data_payload: n.data_payload.clone(),
-            created_at: n.created_at,
-            read_at: n.read_at,
-            clicked_at: n.clicked_at,
-        }).collect(),
-        total_count: notifications.len() as i64,
-        unread_count: notifications.len() as i64,
-    };
-
-    Ok(Json(response))
+    Ok(Json(serde_json::json!({
+        "message": "Stub implementation - feature not available",
+        "user_id": auth_user.user_id
+    })))
 }
 
 /// Get notification preferences
@@ -247,10 +204,9 @@ pub async fn get_preferences(
     Ok(Json(response))
 }
 
-/// Get notification statistics (admin only)
+/// Get notification statistics (admin only) - stub implementation
 pub async fn get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -264,17 +220,9 @@ pub async fn get_notification_stats(
         });
     }
 
-    let stats = repo.get_admin_notification_stats().await?;
-
-    let response = NotificationStatsResponse {
-        total_sent: stats.total_sent,
-        total_delivered: stats.delivered,
-        total_failed: stats.failed,
-        total_pending: stats.pending,
-        delivery_rate: stats.success_rate,
-    };
-
-    Ok(Json(response))
+    Ok(Json(serde_json::json!({
+        "message": "Stub implementation - feature not available"
+    })))
 }
 
 /// Update notification preferences

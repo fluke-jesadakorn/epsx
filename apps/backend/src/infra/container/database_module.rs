@@ -7,8 +7,7 @@ use crate::infra::db::diesel::{
     DbPool, create_pool,
     repos::{
         DieselUserRepository, DieselUserPermissionRepository, DieselSessionRepository, DieselAuditRepository,
-        DieselModuleRepository, StubStockRepository, RefreshTokenRepository, RevokedTokenRepository,
-        UserNotificationRepository
+        RefreshTokenRepository, RevokedTokenRepository,
     }
 };
 
@@ -20,10 +19,8 @@ pub struct DatabaseModule {
     pub user_permission_repo: Arc<dyn UserPermissionRepository>,
     pub session_repo: Arc<dyn SessionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
-    pub stock_repo: Arc<dyn StockRepository>,
     pub refresh_token_repo: Arc<RefreshTokenRepository>,
     pub revoked_token_repo: Arc<RevokedTokenRepository>,
-    pub user_notification_repo: Arc<UserNotificationRepository>,
 }
 
 impl DatabaseModule {
@@ -36,11 +33,8 @@ impl DatabaseModule {
         let user_permission_repo = Arc::new(DieselUserPermissionRepository::new(database_pool.clone())) as Arc<dyn UserPermissionRepository>;
         let session_repo = Arc::new(DieselSessionRepository::new(database_pool.clone())) as Arc<dyn SessionRepository>;
         let audit_repo = Arc::new(DieselAuditRepository::new(database_pool.clone())) as Arc<dyn AuditRepository>;
-        // Stock repository removed - replaced with EPS analytics system
-        let stock_repo = Arc::new(StubStockRepository::new()) as Arc<dyn StockRepository>;
         let refresh_token_repo = Arc::new(RefreshTokenRepository::new(database_pool.clone()));
         let revoked_token_repo = Arc::new(RevokedTokenRepository::new(database_pool.clone()));
-        let user_notification_repo = Arc::new(UserNotificationRepository::new(database_pool.clone()));
         
         tracing::info!("✅ Repository layer created successfully with user permissions and notifications");
         
@@ -50,10 +44,8 @@ impl DatabaseModule {
             user_permission_repo,
             session_repo,
             audit_repo,
-            stock_repo,
             refresh_token_repo,
             revoked_token_repo,
-            user_notification_repo,
         })
     }
 
@@ -74,13 +66,4 @@ impl DatabaseModule {
         Self::from_url(&database_url).await
     }
 
-    /// Create module repository
-    pub fn create_module_repo(&self) -> Arc<dyn ModuleRepository> {
-        Arc::new(DieselModuleRepository::new(self.database_pool.clone())) as Arc<dyn ModuleRepository>
-    }
-    
-    /// Create stub repositories
-    pub fn create_stub_repos(&self) -> Arc<dyn ModuleRepository> {
-        self.create_module_repo()
-    }
 }

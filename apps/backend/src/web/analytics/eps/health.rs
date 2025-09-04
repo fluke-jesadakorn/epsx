@@ -193,9 +193,8 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
     let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
     
     // Create infrastructure factory
-    let infra_factory = InfraFactory::from_env()
+    let _infra_factory = InfraFactory::from_env()
         .map_err(|e| AppError::new(ErrorKind::ConfigurationError, format!("Failed to create infra factory: {}", e)))?;
-    let _eps_service = infra_factory.create_eps_ranking_service();
     
     info!("Starting manual EPS data processing...");
     // TODO: Implement EPSDataProcessor module

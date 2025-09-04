@@ -92,10 +92,9 @@ use super::notification_handlers::{
     admin_send_notification,
     admin_broadcast_to_topic,
     admin_get_notification_stats,
-    admin_send_security_alert,
-    admin_get_recent_notifications,
-    admin_get_unread_notifications,
-    admin_get_notification_history,
+    admin_get_user_notifications,
+    admin_mark_notification_read,
+    admin_delete_notification,
 };
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
@@ -204,10 +203,9 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/notifications/send", post(admin_send_notification))
         .route("/notifications/broadcast", post(admin_broadcast_to_topic))
         .route("/notifications/stats", get(admin_get_notification_stats))
-        .route("/notifications/recent", get(admin_get_recent_notifications))
-        .route("/notifications/unread", get(admin_get_unread_notifications))
-        .route("/notifications/history", get(admin_get_notification_history))
-        .route("/notifications/security-alert", post(admin_send_security_alert))
+        .route("/notifications/list", get(admin_get_user_notifications))
+        .route("/notifications/:id/read", put(admin_mark_notification_read))
+        .route("/notifications/:id", delete(admin_delete_notification))
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ))

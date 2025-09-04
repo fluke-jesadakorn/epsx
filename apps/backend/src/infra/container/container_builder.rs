@@ -43,14 +43,12 @@ pub struct AppContainer {
     pub fcm_topic_service: Arc<crate::infra::services::FcmTopicService>,
     
     // Notification repository
-    pub user_notification_repo: Arc<crate::infra::db::diesel::repos::UserNotificationRepository>,
 }
 
 impl AppContainer {
     /// Create AppState with all dependencies from focused modules
     pub async fn create_app_state(&self) -> Result<crate::web::auth::AppState, Box<dyn std::error::Error + Send + Sync>> {
         // Create stub repositories for components not yet migrated to Diesel
-        let module_repo = self.database.create_stub_repos();
         
         // Create stub usage repo
         let usage_repo = Arc::new(
@@ -81,6 +79,11 @@ impl AppContainer {
             level_history_repo,
             self.services.permission_application_service.clone(),
         ));
+
+        // Create stub module repo
+        let module_repo = Arc::new(
+            crate::infra::db::diesel::repos::StubModuleRepository::new()
+        ) as Arc<dyn crate::app::ports::repositories::ModuleRepository>;
 
         Ok(crate::web::auth::AppState::new(
             auth_uc,
@@ -198,7 +201,7 @@ impl AppContainerBuilder {
             user_permission_repo: database.user_permission_repo.clone(),
             session_repo: database.session_repo.clone(),
             audit_repo: database.audit_repo.clone(),
-            stock_repo: database.stock_repo.clone(),
+            stock_repo: Arc::new(crate::infra::db::diesel::repos::StubStockRepository::new()) as Arc<dyn StockRepository>,
             firebase_admin: services.firebase_admin.clone(),
             // Permission services from services module
             permission_service: services.permission_service.clone(),
@@ -207,8 +210,7 @@ impl AppContainerBuilder {
             // FCM services
             fcm_service: services.fcm_service.clone(),
             fcm_topic_service: services.fcm_topic_service.clone(),
-            // Notification repository
-            user_notification_repo: database.user_notification_repo.clone(),
+            // Removed notification repository - using simple stubs
             // Removed admin_module_service field - using simple roles
             infra,
             
