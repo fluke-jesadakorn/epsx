@@ -3019,3 +3019,19 @@ Quarterly Performance:
   Quarter: 'Aug 7, 2025', Date: 'Aug 7, 2025', EPS: 1.91, Price: 307.62
   Quarter: 'May 6, 2025', Date: 'May 6, 2025', EPS: 2.14, Price: 327.43
 
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: NVDA, Rank: 1, Status: 'TRACK', Value: 171.23
+Quarterly Performance:
+  Quarter: 'Aug 27, 2025', Date: 'Aug 27, 2025', EPS: 1.05, Price: 171.23
+  Quarter: 'May 28, 2025', Date: 'May 28, 2025', EPS: 0.81, Price: 125.49
+
+Symbol: MSFT, Rank: 2, Status: 'TRACK', Value: 504.43
+Quarterly Performance:
+  Quarter: 'Jul 30, 2025', Date: 'Jul 30, 2025', EPS: 3.65, Price: 504.43
+  Quarter: 'Apr 30, 2025', Date: 'Apr 30, 2025', EPS: 3.46, Price: 454.26
+
+Symbol: AMZN, Rank: 3, Status: 'TRACK', Value: 225.94
+Quarterly Performance:
+  Quarter: 'Jul 31, 2025', Date: 'Jul 31, 2025', EPS: 1.68, Price: 225.94
+  Quarter: 'May 1, 2025', Date: 'May 1, 2025', EPS: 1.59, Price: 203.14
+

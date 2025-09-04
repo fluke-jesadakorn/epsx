@@ -3,11 +3,11 @@
     "earnings_release_date": 30,
     "earnings_release_next_date": 31
   },
-  "earnings_release_date": 1754477100.0,
-  "earnings_release_next_date": 1762430400.0,
-  "formatted_last": "2025-08-06",
-  "formatted_next": "2025-11-06",
+  "earnings_release_date": 1755073860.0,
+  "earnings_release_next_date": 1762948800.0,
+  "formatted_last": "2025-08-13",
+  "formatted_next": "2025-11-12",
   "last_is_valid_timestamp": true,
   "next_is_valid_timestamp": true,
-  "symbol": "BAM"
+  "symbol": "700"
 }

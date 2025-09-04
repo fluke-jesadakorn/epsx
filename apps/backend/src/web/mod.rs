@@ -363,10 +363,8 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
 
 
-  // Create analytics routes that use the container's InfraFactory
-  let analytics_routes = create_standalone_analytics_routes(
-    &container.infra
-  ).await;
+  // Create analytics routes with permission middleware
+  let analytics_routes = analytics::create_analytics_router(&container.infra).await;
   
   // FCM routes removed - will be re-implemented
 

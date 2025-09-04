@@ -5,13 +5,14 @@ use axum::{
     routing::{get, post},
     Router,
     Extension,
-    extract::State,
+    extract::{State, Request},
     http::StatusCode,
-    response::Json,
+    response::{Json, Response, IntoResponse},
+    middleware::{from_fn, Next},
 };
 use serde::Deserialize;
 
-use crate::web::AppState;
+use crate::web::middleware::user_auth::{user_auth_middleware, AuthenticatedUser};
 use crate::infra::services::tradingview::TradingViewApiService;
 use crate::infra::InfraFactory;
 use crate::config::Config;
@@ -27,7 +28,7 @@ pub struct AnalyticsQuery {
 }
 
 
-pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<AppState> {
+pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router {
     // Create services for both database and cache approaches
     let eps_ranking_service = infra_factory.create_eps_ranking_service();
     
@@ -124,9 +125,9 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
 
     // Background cache refresh removed - using on-demand loading instead
     
-    // Create versioned routes
+    // Create versioned routes with permission middleware
     let v1_routes = Router::new()
-        // Main EPS rankings endpoints (RESTful structure)
+        // Main EPS rankings endpoints (RESTful structure) - require epsx:analytics:view permission
         .route("/api/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/api/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
@@ -135,14 +136,18 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
         // Simplified analytics endpoints for frontend compatibility
         .route("/api/v1/analytics/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/analytics/sectors", get(eps_handlers::get_sectors_by_country))
-        // Cache management endpoints
+        // Cache management endpoints - require epsx:analytics:manage permission
         .route("/api/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/api/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/api/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
         // System metrics endpoint for admin dashboard
-        .route("/api/v1/admin/analytics/metrics", get(system_metrics_handler));
+        .route("/api/v1/admin/analytics/metrics", get(system_metrics_handler))
+        // Apply user authentication middleware
+        .layer(from_fn(user_auth_middleware))
+        // Apply analytics view permission requirement to all analytics routes
+        .layer(from_fn(require_analytics_permission));
 
-    // Legacy routes for backward compatibility
+    // Legacy routes for backward compatibility with permission enforcement
     let legacy_routes = Router::new()
         .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
@@ -160,7 +165,10 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
         .route("/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
         .route("/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
-        .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check));
+        .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
+        // Apply same permission middleware to legacy routes
+        .layer(from_fn(user_auth_middleware))
+        .layer(from_fn(require_analytics_permission));
 
     Router::new()
         .merge(v1_routes)
@@ -173,9 +181,7 @@ pub async fn create_analytics_router(infra_factory: &InfraFactory) -> Router<App
 
 /// System metrics handler for admin dashboard
 /// GET /api/v1/analytics/system/metrics
-async fn system_metrics_handler(
-    State(_app_state): State<AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn system_metrics_handler() -> Result<Json<serde_json::Value>, StatusCode> {
     // Reuse the existing system metrics collection from health module
     // let metrics = crate::web::health::casbin_health_check::collect_system_metrics(&app_state).await; // Removed Casbin
     let metrics: std::collections::HashMap<String, String> = std::collections::HashMap::new(); // Placeholder for metrics
@@ -188,4 +194,108 @@ async fn system_metrics_handler(
     });
     
     Ok(Json(response))
+}
+
+/// Analytics permission middleware - requires epsx:analytics:view permission
+async fn require_analytics_permission(
+    request: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    // Get authenticated user from request extensions (should be set by user_auth_middleware)
+    let user = request.extensions()
+        .get::<AuthenticatedUser>()
+        .ok_or_else(|| create_analytics_unauthorized_response("User not authenticated"))?;
+
+    // Check if user has required permission (supports wildcards and embedded timestamps)
+    let required_permission = "epsx:analytics:view";
+    if !user.permissions.iter().any(|p| permission_matches(p, required_permission)) {
+        tracing::info!(
+            "User {} lacks required permission '{}' for analytics endpoint {}",
+            user.user_id,
+            required_permission,
+            request.uri().path()
+        );
+        return Err(create_analytics_forbidden_response(&format!(
+            "Permission '{}' required for analytics access", 
+            required_permission
+        )));
+    }
+
+    tracing::debug!(
+        "User {} granted analytics access with permission check passed",
+        user.user_id
+    );
+
+    Ok(next.run(request).await)
+}
+
+/// Check if user permission matches required permission (supports wildcards and embedded timestamps)
+fn permission_matches(user_permission: &str, required_permission: &str) -> bool {
+    // First check for embedded timestamp permissions (format: platform:resource:action:timestamp)
+    let parts: Vec<&str> = user_permission.split(':').collect();
+    if parts.len() == 4 {
+        // This is an embedded timestamp permission - check if it's expired
+        if let Ok(expiry_timestamp) = parts[3].parse::<i64>() {
+            let current_timestamp = chrono::Utc::now().timestamp();
+            if current_timestamp > expiry_timestamp {
+                // Permission has expired
+                tracing::debug!("Embedded permission {} has expired (current: {}, expiry: {})", 
+                    user_permission, current_timestamp, expiry_timestamp);
+                return false;
+            }
+            // Check the base permission (without timestamp)
+            let base_permission = parts[0..3].join(":");
+            return permission_matches(&base_permission, required_permission);
+        }
+    }
+    
+    // Exact match (fastest)
+    if user_permission == required_permission {
+        return true;
+    }
+    
+    // Wildcard matching
+    if user_permission.ends_with(":*:*") {
+        let prefix = &user_permission[..user_permission.len() - 4];
+        return required_permission.starts_with(prefix);
+    }
+    
+    if user_permission.ends_with(":*") {
+        let prefix = &user_permission[..user_permission.len() - 2];
+        return required_permission.starts_with(prefix);
+    }
+    
+    false
+}
+
+/// Create analytics unauthorized response
+fn create_analytics_unauthorized_response(message: &str) -> Response {
+    let error_body = serde_json::json!({
+        "error": "unauthorized",
+        "message": message,
+        "context": "analytics",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+    
+    (
+        StatusCode::UNAUTHORIZED,
+        [("Content-Type", "application/json")],
+        error_body.to_string()
+    ).into_response()
+}
+
+/// Create analytics forbidden response
+fn create_analytics_forbidden_response(message: &str) -> Response {
+    let error_body = serde_json::json!({
+        "error": "forbidden",
+        "message": message,
+        "context": "analytics",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+    
+    (
+        StatusCode::FORBIDDEN,
+        [("Content-Type", "application/json")],
+        error_body.to_string()
+    ).into_response()
 }
