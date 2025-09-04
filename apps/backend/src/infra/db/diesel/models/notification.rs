@@ -17,14 +17,14 @@ pub struct DieselNotification {
     pub body: String,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,
-    pub channels: Vec<DeliveryChannel>,
+    pub channels: Vec<Option<DeliveryChannel>>,
     pub data_payload: Option<serde_json::Value>,
     pub image_url: Option<String>,
     pub action_url: Option<String>,
     pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub created_by: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Insertable, Debug)]
@@ -56,11 +56,11 @@ pub struct DieselFcmToken {
     pub token: String,
     pub platform: String,
     pub device_info: Option<serde_json::Value>,
-    pub topics: serde_json::Value,
-    pub is_active: bool,
-    pub last_used_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub topics: Option<serde_json::Value>,
+    pub is_active: Option<bool>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Insertable, Debug)]
@@ -87,10 +87,10 @@ pub struct DieselFcmTopic {
     pub display_name: String,
     pub description: Option<String>,
     pub target_permissions: Option<serde_json::Value>,
-    pub is_active: bool,
+    pub is_active: Option<bool>,
     pub created_by: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone, Serialize, Deserialize)]
@@ -107,7 +107,7 @@ pub struct DieselNotificationDelivery {
     pub delivered_at: Option<DateTime<Utc>>,
     pub read_at: Option<DateTime<Utc>>,
     pub clicked_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Insertable, Debug)]
@@ -131,13 +131,13 @@ pub struct NewDieselNotificationDelivery {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct DieselUserNotificationPreferences {
     pub user_id: Uuid,
-    pub fcm_enabled: bool,
-    pub in_app_enabled: bool,
-    pub email_enabled: bool,
+    pub fcm_enabled: Option<bool>,
+    pub in_app_enabled: Option<bool>,
+    pub email_enabled: Option<bool>,
     pub quiet_hours_start: Option<NaiveTime>,
     pub quiet_hours_end: Option<NaiveTime>,
-    pub timezone: String,
-    pub blocked_topics: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub timezone: Option<String>,
+    pub blocked_topics: Option<serde_json::Value>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
 }

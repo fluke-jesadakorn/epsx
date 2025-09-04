@@ -16,7 +16,7 @@ use crate::dom::entities::audit::{AuditLogEntry, AuditLogId, AuditQuery, AuditSt
 
 // Removed: notification ports - will be re-implemented
 
-use crate::dom::entities::module::{SubModule, UserSubModuleAssignment, ApiKey, ModuleUsageLog};
+use crate::dom::entities::module::ModuleUsageLog;
 
 use crate::dom::values::{UserId, SessId, Symbol, Email, Market};
 
@@ -254,40 +254,6 @@ pub enum ExportFormat {
 }
 
 
-#[async_trait]
-#[cfg_attr(test, automock)]
-pub trait ModuleRepository: Send + Sync {
-    // Sub-module management
-    async fn create_sub_module(&self, module: &SubModule) -> Result<(), DomainError>;
-    async fn update_sub_module(&self, module: &SubModule) -> Result<(), DomainError>;
-    async fn delete_sub_module(&self, module_id: &Uuid) -> Result<(), DomainError>;
-    async fn get_sub_module(&self, module_id: &Uuid) -> Result<Option<SubModule>, DomainError>;
-    async fn get_sub_module_by_name(&self, name: &str) -> Result<Option<SubModule>, DomainError>;
-    async fn list_active_modules(&self) -> Result<Vec<SubModule>, DomainError>;
-
-    // User module assignments
-    async fn create_assignment(&self, assignment: &UserSubModuleAssignment) -> Result<(), DomainError>;
-    async fn update_assignment(&self, assignment: &UserSubModuleAssignment) -> Result<(), DomainError>;
-    async fn delete_assignment(&self, assignment_id: &Uuid) -> Result<(), DomainError>;
-    async fn get_assignment(&self, assignment_id: &Uuid) -> Result<Option<UserSubModuleAssignment>, DomainError>;
-    async fn get_user_module_assignments(&self, _user_id: &UserId) -> Result<Vec<UserModuleAccess>, DomainError>;
-    async fn has_user_module_access(&self, _user_id: &UserId, module_name: &str) -> Result<bool, DomainError>;
-    async fn get_user_access_level(&self, _user_id: &UserId, module_name: &str) -> Result<Option<String>, DomainError>;
-
-    // API key management
-    async fn create_api_key(&self, api_key: &ApiKey) -> Result<(), DomainError>;
-    async fn update_api_key(&self, api_key: &ApiKey) -> Result<(), DomainError>;
-    async fn delete_api_key(&self, key_id: &Uuid) -> Result<(), DomainError>;
-    async fn get_api_key(&self, key_id: &Uuid) -> Result<Option<ApiKey>, DomainError>;
-    async fn get_api_key_by_hash(&self, key_hash: &str) -> Result<Option<ApiKey>, DomainError>;
-    async fn get_api_key_access(&self, key_hash: &str) -> Result<Option<ApiKeyAccess>, DomainError>;
-
-    // Usage logging
-    async fn log_usage(&self, usage_log: &ModuleUsageLog) -> Result<(), DomainError>;
-    async fn get_current_usage(&self, _user_id: &UserId, module_name: &str, quota_type: &str) -> Result<i32, DomainError>;
-    async fn get_quota_limits(&self, _user_id: &UserId, module_name: &str) -> Result<HashMap<String, i32>, DomainError>;
-    async fn check_quota_availability(&self, _user_id: &UserId, module_name: &str, quota_type: &str, amount: i32) -> Result<bool, DomainError>;
-}
 
 #[async_trait]
 #[cfg_attr(test, automock)]

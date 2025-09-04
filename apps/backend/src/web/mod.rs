@@ -373,7 +373,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .nest("/api/v1/notifications", notifications::notification_routes()
       .layer(axum::Extension(container.fcm_service.clone()))
       .layer(axum::Extension(container.fcm_topic_service.clone()))
-      // Removed user_notification_repo extension - using stub implementation
+      .layer(axum::Extension(container.user_notification_repo.clone()))
       .layer(axum_middleware::from_fn_with_state(
         app_state.clone(),
         crate::web::middleware::clean_auth_middleware
@@ -382,7 +382,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .nest("/api/v1/admin", admin_routes
       .layer(axum::Extension(container.fcm_service.clone()))
       .layer(axum::Extension(container.fcm_topic_service.clone()))
-      // Removed user_notification_repo extension - using stub implementation
+      .layer(axum::Extension(container.user_notification_repo.clone()))
     )
     .merge(admin_public_routes)
     // Add comprehensive security middleware stack

@@ -43,6 +43,7 @@ pub struct AppContainer {
     pub fcm_topic_service: Arc<crate::infra::services::FcmTopicService>,
     
     // Notification repository
+    pub user_notification_repo: Arc<crate::infra::db::diesel::repos::UserNotificationRepository>,
 }
 
 impl AppContainer {
@@ -80,11 +81,6 @@ impl AppContainer {
             self.services.permission_application_service.clone(),
         ));
 
-        // Create stub module repo
-        let module_repo = Arc::new(
-            crate::infra::db::diesel::repos::StubModuleRepository::new()
-        ) as Arc<dyn crate::app::ports::repositories::ModuleRepository>;
-
         Ok(crate::web::auth::AppState::new(
             auth_uc,
             user_mgmt_uc,
@@ -92,7 +88,6 @@ impl AppContainer {
             self.database.user_repo.clone(),
             self.database.user_permission_repo.clone(),
             self.database.audit_repo.clone(),
-            module_repo,
             usage_repo,
             self.services.firebase_admin.clone(),
             // Removed admin_module_service parameter - using simple roles
@@ -210,7 +205,8 @@ impl AppContainerBuilder {
             // FCM services
             fcm_service: services.fcm_service.clone(),
             fcm_topic_service: services.fcm_topic_service.clone(),
-            // Removed notification repository - using simple stubs
+            // Notification repository
+            user_notification_repo: database.user_notification_repo.clone(),
             // Removed admin_module_service field - using simple roles
             infra,
             

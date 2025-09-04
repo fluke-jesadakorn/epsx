@@ -6,7 +6,7 @@ pub mod session;
 pub mod audit;
 pub mod payment;
 // Removed: stock (models not used - no stocks table in schema)
-// pub mod notification;
+pub mod notification;
 // Removed: security
 pub mod refresh_token;
 pub mod revoked_token;
@@ -17,7 +17,7 @@ pub use user_permission::*;
 pub use user_dynamic_limit::*;
 pub use session::*;
 // Removed: iam, permission, stock exports
-// pub use notification::*;
+pub use notification::*;
 pub use audit::*;
 pub use payment::*;
 // Removed: security exports

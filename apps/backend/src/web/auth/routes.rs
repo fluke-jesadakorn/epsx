@@ -12,7 +12,7 @@ use crate::app::use_cases::auth::AuthUC;
 use crate::app::use_cases::user::UserMgmtUC;
 use crate::app::ports::repositories::{
     SessionRepository, UserRepository, UserPermissionRepository, AuditRepository, 
-    ModuleRepository, UsageRepository
+    UsageRepository
 };
 use crate::infra::firebase_admin::FirebaseAdmin;
 // Removed admin module service import - using simple roles
@@ -49,7 +49,6 @@ pub struct AppState {
     pub user_repo: Arc<dyn UserRepository>,
     pub user_permission_repo: Arc<dyn UserPermissionRepository>,
     pub audit_repo: Arc<dyn AuditRepository>,
-    pub module_repo: Arc<dyn ModuleRepository>,
     pub usage_repo: Arc<dyn UsageRepository>,
     pub firebase_admin: Arc<FirebaseAdmin>,
     // Removed admin_module_service - using simple roles
@@ -68,7 +67,6 @@ impl AppState {
         user_repo: Arc<dyn UserRepository>,
         user_permission_repo: Arc<dyn UserPermissionRepository>,
         audit_repo: Arc<dyn AuditRepository>,
-        module_repo: Arc<dyn ModuleRepository>,
         usage_repo: Arc<dyn UsageRepository>,
         firebase_admin: Arc<FirebaseAdmin>,
         // Removed admin_module_service parameter - using simple roles
@@ -87,7 +85,6 @@ impl AppState {
             user_repo,
             user_permission_repo,
             audit_repo,
-            module_repo,
             usage_repo,
             firebase_admin,
             // Removed admin_module_service field - using simple roles

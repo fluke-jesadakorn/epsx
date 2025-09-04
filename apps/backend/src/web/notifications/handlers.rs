@@ -159,29 +159,75 @@ pub async fn track_notification(
     Ok(Json(response))
 }
 
-/// Get user notifications (stub implementation)
+/// Get user notifications with real database query
 pub async fn get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Query(_pagination): Query<PaginationQuery>,
+    Extension(repo): Extension<Arc<crate::infra::db::diesel::repos::UserNotificationRepository>>,
+    Query(pagination): Query<PaginationQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("Stub: Fetching notifications for user: {}", auth_user.user_id);
+    info!("Fetching notifications for user: {}", auth_user.user_id);
     
-    Ok(Json(serde_json::json!({
-        "message": "Stub implementation - feature not available",
-        "user_id": auth_user.user_id
-    })))
+    let limit = pagination.limit.unwrap_or(20);
+    let offset = pagination.offset.unwrap_or(0);
+    
+    match repo.get_user_notifications(&auth_user.user_id, Some(limit), Some(offset)).await {
+        Ok(notifications) => {
+            let total_count = notifications.len() as i64;
+            let unread_count = notifications.iter().filter(|n| n.read_at.is_none()).count() as i64;
+            
+            Ok(Json(serde_json::json!({
+                "user_id": auth_user.user_id,
+                "notifications": notifications,
+                "total_count": total_count,
+                "unread_count": unread_count,
+                "limit": limit,
+                "offset": offset,
+                "fetched_at": chrono::Utc::now()
+            })))
+        },
+        Err(e) => {
+            warn!("Failed to fetch notifications for user {}: {}", auth_user.user_id, e);
+            Err(AppError {
+                kind: crate::core::errors::ErrorKind::DatabaseError,
+                message: "Failed to fetch notifications".to_string(),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: uuid::Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            })
+        }
+    }
 }
 
-/// Get unread notifications only (stub implementation)
+/// Get unread notifications only with real database query
 pub async fn get_unread_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
+    Extension(repo): Extension<Arc<crate::infra::db::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("Stub: Fetching unread notifications for user: {}", auth_user.user_id);
+    info!("Fetching unread notifications for user: {}", auth_user.user_id);
     
-    Ok(Json(serde_json::json!({
-        "message": "Stub implementation - feature not available",
-        "user_id": auth_user.user_id
-    })))
+    match repo.get_unread_notifications(&auth_user.user_id).await {
+        Ok(notifications) => {
+            let count = notifications.len();
+            Ok(Json(serde_json::json!({
+                "user_id": auth_user.user_id,
+                "notifications": notifications,
+                "unread_count": count,
+                "fetched_at": chrono::Utc::now()
+            })))
+        },
+        Err(e) => {
+            warn!("Failed to fetch unread notifications for user {}: {}", auth_user.user_id, e);
+            Err(AppError {
+                kind: crate::core::errors::ErrorKind::DatabaseError,
+                message: "Failed to fetch unread notifications".to_string(),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: uuid::Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            })
+        }
+    }
 }
 
 /// Get notification preferences
@@ -204,9 +250,10 @@ pub async fn get_preferences(
     Ok(Json(response))
 }
 
-/// Get notification statistics (admin only) - stub implementation
+/// Get notification statistics (admin only) with real database query
 pub async fn get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
+    Extension(repo): Extension<Arc<crate::infra::db::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -220,9 +267,33 @@ pub async fn get_notification_stats(
         });
     }
 
-    Ok(Json(serde_json::json!({
-        "message": "Stub implementation - feature not available"
-    })))
+    match repo.get_admin_notification_stats().await {
+        Ok(stats) => {
+            Ok(Json(serde_json::json!({
+                "total_sent": stats.total_sent,
+                "delivered": stats.delivered,
+                "failed": stats.failed,
+                "pending": stats.pending,
+                "success_rate": stats.success_rate,
+                "todays_sent": stats.todays_sent,
+                "todays_delivered": stats.todays_delivered,
+                "avg_delivery_time": stats.avg_delivery_time,
+                "peak_hour": stats.peak_hour,
+                "generated_at": chrono::Utc::now()
+            })))
+        },
+        Err(e) => {
+            warn!("Failed to fetch notification stats: {}", e);
+            Err(AppError {
+                kind: crate::core::errors::ErrorKind::DatabaseError,
+                message: "Failed to fetch notification statistics".to_string(),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            })
+        }
+    }
 }
 
 /// Update notification preferences
