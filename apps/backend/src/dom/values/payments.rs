@@ -2,7 +2,7 @@
 
 use serde::{ Serialize, Deserialize };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Currency {
   USD,
   USDT,
@@ -22,7 +22,7 @@ pub enum PayStatus {
   Cancelled,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Network {
   Ethereum,
   Binance,

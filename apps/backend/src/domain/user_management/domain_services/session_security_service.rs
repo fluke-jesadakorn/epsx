@@ -260,7 +260,7 @@ mod tests {
     
     fn create_test_session_with_ip(ip: &str) -> Session {
         Session::create(
-            SessionId::new(),
+            SessionId::from_uuid(uuid::Uuid::new_v4()),
             UserId::new(),
             "test_token".to_string(),
             Utc::now() + Duration::hours(1),

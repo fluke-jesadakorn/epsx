@@ -76,18 +76,22 @@ pub async fn get_eps_rankings(
     Ok(Json(api_response))
 }
 
-/// Convert StockScreeningResult to EPSRanking format
+/// Convert StockScreeningResult to legacy EPSRanking format
+/// This function bridges legacy market data entities to the expected EPSRanking structure
 pub fn convert_screening_result_to_eps_ranking(
     result: crate::dom::entities::market_data::StockScreeningResult
 ) -> crate::dom::entities::eps_growth::EPSRanking {
     use crate::dom::entities::eps_growth::EPSRanking;
     
-    // Parse numeric values from strings
-    let current_eps = result.current_metric.parse::<f64>().ok();
-    let qoq_growth = result.growth_rate.parse::<f64>().ok();
-    let price_current = result.value_index.parse::<f64>().ok();
-    let volume = result.activity_score.parse::<i64>().ok();
+    // Parse numeric values with fallback for string data
+    let current_eps = parse_f64_from_string(&result.current_metric);
+    let growth_factor = parse_f64_from_string(&result.growth_factor);
     let market_cap = result.market_size.parse::<i64>().ok();
+    let volume = result.activity_score.parse::<i64>().ok();
+    let ranking_position = result.value_index.parse::<i32>().ok();
+    
+    // Calculate price from available metrics (if available)
+    let price_current = parse_f64_from_string(&result.predicted_metric);
     
     EPSRanking {
         symbol: result.symbol,
@@ -96,24 +100,20 @@ pub fn convert_screening_result_to_eps_ranking(
         sector: result.sector,
         exchange: result.exchange,
         current_eps,
-        growth_factor: qoq_growth,
+        growth_factor,
         price_current,
         market_cap,
         volume,
-        ranking_position: None,
-        quarterly_data: None,
-        // IMPORTANT: Preserve real earnings dates from TradingView
-        next_earnings_date: if result.next_analysis_date.is_empty() || result.next_analysis_date == "N/A" { 
-            None 
-        } else { 
-            Some(result.next_analysis_date) 
-        },
-        last_earnings_date: if result.last_analysis_date.is_empty() || result.last_analysis_date == "N/A" { 
-            None 
-        } else { 
-            Some(result.last_analysis_date) 
-        },
+        ranking_position,
+        quarterly_data: None, // Will be populated by WebSocket enhancement if needed
+        next_earnings_date: None, // Will be populated from external data
+        last_earnings_date: result.last_earnings_date,
     }
+}
+
+/// Helper function to parse f64 from string fields with fallback handling
+fn parse_f64_from_string(value: &str) -> Option<f64> {
+    value.parse::<f64>().ok().filter(|f| f.is_finite() && !f.is_nan())
 }
 
 /// Dynamic EPS validation for ranking updates - no hardcoded country/stock limits

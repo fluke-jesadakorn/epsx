@@ -184,6 +184,11 @@ impl Session {
         !self.is_expired() && !self.is_revoked
     }
     
+    /// Check if the session is active (same as is_valid)
+    pub fn is_active(&self) -> bool {
+        self.is_valid()
+    }
+    
     /// Check if the session has expired
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
@@ -249,6 +254,16 @@ impl Session {
         )));
         
         Ok(())
+    }
+    
+    /// Deactivate the session (alias for invalidate with default reason)
+    pub fn deactivate(&mut self) {
+        let _ = self.invalidate(SessionInvalidationReason::UserLogout);
+    }
+    
+    /// Refresh the session by updating access time and extending if needed
+    pub fn refresh(&mut self) {
+        let _ = self.update_last_accessed();
     }
     
     /// Update last accessed timestamp
@@ -333,6 +348,27 @@ impl Session {
     pub fn matches_user_agent(&self, user_agent: &str) -> bool {
         self.user_agent.as_deref() == Some(user_agent)
     }
+    
+    /// Update session metadata (user agent, IP, etc.)
+    pub fn update_metadata(&mut self, metadata: String) -> DomainResult<()> {
+        // Parse metadata format "key:value"
+        if let Some((key, value)) = metadata.split_once(':') {
+            match key {
+                "user_agent" => {
+                    self.user_agent = Some(value.to_string());
+                    self.base.touch();
+                }
+                "ip_address" => {
+                    self.ip_address = Some(value.to_string());
+                    self.base.touch();
+                }
+                _ => {
+                    // Ignore unknown metadata keys
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl AggregateRoot for Session {
@@ -379,7 +415,7 @@ mod tests {
     
     fn create_test_session() -> Session {
         Session::create(
-            SessionId::new(),
+            SessionId::from_uuid(uuid::Uuid::new_v4()),
             UserId::new(),
             "test_access_token".to_string(),
             Utc::now() + Duration::hours(1),
@@ -400,7 +436,7 @@ mod tests {
     #[test]
     fn create_session_with_past_expiration_should_fail() {
         let result = Session::create(
-            SessionId::new(),
+            SessionId::from_uuid(uuid::Uuid::new_v4()),
             UserId::new(),
             "test_token".to_string(),
             Utc::now() - Duration::hours(1), // Past expiration
@@ -456,7 +492,7 @@ mod tests {
     #[test]
     fn session_matching() {
         let session = Session::create(
-            SessionId::new(),
+            SessionId::from_uuid(uuid::Uuid::new_v4()),
             UserId::new(),
             "test_token".to_string(),
             Utc::now() + Duration::hours(1),

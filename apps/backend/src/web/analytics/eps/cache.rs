@@ -13,22 +13,19 @@ use tracing::{debug, info, warn};
 use crate::core::errors::AppError;
 use crate::dom::entities::eps_growth::EPSRanking;
 use crate::dom::services::eps_cache_service::EPSCacheService;
-use crate::dom::services::eps_ranking_service::EPSRankingService;
 use crate::infra::cache::{Cache, CacheExt};
-use crate::infra::services::tradingview::TradingViewService;
 use super::{
     dto::*, 
-    rankings::convert_screening_result_to_eps_ranking,
     enhancement::enhance_with_websocket_data,
     transform::{transform_ranking_to_unified_format, transform_unified_to_card_format},
     metadata::{get_available_countries_static, get_available_sectors_static}
 };
 
-/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint with caching
-/// Returns EPS rankings in card format with unified cache support (Redis/Memory)
+/// GET /api/v1/analytics/rankings - DDD-powered card dashboard endpoint with caching  
+/// Same API contract, but now internally uses DDD Trading Analytics bounded context
 pub async fn get_unified_analytics_rankings_cached(
     Query(params): Query<EPSRankingQueryParams>,
-    Extension(_eps_ranking_service): Extension<Arc<EPSRankingService>>,
+    Extension(stock_analysis_adapter): Extension<Arc<crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter>>,
     Extension(cache): Extension<Arc<dyn Cache>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
     debug!("Direct TradingView analytics rankings API called with params: {:?}", params);
@@ -54,37 +51,34 @@ pub async fn get_unified_analytics_rankings_cached(
     info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
           params.country, params.sort_by, page, limit);
 
-    // Fetch data using direct TradingView API calls
+    // Fetch data using DDD Trading Analytics bounded context
     let start_time = std::time::Instant::now();
     
-    // Create TradingView service for direct API calls
-    let config = match crate::config::Config::from_env() {
-        Ok(config) => Arc::new(config),
-        Err(e) => {
-            tracing::warn!("Failed to load config, using fallback: {:?}", e);
-            Arc::new(get_fallback_config())
-        }
+    // Convert query params to DDD adapter params
+    let adapter_params = crate::dom::services::eps_ranking_service::EPSRankingParams {
+        country: params.country.clone(),
+        sector: params.sector.clone(),
+        sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
+        page: page as i32,
+        limit: (skip + limit) as i32, // Get enough data for pagination
+        min_eps: params.min_eps,
+        min_growth: params.min_growth,
     };
-    let tradingview_service = crate::infra::services::tradingview::TradingViewApiService::new(config);
-    
-    // Get rankings data directly from TradingView
-    let (screening_results, total_count) = tradingview_service
-        .fetch_eps_growth_ranking(
-            Some(skip),
-            Some(limit),
-            params.country.clone(),
-            params.sector.clone(),
-            params.sort_by.clone().or(Some("market_cap".to_string())),
-        )
-        .await
+
+    // Get rankings data from DDD adapter (internally uses legacy system for now)
+    let all_rankings_data = stock_analysis_adapter
+        .convert_legacy_rankings_to_ddd(adapter_params).await
         .map_err(|e| AppError::new(
             crate::core::errors::ErrorKind::ExternalServiceError,
-            format!("TradingView API error: {}", e)
+            format!("DDD adapter error: {}", e)
         ))?;
     
-    // Convert TradingView screening results to EPS rankings format
-    let mut rankings_data: Vec<EPSRanking> = screening_results.into_iter()
-        .map(|result| convert_screening_result_to_eps_ranking(result))
+    let total_count = all_rankings_data.len() as u64;
+    
+    // Apply pagination to DDD results
+    let mut rankings_data: Vec<EPSRanking> = all_rankings_data.into_iter()
+        .skip(skip as usize)
+        .take(limit as usize)
         .collect();
     
     // Get rankings data with WebSocket enhancement for small requests (≤20 items)  
@@ -100,7 +94,7 @@ pub async fn get_unified_analytics_rankings_cached(
                 info!("Direct endpoint: Enhanced {} rankings with WebSocket data", enhanced_count);
             }
             Err(e) => {
-                warn!("Direct endpoint: Failed to enhance with WebSocket data: {}, using TradingView data", e);
+                warn!("Direct endpoint: Failed to enhance with WebSocket data: {}, using DDD data", e);
             }
         }
     }
@@ -123,12 +117,12 @@ pub async fn get_unified_analytics_rankings_cached(
     let has_next = page < total_pages;
     let has_prev = page > 1;
 
-    // Prepare metadata - use static data for now since we removed cache
+    // Prepare metadata - using DDD Trading Analytics bounded context
     let metadata = CardDashboardMetadata {
         available_countries: get_available_countries_static(),
         available_sectors: get_available_sectors_static(),
         request_timestamp: chrono::Utc::now(),
-        data_source: "live_tradingview_api".to_string(),
+        data_source: "ddd_trading_analytics".to_string(),
     };
     
     let duration = start_time.elapsed();
@@ -171,11 +165,11 @@ pub async fn get_unified_analytics_rankings_cached(
             has_prev,
         },
         metadata,
-        message: Some(format!("Fetched {} card dashboard rankings successfully from TradingView API", data_len)),
+        message: Some(format!("Fetched {} card dashboard rankings successfully from DDD Trading Analytics", data_len)),
         processing_time_ms: duration.as_millis() as u64,
     };
 
-    info!("Direct TradingView API card dashboard completed in {:?} - {} items returned", 
+    info!("DDD Trading Analytics card dashboard completed in {:?} - {} items returned", 
           duration, data_len);
 
     // Store response in cache with 1-hour TTL (3600 seconds)

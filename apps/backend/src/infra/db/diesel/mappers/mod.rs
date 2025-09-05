@@ -1,7 +1,6 @@
 pub mod user_mapper;
 pub mod session_mapper;
 pub mod audit_mapper;
-pub mod payment_mapper;
 
 // Re-export all mappers for convenience
 // pub use user_mapper::*;

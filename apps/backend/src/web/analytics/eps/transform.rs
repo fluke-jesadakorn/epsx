@@ -934,7 +934,7 @@ fn calculate_system_mode(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::dom::entities::eps_growth::EPSRanking;
+  use crate::domain::trading_analytics::EPSRanking;
 
   #[test]
   fn test_determine_trend() {

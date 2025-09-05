@@ -73,6 +73,18 @@ impl AggregateBase {
     pub fn clear_events(&mut self) {
         self.events.clear();
     }
+
+    pub fn version(&self) -> u64 {
+        self.version
+    }
+
+    pub fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>] {
+        &self.events
+    }
+
+    pub fn mark_events_as_committed(&mut self) {
+        self.events.clear();
+    }
 }
 
 impl Clone for AggregateBase {

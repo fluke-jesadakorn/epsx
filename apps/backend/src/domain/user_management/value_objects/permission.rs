@@ -122,6 +122,11 @@ impl Permission {
         }
     }
     
+    /// Check if this permission starts with the given prefix
+    pub fn starts_with(&self, prefix: &str) -> bool {
+        self.permission.starts_with(prefix)
+    }
+    
     /// Check if this permission matches another permission pattern
     /// Supports wildcards with "*"
     pub fn matches(&self, pattern: &str) -> bool {

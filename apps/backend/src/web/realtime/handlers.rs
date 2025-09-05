@@ -9,13 +9,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::web::middleware::AuthCtx;
+use crate::infrastructure::integration::PaymentEventType;
 
 use tracing::{info, error};
-
-
-use crate::dom::values::UserId;
-
-use super::events::{EventMessage, RealtimeEvent, NotificationLevel};
 
 use super::super::auth::routes::AppState;
 
@@ -79,40 +75,36 @@ pub async fn broadcast_notification_handler(
     let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
-    // Parse notification level
+    // Parse notification level for DDD
     let level = match payload.level.to_lowercase().as_str() {
-        "info" => NotificationLevel::Info,
-        "warning" => NotificationLevel::Warning,
-        "error" => NotificationLevel::Error,
-        "success" => NotificationLevel::Success,
-        _ => NotificationLevel::Info,
+        "info" => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
+        "warning" => crate::domain::realtime_events::value_objects::NotificationLevel::Warning,
+        "error" => crate::domain::realtime_events::value_objects::NotificationLevel::Error,
+        "success" => crate::domain::realtime_events::value_objects::NotificationLevel::Success,
+        _ => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
     };
     
-    // Create notification event
-    let event = RealtimeEvent::SystemNotification {
-        title: payload.title,
-        message: payload.message,
+    // Use DDD Real-time Events service
+    let realtime_service = &app_state.ddd_container.realtime_events_service;
+    let result = realtime_service.broadcast_system_notification(
+        payload.title,
+        payload.message,
         level,
-        target_user: payload.target_user.clone(),
-        metadata: std::collections::HashMap::new(),
-        timestamp: chrono::Utc::now(),
-    };
-    
-    let mut event_msg = EventMessage::new(event, "admin-notification".to_string());
-    
-    // Set target user if specified
-    if let Some(target_user) = payload.target_user {
-        event_msg = event_msg.with_user_id(target_user);
-    }
+        payload.target_user,
+        "admin-notification".to_string(),
+    ).await.map_err(|e| {
+        error!("Failed to broadcast notification: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     
     // Log event
     info!("Admin {} broadcasted notification: {}", 
-          current_user_id.to_string(), event_msg.metadata.event_id);
+          current_user_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
         message: "Notification broadcasted successfully".to_string(),
-        event_id: event_msg.metadata.event_id,
+        event_id: result.event_id,
         timestamp: chrono::Utc::now(),
     }))
 }
@@ -127,42 +119,38 @@ pub async fn simulate_payment_handler(
     let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
-    // Create payment event based on type
-    let event = match payload.event_type.as_str() {
-        "started" => RealtimeEvent::payment_started(
-            payload.payment_id,
-            payload.user_id,
-            payload.amount,
-            payload.currency,
-        ),
-        "completed" => RealtimeEvent::payment_completed(
-            payload.payment_id,
-            payload.user_id, 
-            payload.amount,
-            payload.currency,
-            payload.transaction_id.unwrap_or_else(|| format!("txn_{}", uuid::Uuid::new_v4())),
-        ),
-        "failed" => RealtimeEvent::payment_failed(
-            payload.payment_id,
-            payload.user_id,
-            payload.amount,
-            payload.currency,
-            payload.error_code.unwrap_or_else(|| "UNKNOWN_ERROR".to_string()),
-            payload.error_message.unwrap_or_else(|| "Payment failed".to_string()),
-        ),
+    // Map event type to DDD enum
+    let event_type = match payload.event_type.as_str() {
+        "started" => PaymentEventType::Started,
+        "completed" => PaymentEventType::Completed,
+        "failed" => PaymentEventType::Failed,
         _ => return Err(StatusCode::BAD_REQUEST),
     };
     
-    let event_msg = EventMessage::new(event, "payment-simulator".to_string());
+    // Use DDD Real-time Events service
+    let realtime_service = &app_state.ddd_container.realtime_events_service;
+    let result = realtime_service.simulate_payment_event(
+        payload.payment_id,
+        payload.user_id,
+        payload.amount,
+        payload.currency,
+        event_type,
+        payload.transaction_id,
+        payload.error_code,
+        payload.error_message,
+    ).await.map_err(|e| {
+        error!("Failed to simulate payment event: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     
     // Log event
     info!("Admin {} simulated payment event: {}", 
-          current_user_id.to_string(), event_msg.metadata.event_id);
+          current_user_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
         message: format!("Payment {} event simulated successfully", payload.event_type),
-        event_id: event_msg.metadata.event_id,
+        event_id: result.event_id,
         timestamp: chrono::Utc::now(),
     }))
 }
@@ -177,26 +165,27 @@ pub async fn simulate_stock_update_handler(
     let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
-    // Create stock price update event
-    let event = RealtimeEvent::StockPriceUpdate {
-        symbol: payload.symbol,
-        price: payload.price,
-        change: payload.change,
-        change_percent: payload.change_percent,
-        volume: payload.volume,
-        timestamp: chrono::Utc::now(),
-    };
-    
-    let event_msg = EventMessage::new(event, "stock-simulator".to_string());
+    // Use DDD Real-time Events service
+    let realtime_service = &app_state.ddd_container.realtime_events_service;
+    let result = realtime_service.simulate_stock_price_update(
+        payload.symbol,
+        payload.price,
+        payload.change,
+        payload.change_percent,
+        payload.volume,
+    ).await.map_err(|e| {
+        error!("Failed to simulate stock price update: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     
     // Log event
     info!("Admin {} simulated stock update: {}", 
-          current_user_id.to_string(), event_msg.metadata.event_id);
+          current_user_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
         message: "Stock price update simulated successfully".to_string(),
-        event_id: event_msg.metadata.event_id,
+        event_id: result.event_id,
         timestamp: chrono::Utc::now(),
     }))
 }
@@ -204,17 +193,25 @@ pub async fn simulate_stock_update_handler(
 /// Get real-time connection statistics
 pub async fn get_connection_stats_handler(
     auth_ctx: AuthCtx,
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
 ) -> Result<Json<ConnectionStats>, StatusCode> {
     // Verify admin access
     let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&_app_state, &current_user_id).await?;
+    verify_admin_access(&app_state, &current_user_id).await?;
     
-    // Return connection stats
+    // Use DDD Real-time Events service to get stats
+    let realtime_service = &app_state.ddd_container.realtime_events_service;
+    let ddd_stats = realtime_service.get_connection_stats().await
+        .map_err(|e| {
+            error!("Failed to get connection stats: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    // Convert DDD stats to API response format
     let stats = ConnectionStats {
-        total_connections: 0,
-        unique_users: 0,
-        connections_by_event: std::collections::HashMap::new(),
+        total_connections: ddd_stats.total_connections,
+        unique_users: ddd_stats.unique_users,
+        connections_by_event: std::collections::HashMap::new(), // TODO: Implement event-based grouping
     };
     
     Ok(Json(stats))
@@ -231,45 +228,47 @@ pub async fn send_user_notification_handler(
     let current_user_id = auth_ctx.user_id;
     verify_admin_access(&app_state, &current_user_id).await?;
     
-    // Parse notification level
+    // Parse notification level for DDD
     let level = match payload.level.to_lowercase().as_str() {
-        "info" => NotificationLevel::Info,
-        "warning" => NotificationLevel::Warning,  
-        "error" => NotificationLevel::Error,
-        "success" => NotificationLevel::Success,
-        _ => NotificationLevel::Info,
+        "info" => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
+        "warning" => crate::domain::realtime_events::value_objects::NotificationLevel::Warning,
+        "error" => crate::domain::realtime_events::value_objects::NotificationLevel::Error,
+        "success" => crate::domain::realtime_events::value_objects::NotificationLevel::Success,
+        _ => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
     };
     
-    // Create targeted notification event
-    let event = RealtimeEvent::SystemNotification {
-        title: payload.title,
-        message: payload.message,
+    // Use DDD Real-time Events service
+    let realtime_service = &app_state.ddd_container.realtime_events_service;
+    let result = realtime_service.broadcast_system_notification(
+        payload.title,
+        payload.message,
         level,
-        target_user: Some(user_id.clone()),
-        metadata: std::collections::HashMap::new(),
-        timestamp: chrono::Utc::now(),
-    };
-    
-    let event_msg = EventMessage::new(event, "admin-targeted-notification".to_string())
-        .with_user_id(user_id.clone());
+        Some(user_id.clone()),
+        "admin-targeted-notification".to_string(),
+    ).await.map_err(|e| {
+        error!("Failed to send targeted notification: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     
     // Log event
-    let target_user_id = UserId::new(user_id);
     info!("Admin {} sent targeted notification to {}: {}", 
-          current_user_id.to_string(), target_user_id.to_string(), event_msg.metadata.event_id);
+          current_user_id.to_string(), user_id, result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
         message: "Targeted notification sent successfully".to_string(),
-        event_id: event_msg.metadata.event_id,
+        event_id: result.event_id,
         timestamp: chrono::Utc::now(),
     }))
 }
 
 
-/// Verify admin access
-async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(), StatusCode> {
-    let user = app_state.user_repo.get(user_id).await
+/// Verify admin access using DDD User aggregate
+async fn verify_admin_access(app_state: &AppState, user_id: &crate::domain::user_management::value_objects::UserId) -> Result<(), StatusCode> {
+    // Use DDD User Repository Port through DDDContainer
+    let user_repository = app_state.ddd_container.user_repository();
+    
+    let user = user_repository.find_by_id(user_id).await
         .map_err(|e| {
             error!("Failed to get user for admin check: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
@@ -280,7 +279,7 @@ async fn verify_admin_access(app_state: &AppState, user_id: &UserId) -> Result<(
     let user_permissions = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
         Ok(permissions) => permissions,
         Err(e) => {
-            tracing::error!("Failed to fetch permissions for admin check {}: {:?}", user.id(), e);
+            tracing::error!("Failed to fetch permissions for admin check {}: {:?}", user.id().to_string(), e);
             return Err(StatusCode::FORBIDDEN);
         }
     };

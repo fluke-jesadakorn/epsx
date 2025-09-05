@@ -49,10 +49,10 @@ impl EventMetadata {
 /// Simple event bus interface for domain events
 pub trait DomainEventBus: Send + Sync {
     /// Publish a domain event
-    fn publish(&self, event: Box<dyn DomainEvent>);
+    fn publish(&self, event: &Box<dyn DomainEvent>);
     
     /// Publish multiple events as a batch
-    fn publish_batch(&self, events: Vec<Box<dyn DomainEvent>>) {
+    fn publish_batch(&self, events: &[Box<dyn DomainEvent>]) {
         for event in events {
             self.publish(event);
         }
@@ -61,7 +61,7 @@ pub trait DomainEventBus: Send + Sync {
 
 /// In-memory event bus for testing and simple scenarios
 pub struct InMemoryEventBus {
-    events: std::sync::RwLock<Vec<Box<dyn DomainEvent>>>,
+    events: std::sync::RwLock<Vec<String>>,
 }
 
 impl InMemoryEventBus {
@@ -73,7 +73,7 @@ impl InMemoryEventBus {
     
     pub fn published_events(&self) -> Vec<String> {
         let events = self.events.read().unwrap();
-        events.iter().map(|e| e.event_type().to_string()).collect()
+        events.clone()
     }
     
     pub fn clear_events(&self) {
@@ -83,9 +83,9 @@ impl InMemoryEventBus {
 }
 
 impl DomainEventBus for InMemoryEventBus {
-    fn publish(&self, event: Box<dyn DomainEvent>) {
+    fn publish(&self, event: &Box<dyn DomainEvent>) {
         let mut events = self.events.write().unwrap();
-        events.push(event);
+        events.push(event.event_type().to_string());
     }
 }
 

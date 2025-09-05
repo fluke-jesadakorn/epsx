@@ -13,6 +13,7 @@ use crate::app::use_cases::{AuthUC, UserMgmtUC};
 use crate::dom::services::PermissionService;
 use crate::infra::services::permission_infrastructure::PermissionInfrastructureService;
 use crate::app::services::PermissionApplicationService;
+use crate::infrastructure::DDDContainer;
 
 /// Refined AppContainer using focused modules instead of God Object pattern
 #[derive(Clone)]
@@ -44,6 +45,9 @@ pub struct AppContainer {
     
     // Notification repository
     pub user_notification_repo: Arc<crate::infra::db::diesel::repos::UserNotificationRepository>,
+    
+    // New DDD Container for modern clean architecture
+    pub ddd: DDDContainer,
 }
 
 impl AppContainer {
@@ -97,7 +101,9 @@ impl AppContainer {
             None, // Removed brute_force_service
             None, // Removed notification_port - will be re-implemented
             // Clean architecture services
-            self.permission_application_service.clone(),
+            self.services.permission_application_service.clone(),
+            // DDD Architecture
+            Arc::new(self.ddd.clone()),
         ))
     }
 
@@ -186,7 +192,10 @@ impl AppContainerBuilder {
             diesel_pool: database.database_pool.clone(),
         };
         
-        tracing::info!("✅ AppContainer built successfully with focused modules");
+        // 5. DDD Container (new clean architecture)
+        let ddd = DDDContainer::new(database.database_pool.clone());
+        
+        tracing::info!("✅ AppContainer built successfully with focused modules and DDD architecture");
         
         Ok(AppContainer {
             // Legacy compatibility fields - expose module internals
@@ -209,6 +218,9 @@ impl AppContainerBuilder {
             user_notification_repo: database.user_notification_repo.clone(),
             // Removed admin_module_service field - using simple roles
             infra,
+            
+            // New DDD Container for modern clean architecture
+            ddd,
             
             // Store focused modules internally
             database,

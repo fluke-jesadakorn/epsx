@@ -212,7 +212,7 @@ impl std::fmt::Display for NotificationType {
 // DELIVERY CHANNEL ENUM
 // ============================================================================
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[derive(AsExpression, FromSqlRow)]
 #[diesel(sql_type = crate::infra::db::diesel::schema::sql_types::DeliveryChannel)]
 pub enum DeliveryChannel {

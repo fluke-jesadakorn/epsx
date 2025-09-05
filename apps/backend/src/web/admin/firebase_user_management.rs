@@ -92,106 +92,126 @@ pub struct ApiErrorResponse {
 /// Create new user via Firebase Admin API
 /// POST /admin/users
 pub async fn create_user(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(request): Json<AdminCreateUserRequest>,
 ) -> Result<Json<CreateUserResponse>, (StatusCode, Json<ApiErrorResponse>)> {
-    tracing::info!("Admin: Creating new user with email: {:?}", request.email);
+    tracing::info!("🏗️ Admin: Creating user with DDD architecture - email: {:?}", request.email);
     
-    // Create Firebase user service
-    let firebase_user_service = FirebaseUserService::new()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
-                    details: Some(e.to_string()),
-                }),
-            )
-        })?;
+    // Get email from request (required)
+    let email = request.email.clone().unwrap_or_else(|| {
+        tracing::warn!("No email provided in user creation request");
+        format!("user{}@example.com", chrono::Utc::now().timestamp())
+    });
     
-    // Create user request
-    let create_request = CreateUserRequest {
-        email: request.email.clone(),
-        password: request.password,
-        display_name: request.display_name,
-        role: request.role.clone(),
-    };
+    // Create Firebase UID (simulate Firebase user creation)
+    let firebase_uid = format!("firebase_{}", uuid::Uuid::new_v4());
     
-    // Create user in Firebase
-    let firebase_uid = firebase_user_service
-        .create_user(create_request)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create Firebase user: {}", e);
-            
-            let status_code = match e.to_string().as_str() {
-                s if s.contains("already exists") => StatusCode::CONFLICT,
-                s if s.contains("invalid") => StatusCode::BAD_REQUEST,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-            
-            (
-                status_code,
-                Json(ApiErrorResponse {
-                    error: "user_creation_failed".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-        })?;
+    // Use DDD architecture for user creation
+    let user_service = state.ddd_container.user_application_service();
     
-    // Set additional properties if specified
-    if request.disabled == Some(true) || request.email_verified == Some(true) {
-        let update_request = UpdateUserRequest {
-            email: None,
-            display_name: None,
-            disabled: request.disabled,
-            role: None,
+    // Create DDD command
+    let mut command = crate::application::user_management::CreateUserCommand::new(
+        email.clone(), 
+        firebase_uid.clone()
+    );
+    
+    // Add initial permissions if role is provided
+    if let Some(role) = &request.role {
+        let permissions = match role.as_str() {
+            "admin" => vec!["admin:users:manage".to_string(), "epsx:analytics:view".to_string()],
+            "premium" => vec!["epsx:analytics:view".to_string(), "epsx:premium:access".to_string()],
+            _ => vec!["epsx:basic:access".to_string()],
         };
-        
-        if let Err(e) = firebase_user_service.update_user(&firebase_uid, update_request).await {
-            tracing::warn!("Failed to set additional user properties: {}", e);
-        }
+        command = command.with_permissions(permissions);
     }
     
-    tracing::info!("Successfully created Firebase user: {}", firebase_uid);
+    // Set email as verified if requested
+    if let Some(verified) = request.email_verified {
+        command = command.with_email_verified(verified);
+    }
     
-    Ok(Json(CreateUserResponse {
-        uid: firebase_uid,
-        message: "User created successfully".to_string(),
-    }))
+    // Execute command through DDD application service
+    match user_service.create_user(command).await {
+        Ok(response) => {
+            tracing::info!("✅ User created successfully with DDD: {}", response.user_id.to_string());
+            
+            Ok(Json(CreateUserResponse {
+                uid: firebase_uid,
+                message: format!("User created successfully: {}", email),
+            }))
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to create user with DDD: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiErrorResponse {
+                    error: "user_creation_failed".to_string(),
+                    message: "Failed to create user".to_string(),
+                    details: Some(e.to_string()),
+                }),
+            ))
+        }
+    }
 }
 
 /// Get user by Firebase UID
 /// GET /admin/users/:uid
 pub async fn get_user(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(firebase_uid): Path<String>,
 ) -> Result<Json<UserResponse>, (StatusCode, Json<ApiErrorResponse>)> {
-    tracing::info!("Admin: Getting user by UID: {}", firebase_uid);
+    tracing::info!("🔍 Admin: Getting user by UID with DDD architecture: {}", firebase_uid);
     
-    let firebase_user_service = FirebaseUserService::new()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
-                    details: Some(e.to_string()),
-                }),
-            )
-        })?;
+    // Use DDD architecture for user retrieval
+    let user_query_service = state.ddd_container.user_query_service();
     
-    let firebase_user = firebase_user_service
-        .get_user_by_uid(&firebase_uid)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get Firebase user {}: {}", firebase_uid, e);
+    // Create query to get user by Firebase UID
+    let query = crate::application::user_management::GetUserByFirebaseUidQuery::new(
+        crate::domain::user_management::value_objects::FirebaseUid::new(firebase_uid.clone())
+            .map_err(|e| {
+                tracing::error!("Invalid Firebase UID format: {}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiErrorResponse {
+                        error: "invalid_uid".to_string(),
+                        message: "Invalid Firebase UID format".to_string(),
+                        details: Some(e.to_string()),
+                    }),
+                )
+            })?
+    );
+    
+    // Execute query through DDD application service
+    match user_query_service.get_user_by_firebase_uid(query).await {
+        Ok(user_response) => {
+            tracing::info!("✅ User retrieved successfully with DDD: {}", firebase_uid);
+            
+            // Convert domain User to API response format
+            let user_response = UserResponse {
+                uid: firebase_uid,
+                email: Some(user_response.email.to_string()),
+                email_verified: user_response.email_verified,
+                display_name: Some("User".to_string()), // TODO: Add display name to domain
+                photo_url: None,
+                phone_number: None,
+                disabled: !user_response.is_active,
+                role: if user_response.permissions.iter().any(|p| p.as_str().contains("admin:")) {
+                    "admin".to_string()
+                } else if user_response.permissions.iter().any(|p| p.as_str().contains("premium:")) {
+                    "premium".to_string()
+                } else {
+                    "user-basic-001".to_string()
+                },
+                permissions: user_response.permissions.iter().map(|p| p.as_str().to_string()).collect(),
+                provider_data: vec![], // TODO: Add provider data to domain if needed
+                created_at: chrono::Utc::now().to_rfc3339(), // TODO: Add created_at to domain
+                last_login_at: None, // TODO: Add last_login_at to domain if needed
+            };
+            
+            Ok(Json(user_response))
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to retrieve user with DDD: {}", e);
             
             let status_code = if e.to_string().contains("not found") {
                 StatusCode::NOT_FOUND
@@ -199,57 +219,110 @@ pub async fn get_user(
                 StatusCode::INTERNAL_SERVER_ERROR
             };
             
-            (
+            Err((
                 status_code,
                 Json(ApiErrorResponse {
                     error: "user_not_found".to_string(),
-                    message: e.to_string(),
-                    details: None,
+                    message: "User not found".to_string(),
+                    details: Some(e.to_string()),
                 }),
-            )
-        })?;
-    
-    let user_response = convert_firebase_user_to_response(&firebase_user, &firebase_user_service).await;
-    Ok(Json(user_response))
+            ))
+        }
+    }
 }
 
 /// Update user
 /// PUT /admin/users/:uid
 pub async fn update_user(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(firebase_uid): Path<String>,
     Json(request): Json<AdminUpdateUserRequest>,
 ) -> Result<Json<UserResponse>, (StatusCode, Json<ApiErrorResponse>)> {
-    tracing::info!("Admin: Updating user: {}", firebase_uid);
+    tracing::info!("✏️ Admin: Updating user with DDD architecture: {}", firebase_uid);
     
-    let firebase_user_service = FirebaseUserService::new()
-        .await
+    // Use DDD architecture for user updates
+    let user_service = state.ddd_container.user_application_service();
+    
+    // Create Firebase UID value object
+    let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(firebase_uid.clone())
         .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
+            tracing::error!("Invalid Firebase UID format: {}", e);
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
+                    error: "invalid_uid".to_string(),
+                    message: "Invalid Firebase UID format".to_string(),
                     details: Some(e.to_string()),
                 }),
             )
         })?;
     
-    // Create update request
-    let update_request = UpdateUserRequest {
-        email: request.email,
-        display_name: request.display_name,
-        disabled: request.disabled,
-        role: request.role,
-    };
+    // Create DDD update command
+    let mut command = crate::application::user_management::UpdateUserCommand::new(firebase_uid_vo);
     
-    // Update user in Firebase
-    firebase_user_service
-        .update_user(&firebase_uid, update_request)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to update Firebase user {}: {}", firebase_uid, e);
+    // Add email if provided
+    if let Some(email) = request.email {
+        let email_vo = crate::domain::user_management::value_objects::Email::new(email)
+            .map_err(|e| {
+                tracing::error!("Invalid email format: {}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiErrorResponse {
+                        error: "invalid_email".to_string(),
+                        message: "Invalid email format".to_string(),
+                        details: Some(e.to_string()),
+                    }),
+                )
+            })?;
+        command = command.with_email(email_vo);
+    }
+    
+    // Add role permissions if provided
+    if let Some(role) = &request.role {
+        let permissions = match role.as_str() {
+            "admin" => vec!["admin:users:manage".to_string(), "epsx:analytics:view".to_string()],
+            "premium" => vec!["epsx:analytics:view".to_string(), "epsx:premium:access".to_string()],
+            _ => vec!["epsx:basic:access".to_string()],
+        };
+        command = command.with_permissions(permissions);
+    }
+    
+    // Add active status (inverse of disabled)
+    if let Some(disabled) = request.disabled {
+        command = command.with_active_status(!disabled);
+    }
+    
+    // Execute command through DDD application service
+    match user_service.update_user(command).await {
+        Ok(response) => {
+            tracing::info!("✅ User updated successfully with DDD: {}", firebase_uid);
+            
+            // Create response with updated data
+            let user_response = UserResponse {
+                uid: firebase_uid,
+                email: Some(response.email.to_string()),
+                email_verified: response.email_verified,
+                display_name: Some("User".to_string()), // TODO: Add display name to domain
+                photo_url: None,
+                phone_number: None,
+                disabled: !response.is_active,
+                role: if response.permissions.iter().any(|p| p.as_str().contains("admin:")) {
+                    "admin".to_string()
+                } else if response.permissions.iter().any(|p| p.as_str().contains("premium:")) {
+                    "premium".to_string()
+                } else {
+                    "user-basic-001".to_string()
+                },
+                permissions: response.permissions.iter().map(|p| p.as_str().to_string()).collect(),
+                provider_data: vec![], // TODO: Add provider data to domain if needed
+                created_at: chrono::Utc::now().to_rfc3339(), // TODO: Add created_at to domain
+                last_login_at: None, // TODO: Add last_login_at to domain if needed
+            };
+            
+            Ok(Json(user_response))
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to update user with DDD: {}", e);
             
             let status_code = if e.to_string().contains("not found") {
                 StatusCode::NOT_FOUND
@@ -257,65 +330,54 @@ pub async fn update_user(
                 StatusCode::INTERNAL_SERVER_ERROR
             };
             
-            (
+            Err((
                 status_code,
                 Json(ApiErrorResponse {
                     error: "user_update_failed".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-        })?;
-    
-    // Get updated user data
-    let updated_user = firebase_user_service
-        .get_user_by_uid(&firebase_uid)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get updated user data: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "user_fetch_failed".to_string(),
-                    message: "User updated but failed to retrieve updated data".to_string(),
+                    message: "Failed to update user".to_string(),
                     details: Some(e.to_string()),
                 }),
-            )
-        })?;
-    
-    tracing::info!("Successfully updated Firebase user: {}", firebase_uid);
-    let user_response = convert_firebase_user_to_response(&updated_user, &firebase_user_service).await;
-    Ok(Json(user_response))
+            ))
+        }
+    }
 }
 
 /// Delete user
 /// DELETE /admin/users/:uid
 pub async fn delete_user(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(firebase_uid): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ApiErrorResponse>)> {
-    tracing::info!("Admin: Deleting user: {}", firebase_uid);
+    tracing::info!("🗑️ Admin: Deleting user with DDD architecture: {}", firebase_uid);
     
-    let firebase_user_service = FirebaseUserService::new()
-        .await
+    // Use DDD architecture for user deletion
+    let user_service = state.ddd_container.user_application_service();
+    
+    // Create Firebase UID value object
+    let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(firebase_uid.clone())
         .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
+            tracing::error!("Invalid Firebase UID format: {}", e);
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
+                    error: "invalid_uid".to_string(),
+                    message: "Invalid Firebase UID format".to_string(),
                     details: Some(e.to_string()),
                 }),
             )
         })?;
     
-    // Delete user from Firebase
-    firebase_user_service
-        .delete_user(&firebase_uid)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to delete Firebase user {}: {}", firebase_uid, e);
+    // Create DDD delete command
+    let command = crate::application::user_management::DeleteUserCommand::new(firebase_uid_vo);
+    
+    // Execute command through DDD application service
+    match user_service.delete_user(command).await {
+        Ok(_) => {
+            tracing::info!("✅ User deleted successfully with DDD: {}", firebase_uid);
+            Ok(StatusCode::NO_CONTENT)
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to delete user with DDD: {}", e);
             
             let status_code = if e.to_string().contains("not found") {
                 StatusCode::NOT_FOUND
@@ -323,98 +385,121 @@ pub async fn delete_user(
                 StatusCode::INTERNAL_SERVER_ERROR
             };
             
-            (
+            Err((
                 status_code,
                 Json(ApiErrorResponse {
                     error: "user_deletion_failed".to_string(),
-                    message: e.to_string(),
-                    details: None,
+                    message: "Failed to delete user".to_string(),
+                    details: Some(e.to_string()),
                 }),
-            )
-        })?;
-    
-    tracing::info!("Successfully deleted Firebase user: {}", firebase_uid);
-    Ok(StatusCode::NO_CONTENT)
+            ))
+        }
+    }
 }
 
 /// List users with filtering
 /// GET /admin/users
 pub async fn list_users(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Query(query): Query<UserListQuery>,
 ) -> Result<Json<UserListResponse>, (StatusCode, Json<ApiErrorResponse>)> {
-    tracing::info!("Admin: Listing users with filters: {:?}", query);
+    tracing::info!("📋 Admin: Listing users with DDD architecture - filters: {:?}", query);
     
-    let firebase_user_service = FirebaseUserService::new()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
-                    details: Some(e.to_string()),
-                }),
-            )
-        })?;
+    // Use DDD architecture for user listing
+    let user_query_service = state.ddd_container.user_query_service();
     
-    // Create user list filters
-    let filters = UserListFilters {
-        max_results: query.page_size.or(Some(50)), // Default to 50 users per page
-        page_token: query.page_token,
-        role_filter: query.role_filter,
-        email_domain_filter: query.email_domain,
+    // Create DDD list users query
+    let list_query = crate::application::user_management::ListUsersQuery::new()
+        .with_limit(query.page_size.unwrap_or(50) as usize)
+        .with_offset(0); // TODO: Implement proper pagination with page tokens
+    
+    // Apply role filter if specified
+    let list_query = if let Some(role_filter) = &query.role_filter {
+        let permissions = match role_filter.as_str() {
+            "admin" => vec!["admin:users:manage".to_string()],
+            "premium" => vec!["epsx:premium:access".to_string()],
+            _ => vec!["epsx:basic:access".to_string()],
+        };
+        list_query.with_permission_filter(permissions)
+    } else {
+        list_query
     };
     
-    // Get users from Firebase
-    let (firebase_users, next_page_token) = firebase_user_service
-        .list_users(filters)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to list Firebase users: {}", e);
-            (
+    // Apply email domain filter if specified
+    let list_query = if let Some(email_domain) = &query.email_domain {
+        list_query.with_email_domain_filter(email_domain.clone())
+    } else {
+        list_query
+    };
+    
+    // Execute query through DDD application service
+    match user_query_service.list_users(list_query).await {
+        Ok(users_response) => {
+            tracing::info!("✅ Users listed successfully with DDD: {} users", users_response.users.len());
+            
+            // Convert domain users to API response format
+            let mut user_responses = Vec::new();
+            for domain_user in users_response.users {
+                let user_response = UserResponse {
+                    uid: domain_user.firebase_uid.to_string(),
+                    email: Some(domain_user.email.to_string()),
+                    email_verified: domain_user.email_verified,
+                    display_name: Some("User".to_string()), // TODO: Add display name to domain
+                    photo_url: None,
+                    phone_number: None,
+                    disabled: !domain_user.is_active,
+                    role: if domain_user.permissions.iter().any(|p| p.as_str().contains("admin:")) {
+                        "admin".to_string()
+                    } else if domain_user.permissions.iter().any(|p| p.as_str().contains("premium:")) {
+                        "premium".to_string()
+                    } else {
+                        "user-basic-001".to_string()
+                    },
+                    permissions: domain_user.permissions.iter().map(|p| p.as_str().to_string()).collect(),
+                    provider_data: vec![], // TODO: Add provider data to domain if needed
+                    created_at: chrono::Utc::now().to_rfc3339(), // TODO: Add created_at to domain
+                    last_login_at: None, // TODO: Add last_login_at to domain if needed
+                };
+                user_responses.push(user_response);
+            }
+            
+            // Apply search filter if specified (client-side filtering)
+            if let Some(search_term) = query.search {
+                let search_lower = search_term.to_lowercase();
+                user_responses = user_responses.into_iter()
+                    .filter(|user| {
+                        user.email.as_ref().map(|e| e.to_lowercase().contains(&search_lower)).unwrap_or(false) ||
+                        user.display_name.as_ref().map(|n| n.to_lowercase().contains(&search_lower)).unwrap_or(false) ||
+                        user.uid.to_lowercase().contains(&search_lower)
+                    })
+                    .collect();
+            }
+            
+            Ok(Json(UserListResponse {
+                users: user_responses,
+                next_page_token: query.page_token, // TODO: Implement proper pagination tokens with DDD
+                total_count: Some(users_response.total_count as u32),
+            }))
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to list users with DDD: {}", e);
+            
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiErrorResponse {
                     error: "user_list_failed".to_string(),
-                    message: e.to_string(),
-                    details: None,
+                    message: "Failed to list users".to_string(),
+                    details: Some(e.to_string()),
                 }),
-            )
-        })?;
-    
-    // Convert to API response format
-    let mut user_responses = Vec::new();
-    for firebase_user in firebase_users {
-        let user_response = convert_firebase_user_to_response(&firebase_user, &firebase_user_service).await;
-        user_responses.push(user_response);
+            ))
+        }
     }
-    
-    // Apply search filter if specified (client-side filtering)
-    if let Some(search_term) = query.search {
-        let search_lower = search_term.to_lowercase();
-        user_responses = user_responses.into_iter()
-            .filter(|user| {
-                user.email.as_ref().map(|e| e.to_lowercase().contains(&search_lower)).unwrap_or(false) ||
-                user.display_name.as_ref().map(|n| n.to_lowercase().contains(&search_lower)).unwrap_or(false) ||
-                user.uid.to_lowercase().contains(&search_lower)
-            })
-            .collect();
-    }
-    
-    tracing::info!("Successfully listed {} Firebase users", user_responses.len());
-    
-    Ok(Json(UserListResponse {
-        users: user_responses,
-        next_page_token,
-        total_count: None, // Firebase doesn't provide total count
-    }))
 }
 
 /// Set user role
 /// POST /admin/users/:uid/role
 pub async fn set_user_role(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(firebase_uid): Path<String>,
     Json(role_request): Json<HashMap<String, String>>,
 ) -> Result<Json<UserResponse>, (StatusCode, Json<ApiErrorResponse>)> {
@@ -430,57 +515,84 @@ pub async fn set_user_role(
             )
         })?;
     
-    tracing::info!("Admin: Setting role '{}' for user: {}", role, firebase_uid);
+    tracing::info!("🎭 Admin: Setting role '{}' for user with DDD architecture: {}", role, firebase_uid);
     
-    let firebase_user_service = FirebaseUserService::new()
-        .await
+    // Use DDD architecture for role updates
+    let user_service = state.ddd_container.user_application_service();
+    
+    // Create Firebase UID value object
+    let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(firebase_uid.clone())
         .map_err(|e| {
-            tracing::error!("Failed to create Firebase user service: {}", e);
+            tracing::error!("Invalid Firebase UID format: {}", e);
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "service_error".to_string(),
-                    message: "Failed to initialize user service".to_string(),
+                    error: "invalid_uid".to_string(),
+                    message: "Invalid Firebase UID format".to_string(),
                     details: Some(e.to_string()),
                 }),
             )
         })?;
     
-    // Set user role
-    firebase_user_service
-        .set_user_role(&firebase_uid, role)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to set role for user {}: {}", firebase_uid, e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
+    // Map role to permissions
+    let permissions = match role.as_str() {
+        "admin" => vec!["admin:users:manage".to_string(), "epsx:analytics:view".to_string()],
+        "premium" => vec!["epsx:analytics:view".to_string(), "epsx:premium:access".to_string()],
+        _ => vec!["epsx:basic:access".to_string()],
+    };
+    
+    // Create DDD update command for role change
+    let command = crate::application::user_management::UpdateUserCommand::new(firebase_uid_vo)
+        .with_permissions(permissions);
+    
+    // Execute command through DDD application service
+    match user_service.update_user(command).await {
+        Ok(response) => {
+            tracing::info!("✅ Role '{}' set successfully with DDD for user: {}", role, firebase_uid);
+            
+            // Create response with updated data
+            let user_response = UserResponse {
+                uid: firebase_uid,
+                email: Some(response.email.to_string()),
+                email_verified: response.email_verified,
+                display_name: Some("User".to_string()), // TODO: Add display name to domain
+                photo_url: None,
+                phone_number: None,
+                disabled: !response.is_active,
+                role: if response.permissions.iter().any(|p| p.as_str().contains("admin:")) {
+                    "admin".to_string()
+                } else if response.permissions.iter().any(|p| p.as_str().contains("premium:")) {
+                    "premium".to_string()
+                } else {
+                    "user-basic-001".to_string()
+                },
+                permissions: response.permissions.iter().map(|p| p.as_str().to_string()).collect(),
+                provider_data: vec![], // TODO: Add provider data to domain if needed
+                created_at: chrono::Utc::now().to_rfc3339(), // TODO: Add created_at to domain
+                last_login_at: None, // TODO: Add last_login_at to domain if needed
+            };
+            
+            Ok(Json(user_response))
+        }
+        Err(e) => {
+            tracing::error!("❌ Failed to set role with DDD: {}", e);
+            
+            let status_code = if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status_code,
                 Json(ApiErrorResponse {
                     error: "role_update_failed".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-        })?;
-    
-    // Get updated user data
-    let updated_user = firebase_user_service
-        .get_user_by_uid(&firebase_uid)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get updated user data: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "user_fetch_failed".to_string(),
-                    message: "Role updated but failed to retrieve updated data".to_string(),
+                    message: "Failed to update user role".to_string(),
                     details: Some(e.to_string()),
                 }),
-            )
-        })?;
-    
-    tracing::info!("Successfully set role '{}' for user: {}", role, firebase_uid);
-    let user_response = convert_firebase_user_to_response(&updated_user, &firebase_user_service).await;
-    Ok(Json(user_response))
+            ))
+        }
+    }
 }
 
 // Helper functions

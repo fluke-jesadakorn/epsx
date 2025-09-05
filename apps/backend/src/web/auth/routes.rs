@@ -57,6 +57,8 @@ pub struct AppState {
     // Removed: notification service - will be re-implemented
     // Clean architecture services
     pub permission_application_service: Arc<PermissionApplicationService>,
+    // DDD Architecture
+    pub ddd_container: Arc<crate::infrastructure::DDDContainer>,
 }
 
 impl AppState {
@@ -77,6 +79,8 @@ impl AppState {
         _notification_service: Option<()>, // Removed: notification service - will be re-implemented
         // Clean architecture services
         permission_application_service: Arc<PermissionApplicationService>,
+        // DDD Architecture
+        ddd_container: Arc<crate::infrastructure::DDDContainer>,
     ) -> Self {
         Self {
             auth_uc,
@@ -93,6 +97,8 @@ impl AppState {
             // Removed: notification service field
             // Clean architecture services
             permission_application_service,
+            // DDD Architecture
+            ddd_container,
         }
     }
 }

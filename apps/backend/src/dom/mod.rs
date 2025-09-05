@@ -7,7 +7,7 @@ pub mod services;
 pub mod events;
 pub mod error;
 pub mod ports;
-pub mod notification;
+// pub mod notification; // Removed - migrated to DDD
 
 // Selective re-exports to prevent namespace pollution
 pub use entities::{AggregateRoot, UnitOfWork};

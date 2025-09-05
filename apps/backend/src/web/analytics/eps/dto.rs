@@ -234,18 +234,47 @@ pub struct CardDashboardMetadata {
     pub data_source: String,
 }
 
-impl From<crate::dom::entities::eps_growth::EPSRankingsResponse> for EPSRankingsApiResponse {
-    fn from(response: crate::dom::entities::eps_growth::EPSRankingsResponse) -> Self {
+/// Convert from DDD trading analytics to API response
+impl EPSRankingsApiResponse {
+    pub fn from_ddd_ranking_entry(ranking_entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, rank: u32, page: i32, limit: i32, total: i64) -> Self {
+        let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
+        
+        // Convert DDD RankingEntry to legacy EPSRanking for API compatibility
+        let legacy_ranking = Self::convert_ddd_entry_to_legacy_ranking(ranking_entry, rank);
+        
         Self {
-            data: response.rankings,
+            data: vec![legacy_ranking],
             pagination: EPSPaginationResponse {
-                page: response.pagination.page,
-                limit: response.pagination.limit,
-                total: response.pagination.total,
-                total_pages: response.pagination.total_pages,
-                has_next: response.pagination.has_next,
-                has_prev: response.pagination.has_prev,
+                page,
+                limit,
+                total,
+                total_pages,
+                has_next: page < total_pages,
+                has_prev: page > 1,
             },
+        }
+    }
+    
+    /// Convert DDD RankingEntry to legacy EPSRanking for API compatibility
+    fn convert_ddd_entry_to_legacy_ranking(
+        entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, 
+        rank: u32
+    ) -> crate::dom::entities::eps_growth::EPSRanking {
+        crate::dom::entities::eps_growth::EPSRanking {
+            symbol: entry.symbol.to_string(),
+            name: entry.company_name,
+            country: entry.country.to_string(),
+            sector: entry.sector.to_string(),
+            exchange: "NASDAQ".to_string(), // Default exchange, would be from symbol metadata
+            current_eps: Some(entry.eps_value.current_eps()),
+            growth_factor: Some(entry.growth_factor.value()),
+            price_current: None, // Would need to be provided from market data
+            market_cap: None, // Would need to be calculated or provided
+            volume: None, // Would need to be provided from market data
+            ranking_position: Some(rank as i32),
+            quarterly_data: None, // Would be populated from detailed EPS data
+            next_earnings_date: None, // Would need to be fetched from financial API
+            last_earnings_date: None, // Would need to be fetched from financial API
         }
     }
 }

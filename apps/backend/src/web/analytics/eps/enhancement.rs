@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
-use crate::dom::entities::eps_growth::EPSRanking;
+use crate::domain::trading_analytics::EPSRanking;
 use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
 use super::rankings::is_valid_eps_for_ranking;
 
@@ -99,7 +99,7 @@ pub async fn enhance_with_websocket_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::entities::eps_growth::EPSRanking;
+    use crate::domain::trading_analytics::EPSRanking;
 
     #[test]
     fn test_empty_rankings_enhancement() {
