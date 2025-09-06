@@ -1,12 +1,17 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{info, error};
 
 // Infrastructure dependencies
-use crate::infra::db::diesel::DbPool;
-use crate::infra::cache::{Cache, CacheFactory};
-use crate::infra::db::diesel::repos::user_repo::DieselUserRepository;
-use crate::app::ports::repositories::UserRepository;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::cache::{Cache, CacheFactory};
+use crate::infrastructure::adapters::repositories::diesel::repos::user_repo::DieselUserRepository;
+use crate::application::ports::repositories::{UserRepository, UserPermissionRepository, SessionRepository};
 use crate::infrastructure::adapters::repositories::{
-    UserRepositoryAdapter, SessionRepositoryAdapter,
+    UserRepositoryAdapter, SessionRepositoryAdapter, UserPermissionRepositoryAdapter,
     PaymentRepositoryAdapter, TransactionRepositoryAdapter,
     CryptoAddressRepositoryAdapter, PaymentMethodRepositoryAdapter,
     RealtimeEventRepositoryAdapter, ConnectionRepositoryAdapter,
@@ -16,6 +21,7 @@ use crate::infrastructure::event_bus::SimpleEventBus;
 // Domain layer imports
 use crate::domain::shared_kernel::DomainEventBus;
 use crate::domain::user_management::{UserRepositoryPort, SessionRepositoryPort};
+use crate::domain::session_management::repositories::{SessionManagerRepositoryPort, SessionMetadataRepositoryPort};
 
 // Application layer imports
 use crate::application::shared::CommandHandler;
@@ -43,6 +49,7 @@ pub struct DDDContainer {
     // Repository ports (domain interfaces)
     user_repository_port: Arc<dyn UserRepositoryPort>,
     session_repository_port: Arc<dyn SessionRepositoryPort>,
+    user_permission_repository_port: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>>,
     
     // Command handlers
     create_user_handler: Arc<CreateUserCommandHandler>,
@@ -64,17 +71,19 @@ impl DDDContainer {
         // 1. Create infrastructure components
         let event_bus: Arc<dyn DomainEventBus> = Arc::new(SimpleEventBus::new());
         let cache: Arc<dyn Cache> = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(CacheFactory::with_fallback())
+            Arc::from(tokio::runtime::Handle::current().block_on(CacheFactory::with_fallback()))
         });
         
-        // Legacy user repository for compatibility
-        let legacy_user_repository: Arc<dyn UserRepository> = Arc::new(DieselUserRepository::new(db_pool.clone()));
+        // Legacy user repository for compatibility - using LegacyRepositoryError for trait compliance
+        let legacy_user_repository: Arc<dyn UserRepository<Error = crate::infrastructure::adapters::repositories::user_repository_adapter::LegacyRepositoryError>> = Arc::new(UserRepositoryAdapter::new(db_pool.clone()));
         
         // 2. Create repository adapters (infrastructure layer)
         let user_repository_port: Arc<dyn UserRepositoryPort> = 
             Arc::new(UserRepositoryAdapter::new(db_pool.clone()));
         let session_repository_port: Arc<dyn SessionRepositoryPort> = 
             Arc::new(SessionRepositoryAdapter::new(db_pool.clone()));
+        let user_permission_repository_port: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>> = 
+            Arc::new(UserPermissionRepositoryAdapter::new(db_pool.clone()));
         
         // Payment repository adapters
         let payment_repository_adapter = Arc::new(PaymentRepositoryAdapter::new(
@@ -141,6 +150,7 @@ impl DDDContainer {
             event_bus,
             user_repository_port,
             session_repository_port,
+            user_permission_repository_port,
             create_user_handler,
             grant_permission_handler,
             create_session_handler,
@@ -161,6 +171,11 @@ impl DDDContainer {
     /// Get session repository port (domain interface)
     pub fn session_repository(&self) -> Arc<dyn SessionRepositoryPort> {
         self.session_repository_port.clone()
+    }
+    
+    /// Get user permission repository port (domain interface)
+    pub fn user_permission_repository(&self) -> Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>> {
+        self.user_permission_repository_port.clone()
     }
     
     /// Get domain event bus
@@ -207,8 +222,8 @@ impl DDDContainer {
     pub fn authentication_service_integration(&self) -> Arc<crate::infrastructure::AuthenticationServiceIntegration> {
         // Create authentication service integration on-demand
         Arc::new(crate::infrastructure::AuthenticationServiceIntegration::new(
-            self.user_repository(),
-            self.session_repository(),
+            Arc::new(crate::infrastructure::adapters::repositories::user_repository_adapter::UserRepositoryAdapter::new(self.db_pool.clone())),
+            Arc::new(crate::infrastructure::adapters::repositories::session_repository_adapter::SessionRepositoryAdapter::new(self.db_pool.clone())),
             self.create_session_handler.clone(),
         ))
     }

@@ -18,6 +18,22 @@ pub use events::*;
 pub use repositories::*;
 
 /// Authentication bounded context business rules and invariants
+
+/// Authentication provider error types
+#[derive(Debug, thiserror::Error)]
+pub enum AuthProviderError {
+    #[error("Provider validation failed: {message}")]
+    ValidationFailed { message: String },
+    
+    #[error("Provider connection failed: {provider}")]
+    ConnectionFailed { provider: String },
+    
+    #[error("Token validation failed")]
+    TokenValidationFailed,
+    
+    #[error("Provider not supported: {provider}")]
+    UnsupportedProvider { provider: String },
+}
 pub struct AuthenticationBoundedContext;
 
 impl AuthenticationBoundedContext {

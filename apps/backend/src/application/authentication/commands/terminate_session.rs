@@ -1,10 +1,10 @@
-// Terminate Session Command
 // Maps to logout/session termination flow
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-
 use crate::domain::authentication::{SessionId, TerminationReason};
+use crate::application::shared::command_bus::Command;
+use chrono::{DateTime, Utc};
+
 
 /// Command to terminate an authentication session
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,4 +263,8 @@ mod tests {
         // 2 out of 3 are suspicious (admin + security)
         assert!((stats.suspicious_termination_rate - 66.67).abs() < 0.1);
     }
+}
+
+impl Command for TerminateSessionCommand {
+    type Response = TerminateSessionResponse;
 }

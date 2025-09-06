@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use crate::application::shared::{Command, ApplicationResult};
 
 /// Command to invalidate a user session

@@ -1,11 +1,9 @@
-// Security Context Value Object
 // Tracks security-related information and threat detection
 
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use crate::domain::authentication::{AuthenticatedUserId, ProviderType, ClientInformation};
+use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
-
-use super::ClientInformation;
+use serde::{Deserialize, Serialize};
 
 /// Security context for authentication sessions
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,7 +282,7 @@ pub struct UserAgentInfo {
 }
 
 /// Device fingerprint for tracking
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeviceFingerprint {
     fingerprint_hash: String,
     characteristics: HashMap<String, String>,

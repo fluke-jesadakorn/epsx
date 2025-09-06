@@ -13,12 +13,13 @@ pub mod domain_services;
 pub use aggregates::{User, Session};
 
 pub use value_objects::{
-    UserId, 
     Email, 
     FirebaseUid, 
-    Permission, 
-    SessionId
+    Permission
 };
+
+// Re-export shared kernel value objects
+pub use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 
 pub use events::{
     UserCreatedEvent,

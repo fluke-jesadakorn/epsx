@@ -300,7 +300,7 @@ pub enum AuthProviderError {
     InvalidScopeConfiguration(String),
     
     #[error("Provider does not support authentication method")]
-    UnsupportedMethod,
+    UnsupportedAuthenticationMethod,
     
     #[error("Provider configuration is invalid")]
     InvalidConfiguration,

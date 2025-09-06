@@ -8,7 +8,7 @@ use super::{
     Payment, PaymentId, PaymentStatus, PaymentAmount,
     TransactionHash, CryptoAddress, PaymentReference
 };
-use crate::domain::user_management::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::UserId;
 
 /// Port for payment repository operations
 #[async_trait]

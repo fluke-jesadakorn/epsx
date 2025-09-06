@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
+use std::fmt::Debug;
 
 use super::{ApplicationError, ApplicationResult};
 

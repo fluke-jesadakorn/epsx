@@ -1,11 +1,11 @@
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
 use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 use crate::domain::notification::value_objects::*;
-use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
-use chrono::{DateTime, Utc};
+use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use std::collections::HashMap;
 
 /// Notification Aggregate Root
 /// Manages the lifecycle of a notification from creation to delivery
@@ -291,6 +291,7 @@ impl Notification {
     pub fn effective_priority(&self) -> i32 {
         let base_priority = match self.priority {
             NotificationPriority::Urgent => 100,
+            NotificationPriority::Critical => 90,
             NotificationPriority::High => 75,
             NotificationPriority::Normal => 50,
             NotificationPriority::Low => 25,

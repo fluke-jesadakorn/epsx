@@ -1,10 +1,13 @@
 // Connection Repository Adapter
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 // Manages WebSocket and SSE connections for real-time events
 
 use std::sync::Arc;
-use std::collections::HashMap;
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::domain::realtime_events::{
@@ -21,6 +24,9 @@ pub struct ConnectionRepositoryAdapter {
     // User ID -> List of Connection IDs  
     user_connections: Arc<RwLock<HashMap<String, Vec<String>>>>,
 }
+
+unsafe impl Send for ConnectionRepositoryAdapter {}
+unsafe impl Sync for ConnectionRepositoryAdapter {}
 
 #[derive(Debug, Clone)]
 struct StoredConnection {

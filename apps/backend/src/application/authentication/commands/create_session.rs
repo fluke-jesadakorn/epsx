@@ -4,8 +4,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::application::shared::{Command, ApplicationResult};
 use crate::domain::authentication::{
-    SessionId, AuthenticatedUserId, AuthenticationProvider, ClientInformation, Scope
+    SessionId, AuthenticatedUserId, AuthenticationProvider, ClientInformation, Scope, ProviderType
 };
 
 /// Command to create a new authentication session
@@ -88,6 +90,18 @@ impl CreateSessionCommand {
             self.scopes.push(Scope::Email);
         }
         self
+    }
+}
+
+impl Command for CreateSessionCommand {
+    type Response = CreateSessionResponse;
+
+    fn validate(&self) -> ApplicationResult<()> {
+        // Delegate to the existing validation logic
+        match CreateSessionCommand::validate(self) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(crate::application::shared::ApplicationError::validation("validation", e.to_string())),
+        }
     }
 }
 
@@ -178,7 +192,7 @@ impl CreateSessionCommand {
         
         // Validate provider supports requested scopes
         self.provider.validate_capabilities(&self.scopes)
-            .map_err(CreateSessionValidationError::ProviderValidation)?;
+            .map_err(|e| CreateSessionValidationError::ProviderValidation(e))?;
         
         Ok(())
     }
@@ -197,7 +211,7 @@ pub enum CreateSessionValidationError {
     AdminRequiresEmail,
     
     #[error("Provider validation failed: {0}")]
-    ProviderValidation(#[from] crate::domain::authentication::AuthProviderError),
+    ProviderValidation(#[from] crate::domain::authentication::value_objects::authentication_provider::AuthProviderError),
 }
 
 #[cfg(test)]

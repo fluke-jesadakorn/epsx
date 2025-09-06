@@ -1,8 +1,8 @@
-// DTOs and Request/Response Structures for EPS Analytics
+use chrono::{DateTime, Utc};// DTOs and Request/Response Structures for EPS Analytics
 // Focused module handling all data transfer objects and API structures
 
 use serde::{Deserialize, Serialize};
-use crate::dom::services::eps_cache_service::CacheStats;
+use crate::domain::shared_kernel::services::eps_cache_service::CacheStats;
 
 /// Query parameters for EPS rankings endpoint
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,7 @@ pub struct EPSRankingQueryParams {
 /// API response structure matching frontend pattern
 #[derive(Debug, Serialize)]
 pub struct EPSRankingsApiResponse {
-    pub data: Vec<crate::dom::entities::eps_growth::EPSRanking>,
+    pub data: Vec<crate::domain::shared_kernel::entities::eps_growth::EPSRanking>,
     pub pagination: EPSPaginationResponse,
 }
 
@@ -259,22 +259,17 @@ impl EPSRankingsApiResponse {
     fn convert_ddd_entry_to_legacy_ranking(
         entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, 
         rank: u32
-    ) -> crate::dom::entities::eps_growth::EPSRanking {
-        crate::dom::entities::eps_growth::EPSRanking {
+    ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
+        crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
             symbol: entry.symbol.to_string(),
-            name: entry.company_name,
-            country: entry.country.to_string(),
+            company_name: entry.company_name,
+            eps_current: entry.eps_value.value(),
+            eps_previous: 0.0, // Not available from entry
+            growth_rate: entry.growth_factor.percentage(),
+            rank,
             sector: entry.sector.to_string(),
-            exchange: "NASDAQ".to_string(), // Default exchange, would be from symbol metadata
-            current_eps: Some(entry.eps_value.current_eps()),
-            growth_factor: Some(entry.growth_factor.value()),
-            price_current: None, // Would need to be provided from market data
             market_cap: None, // Would need to be calculated or provided
-            volume: None, // Would need to be provided from market data
-            ranking_position: Some(rank as i32),
-            quarterly_data: None, // Would be populated from detailed EPS data
-            next_earnings_date: None, // Would need to be fetched from financial API
-            last_earnings_date: None, // Would need to be fetched from financial API
+            last_updated: chrono::Utc::now(),
         }
     }
 }

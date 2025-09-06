@@ -1,4 +1,4 @@
-// Validated request DTOs with comprehensive validation rules
+use chrono::{DateTime, Utc};// Validated request DTOs with comprehensive validation rules
 use serde::Deserialize;
 use validator::{Validate, ValidationError};
 
@@ -80,23 +80,7 @@ pub struct ValidatedUserProfileUpdateRequest {
     pub location: Option<String>,
 }
 
-/// Validated role creation request
-#[derive(Debug, Deserialize, Validate)]
-pub struct ValidatedRoleCreateRequest {
-    #[validate(custom(function = "validate_role_name"))]
-    pub name: String,
-    
-    #[validate(length(max = 500))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    
-    #[validate(custom(function = "validate_permissions_list"))]
-    pub permissions: Vec<String>,
-    
-    #[validate(range(min = 0, max = 100))]
-    #[serde(default)]
-    pub priority: i32,
-}
+// ValidatedRoleCreateRequest removed - using permissions-based system only
 
 /// Custom validator for permissions list
 fn validate_permissions_list(permissions: &[String]) -> Result<(), ValidationError> {
@@ -407,24 +391,7 @@ mod tests {
         assert!(valid_request.validate().is_ok());
     }
 
-    #[test]
-    fn test_validated_role_create_request() {
-        let valid_request = ValidatedRoleCreateRequest {
-            name: "editor".to_string(),
-            description: Some("Content editor role".to_string()),
-            permissions: vec!["content:read".to_string(), "content:write".to_string()],
-            priority: 50,
-        };
-        assert!(valid_request.validate().is_ok());
-
-        let invalid_request = ValidatedRoleCreateRequest {
-            name: "".to_string(),
-            description: None,
-            permissions: vec![], // Empty permissions should fail
-            priority: 50,
-        };
-        assert!(invalid_request.validate().is_err());
-    }
+    // ValidatedRoleCreateRequest test removed - using permissions-based system
 
     #[test]
     fn test_validated_payment_create_request() {

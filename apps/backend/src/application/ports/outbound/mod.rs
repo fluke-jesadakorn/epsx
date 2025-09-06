@@ -3,6 +3,8 @@
 // Following dependency inversion principle: high-level modules don't depend on low-level modules
 
 pub mod event_bus_port;
+pub mod repository_ports;
+pub mod service_ports;
 
 // Re-export commonly used ports
 pub use event_bus_port::{
@@ -10,6 +12,8 @@ pub use event_bus_port::{
     EventBusHealthStatus, EventBusMetrics, PublishOptions, EventPriority,
     AdvancedEventBusPort, EventSubscriberPort, EventHandler, SubscriptionId
 };
+pub use repository_ports::*;
+pub use service_ports::*;
 
 // The repository ports are already defined in the domain layer
 // Additional outbound ports for external services:

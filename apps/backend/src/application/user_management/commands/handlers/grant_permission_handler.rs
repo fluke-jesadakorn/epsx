@@ -1,11 +1,14 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::user_management::commands::models::{GrantPermissionCommand, GrantPermissionResponse};
 
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
-use crate::domain::user_management::{UserRepositoryPort, Permission, UserId};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::{UserRepositoryPort, Permission};
 
 /// Command handler for granting permissions to users
 pub struct GrantPermissionCommandHandler {
@@ -32,7 +35,7 @@ impl CommandHandler<GrantPermissionCommand> for GrantPermissionCommandHandler {
         // This is a stub implementation for now
         
         // 1. Parse user ID and permission
-        let user_id = UserId::from_string(&command.user_id)
+        let user_id = UserId::from_string(command.user_id.clone())
             .map_err(|e| ApplicationError::validation("user_id", e.to_string()))?;
         
         let permission = Permission::new(&command.permission)
@@ -45,7 +48,7 @@ impl CommandHandler<GrantPermissionCommand> for GrantPermissionCommandHandler {
         
         // 3. Grant permission using domain logic
         let granted_by = if let Some(ref granted_by_str) = command.granted_by {
-            Some(UserId::from_string(granted_by_str)
+            Some(UserId::from_string(granted_by_str.clone())
                 .map_err(|e| ApplicationError::validation("granted_by", e.to_string()))?)
         } else {
             None

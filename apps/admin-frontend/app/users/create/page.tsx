@@ -35,13 +35,14 @@ async function createUserAction(formData: FormData) {
       permissions: selectedPermissions,
       password
     })
-    
-    revalidatePath('/users')
-    redirect('/users?success=user-created')
   } catch (error) {
     console.error('Failed to create user:', error)
     redirect('/users/create?error=creation-failed')
   }
+  
+  // Success - revalidate and redirect (outside try-catch to prevent redirect from being caught)
+  revalidatePath('/users')
+  redirect('/users?success=user-created')
 }
 
 interface Props {

@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+use std::fmt::Debug;
 use uuid::Uuid;
 
 use super::domain_event::DomainEvent;

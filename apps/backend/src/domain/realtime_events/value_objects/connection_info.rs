@@ -1,7 +1,6 @@
-// Connection Info Value Objects
+use chrono::{DateTime, Utc};// Connection Info Value Objects
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
 /// Information about a real-time connection
 #[derive(Debug, Clone, Serialize, Deserialize)]

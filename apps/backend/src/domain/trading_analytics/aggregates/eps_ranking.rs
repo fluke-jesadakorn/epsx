@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
 use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 use crate::domain::trading_analytics::value_objects::*;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;

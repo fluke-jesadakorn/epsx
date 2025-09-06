@@ -45,9 +45,20 @@ export async function GET(request: NextRequest) {
 
     // Retrieve PKCE parameters from cookies
     const cookieStore = await cookies();
-    const storedCodeVerifier = cookieStore.get('oauth_code_verifier')?.value;
-    const storedState = cookieStore.get('oauth_state')?.value;
+    let storedCodeVerifier = cookieStore.get('oauth_code_verifier')?.value;
+    let storedState = cookieStore.get('oauth_state')?.value;
     const storedCallbackUrl = cookieStore.get('oauth_callback_url')?.value;
+
+    // If primary cookies are missing, try backup cookies
+    if (!storedCodeVerifier) {
+      storedCodeVerifier = cookieStore.get('pkce_verifier_backup')?.value;
+      console.log('🔄 Using backup code verifier');
+    }
+    
+    if (!storedState) {
+      storedState = cookieStore.get('pkce_state_backup')?.value;
+      console.log('🔄 Using backup state');
+    }
 
     // Debug cookie values
     console.log('🔍 Admin Cookie debug info:');
@@ -55,11 +66,19 @@ export async function GET(request: NextRequest) {
     console.log('  - oauth_state:', storedState ? `present (${storedState.slice(0,10)}...)` : 'missing');
     console.log('  - oauth_callback_url:', storedCallbackUrl || 'missing');
 
+    // Debug all cookies to see what's available
+    const allCookies = cookieStore.getAll();
+    console.log('🔍 All available cookies:', allCookies.map(c => c.name).join(', '));
+
     // Validate PKCE parameters are present
     if (!storedCodeVerifier || !storedState) {
       console.error('❌ Admin: Missing PKCE parameters in cookies');
+      console.error('❌ Available cookies:', allCookies.map(c => `${c.name}=${c.value ? 'present' : 'empty'}`));
+      
+      // Try to restart the OAuth flow instead of showing error
+      console.log('🔄 Attempting to restart OAuth flow...');
       const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('error', 'missing_pkce_parameters');
+      loginUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
     }
 
@@ -161,6 +180,8 @@ export async function GET(request: NextRequest) {
     response.cookies.delete('oauth_code_verifier');
     response.cookies.delete('oauth_state');
     response.cookies.delete('oauth_callback_url');
+    response.cookies.delete('pkce_verifier_backup');
+    response.cookies.delete('pkce_state_backup');
     // Also clean up legacy cookie during migration
     response.cookies.delete('epsx_admin_jwt');
     console.log('✅ OAuth PKCE cookies cleaned up');

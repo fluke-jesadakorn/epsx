@@ -6,20 +6,11 @@ use axum::{
     Router,
     middleware,
 };
-use crate::infra::db::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
 
-use crate::app::use_cases::auth::AuthUC;
-use crate::app::use_cases::user::UserMgmtUC;
-use crate::app::ports::repositories::{
-    SessionRepository, UserRepository, UserPermissionRepository, AuditRepository, 
-    UsageRepository
-};
-use crate::infra::firebase_admin::FirebaseAdmin;
-// Removed admin module service import - using simple roles
-use crate::infra::AppContainer;
-use crate::infra::cache::Cache;
-// Removed: notification port - will be re-implemented
-use crate::app::services::PermissionApplicationService;
+use crate::infrastructure::adapters::services::firebase::firebase_admin::FirebaseAdmin;
+use crate::infrastructure::cache::Cache;
+use crate::infrastructure::container::AppContainer;
 
 use crate::web::user::handlers::{
     // Core Authentication
@@ -43,62 +34,36 @@ use crate::web::user::handlers::{
 /// Clean Application State for Dependency Injection
 #[derive(Clone)]
 pub struct AppState {
-    pub auth_uc: Arc<AuthUC>,
-    pub user_mgmt_uc: Arc<UserMgmtUC>,
-    pub session_repo: Arc<dyn SessionRepository>,
-    pub user_repo: Arc<dyn UserRepository>,
-    pub user_permission_repo: Arc<dyn UserPermissionRepository>,
-    pub audit_repo: Arc<dyn AuditRepository>,
-    pub usage_repo: Arc<dyn UsageRepository>,
-    pub firebase_admin: Arc<FirebaseAdmin>,
-    // Removed admin_module_service - using simple roles
     pub db_pool: Arc<DbPool>,
+    pub firebase_admin: Arc<FirebaseAdmin>,
     pub cache: Arc<dyn Cache>,
-    // Removed: notification service - will be re-implemented
-    // Clean architecture services
-    pub permission_application_service: Arc<PermissionApplicationService>,
-    // DDD Architecture
-    pub ddd_container: Arc<crate::infrastructure::DDDContainer>,
+    pub notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
+    pub ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
+    pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
+    pub session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
+    pub permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
 }
 
 impl AppState {
     pub fn new(
-        auth_uc: Arc<AuthUC>,
-        user_mgmt_uc: Arc<UserMgmtUC>,
-        session_repo: Arc<dyn SessionRepository>,
-        user_repo: Arc<dyn UserRepository>,
-        user_permission_repo: Arc<dyn UserPermissionRepository>,
-        audit_repo: Arc<dyn AuditRepository>,
-        usage_repo: Arc<dyn UsageRepository>,
-        firebase_admin: Arc<FirebaseAdmin>,
-        // Removed admin_module_service parameter - using simple roles
         db_pool: Arc<DbPool>,
+        firebase_admin: Arc<FirebaseAdmin>,
         cache: Arc<dyn Cache>,
-        _security_cache: Option<()>, // Removed security_cache
-        _brute_force_service: Option<()>, // Removed brute_force_service
-        _notification_service: Option<()>, // Removed: notification service - will be re-implemented
-        // Clean architecture services
-        permission_application_service: Arc<PermissionApplicationService>,
-        // DDD Architecture
-        ddd_container: Arc<crate::infrastructure::DDDContainer>,
+        notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
+        ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
+        user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
+        session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
+        permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
     ) -> Self {
         Self {
-            auth_uc,
-            user_mgmt_uc,
-            session_repo,
-            user_repo,
-            user_permission_repo,
-            audit_repo,
-            usage_repo,
-            firebase_admin,
-            // Removed admin_module_service field - using simple roles
             db_pool,
+            firebase_admin,
             cache,
-            // Removed: notification service field
-            // Clean architecture services
-            permission_application_service,
-            // DDD Architecture
+            notification_service,
             ddd_container,
+            user_repo,
+            session_repo,
+            permission_application_service,
         }
     }
 }
@@ -173,7 +138,7 @@ pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
 pub fn create_combined_auth_routes(
     app_state: AppState,
     container: Arc<AppContainer>,
-    pool: crate::infra::db::diesel::DbPool,
+    pool: crate::infrastructure::adapters::repositories::diesel::DbPool,
 ) -> Router {
     Router::new()
         .merge(create_auth_routes(app_state))

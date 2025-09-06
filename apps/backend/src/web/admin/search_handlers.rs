@@ -4,9 +4,11 @@ use axum::{extract::{Query, State}, response::Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{warn, info};
 use std::sync::Arc;
+use chrono::prelude::*;
 
-use crate::app::ports::repositories::{UserRepository, UserPermissionRepository, UserSearchFilters};
-use crate::infra::db::diesel::DbPool;
+use crate::domain::user_management::aggregates::User;
+use crate::domain::shared_kernel::AggregateRoot;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::web::auth::routes::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,46 +50,39 @@ pub async fn search_users_handler(
     State(state): State<AppState>,
     Query(query): Query<UserSearchQuery>
 ) -> Result<Json<SearchUsersResponse>, (StatusCode, String)> {
-    use crate::infra::db::diesel::repos::{DieselUserRepository, DieselUserPermissionRepository};
+    use crate::infrastructure::adapters::repositories::diesel::repos::{DieselUserRepository, DieselUserPermissionRepository};
     
     info!("Searching users with query: {:?}", query);
     
-    // Create repository instances
-    let user_repo = DieselUserRepository::new(state.db_pool.clone());
-    let permission_repo = DieselUserPermissionRepository::new(state.db_pool.clone());
+    // Use repository instances from AppState (properly typed with trait methods)
+    let user_repo = &state.user_repo;
     
     // Set pagination parameters
     let page = query.page.unwrap_or(1).max(1);
     let per_page = query.per_page.unwrap_or(20).min(100); // Max 100 per page
     let offset = (page - 1) * per_page;
     
-    // Create search filters
-    let filters = UserSearchFilters {
-        search: query.search.clone(),
-        email: query.email.clone(),
-        package_tier: query.package_tier.clone(),
-        status: query.status.clone(),
-        tier: None, // Alias for package_tier
-        last_login_after: None,
-        last_login_before: None,
+    // Create search criteria using DDD approach
+    let criteria = crate::domain::user_management::repository_ports::user_repository_port::UserSearchCriteria {
+        search_term: query.search.clone(),
+        email_pattern: query.email.clone(),
+        is_active: query.status.as_ref().map(|s| s == "active"),
+        email_verified: None,
+        has_permissions: Vec::new(), // TODO: Convert package_tier to permissions if needed
         created_after: None,
         created_before: None,
-        has_module: None,
-        permission_profile: None,
-        email_verified: None,
-        two_factor_enabled: None,
-        has_api_keys: None,
+        last_login_after: None,
+        firebase_uid_pattern: None,
+        custom_filters: std::collections::HashMap::new(),
     };
     
-    let sort_by = query.sort_by.as_deref().unwrap_or("created_at");
-    let sort_order = query.sort_order.as_deref().unwrap_or("desc");
+    // Execute search using DDD repository methods
+    let search_result = user_repo.find_by_criteria(&criteria, per_page, offset).await;
     
-    // Execute search
-    let users_result = user_repo.search_users(&filters, offset, per_page, sort_by, sort_order).await;
-    let total_result = user_repo.count_search_users(&filters).await;
-    
-    match (users_result, total_result) {
-        (Ok(users), Ok(total)) => {
+    match search_result {
+        Ok(result) => {
+            let users = result.users;
+            let total = result.total_count;
             let mut user_results: Vec<UserSearchResult> = Vec::new();
             
             // Process each user and fetch their permissions
@@ -95,14 +90,8 @@ pub async fn search_users_handler(
                 let is_active = user.is_active();
                 let status = if is_active { "active".to_string() } else { "inactive".to_string() };
                 
-                // Fetch user permissions
-                let permissions = match permission_repo.get_user_permissions(user.id()).await {
-                    Ok(perms) => perms.into_iter().map(|p| p.permission().to_string()).collect(),
-                    Err(e) => {
-                        warn!("Failed to fetch permissions for user {}: {}", user.id().0, e);
-                        vec![] // Empty permissions on error
-                    }
-                };
+                // Get user permissions from User aggregate (direct access)
+                let permissions = user.active_permissions();
                 
                 // Determine subscription tier based on permissions
                 let subscription_tier = if permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -114,7 +103,7 @@ pub async fn search_users_handler(
                 };
                 
                 user_results.push(UserSearchResult {
-                    id: user.id().0.to_string(),
+                    id: user.id().to_string(),
                     email: user.email().to_string(),
                     display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()), // Extract name from email
                     firebase_uid: Some(user.firebase_uid().to_string()),
@@ -137,8 +126,8 @@ pub async fn search_users_handler(
                 per_page,
             }))
         }
-        (Err(e), _) | (_, Err(e)) => {
-            warn!("User search failed: {}", e);
+        Err(e) => {
+            warn!("User search failed: {:?}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Search failed: {}", e)

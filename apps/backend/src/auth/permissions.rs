@@ -1,5 +1,4 @@
-// ============================================================================
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};// ============================================================================
 use uuid::Uuid;
 // UNIFIED PERMISSION SYSTEM - REPLACES ALL ROLE-BASED ACCESS CONTROL
 // ============================================================================
@@ -452,7 +451,7 @@ pub fn require_permission_pure(
 // This section implements the core logic for resolving user limits dynamically
 // combining database-stored admin assignments with permission-based fallbacks
 
-use crate::infra::db::diesel::models::{
+use crate::infrastructure::adapters::repositories::diesel::models::{
 
     DieselUserDynamicLimit, ResolvedUserLimits, LimitSource
 };
@@ -479,27 +478,12 @@ fn resolve_from_dynamic_assignment(
     user_id: Uuid,
     dynamic_limit: DieselUserDynamicLimit,
 ) -> ResolvedUserLimits {
-    // Clean up API endpoints (remove None values)
-    let api_endpoints = dynamic_limit.api_endpoints
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|ep| ep)
-        .collect();
-
     ResolvedUserLimits {
-        user_id,
-        ranking_limit: dynamic_limit.ranking_limit.unwrap_or(DEFAULT_FREE_RANKING_LIMIT),
-        requests_per_minute: dynamic_limit.requests_per_minute.unwrap_or(DEFAULT_FREE_API_MINUTE_LIMIT),
-        requests_per_hour: dynamic_limit.requests_per_hour.unwrap_or(DEFAULT_FREE_API_HOUR_LIMIT),
-        requests_per_day: dynamic_limit.requests_per_day,
-        api_endpoints,
-        source: LimitSource::Dynamic {
-            assignment_id: dynamic_limit.id,
-            reason: dynamic_limit.reason,
-            priority: dynamic_limit.priority,
-        },
-        assigned_by: Some(dynamic_limit.assigned_by),
-        expires_at: dynamic_limit.expires_at.map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc)),
+        user_id: user_id.to_string(),
+        daily_limit: Some(dynamic_limit.limit_value),
+        weekly_limit: None,
+        monthly_limit: None,
+        total_limit: None,
     }
 }
 
@@ -513,15 +497,11 @@ fn resolve_from_permissions(
     let api_endpoints = derive_api_endpoints_from_permissions(user_permissions);
 
     ResolvedUserLimits {
-        user_id,
-        ranking_limit,
-        requests_per_minute: api_per_minute,
-        requests_per_hour: api_per_hour,
-        requests_per_day: None,
-        api_endpoints,
-        source: LimitSource::Permissions,
-        assigned_by: None,
-        expires_at: None,
+        user_id: user_id.to_string(),
+        daily_limit: Some(api_per_hour as i64),
+        weekly_limit: None,
+        monthly_limit: None,
+        total_limit: None,
     }
 }
 
@@ -582,7 +562,14 @@ pub fn get_effective_ranking_limit(
     dynamic_limit: Option<&DieselUserDynamicLimit>,
 ) -> i32 {
     match dynamic_limit {
-        Some(limit) => limit.ranking_limit.unwrap_or(DEFAULT_FREE_RANKING_LIMIT),
+        Some(limit) => {
+            // Use limit_value if it's a ranking limit type
+            if limit.limit_type == "ranking" {
+                limit.limit_value as i32
+            } else {
+                DEFAULT_FREE_RANKING_LIMIT
+            }
+        },
         None => extract_ranking_limit(user_permissions),
     }
 }
@@ -593,10 +580,14 @@ pub fn get_effective_api_limits(
     dynamic_limit: Option<&DieselUserDynamicLimit>,
 ) -> (i32, i32) {
     match dynamic_limit {
-        Some(limit) => (
-            limit.requests_per_minute.unwrap_or(DEFAULT_FREE_API_MINUTE_LIMIT),
-            limit.requests_per_hour.unwrap_or(DEFAULT_FREE_API_HOUR_LIMIT)
-        ),
+        Some(limit) => {
+            // Use limit_value for API limits based on limit_type
+            match limit.limit_type.as_str() {
+                "api_minute" => (limit.limit_value as i32, DEFAULT_FREE_API_HOUR_LIMIT),
+                "api_hour" => (DEFAULT_FREE_API_MINUTE_LIMIT, limit.limit_value as i32),
+                _ => (DEFAULT_FREE_API_MINUTE_LIMIT, DEFAULT_FREE_API_HOUR_LIMIT),
+            }
+        },
         None => {
             let ranking_limit = extract_ranking_limit(user_permissions);
             derive_api_limits_from_ranking(ranking_limit)
@@ -610,20 +601,7 @@ pub fn can_access_endpoint(
     dynamic_limit: Option<&DieselUserDynamicLimit>,
     endpoint: &str
 ) -> bool {
-    // Check dynamic endpoint assignments first
-    if let Some(limit) = dynamic_limit {
-        if let Some(ref endpoints) = limit.api_endpoints {
-            for pattern_opt in endpoints {
-                if let Some(pattern) = pattern_opt {
-                    if endpoint_matches_pattern(endpoint, pattern) {
-                        return true;
-                    }
-                }
-            }
-            return false; // Dynamic limits are restrictive
-        }
-    }
-    
+    // Dynamic limits don't contain endpoint restrictions in the current schema
     // Fall back to permission-based endpoint access
     let allowed_endpoints = derive_api_endpoints_from_permissions(user_permissions);
     allowed_endpoints.iter().any(|pattern| endpoint_matches_pattern(endpoint, pattern))
@@ -646,15 +624,11 @@ fn endpoint_matches_pattern(endpoint: &str, pattern: &str) -> bool {
 /// Create a default resolved limits for a user (used as final fallback)
 pub fn create_default_limits(user_id: Uuid) -> ResolvedUserLimits {
     ResolvedUserLimits {
-        user_id,
-        ranking_limit: DEFAULT_FREE_RANKING_LIMIT,
-        requests_per_minute: DEFAULT_FREE_API_MINUTE_LIMIT,
-        requests_per_hour: DEFAULT_FREE_API_HOUR_LIMIT,
-        requests_per_day: None,
-        api_endpoints: vec!["basic/*".to_string()],
-        source: LimitSource::Default,
-        assigned_by: None,
-        expires_at: None,
+        user_id: user_id.to_string(),
+        daily_limit: Some(DEFAULT_FREE_API_MINUTE_LIMIT as i64 * 1440), // 24 hours worth of minute limits
+        weekly_limit: None,
+        monthly_limit: None,
+        total_limit: None,
     }
 }
 

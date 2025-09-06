@@ -6,9 +6,15 @@ pub mod domain_event;
 pub mod specification;
 pub mod value_object;
 pub mod domain_error;
+pub mod value_objects;
+pub mod entities;
+pub mod services;
 
 pub use aggregate_root::{AggregateRoot, Identity, new_id};
 pub use domain_event::{DomainEvent, DomainEventBus};
 pub use specification::Specification;
 pub use value_object::ValueObject;
 pub use domain_error::{DomainError, DomainResult};
+pub use value_objects::*;
+pub use entities::*;
+pub use services::*;

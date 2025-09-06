@@ -1,8 +1,9 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Command, ApplicationResult, ValidationUtils};
-use crate::domain::user_management::value_objects::{UserId, Email, FirebaseUid};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::value_objects::{Email, FirebaseUid};
 
 /// Command to create a new user in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]

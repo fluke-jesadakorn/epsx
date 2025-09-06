@@ -1,15 +1,15 @@
-// Payment Method Repository Adapter  
+// Payment Method Repository Adapter
+use async_trait::async_trait;
+use std::collections::HashMap;
+use rust_decimal::Decimal;  
 // Infrastructure implementation for payment method management
 
-use async_trait::async_trait;
 use std::sync::Arc;
-use std::collections::HashMap;
 use std::str::FromStr;
 
-use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 
-use crate::infra::db::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::domain::payment::{
     PaymentMethodRepositoryPort, PaymentMethod, PaymentMethodConfig, ExchangeRates, Currency
 };
@@ -18,6 +18,9 @@ use crate::domain::payment::{
 pub struct PaymentMethodRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
+
+unsafe impl Send for PaymentMethodRepositoryAdapter {}
+unsafe impl Sync for PaymentMethodRepositoryAdapter {}
 
 impl PaymentMethodRepositoryAdapter {
     pub fn new(db_pool: Arc<DbPool>) -> Self {
@@ -36,19 +39,25 @@ impl PaymentMethodRepositoryPort for PaymentMethodRepositoryAdapter {
         // In full implementation, would use Diesel to SELECT from payment_methods WHERE enabled = true
         use crate::domain::payment::value_objects::{PaymentMethodId, PaymentMethodType};
         
+        use crate::domain::shared_kernel::value_objects::{Currency, Network};
+        
         let stub_methods = vec![
             PaymentMethod::new(
-                PaymentMethodId::new(),
                 PaymentMethodType::CreditCard,
-                true, // enabled
-                None, // fees
-            ),
+                Currency::USD, // Default to USD for credit card
+                None, // No network for credit card
+            ).unwrap_or_else(|_| {
+                // Fallback if creation fails
+                PaymentMethod::new(PaymentMethodType::CreditCard, Currency::USD, None).unwrap()
+            }),
             PaymentMethod::new(
-                PaymentMethodId::new(), 
                 PaymentMethodType::Crypto,
-                true, // enabled
-                None, // fees
-            ),
+                Currency::ETH, // Default to ETH for crypto
+                Some(Network::Ethereum), // Ethereum network for crypto
+            ).unwrap_or_else(|_| {
+                // Fallback if creation fails
+                PaymentMethod::new(PaymentMethodType::Crypto, Currency::ETH, Some(Network::Ethereum)).unwrap()
+            }),
         ];
         
         tracing::info!("Returning {} available payment methods (stub implementation)", stub_methods.len());
@@ -89,10 +98,18 @@ impl PaymentMethodRepositoryPort for PaymentMethodRepositoryAdapter {
         let mut exchange_rates = ExchangeRates::new();
         
         for (currency_str, rate) in rates {
-            if let Ok(currency) = Currency::from_str(&currency_str) {
-                if let Some(decimal_rate) = Decimal::from_f64(rate) {
-                    exchange_rates.set_rate(currency, decimal_rate);
-                }
+            let currency = match currency_str.as_str() {
+                "USD" => Currency::USD,
+                "BTC" | "Bitcoin" => Currency::BTC,
+                "ETH" | "Ethereum" => Currency::ETH,
+                "USDT" => Currency::USDT,
+                "USDC" => Currency::USDC,
+                "BNB" => Currency::BNB,
+                "TRX" => Currency::TRX,
+                _ => continue, // Skip unknown currencies
+            };
+            if let Some(decimal_rate) = Decimal::from_f64(rate) {
+                exchange_rates.set_rate(currency, decimal_rate);
             }
         }
         tracing::info!("Returning stub exchange rates (stub implementation)");
@@ -103,7 +120,7 @@ impl PaymentMethodRepositoryPort for PaymentMethodRepositoryAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::db::create_diesel_pool;
+    use crate::infrastructure::adapters::repositories::create_diesel_pool;
 
     fn create_test_adapter() -> PaymentMethodRepositoryAdapter {
         let db_pool = Arc::new(create_diesel_pool().expect("Failed to create test pool"));

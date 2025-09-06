@@ -1,11 +1,13 @@
-// Firebase Authentication Provider
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+// Firebase Authentication Provider
 // Handles Firebase JWT token validation and user mapping
 
-use async_trait::async_trait;
 use jsonwebtoken::{decode_header, jwk::JwkSet, Algorithm};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
@@ -202,10 +204,10 @@ impl AuthProvider for FirebaseProvider {
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as u64;
 
-        let user_id_parsed = crate::dom::values::UserId::from_str(user_id)
+        let user_id_parsed = crate::domain::shared_kernel::value_objects::UserId::from_str(user_id)
             .map_err(|_| AuthProviderError::InvalidToken)?;
         
-        let email_parsed = crate::dom::values::Email::new(email.unwrap_or_default())
+        let email_parsed = crate::domain::shared_kernel::value_objects::Email::new(email.unwrap_or_default())
             .map_err(|_| AuthProviderError::InvalidToken)?;
 
         // Create UserClaims with default permissions

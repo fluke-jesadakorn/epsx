@@ -1,8 +1,7 @@
-use std::fmt::Debug;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+use std::fmt::Debug;
 use uuid::Uuid;
-use async_trait::async_trait;
 
 /// Base trait for all domain events
 /// Events represent things that have happened in the domain

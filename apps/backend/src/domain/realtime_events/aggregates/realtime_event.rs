@@ -1,12 +1,14 @@
 // RealtimeEvent Aggregate Root
 // Manages event lifecycle, delivery, and retry logic
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
-use crate::domain::shared_kernel::{AggregateRoot, DomainEvent, aggregate_root::AggregateBase};
-use super::super::value_objects::{EventId, UserId, EventPayload, EventType, NotificationLevel};
+use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
+use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
+use crate::domain::realtime_events::value_objects::{EventId, UserId, EventPayload, EventType, NotificationLevel};
 use super::super::RealtimeEventsBoundedContext;
 
 /// Real-time Event Aggregate Root
@@ -77,6 +79,8 @@ impl RealtimeEvent {
             channel: event.channel.clone(),
             target_user_count: event.target_users.len() as u32,
             created_at: now,
+            domain_event_id: uuid::Uuid::new_v4(),
+            aggregate_version: 1,
         }));
         
         Ok(event)
@@ -151,6 +155,8 @@ impl RealtimeEvent {
             event_id: self.id.clone(),
             delivered_at: self.delivered_at.unwrap(),
             delivery_attempts: self.delivery_attempts,
+            domain_event_id: uuid::Uuid::new_v4(),
+            aggregate_version: self.base.version(),
         }));
         
         Ok(())
@@ -181,6 +187,8 @@ impl RealtimeEvent {
                 attempt: self.delivery_attempts,
                 retry_at,
                 reason: reason.clone(),
+                domain_event_id: uuid::Uuid::new_v4(),
+                aggregate_version: self.base.version(),
             }));
         } else {
             // Final failure
@@ -194,6 +202,8 @@ impl RealtimeEvent {
                 failed_at: self.failed_at.unwrap(),
                 reason,
                 total_attempts: self.delivery_attempts,
+                domain_event_id: uuid::Uuid::new_v4(),
+                aggregate_version: self.base.version(),
             }));
         }
         

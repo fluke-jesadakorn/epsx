@@ -1,11 +1,13 @@
 // Session Collection Value Object
 // Manages groups of sessions for a user with business rules and limits
 
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use crate::domain::authentication::{AuthenticatedUserId, ProviderType};
 use chrono::{DateTime, Utc, Duration};
-use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, BTreeMap};
+use serde::{Deserialize, Serialize};
 
-use crate::domain::authentication::{SessionId, AuthenticatedUserId, ProviderType};
 use super::{SessionMetadata, SessionStatus};
 
 /// Collection of sessions for a user with management capabilities
@@ -327,6 +329,9 @@ pub enum SessionCollectionError {
     
     #[error("Invalid session state")]
     InvalidSessionState,
+    
+    #[error("Security threat detected")]
+    SecurityThreatDetected,
 }
 
 #[cfg(test)]

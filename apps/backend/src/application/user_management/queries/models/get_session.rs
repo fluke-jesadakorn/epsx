@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use crate::application::shared::{Query, ApplicationResult};
 
 /// Query to get session information

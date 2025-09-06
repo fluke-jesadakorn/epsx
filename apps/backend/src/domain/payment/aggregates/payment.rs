@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display};
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::{AggregateRoot, DomainEvent, aggregate_root::AggregateBase};
@@ -9,7 +9,7 @@ use crate::domain::payment::value_objects::{
     PaymentId, PaymentAmount, PaymentMethod, CryptoAddress, TransactionHash,
     PaymentReference, Currency
 };
-use crate::dom::values::UserId; // Re-use existing user ID
+use crate::domain::shared_kernel::value_objects::UserId;
 
 /// Payment Aggregate Root
 /// Manages the complete payment lifecycle from creation to completion
@@ -550,14 +550,14 @@ impl PaymentMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CryptoPaymentDetails {
     pub currency: Currency,
-    pub network: crate::dom::values::payments::Network,
+    pub network: crate::domain::shared_kernel::value_objects::payments::Network,
     pub payment_address: Option<CryptoAddress>,
     pub transaction_hash: Option<TransactionHash>,
     pub confirmations: u32,
 }
 
 impl CryptoPaymentDetails {
-    pub fn new(currency: Currency, network: crate::dom::values::payments::Network) -> Self {
+    pub fn new(currency: Currency, network: crate::domain::shared_kernel::value_objects::payments::Network) -> Self {
         Self {
             currency,
             network,

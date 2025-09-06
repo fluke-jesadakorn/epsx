@@ -1,11 +1,11 @@
-// WebSocket Data Enhancement Logic
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;// WebSocket Data Enhancement Logic
 // Focused module handling real-time EPS data enhancement from TradingView WebSocket
 
-use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
-use crate::domain::trading_analytics::EPSRanking;
-use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
+use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
+use crate::infrastructure::adapters::services::tradingview_websocket::{TradingViewWebSocketService, WebSocketEPSData};
 use super::rankings::is_valid_eps_for_ranking;
 
 /// Enhance EPS rankings with REAL TradingView WebSocket data (not hardcoded)
@@ -38,50 +38,29 @@ pub async fn enhance_with_websocket_data(
                     
                     // Update with real current EPS using dynamic validation
                     if is_valid_eps_for_ranking(ws_data.current_eps) {
-                        debug!("Updating {} current EPS: {:?} → {} (REAL WebSocket)", 
-                               ranking.symbol, ranking.current_eps, ws_data.current_eps);
-                        ranking.current_eps = Some(ws_data.current_eps);
+                        debug!("Updating {} current EPS: {} → {} (REAL WebSocket)", 
+                               ranking.symbol, ranking.eps_current, ws_data.current_eps);
+                        ranking.eps_current = ws_data.current_eps;
                         enhanced_count += 1;
                     }
                     
-                    // Update with real current price from WebSocket
-                    if ws_data.price_current > 0.01 && ws_data.price_current.is_finite() {
-                        debug!("Updating {} current price: {:?} → {} (REAL WebSocket)", 
-                               ranking.symbol, ranking.price_current, ws_data.price_current);
-                        ranking.price_current = Some(ws_data.price_current);
+                    // Update previous EPS if available
+                    if is_valid_eps_for_ranking(ws_data.previous_eps) {
+                        debug!("Updating {} previous EPS: {} → {} (REAL WebSocket)", 
+                               ranking.symbol, ranking.eps_previous, ws_data.previous_eps);
+                        ranking.eps_previous = ws_data.previous_eps;
                     }
                     
-                    // Store REAL quarterly data with price correlation
-                    if !ws_data.quarterly_data.is_empty() {
-                        ranking.quarterly_data = Some(ws_data.quarterly_data.clone());
-                        
-                        // Use correlated price data from most recent quarter if available
-                        if let Some(recent_quarter) = ws_data.quarterly_data.first() {
-                            if let Some(price_data) = &recent_quarter.price_data {
-                                // Use post-earnings price as most current price
-                                if price_data.post_earnings_price > 0.0 {
-                                    debug!("Updating {} price from correlation: {:?} → {} (from earnings correlation)", 
-                                           ranking.symbol, ranking.price_current, price_data.post_earnings_price);
-                                    ranking.price_current = Some(price_data.post_earnings_price);
-                                }
-                            }
-                        }
-                        
-                        // Calculate QoQ growth from REAL quarterly data
-                        if ws_data.quarterly_data.len() >= 2 {
-                            let current_eps = ws_data.quarterly_data[0].eps;
-                            let previous_eps = ws_data.quarterly_data[1].eps;
-                            
-                            if previous_eps > 0.0 {
-                                let qoq_growth = ((current_eps - previous_eps) / previous_eps) * 100.0;
-                                if qoq_growth.abs() < 200.0 { // Reasonable growth range
-                                    debug!("Updating {} QoQ growth: {:?} → {}% (REAL WebSocket)", 
-                                           ranking.symbol, ranking.growth_factor, qoq_growth);
-                                    ranking.growth_factor = Some(qoq_growth);
-                                }
-                            }
-                        }
+                    // Recalculate growth rate from updated EPS values
+                    if ranking.eps_previous != 0.0 {
+                        let new_growth_rate = ((ranking.eps_current - ranking.eps_previous) / ranking.eps_previous) * 100.0;
+                        debug!("Updating {} growth rate: {} → {}% (calculated from WebSocket EPS)", 
+                               ranking.symbol, ranking.growth_rate, new_growth_rate);
+                        ranking.growth_rate = new_growth_rate;
                     }
+                    
+                    // Update last_updated timestamp
+                    ranking.last_updated = ws_data.timestamp;
                 }
             }
             
@@ -99,7 +78,7 @@ pub async fn enhance_with_websocket_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::trading_analytics::EPSRanking;
+    use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
     #[test]
     fn test_empty_rankings_enhancement() {
@@ -113,23 +92,16 @@ mod tests {
 
     #[test]
     fn test_ranking_has_required_fields() {
-        let ranking = EPSRanking {
-            symbol: "AAPL".to_string(),
-            name: "Apple Inc".to_string(),
-            country: "america".to_string(),
-            sector: "Technology".to_string(),
-            exchange: "NASDAQ".to_string(),
-            current_eps: Some(1.5),
-            qoq_growth: Some(10.0),
-            price_current: Some(150.0),
-            market_cap: Some(2500000000),
-            volume: Some(50000000),
-            ranking_position: Some(1),
-            quarterly_data: None,
-        };
+        let ranking = EPSRanking::new(
+            "AAPL".to_string(),
+            "Apple Inc".to_string(),
+            1.5,
+            1.2,
+            "Technology".to_string(),
+        );
 
         assert_eq!(ranking.symbol, "AAPL");
-        assert!(ranking.current_eps.is_some());
-        assert!(ranking.price_current.is_some());
+        assert_eq!(ranking.eps_current, 1.5);
+        assert_eq!(ranking.eps_previous, 1.2);
     }
 }

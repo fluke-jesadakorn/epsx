@@ -1,11 +1,10 @@
-use jsonwebtoken::{EncodingKey, DecodingKey};
+use std::collections::HashMap;use jsonwebtoken::{EncodingKey, DecodingKey};
 use uuid::Uuid;
 
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{EncodePrivateKey, EncodePublicKey, DecodePrivateKey, DecodePublicKey}, traits::PublicKeyParts};
 
 use serde::{Serialize, Deserialize};
 
-use std::collections::HashMap;
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 

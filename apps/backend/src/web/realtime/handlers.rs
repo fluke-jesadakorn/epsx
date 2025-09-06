@@ -1,3 +1,7 @@
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 // Real-time handlers for event broadcasting and management
 
 use axum::{
@@ -264,25 +268,21 @@ pub async fn send_user_notification_handler(
 
 
 /// Verify admin access using DDD User aggregate
-async fn verify_admin_access(app_state: &AppState, user_id: &crate::domain::user_management::value_objects::UserId) -> Result<(), StatusCode> {
+async fn verify_admin_access(app_state: &AppState, user_id: &crate::domain::shared_kernel::value_objects::UserId) -> Result<(), StatusCode> {
     // Use DDD User Repository Port through DDDContainer
     let user_repository = app_state.ddd_container.user_repository();
     
     let user = user_repository.find_by_id(user_id).await
         .map_err(|e| {
-            error!("Failed to get user for admin check: {:?}", e);
+            error!("Failed to get user for admin check: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Check if user has admin permissions via PermissionApplicationService
-    let user_permissions = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
-        Ok(permissions) => permissions,
-        Err(e) => {
-            tracing::error!("Failed to fetch permissions for admin check {}: {:?}", user.id().to_string(), e);
-            return Err(StatusCode::FORBIDDEN);
-        }
-    };
+    // Check if user has admin permissions
+    // TODO: Implement proper permission checking when PermissionApplicationService is ready
+    // For now, use User aggregate's active_permissions method
+    let user_permissions = user.active_permissions();
     
     if user_permissions.iter().any(|p| p.starts_with("admin:")) {
         Ok(())

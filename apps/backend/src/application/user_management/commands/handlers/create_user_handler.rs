@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::user_management::commands::models::{CreateUserCommand, CreateUserResponse};
 
 use crate::domain::shared_kernel::{DomainEventBus, ValueObject, AggregateRoot};
+use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::{
     User,
-    UserId,
     Email, 
     FirebaseUid,
     Permission,
@@ -73,7 +73,7 @@ impl CommandHandler<CreateUserCommand> for CreateUserCommandHandler {
                 
                 // Convert command.initiated_by to UserId if present
                 let granted_by = if let Some(ref initiated_by_str) = command.initiated_by {
-                    Some(UserId::from_string(initiated_by_str)
+                    Some(UserId::from_string(initiated_by_str.clone())
                         .map_err(|e| ApplicationError::validation("initiated_by", e.to_string()))?)
                 } else {
                     None

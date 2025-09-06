@@ -1,9 +1,9 @@
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
 use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 use crate::domain::trading_analytics::value_objects::*;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Stock Analysis Aggregate Root

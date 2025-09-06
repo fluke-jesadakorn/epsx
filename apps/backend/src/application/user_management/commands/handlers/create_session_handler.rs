@@ -1,11 +1,13 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::UserId;
+use std::sync::Arc;
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::user_management::commands::models::{CreateSessionCommand, CreateSessionResponse};
 
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
-use crate::domain::user_management::{UserRepositoryPort, SessionRepositoryPort, Session, UserId, SessionId};
+use crate::domain::user_management::{UserRepositoryPort, SessionRepositoryPort};
+use crate::domain::user_management::aggregates::Session;
 
 /// Command handler for creating user sessions
 pub struct CreateSessionCommandHandler {
@@ -35,7 +37,7 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionCommandHandler {
         // This is a stub implementation for now
         
         // 1. Validate user exists and is active
-        let user_id = UserId::from_string(&command.user_id)
+        let user_id = UserId::from_string(command.user_id.clone())
             .map_err(|e| ApplicationError::validation("user_id", e.to_string()))?;
         
         let user = self.user_repository.find_by_id(&user_id).await

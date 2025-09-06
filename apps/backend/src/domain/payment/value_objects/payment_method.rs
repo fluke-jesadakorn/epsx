@@ -1,8 +1,10 @@
+use crate::domain::shared_kernel::value_object::ValueObjectError;
+use rust_decimal::Decimal;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
-use std::collections::HashMap;
 
-pub use crate::dom::values::payments::{Currency, Network};
+pub use crate::domain::shared_kernel::value_objects::payments::{Currency, Network};
 
 /// Payment Method Value Object
 /// Represents different ways users can make payments
@@ -139,6 +141,8 @@ impl PaymentMethod {
                     Network::Tron => 20,
                     Network::Arbitrum => 1,
                     Network::Polygon => 50,
+                    Network::Bitcoin => 6,
+                    Network::BinanceSmartChain => 20,
                 }).unwrap_or(1),
             },
             PaymentMethodType::BankTransfer => PaymentInstructions::BankTransfer {
@@ -369,6 +373,8 @@ impl PaymentInstructions {
                     Network::Tron => 3,          // ~3 seconds per block
                     Network::Arbitrum => 1,      // ~1 second per block
                     Network::Polygon => 2,       // ~2 seconds per block
+                    Network::Bitcoin => 600,     // ~10 minutes per block
+                    Network::BinanceSmartChain => 3, // ~3 seconds per block
                 };
                 block_time * estimated_confirmations
             }

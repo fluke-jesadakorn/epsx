@@ -16,25 +16,25 @@ const options = {
   method: 'GET',
   headers: {
     'Content-Type': 'application/json',
-    ...(TEST_JWT && { 'Authorization': `Bearer ${TEST_JWT}` })
-  }
+    ...(TEST_JWT && { Authorization: `Bearer ${TEST_JWT}` }),
+  },
 };
 
-const req = http.request(options, (res) => {
+const req = http.request(options, res => {
   console.log(`Status: ${res.statusCode}`);
   console.log(`Headers:`, res.headers);
-  
+
   let data = '';
-  res.on('data', (chunk) => {
+  res.on('data', chunk => {
     data += chunk;
   });
-  
+
   res.on('end', () => {
     console.log('Response:', data || 'Empty');
   });
 });
 
-req.on('error', (e) => {
+req.on('error', e => {
   console.error(`Problem with request: ${e.message}`);
 });
 

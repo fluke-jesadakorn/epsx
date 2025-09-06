@@ -1,18 +1,17 @@
-/// Notification Repository Infrastructure Adapter
 /// Bridges legacy notification persistence with DDD Notification bounded context
 
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
 use tracing::{debug, info, warn};
 
 use crate::domain::notification::aggregates::notification::{Notification, NotificationStatus, DeliveryResult};
 use crate::domain::notification::value_objects::*;
-use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
-use crate::infra::services::fcm_service::{FcmService, FcmNotification, FcmResponse, DeliveryStats};
-use crate::infra::services::email_service::SendGridEmailService;
-use crate::app::ports::services::{EmailServiceError, EmailSvc};
+use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::infrastructure::adapters::services::fcm_service::{FcmService, FcmNotification, FcmResponse, DeliveryStats};
+use crate::infrastructure::adapters::services::email_service::SendGridEmailService;
+use crate::application::ports::services::{EmailServiceError, EmailSvc};
 use crate::application::shared::error::{ApplicationError, ApplicationResult};
 
 /// Notification repository adapter that bridges DDD domain with legacy infrastructure
@@ -20,6 +19,9 @@ pub struct NotificationRepositoryAdapter {
     fcm_service: Arc<FcmService>,
     email_service: Arc<SendGridEmailService>,
 }
+
+unsafe impl Send for NotificationRepositoryAdapter {}
+unsafe impl Sync for NotificationRepositoryAdapter {}
 
 impl NotificationRepositoryAdapter {
     pub fn new(
@@ -111,6 +113,13 @@ impl NotificationRepositoryAdapter {
                     // Slack not implemented yet
                     delivery_results.push(DeliveryResult::Failed {
                         error_message: "Slack delivery not implemented".to_string(),
+                        retry_after: None,
+                    });
+                }
+                _ => {
+                    // Handle any other channel types
+                    delivery_results.push(DeliveryResult::Failed {
+                        error_message: "Unsupported delivery channel".to_string(),
                         retry_after: None,
                     });
                 }
@@ -209,23 +218,23 @@ impl NotificationRepositoryAdapter {
         let fcm_notification = self.convert_to_fcm_notification(notification);
         let data = self.build_fcm_data(notification);
 
-        let fcm_message = crate::infra::services::fcm_service::FcmMessage {
-            target: crate::infra::services::fcm_service::FcmTarget::Token {
+        let fcm_message = crate::infrastructure::adapters::services::fcm_service::FcmMessage {
+            target: crate::infrastructure::adapters::services::fcm_service::FcmTarget::Token {
                 token: token.to_string(),
             },
             data,
             notification: Some(fcm_notification),
-            android: Some(crate::infra::services::fcm_service::FcmAndroidConfig {
+            android: Some(crate::infrastructure::adapters::services::fcm_service::FcmAndroidConfig {
                 priority: Some(self.map_priority_to_fcm(notification.priority())),
                 ttl: Some("86400s".to_string()), // 24 hours
                 notification: None,
             }),
-            webpush: Some(crate::infra::services::fcm_service::FcmWebpushConfig {
+            webpush: Some(crate::infrastructure::adapters::services::fcm_service::FcmWebpushConfig {
                 headers: Some(serde_json::json!({"Urgency": self.map_priority_to_urgency(notification.priority())})),
                 data: None,
                 notification: None,
                 fcm_options: notification.metadata().action_url().map(|url| {
-                    crate::infra::services::fcm_service::FcmWebpushFcmOptions {
+                    crate::infrastructure::adapters::services::fcm_service::FcmWebpushFcmOptions {
                         link: Some(url.to_string()),
                         analytics_label: Some(format!("notification_{}", notification.notification_type())),
                     }
@@ -287,7 +296,7 @@ impl NotificationRepositoryAdapter {
     /// Map DDD priority to FCM priority
     fn map_priority_to_fcm(&self, priority: &NotificationPriority) -> String {
         match priority {
-            NotificationPriority::Urgent | NotificationPriority::High => "high".to_string(),
+            NotificationPriority::Urgent | NotificationPriority::Critical | NotificationPriority::High => "high".to_string(),
             NotificationPriority::Normal | NotificationPriority::Low => "normal".to_string(),
         }
     }
@@ -296,6 +305,7 @@ impl NotificationRepositoryAdapter {
     fn map_priority_to_urgency(&self, priority: &NotificationPriority) -> String {
         match priority {
             NotificationPriority::Urgent => "high".to_string(),
+            NotificationPriority::Critical => "high".to_string(),
             NotificationPriority::High => "normal".to_string(),
             NotificationPriority::Normal => "low".to_string(),
             NotificationPriority::Low => "very-low".to_string(),
@@ -351,7 +361,7 @@ mod tests {
 
         // Create adapter with mock services
         let fcm_service = Arc::new(FcmService::new(
-            Arc::new(crate::infra::firebase::FirebaseAdmin::new_mock())
+            Arc::new(crate::infrastructure::firebase::FirebaseAdmin::new_mock())
         ));
         let email_service = Arc::new(SendGridEmailService::new(
             Arc::new(crate::config::Config::default())
@@ -368,7 +378,7 @@ mod tests {
     #[test]
     fn test_priority_mapping() {
         let fcm_service = Arc::new(FcmService::new(
-            Arc::new(crate::infra::firebase::FirebaseAdmin::new_mock())
+            Arc::new(crate::infrastructure::firebase::FirebaseAdmin::new_mock())
         ));
         let email_service = Arc::new(SendGridEmailService::new(
             Arc::new(crate::config::Config::default())

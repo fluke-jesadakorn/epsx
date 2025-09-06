@@ -1,8 +1,9 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
+
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 
 use crate::application::shared::{Command, ApplicationResult, ValidationUtils};
-use crate::domain::user_management::value_objects::{UserId, SessionId};
 
 /// Command to create a new user session
 #[derive(Debug, Clone, Serialize, Deserialize)]

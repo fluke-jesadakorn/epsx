@@ -1,7 +1,6 @@
 // Authentication Session Repository Adapter
 // Bridges DDD AuthenticationSession aggregate with existing session storage
 
-use async_trait::async_trait;
 use tracing::{info, warn, error};
 use std::sync::Arc;
 
@@ -9,21 +8,24 @@ use crate::domain::authentication::{
     AuthenticationSession, SessionId, AuthenticatedUserId,
     AuthenticationSessionRepositoryPort
 };
-use crate::infra::db::diesel::DbPool;
-use crate::app::ports::repositories::SessionRepository;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::application::ports::repositories::SessionRepository;
 
 /// Repository adapter for authentication sessions
 pub struct AuthenticationSessionRepositoryAdapter {
     /// Legacy session repository
-    legacy_session_repo: Arc<dyn SessionRepository>,
+    legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
     
     /// Database pool for direct operations
     db_pool: Arc<DbPool>,
 }
 
+unsafe impl Send for AuthenticationSessionRepositoryAdapter {}
+unsafe impl Sync for AuthenticationSessionRepositoryAdapter {}
+
 impl AuthenticationSessionRepositoryAdapter {
     pub fn new(
-        legacy_session_repo: Arc<dyn SessionRepository>,
+        legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
         db_pool: Arc<DbPool>,
     ) -> Self {
         Self {
@@ -88,7 +90,7 @@ impl AuthenticationSessionRepositoryPort for AuthenticationSessionRepositoryAdap
         // For now, we'll use the existing session creation logic
         
         // Extract session data for legacy storage
-        let session_data = crate::dom::entities::session::Session {
+        let session_data = crate::domain::shared_kernel::entities::session::Session {
             id: Some(legacy_mapping.session_id.parse().unwrap_or_default()),
             user_id: legacy_mapping.user_id.parse().unwrap_or_default(),
             firebase_uid: Some(session.user_id().to_string()), // Use as identifier
@@ -283,8 +285,8 @@ mod tests {
     
     #[async_trait]
     impl SessionRepository for MockLegacySessionRepository {
-        async fn create_session(&self, _session: crate::dom::entities::session::Session) -> Result<crate::dom::entities::session::Session, Box<dyn std::error::Error + Send + Sync>> {
-            Ok(crate::dom::entities::session::Session {
+        async fn create_session(&self, _session: crate::domain::shared_kernel::entities::session::Session) -> Result<crate::domain::shared_kernel::entities::session::Session, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(crate::domain::shared_kernel::entities::session::Session {
                 id: Some(1),
                 user_id: 123,
                 firebase_uid: Some("test_uid".to_string()),
@@ -295,11 +297,11 @@ mod tests {
             })
         }
         
-        async fn find_session_by_id(&self, _id: i32) -> Result<Option<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_session_by_id(&self, _id: i32) -> Result<Option<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }
         
-        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         
@@ -311,7 +313,7 @@ mod tests {
             Ok(())
         }
         
-        async fn find_expired_sessions(&self, _before: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_expired_sessions(&self, _before: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         
@@ -322,7 +324,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_repository_adapter_creation() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_legacy_repo = Arc::new(MockLegacySessionRepository);
         
         let adapter = AuthenticationSessionRepositoryAdapter::new(

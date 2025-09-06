@@ -1,8 +1,8 @@
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 use chrono::{DateTime, Utc, Duration};
-use std::collections::HashMap;
 
 use crate::domain::shared_kernel::{DomainError, DomainResult};
-use crate::domain::user_management::{Session, SessionId, UserId};
+use crate::domain::user_management::aggregates::Session;
 
 /// Domain service for session security and anomaly detection
 /// This service contains business logic for detecting suspicious session patterns

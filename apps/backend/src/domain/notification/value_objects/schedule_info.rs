@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
 use chrono::{DateTime, Utc, Duration};
+use std::fmt::{self, Display};
+use serde::{Serialize, Deserialize};
 
 /// Schedule Information Value Object
 /// Handles notification scheduling, expiry, and timing logic

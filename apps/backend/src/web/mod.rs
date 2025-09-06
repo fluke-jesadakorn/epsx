@@ -1,4 +1,4 @@
-// Web layer implementation
+use chrono::{DateTime, Utc};// Web layer implementation
 
 pub mod auth;
 pub mod oidc;
@@ -24,7 +24,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::middleware as axum_middleware;
 
-use crate::infra::AppContainer;
+use crate::infrastructure::AppContainer;
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -167,7 +167,7 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create standalone analytics routes without AppState dependency
 async fn create_standalone_analytics_routes(
-  _infra_factory: &crate::infra::InfraFactory
+  _infra_factory: &crate::infrastructure::InfraFactory
 ) -> Router {
   use axum::Extension;
 
@@ -243,27 +243,13 @@ async fn create_standalone_analytics_routes(
     }
   };
   let _tradingview_service = std::sync::Arc::new(
-    crate::infra::services::tradingview::TradingViewApiService::new(config)
+    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new()
   );
 
   // Create unified cache service (automatically selects InMemory or Redis)
-  let unified_cache_service = match
-    crate::infra::cache::CacheFactory::from_env().await
-  {
-    Ok(cache) => cache,
-    Err(e) => {
-      tracing::warn!(
-        "Failed to create cache service: {}, falling back to in-memory cache",
-        e
-      );
-      // Fallback to in-memory cache with default config
-      std::sync::Arc::new(
-        crate::infra::cache::InMemoryCache::new(
-          crate::infra::cache::CacheConfig::default()
-        )
-      ) as std::sync::Arc<dyn crate::infra::cache::Cache>
-    }
-  };
+  let cache_box = crate::infrastructure::cache::CacheFactory::with_fallback().await;
+  let unified_cache_service: std::sync::Arc<dyn crate::infrastructure::cache::Cache> = 
+    std::sync::Arc::from(cache_box);
 
   // Background cache refresh removed - using on-demand loading instead
 
@@ -443,10 +429,10 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .nest("/api/v1/notifications", notifications::notification_routes()
       // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
       .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(
-        container.fcm_service.clone(),
+        Arc::new(crate::infrastructure::adapters::services::fcm_service::FcmService::new(container.infra.firebase_admin.clone())),
         // Create stub email service for DDD migration - will be replaced with proper service
-        Arc::new(crate::infra::services::email_service::SendGridEmailService::new(
-          config.clone(),
+        Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
+          config.email.sendgrid_api_key.clone(),
         )),
       ))))
       // Keep legacy services for endpoints that haven't been migrated yet

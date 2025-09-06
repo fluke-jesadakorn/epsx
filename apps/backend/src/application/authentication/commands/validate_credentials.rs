@@ -4,6 +4,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::application::shared::command_bus::Command;
 use crate::domain::authentication::{
     SessionId, AuthenticatedUserId, Scope, SecurityContext, ProviderType
 };
@@ -366,4 +368,8 @@ mod tests {
         assert_eq!(response.security_assessment.risk_level, "Low");
         assert_eq!(response.security_assessment.suspicious_score, 0.0);
     }
+}
+
+impl Command for ValidateCredentialsCommand {
+    type Response = ValidateCredentialsResponse;
 }

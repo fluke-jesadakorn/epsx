@@ -1,8 +1,11 @@
-// Real-time Events Service Integration
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};// Real-time Events Service Integration
 // Orchestrates Real-time Events bounded context for web layer
 
 use std::sync::Arc;
-use async_trait::async_trait;
 
 use crate::domain::realtime_events::{
     RealtimeEvent, EventId, EventStatus, EventPriority, RealtimeEventError,
@@ -46,7 +49,7 @@ impl RealtimeEventsServiceIntegration {
     ) -> Result<EventBroadcastResult, RealtimeEventError> {
         // Convert target user to domain type if provided
         let target_users = if let Some(user_id) = target_user {
-            vec![RealtimeUserId::from_string(&user_id)]
+            vec![RealtimeUserId::new(user_id.to_string()).map_err(|e| RealtimeEventError::InvalidPayload(format!("Invalid user ID: {:?}", e)))?]
         } else {
             vec![]
         };
@@ -99,19 +102,20 @@ impl RealtimeEventsServiceIntegration {
         error_code: Option<String>,
         error_message: Option<String>,
     ) -> Result<EventBroadcastResult, RealtimeEventError> {
-        let target_user = RealtimeUserId::from_string(&user_id);
+        let target_user = RealtimeUserId::new(user_id.to_string())
+            .map_err(|e| RealtimeEventError::InvalidPayload(format!("Invalid user ID: {:?}", e)))?;
         let payload = match event_type {
             PaymentEventType::Started => {
-                EventPayload::payment_started(payment_id, target_user.clone(), amount, currency)
+                EventPayload::payment_started(payment_id.clone(), target_user.clone(), amount, currency)
             },
             PaymentEventType::Completed => {
                 let tx_id = transaction_id.unwrap_or_else(|| format!("txn_{}", uuid::Uuid::new_v4()));
-                EventPayload::payment_completed(payment_id, target_user.clone(), amount, currency, tx_id)
+                EventPayload::payment_completed(payment_id.clone(), target_user.clone(), amount, currency, tx_id)
             },
             PaymentEventType::Failed => {
                 let error_code = error_code.unwrap_or_else(|| "UNKNOWN_ERROR".to_string());
                 let error_msg = error_message.unwrap_or_else(|| "Payment failed".to_string());
-                EventPayload::payment_failed(payment_id, target_user.clone(), amount, currency, error_code, error_msg)
+                EventPayload::payment_failed(payment_id.clone(), target_user.clone(), amount, currency, error_code, error_msg)
             },
         };
 
@@ -152,7 +156,7 @@ impl RealtimeEventsServiceIntegration {
         volume: u64,
     ) -> Result<EventBroadcastResult, RealtimeEventError> {
         // Create stock price update payload
-        let payload = EventPayload::stock_price_update(symbol, price, change, change_percent, volume);
+        let payload = EventPayload::stock_price_update(symbol.clone(), price, change, change_percent, volume);
 
         // Create broadcast event (stock updates go to all users)
         let event = RealtimeEvent::create_broadcast(payload, "trading".to_string())?;
@@ -185,7 +189,8 @@ impl RealtimeEventsServiceIntegration {
         ip_address: String,
     ) -> Result<ConnectionRegistrationResult, String> {
         let connection_id = ConnectionId::new();
-        let realtime_user_id = RealtimeUserId::from_string(&user_id);
+        let realtime_user_id = RealtimeUserId::new(user_id.to_string())
+            .map_err(|e| format!("Invalid user ID: {:?}", e))?;
 
         let connection_info = ConnectionInfo {
             user_agent,
@@ -216,7 +221,8 @@ impl RealtimeEventsServiceIntegration {
 
     /// Remove a real-time connection
     pub async fn remove_connection(&self, connection_id: String) -> Result<(), String> {
-        let conn_id = ConnectionId::from_string(&connection_id)?;
+        let conn_id = ConnectionId::from_string(connection_id.clone())
+            .map_err(|e| format!("Invalid connection ID: {:?}", e))?;
         self.connection_repository.remove_connection(&conn_id).await?;
 
         tracing::info!(
@@ -309,7 +315,7 @@ pub enum PaymentEventType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::db::create_test_pool;
+    use crate::infrastructure::adapters::repositories::create_test_pool;
 
     fn create_test_service() -> RealtimeEventsServiceIntegration {
         let db_pool = Arc::new(create_test_pool());

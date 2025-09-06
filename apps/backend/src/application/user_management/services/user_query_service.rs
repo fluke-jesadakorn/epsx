@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use async_trait::async_trait;
 
 use crate::application::shared::{ApplicationResult, ApplicationError};
 use crate::domain::user_management::UserSearchCriteria;
@@ -43,7 +42,7 @@ impl UserQueryService {
             email: user.email().clone(),
             email_verified: user.is_email_verified(),
             is_active: user.is_active(),
-            permissions: user.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+            permissions: user.permissions().clone(),
         })
     }
     
@@ -87,7 +86,7 @@ impl UserQueryService {
                 email: user.email().clone(),
                 email_verified: user.is_email_verified(),
                 is_active: user.is_active(),
-                permissions: user.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+                permissions: user.permissions().clone(),
             })
             .collect();
         

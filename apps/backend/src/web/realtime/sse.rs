@@ -1,3 +1,5 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
 // Server-Sent Events implementation for real-time updates
 
 use axum::{
@@ -15,8 +17,6 @@ use tokio::sync::broadcast;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt as _};
 use crate::web::middleware::AuthCtx;
 use tracing::{info, error};
-
-use crate::dom::values::UserId;
 use super::events::{EventMessage, RealtimeEvent};
 use super::super::auth::routes::AppState;
 
@@ -267,7 +267,7 @@ pub async fn sse_health_handler() -> Result<Response, StatusCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::values::UserId;
+    use crate::domain::shared_kernel::value_objects::UserId;
     
     #[test]
     fn should_create_sse_event() {

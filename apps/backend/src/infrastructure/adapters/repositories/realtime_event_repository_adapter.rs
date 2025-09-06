@@ -1,12 +1,15 @@
 // Real-time Event Repository Adapter
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};
 // Bridges Real-time Events domain with infrastructure storage
 
 use std::sync::Arc;
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde_json;
 
-use crate::infra::db::DbPool;
+use crate::infrastructure::adapters::repositories::DbPool;
 use crate::domain::realtime_events::{
     RealtimeEvent, EventId, EventStatus, EventPriority,
     repository_ports::EventRepositoryPort
@@ -16,6 +19,9 @@ use crate::domain::realtime_events::{
 pub struct RealtimeEventRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
+
+unsafe impl Send for RealtimeEventRepositoryAdapter {}
+unsafe impl Sync for RealtimeEventRepositoryAdapter {}
 
 impl RealtimeEventRepositoryAdapter {
     pub fn new(db_pool: Arc<DbPool>) -> Self {
@@ -144,7 +150,7 @@ mod tests {
     // Mock database pool for testing
     fn create_test_adapter() -> RealtimeEventRepositoryAdapter {
         // In real tests, this would create a test database connection
-        let db_pool = Arc::new(crate::infra::db::create_test_pool());
+        let db_pool = Arc::new(crate::infrastructure::adapters::repositories::create_test_pool());
         RealtimeEventRepositoryAdapter::new(db_pool)
     }
     

@@ -1,4 +1,3 @@
-use std::fmt;
 use crate::domain::shared_kernel::DomainError;
 
 /// Application layer error types
@@ -31,6 +30,15 @@ pub enum ApplicationError {
     
     #[error("Business rule violation: {rule}")]
     BusinessRule { rule: String },
+    
+    #[error("Feature not implemented: {feature}")]
+    NotImplemented { feature: String },
+    
+    #[error("Business logic error: {message}")]
+    BusinessLogic { message: String },
+    
+    #[error("Security error: {message}")]
+    Security { message: String },
 }
 
 impl ApplicationError {
@@ -83,6 +91,55 @@ impl ApplicationError {
         Self::BusinessRule {
             rule: rule.into(),
         }
+    }
+    
+    pub fn not_implemented(feature: impl Into<String>) -> Self {
+        Self::NotImplemented {
+            feature: feature.into(),
+        }
+    }
+    
+    pub fn business_logic(message: impl Into<String>) -> Self {
+        Self::BusinessLogic {
+            message: message.into(),
+        }
+    }
+    
+    pub fn security_error(message: impl Into<String>) -> Self {
+        Self::Security {
+            message: message.into(),
+        }
+    }
+
+    // Aliases for backward compatibility
+    pub fn InfrastructureError(message: impl Into<String>) -> Self {
+        Self::infrastructure(message)
+    }
+    
+    pub fn SecurityError(message: impl Into<String>) -> Self {
+        Self::authorization(message.into())
+    }
+    
+    pub fn ValidationError(field: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::validation(field, message)
+    }
+    
+    pub fn AuthorizationError(action: impl Into<String>) -> Self {
+        Self::authorization(action)
+    }
+    
+    pub fn NotImplemented(feature: impl Into<String>) -> Self {
+        Self::not_implemented(feature)
+    }
+    
+    pub fn BusinessLogicError(message: impl Into<String>) -> Self {
+        Self::business_logic(message)
+    }
+    
+    pub fn DomainError(message: impl Into<String>) -> Self {
+        Self::Domain(crate::domain::shared_kernel::DomainError::BusinessRuleViolation {
+            rule: message.into()
+        })
     }
 }
 

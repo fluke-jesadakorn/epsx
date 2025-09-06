@@ -125,7 +125,7 @@ askama_axum = { version = "0.4", optional = true }
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
 # Database ORM dependencies
-diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric"], optional = true }
+diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric", "r2d2"], optional = true }
 diesel-async = { version = "0.5", features = ["postgres", "bb8"], optional = true }
 diesel_migrations = { version = "2.2", features = ["postgres"] }
 # Database ORM - using Diesel for all database operations

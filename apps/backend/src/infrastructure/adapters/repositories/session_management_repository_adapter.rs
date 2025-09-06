@@ -1,7 +1,6 @@
 // Session Management Repository Adapter
 // Bridges DDD UserSessionManager with existing session and cache storage
 
-use async_trait::async_trait;
 use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 
@@ -9,14 +8,14 @@ use crate::domain::session_management::{
     UserSessionManager, SessionManagerRepositoryPort, SessionId, AuthenticatedUserId,
     SessionMetadata, SessionCollection, SessionActivity, SessionHistory
 };
-use crate::infra::db::diesel::DbPool;
-use crate::infra::cache::Cache;
-use crate::app::ports::repositories::SessionRepository;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::cache::Cache;
+use crate::application::ports::repositories::SessionRepository;
 
 /// Repository adapter for session management
 pub struct SessionManagementRepositoryAdapter {
     /// Legacy session repository
-    legacy_session_repo: Arc<dyn SessionRepository>,
+    legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
     
     /// Database pool for direct operations
     db_pool: Arc<DbPool>,
@@ -25,9 +24,12 @@ pub struct SessionManagementRepositoryAdapter {
     cache: Arc<dyn Cache>,
 }
 
+unsafe impl Send for SessionManagementRepositoryAdapter {}
+unsafe impl Sync for SessionManagementRepositoryAdapter {}
+
 impl SessionManagementRepositoryAdapter {
     pub fn new(
-        legacy_session_repo: Arc<dyn SessionRepository>,
+        legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
         db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
     ) -> Self {
@@ -61,7 +63,7 @@ impl SessionManagementRepositoryAdapter {
             (metadata.expires_at - chrono::Utc::now()).num_seconds().max(0) as u64
         );
         
-        self.cache.set(&cache_key, &serialized, Some(ttl)).await
+        self.cache.set(&cache_key, serialized, Some(ttl))
             .map_err(|e| format!("Failed to cache session metadata: {}", e))?;
         
         Ok(())
@@ -71,8 +73,8 @@ impl SessionManagementRepositoryAdapter {
     async fn get_cached_session_metadata(&self, session_id: &SessionId) -> Option<SessionMetadata> {
         let cache_key = self.get_session_metadata_cache_key(session_id);
         
-        match self.cache.get(&cache_key).await {
-            Ok(Some(data)) => {
+        match self.cache.get(&cache_key) {
+            Some(data) => {
                 match serde_json::from_str::<SessionMetadata>(&data) {
                     Ok(metadata) => Some(metadata),
                     Err(e) => {
@@ -85,7 +87,7 @@ impl SessionManagementRepositoryAdapter {
                     }
                 }
             },
-            _ => None
+            None => None
         }
     }
     
@@ -125,7 +127,7 @@ impl SessionManagementRepositoryAdapter {
         
         // Try cache first
         let cache_key = self.get_session_manager_cache_key(user_id);
-        if let Ok(Some(cached_data)) = self.cache.get(&cache_key).await {
+        if let Some(cached_data) = self.cache.get(&cache_key) {
             if let Ok(manager) = serde_json::from_str::<UserSessionManager>(&cached_data) {
                 debug!(user_id = %user_id, "Session manager loaded from cache");
                 return Ok(Some(manager));
@@ -139,7 +141,7 @@ impl SessionManagementRepositoryAdapter {
                     Ok(mut manager) => {
                         // Cache the loaded manager
                         if let Ok(serialized) = serde_json::to_string(&manager) {
-                            let _ = self.cache.set(&cache_key, &serialized, Some(3600)).await;
+                            self.cache.set(&cache_key, serialized, Some(3600));
                         }
                         
                         debug!(
@@ -252,7 +254,7 @@ impl SessionManagerRepositoryPort for SessionManagementRepositoryAdapter {
         
         // Remove from cache
         let cache_key = self.get_session_manager_cache_key(user_id);
-        if let Err(e) = self.cache.delete(&cache_key).await {
+        if let Err(e) = self.cache.delete(&cache_key) {
             warn!(user_id = %user_id, error = %e, "Failed to remove session manager from cache");
         }
         
@@ -395,13 +397,13 @@ impl SessionManagerRepositoryPort for SessionManagementRepositoryAdapter {
 
 impl SessionManagementRepositoryAdapter {
     /// Convert legacy session to session metadata
-    fn convert_legacy_to_metadata(&self, legacy_session: crate::dom::entities::session::Session) -> Result<SessionMetadata, String> {
+    fn convert_legacy_to_metadata(&self, legacy_session: crate::domain::shared_kernel::entities::session::Session) -> Result<SessionMetadata, String> {
         let session_id = SessionId::from_string(
             format!("sess_{}", legacy_session.id.unwrap_or_default())
         ).map_err(|e| format!("Invalid session ID: {}", e))?;
         
         let user_id = AuthenticatedUserId::from_verified_user(
-            crate::dom::values::UserId::new(legacy_session.user_id.to_string())
+            crate::domain::shared_kernel::value_objects::UserId::new(legacy_session.user_id.to_string())
         );
         
         let mut metadata = SessionMetadata::new(
@@ -426,12 +428,12 @@ impl SessionManagementRepositoryAdapter {
     }
     
     /// Convert session metadata to legacy session
-    fn convert_metadata_to_legacy(&self, metadata: &SessionMetadata) -> Result<crate::dom::entities::session::Session, String> {
+    fn convert_metadata_to_legacy(&self, metadata: &SessionMetadata) -> Result<crate::domain::shared_kernel::entities::session::Session, String> {
         let numeric_user_id = metadata.user_id.user_id().to_string()
             .parse::<i32>()
             .map_err(|e| format!("Invalid user ID for legacy format: {}", e))?;
         
-        Ok(crate::dom::entities::session::Session {
+        Ok(crate::domain::shared_kernel::entities::session::Session {
             id: None, // Will be auto-generated
             user_id: numeric_user_id,
             firebase_uid: Some(metadata.user_id.to_string()),
@@ -471,22 +473,22 @@ pub struct SessionStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::cache::memory_cache::MemoryCache;
+    use crate::infrastructure::cache::memory_cache::MemoryCache;
     
     // Mock session repository for testing
     struct MockSessionRepository;
     
     #[async_trait]
     impl SessionRepository for MockSessionRepository {
-        async fn create_session(&self, session: crate::dom::entities::session::Session) -> Result<crate::dom::entities::session::Session, Box<dyn std::error::Error + Send + Sync>> {
-            Ok(crate::dom::entities::session::Session {
+        async fn create_session(&self, session: crate::domain::shared_kernel::entities::session::Session) -> Result<crate::domain::shared_kernel::entities::session::Session, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(crate::domain::shared_kernel::entities::session::Session {
                 id: Some(1),
                 ..session
             })
         }
         
-        async fn find_session_by_id(&self, _id: i32) -> Result<Option<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
-            Ok(Some(crate::dom::entities::session::Session {
+        async fn find_session_by_id(&self, _id: i32) -> Result<Option<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(Some(crate::domain::shared_kernel::entities::session::Session {
                 id: Some(1),
                 user_id: 123,
                 firebase_uid: Some("test_uid".to_string()),
@@ -497,7 +499,7 @@ mod tests {
             }))
         }
         
-        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         
@@ -509,7 +511,7 @@ mod tests {
             Ok(())
         }
         
-        async fn find_expired_sessions(&self, _before: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::dom::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_expired_sessions(&self, _before: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         
@@ -520,7 +522,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_session_management_adapter_creation() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_legacy_repo = Arc::new(MockSessionRepository);
         let cache = Arc::new(MemoryCache::new(1000));
         
@@ -532,7 +534,7 @@ mod tests {
         
         // Test basic functionality
         let user_id = AuthenticatedUserId::from_verified_user(
-            crate::dom::values::UserId::new("123".to_string())
+            crate::domain::shared_kernel::value_objects::UserId::new("123".to_string())
         );
         
         let result = adapter.find_session_manager(&user_id).await;
@@ -542,7 +544,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_session_metadata_caching() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_legacy_repo = Arc::new(MockSessionRepository);
         let cache = Arc::new(MemoryCache::new(1000));
         
@@ -554,7 +556,7 @@ mod tests {
         
         let session_id = SessionId::generate();
         let user_id = AuthenticatedUserId::from_verified_user(
-            crate::dom::values::UserId::new("123".to_string())
+            crate::domain::shared_kernel::value_objects::UserId::new("123".to_string())
         );
         
         let metadata = SessionMetadata::new(
@@ -576,7 +578,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_cleanup_expired_sessions() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_legacy_repo = Arc::new(MockSessionRepository);
         let cache = Arc::new(MemoryCache::new(1000));
         

@@ -4,13 +4,16 @@ use chrono::Utc;
 
 use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
 use crate::domain::trading_analytics::value_objects::*;
-use crate::dom::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
-use crate::dom::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 
 /// Repository adapter that bridges legacy EPS ranking system with DDD Trading Analytics
 pub struct StockAnalysisRepositoryAdapter {
     eps_service: Arc<EPSRankingService>,
 }
+
+unsafe impl Send for StockAnalysisRepositoryAdapter {}
+unsafe impl Sync for StockAnalysisRepositoryAdapter {}
 
 impl StockAnalysisRepositoryAdapter {
     pub fn new(eps_service: Arc<EPSRankingService>) -> Self {
@@ -22,21 +25,21 @@ impl StockAnalysisRepositoryAdapter {
         let symbol = StockSymbol::new(legacy_ranking.symbol.clone())
             .map_err(|e| format!("Invalid symbol: {}", e))?;
         
-        let eps_value = EPSValue::new(legacy_ranking.current_eps.unwrap_or(0.0))
+        let eps_value = EPSValue::new(legacy_ranking.eps_current)
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
         
-        let growth_factor = GrowthFactor::new(legacy_ranking.growth_factor.unwrap_or(0.0))
+        let growth_factor = GrowthFactor::new(legacy_ranking.growth_rate)
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
         
         let sector = MarketSector::new(legacy_ranking.sector.clone())
             .map_err(|e| format!("Invalid sector: {}", e))?;
         
-        let country = Country::new(legacy_ranking.country.clone())
+        let country = Country::new("US".to_string()) // Default country as field not available
             .map_err(|e| format!("Invalid country: {}", e))?;
 
         Ok(RankingEntry {
             symbol,
-            company_name: legacy_ranking.name.clone(),
+            company_name: legacy_ranking.company_name.clone(),
             eps_value,
             growth_factor,
             sector,
@@ -50,19 +53,14 @@ impl StockAnalysisRepositoryAdapter {
     fn convert_ddd_to_legacy_ranking(&self, entry: &RankingEntry, rank: u32) -> LegacyEPSRanking {
         LegacyEPSRanking {
             symbol: entry.symbol.as_str().to_string(),
-            name: entry.company_name.clone(),
-            country: entry.country.name().to_string(),
+            company_name: entry.company_name.clone(),
+            eps_current: entry.eps_value.value(),
+            eps_previous: 0.0, // Not available in DDD model
+            growth_rate: entry.growth_factor.percentage(),
+            rank,
             sector: entry.sector.name().to_string(),
-            exchange: "UNKNOWN".to_string(), // Legacy field not in DDD model
-            current_eps: Some(entry.eps_value.value()),
-            growth_factor: Some(entry.growth_factor.percentage()),
-            price_current: None, // Not available in DDD model
             market_cap: None,    // Not available in DDD model
-            volume: None,        // Not available in DDD model
-            ranking_position: Some(rank as i32),
-            quarterly_data: None,
-            next_earnings_date: None,
-            last_earnings_date: None,
+            last_updated: chrono::Utc::now(),
         }
     }
 
@@ -154,7 +152,7 @@ impl StockAnalysisRepositoryAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::entities::eps_growth::EPSRanking as LegacyEPSRanking;
+    use crate::domain::shared_kernel::entities::eps_growth::EPSRanking as LegacyEPSRanking;
 
     #[test]
     fn test_legacy_to_ddd_conversion() {

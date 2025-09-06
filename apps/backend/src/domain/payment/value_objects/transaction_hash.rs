@@ -1,7 +1,10 @@
+use rust_decimal::Decimal;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 use std::fmt::{self, Display};
 
-pub use crate::dom::values::payments::Network;
+pub use crate::domain::shared_kernel::value_objects::{Currency, Network};
 
 /// Transaction Hash Value Object
 /// Represents blockchain transaction identifiers with network-specific validation
@@ -90,6 +93,8 @@ impl TransactionHash {
             Network::Tron => 1,         // 1 confirmation for TRON
             Network::Arbitrum => 1,     // 1 confirmation for Arbitrum
             Network::Polygon => 1,      // 1 confirmation for Polygon
+            Network::Bitcoin => 3,      // 3 confirmations for Bitcoin
+            Network::BinanceSmartChain => 1, // 1 confirmation for BSC
         }
     }
 
@@ -101,6 +106,8 @@ impl TransactionHash {
             Network::Tron => 20,        // 20 confirmations for TRON (~1 minute)
             Network::Arbitrum => 1,     // 1 confirmation for Arbitrum (L2)
             Network::Polygon => 50,     // 50 confirmations for Polygon (~2 minutes)
+            Network::Bitcoin => 6,      // 6 confirmations for Bitcoin (~1 hour)
+            Network::BinanceSmartChain => 20, // 20 confirmations for BSC
         }
     }
 
@@ -112,6 +119,8 @@ impl TransactionHash {
             Network::Tron => "https://tronscan.org/#/transaction/",
             Network::Arbitrum => "https://arbiscan.io/tx/",
             Network::Polygon => "https://polygonscan.com/tx/",
+            Network::Bitcoin => "https://blockstream.info/tx/",
+            Network::BinanceSmartChain => "https://bscscan.com/tx/",
         };
         
         format!("{}{}", base_url, self.hash)
@@ -142,10 +151,11 @@ impl TransactionHash {
     /// Validate hash format based on network
     fn validate_hash_format(hash: &str, network: &Network) -> Result<(), TransactionHashError> {
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon => {
+            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
                 Self::validate_ethereum_tx_hash(hash)
             }
             Network::Tron => Self::validate_tron_tx_hash(hash),
+            Network::Bitcoin => Self::validate_bitcoin_tx_hash(hash),
         }
     }
 
@@ -197,12 +207,32 @@ impl TransactionHash {
         Ok(())
     }
 
+    /// Validate Bitcoin transaction hash
+    fn validate_bitcoin_tx_hash(hash: &str) -> Result<(), TransactionHashError> {
+        if hash.len() != 64 {
+            return Err(TransactionHashError::InvalidLength {
+                hash: hash.to_string(),
+                expected: 64,
+                actual: hash.len(),
+            });
+        }
+
+        if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(TransactionHashError::InvalidCharacters {
+                hash: hash.to_string(),
+                expected: "hexadecimal characters only".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+
     /// Normalize hash format
     fn normalize_hash(hash: &str, network: &Network) -> Result<String, TransactionHashError> {
         let trimmed = hash.trim();
         
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon => {
+            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
                 // Ensure 0x prefix for Ethereum-like networks
                 if trimmed.starts_with("0x") {
                     Ok(trimmed.to_lowercase())
@@ -217,6 +247,14 @@ impl TransactionHash {
             }
             Network::Tron => {
                 // TRON hashes don't use 0x prefix
+                if trimmed.starts_with("0x") {
+                    Ok(trimmed[2..].to_lowercase())
+                } else {
+                    Ok(trimmed.to_lowercase())
+                }
+            }
+            Network::Bitcoin => {
+                // Bitcoin hashes don't use 0x prefix, use little-endian format
                 if trimmed.starts_with("0x") {
                     Ok(trimmed[2..].to_lowercase())
                 } else {

@@ -1,10 +1,10 @@
-// Refresh Tokens Command
 // Maps to token refresh flow
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+use crate::domain::authentication::{SessionId, Scope};
+use crate::application::shared::command_bus::Command;
+use chrono::{DateTime, Utc};
 
-use crate::domain::authentication::{SessionId, RefreshToken, Scope};
 
 /// Command to refresh authentication tokens
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +50,10 @@ impl RefreshTokensCommand {
         self.requested_scopes = Some(scopes);
         self
     }
+}
+
+impl Command for RefreshTokensCommand {
+    type Response = RefreshTokensResponse;
 }
 
 /// Response from token refresh

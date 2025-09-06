@@ -1,7 +1,6 @@
-/// Notification Mappers for Legacy-DDD Integration
+use chrono::{DateTime, Utc};/// Notification Mappers for Legacy-DDD Integration
 /// Convert between legacy notification structures and DDD Notification aggregates
 
-use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tracing::debug;
 use uuid::Uuid;
@@ -9,9 +8,9 @@ use crate::domain::shared_kernel::AggregateRoot;
 
 use crate::domain::notification::aggregates::notification::Notification;
 use crate::domain::notification::value_objects::*;
-use crate::infra::db::diesel::types::{NotificationType, NotificationPriority};
-use crate::infra::services::fcm_service::{FcmMessage, FcmNotification, FcmTarget};
-use crate::infra::services::email_service::SentEmail;
+use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::infrastructure::adapters::services::fcm_service::{FcmMessage, FcmNotification, FcmTarget};
+use crate::infrastructure::adapters::services::email_service::SentEmail;
 
 /// Mapper for converting between legacy and DDD notification structures
 pub struct NotificationMapper;
@@ -71,19 +70,19 @@ impl NotificationMapper {
             target,
             data: Some(Value::Object(data_map)),
             notification: Some(fcm_notification),
-            android: Some(crate::infra::services::fcm_service::FcmAndroidConfig {
+            android: Some(crate::infrastructure::adapters::services::fcm_service::FcmAndroidConfig {
                 priority: Some(Self::map_ddd_priority_to_fcm(notification.priority())),
                 ttl: Some(Self::calculate_ttl_from_schedule(notification.schedule())),
                 notification: None,
             }),
-            webpush: Some(crate::infra::services::fcm_service::FcmWebpushConfig {
+            webpush: Some(crate::infrastructure::adapters::services::fcm_service::FcmWebpushConfig {
                 headers: Some(serde_json::json!({
                     "Urgency": Self::map_ddd_priority_to_urgency(notification.priority())
                 })),
                 data: None,
                 notification: None,
                 fcm_options: notification.metadata().action_url().map(|url| {
-                    crate::infra::services::fcm_service::FcmWebpushFcmOptions {
+                    crate::infrastructure::adapters::services::fcm_service::FcmWebpushFcmOptions {
                         link: Some(url.to_string()),
                         analytics_label: Some(format!("notification_{}", notification.notification_type())),
                     }
@@ -98,7 +97,7 @@ impl NotificationMapper {
 
         let content = NotificationContent::new(
             sent_email.subject.clone(),
-            sent_email.content.clone(),
+            format!("Email sent to: {}", sent_email.to), // content field not available, use to field
         ).unwrap_or_else(|_| {
             // Fallback content if validation fails
             NotificationContent::new(
@@ -217,7 +216,7 @@ impl NotificationMapper {
     /// Map DDD priority to FCM priority string
     fn map_ddd_priority_to_fcm(priority: &NotificationPriority) -> String {
         match priority {
-            NotificationPriority::Urgent | NotificationPriority::High => "high".to_string(),
+            NotificationPriority::Urgent | NotificationPriority::Critical | NotificationPriority::High => "high".to_string(),
             NotificationPriority::Normal | NotificationPriority::Low => "normal".to_string(),
         }
     }
@@ -226,6 +225,7 @@ impl NotificationMapper {
     fn map_ddd_priority_to_urgency(priority: &NotificationPriority) -> String {
         match priority {
             NotificationPriority::Urgent => "high".to_string(),
+            NotificationPriority::Critical => "high".to_string(),
             NotificationPriority::High => "normal".to_string(),
             NotificationPriority::Normal => "low".to_string(),
             NotificationPriority::Low => "very-low".to_string(),

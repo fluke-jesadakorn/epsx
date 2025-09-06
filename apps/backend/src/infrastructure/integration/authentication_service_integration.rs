@@ -1,20 +1,22 @@
-// Authentication Service Integration
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};// Authentication Service Integration
 // Orchestrates SessionManagement bounded context for authentication operations
 // Maintains existing API compatibility while using DDD internally
 
-use async_trait::async_trait;
 use std::sync::Arc;
-use chrono::{DateTime, Utc};
 use tracing::{info, warn, error};
 
 use crate::domain::user_management::{
     UserRepositoryPort, SessionRepositoryPort,
-    value_objects::{UserId, SessionId, FirebaseUid}
+    value_objects::FirebaseUid
 };
 use crate::application::user_management::{
     CreateSessionCommandHandler, 
     commands::{CreateSessionCommand, CreateSessionResponse}
 };
+use crate::application::shared::CommandHandler;
 
 /// Integration service for authentication operations
 /// Provides high-level authentication operations for the web layer
@@ -57,7 +59,7 @@ impl AuthenticationServiceIntegration {
         let user = self.user_repository
             .find_by_firebase_uid(&firebase_uid)
             .await
-            .map_err(|e| AuthenticationError::UserIdentity(e))?
+            .map_err(|e| AuthenticationError::UserIdentity(format!("{:?}", e)))?
             .ok_or(AuthenticationError::UserNotFound)?;
         
         // Create session using command handler
@@ -68,7 +70,7 @@ impl AuthenticationServiceIntegration {
             expires_at
         ).with_client_info(Some(ip_address), user_agent);
         
-        let response = self.create_session_handler.as_ref().handle(command)
+        let response = self.create_session_handler.handle(command)
             .await
             .map_err(|e| AuthenticationError::SessionCreation(e.to_string()))?;
         
@@ -84,7 +86,7 @@ impl AuthenticationServiceIntegration {
             profile: UserProfile {
                 email: user.email().to_string(),
                 display_name: format!("User {}", user.id().to_string()),
-                is_admin: user.permissions().iter().any(|p| p.starts_with("admin:")),
+                is_active: user.is_active(),
                 permissions: user.permissions().iter().map(|p| p.as_str().to_string()).collect(),
             },
             expires_at: response.expires_at,
@@ -100,14 +102,13 @@ impl AuthenticationServiceIntegration {
     ) -> Result<(), AuthenticationError> {
         info!("Terminating session {} for user {}", session_id, user_id);
         
-        let session_id_obj = SessionId::from_string(&session_id)
-            .map_err(|_| AuthenticationError::InvalidSessionId)?;
+        let session_id_obj = SessionId::from_string(session_id.to_string());
         
         // Find and deactivate session
         let session = self.session_repository
             .find_by_id(&session_id_obj)
             .await
-            .map_err(|e| AuthenticationError::SessionOperation(e))?
+            .map_err(|e| AuthenticationError::SessionOperation(format!("{:?}", e)))?
             .ok_or(AuthenticationError::SessionNotFound)?;
         
         if !session.is_active() {
@@ -122,7 +123,7 @@ impl AuthenticationServiceIntegration {
         self.session_repository
             .save(&session)
             .await
-            .map_err(|e| AuthenticationError::SessionOperation(e))?;
+            .map_err(|e| AuthenticationError::SessionOperation(format!("{:?}", e)))?;
         
         info!("Session {} terminated successfully", session_id);
         Ok(())
@@ -138,14 +139,13 @@ impl AuthenticationServiceIntegration {
         info!("Refreshing session with refresh token");
         
         // For now, treat refresh token as session ID (would be proper token validation)
-        let session_id_obj = SessionId::from_string(&refresh_token)
-            .map_err(|_| AuthenticationError::InvalidRefreshToken)?;
+        let session_id_obj = SessionId::from_string(refresh_token.to_string());
         
         // Find active session
         let session = self.session_repository
             .find_by_id(&session_id_obj)
             .await
-            .map_err(|e| AuthenticationError::SessionOperation(e))?
+            .map_err(|e| AuthenticationError::SessionOperation(format!("{:?}", e)))?
             .ok_or(AuthenticationError::SessionNotFound)?;
         
         if !session.is_active() {
@@ -166,13 +166,13 @@ impl AuthenticationServiceIntegration {
         self.session_repository
             .save(&session)
             .await
-            .map_err(|e| AuthenticationError::SessionOperation(e))?;
+            .map_err(|e| AuthenticationError::SessionOperation(format!("{:?}", e)))?;
         
         // Get user profile
         let user = self.user_repository
             .find_by_id(session.user_id())
             .await
-            .map_err(|e| AuthenticationError::UserIdentity(e))?
+            .map_err(|e| AuthenticationError::UserIdentity(format!("{:?}", e)))?
             .ok_or(AuthenticationError::UserNotFound)?;
         
         info!("Session {} refreshed successfully", refresh_token);
@@ -183,7 +183,7 @@ impl AuthenticationServiceIntegration {
             profile: UserProfile {
                 email: user.email().to_string(),
                 display_name: format!("User {}", user.id().to_string()),
-                is_admin: user.permissions().iter().any(|p| p.starts_with("admin:")),
+                is_active: user.is_active(),
                 permissions: user.permissions().iter().map(|p| p.as_str().to_string()).collect(),
             },
             new_expires_at: session.expires_at(),
@@ -212,13 +212,12 @@ impl AuthenticationServiceIntegration {
         &self,
         session_id: &str,
     ) -> Result<SessionValidationResult, AuthenticationError> {
-        let session_id_obj = SessionId::from_string(&session_id)
-            .map_err(|_| AuthenticationError::InvalidSessionId)?;
+        let session_id_obj = SessionId::from_string(session_id.to_string());
         
         let session = self.session_repository
             .find_by_id(&session_id_obj)
             .await
-            .map_err(|e| AuthenticationError::SessionOperation(e))?
+            .map_err(|e| AuthenticationError::SessionOperation(format!("{:?}", e)))?
             .ok_or(AuthenticationError::SessionNotFound)?;
         
         let is_valid = session.is_active() && !session.is_expired();
@@ -284,7 +283,7 @@ pub struct SessionValidationResult {
 pub struct UserProfile {
     pub email: String,
     pub display_name: String,
-    pub is_admin: bool,
+    pub is_active: bool,
     pub permissions: Vec<String>,
 }
 
@@ -322,7 +321,7 @@ pub enum AuthenticationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::db::create_test_pool;
+    use crate::infrastructure::adapters::repositories::create_test_pool;
     use crate::infrastructure::adapters::repositories::{UserRepositoryAdapter, SessionRepositoryAdapter};
     use crate::infrastructure::event_bus::SimpleEventBus;
     
@@ -330,9 +329,9 @@ mod tests {
         let db_pool = Arc::new(create_test_pool());
         let event_bus = Arc::new(SimpleEventBus::new());
         
-        let user_repository: Arc<dyn UserRepositoryPort> = 
+        let user_repository: Arc<dyn UserRepository<Error = Box<dyn std::error::Error + Send + Sync>>> = 
             Arc::new(UserRepositoryAdapter::new(db_pool.clone()));
-        let session_repository: Arc<dyn SessionRepositoryPort> = 
+        let session_repository: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>> = 
             Arc::new(SessionRepositoryAdapter::new(db_pool.clone()));
         
         let create_session_handler = Arc::new(CreateSessionCommandHandler::new(

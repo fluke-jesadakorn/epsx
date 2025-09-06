@@ -1,18 +1,20 @@
 // Payment Repository Adapter
+use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 // Bridges DDD Payment aggregate with legacy payment storage systems
 
-use async_trait::async_trait;
 use tracing::{info, warn, error};
 use std::sync::Arc;
-use chrono::{DateTime, Utc};
 
 use crate::domain::payment::{
     Payment, PaymentId, PaymentStatus, PaymentAmount, PaymentReference,
     PaymentRepositoryPort, PaymentStats
 };
-use crate::domain::user_management::value_objects::UserId;
-use crate::infra::db::diesel::DbPool;
-use crate::app::ports::repositories::UserRepository;
+use crate::domain::shared_kernel::AggregateRoot;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::application::ports::repositories::UserRepository;
 
 /// Repository adapter for payment operations
 pub struct PaymentRepositoryAdapter {
@@ -20,13 +22,16 @@ pub struct PaymentRepositoryAdapter {
     db_pool: Arc<DbPool>,
     
     /// Legacy user repository for user validation
-    user_repository: Arc<dyn UserRepository>,
+    user_repository: Arc<dyn UserRepository<Error = crate::infrastructure::adapters::repositories::user_repository_adapter::LegacyRepositoryError>>,
 }
+
+unsafe impl Send for PaymentRepositoryAdapter {}
+unsafe impl Sync for PaymentRepositoryAdapter {}
 
 impl PaymentRepositoryAdapter {
     pub fn new(
         db_pool: Arc<DbPool>,
-        user_repository: Arc<dyn UserRepository>,
+        user_repository: Arc<dyn UserRepository<Error = crate::infrastructure::adapters::repositories::user_repository_adapter::LegacyRepositoryError>>,
     ) -> Self {
         Self {
             db_pool,
@@ -49,7 +54,7 @@ impl PaymentRepositoryAdapter {
             expires_at: payment.expires_at(),
             // Additional fields would be mapped based on payment type
             crypto_address: payment.crypto_details()
-                .and_then(|details| details.address.as_ref())
+                .and_then(|details| details.payment_address.as_ref())
                 .map(|addr| addr.to_string()),
             transaction_hash: payment.crypto_details()
                 .and_then(|details| details.transaction_hash.as_ref())
@@ -267,23 +272,23 @@ mod tests {
     
     #[async_trait]
     impl UserRepository for MockUserRepository {
-        async fn create_user(&self, _user: crate::dom::entities::user::User) -> Result<crate::dom::entities::user::User, Box<dyn std::error::Error + Send + Sync>> {
+        async fn create_user(&self, _user: crate::domain::shared_kernel::entities::user::User) -> Result<crate::domain::shared_kernel::entities::user::User, Box<dyn std::error::Error + Send + Sync>> {
             unimplemented!()
         }
         
-        async fn find_user_by_id(&self, _id: i32) -> Result<Option<crate::dom::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_user_by_id(&self, _id: i32) -> Result<Option<crate::domain::shared_kernel::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }
         
-        async fn find_user_by_firebase_uid(&self, _uid: &str) -> Result<Option<crate::dom::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_user_by_firebase_uid(&self, _uid: &str) -> Result<Option<crate::domain::shared_kernel::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }
         
-        async fn find_user_by_email(&self, _email: &str) -> Result<Option<crate::dom::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_user_by_email(&self, _email: &str) -> Result<Option<crate::domain::shared_kernel::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }
         
-        async fn update_user(&self, _user: crate::dom::entities::user::User) -> Result<crate::dom::entities::user::User, Box<dyn std::error::Error + Send + Sync>> {
+        async fn update_user(&self, _user: crate::domain::shared_kernel::entities::user::User) -> Result<crate::domain::shared_kernel::entities::user::User, Box<dyn std::error::Error + Send + Sync>> {
             unimplemented!()
         }
         
@@ -291,7 +296,7 @@ mod tests {
             Ok(())
         }
         
-        async fn list_users(&self, _offset: i64, _limit: i64) -> Result<Vec<crate::dom::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn list_users(&self, _offset: i64, _limit: i64) -> Result<Vec<crate::domain::shared_kernel::entities::user::User>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         
@@ -302,7 +307,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_payment_adapter_creation() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_user_repo = Arc::new(MockUserRepository);
         
         let adapter = PaymentRepositoryAdapter::new(

@@ -19,7 +19,7 @@ pub use authentication_provider::{AuthenticationProvider, ProviderType, Authenti
 pub use scopes::{Scope, ScopeSet, ScopeError};
 
 // User identity in authentication context
-use crate::domain::user_management::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::UserId;
 
 /// Authenticated user identifier - wraps UserId with authentication context
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

@@ -1,5 +1,6 @@
-// OIDC Token Endpoint implementation
+use std::collections::HashMap;
 use chrono::{DateTime, Utc, Duration};
+use crate::domain::shared_kernel::value_objects::SessionId;// OIDC Token Endpoint implementation
 use uuid::Uuid;
 
 use axum::{
@@ -13,7 +14,6 @@ use serde::{Deserialize, Serialize};
 
 use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
 
-use std::collections::HashMap;
 
 use base64::Engine;
 
@@ -24,7 +24,7 @@ use crate::web::auth::AppState;
 
 use crate::web::oidc::authorization::AuthorizationCodeData;
 
-use crate::infra::firebase_admin::FirebaseUser;
+use crate::infrastructure::adapters::services::firebase::FirebaseUser;
 
 
 /// OIDC Error Response
@@ -33,6 +33,16 @@ pub struct TokenErrorResponse {
     pub error: String,
     pub error_description: Option<String>,
     pub error_uri: Option<String>,
+}
+
+impl TokenErrorResponse {
+    pub fn server_error() -> Self {
+        Self {
+            error: "server_error".to_string(),
+            error_description: Some("Internal server error occurred".to_string()),
+            error_uri: None,
+        }
+    }
 }
 
 /// Custom form extractor that always returns JSON errors
@@ -427,12 +437,8 @@ fn create_firebase_user_from_token_data(token_data: &crate::auth::RefreshTokenDa
         email_verified: true,
         display_name: None,
         photo_url: None,
-        phone_number: None,
+        provider_id: "custom".to_string(),
         custom_claims: std::collections::HashMap::new(),
-        provider_data: vec![],
-        disabled: false,
-        created_at: chrono::Utc::now(),
-        last_login_at: Some(chrono::Utc::now()),
     }
 }
 
@@ -441,13 +447,13 @@ async fn validate_and_consume_authorization_code(
     app_state: &AppState,
     code: &str,
 ) -> Result<AuthorizationCodeData, Box<dyn std::error::Error>> {
-    use crate::dom::values::SessId;
+    // SessId is available through SessionId re-export from shared_kernel::value_objects
     
     // Get session for authorization code
-    let session_id = SessId::from_string(format!("auth_code:{}", code));
+    let session_id = SessionId::from_string(format!("auth_code:{}", code));
     tracing::debug!("Looking for session with ID: {}", session_id);
     
-    let session_result = app_state.session_repo.get(&session_id).await;
+    let session_result = app_state.session_repo.find_by_id(&session_id).await;
     tracing::debug!("Session repo result: success={}", session_result.is_ok());
     
     let session = session_result?
@@ -457,7 +463,7 @@ async fn validate_and_consume_authorization_code(
     app_state.session_repo.delete(&session_id).await?;
     
     // Deserialize auth data from access_token field
-    let auth_data: AuthorizationCodeData = serde_json::from_str(&session.access_token)?;
+    let auth_data: AuthorizationCodeData = serde_json::from_str(session.access_token())?;
     
     // Check expiration (extra safety)
     if Utc::now() - auth_data.created_at > Duration::minutes(10) {
@@ -477,7 +483,8 @@ async fn generate_access_token(
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
     // Get user data from database for accurate permissions
     let (_, package_tier, database_permissions) = 
-        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
+        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(TokenErrorResponse::server_error())))?;
     
     // Combine Firebase role with database permissions
     let firebase_role = get_role_from_custom_claims(&firebase_user.custom_claims);
@@ -544,7 +551,6 @@ fn generate_admin_access_token(
         firebase_user.uid.clone(),
         firebase_user.email.clone().unwrap_or_default(),
         firebase_user.display_name.clone().unwrap_or_else(|| "Admin".to_string()),
-        role.to_string(),
         security_context,
         admin_permissions,
     ).map_err(|e| {
@@ -579,7 +585,7 @@ async fn generate_user_access_token(
     let user_context = UserContext {
         tier: package_tier.to_string(),
         verified: firebase_user.email_verified,
-        created_at: firebase_user.created_at.timestamp() as u64,
+        created_at: now.timestamp() as u64, // Use current time since FirebaseUser doesn't have created_at
         last_login: now.timestamp() as u64,
         preferences: UserPreferences {
             language: "en".to_string(),
@@ -674,7 +680,8 @@ async fn generate_id_token(
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
     // Get user data from database for accurate information
     let (_, package_tier, database_permissions) = 
-        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await;
+        get_user_database_info(app_state, &firebase_user.uid, firebase_user.email.as_deref().unwrap_or("")).await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(TokenErrorResponse::server_error())))?;
     
     let claims = IdTokenClaims {
         jti: generate_jti(),
@@ -792,11 +799,12 @@ async fn create_session(
     firebase_user: &FirebaseUser,
     access_token: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::dom::entities::Session;
     
 
     // Look up user in database by firebase_uid to get the proper UUID
-    let user = app_state.user_repo.find_by_firebase_uid(&firebase_user.uid).await?;
+    let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(&firebase_user.uid)
+        .map_err(|e| format!("Invalid Firebase UID: {}", e))?;
+    let user = app_state.user_repo.find_by_firebase_uid(&firebase_uid_vo).await?;
     let user_id = match user {
         Some(user) => user.id().clone(),
         None => {
@@ -806,7 +814,15 @@ async fn create_session(
     };
     
     let expires_at = Utc::now() + Duration::hours(24);
-    let session = Session::new(user_id, access_token.to_string(), expires_at);
+    let session_id = SessionId::new();
+    let session = crate::domain::user_management::aggregates::session::Session::create(
+        session_id,
+        user_id,
+        access_token.to_string(),
+        expires_at,
+        None, // ip_address
+        None, // user_agent
+    ).map_err(|e| format!("Failed to create session: {}", e))?;
 
     app_state.session_repo.save(&session).await?;
     Ok(())
@@ -935,28 +951,19 @@ async fn get_user_database_info(
     app_state: &AppState,
     firebase_uid: &str,
     _email: &str
-) -> (Vec<String>, String, Vec<String>) {
+) -> Result<(Vec<String>, String, Vec<String>), Box<dyn std::error::Error>> {
     // Legacy placeholder for compatibility - admin_modules no longer used
     let _admin_modules_placeholder = vec![];
     
     // Get user data from database using Firebase UID for package tier and permissions
-    let (package_tier, permissions) = match app_state.user_repo.find_by_firebase_uid(firebase_uid).await {
+    let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(firebase_uid).map_err(|e| format!("Invalid Firebase UID: {}", e))?;
+    let (package_tier, permissions) = match app_state.user_repo.find_by_firebase_uid(&firebase_uid_vo).await {
         Ok(Some(user)) => {
-            let tier = match user.subscription().tier {
-                crate::dom::values::SubscriptionTier::Free => "FREE".to_string(),
-                crate::dom::values::SubscriptionTier::Basic => "BASIC".to_string(),
-                crate::dom::values::SubscriptionTier::Premium => "PREMIUM".to_string(),
-                crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE".to_string(),
-            };
+            // TODO: Add subscription information to User aggregate in DDD refactor
+            let tier = "FREE".to_string(); // Default tier for now
             
-            // Get user permissions from separate table via PermissionApplicationService
-            let user_permissions: Vec<String> = match app_state.permission_application_service.get_user_permissions(user.firebase_uid()).await {
-                Ok(permissions) => permissions,
-                Err(e) => {
-                    tracing::error!("Failed to fetch permissions for JWT token {}: {:?}", user.id(), e);
-                    vec![] // Default to empty permissions on error
-                }
-            };
+            // Get user permissions from user aggregate (DDD approach)
+            let user_permissions: Vec<String> = user.active_permissions();
             
             tracing::debug!("Retrieved user data for {}: tier={}, {} permissions", firebase_uid, tier, user_permissions.len());
             (tier, user_permissions)
@@ -977,7 +984,7 @@ async fn get_user_database_info(
     tracing::info!("User database info for {}: {} tier, {} permissions", 
                   firebase_uid, package_tier, final_permissions.len());
     
-    (_admin_modules_placeholder, package_tier, final_permissions)
+    Ok((_admin_modules_placeholder, package_tier, final_permissions))
 }
 
 /// Get user package tier from the database (legacy function - use get_user_database_info instead)
@@ -985,20 +992,14 @@ async fn get_user_package_tier(
     app_state: &AppState,
     email: &str
 ) -> Result<String, Box<dyn std::error::Error>> {
-    use crate::dom::values::Email;
-    
     // Try to get user from database
-    let user_email = Email::new(email.to_string())?;
+    let user_email = crate::domain::user_management::value_objects::Email::new(email.to_string())
+        .map_err(|e| format!("Invalid email: {}", e))?;
     
     match app_state.user_repo.find_by_email(&user_email).await {
         Ok(Some(user)) => {
-            // Extract package tier from user data
-            let tier = match user.subscription().tier {
-                crate::dom::values::SubscriptionTier::Free => "FREE".to_string(),
-                crate::dom::values::SubscriptionTier::Basic => "BASIC".to_string(),
-                crate::dom::values::SubscriptionTier::Premium => "PREMIUM".to_string(),
-                crate::dom::values::SubscriptionTier::Enterprise => "ENTERPRISE".to_string(),
-            };
+            // TODO: Add subscription information to User aggregate in DDD refactor
+            let tier = "FREE".to_string(); // Default tier for now
             Ok(tier)
         },
         Ok(None) => {

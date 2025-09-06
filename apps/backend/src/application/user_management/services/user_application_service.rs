@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::UserId;use chrono::{DateTime, Utc};use std::sync::Arc;
 
 use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::application::user_management::{
@@ -223,7 +222,7 @@ impl UserApplicationService {
         // For now, this is a direct repository call
         // In a full implementation, this would use a GetUserQueryHandler
         
-        let user_id_vo = crate::domain::user_management::UserId::from_string(&user_id)
+        let user_id_vo = crate::domain::user_management::UserId::from_string(user_id.clone())
             .map_err(|e| ApplicationError::validation("user_id", e.to_string()))?;
         
         let user = self.user_repository.find_by_id(&user_id_vo).await

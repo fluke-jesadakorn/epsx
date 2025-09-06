@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use tracing::{info, warn, error};
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
+use crate::domain::shared_kernel::value_objects::UserId;
+use std::sync::Arc;
 use crate::domain::authentication::{
     AuthenticationSession, AuthenticationError, SessionId,
     AuthenticationSessionRepositoryPort, TokenValidationServicePort,
@@ -15,16 +17,16 @@ use super::super::{CreateSessionCommand, CreateSessionResponse};
 
 /// Handler for creating authentication sessions
 pub struct CreateSessionHandler {
-    session_repository: Box<dyn AuthenticationSessionRepositoryPort>,
-    token_validation_service: Box<dyn TokenValidationServicePort>,
-    security_monitoring_service: Box<dyn SecurityMonitoringServicePort>,
+    session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
+    token_validation_service: Arc<dyn TokenValidationServicePort>,
+    security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
 }
 
 impl CreateSessionHandler {
     pub fn new(
-        session_repository: Box<dyn AuthenticationSessionRepositoryPort>,
-        token_validation_service: Box<dyn TokenValidationServicePort>,
-        security_monitoring_service: Box<dyn SecurityMonitoringServicePort>,
+        session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
+        token_validation_service: Arc<dyn TokenValidationServicePort>,
+        security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
     ) -> Self {
         Self {
             session_repository,
@@ -35,7 +37,7 @@ impl CreateSessionHandler {
 }
 
 #[async_trait]
-impl CommandHandler<CreateSessionCommand, CreateSessionResponse> for CreateSessionHandler {
+impl CommandHandler<CreateSessionCommand> for CreateSessionHandler {
     async fn handle(&self, command: CreateSessionCommand) -> ApplicationResult<CreateSessionResponse> {
         info!(
             user_id = %command.user_id,
@@ -46,7 +48,7 @@ impl CommandHandler<CreateSessionCommand, CreateSessionResponse> for CreateSessi
         
         // Validate command
         command.validate()
-            .map_err(|e| ApplicationError::ValidationError(e.to_string()))?;
+            .map_err(|e| ApplicationError::validation("command", e.to_string()))?;
         
         // Security pre-checks
         self.perform_security_checks(&command).await?;
@@ -87,17 +89,20 @@ impl CommandHandler<CreateSessionCommand, CreateSessionResponse> for CreateSessi
         
         // Security monitoring
         self.security_monitoring_service.record_session_creation(
-            session.session_id(),
-            &command.user_id,
-            command.client_ip.as_deref(),
+            &command.user_id.to_string(),
+            command.client_ip.as_deref().unwrap_or("unknown"),
+            &session.session_id().to_string(),
         ).await.map_err(|e| {
             warn!(error = %e, "Failed to record session creation in security monitoring");
             // Don't fail the entire operation for monitoring failures
         }).ok();
         
-        // Create response
+        // Create response - convert SessionId to expected type
+        let session_id_str = session.session_id().to_string();
+        let response_session_id = SessionId::from_string(session_id_str)
+            .map_err(|e| ApplicationError::validation("session_id", &e.to_string()))?;
         let response = CreateSessionResponse::new(
-            session.session_id().clone(),
+            response_session_id,
             access_token.token().to_string(),
             refresh_token,
             id_token,
@@ -154,7 +159,7 @@ impl CreateSessionHandler {
         
         // Validate provider can handle requested scopes
         command.provider.validate_capabilities(&command.scopes)
-            .map_err(|e| ApplicationError::ValidationError(e.to_string()))?;
+            .map_err(|e| ApplicationError::validation("command", e.to_string()))?;
         
         // Additional admin scope validation
         if command.scopes.contains(&crate::domain::authentication::Scope::EpsxAdmin) {
@@ -192,11 +197,11 @@ impl From<AuthenticationError> for ApplicationError {
             AuthenticationError::SessionExpired => 
                 ApplicationError::BusinessLogicError("Session expired".to_string()),
             AuthenticationError::InvalidRefreshToken => 
-                ApplicationError::ValidationError("Invalid refresh token".to_string()),
+                ApplicationError::validation("token", "Invalid refresh token"),
             AuthenticationError::RefreshTokenExpired => 
                 ApplicationError::BusinessLogicError("Refresh token expired".to_string()),
             AuthenticationError::InvalidScopes(msg) => 
-                ApplicationError::ValidationError(format!("Invalid scopes: {}", msg)),
+                ApplicationError::validation("scopes", format!("Invalid scopes: {}", msg)),
             AuthenticationError::TokenGenerationFailed(msg) => 
                 ApplicationError::InfrastructureError(format!("Token generation failed: {}", msg)),
             AuthenticationError::SecurityViolation => 

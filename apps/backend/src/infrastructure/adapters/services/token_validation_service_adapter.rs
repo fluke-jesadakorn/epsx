@@ -2,15 +2,16 @@
 // Bridges DDD token validation with existing OIDC providers
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
-    TokenValidationServicePort, AccessToken, RefreshToken,
-    TokenClaims, TokenIntrospectionResult
+    AuthenticatedUserId, AccessToken, RefreshToken,
+    TokenValidationServicePort, TokenClaims, TokenIntrospectionResult
 };
 use crate::web::auth::providers::{AuthProvider, ProviderType};
-use crate::infra::firebase_admin::FirebaseAdmin;
+use crate::infrastructure::firebase_admin::FirebaseAdmin;
 
 /// Token validation service adapter
 pub struct TokenValidationServiceAdapter {
@@ -64,7 +65,7 @@ impl TokenValidationServiceAdapter {
                     user_id: Some(user_claims.user_id.to_string()),
                     scopes: user_claims.permissions.clone(),
                     expires_at: Some(user_claims.expires_at),
-                    provider_type: user_claims.provider_type,
+                    provider_type: user_claims.provider,
                     error: None,
                 })
             },
@@ -297,8 +298,8 @@ mod tests {
         async fn validate_token(&self, _token: &str) -> Result<UserClaims, AuthProviderError> {
             if self.should_validate {
                 Ok(UserClaims::new(
-                    crate::dom::values::UserId::new("123".to_string()),
-                    crate::dom::values::Email::new("test@example.com".to_string()).unwrap(),
+                    crate::domain::shared_kernel::value_objects::UserId::new("123".to_string()),
+                    crate::domain::shared_kernel::value_objects::Email::new("test@example.com".to_string()).unwrap(),
                     vec!["openid".to_string(), "profile".to_string()],
                     "test_provider_id".to_string(),
                     self.provider_type.clone(),
@@ -341,7 +342,7 @@ mod tests {
     async fn test_access_token_validation() {
         let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new("test_project_id".to_string()));
+        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
         let adapter = TokenValidationServiceAdapter::new(
             firebase_provider,
@@ -362,7 +363,7 @@ mod tests {
     async fn test_refresh_token_validation() {
         let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new("test_project_id".to_string()));
+        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
         let adapter = TokenValidationServiceAdapter::new(
             firebase_provider,
@@ -386,7 +387,7 @@ mod tests {
     async fn test_token_claims_extraction() {
         let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new("test_project_id".to_string()));
+        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
         let adapter = TokenValidationServiceAdapter::new(
             firebase_provider,

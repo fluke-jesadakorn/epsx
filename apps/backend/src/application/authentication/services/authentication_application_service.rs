@@ -1,12 +1,15 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
+
 // Authentication Application Service
 // Main orchestrator for authentication operations using CQRS and DDD patterns
 
-use async_trait::async_trait;
 use tracing::{info, warn, error};
 
-use crate::application::shared::{ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::domain::authentication::{
-    AuthenticationSession, SessionId, AuthenticatedUserId, 
+    AuthenticationSession, AuthenticatedUserId, SessionId,
     AuthenticationSessionRepositoryPort, TokenValidationServicePort,
     SecurityMonitoringServicePort, UserIdentityServicePort
 };
@@ -28,42 +31,43 @@ pub struct AuthenticationApplicationService {
     validate_credentials_handler: ValidateCredentialsHandler,
     
     // Repositories
-    session_repository: Box<dyn AuthenticationSessionRepositoryPort>,
+    session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
     
     // Services
-    security_monitoring_service: Box<dyn SecurityMonitoringServicePort>,
-    user_identity_service: Box<dyn UserIdentityServicePort>,
+    security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
+    user_identity_service: Arc<dyn UserIdentityServicePort>,
 }
 
 impl AuthenticationApplicationService {
     /// Create new authentication application service
     pub fn new(
-        session_repository: Box<dyn AuthenticationSessionRepositoryPort>,
-        token_validation_service: Box<dyn TokenValidationServicePort>,
-        security_monitoring_service: Box<dyn SecurityMonitoringServicePort>,
-        user_identity_service: Box<dyn UserIdentityServicePort>,
+        session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
+        token_validation_service: Arc<dyn TokenValidationServicePort>,
+        security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
+        user_identity_service: Arc<dyn UserIdentityServicePort>,
     ) -> Self {
         // Create command handlers
         let create_session_handler = CreateSessionHandler::new(
-            session_repository.clone_box(),
-            token_validation_service.clone_box(),
-            security_monitoring_service.clone_box(),
+            Arc::clone(&session_repository),
+            Arc::clone(&token_validation_service),
+            Arc::clone(&security_monitoring_service),
         );
         
         let refresh_tokens_handler = RefreshTokensHandler::new(
-            session_repository.clone_box(),
-            token_validation_service.clone_box(),
+            Arc::clone(&session_repository),
+            Arc::clone(&token_validation_service),
+            Arc::clone(&security_monitoring_service),
         );
         
         let terminate_session_handler = TerminateSessionHandler::new(
-            session_repository.clone_box(),
-            security_monitoring_service.clone_box(),
+            Arc::clone(&session_repository),
+            Arc::clone(&security_monitoring_service),
         );
         
         let validate_credentials_handler = ValidateCredentialsHandler::new(
-            session_repository.clone_box(),
-            token_validation_service.clone_box(),
-            security_monitoring_service.clone_box(),
+            Arc::clone(&token_validation_service),
+            Arc::clone(&user_identity_service),
+            Arc::clone(&security_monitoring_service),
         );
         
         Self {
@@ -145,7 +149,7 @@ impl AuthenticationApplicationService {
             .iter()
             .filter(|session| session.is_active())
             .map(|session| SessionInfo {
-                session_id: session.session_id().clone(),
+                session_id: SessionId::from_string(session.session_id().to_string()).unwrap_or_else(|_| SessionId::generate()),
                 created_at: session.created_at(),
                 last_activity: session.last_activity(),
                 expires_at: session.expires_at(),
@@ -176,7 +180,7 @@ impl AuthenticationApplicationService {
         
         for session in active_sessions {
             let command = TerminateSessionCommand {
-                session_id: session.session_id().clone(),
+                session_id: SessionId::from_string(session.session_id().to_string()).unwrap_or_else(|_| SessionId::generate()),
                 reason: reason.clone(),
                 revoke_tokens: true,
                 notify_user: matches!(reason, 

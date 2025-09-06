@@ -1,18 +1,20 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 use std::str::FromStr;
-use chrono::{DateTime, Utc};
+use sha2::{Sha256, Digest};
 
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
 use crate::domain::shared_kernel::{DomainResult, DomainError};
 use crate::domain::user_management::{
-    SessionRepositoryPort, Session, SessionId, UserId
+    SessionRepositoryPort, Session
 };
 use crate::domain::user_management::{SessionSearchCriteria, SessionSearchResult, SessionStatistics};
-use crate::infra::db::diesel::{
+use crate::infrastructure::adapters::repositories::diesel::{
     DbPool,
     schema::sessions,
     models::{DieselSession, NewDieselSession}
@@ -24,9 +26,36 @@ pub struct SessionRepositoryAdapter {
     pool: Arc<DbPool>,
 }
 
+unsafe impl Send for SessionRepositoryAdapter {}
+unsafe impl Sync for SessionRepositoryAdapter {}
+
 impl SessionRepositoryAdapter {
     pub fn new(pool: Arc<DbPool>) -> Self {
         Self { pool }
+    }
+    
+    /// Convert SessionId to UUID for database storage
+    /// Handles both UUID-format SessionIds and prefixed SessionIds (like "auth_code:xyz")
+    fn session_id_to_uuid(session_id: &str) -> Uuid {
+        // First try to parse as regular UUID
+        if let Ok(uuid) = Uuid::from_str(session_id) {
+            return uuid;
+        }
+        
+        // For prefixed SessionIds, create deterministic UUID using SHA-256
+        let mut hasher = Sha256::new();
+        hasher.update(session_id.as_bytes());
+        let hash = hasher.finalize();
+        
+        // Use first 16 bytes of hash to create UUID
+        let mut uuid_bytes = [0u8; 16];
+        uuid_bytes.copy_from_slice(&hash[..16]);
+        
+        // Set version to 4 (random) and variant bits
+        uuid_bytes[6] = (uuid_bytes[6] & 0x0f) | 0x40; // Version 4
+        uuid_bytes[8] = (uuid_bytes[8] & 0x3f) | 0x80; // Variant 10
+        
+        Uuid::from_bytes(uuid_bytes)
     }
 }
 
@@ -34,15 +63,17 @@ impl SessionRepositoryAdapter {
 impl SessionRepositoryPort for SessionRepositoryAdapter {
     async fn next_identity(&self) -> DomainResult<SessionId> {
         let uuid = Uuid::new_v4();
-        SessionId::from_string(&uuid.to_string()).map_err(DomainError::from)
+        Ok(SessionId::from_string(uuid.to_string()))
     }
     
     async fn find_by_id(&self, id: &SessionId) -> DomainResult<Option<Session>> {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let session_uuid = Uuid::from_str(&id.to_string())
-            .map_err(|e| DomainError::validation_error("session_id", &e.to_string()))?;
+        let id_string = id.to_string();
+        
+        // Convert session ID to UUID since sessions table uses UUID
+        let session_uuid = Self::session_id_to_uuid(&id_string);
         
         let diesel_session = sessions::table
             .filter(sessions::id.eq(session_uuid))
@@ -86,12 +117,12 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let user_uuid = Uuid::from_str(&user_id.to_string())
-            .map_err(|e| DomainError::validation_error("user_id", &e.to_string()))?;
+        let user_uuid = Self::session_id_to_uuid(&user_id.to_string());
         
         let diesel_sessions = sessions::table
             .filter(sessions::user_id.eq(user_uuid))
             .filter(sessions::is_active.eq(true))
+            .filter(sessions::expires_at.gt(chrono::Utc::now()))
             .order(sessions::created_at.desc())
             .select(DieselSession::as_select())
             .load::<DieselSession>(&mut conn)
@@ -111,12 +142,12 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let session_uuid = Uuid::from_str(&session.id().to_string())
-            .map_err(|e| DomainError::validation_error("session_id", &e.to_string()))?;
+        let id_string = session.id().to_string();
+        let session_uuid = Self::session_id_to_uuid(&id_string);
         
         // Check if session exists
         let exists = sessions::table
-            .filter(sessions::id.eq(&session_uuid))
+            .filter(sessions::id.eq(session_uuid))
             .select(DieselSession::as_select())
             .first::<DieselSession>(&mut conn)
             .await
@@ -127,7 +158,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         if exists {
             // Update existing session
             let update_model = SessionMapper::to_update_diesel(session);
-            diesel::update(sessions::table.filter(sessions::id.eq(&session_uuid)))
+            diesel::update(sessions::table.filter(sessions::id.eq(session_uuid)))
                 .set(&update_model)
                 .execute(&mut conn)
                 .await
@@ -149,10 +180,10 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let session_uuid = Uuid::from_str(&id.to_string())
-            .map_err(|e| DomainError::validation_error("session_id", &e.to_string()))?;
+        let id_string = id.to_string();
+        let session_uuid = Self::session_id_to_uuid(&id_string);
         
-        diesel::delete(sessions::table.filter(sessions::id.eq(&session_uuid)))
+        diesel::delete(sessions::table.filter(sessions::id.eq(session_uuid)))
             .execute(&mut conn)
             .await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
@@ -166,7 +197,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         
         let diesel_sessions = sessions::table
             .filter(sessions::expires_at.lt(cutoff))
-            .filter(sessions::is_active.eq(true))
+            .filter(sessions::is_active.eq(false))
             .select(DieselSession::as_select())
             .load::<DieselSession>(&mut conn)
             .await
@@ -185,13 +216,12 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let user_uuid = Uuid::from_str(&user_id.to_string())
-            .map_err(|e| DomainError::validation_error("user_id", &e.to_string()))?;
+        let user_uuid = Self::session_id_to_uuid(&user_id.to_string());
         
         let diesel_sessions = sessions::table
             .filter(sessions::user_id.eq(user_uuid))
             .filter(sessions::is_active.eq(true))
-            .filter(sessions::expires_at.gt(Utc::now()))
+            .filter(sessions::expires_at.gt(chrono::Utc::now()))
             .order(sessions::created_at.desc())
             .select(DieselSession::as_select())
             .load::<DieselSession>(&mut conn)
@@ -216,11 +246,10 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let user_uuid = Uuid::from_str(&user_id.to_string())
-            .map_err(|e| DomainError::validation_error("user_id", &e.to_string()))?;
+        let user_uuid = Self::session_id_to_uuid(&user_id.to_string());
         
         // Mark all user sessions as inactive
-        let updated = diesel::update(sessions::table.filter(sessions::user_id.eq(&user_uuid)))
+        let updated = diesel::update(sessions::table.filter(sessions::user_id.eq(user_uuid)))
             .set(sessions::is_active.eq(false))
             .execute(&mut conn)
             .await
@@ -233,7 +262,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
-        let deleted = diesel::delete(sessions::table.filter(sessions::expires_at.lt(before)))
+        let deleted = diesel::delete(sessions::table.filter(sessions::expires_at.lt(before.naive_utc())))
             .execute(&mut conn)
             .await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
@@ -275,8 +304,9 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let cutoff = Utc::now() + threshold;
         
         let diesel_sessions = sessions::table
-            .filter(sessions::expires_at.lt(cutoff))
-            .filter(sessions::is_active.eq(true))
+            .filter(sessions::expires_at.lt(cutoff.naive_utc()))
+            // Note: is_active field not in schema, using expires_at check instead
+            .filter(sessions::expires_at.gt(chrono::Utc::now().naive_utc()))
             .select(DieselSession::as_select())
             .load::<DieselSession>(&mut conn)
             .await

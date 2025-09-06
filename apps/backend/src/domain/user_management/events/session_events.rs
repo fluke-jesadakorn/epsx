@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::{DomainEvent, domain_event::EventMetadata};
-use crate::domain::user_management::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 
 /// Event raised when a new session is created
 #[derive(Debug, Clone, Serialize, Deserialize)]

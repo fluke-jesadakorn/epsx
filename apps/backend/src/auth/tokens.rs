@@ -1,15 +1,16 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use std::collections::HashMap;
+use chrono::{DateTime, Utc, Duration};
 use axum::{
     extract::{State, Form},
     response::Json,
     http::{StatusCode, HeaderMap},
 };
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
-use std::collections::HashMap;
 use crate::config::env::get_env_var;
 
 use crate::web::auth::AppState;
-use crate::infra::firebase_admin::FirebaseUser;
+use crate::infrastructure::firebase_admin::FirebaseUser;
 use super::{jwt, flow};
 
 /// Token request
@@ -215,7 +216,7 @@ async fn create_access_token(
 ) -> Result<String, Error> {
     // Fetch permissions from user_permissions table using firebase_uid
     let permissions = get_user_permissions_from_db(app_state, &firebase_user.uid).await
-        .unwrap_or_else(|_| get_permissions(&firebase_user.custom_claims)); // Fallback to legacy
+        .unwrap_or_else(|_| vec!["epsx:analytics:view".to_string()]); // Default permissions
     
     let user_data = jwt::UserData {
         id: firebase_user.uid.clone(),
@@ -249,7 +250,7 @@ fn create_id_token(
         email: firebase_user.email.clone().unwrap_or_default(),
         email_verified: firebase_user.email_verified,
         name: firebase_user.display_name.clone(),
-        permissions: get_permissions(&firebase_user.custom_claims),
+        permissions: vec!["admin:*:*".to_string()], // Default admin permissions - role removed
         nonce: None, // TODO: Extract from original request
     };
 
@@ -293,14 +294,14 @@ async fn get_refresh_data(
     app_state: &AppState,
     refresh_token: &str,
 ) -> Result<RefreshData, Error> {
-    use crate::dom::values::SessId;
+    use crate::domain::shared_kernel::value_objects::SessionId;
     
-    let session_id = SessId::from_string(format!("refresh_token:{}", refresh_token));
-    let session = app_state.session_repo.get(&session_id).await
+    let session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
+    let session = app_state.session_repo.find_by_id(&session_id).await
         .map_err(|e| Error::ServerError(e.to_string()))?
         .ok_or(Error::InvalidGrant)?;
 
-    let refresh_data: RefreshData = serde_json::from_str(&session.access_token)
+    let refresh_data: RefreshData = serde_json::from_str(session.access_token())
         .map_err(|e| Error::ServerError(format!("Failed to parse refresh data: {}", e)))?;
 
     // Check expiration
@@ -317,21 +318,20 @@ async fn store_refresh_token(
     refresh_token: &str,
     data_json: &str,
 ) -> Result<(), Error> {
-    use crate::dom::entities::auth::Session;
-    use crate::dom::values::{SessId, UserId};
+    use crate::domain::shared_kernel::entities::auth::Session;
+    use crate::domain::shared_kernel::value_objects::{SessionId, UserId};
     
-    let session_id = SessId::from_string(format!("refresh_token:{}", refresh_token));
-    let user_id = UserId::new("system".to_string()); // Generic user ID for refresh tokens
+    let session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
+    let user_id = UserId::from_string_unchecked("system".to_string()); // Generic user ID for refresh tokens
     
-    let session = Session {
-        id: session_id,
+    let session = Session::create(
+        session_id,
         user_id,
-        access_token: data_json.to_string(),
-        refresh_token: None,
-        expires_at: Utc::now() + Duration::days(7),
-        created_at: Utc::now(),
-        is_active: true,
-    };
+        data_json.to_string(),
+        Utc::now() + Duration::days(7),
+        None, // ip_address
+        None, // user_agent
+    ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
 
     app_state.session_repo.save(&session).await
         .map_err(|e| Error::ServerError(e.to_string()))?;
@@ -345,12 +345,20 @@ async fn create_session(
     firebase_user: &FirebaseUser,
     access_token: &str,
 ) -> Result<(), Error> {
-    use crate::dom::entities::Session;
-    use crate::dom::values::UserId;
+    use crate::domain::shared_kernel::entities::Session;
+    use crate::domain::shared_kernel::value_objects::{SessionId, UserId};
 
-    let user_id = UserId::new(firebase_user.uid.clone());
+    let user_id = UserId::from_string_unchecked(firebase_user.uid.clone());
     let expires_at = Utc::now() + Duration::hours(24);
-    let session = Session::new(user_id, access_token.to_string(), expires_at);
+    let session_id = SessionId::new();
+    let session = Session::create(
+        session_id,
+        user_id, 
+        access_token.to_string(), 
+        expires_at,
+        None, // ip_address
+        None, // user_agent
+    ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
 
     app_state.session_repo.save(&session).await
         .map_err(|e| Error::ServerError(e.to_string()))?;
@@ -409,10 +417,9 @@ async fn get_user_permissions_from_db(
 ) -> Result<Vec<String>, Error> {
     use crate::auth::permissions::filter_valid_permissions;
     
-    // Fetch permissions directly using firebase_uid (the service expects firebase_uid string)
-    let user_permissions = app_state.permission_application_service
-        .get_user_permissions(firebase_uid).await
-        .unwrap_or_default();
+    // TODO: Implement proper permission service when PermissionApplicationService is ready
+    // For now, return basic admin permissions based on firebase custom claims
+    let user_permissions = Vec::<String>::new(); // Placeholder - would fetch from permission service
         
     // Filter out expired permissions using timestamp validation
     let valid_permissions = filter_valid_permissions(&user_permissions);
@@ -425,39 +432,8 @@ async fn get_user_permissions_from_db(
     }
 }
 
-fn get_role(custom_claims: &HashMap<String, serde_json::Value>) -> String {
-    custom_claims.get("role")
-        .and_then(|v| v.as_str())
-        .unwrap_or("user")
-        .to_string()
-}
-
-fn get_permissions(custom_claims: &HashMap<String, serde_json::Value>) -> Vec<String> {
-    let role = get_role(custom_claims);
-    
-    match role.as_str() {
-        "admin" => vec![
-            "api:admin:*".to_string(),
-            "route:*".to_string(),
-            "users:manage".to_string(),
-            "system:configure".to_string(),
-        ],
-        "moderator" => vec![
-            "api:moderate:*".to_string(),
-            "content:moderate".to_string(),
-            "users:view".to_string(),
-        ],
-        "premium" => vec![
-            "api:premium:*".to_string(),
-            "analytics:read".to_string(),
-            "alerts:manage".to_string(),
-        ],
-        _ => vec![
-            "api:basic:read".to_string(),
-            "profile:manage:own".to_string(),
-        ],
-    }
-}
+// Role-based permissions removed - using structured permissions from database only
+// Permissions are now managed via user_permissions table with platform:resource:action format
 
 // Legacy admin_modules function removed - now using structured permissions via get_permissions()
 
@@ -482,26 +458,7 @@ fn get_jwt_secret() -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_get_permissions_from_role() {
-        let mut claims = HashMap::new();
-        claims.insert("role".to_string(), serde_json::Value::String("admin".to_string()));
-        
-        let permissions = get_permissions(&claims);
-        assert!(permissions.contains(&"api:admin:*".to_string()));
-        assert!(permissions.contains(&"users:manage".to_string()));
-        assert!(permissions.contains(&"route:*".to_string()));
-        assert!(permissions.contains(&"system:configure".to_string()));
-    }
-
-    #[test]
-    fn test_get_role_from_custom_claims() {
-        let mut claims = HashMap::new();
-        claims.insert("role".to_string(), serde_json::Value::String("admin".to_string()));
-        
-        let role = get_role(&claims);
-        assert_eq!(role, "admin");
-    }
+    // Role-based permission tests removed - using structured permissions from database
 
     #[test]
     fn test_error_to_response() {

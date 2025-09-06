@@ -1,7 +1,6 @@
-// Authentication Domain Events
+use crate::domain::shared_kernel::value_objects::UserId;use crate::domain::shared_kernel::value_objects::SessionId;use chrono::{DateTime, Utc};// Authentication Domain Events
 // Events published by the Authentication bounded context
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
@@ -36,6 +35,12 @@ impl AuthenticationSessionCreatedEvent {
     
     pub fn session_id(&self) -> &SessionId { &self.session_id }
     pub fn user_id(&self) -> &AuthenticatedUserId { &self.user_id }
+}
+
+impl Into<Box<dyn crate::domain::shared_kernel::DomainEvent>> for AuthenticationSessionCreatedEvent {
+    fn into(self) -> Box<dyn crate::domain::shared_kernel::DomainEvent> {
+        Box::new(self)
+    }
 }
 
 impl DomainEvent for AuthenticationSessionCreatedEvent {
@@ -96,6 +101,12 @@ impl TokensIssuedEvent {
     pub fn scopes(&self) -> &[Scope] { &self.scopes }
 }
 
+impl Into<Box<dyn crate::domain::shared_kernel::DomainEvent>> for TokensIssuedEvent {
+    fn into(self) -> Box<dyn crate::domain::shared_kernel::DomainEvent> {
+        Box::new(self)
+    }
+}
+
 impl DomainEvent for TokensIssuedEvent {
     fn event_id(&self) -> Uuid {
         self.event_id
@@ -148,6 +159,12 @@ impl TokensRefreshedEvent {
     
     pub fn session_id(&self) -> &SessionId { &self.session_id }
     pub fn user_id(&self) -> &AuthenticatedUserId { &self.user_id }
+}
+
+impl Into<Box<dyn crate::domain::shared_kernel::DomainEvent>> for TokensRefreshedEvent {
+    fn into(self) -> Box<dyn crate::domain::shared_kernel::DomainEvent> {
+        Box::new(self)
+    }
 }
 
 impl DomainEvent for TokensRefreshedEvent {
@@ -208,6 +225,12 @@ impl AuthenticationSessionTerminatedEvent {
     pub fn reason(&self) -> &TerminationReason { &self.reason }
 }
 
+impl Into<Box<dyn crate::domain::shared_kernel::DomainEvent>> for AuthenticationSessionTerminatedEvent {
+    fn into(self) -> Box<dyn crate::domain::shared_kernel::DomainEvent> {
+        Box::new(self)
+    }
+}
+
 impl DomainEvent for AuthenticationSessionTerminatedEvent {
     fn event_id(&self) -> Uuid {
         self.event_id
@@ -264,6 +287,12 @@ impl SuspiciousActivityDetectedEvent {
     pub fn session_id(&self) -> &SessionId { &self.session_id }
     pub fn user_id(&self) -> &AuthenticatedUserId { &self.user_id }
     pub fn client_info(&self) -> &ClientInformation { &self.client_info }
+}
+
+impl Into<Box<dyn crate::domain::shared_kernel::DomainEvent>> for SuspiciousActivityDetectedEvent {
+    fn into(self) -> Box<dyn crate::domain::shared_kernel::DomainEvent> {
+        Box::new(self)
+    }
 }
 
 impl DomainEvent for SuspiciousActivityDetectedEvent {

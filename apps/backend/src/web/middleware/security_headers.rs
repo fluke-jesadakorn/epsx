@@ -15,8 +15,7 @@ use std::time::SystemTime;
 
 
 use crate::{
-
-    infra::container::AppContainer,
+    infrastructure::container::AppContainer,
     web::middleware::auth_monitoring::AuthContext,
 };
 
@@ -281,6 +280,7 @@ fn is_trusted_origin(origin: &str) -> bool {
         "http://localhost:3000",  // Frontend dev
         "http://localhost:3001",  // Admin dev
         "http://localhost:8080",  // Backend dev (for OAuth redirects)
+        "http://localhost:8080",  // Backend dev default port
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
         "http://127.0.0.1:8080",

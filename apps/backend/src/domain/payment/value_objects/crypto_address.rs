@@ -1,7 +1,10 @@
+use rust_decimal::Decimal;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 use std::fmt::{self, Display};
 
-pub use crate::dom::values::payments::{Currency, Network};
+pub use crate::domain::shared_kernel::value_objects::{Currency, Network};
 
 /// Crypto Address Value Object
 /// Validates and represents blockchain addresses with network context
@@ -51,10 +54,11 @@ impl CryptoAddress {
     /// Get address in checksum format (for Ethereum-like networks)
     pub fn checksum_address(&self) -> String {
         match self.network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon => {
+            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
                 Self::to_checksum_address(&self.address)
             }
             Network::Tron => self.address.clone(), // TRON uses different format
+            Network::Bitcoin => self.address.clone(), // Bitcoin uses different format
         }
     }
 
@@ -68,7 +72,7 @@ impl CryptoAddress {
     /// Get address type
     pub fn address_type(&self) -> AddressType {
         match self.network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon => {
+            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
                 if self.address.starts_with("0x") {
                     AddressType::Externally
                 } else {
@@ -77,6 +81,13 @@ impl CryptoAddress {
             }
             Network::Tron => {
                 if self.address.starts_with('T') || self.address.starts_with('3') {
+                    AddressType::Externally
+                } else {
+                    AddressType::Invalid
+                }
+            }
+            Network::Bitcoin => {
+                if self.address.starts_with('1') || self.address.starts_with('3') || self.address.starts_with("bc1") {
                     AddressType::Externally
                 } else {
                     AddressType::Invalid
@@ -93,6 +104,8 @@ impl CryptoAddress {
             Network::Tron => "https://tronscan.org/#/address/",
             Network::Arbitrum => "https://arbiscan.io/address/",
             Network::Polygon => "https://polygonscan.com/address/",
+            Network::Bitcoin => "https://blockstream.info/address/",
+            Network::BinanceSmartChain => "https://bscscan.com/address/",
         };
         
         format!("{}{}", base_url, self.checksum_address())
@@ -101,10 +114,11 @@ impl CryptoAddress {
     /// Validate address format based on network
     fn validate_address_format(address: &str, network: &Network) -> Result<(), CryptoAddressError> {
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon => {
+            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
                 Self::validate_ethereum_address(address)
             }
             Network::Tron => Self::validate_tron_address(address),
+            Network::Bitcoin => Self::validate_bitcoin_address(address),
         }
     }
 
@@ -160,6 +174,48 @@ impl CryptoAddress {
                 address: address.to_string(),
                 expected: "Base58 characters only".to_string(),
             });
+        }
+
+        Ok(())
+    }
+
+    /// Validate Bitcoin address (Base58 encoded, multiple formats)
+    fn validate_bitcoin_address(address: &str) -> Result<(), CryptoAddressError> {
+        // Bitcoin addresses can be 25-34 characters long depending on type
+        if address.len() < 25 || address.len() > 62 { // Including bech32 which can be longer
+            return Err(CryptoAddressError::InvalidLength {
+                address: address.to_string(),
+                expected: 34, // Typical length
+                actual: address.len(),
+            });
+        }
+
+        // Check for valid prefixes
+        if !address.starts_with('1') && !address.starts_with('3') && !address.starts_with("bc1") {
+            return Err(CryptoAddressError::InvalidFormat {
+                address: address.to_string(),
+                expected: "Must start with 1, 3, or bc1".to_string(),
+            });
+        }
+
+        // Basic character validation for legacy addresses (not comprehensive for bech32)
+        if address.starts_with("bc1") {
+            // Simple bech32 validation
+            if !address.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Err(CryptoAddressError::InvalidCharacters {
+                    address: address.to_string(),
+                    expected: "alphanumeric characters for bech32".to_string(),
+                });
+            }
+        } else {
+            // Base58 validation for legacy addresses
+            let base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+            if !address.chars().all(|c| base58_chars.contains(c)) {
+                return Err(CryptoAddressError::InvalidCharacters {
+                    address: address.to_string(),
+                    expected: "Base58 characters only".to_string(),
+                });
+            }
         }
 
         Ok(())

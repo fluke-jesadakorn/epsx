@@ -1,16 +1,16 @@
 // Transaction Repository Adapter
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 // Bridges DDD transaction monitoring with blockchain infrastructure
 
-use async_trait::async_trait;
 use tracing::{info, warn, error};
 use std::sync::Arc;
-use chrono::{DateTime, Utc};
 
 use crate::domain::payment::{
     PaymentId, TransactionHash, TransactionRepositoryPort, TransactionRecord
 };
-use crate::infra::db::diesel::DbPool;
-use crate::infra::cache::{Cache, CacheExt};
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::cache::{Cache, CacheExt};
 
 /// Repository adapter for transaction monitoring operations
 pub struct TransactionRepositoryAdapter {
@@ -20,6 +20,9 @@ pub struct TransactionRepositoryAdapter {
     /// Cache for fast transaction lookups
     cache: Arc<dyn Cache>,
 }
+
+unsafe impl Send for TransactionRepositoryAdapter {}
+unsafe impl Sync for TransactionRepositoryAdapter {}
 
 impl TransactionRepositoryAdapter {
     pub fn new(
@@ -34,12 +37,12 @@ impl TransactionRepositoryAdapter {
     
     /// Get cache key for transaction data
     fn get_transaction_cache_key(&self, tx_hash: &TransactionHash) -> String {
-        format!("transaction:{}", tx_hash.as_str())
+        format!("transaction:{}", tx_hash.to_string())
     }
     
     /// Get cache key for payment transactions
     fn get_payment_transactions_key(&self, payment_id: &PaymentId) -> String {
-        format!("payment_transactions:{}", payment_id.as_str())
+        format!("payment_transactions:{}", payment_id.to_string())
     }
     
     /// Store transaction data in cache
@@ -47,32 +50,37 @@ impl TransactionRepositoryAdapter {
         let cache_key = self.get_transaction_cache_key(&record.tx_hash);
         
         // Cache for 1 hour (3600 seconds)
-        match self.cache.set(&cache_key, record, Some(3600)).await {
-            Ok(_) => {
-                info!(tx_hash = %record.tx_hash, "Transaction cached successfully");
-                Ok(())
-            },
+        let serialized_record = match serde_json::to_string(&record) {
+            Ok(s) => s,
             Err(e) => {
-                warn!(error = %e.to_string(), tx_hash = %record.tx_hash, "Failed to cache transaction");
-                Ok(()) // Don't fail the operation if caching fails
+                warn!(error = %e.to_string(), tx_hash = %record.tx_hash, "Failed to serialize transaction for cache");
+                return Ok(());
             }
-        }
+        };
+        
+        self.cache.set(&cache_key, serialized_record, Some(3600));
+        info!(tx_hash = %record.tx_hash, "Transaction cached successfully");
+        Ok(())
     }
     
     /// Get transaction data from cache
     async fn get_cached_transaction(&self, tx_hash: &TransactionHash) -> Result<Option<TransactionRecord>, String> {
         let cache_key = self.get_transaction_cache_key(tx_hash);
         
-        match self.cache.get::<TransactionRecord>(&cache_key).await {
-            Ok(Some(record)) => {
-                info!(tx_hash = %tx_hash, "Transaction found in cache");
-                Ok(Some(record))
+        match self.cache.get(&cache_key) {
+            Some(serialized_record) => {
+                match serde_json::from_str::<TransactionRecord>(&serialized_record) {
+                    Ok(record) => {
+                        info!(tx_hash = %tx_hash, "Transaction found in cache");
+                        Ok(Some(record))
+                    },
+                    Err(e) => {
+                        warn!(error = %e.to_string(), tx_hash = %tx_hash, "Failed to deserialize cached transaction");
+                        Ok(None)
+                    }
+                }
             },
-            Ok(None) => Ok(None),
-            Err(e) => {
-                warn!(error = %e.to_string(), tx_hash = %tx_hash, "Cache lookup failed");
-                Ok(None) // Don't fail the operation if cache fails
-            }
+            None => Ok(None),
         }
     }
     
@@ -299,7 +307,7 @@ impl<'de> serde::Deserialize<'de> for TransactionRecord {
                                 return Err(de::Error::duplicate_field("payment_id"));
                             }
                             let value: String = map.next_value()?;
-                            payment_id = Some(PaymentId::from_string(value)
+                            payment_id = Some(PaymentId::from_string(&value)
                                 .map_err(|e| de::Error::custom(format!("Invalid payment ID: {}", e)))?);
                         },
                         "tx_hash" => {
@@ -307,7 +315,7 @@ impl<'de> serde::Deserialize<'de> for TransactionRecord {
                                 return Err(de::Error::duplicate_field("tx_hash"));
                             }
                             let value: String = map.next_value()?;
-                            tx_hash = Some(TransactionHash::new(value)
+                            tx_hash = Some(TransactionHash::new(value, crate::domain::payment::value_objects::payment_method::Network::Ethereum)
                                 .map_err(|e| de::Error::custom(format!("Invalid transaction hash: {}", e)))?);
                         },
                         "network" => {
@@ -414,7 +422,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_transaction_adapter_creation() {
-        let mock_pool = Arc::new(crate::infra::db::diesel::create_test_pool().await.unwrap());
+        let mock_pool = Arc::new(crate::infrastructure::adapters::repositories::diesel::create_test_pool().await.unwrap());
         let mock_cache = Arc::new(MockCache);
         
         let adapter = TransactionRepositoryAdapter::new(

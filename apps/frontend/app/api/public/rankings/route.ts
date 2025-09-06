@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     
     // Start from rank 101 (page calculation to get public ranks 101-105)
     const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
+    const url = `${apiUrl}/api/v1/public/analytics/eps-rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',

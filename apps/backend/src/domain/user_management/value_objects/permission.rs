@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
 use crate::domain::shared_kernel::ValueObject;
 use crate::domain::shared_kernel::value_object::ValueObjectError;

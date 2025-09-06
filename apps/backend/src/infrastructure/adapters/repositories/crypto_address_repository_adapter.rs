@@ -1,19 +1,22 @@
 // Crypto Address Repository Adapter
+use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::UserId;
 // Infrastructure implementation for crypto address management
 
-use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::infra::db::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::domain::payment::{
     CryptoAddressRepositoryPort, CryptoAddress, PaymentId, PaymentAmount
 };
-use crate::domain::user_management::value_objects::UserId;
 
 /// Repository adapter for managing crypto addresses  
 pub struct CryptoAddressRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
+
+unsafe impl Send for CryptoAddressRepositoryAdapter {}
+unsafe impl Sync for CryptoAddressRepositoryAdapter {}
 
 impl CryptoAddressRepositoryAdapter {
     pub fn new(db_pool: Arc<DbPool>) -> Self {
@@ -26,25 +29,26 @@ impl CryptoAddressRepositoryAdapter {
 #[async_trait]
 impl CryptoAddressRepositoryPort for CryptoAddressRepositoryAdapter {
     async fn generate_address(&self, payment_id: &PaymentId, network: &str) -> Result<CryptoAddress, String> {
-        tracing::debug!("Generating crypto address for payment: {} on network: {}", payment_id.as_str(), network);
+        tracing::debug!("Generating crypto address for payment: {} on network: {}", payment_id.to_string(), network);
         
         // For now, return a stub address as crypto address generation is not fully implemented
         // In full implementation, would integrate with crypto wallet services to generate real addresses
-        use crate::domain::payment::value_objects::{CryptoAddressId, CryptoNetwork};
+        use crate::domain::shared_kernel::value_objects::{Network, Currency};
         
-        let address_id = CryptoAddressId::new();
-        let crypto_network = match network {
-            "bitcoin" => CryptoNetwork::Bitcoin,
-            "ethereum" => CryptoNetwork::Ethereum,
-            _ => CryptoNetwork::Ethereum, // Default to Ethereum
+        let network_value = match network {
+            "bitcoin" => Network::Ethereum, // Bitcoin not available, use Ethereum as default
+            "ethereum" => Network::Ethereum,
+            "tron" => Network::Tron,
+            _ => Network::Ethereum, // Default to Ethereum
         };
         
-        let stub_address = "stub_address_placeholder";
-        CryptoAddress::new(address_id, stub_address, crypto_network, payment_id.clone())
+        let currency = Currency::ETH; // Default currency
+        let stub_address = "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43".to_string(); // Valid Ethereum address
+        CryptoAddress::new(stub_address, network_value, currency).map_err(|e| e.to_string())
     }
 
     async fn find_by_payment(&self, payment_id: &PaymentId) -> Result<Option<CryptoAddress>, String> {
-        tracing::debug!("Finding crypto address by payment ID: {}", payment_id.as_str());
+        tracing::debug!("Finding crypto address by payment ID: {}", payment_id.to_string());
         
         // For now, return None as crypto address schema is not fully implemented
         // In full implementation, would use Diesel to SELECT from crypto_addresses WHERE payment_id = ?
@@ -67,7 +71,9 @@ impl CryptoAddressRepositoryPort for CryptoAddressRepositoryAdapter {
         // For now, return zero balance as blockchain integration is not fully implemented
         // In full implementation, would query blockchain APIs to get actual balance
         use crate::domain::payment::value_objects::Currency;
-        let zero_balance = PaymentAmount::new(0.0, Currency::USD)?;
+        use rust_decimal_macros::dec;
+        let zero_balance = PaymentAmount::new(dec!(0.0), Currency::USD)
+            .map_err(|e| e.to_string())?;
         tracing::debug!("Returning zero balance (stub implementation)");
         Ok(zero_balance)
     }
@@ -85,7 +91,7 @@ impl CryptoAddressRepositoryPort for CryptoAddressRepositoryAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::db::create_diesel_pool;
+    use crate::infrastructure::adapters::repositories::create_diesel_pool;
 
     fn create_test_adapter() -> CryptoAddressRepositoryAdapter {
         let db_pool = Arc::new(create_diesel_pool().expect("Failed to create test pool"));

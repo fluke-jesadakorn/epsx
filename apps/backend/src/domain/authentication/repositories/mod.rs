@@ -4,6 +4,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
+use crate::domain::shared_kernel::value_objects::UserId;
 use super::{
     AuthenticationSession, SessionId, AuthenticatedUserId,
     AccessToken, RefreshToken, IdToken
@@ -70,6 +71,24 @@ pub trait UserIdentityServicePort: Send + Sync {
     
     /// Update user last login
     async fn update_last_login(&self, user_id: &AuthenticatedUserId, timestamp: DateTime<Utc>) -> Result<(), String>;
+    
+    /// Get user identity from various sources
+    async fn get_user_identity(&self, user_id: &AuthenticatedUserId) -> Result<UserProfile, String>;
+    
+    /// Validate user exists in system
+    async fn validate_user_exists(&self, user_id: &AuthenticatedUserId) -> Result<bool, String>;
+    
+    /// Get user by Firebase UID
+    async fn get_user_by_firebase_uid(&self, firebase_uid: &str) -> Result<Option<UserProfile>, String>;
+    
+    /// Get user by email address
+    async fn get_user_by_email(&self, email: &str) -> Result<Option<UserProfile>, String>;
+    
+    /// Validate user access permissions
+    async fn validate_user_access(&self, user_id: &AuthenticatedUserId, resource: &str) -> Result<bool, String>;
+    
+    /// Get user subscription information
+    async fn get_user_subscription_info(&self, user_id: &AuthenticatedUserId) -> Result<UserSubscription, String>;
 }
 
 /// Port for security monitoring
@@ -89,6 +108,24 @@ pub trait SecurityMonitoringServicePort: Send + Sync {
     
     /// Check rate limits
     async fn check_rate_limit(&self, key: &str, limit: u32, window_seconds: u64) -> Result<bool, String>;
+    
+    /// Record session creation
+    async fn record_session_creation(&self, user_id: &str, ip: &str, session_id: &str) -> Result<(), String>;
+    
+    /// Record authentication failure
+    async fn record_authentication_failure(&self, ip: &str, user_id: Option<&str>, reason: &str) -> Result<(), String>;
+    
+    /// Check if user is rate limited
+    async fn is_rate_limited(&self, user_id: &str) -> Result<bool, String>;
+    
+    /// Record suspicious activity
+    async fn record_suspicious_activity(&self, user_id: &str, ip: &str, activity: &str) -> Result<(), String>;
+    
+    /// Get security summary for user
+    async fn get_security_summary(&self, user_id: &str) -> Result<SecuritySummary, String>;
+    
+    /// Increment rate limit counter
+    async fn increment_rate_limit_counter(&self, key: &str) -> Result<u32, String>;
 }
 
 /// Token claims structure
@@ -126,7 +163,24 @@ pub struct UserProfile {
     pub created_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
     pub permissions: Vec<String>,
-    pub is_admin: bool,
+    pub is_active: bool,
+}
+
+/// User subscription information
+#[derive(Debug, Clone)]
+pub struct UserSubscription {
+    pub user_id: String,
+    pub subscription_type: SubscriptionType,
+    pub is_active: bool,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub features: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SubscriptionType {
+    Free,
+    Premium,
+    Enterprise,
 }
 
 /// Risk assessment levels
@@ -149,8 +203,20 @@ impl RiskScore {
     }
 }
 
-/// Security event types for monitoring
+/// Security summary for a user
 #[derive(Debug, Clone)]
+pub struct SecuritySummary {
+    pub user_id: String,
+    pub recent_login_attempts: u32,
+    pub failed_attempts: u32,
+    pub suspicious_activities: u32,
+    pub last_login: Option<DateTime<Utc>>,
+    pub risk_score: RiskScore,
+    pub is_locked: bool,
+}
+
+/// Security event types for monitoring
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SecurityEvent {
     pub event_type: SecurityEventType,
     pub user_id: Option<String>,
@@ -159,7 +225,7 @@ pub struct SecurityEvent {
     pub metadata: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum SecurityEventType {
     LoginSuccess,
     LoginFailure,

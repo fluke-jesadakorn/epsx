@@ -1,8 +1,9 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Query, ApplicationResult, ValidationUtils};
-use crate::domain::user_management::value_objects::{UserId, Email, FirebaseUid};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::value_objects::{Email, FirebaseUid};
 
 /// Query to get a user by ID
 #[derive(Debug, Clone, Serialize, Deserialize)]

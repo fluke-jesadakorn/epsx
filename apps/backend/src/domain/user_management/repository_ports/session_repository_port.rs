@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc, Duration};
+use std::collections::HashMap;
 
 use crate::domain::shared_kernel::DomainError;
-use crate::domain::user_management::{
-    aggregates::Session,
-    value_objects::{UserId, SessionId}
-};
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::user_management::aggregates::Session;
 
 /// Repository port for Session aggregate persistence
 /// This interface defines the contract for Session data access without specifying implementation

@@ -1,5 +1,7 @@
-// ============================================================================
+use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+// ============================================================================
 // EMBEDDED TIMESTAMP PERMISSION HANDLERS
 // ============================================================================
 // Handlers for managing permissions with embedded timestamps in the format:
@@ -11,7 +13,6 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::web::auth::routes::AppState;
 use crate::auth::permissions::{
@@ -19,7 +20,6 @@ use crate::auth::permissions::{
     add_timestamp_to_permission, filter_valid_permissions,
     get_expiring_permissions
 };
-use crate::dom::values::identifiers::UserId;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -310,26 +310,24 @@ pub async fn grant_embedded_permission(
 ) -> Result<Json<EmbeddedPermissionResponse>, (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Granting embedded permission to user {}: {}", user_id, request.embedded_permission);
     
-    // Get current user permissions
-    let user_id_typed = match UserId::from_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
+    // Get current user permissions - Firebase IDs are valid strings
+    let user_id_typed = UserId::from_string_unchecked(user_id.clone());
+    
+    // Get user from repository first, then access their permissions
+    let user = match state.user_repo.find_by_id(&user_id_typed).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             return Err((
-                StatusCode::BAD_REQUEST,
+                StatusCode::NOT_FOUND,
                 Json(ApiErrorResponse {
-                    error: "invalid_user_id".to_string(),
-                    message: "Invalid user ID format".to_string(),
+                    error: "user_not_found".to_string(),
+                    message: "User not found".to_string(),
                     details: None,
                 }),
             ));
         }
-    };
-    
-    let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-        Ok(perms) => perms,
-        Err(e) if e.to_string().contains("not found") => vec![],
         Err(e) => {
-            tracing::error!("Failed to get user permissions: {:?}", e);
+            tracing::error!("Failed to get user: {:?}", e);
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiErrorResponse {
@@ -341,58 +339,59 @@ pub async fn grant_embedded_permission(
         }
     };
     
-    // Extract permission strings from UserPermission entities
-    let mut new_permissions: Vec<String> = current_permissions
-        .into_iter()
-        .map(|p| p.permission().to_string())
-        .collect();
+    // Get current permissions from User aggregate
+    let mut new_permissions: Vec<String> = user.active_permissions();
     new_permissions.push(request.embedded_permission.clone());
     
-    // Try to update permissions with robust ID handling
-    // First attempt: treat user_id as firebase_uid (current behavior)
-    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    // Convert permission strings to Permission objects
+    use crate::domain::user_management::value_objects::Permission;
+    use std::collections::HashSet;
     
-    match update_result {
+    let mut permission_objects = HashSet::new();
+    for perm_str in new_permissions {
+        match Permission::new(perm_str) {
+            Ok(perm) => { permission_objects.insert(perm); },
+            Err(e) => {
+                tracing::warn!("Invalid permission format: {:?}", e);
+                // Skip invalid permissions
+            }
+        }
+    }
+    
+    // Update user permissions using DDD approach
+    let mut updated_user = user;
+    match updated_user.update_permissions(permission_objects, None) {
         Ok(()) => {
-            tracing::info!("Successfully granted embedded permission to user (via firebase_uid): {}", user_id);
-            Ok(Json(EmbeddedPermissionResponse {
-                permission: request.embedded_permission,
-                expires_at: request.expiry_timestamp,
-            }))
-        },
-        Err(e) if e.to_string().contains("User not found") => {
-            // Second attempt: treat user_id as regular ID and set permissions directly
-            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
-            
-            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+            // Save the updated user
+            match state.user_repo.save(&updated_user).await {
                 Ok(()) => {
-                    tracing::info!("Successfully granted embedded permission to user (via direct permission update): {}", user_id);
+                    tracing::info!("Successfully granted embedded permission to user: {}", user_id);
                     Ok(Json(EmbeddedPermissionResponse {
                         permission: request.embedded_permission,
                         expires_at: request.expiry_timestamp,
                     }))
                 },
-                Err(e2) => {
-                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                Err(e) => {
+                    tracing::error!("Failed to save updated user permissions: {:?}", e);
                     Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ApiErrorResponse {
-                            error: "user_not_found".to_string(),
-                            message: "User not found".to_string(),
-                            details: Some(user_id),
+                            error: "save_failed".to_string(),
+                            message: "Failed to save user permissions".to_string(),
+                            details: Some(e.to_string()),
                         }),
                     ))
                 }
             }
         },
         Err(e) => {
-            tracing::error!("Failed to grant embedded permission: {:?}", e);
+            tracing::error!("Failed to update user permissions: {:?}", e);
             Err((
                 StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "grant_failed".to_string(),
-                    message: format!("Failed to grant embedded permission: {}", e),
-                    details: Some(user_id),
+                    error: "permission_update_failed".to_string(),
+                    message: "Failed to update user permissions".to_string(),
+                    details: Some(e.to_string()),
                 }),
             ))
         }
@@ -411,30 +410,32 @@ pub async fn grant_bulk_embedded_permissions(
     let mut failed = Vec::new();
     
     for user_id in &request.user_ids {
-        // Parse user ID to proper type
-        let user_id_typed = match UserId::from_str(user_id) {
-            Ok(id) => id,
-            Err(_) => {
+        // Parse user ID to proper type - Firebase IDs are valid strings
+        let user_id_typed = UserId::from_string_unchecked(user_id.clone());
+        
+        // Get user from repository first
+        let user = match state.user_repo.find_by_id(&user_id_typed).await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                tracing::warn!("User not found: {}", user_id);
                 failed.push(UserPermissionError {
                     user_id: user_id.clone(),
-                    error: "Invalid user ID format".to_string(),
+                    error: "User not found".to_string(),
+                });
+                continue;
+            },
+            Err(e) => {
+                tracing::error!("Failed to get user {}: {:?}", user_id, e);
+                failed.push(UserPermissionError {
+                    user_id: user_id.clone(),
+                    error: format!("Failed to get user: {}", e),
                 });
                 continue;
             }
         };
         
-        // Get current user permissions
-        let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-            Ok(perms) => perms,
-            Err(e) => {
-                tracing::error!("Failed to get permissions for user {}: {:?}", user_id, e);
-                failed.push(UserPermissionError {
-                    user_id: user_id.clone(),
-                    error: format!("Failed to get current permissions: {}", e),
-                });
-                continue;
-            }
-        };
+        // Get current permissions from User aggregate
+        let current_permissions = user.active_permissions();
         
         // Create embedded permissions
         let embedded_permissions: Vec<String> = request.permissions.iter()
@@ -442,20 +443,44 @@ pub async fn grant_bulk_embedded_permissions(
                 .replace(":0", &format!(":{}", p.expiry_timestamp)))
             .collect();
         
-        // Extract permission strings from current permissions and add new ones
-        let mut new_permissions: Vec<String> = current_permissions
-            .into_iter()
-            .map(|p| p.permission().to_string())
-            .collect();
+        // Combine current permissions with new embedded permissions
+        let mut new_permissions: Vec<String> = current_permissions;
         new_permissions.extend(embedded_permissions.clone());
         
-        // Update permissions
-        match state.permission_application_service.update_user_permissions(user_id, new_permissions).await {
+        // Convert to Permission objects for DDD approach
+        use crate::domain::user_management::value_objects::Permission;
+        use std::collections::HashSet;
+        
+        let mut permission_objects = HashSet::new();
+        for perm_str in new_permissions {
+            match Permission::new(perm_str) {
+                Ok(perm) => { permission_objects.insert(perm); },
+                Err(e) => {
+                    tracing::warn!("Invalid permission format: {:?}", e);
+                    // Skip invalid permissions
+                }
+            }
+        }
+        
+        // Update user permissions using DDD approach
+        let mut updated_user = user;
+        match updated_user.update_permissions(permission_objects, None) {
             Ok(()) => {
-                successful.push(UserPermissionResult {
-                    user_id: user_id.clone(),
-                    permissions: embedded_permissions,
-                });
+                // Save the updated user
+                match state.user_repo.save(&updated_user).await {
+                    Ok(()) => {
+                        successful.push(UserPermissionResult {
+                            user_id: user_id.clone(),
+                            permissions: embedded_permissions,
+                        });
+                    },
+                    Err(e) => {
+                        failed.push(UserPermissionError {
+                            user_id: user_id.clone(),
+                            error: format!("Failed to save user: {}", e),
+                        });
+                    }
+                }
             },
             Err(e) => {
                 failed.push(UserPermissionError {
@@ -490,25 +515,13 @@ pub async fn validate_embedded_permissions(
 ) -> Result<Json<ValidationResult>, (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Validating embedded permissions for user: {}", user_id);
     
-    let user_id_typed = match UserId::from_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ApiErrorResponse {
-                    error: "invalid_user_id".to_string(),
-                    message: "Invalid user ID format".to_string(),
-                    details: None,
-                }),
-            ));
-        }
-    };
+    let user_id_typed = UserId::from_string_unchecked(user_id.clone());
     
     let permissions = if request.permissions.is_empty() {
-        // Get user's current permissions if none provided
-        match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-            Ok(perms) => perms.iter().map(|p| p.permission().to_string()).collect(),
-            Err(e) if e.to_string().contains("not found") => vec![],
+        // Get user's current permissions using DDD approach
+        match state.user_repo.find_by_id(&user_id_typed).await {
+            Ok(Some(user)) => user.active_permissions(),
+            Ok(None) => vec![], // User not found, return empty permissions
             Err(e) => {
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -551,28 +564,26 @@ pub async fn get_permission_expiry_status(
 ) -> Result<Json<ExpiryStatusResponse>, (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Getting permission expiry status for user: {}", user_id);
     
-    let user_id_typed = match UserId::from_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
+    let user_id_typed = UserId::from_string_unchecked(user_id.clone());
+    
+    let permissions = match state.user_repo.find_by_id(&user_id_typed).await {
+        Ok(Some(user)) => user.active_permissions(),
+        Ok(None) => {
             return Err((
-                StatusCode::BAD_REQUEST,
+                StatusCode::NOT_FOUND,
                 Json(ApiErrorResponse {
-                    error: "invalid_user_id".to_string(),
-                    message: "Invalid user ID format".to_string(),
+                    error: "user_not_found".to_string(),
+                    message: "User not found".to_string(),
                     details: None,
                 }),
             ));
-        }
-    };
-    
-    let permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-        Ok(perms) => perms,
+        },
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiErrorResponse {
                     error: "database_error".to_string(),
-                    message: "Failed to retrieve user permissions".to_string(),
+                    message: "Failed to retrieve user".to_string(),
                     details: Some(e.to_string()),
                 }),
             ));
@@ -580,7 +591,7 @@ pub async fn get_permission_expiry_status(
     };
     
     let permission_infos: Vec<PermissionExpiryInfo> = permissions.iter()
-        .map(|p| create_permission_expiry_info(p.permission()))
+        .map(|p| create_permission_expiry_info(p))
         .collect();
     
     let has_expired = permission_infos.iter().any(|p| p.is_expired);
@@ -628,90 +639,96 @@ pub async fn revoke_embedded_permission(
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ApiErrorResponse>)> {
     tracing::info!("Revoking embedded permission for user {}: {}", user_id, request.permission);
     
-    // Get current user permissions
-    let user_id_typed = match UserId::from_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ApiErrorResponse {
-                    error: "invalid_user_id".to_string(),
-                    message: "Invalid user ID format".to_string(),
-                    details: None,
-                }),
-            ));
-        }
-    };
+    // Get current user permissions - Firebase IDs are valid strings
+    let user_id_typed = UserId::from_string_unchecked(user_id.clone());
     
-    let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-        Ok(perms) if perms.is_empty() => {
+    let user: crate::domain::user_management::aggregates::User = match state.user_repo.find_by_id(&user_id_typed).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             return Err((
                 StatusCode::NOT_FOUND,
                 Json(ApiErrorResponse {
                     error: "user_not_found".to_string(),
-                    message: "User has no permissions".to_string(),
-                    details: Some(user_id),
+                    message: "User not found".to_string(),
+                    details: None,
                 }),
             ));
-        }
-        Ok(perms) => perms,
+        },
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiErrorResponse {
                     error: "database_error".to_string(),
-                    message: "Failed to retrieve user permissions".to_string(),
+                    message: "Failed to retrieve user".to_string(),
                     details: Some(e.to_string()),
                 }),
             ));
         }
     };
     
-    // Remove the specific permission
+    let current_permissions = user.active_permissions();
+    if current_permissions.is_empty() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ApiErrorResponse {
+                error: "user_not_found".to_string(),
+                message: "User has no permissions".to_string(),
+                details: Some(user_id),
+            }),
+        ));
+    }
+    
+    // Remove the specific permission  
     let new_permissions: Vec<String> = current_permissions.into_iter()
-        .filter(|p| p.permission() != request.permission)
-        .map(|p| p.permission().to_string())
+        .filter(|p| p != &request.permission)
         .collect();
     
-    // Update permissions with robust ID handling (same pattern as grant function)
-    // First attempt: treat user_id as firebase_uid (current behavior)
-    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    // Convert permission strings to Permission objects and update user using DDD approach
+    use crate::domain::user_management::value_objects::Permission;
+    use std::collections::HashSet;
     
-    match update_result {
+    let mut permission_objects = HashSet::new();
+    for perm_str in new_permissions {
+        match Permission::new(perm_str) {
+            Ok(perm) => { permission_objects.insert(perm); },
+            Err(e) => {
+                tracing::warn!("Invalid permission format: {:?}", e);
+                // Skip invalid permissions
+            }
+        }
+    }
+    
+    // Update user permissions using DDD approach
+    let mut updated_user = user;
+    match updated_user.update_permissions(permission_objects, None) {
         Ok(()) => {
-            tracing::info!("Successfully revoked embedded permission from user (via firebase_uid): {}", user_id);
-            Ok((StatusCode::OK, Json(serde_json::json!({"message": "Permission revoked successfully"}))))
-        },
-        Err(e) if e.to_string().contains("User not found") => {
-            // Second attempt: treat user_id as regular ID and set permissions directly
-            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
-            
-            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+            // Save the updated user
+            match state.user_repo.save(&updated_user).await {
                 Ok(()) => {
-                    tracing::info!("Successfully revoked embedded permission from user (via direct permission update): {}", user_id);
+                    tracing::info!("Successfully revoked embedded permission from user: {}", user_id);
                     Ok((StatusCode::OK, Json(serde_json::json!({"message": "Permission revoked successfully"}))))
                 },
-                Err(e2) => {
-                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                Err(e) => {
+                    tracing::error!("Failed to save user after permission revocation: {:?}", e);
                     Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ApiErrorResponse {
-                            error: "user_not_found".to_string(),
-                            message: "User not found".to_string(),
-                            details: Some(user_id),
+                            error: "save_failed".to_string(),
+                            message: "Failed to save user permissions".to_string(),
+                            details: Some(e.to_string()),
                         }),
                     ))
                 }
             }
         },
         Err(e) => {
-            tracing::error!("Failed to revoke embedded permission: {:?}", e);
+            tracing::error!("Failed to update user permissions: {:?}", e);
             Err((
                 StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "revoke_failed".to_string(),
-                    message: format!("Failed to revoke embedded permission: {}", e),
-                    details: Some(user_id),
+                    error: "permission_update_failed".to_string(),
+                    message: "Failed to update user permissions".to_string(),
+                    details: Some(e.to_string()),
                 }),
             ))
         }
@@ -731,23 +748,35 @@ pub async fn extend_embedded_permission(
     let new_permission = add_timestamp_to_permission(&base_permission, 0) // Placeholder for calculation
         .replace(":0", &format!(":{}", request.new_expiry_timestamp));
     
-    // Get current user permissions  
-    let user_id_typed = match UserId::from_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
+    // Get current user permissions - Firebase IDs are valid strings
+    let user_id_typed = UserId::from_string_unchecked(user_id.clone());
+    
+    let user: crate::domain::user_management::aggregates::User = match state.user_repo.find_by_id(&user_id_typed).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             return Err((
-                StatusCode::BAD_REQUEST,
+                StatusCode::NOT_FOUND,
                 Json(ApiErrorResponse {
-                    error: "invalid_user_id".to_string(),
-                    message: "Invalid user ID format".to_string(),
+                    error: "user_not_found".to_string(),
+                    message: "User not found".to_string(),
                     details: None,
+                }),
+            ));
+        },
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiErrorResponse {
+                    error: "database_error".to_string(),
+                    message: "Failed to retrieve user".to_string(),
+                    details: Some(e.to_string()),
                 }),
             ));
         }
     };
     
-    let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-        Ok(perms) if perms.is_empty() => {
+    let current_permissions = user.active_permissions();
+    if current_permissions.is_empty() {
             return Err((
                 StatusCode::NOT_FOUND,
                 Json(ApiErrorResponse {
@@ -756,49 +785,36 @@ pub async fn extend_embedded_permission(
                     details: Some(user_id),
                 }),
             ));
-        }
-        Ok(perms) => perms,
-        Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    error: "database_error".to_string(),
-                    message: "Failed to retrieve user permissions".to_string(),
-                    details: Some(e.to_string()),
-                }),
-            ));
-        }
-    };
+    }
     
-    // Replace old permission with new one
+    // Replace old permission with new one  
     let new_permissions: Vec<String> = current_permissions.into_iter()
-        .map(|p| if p.permission() == request.permission { new_permission.clone() } else { p.permission().to_string() })
+        .map(|p| if p == request.permission { new_permission.clone() } else { p })
         .collect();
     
-    // Update permissions with robust ID handling (same pattern as grant function)
-    // First attempt: treat user_id as firebase_uid (current behavior)
-    let update_result = state.permission_application_service.update_user_permissions(&user_id, new_permissions.clone()).await;
+    // Convert permission strings to Permission objects and update user using DDD approach
+    use crate::domain::user_management::value_objects::Permission;
+    use std::collections::HashSet;
+    
+    let mut permission_objects = HashSet::new();
+    for perm_str in new_permissions {
+        match Permission::new(perm_str) {
+            Ok(perm) => { permission_objects.insert(perm); },
+            Err(e) => {
+                tracing::warn!("Invalid permission format: {:?}", e);
+                // Skip invalid permissions
+            }
+        }
+    }
+    
+    // Update user permissions using DDD approach
+    let mut updated_user = user;
+    let update_result = updated_user.update_permissions(permission_objects, None);
     
     match update_result {
         Ok(()) => {
-            let extension = if let Some(old_ts) = old_timestamp {
-                (request.new_expiry_timestamp - old_ts) * 1000 // Convert to milliseconds
-            } else {
-                0
-            };
-            
-            tracing::info!("Successfully extended embedded permission for user (via firebase_uid): {}", user_id);
-            Ok(Json(ExtendPermissionResponse {
-                old_permission: request.permission,
-                new_permission,
-                extension,
-            }))
-        },
-        Err(e) if e.to_string().contains("User not found") => {
-            // Second attempt: treat user_id as regular ID and set permissions directly
-            tracing::warn!("User not found via firebase_uid lookup, trying direct permission update for user: {}", user_id);
-            
-            match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions).await {
+            // Save the updated user
+            match state.user_repo.save(&updated_user).await {
                 Ok(()) => {
                     let extension = if let Some(old_ts) = old_timestamp {
                         (request.new_expiry_timestamp - old_ts) * 1000 // Convert to milliseconds
@@ -806,34 +822,34 @@ pub async fn extend_embedded_permission(
                         0
                     };
                     
-                    tracing::info!("Successfully extended embedded permission for user (via direct permission update): {}", user_id);
+                    tracing::info!("Successfully extended embedded permission for user: {}", user_id);
                     Ok(Json(ExtendPermissionResponse {
                         old_permission: request.permission,
                         new_permission,
                         extension,
                     }))
                 },
-                Err(e2) => {
-                    tracing::error!("Failed both firebase_uid and direct permission approaches: firebase_uid_error={:?}, direct_error={:?}", e, e2);
+                Err(e) => {
+                    tracing::error!("Failed to save user after permission extension: {:?}", e);
                     Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ApiErrorResponse {
-                            error: "user_not_found".to_string(),
-                            message: "User not found".to_string(),
-                            details: Some(user_id),
+                            error: "save_failed".to_string(),
+                            message: "Failed to save user permissions".to_string(),
+                            details: Some(e.to_string()),
                         }),
                     ))
                 }
             }
         },
         Err(e) => {
-            tracing::error!("Failed to extend embedded permission: {:?}", e);
+            tracing::error!("Failed to update user permissions: {:?}", e);
             Err((
                 StatusCode::BAD_REQUEST,
                 Json(ApiErrorResponse {
-                    error: "extend_failed".to_string(),
-                    message: format!("Failed to extend embedded permission: {}", e),
-                    details: Some(user_id),
+                    error: "permission_update_failed".to_string(),
+                    message: "Failed to update user permissions".to_string(),
+                    details: Some(e.to_string()),
                 }),
             ))
         }

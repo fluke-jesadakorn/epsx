@@ -1,12 +1,15 @@
 // Authentication Tokens Value Objects
 // JWT-based tokens for OIDC compliance
 
+use crate::domain::authentication::{AuthenticatedUserId, Scope};
+use crate::domain::authentication::value_objects::ClientInformation;
+use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};
+
 use serde::{Serialize, Deserialize};
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
 use uuid::Uuid;
 
-use super::{AuthenticatedUserId, SessionId, Scope, ClientInformation};
 use super::scopes::ScopeError;
 
 /// Access Token for API authorization
@@ -86,12 +89,13 @@ impl AccessToken {
     /// Get user ID from token
     pub fn user_id(&self) -> Result<AuthenticatedUserId, TokenError> {
         // Parse user ID from subject claim
-        self.claims.sub
+        let user_id_str = self.claims.sub
             .strip_prefix("auth:")
-            .unwrap_or(&self.claims.sub)
-            .parse()
-            .map(AuthenticatedUserId::from_verified_user)
-            .map_err(|e| TokenError::InvalidToken(format!("Invalid user ID: {}", e)))
+            .unwrap_or(&self.claims.sub);
+        
+        // Create UserId from string - assuming it's stored as string in JWT
+        let user_id = crate::domain::shared_kernel::value_objects::UserId::from_string_unchecked(user_id_str.to_string());
+        Ok(AuthenticatedUserId::from_verified_user(user_id))
     }
     
     // Getters
@@ -141,8 +145,7 @@ impl RefreshToken {
         let session_part = parts[1..parts.len()-1].join("_");
         let jti = parts.last().unwrap().to_string();
         
-        let session_id = SessionId::from_string(format!("sess_{}", session_part))
-            .map_err(|e| TokenError::InvalidToken(format!("Invalid session ID: {}", e)))?;
+        let session_id = SessionId::from_string(format!("sess_{}", session_part));
         
         // For validation, we'd typically look up in database to get expiry
         // For now, assume 30 days from creation

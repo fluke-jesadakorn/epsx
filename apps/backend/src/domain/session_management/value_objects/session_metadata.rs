@@ -1,11 +1,12 @@
+use std::collections::HashMap;
+use crate::domain::authentication::{AuthenticatedUserId, ProviderType};
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 // Session Metadata Value Object
 // Contains session persistence and lifecycle information
 
 use chrono::{DateTime, Utc, Duration};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
-use crate::domain::authentication::{SessionId, AuthenticatedUserId, ProviderType};
 use super::DeviceInfo;
 
 /// Complete session metadata for persistence and management

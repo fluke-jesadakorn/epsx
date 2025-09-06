@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 use std::fmt::{self, Display};
 use chrono::Timelike;
+use serde::{Serialize, Deserialize};
 
 /// Country Value Object
 /// Represents the country/market where a stock is traded

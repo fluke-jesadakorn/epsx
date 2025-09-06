@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 // Health Checks and Debug Endpoints
 // Focused module handling EPS service health monitoring and debugging
 
@@ -9,10 +11,10 @@ use std::sync::Arc;
 use tracing::{debug, info, error};
 
 use crate::core::errors::{AppError, ErrorKind};
-use crate::dom::services::eps_cache_service::EPSCacheService;
-use crate::dom::services::eps_ranking_service::EPSRankingService;
-use crate::infra::services::tradingview_websocket::TradingViewWebSocketService;
-use crate::infra::InfraFactory;
+use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
+use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
+use crate::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
+use crate::infrastructure::InfraFactory;
 use super::dto::EPSHealthResponse;
 
 /// GET /api/analytics/eps-rankings/health
@@ -80,20 +82,17 @@ pub async fn debug_eps_correction() -> Result<Json<serde_json::Value>, AppError>
 /// POST /api/analytics/eps-rankings/debug-ranking-data
 /// Debug actual ranking data structure for specific symbols
 pub async fn debug_ranking_data(
-    Extension(service): Extension<Arc<EPSCacheService>>,
+    Extension(service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     info!("Ranking data debug test triggered");
     
     // Get actual ranking data for TSMC and LLY
-    match service.get_eps_rankings(crate::dom::services::eps_cache_service::EPSCacheParams {
-        page: 1,
-        limit: 5,
-        country: Some("taiwan".to_string()),
+    match service.get_eps_rankings(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingParams {
         sector: None,
+        country: Some("taiwan".to_string()),
+        market_cap_min: None,
+        limit: 5,
         sort_by: None,
-        min_eps: None,
-        min_growth: None,
-        force_refresh: false,
     }).await {
         Ok(rankings_response) => {
             let mut results = Vec::new();
@@ -102,19 +101,16 @@ pub async fn debug_ranking_data(
                 if ranking.symbol == "2330" || ranking.symbol == "LLY" {
                     results.push(serde_json::json!({
                         "symbol": ranking.symbol,
-                        "country_field": ranking.country,
-                        "current_eps": ranking.current_eps,
-                        "has_quarterly_data": ranking.quarterly_data.is_some(),
-                        "quarterly_data_count": ranking.quarterly_data.as_ref().map(|q| q.len()).unwrap_or(0),
-                        "first_quarter_eps": ranking.quarterly_data.as_ref()
-                            .and_then(|q| q.first())
-                            .map(|quarter| quarter.eps)
+                        "company_name": ranking.company_name,
+                        "current_eps": ranking.eps_current,
+                        "previous_eps": ranking.eps_previous,
+                        "growth_rate": ranking.growth_rate
                     }));
                     
-                    info!("🔍 Ranking debug - Symbol: {}, Country: '{}', Current EPS: {:.3}, Has Quarterly: {}", 
-                          ranking.symbol, ranking.country, 
-                          ranking.current_eps.unwrap_or(0.0),
-                          ranking.quarterly_data.is_some());
+                    info!("🔍 Ranking debug - Symbol: {}, Company: '{}', Current EPS: {:.3}, Growth Rate: {:.2}%", 
+                          ranking.symbol, ranking.company_name, 
+                          ranking.eps_current,
+                          ranking.growth_rate);
                 }
             }
             
@@ -160,8 +156,9 @@ pub async fn debug_websocket_eps() -> Result<Json<serde_json::Value>, AppError> 
                         serde_json::json!({
                             "symbol": eps.symbol,
                             "current_eps": eps.current_eps,
-                            "quarterly_data_points": eps.quarterly_data.len(),
-                            "historical_eps_count": eps.historical_eps.len()
+                            "previous_eps": eps.previous_eps,
+                            "price": eps.price,
+                            "timestamp": eps.timestamp
                         })
                     }).collect::<Vec<_>>()
                 }
@@ -181,7 +178,7 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
     
     // Create TradingView service and processor  
     use crate::config::Config;
-    use crate::infra::services::tradingview::TradingViewApiService;
+    use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
     
     let config = match Config::from_env() {
         Ok(config) => std::sync::Arc::new(config),
@@ -190,11 +187,10 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
             std::sync::Arc::new(get_default_config())
         }
     };
-    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new());
     
-    // Create infrastructure factory
-    let _infra_factory = InfraFactory::from_env()
-        .map_err(|e| AppError::new(ErrorKind::ConfigurationError, format!("Failed to create infra factory: {}", e)))?;
+    // Note: InfraFactory creation would be handled in actual implementation
+    // let _infra_factory = InfraFactory { db_pool, cache, firebase_admin };
     
     info!("Starting manual EPS data processing...");
     // TODO: Implement EPSDataProcessor module

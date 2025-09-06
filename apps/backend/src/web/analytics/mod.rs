@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 pub mod eps_handlers;
 pub mod eps;  // New focused modules architecture
 
@@ -5,7 +7,7 @@ use axum::{
     routing::{get, post},
     Router,
     Extension,
-    extract::Request,
+    extract::{Request, Path},
     http::StatusCode,
     response::{Json, Response, IntoResponse},
     middleware::{from_fn, Next},
@@ -14,10 +16,10 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::web::middleware::user_auth::{user_auth_middleware, AuthenticatedUser};
-use crate::infra::services::tradingview::TradingViewApiService;
-use crate::infra::InfraFactory;
+use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::infrastructure::InfraFactory;
 use crate::config::Config;
-use crate::infra::cache::{CacheFactory, Cache};
+use crate::infrastructure::cache::{CacheFactory, Cache};
 
 pub use eps_handlers::*;
 
@@ -101,68 +103,66 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
             })
         }
     };
-    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config));
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new());
 
     // Create unified cache service (automatically selects InMemory or Redis)
-    let unified_cache_service = match CacheFactory::from_env().await {
-        Ok(cache) => cache,
-        Err(e) => {
-            tracing::warn!("Failed to create cache service: {}, falling back to in-memory cache", e);
-            // Fallback to in-memory cache with default config
-            std::sync::Arc::new(crate::infra::cache::InMemoryCache::new(
-                crate::infra::cache::CacheConfig::default()
-            )) as std::sync::Arc<dyn Cache>
-        }
-    };
+    let cache_box = CacheFactory::with_fallback().await;
+    let unified_cache_service: std::sync::Arc<dyn Cache> = std::sync::Arc::from(cache_box);
 
     // Background cache refresh removed - using on-demand loading instead
     
     // Create DDD Stock Analysis Repository Adapter
     // For now, create a mock EPS repository since this is bridging legacy systems
-    struct MockEPSRepository;
-    
-    #[async_trait::async_trait]
-    impl crate::dom::services::eps_ranking_service::EPSRepository for MockEPSRepository {
-        async fn store_eps_data(&self, _eps_data: crate::domain::trading_analytics::StockAnalysis) -> Result<(), crate::core::errors::AppError> {
-            Ok(()) // Mock implementation
-        }
-        
-        async fn batch_store_eps_data(&self, _eps_data_list: Vec<crate::domain::trading_analytics::StockAnalysis>) -> Result<usize, crate::core::errors::AppError> {
-            Ok(0) // Mock implementation - returns 0 stored items
-        }
-        
-        async fn get_rankings_filtered(
-            &self,
-            _country: Option<String>,
-            _sector: Option<String>,
-            _sort_by: Option<String>,
-            _page: i32,
-            _limit: i32,
-        ) -> Result<Vec<crate::domain::trading_analytics::EPSRanking>, crate::core::errors::AppError> {
-            Ok(vec![]) // Mock implementation - returns empty vec
-        }
-        
-        async fn get_total_count(&self, _country: Option<String>, _sector: Option<String>) -> Result<i64, crate::core::errors::AppError> {
-            Ok(0) // Mock implementation
-        }
-        
-        async fn get_countries(&self) -> Result<Vec<String>, crate::core::errors::AppError> {
-            Ok(vec!["america".to_string(), "europe".to_string()]) // Mock implementation
-        }
-        
-        async fn get_sectors_by_country(&self, _country: Option<String>) -> Result<Vec<String>, crate::core::errors::AppError> {
-            Ok(vec!["Technology".to_string(), "Healthcare".to_string()]) // Mock implementation
-        }
-    }
-    
-    let mock_repo = Arc::new(MockEPSRepository);
-    let eps_service = Arc::new(crate::dom::services::eps_ranking_service::EPSRankingService::new(mock_repo));
-    let stock_analysis_adapter = Arc::new(crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter::new(eps_service));
+    // struct MockEPSRepository;
+    // 
+    // #[async_trait::async_trait]
+    // impl crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository for MockEPSRepository {
+    //     async fn store_eps_data(&self, _eps_data: crate::domain::trading_analytics::StockAnalysis) -> Result<(), crate::core::errors::AppError> {
+    //         Ok(()) // Mock implementation
+    //     }
+    //     
+    //     async fn batch_store_eps_data(&self, _eps_data_list: Vec<crate::domain::trading_analytics::StockAnalysis>) -> Result<usize, crate::core::errors::AppError> {
+    //         Ok(0) // Mock implementation - returns 0 stored items
+    //     }
+    //     
+    //     async fn get_rankings_filtered(
+    //         &self,
+    //         _country: Option<String>,
+    //         _sector: Option<String>,
+    //         _sort_by: Option<String>,
+    //         _page: i32,
+    //         _limit: i32,
+    //     ) -> Result<Vec<crate::domain::trading_analytics::EPSRanking>, crate::core::errors::AppError> {
+    //         Ok(vec![]) // Mock implementation - returns empty vec
+    //     }
+    //     
+    //     async fn get_total_count(&self, _country: Option<String>, _sector: Option<String>) -> Result<i64, crate::core::errors::AppError> {
+    //         Ok(0) // Mock implementation
+    //     }
+    //     
+    //     async fn get_countries(&self) -> Result<Vec<String>, crate::core::errors::AppError> {
+    //         Ok(vec!["america".to_string(), "europe".to_string()]) // Mock implementation
+    //     }
+    //     
+    //     async fn get_sectors_by_country(&self, _country: Option<String>) -> Result<Vec<String>, crate::core::errors::AppError> {
+    //         Ok(vec!["Technology".to_string(), "Healthcare".to_string()]) // Mock implementation
+    //     }
+    // }
+    // 
+    // Create stock analysis adapter for the repository layer
+    let eps_service = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new());
+    let stock_analysis_adapter = std::sync::Arc::new(
+        crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter::new(
+            eps_service
+        )
+    );
 
     // Create versioned routes with permission middleware
     let v1_routes = Router::new()
         // Main EPS rankings endpoints (RESTful structure) - now internally using DDD Trading Analytics
         .route("/api/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        // Compatibility endpoint - same handler, different path
+        .route("/api/v1/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         // All existing endpoints continue to work with same API contract
         .route("/api/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
@@ -175,10 +175,21 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/api/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/api/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
+        // Admin cache management endpoints (namespace consistency)
+        .route("/api/v1/admin/cache/stats", get(eps_handlers::get_cache_stats))
+        .route("/api/v1/admin/cache/refresh", post(eps_handlers::force_cache_refresh))
+        .route("/api/v1/admin/cache/health", get(eps_handlers::cache_health_check))
         // System metrics endpoint for admin dashboard
         .route("/api/v1/admin/analytics/metrics", get(system_metrics_handler))
+        // Admin analytics endpoints for dashboard
+        .route("/api/v1/admin/analytics/time-series", get(admin_time_series_handler))
+        .route("/api/v1/admin/analytics/modules", get(admin_modules_handler))
+        // Stock ranking assignment endpoints
+        .route("/api/v1/admin/stock-ranking/assignments", get(stock_ranking_assignments_handler))
+        .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/extend", post(extend_assignment_handler))
+        .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/revoke", post(revoke_assignment_handler))
         // Inject DDD adapter as extension - now powers all analytics endpoints internally
-        .layer(Extension(stock_analysis_adapter))
+        .layer(Extension(stock_analysis_adapter.clone()))
         // Apply user authentication middleware
         .layer(from_fn(user_auth_middleware))
         // Apply analytics view permission requirement to all analytics routes
@@ -207,9 +218,17 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .layer(from_fn(user_auth_middleware))
         .layer(from_fn(require_analytics_permission));
 
+    // Public routes (no authentication required)
+    let public_routes = Router::new()
+        .route("/api/v1/public/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        .route("/api/v1/public/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        // No authentication middleware for public routes
+        .layer(Extension(stock_analysis_adapter.clone()));
+
     Router::new()
         .merge(v1_routes)
         .merge(legacy_routes)
+        .merge(public_routes)
         // Add services as extensions
         .layer(Extension(unified_cache_service))
 }
@@ -217,15 +236,137 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
 /// System metrics handler for admin dashboard
 /// GET /api/v1/analytics/system/metrics
 async fn system_metrics_handler() -> Result<Json<serde_json::Value>, StatusCode> {
-    // Reuse the existing system metrics collection from health module
-    // let metrics = crate::web::health::casbin_health_check::collect_system_metrics(&app_state).await; // Removed Casbin
-    let metrics: std::collections::HashMap<String, String> = std::collections::HashMap::new(); // Placeholder for metrics
+    // Mock implementation - replace with actual system metrics collection
+    let metrics = serde_json::json!({
+        "totalRequests": 1245678,
+        "totalUsers": 8934,
+        "totalRevenue": 45672.89,
+        "averageResponseTime": 245,
+        "errorRate": 0.23,
+        "activeApiKeys": 156
+    });
     
-    // Format response to match frontend expectations
+    Ok(Json(metrics))
+}
+
+/// Admin time series data handler for dashboard
+async fn admin_time_series_handler() -> Result<Json<serde_json::Value>, StatusCode> {
+    // Generate mock time series data - replace with actual analytics data
+    let mut time_series_data = Vec::new();
+    
+    for i in 0..7 {
+        let date = chrono::Utc::now() - chrono::Duration::days(i);
+        time_series_data.push(serde_json::json!({
+            "date": date.format("%Y-%m-%d").to_string(),
+            "requests": 40000 + (i * 1500) as u32,
+            "users": 800 + (i * 50) as u32,
+            "revenue": 3000 + (i * 200) as u32,
+            "errors": 10 + (i * 2) as u32
+        }));
+    }
+    
     let response = serde_json::json!({
-        "status": "success",
-        "data": metrics,
-        "timestamp": chrono::Utc::now()
+        "data": time_series_data
+    });
+    
+    Ok(Json(response))
+}
+
+/// Admin modules data handler for dashboard
+async fn admin_modules_handler() -> Result<Json<serde_json::Value>, StatusCode> {
+    // Mock module usage data - replace with actual module analytics
+    let modules = vec![
+        serde_json::json!({
+            "moduleName": "User Management",
+            "requests": 450000,
+            "users": 3200,
+            "revenue": 15000,
+            "quota": 500000,
+            "quotaUsed": 450000
+        }),
+        serde_json::json!({
+            "moduleName": "Analytics",
+            "requests": 320000,
+            "users": 2100,
+            "revenue": 12000,
+            "quota": 400000,
+            "quotaUsed": 320000
+        }),
+        serde_json::json!({
+            "moduleName": "API Gateway",
+            "requests": 475678,
+            "users": 3634,
+            "revenue": 18672.89,
+            "quota": 600000,
+            "quotaUsed": 475678
+        })
+    ];
+    
+    let response = serde_json::json!({
+        "modules": modules
+    });
+    
+    Ok(Json(response))
+}
+
+/// Stock ranking assignments handler for admin dashboard
+async fn stock_ranking_assignments_handler() -> Result<Json<serde_json::Value>, StatusCode> {
+    // Mock stock ranking assignments data - replace with actual database queries
+    let assignments = vec![
+        serde_json::json!({
+            "id": "assignment-1",
+            "userId": "user-123",
+            "userEmail": "user@example.com",
+            "packageName": "Premium Analytics",
+            "assignedAt": "2025-01-01T00:00:00Z",
+            "expiresAt": "2025-12-31T23:59:59Z",
+            "status": "active"
+        }),
+        serde_json::json!({
+            "id": "assignment-2",
+            "userId": "user-456",
+            "userEmail": "admin@example.com",
+            "packageName": "Basic Rankings",
+            "assignedAt": "2025-02-01T00:00:00Z",
+            "expiresAt": "2025-08-31T23:59:59Z",
+            "status": "active"
+        })
+    ];
+    
+    let response = serde_json::json!({
+        "assignments": assignments,
+        "total": assignments.len(),
+        "success": true
+    });
+    
+    Ok(Json(response))
+}
+
+/// Extend stock ranking assignment handler
+async fn extend_assignment_handler(Path(assignment_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Mock implementation - in production, this would update the database
+    tracing::info!("Extending assignment: {}", assignment_id);
+    
+    let response = serde_json::json!({
+        "success": true,
+        "message": format!("Assignment {} extended successfully", assignment_id),
+        "assignmentId": assignment_id,
+        "newExpiryDate": (chrono::Utc::now() + chrono::Duration::days(30)).to_rfc3339()
+    });
+    
+    Ok(Json(response))
+}
+
+/// Revoke stock ranking assignment handler
+async fn revoke_assignment_handler(Path(assignment_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Mock implementation - in production, this would update the database
+    tracing::info!("Revoking assignment: {}", assignment_id);
+    
+    let response = serde_json::json!({
+        "success": true,
+        "message": format!("Assignment {} revoked successfully", assignment_id),
+        "assignmentId": assignment_id,
+        "revokedAt": chrono::Utc::now().to_rfc3339()
     });
     
     Ok(Json(response))

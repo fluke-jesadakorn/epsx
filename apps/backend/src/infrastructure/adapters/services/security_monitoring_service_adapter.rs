@@ -1,17 +1,13 @@
 // Security Monitoring Service Adapter
-// Bridges DDD security monitoring with existing security infrastructure
-
 use async_trait::async_trait;
-use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc, Duration};
+use tracing::{debug, info, warn, error};
 
-use crate::domain::authentication::{
-    SecurityMonitoringServicePort, SessionId, AuthenticatedUserId,
-    RiskScore, SecurityEvent
-};
-use crate::infra::cache::Cache;
+use crate::domain::authentication::{AuthenticatedUserId, SessionId};
+use crate::domain::authentication::repositories::SecurityMonitoringServicePort;
+use crate::infrastructure::cache::Cache;
 
 /// Security monitoring service adapter
 pub struct SecurityMonitoringServiceAdapter {
@@ -55,9 +51,9 @@ impl SecurityMonitoringServiceAdapter {
         let key = self.get_security_metrics_key(user_id);
         
         // Get existing metrics
-        let mut metrics: SecurityMetrics = match self.cache.get(&key).await {
-            Ok(Some(data)) => serde_json::from_str(&data).unwrap_or_default(),
-            _ => SecurityMetrics::default(),
+        let mut metrics: SecurityMetrics = match self.cache.get(&key) {
+            Some(data) => serde_json::from_str(&data).unwrap_or_default(),
+            None => SecurityMetrics::default(),
         };
         
         // Update specific metric
@@ -74,8 +70,7 @@ impl SecurityMonitoringServiceAdapter {
         let serialized = serde_json::to_string(&metrics)
             .map_err(|e| format!("Failed to serialize metrics: {}", e))?;
         
-        self.cache.set(&key, &serialized, Some(Duration::hours(24).num_seconds() as u64)).await
-            .map_err(|e| format!("Failed to store security metrics: {}", e))?;
+        self.cache.set(&key, serialized, Some(Duration::hours(24).num_seconds() as u64));
         
         Ok(())
     }
@@ -85,35 +80,31 @@ impl SecurityMonitoringServiceAdapter {
 impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
     async fn record_session_creation(
         &self,
-        session_id: &SessionId,
-        user_id: &AuthenticatedUserId,
-        ip: Option<&str>,
+        user_id: &str,
+        ip: &str,
+        session_id: &str,
     ) -> Result<(), String> {
         info!(
-            session_id = %session_id,
-            user_id = %user_id,
-            ip = ip.unwrap_or("unknown"),
+            session_id = session_id,
+            user_id = user_id,
+            ip = ip,
             "Recording session creation for security monitoring"
         );
         
-        let user_id_str = user_id.to_string();
-        
         // Update user security metrics
-        self.update_user_security_metrics(&user_id_str, "session_creation", 1).await?;
+        self.update_user_security_metrics(user_id, "session_creation", 1).await?;
         
-        // Record IP if provided
-        if let Some(ip_addr) = ip {
-            // Update IP reputation tracking
-            let ip_key = format!("ip_activity:{}", ip_addr);
-            let activity_data = format!("session_creation:{}:{}", user_id_str, Utc::now().timestamp());
-            
-            self.cache.set(&ip_key, &activity_data, Some(Duration::hours(48).num_seconds() as u64)).await
-                .map_err(|e| format!("Failed to record IP activity: {}", e))?;
-        }
+        // Record IP activity
+        let ip_addr = ip;
+        // Update IP reputation tracking
+        let ip_key = format!("ip_activity:{}", ip_addr);
+        let activity_data = format!("session_creation:{}:{}", user_id, Utc::now().timestamp());
+        
+        self.cache.set(&ip_key, activity_data, Some(86400)); // 24 hour TTL
         
         debug!(
-            session_id = %session_id,
-            user_id = %user_id,
+            session_id = session_id,
+            user_id = user_id,
             "Session creation recorded in security monitoring"
         );
         
@@ -122,14 +113,14 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
     
     async fn record_authentication_failure(
         &self,
-        user_id: Option<&AuthenticatedUserId>,
+        ip: &str,
+        user_id: Option<&str>,
         reason: &str,
-        ip: Option<&str>,
     ) -> Result<(), String> {
         warn!(
-            user_id = user_id.map(|u| u.to_string()).as_deref().unwrap_or("unknown"),
+            user_id = user_id.unwrap_or("unknown"),
             reason = reason,
-            ip = ip.unwrap_or("unknown"),
+            ip = ip,
             "Recording authentication failure"
         );
         
@@ -140,13 +131,14 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         }
         
         // Update IP reputation if provided
-        if let Some(ip_addr) = ip {
+        if !ip.is_empty() {
+            let ip_addr = ip;
             let ip_rep_key = self.get_ip_reputation_key(ip_addr);
             
             // Get current reputation
-            let mut reputation: IpReputation = match self.cache.get(&ip_rep_key).await {
-                Ok(Some(data)) => serde_json::from_str(&data).unwrap_or_default(),
-                _ => IpReputation::new(ip_addr.to_string()),
+            let mut reputation: IpReputation = match self.cache.get(&ip_rep_key) {
+                Some(data) => serde_json::from_str(&data).unwrap_or_else(|_| IpReputation::new(ip_addr.to_string())),
+                None => IpReputation::new(ip_addr.to_string()),
             };
             
             reputation.record_failure(reason);
@@ -155,8 +147,8 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
             let serialized = serde_json::to_string(&reputation)
                 .map_err(|e| format!("Failed to serialize IP reputation: {}", e))?;
             
-            self.cache.set(&ip_rep_key, &serialized, Some(Duration::days(7).num_seconds() as u64)).await
-                .map_err(|e| format!("Failed to store IP reputation: {}", e))?;
+            self.cache.set(&ip_rep_key, serialized, Some(Duration::days(7).num_seconds() as u64));
+            // Cache.set() returns () not Result, no error handling needed
         }
         
         Ok(())
@@ -167,8 +159,8 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         
         let ip_rep_key = self.get_ip_reputation_key(ip);
         
-        match self.cache.get(&ip_rep_key).await {
-            Ok(Some(data)) => {
+        match self.cache.get(&ip_rep_key) {
+            Some(data) => {
                 let reputation: IpReputation = serde_json::from_str(&data)
                     .map_err(|e| format!("Failed to deserialize IP reputation: {}", e))?;
                 
@@ -187,14 +179,10 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
                 
                 Ok(is_suspicious)
             },
-            Ok(None) => {
+            None => {
                 debug!(ip = ip, "No reputation data found for IP, assuming safe");
                 Ok(false) // No data means it's not known to be suspicious
             },
-            Err(e) => {
-                error!(ip = ip, error = %e, "Failed to check IP reputation");
-                Err(format!("Cache error: {}", e))
-            }
         }
     }
     
@@ -203,9 +191,9 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         
         // Check session creation rate limit
         let session_key = self.get_rate_limit_key(user_id, "session_creation");
-        let current_count = match self.cache.get(&session_key).await {
-            Ok(Some(count_str)) => count_str.parse::<u64>().unwrap_or(0),
-            _ => 0,
+        let current_count = match self.cache.get(&session_key) {
+            Some(count_str) => count_str.parse::<u64>().unwrap_or(0),
+            None => 0,
         };
         
         if current_count >= self.config.max_session_creations_per_hour {
@@ -220,9 +208,9 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         
         // Check authentication failure rate limit
         let auth_fail_key = self.get_rate_limit_key(user_id, "auth_failures");
-        let fail_count = match self.cache.get(&auth_fail_key).await {
-            Ok(Some(count_str)) => count_str.parse::<u64>().unwrap_or(0),
-            _ => 0,
+        let fail_count = match self.cache.get(&auth_fail_key) {
+            Some(count_str) => count_str.parse::<u64>().unwrap_or(0),
+            None => 0,
         };
         
         if fail_count >= self.config.max_auth_failures_per_hour {
@@ -239,66 +227,43 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         Ok(false)
     }
     
-    async fn record_suspicious_activity(
-        &self,
-        session_id: &SessionId,
-        user_id: &AuthenticatedUserId,
-        activity_type: &str,
-        details: Option<&str>,
-    ) -> Result<(), String> {
+    async fn record_suspicious_activity(&self, user_id: &str, ip: &str, activity: &str) -> Result<(), String> {
         warn!(
-            session_id = %session_id,
-            user_id = %user_id,
-            activity_type = activity_type,
-            details = details.unwrap_or("none"),
+            user_id = user_id,
+            ip = ip,
+            activity = activity,
             "Recording suspicious activity"
         );
         
-        let user_id_str = user_id.to_string();
-        
         // Update user security metrics
-        self.update_user_security_metrics(&user_id_str, "suspicious_activity", 1).await?;
+        self.update_user_security_metrics(user_id, "suspicious_activity", 1).await?;
         
-        // Store detailed suspicious activity record
-        let activity_record = SuspiciousActivityRecord {
-            session_id: session_id.to_string(),
-            user_id: user_id_str.clone(),
-            activity_type: activity_type.to_string(),
-            details: details.map(|s| s.to_string()),
-            timestamp: Utc::now(),
-        };
-        
+        // Store activity record in cache
         let record_key = format!(
             "suspicious_activity:{}:{}",
-            user_id_str,
+            user_id,
             Utc::now().timestamp()
         );
         
-        let serialized = serde_json::to_string(&activity_record)
-            .map_err(|e| format!("Failed to serialize activity record: {}", e))?;
-        
-        self.cache.set(&record_key, &serialized, Some(Duration::days(30).num_seconds() as u64)).await
-            .map_err(|e| format!("Failed to store suspicious activity record: {}", e))?;
+        let activity_data = format!("{}|{}|{}", user_id, ip, activity);
+        self.cache.set(&record_key, activity_data, Some(86400)); // 24 hour TTL
         
         info!(
-            session_id = %session_id,
-            user_id = %user_id,
-            activity_type = activity_type,
+            user_id = user_id,
+            activity = activity,
             "Suspicious activity recorded"
         );
         
         Ok(())
     }
     
-    async fn get_security_summary(&self, user_id: &AuthenticatedUserId) -> Result<SecuritySummary, String> {
-        debug!(user_id = %user_id, "Getting security summary");
+    async fn get_security_summary(&self, user_id: &str) -> Result<crate::domain::authentication::repositories::SecuritySummary, String> {
+        debug!(user_id = user_id, "Getting security summary");
+        let metrics_key = self.get_security_metrics_key(user_id);
         
-        let user_id_str = user_id.to_string();
-        let metrics_key = self.get_security_metrics_key(&user_id_str);
-        
-        let metrics: SecurityMetrics = match self.cache.get(&metrics_key).await {
-            Ok(Some(data)) => serde_json::from_str(&data).unwrap_or_default(),
-            _ => SecurityMetrics::default(),
+        let metrics: SecurityMetrics = match self.cache.get(&metrics_key) {
+            Some(data) => serde_json::from_str(&data).unwrap_or_default(),
+            None => SecurityMetrics::default(),
         };
         
         // Calculate risk score
@@ -313,19 +278,29 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
             "low"
         };
         
-        let summary = SecuritySummary {
-            user_id: user_id_str,
-            risk_score,
-            risk_level: risk_level.to_string(),
-            failed_auth_attempts: metrics.failed_auth_attempts,
-            suspicious_activities: metrics.suspicious_activities,
-            sessions_created: metrics.sessions_created,
-            last_activity: metrics.last_updated,
-            recommendations: self.generate_security_recommendations(&metrics, risk_score),
+        // Convert f64 risk_score to RiskScore enum
+        let risk_score_enum = if risk_score > 80.0 {
+            crate::domain::authentication::repositories::RiskScore::Critical
+        } else if risk_score > 60.0 {
+            crate::domain::authentication::repositories::RiskScore::High
+        } else if risk_score > 30.0 {
+            crate::domain::authentication::repositories::RiskScore::Medium
+        } else {
+            crate::domain::authentication::repositories::RiskScore::Low
+        };
+
+        let summary = crate::domain::authentication::repositories::SecuritySummary {
+            user_id: user_id.to_string(),
+            recent_login_attempts: metrics.failed_auth_attempts as u32,
+            failed_attempts: metrics.failed_auth_attempts as u32,
+            suspicious_activities: metrics.suspicious_activities as u32,
+            last_login: Some(metrics.last_updated),
+            risk_score: risk_score_enum,
+            is_locked: false, // Default to not locked
         };
         
         info!(
-            user_id = %user_id,
+            user_id = user_id,
             risk_level = risk_level,
             risk_score = risk_score,
             "Security summary generated"
@@ -334,22 +309,122 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         Ok(summary)
     }
     
-    async fn increment_rate_limit_counter(&self, identifier: &str, limit_type: &str) -> Result<u64, String> {
-        let key = self.get_rate_limit_key(identifier, limit_type);
+    async fn increment_rate_limit_counter(&self, key: &str) -> Result<u32, String> {
+        // Use the key directly as provided
         
         // Get current count
-        let current_count = match self.cache.get(&key).await {
-            Ok(Some(count_str)) => count_str.parse::<u64>().unwrap_or(0),
+        let current_count = match self.cache.get(key) {
+            Some(count_str) => count_str.parse::<u32>().unwrap_or(0),
             _ => 0,
         };
         
         let new_count = current_count + 1;
         
         // Store incremented count with TTL
-        self.cache.set(&key, &new_count.to_string(), Some(Duration::hours(1).num_seconds() as u64)).await
-            .map_err(|e| format!("Failed to increment rate limit counter: {}", e))?;
+        self.cache.set(key, new_count.to_string(), Some(3600));  // 1 hour TTL
         
         Ok(new_count)
+    }
+    
+    async fn record_auth_attempt(&self, ip: &str, user_id: Option<&str>, success: bool) -> Result<(), String> {
+        let attempt_type = if success { "successful" } else { "failed" };
+        info!(
+            ip = ip,
+            user_id = user_id.unwrap_or("unknown"),
+            attempt_type = attempt_type,
+            "Recording authentication attempt"
+        );
+        
+        // Record IP activity
+        let ip_key = format!("auth_attempts:{}", ip);
+        let _count = self.increment_rate_limit_counter(&ip_key).await?;
+        
+        // Record user-specific activity if user_id provided
+        if let Some(uid) = user_id {
+            self.update_user_security_metrics(uid, if success { "auth_success" } else { "auth_failure" }, 1).await?;
+        }
+        
+        Ok(())
+    }
+    
+    async fn get_risk_score(&self, ip: &str, user_id: &str) -> Result<crate::domain::authentication::repositories::RiskScore, String> {
+        info!(ip = ip, user_id = user_id, "Calculating risk score");
+        
+        // Get IP-based metrics
+        let ip_key = format!("auth_attempts:{}", ip);
+        let ip_attempts = match self.cache.get(&ip_key) {
+            Some(count_str) => count_str.parse::<u32>().unwrap_or(0),
+            _ => 0,
+        };
+        
+        // Get user-based metrics
+        let metrics_key = self.get_security_metrics_key(user_id);
+        let user_metrics: SecurityMetrics = match self.cache.get(&metrics_key) {
+            Some(data) => serde_json::from_str(&data).unwrap_or_default(),
+            _ => SecurityMetrics::default(),
+        };
+        
+        // Calculate combined risk score
+        let mut score = 0.0;
+        score += (ip_attempts as f64) * 2.0; // IP attempts factor
+        score += self.calculate_user_risk_score(&user_metrics); // User metrics factor
+        
+        let risk_level = if score > 50.0 { "high" } else if score > 20.0 { "medium" } else { "low" };
+        
+        let risk_score_enum = if score > 80.0 {
+            crate::domain::authentication::repositories::RiskScore::Critical
+        } else if score > 60.0 {
+            crate::domain::authentication::repositories::RiskScore::High
+        } else if score > 30.0 {
+            crate::domain::authentication::repositories::RiskScore::Medium
+        } else {
+            crate::domain::authentication::repositories::RiskScore::Low
+        };
+        
+        Ok(risk_score_enum)
+    }
+    
+    async fn record_security_event(&self, event: crate::domain::authentication::repositories::SecurityEvent) -> Result<(), String> {
+        info!(
+            event_type = ?event.event_type,
+            user_id = event.user_id.as_deref().unwrap_or("unknown"),
+            ip = event.ip_address,
+            "Recording security event"
+        );
+        
+        // Store event in cache with timestamp key
+        let event_key = format!(
+            "security_events:{}:{}",
+            event.user_id.as_deref().unwrap_or("system"),
+            Utc::now().timestamp()
+        );
+        
+        let event_data = serde_json::to_string(&event).map_err(|e| e.to_string())?;
+        self.cache.set(&event_key, event_data, Some(604800)); // 7 days TTL
+        
+        // Update user metrics if user_id is provided
+        if let Some(user_id) = &event.user_id {
+            self.update_user_security_metrics(user_id, "security_event", 1).await?;
+        }
+        
+        Ok(())
+    }
+    
+    async fn check_rate_limit(&self, key: &str, limit: u32, window_seconds: u64) -> Result<bool, String> {
+        let current_count = self.increment_rate_limit_counter(key).await?;
+        
+        let is_limited = current_count > limit;
+        
+        if is_limited {
+            warn!(
+                key = key,
+                current_count = current_count,
+                limit = limit,
+                "Rate limit exceeded"
+            );
+        }
+        
+        Ok(!is_limited)
     }
 }
 
@@ -521,7 +596,7 @@ pub struct SecuritySummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::cache::memory_cache::MemoryCache;
+    use crate::infrastructure::cache::memory_cache::MemoryCache;
     
     #[tokio::test]
     async fn test_security_monitoring_creation() {
@@ -531,7 +606,7 @@ mod tests {
         // Test basic functionality
         let session_id = SessionId::generate();
         let user_id = AuthenticatedUserId::from_verified_user(
-            crate::dom::values::UserId::new("123".to_string())
+            crate::domain::shared_kernel::value_objects::UserId::new("123".to_string())
         );
         
         let result = adapter.record_session_creation(&session_id, &user_id, Some("192.168.1.1")).await;

@@ -1,4 +1,3 @@
-use axum::{
     response::IntoResponse,
     Json,
     Extension,
@@ -8,8 +7,8 @@ use uuid::Uuid;
 use tracing::info;
 
 use crate::core::errors::AppError;
-use crate::infra::services::{FcmService, FcmTopicService, FcmNotification};
-// use crate::infra::db::diesel::repos::UserNotificationRepository;
+use crate::infrastructure::adapters::services::{FcmService, FcmTopicService, FcmNotification};
+// use crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository;
 use crate::web::notifications::dto::*;
 use crate::web::middleware::AuthenticatedUser;
 

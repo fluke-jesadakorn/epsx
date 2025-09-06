@@ -1,3 +1,6 @@
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
 // User Profile Management handlers with Casbin authorization
 
 use axum::{
@@ -7,10 +10,10 @@ use axum::{
 };
 use std::sync::Arc;
 use serde::{ Deserialize, Serialize };
-use chrono::{ DateTime, Utc };
 use crate::web::auth::AppState;
 use crate::application::user_management::{GetUserByFirebaseUidQuery, ListUsersQuery};
 use serde_json::{ json, Value };
+use std::collections::HashMap;
 
 /// Extract session ID from headers
 fn extract_session_from_headers(
@@ -419,7 +422,7 @@ pub async fn login_handler(
         "profile": {
           "email": result.profile.email,
           "display_name": result.profile.display_name,
-          "is_admin": result.profile.is_admin,
+          "is_active": result.profile.is_active,
           "permissions": result.profile.permissions
         },
         "expires_at": result.expires_at,
@@ -484,7 +487,7 @@ pub async fn logout_handler(
 
 /// Get user claims for JWT token generation
 pub async fn get_user_claims(
-  State(_pool): State<Arc<crate::infra::db::diesel::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Getting user claims - stub implementation with request: {:?}", request);
@@ -507,7 +510,7 @@ pub async fn get_user_claims(
 
 /// Upsert user for OAuth flow
 pub async fn upsert_user(
-  State(_pool): State<Arc<crate::infra::db::diesel::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Upserting user - stub implementation with request: {:?}", request);

@@ -1,4 +1,4 @@
-// Real-time Events Bounded Context
+use crate::domain::shared_kernel::value_objects::UserId;// Real-time Events Bounded Context
 // Handles event broadcasting, connection management, and real-time communication
 // for the EPSX platform
 

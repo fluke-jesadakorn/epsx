@@ -1,3 +1,5 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
 // Authentication Session Aggregate Root
 // Manages the complete authentication lifecycle including tokens, sessions, and security
 
@@ -10,7 +12,7 @@ use super::super::events::*;
 
 /// Authentication Session Aggregate Root
 /// Encapsulates all authentication state and business rules
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthenticationSession {
     // Identity
     session_id: SessionId,
@@ -35,7 +37,28 @@ pub struct AuthenticationSession {
     
     // Aggregate infrastructure
     version: u64,
+    #[serde(skip)]
     uncommitted_events: Vec<Box<dyn crate::domain::shared_kernel::DomainEvent>>,
+}
+
+impl Clone for AuthenticationSession {
+    fn clone(&self) -> Self {
+        Self {
+            session_id: self.session_id.clone(),
+            user_id: self.user_id.clone(),
+            provider: self.provider.clone(),
+            client_info: self.client_info.clone(),
+            access_token: self.access_token.clone(),
+            refresh_token: self.refresh_token.clone(),
+            id_token: self.id_token.clone(),
+            security_context: self.security_context.clone(),
+            created_at: self.created_at,
+            last_activity: self.last_activity,
+            expires_at: self.expires_at,
+            version: self.version,
+            uncommitted_events: Vec::new(), // Empty for cloned aggregates
+        }
+    }
 }
 
 impl AuthenticationSession {
@@ -322,6 +345,38 @@ pub enum AuthenticationError {
     
     #[error("Security violation detected")]
     SecurityViolation,
+}
+
+impl From<super::super::value_objects::TokenError> for AuthenticationError {
+    fn from(error: super::super::value_objects::TokenError) -> Self {
+        use super::super::value_objects::TokenError;
+        match error {
+            TokenError::GenerationFailed(msg) => AuthenticationError::TokenGenerationFailed(msg),
+            TokenError::InvalidToken(_) => AuthenticationError::InvalidRefreshToken,
+            TokenError::Expired => AuthenticationError::RefreshTokenExpired,
+            TokenError::SignatureVerificationFailed => AuthenticationError::InvalidRefreshToken,
+        }
+    }
+}
+
+impl From<super::super::value_objects::authentication_provider::AuthProviderError> for AuthenticationError {
+    fn from(error: super::super::value_objects::authentication_provider::AuthProviderError) -> Self {
+        use super::super::value_objects::authentication_provider::AuthProviderError;
+        match error {
+            AuthProviderError::UnsupportedScope { scope, .. } => {
+                AuthenticationError::InvalidScopes(format!("Unsupported scope: {:?}", scope))
+            },
+            AuthProviderError::InvalidScopeConfiguration(msg) => {
+                AuthenticationError::InvalidScopes(msg)
+            },
+            AuthProviderError::UnsupportedAuthenticationMethod => {
+                AuthenticationError::SecurityViolation
+            },
+            AuthProviderError::InvalidConfiguration => {
+                AuthenticationError::SecurityViolation
+            },
+        }
+    }
 }
 
 /// Reasons for session termination

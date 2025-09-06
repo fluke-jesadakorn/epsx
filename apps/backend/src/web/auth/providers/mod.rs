@@ -1,12 +1,15 @@
-// Multi-Provider Authentication System
-use chrono::{DateTime, Utc};
-// Provider abstraction layer for handling different authentication providers
-
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::authentication::{AuthenticatedUserId, Scope, ClientInformation};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-use crate::dom::values::{UserId, Email};
+// Multi-Provider Authentication System
+// Provider abstraction layer for handling different authentication providers
+
+use serde::{Serialize, Deserialize};
+
+use crate::domain::shared_kernel::value_objects::Email;
 use crate::core::types::AppError;
 
 pub mod firebase_provider;

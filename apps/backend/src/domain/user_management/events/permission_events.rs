@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::{DomainEvent, domain_event::EventMetadata};
-use crate::domain::user_management::value_objects::{UserId, Permission};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::value_objects::Permission;
 
 /// Event raised when a permission is granted to a user
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
 // Error recovery strategies and retry logic implementation
 
-use async_trait::async_trait;
 use std::time::Duration;
 use tokio::time::sleep;
+use async_trait::async_trait;
 
 use crate::core::errors::{
   AppError,

@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
 
 /// Payment ID Value Object
 /// Unique identifier for payments with validation and formatting

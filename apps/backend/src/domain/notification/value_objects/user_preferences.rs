@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
-use std::collections::HashSet;
-use chrono::{NaiveTime, Utc, DateTime, TimeZone};
-use crate::infra::db::diesel::types::{NotificationType, DeliveryChannel as DeliveryChannelType};
+use std::collections::{HashSet, HashMap};
+use chrono::{NaiveTime, Utc, DateTime};
+use serde::{Deserialize, Serialize};
+use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, DeliveryChannel as DeliveryChannelType};
 
 /// User Notification Preferences Value Object
 /// Encapsulates user's notification preferences, quiet hours, and channel settings
@@ -226,9 +226,11 @@ impl ChannelSettings {
     pub fn is_channel_enabled(&self, channel: &DeliveryChannelType) -> bool {
         match channel {
             DeliveryChannelType::FcmPush => self.fcm_push_enabled,
+            DeliveryChannelType::Push => self.fcm_push_enabled, // Map to FCM push
             DeliveryChannelType::InApp => self.in_app_enabled,
             DeliveryChannelType::Email => self.email_enabled,
             DeliveryChannelType::Sms => self.sms_enabled,
+            DeliveryChannelType::SMS => self.sms_enabled, // Map to SMS
         }
     }
 
@@ -236,9 +238,11 @@ impl ChannelSettings {
     pub fn enable_channel(&mut self, channel: &DeliveryChannelType) {
         match channel {
             DeliveryChannelType::FcmPush => self.fcm_push_enabled = true,
+            DeliveryChannelType::Push => self.fcm_push_enabled = true, // Map to FCM push
             DeliveryChannelType::InApp => self.in_app_enabled = true,
             DeliveryChannelType::Email => self.email_enabled = true,
             DeliveryChannelType::Sms => self.sms_enabled = true,
+            DeliveryChannelType::SMS => self.sms_enabled = true, // Map to SMS
         }
     }
 
@@ -246,9 +250,11 @@ impl ChannelSettings {
     pub fn disable_channel(&mut self, channel: &DeliveryChannelType) {
         match channel {
             DeliveryChannelType::FcmPush => self.fcm_push_enabled = false,
+            DeliveryChannelType::Push => self.fcm_push_enabled = false, // Map to FCM push
             DeliveryChannelType::InApp => self.in_app_enabled = false,
             DeliveryChannelType::Email => self.email_enabled = false,
             DeliveryChannelType::Sms => self.sms_enabled = false,
+            DeliveryChannelType::SMS => self.sms_enabled = false, // Map to SMS
         }
     }
 
@@ -298,6 +304,11 @@ impl ContentPreferences {
             NotificationType::Security => self.security_notifications,
             NotificationType::Feature => self.feature_notifications,
             NotificationType::Marketing => self.marketing_notifications,
+            NotificationType::Info => self.system_notifications,
+            NotificationType::Warning => self.system_notifications,
+            NotificationType::Error => self.system_notifications,
+            NotificationType::Success => self.system_notifications,
+            NotificationType::General => self.system_notifications,
         }
     }
 
@@ -309,6 +320,11 @@ impl ContentPreferences {
             NotificationType::Security => self.security_notifications = true,
             NotificationType::Feature => self.feature_notifications = true,
             NotificationType::Marketing => self.marketing_notifications = true,
+            NotificationType::Info => self.system_notifications = true,
+            NotificationType::Warning => self.system_notifications = true,
+            NotificationType::Error => self.system_notifications = true,
+            NotificationType::Success => self.system_notifications = true,
+            NotificationType::General => self.system_notifications = true,
         }
     }
 
@@ -320,6 +336,11 @@ impl ContentPreferences {
             NotificationType::Security => self.security_notifications = false,
             NotificationType::Feature => self.feature_notifications = false,
             NotificationType::Marketing => self.marketing_notifications = false,
+            NotificationType::Info => self.system_notifications = false,
+            NotificationType::Warning => self.system_notifications = false,
+            NotificationType::Error => self.system_notifications = false,
+            NotificationType::Success => self.system_notifications = false,
+            NotificationType::General => self.system_notifications = false,
         }
     }
 

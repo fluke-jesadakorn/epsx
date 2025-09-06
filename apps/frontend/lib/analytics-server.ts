@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt';
 
 export interface EPSQueryParams {
   page: number;
@@ -79,11 +80,21 @@ export const getAnalyticsData = cache(async (params: EPSQueryParams): Promise<Ca
   const url = `${baseURL}/api/v1/analytics/eps-rankings?${queryString.toString()}`;
 
   try {
+    // Get access token for authenticated requests
+    const accessToken = await getOIDCAccessTokenFromCookies();
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if we have an access token
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       // Enable caching for 30 seconds
       next: { revalidate: 30 }
     });
@@ -123,11 +134,25 @@ export const getFilterOptions = cache(async (): Promise<FilterOptions> => {
   const baseURL = process.env.BACKEND_URL || 'http://localhost:8080';
   
   try {
+    // Get access token for authenticated requests
+    const accessToken = await getOIDCAccessTokenFromCookies();
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if we have an access token
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     const [countriesResponse, sectorsResponse] = await Promise.all([
       fetch(`${baseURL}/api/v1/analytics/eps-rankings/countries`, {
+        headers,
         next: { revalidate: 300 } // 5 minutes
       }),
       fetch(`${baseURL}/api/v1/analytics/eps-rankings/sectors`, {
+        headers,
         next: { revalidate: 300 } // 5 minutes
       })
     ]);

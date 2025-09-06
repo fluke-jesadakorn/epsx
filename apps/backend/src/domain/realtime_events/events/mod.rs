@@ -1,6 +1,7 @@
-// Real-time Events Domain Events
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};// Real-time Events Domain Events
 
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 

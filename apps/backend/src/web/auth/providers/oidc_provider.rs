@@ -1,14 +1,18 @@
-// OpenID Connect Provider
+use async_trait::async_trait;
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::authentication::{AuthenticatedUserId, Scope, ClientInformation};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+
+// OpenID Connect Provider
 // Handles custom OIDC JWT tokens issued by our backend
 
-use async_trait::async_trait;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
 use crate::config::env::get_env_var;
 
 use super::{AuthProvider, ProviderType, UserClaims, TokenPair, AuthProviderError};
-use crate::dom::values::{UserId, Email};
+use crate::domain::shared_kernel::value_objects::Email;
 
 /// OIDC JWT claims structure for our backend-issued tokens
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,7 +116,8 @@ impl AuthProvider for OIDCProvider {
         let claims = self.parse_token(token).await?;
         
         // Parse user_id from sub claim
-        let user_id = UserId::from_string(claims.sub.clone());
+        let user_id = UserId::from_string(claims.sub.clone())
+            .map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid user_id: {}", e)))?;
         
         // Parse email
         let email = Email::new(claims.email.clone())

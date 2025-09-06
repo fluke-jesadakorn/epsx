@@ -8,6 +8,8 @@ pub mod search_users;
 pub mod list_users;
 pub mod get_session;
 pub mod get_user_sessions;
+pub mod list_user_sessions;
+pub mod get_token_info;
 
 pub use get_user::{GetUserQuery, GetUserResponse};
 pub use get_user_by_firebase_uid::{GetUserByFirebaseUidQuery, GetUserByFirebaseUidResponse};
@@ -16,3 +18,5 @@ pub use search_users::{SearchUsersQuery, SearchUsersResponse};
 pub use list_users::{ListUsersQuery, ListUsersResponse, UserSummary};
 pub use get_session::{GetSessionQuery, GetSessionResponse};
 pub use get_user_sessions::{GetUserSessionsQuery, GetUserSessionsResponse};
+pub use list_user_sessions::{ListUserSessionsQuery, ListUserSessionsResponse, UserSessionInfo};
+pub use get_token_info::{GetTokenInfoQuery, GetTokenInfoResponse, TokenInfo};

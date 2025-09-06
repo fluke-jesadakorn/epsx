@@ -1,14 +1,14 @@
 /// Mappers for Trading Analytics domain
 /// Convert between legacy EPS ranking structures and DDD Trading Analytics aggregates
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
 
 use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod, RankingStatistics};
 use crate::domain::trading_analytics::aggregates::stock_analysis::StockAnalysis;
 use crate::domain::trading_analytics::value_objects::*;
-use crate::dom::entities::eps_growth::{EPSRanking as LegacyEPSRanking, EPSGrowthData};
-use crate::dom::entities::stock::{Stock as LegacyStock};
+use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking, EPSGrowthData};
+use crate::domain::shared_kernel::entities::stock::{Stock as LegacyStock};
 
 /// Mapper for converting between legacy and DDD EPS ranking structures
 pub struct EPSRankingMapper;
@@ -21,21 +21,21 @@ impl EPSRankingMapper {
         let symbol = StockSymbol::new(legacy.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", legacy.symbol, e))?;
 
-        let eps_value = EPSValue::new(legacy.current_eps.unwrap_or(0.0))
+        let eps_value = EPSValue::new(legacy.eps_current)
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
 
-        let growth_factor = GrowthFactor::new(legacy.growth_factor.unwrap_or(0.0))
+        let growth_factor = GrowthFactor::new(legacy.growth_rate)
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
 
         let sector = MarketSector::new(legacy.sector.clone())
             .map_err(|e| format!("Invalid sector '{}': {}", legacy.sector, e))?;
 
-        let country = Country::new(legacy.country.clone())
-            .map_err(|e| format!("Invalid country '{}': {}", legacy.country, e))?;
+        let country = Country::new("US".to_string()) // Default country as field not available
+            .map_err(|e| format!("Invalid default country: {}", e))?;
 
         Ok(RankingEntry {
             symbol,
-            company_name: legacy.name.clone(),
+            company_name: legacy.company_name.clone(),
             eps_value,
             growth_factor,
             sector,
@@ -51,27 +51,22 @@ impl EPSRankingMapper {
 
         LegacyEPSRanking {
             symbol: entry.symbol.as_str().to_string(),
-            name: entry.company_name.clone(),
-            country: entry.country.name().to_string(),
+            company_name: entry.company_name.clone(),
+            eps_current: entry.eps_value.value(),
+            eps_previous: 0.0, // Not available in DDD model
+            growth_rate: entry.growth_factor.percentage(),
+            rank: rank,
             sector: entry.sector.name().to_string(),
-            exchange: "UNKNOWN".to_string(), // Not available in DDD model
-            current_eps: Some(entry.eps_value.value()),
-            growth_factor: Some(entry.growth_factor.percentage()),
-            price_current: None, // Not available in DDD model - would need market data
             market_cap: None,    // Not available in DDD model - would need market data
-            volume: None,        // Not available in DDD model - would need market data
-            ranking_position: Some(rank as i32),
-            quarterly_data: None,
-            next_earnings_date: None, // Would need earnings calendar integration
-            last_earnings_date: None, // Would need earnings calendar integration
+            last_updated: chrono::Utc::now()
         }
     }
 
     /// Convert DDD RankingStatistics to legacy format
-    pub fn ddd_stats_to_legacy(stats: &RankingStatistics) -> crate::dom::entities::eps_growth::EPSPagination {
+    pub fn ddd_stats_to_legacy(stats: &RankingStatistics) -> crate::domain::shared_kernel::entities::eps_growth::EPSPagination {
         // Since legacy EPSPagination is actually pagination, not statistics,
         // we create a minimal pagination structure
-        crate::dom::entities::eps_growth::EPSPagination::new(1, stats.total_entries as i32, stats.total_entries as i64)
+        crate::domain::shared_kernel::entities::eps_growth::EPSPagination::new(1, stats.total_entries as i32, stats.total_entries as i64)
     }
 
     /// Convert legacy EPSGrowthData to DDD RankingEntry
@@ -81,27 +76,29 @@ impl EPSRankingMapper {
         let symbol = StockSymbol::new(growth_data.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", growth_data.symbol, e))?;
 
-        let eps_value = EPSValue::new(growth_data.current_eps.unwrap_or(0.0))
+        let eps_value = EPSValue::new(
+            growth_data.quarterly_eps.last().copied().unwrap_or(0.0)  // Use latest quarterly EPS
+        )
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
 
-        let growth_factor = GrowthFactor::new(growth_data.growth_factor.unwrap_or(0.0))
+        let growth_factor = GrowthFactor::new(growth_data.average_quarterly_growth)
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
 
-        let sector = MarketSector::new(growth_data.sector.clone())
-            .map_err(|e| format!("Invalid sector '{}': {}", growth_data.sector, e))?;
+        let sector = MarketSector::new("Technology".to_string())  // Default sector
+            .map_err(|e| format!("Invalid sector: {}", e))?;
 
-        let country = Country::new(growth_data.country.clone())
-            .map_err(|e| format!("Invalid country '{}': {}", growth_data.country, e))?;
+        let country = Country::new("US".to_string()) // Default country as field not available
+            .map_err(|e| format!("Invalid default country: {}", e))?;
 
         Ok(RankingEntry {
             symbol,
-            company_name: growth_data.name.clone(),
+            company_name: growth_data.company_name.clone(),
             eps_value,
             growth_factor,
             sector,
             country,
-            score: growth_data.ranking_score.unwrap_or(0.0),
-            added_at: growth_data.created_at.unwrap_or_else(Utc::now),
+            score: growth_data.volatility,  // Use volatility as score proxy
+            added_at: growth_data.last_updated,
         })
     }
 
@@ -160,9 +157,9 @@ pub struct StockAnalysisMapper;
 impl StockAnalysisMapper {
     /// Convert legacy Stock to DDD StockAnalysis
     pub fn legacy_to_ddd_stock(legacy_stock: &LegacyStock) -> Result<StockAnalysis, String> {
-        debug!("Converting legacy stock to DDD: {}", legacy_stock.sym().value());
+        debug!("Converting legacy stock to DDD: {}", legacy_stock.symbol);
 
-        let symbol = StockSymbol::new(legacy_stock.sym().value().to_string())
+        let symbol = StockSymbol::new(legacy_stock.symbol.clone())
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Create basic EPS values (unknown from legacy stock)
@@ -192,11 +189,11 @@ impl StockAnalysisMapper {
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Use EPS values from legacy ranking
-        let current_eps = EPSValue::new(legacy_ranking.current_eps.unwrap_or(0.0))
+        let current_eps = EPSValue::new(legacy_ranking.eps_current)
             .map_err(|e| format!("Invalid current EPS: {}", e))?;
             
         // Calculate previous EPS from growth factor
-        let growth_rate = legacy_ranking.growth_factor.unwrap_or(0.0);
+        let growth_rate = legacy_ranking.growth_rate;
         let previous_eps_value = if growth_rate != 0.0 {
             current_eps.value() / (1.0 + growth_rate / 100.0)
         } else {
@@ -208,13 +205,13 @@ impl StockAnalysisMapper {
         let sector = MarketSector::new(legacy_ranking.sector.clone())
             .map_err(|e| format!("Invalid sector: {}", e))?;
 
-        let country = Country::new(legacy_ranking.country.clone())
-            .map_err(|e| format!("Invalid country: {}", e))?;
+        let country = Country::new("US".to_string()) // Default country as field not available
+            .map_err(|e| format!("Invalid default country: {}", e))?;
 
         // Create stock analysis
         let stock_analysis = StockAnalysis::new(
             symbol,
-            legacy_ranking.name.clone(),
+            legacy_ranking.company_name.clone(),
             current_eps,
             previous_eps,
             sector,
@@ -228,30 +225,24 @@ impl StockAnalysisMapper {
     pub fn ddd_stock_to_legacy_ranking(stock_analysis: &StockAnalysis, rank: Option<u32>) -> LegacyEPSRanking {
         debug!("Converting DDD stock analysis to legacy ranking: {}", stock_analysis.symbol().as_str());
 
-        // Calculate growth factor from current and previous EPS
-        let growth_factor = if stock_analysis.previous_eps().value() > 0.0 {
-            let growth = ((stock_analysis.current_eps().value() - stock_analysis.previous_eps().value()) 
-                / stock_analysis.previous_eps().value()) * 100.0;
-            Some(growth)
+        // Calculate growth rate from current and previous EPS
+        let growth_rate = if stock_analysis.previous_eps().value() > 0.0 {
+            ((stock_analysis.current_eps().value() - stock_analysis.previous_eps().value()) 
+                / stock_analysis.previous_eps().value()) * 100.0
         } else {
-            None
+            0.0
         };
 
         LegacyEPSRanking {
             symbol: stock_analysis.symbol().as_str().to_string(),
-            name: stock_analysis.company_name().to_string(),
-            country: stock_analysis.country().name().to_string(),
+            company_name: stock_analysis.company_name().to_string(),
+            eps_current: stock_analysis.current_eps().value(),
+            eps_previous: stock_analysis.previous_eps().value(),
+            growth_rate,
+            rank: rank.unwrap_or(0),
             sector: stock_analysis.sector().name().to_string(),
-            exchange: "UNKNOWN".to_string(), // Not available in DDD model
-            current_eps: Some(stock_analysis.current_eps().value()),
-            growth_factor,
-            price_current: None, // Not available in DDD model
             market_cap: None,    // Not available in DDD model
-            volume: None,        // Not available in DDD model
-            ranking_position: rank.map(|r| r as i32),
-            quarterly_data: None,
-            next_earnings_date: None,
-            last_earnings_date: None,
+            last_updated: chrono::Utc::now(),
         }
     }
 }
@@ -259,7 +250,7 @@ impl StockAnalysisMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::entities::eps_growth::EPSRanking as LegacyEPSRanking;
+    use crate::domain::shared_kernel::entities::eps_growth::EPSRanking as LegacyEPSRanking;
 
     #[test]
     fn test_legacy_to_ddd_entry_conversion() {

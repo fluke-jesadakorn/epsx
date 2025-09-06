@@ -1,20 +1,26 @@
+use async_trait::async_trait;
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use rust_decimal::Decimal;
+use tracing::{info, warn, error};
+use std::sync::Arc;
+
 // Payment Service Integration
 // Orchestrates Payment bounded context with external payment systems
 // Maintains API compatibility while using DDD internally
 
-use async_trait::async_trait;
-use std::sync::Arc;
-use tracing::{info, warn, error};
-
 use crate::domain::payment::{
     Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentStatus,
-    PaymentRepositoryPort, TransactionRepositoryPort, CryptoAddressRepositoryPort,
-    PaymentMethodRepositoryPort, PaymentStats
+    repository_ports::{PaymentRepositoryPort, TransactionRepositoryPort, CryptoAddressRepositoryPort, PaymentMethodRepositoryPort},
+    value_objects::{Currency, Network, TransactionHash, CryptoAddress}
 };
-use crate::domain::user_management::value_objects::UserId;
-use crate::application::payment::commands::{
-    CreatePaymentCommand, CreatePaymentCommandHandler, CreatePaymentResponse
+use crate::application::payment::{
+    commands::{CreatePaymentCommand, CreatePaymentCommandHandler, CreatePaymentResponse}
 };
+use crate::application::shared::CommandHandler;
 
 /// Integration service that orchestrates DDD payment components
 pub struct PaymentServiceIntegration {
@@ -64,20 +70,18 @@ impl PaymentServiceIntegration {
     ) -> Result<PaymentCreationResult, PaymentError> {
         info!(user_id = %user_id, amount = %amount.amount(), "Creating payment via DDD");
         
-        // Get payment method configuration
-        let method_config = self.payment_method_repository
-            .get_method_config(&method_type)
-            .await
-            .map_err(PaymentError::Repository)?
-            .ok_or_else(|| PaymentError::UnsupportedMethod(method_type.clone()))?;
+        // For now, use hardcoded currency and network since PaymentMethodConfig doesn't contain these fields
+        // In production, this would be derived from the method_type or passed as parameters
+        let currency = Currency::Usdt; // Default currency
+        let network = Some(Network::Ethereum); // Default network for crypto
         
         // Create payment method
         let method_type_enum = method_type.parse().map_err(|_| PaymentError::UnsupportedMethod(method_type))?;
         let payment_method = PaymentMethod::new(
             method_type_enum,
-            method_config.currency.clone(),
-            method_config.network.clone(),
-        ).map_err(PaymentError::InvalidMethod)?;
+            currency,
+            network,
+        ).map_err(|e| PaymentError::InvalidMethod(format!("{:?}", e)))?;
         
         // Create command
         let mut command = CreatePaymentCommand::new(user_id, amount, payment_method);
@@ -92,9 +96,9 @@ impl PaymentServiceIntegration {
         
         // Execute command
         let response = self.create_payment_handler
-            .as_ref().handle(command)
+            .handle(command)
             .await
-            .map_err(PaymentError::CommandExecution)?;
+            .map_err(|e| PaymentError::CommandExecution(format!("{:?}", e)))?;
         
         Ok(PaymentCreationResult {
             payment_id: response.payment_id.to_string(),
@@ -121,7 +125,7 @@ impl PaymentServiceIntegration {
     ) -> Result<PaymentDetailsResult, PaymentError> {
         info!(payment_id = payment_id, user_id = %user_id, "Getting payment details via DDD");
         
-        let payment_id = PaymentId::from_string(payment_id.to_string())
+        let payment_id = PaymentId::from_string(payment_id)
             .map_err(|e| PaymentError::InvalidId(e.to_string()))?;
         
         // Find payment
@@ -257,7 +261,7 @@ impl PaymentServiceIntegration {
     ) -> Result<(), PaymentError> {
         info!(payment_id = payment_id, user_id = %user_id, "Cancelling payment via DDD");
         
-        let payment_id = PaymentId::from_string(payment_id.to_string())
+        let payment_id = PaymentId::from_string(payment_id)
             .map_err(|e| PaymentError::InvalidId(e.to_string()))?;
         
         // Find payment
@@ -273,8 +277,8 @@ impl PaymentServiceIntegration {
         }
         
         // Cancel payment
-        payment.cancel(reason)
-            .map_err(PaymentError::DomainError)?;
+        payment.cancel(reason.unwrap_or_else(|| "User cancellation".to_string()))
+            .map_err(|e| PaymentError::DomainError(format!("{:?}", e)))?;
         
         // Save updated payment
         self.payment_repository
@@ -282,7 +286,7 @@ impl PaymentServiceIntegration {
             .await
             .map_err(PaymentError::Repository)?;
         
-        info!(payment_id = payment_id, "Payment cancelled successfully");
+        info!(payment_id = %payment_id, "Payment cancelled successfully");
         Ok(())
     }
 }

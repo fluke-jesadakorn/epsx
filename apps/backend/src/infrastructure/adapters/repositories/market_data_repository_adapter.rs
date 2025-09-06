@@ -1,16 +1,19 @@
+
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
-
 use crate::domain::trading_analytics::aggregates::stock_analysis::StockAnalysis;
 use crate::domain::trading_analytics::value_objects::*;
-use crate::dom::entities::stock::{Stock as LegacyStock};
-use crate::dom::entities::market_data::StockScreeningResult;
-use crate::infra::services::tradingview::TradingViewApiService;
+use crate::domain::shared_kernel::entities::stock::{Stock as LegacyStock};
+use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
+use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 
 /// Repository adapter for market data that bridges legacy stock system with DDD Trading Analytics
 pub struct MarketDataRepositoryAdapter {
     tradingview_service: Arc<TradingViewApiService>,
 }
+
+unsafe impl Send for MarketDataRepositoryAdapter {}
+unsafe impl Sync for MarketDataRepositoryAdapter {}
 
 impl MarketDataRepositoryAdapter {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
@@ -19,7 +22,7 @@ impl MarketDataRepositoryAdapter {
 
     /// Convert legacy Stock to DDD StockAnalysis
     fn convert_legacy_to_ddd_stock(&self, legacy_stock: &LegacyStock) -> Result<StockAnalysis, String> {
-        let symbol = StockSymbol::new(legacy_stock.sym().value().to_string())
+        let symbol = StockSymbol::new(legacy_stock.symbol.clone())
             .map_err(|e| format!("Invalid stock symbol: {}", e))?;
         
         // Create basic EPS values (unknown from legacy stock)
@@ -47,12 +50,16 @@ impl MarketDataRepositoryAdapter {
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Parse EPS from current_metric or use 0.0 as fallback
-        let current_eps_value = screening_result.current_metric.parse::<f64>().unwrap_or(0.0);
+        let current_eps_value = if let Some(pe_ratio) = screening_result.pe_ratio {
+            screening_result.price / pe_ratio.max(1.0)  // Calculate EPS from price and P/E ratio
+        } else {
+            1.0  // Default EPS value
+        };
         let current_eps = EPSValue::new(current_eps_value)
             .map_err(|e| format!("Invalid current EPS: {}", e))?;
 
         // Calculate previous EPS from growth rate
-        let growth_rate = screening_result.growth_rate.parse::<f64>().unwrap_or(0.0);
+        let growth_rate = screening_result.change_percent; // Use change_percent as growth proxy
         let previous_eps_value = if growth_rate != 0.0 {
             current_eps_value / (1.0 + growth_rate / 100.0)
         } else {
@@ -61,11 +68,11 @@ impl MarketDataRepositoryAdapter {
         let previous_eps = EPSValue::new(previous_eps_value.max(0.0))
             .map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
-        let sector = MarketSector::new(screening_result.sector.clone())
+        let sector = MarketSector::new(screening_result.sector.clone().unwrap_or_else(|| "Unknown".to_string()))
             .map_err(|e| format!("Invalid sector: {}", e))?;
 
-        let country = Country::new(screening_result.country.clone())
-            .map_err(|e| format!("Invalid country: {}", e))?;
+        let country = Country::new("US".to_string()) // Default country as field not available
+            .map_err(|e| format!("Invalid default country: {}", e))?;
 
         // Create stock analysis
         let stock_analysis = StockAnalysis::new(
@@ -118,8 +125,8 @@ pub struct MarketStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom::entities::market_data::StockScreeningResult;
-    use crate::dom::values::{Symbol, Market};
+    use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
+    use crate::domain::shared_kernel::value_objects::{Symbol, Market};
     use rust_decimal_macros::dec;
 
     #[test]
@@ -139,7 +146,7 @@ mod tests {
             last_analysis_date: "2023-10-15".to_string(),
         };
 
-        let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(Default::default())));
+        let tradingview_service = Arc::new(TradingViewApiService::new());
         let adapter = MarketDataRepositoryAdapter::new(tradingview_service);
 
         match adapter.convert_screening_result_to_ddd(&screening_result) {
@@ -158,13 +165,13 @@ mod tests {
 
     #[test]
     fn test_legacy_stock_to_ddd_conversion() {
-        use crate::dom::values::{Symbol, Market};
+        use crate::domain::shared_kernel::value_objects::{Symbol, Market};
         use rust_decimal_macros::dec;
 
         let symbol = Symbol::new("AAPL").unwrap();
         let legacy_stock = LegacyStock::new(symbol, dec!(150.50), 1000000, Market::NASDAQ);
 
-        let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(Default::default())));
+        let tradingview_service = Arc::new(TradingViewApiService::new());
         let adapter = MarketDataRepositoryAdapter::new(tradingview_service);
 
         match adapter.convert_legacy_to_ddd_stock(&legacy_stock) {

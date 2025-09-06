@@ -1,10 +1,16 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use std::fmt::{self, Display};
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
-/// Re-export Currency and Network from existing types
-pub use crate::dom::values::payments::{Currency, Network};
+/// Re-export Currency and Network from shared kernel
+pub use crate::domain::shared_kernel::value_objects::Currency as SharedCurrency;
+pub use crate::domain::shared_kernel::value_objects::Network as SharedNetwork;
+
+// For compatibility, also re-export with original names
+pub use SharedCurrency as Currency;
+pub use SharedNetwork as Network;
 
 /// Payment Amount Value Object
 /// Represents an amount with currency and validation rules
@@ -133,6 +139,11 @@ impl PaymentAmount {
             Currency::BTC => "0.001".parse().unwrap(), // 0.001 BTC minimum
             Currency::BNB => "0.1".parse().unwrap(),   // 0.1 BNB minimum
             Currency::TRX => Decimal::from(100),       // 100 TRX minimum
+            Currency::Bitcoin => "0.001".parse().unwrap(), // 0.001 BTC minimum (alias)
+            Currency::Ethereum => "0.01".parse().unwrap(),  // 0.01 ETH minimum (alias)
+            Currency::Usdt => Decimal::from(10),       // $10 minimum (alias)
+            Currency::Usdc => Decimal::from(10),       // $10 minimum (alias)
+            Currency::Bnb => "0.1".parse().unwrap(),   // 0.1 BNB minimum (alias)
         }
     }
 
@@ -146,6 +157,11 @@ impl PaymentAmount {
             Currency::BTC => Decimal::from(100),          // 100 BTC maximum
             Currency::BNB => Decimal::from(10_000),       // 10k BNB maximum
             Currency::TRX => Decimal::from(10_000_000),   // 10M TRX maximum
+            Currency::Bitcoin => Decimal::from(100),      // 100 BTC maximum (alias)
+            Currency::Ethereum => Decimal::from(1000),    // 1000 ETH maximum (alias)
+            Currency::Usdt => Decimal::from(1_000_000),   // $1M maximum (alias)
+            Currency::Usdc => Decimal::from(1_000_000),   // $1M maximum (alias)
+            Currency::Bnb => Decimal::from(10_000),       // 10k BNB maximum (alias)
         }
     }
 
@@ -202,6 +218,10 @@ impl PaymentAmount {
             Currency::BTC => "0.015".parse::<Decimal>().unwrap(), // 1.5% for BTC
             Currency::BNB => "0.02".parse::<Decimal>().unwrap(),  // 2% for BNB
             Currency::TRX => "0.03".parse::<Decimal>().unwrap(),  // 3% for TRX
+            Currency::Bitcoin => "0.015".parse::<Decimal>().unwrap(), // 1.5% for BTC (alias)
+            Currency::Ethereum => "0.025".parse::<Decimal>().unwrap(), // 2.5% for ETH (alias)
+            Currency::Usdt | Currency::Usdc => "0.02".parse::<Decimal>().unwrap(), // 2% for stablecoins (aliases)
+            Currency::Bnb => "0.02".parse::<Decimal>().unwrap(),  // 2% for BNB (alias)
         };
 
         let fee_amount = self.amount * fee_rate;

@@ -1,10 +1,12 @@
-// Session History Value Object
+use crate::domain::authentication::AuthenticatedUserId;
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::shared_kernel::value_objects::SessionId;
+use chrono::{DateTime, Utc};// Session History Value Object
 // Maintains historical record of session lifecycle events
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 
-use crate::domain::authentication::{SessionId, AuthenticatedUserId};
 
 /// Complete session history for audit and analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]

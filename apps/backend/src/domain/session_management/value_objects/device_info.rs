@@ -1,9 +1,8 @@
-// Device Info Value Object
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};// Device Info Value Object
 // Tracks device information for session security and analytics
 
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 /// Device information associated with a session
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +154,7 @@ impl DeviceInfo {
             score += 5.0;
         }
         
-        self.trust_score = score.clamp(0.0, 100.0);
+        self.trust_score = (score as f64).clamp(0.0, 100.0);
     }
 }
 

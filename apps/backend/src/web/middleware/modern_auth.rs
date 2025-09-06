@@ -17,7 +17,7 @@ use crate::auth::jwt::{
     derive_accessible_platforms_from_permissions,
     derive_primary_platform_from_permissions
 };
-use crate::dom::values::UserId;
+use crate::domain::shared_kernel::value_objects::UserId;
 use crate::config::env::get_env_var;
 
 /// HMAC256 JWT Claims for Admin Frontend (matches admin frontend token format)
@@ -485,20 +485,14 @@ impl AuthCtx {
     }
     
     /// Create AuthCtx from JWT token with full permission fetching
-    pub async fn from_jwt_token(token: &str, permission_service: &crate::app::services::PermissionApplicationService) -> Result<Self, StatusCode> {
+    pub async fn from_jwt_token(token: &str, permission_service: &crate::application::services::PermissionApplicationService) -> Result<Self, StatusCode> {
         use crate::auth::jwt::JWT;
         
-        // Extract user from JWT
-        let user = match JWT.extract_user(token).await {
-            Ok(user) => user,
+        // Extract user and permissions from JWT
+        let (user, permissions) = match JWT.decode_with_permissions(token).await {
+            Ok((user, permissions)) => (user, permissions),
             Err(_) => return Err(StatusCode::UNAUTHORIZED),
         };
-        
-        // Fetch permissions from separate table using user.id (same as firebase_uid)
-        let permissions = permission_service
-            .get_user_permissions(&user.id)
-            .await
-            .unwrap_or_default();
             
         // Apply timestamp validation to filter expired permissions
         use crate::auth::permissions::filter_valid_permissions;

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 // Cache Management for EPS Analytics
 // Focused module handling caching logic and cache-related endpoints
 
@@ -11,9 +13,9 @@ use std::hash::{Hash, Hasher};
 use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
-use crate::dom::entities::eps_growth::EPSRanking;
-use crate::dom::services::eps_cache_service::EPSCacheService;
-use crate::infra::cache::{Cache, CacheExt};
+use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
+use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
+use crate::infrastructure::cache::{Cache, CacheExt};
 use super::{
     dto::*, 
     enhancement::enhance_with_websocket_data,
@@ -40,9 +42,11 @@ pub async fn get_unified_analytics_rankings_cached(
     debug!("Generated cache key: {}", cache_key);
     
     // Check cache first (1-hour TTL)
-    if let Ok(Some(cached_response)) = cache.get::<CardDashboardResponse>(&cache_key).await {
-        info!("Cache hit for analytics rankings - returning cached data");
-        return Ok(Json(cached_response));
+    if let Some(cached_data) = cache.get(&cache_key) {
+        if let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(&cached_data) {
+            info!("Cache hit for analytics rankings - returning cached data");
+            return Ok(Json(cached_response));
+        }
     }
     
     debug!("Cache miss for analytics rankings - fetching fresh data");
@@ -55,14 +59,12 @@ pub async fn get_unified_analytics_rankings_cached(
     let start_time = std::time::Instant::now();
     
     // Convert query params to DDD adapter params
-    let adapter_params = crate::dom::services::eps_ranking_service::EPSRankingParams {
+    let adapter_params = crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingParams {
         country: params.country.clone(),
         sector: params.sector.clone(),
         sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
-        page: page as i32,
-        limit: (skip + limit) as i32, // Get enough data for pagination
-        min_eps: params.min_eps,
-        min_growth: params.min_growth,
+        market_cap_min: None, // Would be mapped from params if available
+        limit: (skip + limit) as u32, // Get enough data for pagination
     };
 
     // Get rankings data from DDD adapter (internally uses legacy system for now)
@@ -173,10 +175,8 @@ pub async fn get_unified_analytics_rankings_cached(
           duration, data_len);
 
     // Store response in cache with 1-hour TTL (3600 seconds)
-    if let Err(e) = cache.set(&cache_key, &card_response, Some(3600)).await {
-        warn!("Failed to store analytics rankings in cache: {}", e);
-        // Don't fail the request if cache storage fails
-    } else {
+    if let Ok(serialized_response) = serde_json::to_string(&card_response) {
+        cache.set(&cache_key, serialized_response, Some(3600));
         debug!("Successfully cached analytics rankings with key: {}", cache_key);
     }
 
@@ -211,12 +211,13 @@ pub async fn force_cache_refresh(
     info!("Forcing cache refresh");
     
     let start_time = std::time::Instant::now();
-    let refreshed_count = cache_service.refresh_cache().await?;
+    let refreshed_count = cache_service.refresh_cache().await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, e))?;
     let duration = start_time.elapsed();
     
     let response = CacheRefreshResponse {
         success: true,
-        refreshed_entries: refreshed_count,
+        refreshed_entries: refreshed_count as usize,
         duration_ms: duration.as_millis() as u64,
         message: format!("Cache refreshed with {} entries", refreshed_count),
         timestamp: chrono::Utc::now(),

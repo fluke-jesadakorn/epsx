@@ -1,3 +1,4 @@
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 
@@ -9,9 +10,6 @@ use crate::domain::shared_kernel::{
     aggregate_root::AggregateBase
 };
 
-use crate::domain::user_management::value_objects::{
-    UserId, SessionId
-};
 
 use crate::domain::user_management::events::{
     SessionCreatedEvent,

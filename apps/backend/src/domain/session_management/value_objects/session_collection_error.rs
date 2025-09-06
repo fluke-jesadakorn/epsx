@@ -1,8 +1,7 @@
-// Session Collection Error
+use chrono::{DateTime, Utc};// Session Collection Error
 // Defines errors that can occur when working with session collections
 
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
 
 /// Errors that can occur during session collection operations
 #[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
@@ -30,6 +29,18 @@ pub enum SessionCollectionError {
     
     #[error("Session collection validation failed: {reason}")]
     ValidationFailed { reason: String },
+    
+    #[error("Session does not belong to this user")]
+    UserMismatch,
+    
+    #[error("Too many active sessions for user")]
+    TooManyActiveSessions,
+    
+    #[error("Invalid session state")]
+    InvalidSessionState,
+    
+    #[error("Security threat detected")]
+    SecurityThreatDetected,
     
     #[error("Session limit exceeded: {current_count} sessions (max: {max_allowed})")]
     SessionLimitExceeded { current_count: usize, max_allowed: usize },
@@ -141,6 +152,10 @@ impl SessionCollectionError {
             Self::PermissionDenied { .. } => false,
             Self::CollectionLocked => true,
             Self::BackupRestoreFailed { .. } => true,
+            Self::UserMismatch => false,
+            Self::TooManyActiveSessions => false,
+            Self::InvalidSessionState => false,
+            Self::SecurityThreatDetected => false,
             Self::InvalidSessionMetadata { .. } => false,
             Self::ConsistencyCheckFailed { .. } => false,
         }
@@ -174,6 +189,10 @@ impl SessionCollectionError {
             Self::BackupRestoreFailed { .. } => ErrorCategory::Operation,
             Self::InvalidSessionMetadata { .. } => ErrorCategory::Validation,
             Self::ConsistencyCheckFailed { .. } => ErrorCategory::Corruption,
+            Self::UserMismatch => ErrorCategory::Security,
+            Self::TooManyActiveSessions => ErrorCategory::Capacity,
+            Self::InvalidSessionState => ErrorCategory::State,
+            Self::SecurityThreatDetected => ErrorCategory::Security,
         }
     }
 }
@@ -292,6 +311,20 @@ impl ErrorContextBuilder {
     
     pub fn build(self) -> ContextualSessionCollectionError {
         ContextualSessionCollectionError::new(self.error, self.context)
+    }
+}
+
+// Conversion from the session_collection module's SessionCollectionError
+impl From<super::session_collection::SessionCollectionError> for SessionCollectionError {
+    fn from(error: super::session_collection::SessionCollectionError) -> Self {
+        use super::session_collection::SessionCollectionError as CollectionError;
+        match error {
+            CollectionError::UserMismatch => SessionCollectionError::UserMismatch,
+            CollectionError::TooManyActiveSessions => SessionCollectionError::TooManyActiveSessions,
+            CollectionError::SessionNotFound => SessionCollectionError::SessionNotFound { session_id: "unknown".to_string() },
+            CollectionError::SecurityThreatDetected => SessionCollectionError::SecurityThreatDetected,
+            CollectionError::InvalidSessionState => SessionCollectionError::InvalidSessionState,
+        }
     }
 }
 

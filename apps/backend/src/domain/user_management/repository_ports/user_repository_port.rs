@@ -1,10 +1,12 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 use crate::domain::shared_kernel::DomainError;
+use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::{
     aggregates::User,
-    value_objects::{UserId, Email, FirebaseUid, Permission}
+    value_objects::{Email, FirebaseUid, Permission}
 };
 
 /// Repository port for User aggregate persistence

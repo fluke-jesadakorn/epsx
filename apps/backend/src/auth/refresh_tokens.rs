@@ -5,9 +5,9 @@
  * Each refresh token use generates a new token and revokes the old one.
  */
 
+use std::collections::HashMap;
 use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

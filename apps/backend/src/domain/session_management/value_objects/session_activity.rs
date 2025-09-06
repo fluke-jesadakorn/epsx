@@ -1,3 +1,4 @@
+use crate::domain::shared_kernel::value_objects::SessionId;
 // Session Activity Value Object
 // Tracks activities and interactions within a session
 
@@ -5,7 +6,6 @@ use chrono::{DateTime, Utc, Duration};
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, VecDeque};
 
-use crate::domain::authentication::SessionId;
 
 /// Session activity tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,6 +231,7 @@ pub enum ActivityType {
     TradeExecuted,
     AnalyticsQuery,
     NotificationSent,
+    AdminActionPerformed(String),
     
     /// Generic activity with custom type
     Custom(String),
@@ -254,6 +255,7 @@ impl std::fmt::Display for ActivityType {
             ActivityType::TradeExecuted => write!(f, "trade_executed"),
             ActivityType::AnalyticsQuery => write!(f, "analytics_query"),
             ActivityType::NotificationSent => write!(f, "notification_sent"),
+            ActivityType::AdminActionPerformed(action) => write!(f, "admin_action:{}", action),
             ActivityType::Custom(name) => write!(f, "custom:{}", name),
         }
     }

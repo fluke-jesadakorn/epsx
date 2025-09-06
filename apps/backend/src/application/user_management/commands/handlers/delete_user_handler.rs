@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::application::user_management::{DeleteUserCommand, DeleteUserResponse};

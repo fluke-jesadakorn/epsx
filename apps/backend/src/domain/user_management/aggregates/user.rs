@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use chrono::{DateTime, Utc};
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::shared_kernel::{
@@ -11,8 +11,9 @@ use crate::domain::shared_kernel::{
     aggregate_root::AggregateBase
 };
 
+use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::value_objects::{
-    UserId, Email, FirebaseUid, Permission
+    Email, FirebaseUid, Permission
 };
 
 use crate::domain::user_management::events::{

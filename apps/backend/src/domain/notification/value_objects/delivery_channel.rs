@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use std::collections::HashSet;
 
 /// Re-export the existing DeliveryChannel enum from infrastructure
-pub use crate::infra::db::diesel::types::DeliveryChannel as DeliveryChannelType;
+pub use crate::infrastructure::adapters::repositories::diesel::types::DeliveryChannel as DeliveryChannelType;
 
 /// Delivery Channel Value Object
 /// Wraps the delivery channel type with additional behavior and validation
@@ -73,9 +73,11 @@ impl DeliveryChannel {
     pub fn supports_rich_content(&self) -> bool {
         match self.channel_type {
             DeliveryChannelType::FcmPush => true,
+            DeliveryChannelType::Push => true,
             DeliveryChannelType::InApp => true,
             DeliveryChannelType::Email => true,
             DeliveryChannelType::Sms => false,
+            DeliveryChannelType::SMS => false,
         }
     }
 
@@ -83,9 +85,11 @@ impl DeliveryChannel {
     pub fn is_realtime(&self) -> bool {
         match self.channel_type {
             DeliveryChannelType::FcmPush => true,
+            DeliveryChannelType::Push => true,
             DeliveryChannelType::InApp => true,
             DeliveryChannelType::Email => false,
             DeliveryChannelType::Sms => true,
+            DeliveryChannelType::SMS => true,
         }
     }
 
@@ -93,9 +97,11 @@ impl DeliveryChannel {
     pub fn typical_delivery_time_seconds(&self) -> u32 {
         match self.channel_type {
             DeliveryChannelType::FcmPush => 5,      // Near instant
+            DeliveryChannelType::Push => 5,         // Near instant
             DeliveryChannelType::InApp => 1,        // Instant
             DeliveryChannelType::Email => 60,       // 1 minute
             DeliveryChannelType::Sms => 30,         // 30 seconds
+            DeliveryChannelType::SMS => 30,         // 30 seconds
         }
     }
 
@@ -106,6 +112,11 @@ impl DeliveryChannel {
                 title_max: 50,
                 body_max: 150,
                 total_max: 4000, // FCM payload limit
+            }),
+            DeliveryChannelType::Push => Some(ContentLimits {
+                title_max: 50,
+                body_max: 150,
+                total_max: 4000, // Push payload limit
             }),
             DeliveryChannelType::InApp => None, // No strict limits
             DeliveryChannelType::Email => Some(ContentLimits {
@@ -118,6 +129,11 @@ impl DeliveryChannel {
                 body_max: 160, // Single SMS
                 total_max: 160,
             }),
+            DeliveryChannelType::SMS => Some(ContentLimits {
+                title_max: 0, // No title in SMS
+                body_max: 160, // Single SMS
+                total_max: 160,
+            }),
         }
     }
 
@@ -125,9 +141,11 @@ impl DeliveryChannel {
     pub fn cost_tier(&self) -> DeliveryCost {
         match self.channel_type {
             DeliveryChannelType::FcmPush => DeliveryCost::Free,
+            DeliveryChannelType::Push => DeliveryCost::Free,
             DeliveryChannelType::InApp => DeliveryCost::Free,
             DeliveryChannelType::Email => DeliveryCost::Low,
             DeliveryChannelType::Sms => DeliveryCost::High,
+            DeliveryChannelType::SMS => DeliveryCost::High,
         }
     }
 
@@ -135,9 +153,11 @@ impl DeliveryChannel {
     pub fn requires_opt_in(&self) -> bool {
         match self.channel_type {
             DeliveryChannelType::FcmPush => true,
+            DeliveryChannelType::Push => true,
             DeliveryChannelType::InApp => false,
             DeliveryChannelType::Email => true,
             DeliveryChannelType::Sms => true,
+            DeliveryChannelType::SMS => true,
         }
     }
 
@@ -145,9 +165,11 @@ impl DeliveryChannel {
     pub fn privacy_level(&self) -> PrivacyLevel {
         match self.channel_type {
             DeliveryChannelType::FcmPush => PrivacyLevel::Medium,
+            DeliveryChannelType::Push => PrivacyLevel::Medium,
             DeliveryChannelType::InApp => PrivacyLevel::Low,
             DeliveryChannelType::Email => PrivacyLevel::High,
             DeliveryChannelType::Sms => PrivacyLevel::High,
+            DeliveryChannelType::SMS => PrivacyLevel::High,
         }
     }
 }
@@ -184,6 +206,13 @@ impl RetryConfiguration {
                 backoff_multiplier: 2.0,
                 retry_on_errors: ["timeout", "server_error", "rate_limited"].iter().map(|s| s.to_string()).collect(),
             },
+            DeliveryChannelType::Push => Self {
+                max_attempts: 3,
+                initial_delay_seconds: 30,
+                max_delay_seconds: 300,
+                backoff_multiplier: 2.0,
+                retry_on_errors: ["timeout", "server_error", "rate_limited"].iter().map(|s| s.to_string()).collect(),
+            },
             DeliveryChannelType::InApp => Self::no_retry(), // In-app is immediate
             DeliveryChannelType::Email => Self {
                 max_attempts: 5,
@@ -193,6 +222,13 @@ impl RetryConfiguration {
                 retry_on_errors: ["timeout", "server_error", "rate_limited", "temp_failure"].iter().map(|s| s.to_string()).collect(),
             },
             DeliveryChannelType::Sms => Self {
+                max_attempts: 3,
+                initial_delay_seconds: 120,
+                max_delay_seconds: 1800,
+                backoff_multiplier: 1.5,
+                retry_on_errors: ["timeout", "server_error", "rate_limited"].iter().map(|s| s.to_string()).collect(),
+            },
+            DeliveryChannelType::SMS => Self {
                 max_attempts: 3,
                 initial_delay_seconds: 120,
                 max_delay_seconds: 1800,

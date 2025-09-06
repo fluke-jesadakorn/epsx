@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{
     Query, 
@@ -8,7 +8,8 @@ use crate::application::shared::{
     SortParams, 
     ValidationUtils
 };
-use crate::domain::user_management::value_objects::{UserId, Email};
+use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::value_objects::Email;
 
 /// Query to search for users with various criteria
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,16 +1,17 @@
 // Authorization monitoring and logging middleware
 
 use axum::{
+  async_trait,
   extract::{ Request, State, FromRequestParts },
   http::{ StatusCode, request::Parts },
   middleware::Next,
   response::Response,
 };
+use std::collections::HashMap;
 use std::time::Instant;
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 use crate::web::auth::AppState;
-use serde::{ Serialize, Deserialize };
-use chrono::{ DateTime, Utc };
-use async_trait::async_trait;
 
 /// Authentication context for request processing
 #[derive(Debug, Clone)]
@@ -49,8 +50,7 @@ pub enum AuthEventType {
   PolicyCacheHit,
   PolicyCacheMiss,
   PolicyReload,
-  RoleAssigned,
-  RoleRemoved,
+  // RoleAssigned, RoleRemoved - removed, using permissions-based system
   PolicyAdded,
   PolicyRemoved,
 }
@@ -204,20 +204,7 @@ impl AuthMonitoringService {
                     "Policies reloaded"
                 );
       }
-      AuthEventType::RoleAssigned => {
-        tracing::info!(
-                    user_id = ?event.user_id,
-                    additional_data = ?event.additional_data,
-                    "Role assigned to user"
-                );
-      }
-      AuthEventType::RoleRemoved => {
-        tracing::info!(
-                    user_id = ?event.user_id,
-                    additional_data = ?event.additional_data,
-                    "Role removed from user"
-                );
-      }
+      // Role assignment event handling removed - using permissions-based system
       AuthEventType::PolicyAdded => {
         tracing::info!(
                     resource = ?event.resource,
