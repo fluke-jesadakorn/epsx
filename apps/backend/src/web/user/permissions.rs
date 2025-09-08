@@ -9,12 +9,11 @@ use axum::{
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, error};
+use tracing::info;
 
 use crate::auth::granular_permissions::{GranularPermissionClaim, PermissionSource};
 use crate::web::middleware::clean_auth::AuthenticatedUser;
 use crate::web::auth::AppState;
-use crate::infrastructure::cache::permission_cache::PermissionCacheService;
 
 /// Query parameters for permission check
 #[derive(Debug, Deserialize)]
@@ -271,8 +270,8 @@ pub async fn check_user_permission(
         permission_matches(p, &permission)
     });
     
-    let mut expires_at = None;
-    let mut expires_soon = false;
+    let expires_at = None;
+    let expires_soon = false;
     
     // Skip cache for now - complex Arc to Box conversion needed
     // TODO: Implement proper cache integration for permission expiry info

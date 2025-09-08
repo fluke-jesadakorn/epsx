@@ -7,7 +7,6 @@ use chrono::{DateTime, Utc};
 
 use crate::core::errors::{AppResult, AppError};
 use crate::infrastructure::adapters::repositories::diesel::repos::{RefreshTokenRepository, RevokedTokenRepository, DieselSessionRepository};
-use crate::application::ports::repositories::SessionRepository;
 
 /// Configuration for session cleanup service
 #[derive(Clone, Debug)]

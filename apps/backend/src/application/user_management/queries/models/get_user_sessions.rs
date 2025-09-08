@@ -1,5 +1,4 @@
 use crate::application::shared::{Query, ApplicationResult};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Query to get all sessions for a user

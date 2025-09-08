@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};// Database models for Diesel ORM
+// Database models for Diesel ORM
 use serde::{Deserialize, Serialize};
 use diesel::prelude::*;
 

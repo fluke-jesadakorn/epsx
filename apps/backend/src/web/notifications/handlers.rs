@@ -1,13 +1,12 @@
 use axum::{extract::Extension, Json, extract::Query};
 use axum::response::IntoResponse;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 use tracing::{info, warn, debug};
 
 use crate::core::errors::AppError;
-use crate::infrastructure::adapters::services::{FcmService, FcmTopicService};
+use crate::infrastructure::adapters::services::FcmTopicService;
 use crate::web::middleware::AuthenticatedUser;
 use crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter;
 use crate::infrastructure::adapters::repositories::mappers::NotificationMapper;

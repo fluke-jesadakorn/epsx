@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 
 use crate::domain::shared_kernel::value_objects::{UserId, SessionId, Email};
 /// User Repository Port - defines interface for user data access

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::user_management::commands::models::{CreateUserCommand, CreateUserResponse};
 
-use crate::domain::shared_kernel::{DomainEventBus, ValueObject, AggregateRoot};
+use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::{
     User,

@@ -5,7 +5,7 @@
  * and maintaining optimal performance of the authentication system.
  */
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
 use serde::{Serialize, Deserialize};

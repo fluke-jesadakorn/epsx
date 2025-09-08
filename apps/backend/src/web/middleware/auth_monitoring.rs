@@ -7,7 +7,6 @@ use axum::{
   middleware::Next,
   response::Response,
 };
-use std::collections::HashMap;
 use std::time::Instant;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};

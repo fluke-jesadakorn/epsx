@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use serde::{Serialize, Deserialize};
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
-use crate::infrastructure::cache::{Cache, CacheExt};
+use crate::infrastructure::cache::Cache;
 
 
 /// Token revocation entry

@@ -1,5 +1,4 @@
 use crate::domain::shared_kernel::value_objects::UserId;
-use std::collections::HashMap;
 
 // Rate limiting implementation for API endpoint access control with Redis + in-memory fallback
 
@@ -10,7 +9,7 @@ use serde_json::json;
 use serde::{Serialize, Deserialize};
 use tracing::{debug, warn};
 use crate::config::Config;
-use crate::infrastructure::cache::{Cache, CacheExt};
+use crate::infrastructure::cache::Cache;
 
 /// Time window for rate limiting
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

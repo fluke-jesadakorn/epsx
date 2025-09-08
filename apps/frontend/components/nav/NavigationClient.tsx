@@ -88,7 +88,7 @@ export function NavigationClient({ user }: NavigationClientProps) {
               <NotificationBellSimple />
             )}
             
-            {/* Theme Toggle */}
+            {/* Theme Toggle - Responsive */}
             <div className="hidden sm:block">
               <ThemeToggle />
             </div>

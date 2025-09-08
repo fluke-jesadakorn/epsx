@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};// Web layer implementation
+// Web layer implementation
 
 pub mod auth;
 pub mod oidc;
@@ -243,7 +243,9 @@ async fn create_standalone_analytics_routes(
     }
   };
   let _tradingview_service = std::sync::Arc::new(
-    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new()
+    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
+      config.clone()
+    )
   );
 
   // Create unified cache service (automatically selects InMemory or Redis)

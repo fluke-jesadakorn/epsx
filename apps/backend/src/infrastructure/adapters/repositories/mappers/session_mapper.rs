@@ -1,7 +1,6 @@
 use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 use uuid::Uuid;
 use std::str::FromStr;
-use chrono::{DateTime, Utc};
 use sha2::{Sha256, Digest};
 
 use crate::domain::shared_kernel::{DomainResult, AggregateRoot};

@@ -3,9 +3,8 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc, Duration};
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info, warn};
 
-use crate::domain::authentication::{AuthenticatedUserId, SessionId};
 use crate::domain::authentication::repositories::SecurityMonitoringServicePort;
 use crate::infrastructure::cache::Cache;
 

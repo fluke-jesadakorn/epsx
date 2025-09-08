@@ -1,4 +1,4 @@
-use crate::domain::shared_kernel::value_objects::UserId;use chrono::{DateTime, Utc};use std::sync::Arc;
+use std::sync::Arc;
 
 use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::application::user_management::{
@@ -17,12 +17,7 @@ use crate::application::user_management::{
     CreateSessionCommand,
     CreateSessionResponse,
     CreateSessionCommandHandler,
-    GetUserQuery,
     GetUserResponse,
-    GetUserByFirebaseUidQuery,
-    GetUserByFirebaseUidResponse,
-    ListUsersQuery,
-    ListUsersResponse,
 };
 
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};

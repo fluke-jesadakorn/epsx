@@ -11,7 +11,7 @@ use crate::domain::notification::value_objects::*;
 use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
 use crate::infrastructure::adapters::services::fcm_service::{FcmService, FcmNotification, FcmResponse, DeliveryStats};
 use crate::infrastructure::adapters::services::email_service::SendGridEmailService;
-use crate::application::ports::services::{EmailServiceError, EmailSvc};
+use crate::application::ports::services::EmailServiceError;
 use crate::application::shared::error::{ApplicationError, ApplicationResult};
 
 /// Notification repository adapter that bridges DDD domain with legacy infrastructure

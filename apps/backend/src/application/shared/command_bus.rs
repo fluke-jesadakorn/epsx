@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
 
-use super::{ApplicationError, ApplicationResult};
+use super::ApplicationResult;
 
 /// Base trait for all commands (write operations)
 /// Commands represent intent to change state

@@ -1,5 +1,5 @@
 use std::fmt::{self, Display};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 use chrono::{NaiveTime, Utc, DateTime};
 use serde::{Deserialize, Serialize};
 use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, DeliveryChannel as DeliveryChannelType};

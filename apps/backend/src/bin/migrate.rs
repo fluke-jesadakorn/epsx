@@ -41,7 +41,7 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!("diesel_migrations");
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter("migrate=info,epsx_backend=info")
+        .with_env_filter("migrate=info,epsx=info")
         .init();
 
     let cli = Cli::parse();

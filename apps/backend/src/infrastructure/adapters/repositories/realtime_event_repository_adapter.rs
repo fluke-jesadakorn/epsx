@@ -1,17 +1,13 @@
 // Real-time Event Repository Adapter
 use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};
 // Bridges Real-time Events domain with infrastructure storage
 
 use std::sync::Arc;
-use serde_json;
 
 use crate::infrastructure::adapters::repositories::DbPool;
 use crate::domain::realtime_events::{
-    RealtimeEvent, EventId, EventStatus, EventPriority,
+    RealtimeEvent, EventId, EventStatus,
     repository_ports::EventRepositoryPort
 };
 

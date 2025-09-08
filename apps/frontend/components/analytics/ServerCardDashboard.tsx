@@ -163,7 +163,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
                       : 'text-orange-600'
                 }`}
               >
-                {cardData.next_quarter_estimate?.days_until_announcement || 185}{' '}
+                {cardData.next_quarter_estimate?.days_until_announcement || 0}{' '}
                 days
               </div>
             </div>
@@ -179,7 +179,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
                     : 'bg-gradient-to-r from-orange-400 to-yellow-500'
               }`}
               style={{
-                width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%`,
+                width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 0)) / 90) * 100))}%`,
               }}
             />
           </div>
@@ -449,7 +449,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                         }`}
                       >
                         {cardData.next_quarter_estimate
-                          ?.days_until_announcement || 185}
+                          ?.days_until_announcement || 0}
                         d
                       </div>
                     </div>
@@ -467,7 +467,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                             : 'bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600'
                       }`}
                       style={{
-                        width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 185)) / 90) * 100))}%`,
+                        width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 0)) / 90) * 100))}%`,
                       }}
                     >
                       <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
@@ -680,12 +680,6 @@ export default async function ServerCardDashboard({
                 ACTIVE
               </span>
             </div>
-            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-orange-500 hover:to-yellow-600 hover:shadow-xl sm:px-5 sm:py-3">
-              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
-              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
-                WATCH
-              </span>
-            </div>
             <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-pink-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-red-500 hover:to-pink-600 hover:shadow-xl sm:px-5 sm:py-3">
               <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
               <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
@@ -712,8 +706,8 @@ async function StatsDisplay({ params }: { params: EPSQueryParams }) {
   return (
     <p className="text-gray-600 dark:text-slate-200">
       {isFirstPage && hasTopRanks
-        ? `👑 Showing ${data.data?.length || 0} ultimate legends from ${data.pagination?.total || 0} companies`
-        : `Showing ${data.data?.length || 0} of ${data.pagination?.total || 0} companies`}
+        ? `👑 Showing ${data.data?.length || 0} ultimate legends`
+        : `Showing ${data.data?.length || 0} results`}
       {data.processing_time_ms && (
         <span className="ml-2 text-sm text-gray-500 dark:text-slate-300">
           • Lightning fast {data.processing_time_ms}ms

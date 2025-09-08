@@ -4,7 +4,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::application::shared::command_bus::Command;
 use crate::domain::authentication::{
     SessionId, AuthenticatedUserId, Scope, SecurityContext, ProviderType

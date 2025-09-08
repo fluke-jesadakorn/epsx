@@ -1,9 +1,5 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-use crate::application::shared::{ApplicationError, ApplicationResult};
 #[async_trait]
 pub trait EmailServicePort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;

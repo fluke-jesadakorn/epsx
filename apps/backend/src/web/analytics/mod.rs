@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 pub mod eps_handlers;
 pub mod eps;  // New focused modules architecture
 
@@ -13,7 +11,6 @@ use axum::{
     middleware::{from_fn, Next},
 };
 use serde::Deserialize;
-use std::sync::Arc;
 
 use crate::web::middleware::user_auth::{user_auth_middleware, AuthenticatedUser};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
@@ -103,7 +100,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
             })
         }
     };
-    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new());
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
 
     // Create unified cache service (automatically selects InMemory or Redis)
     let cache_box = CacheFactory::with_fallback().await;
@@ -150,7 +147,8 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
     // }
     // 
     // Create stock analysis adapter for the repository layer
-    let eps_service = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new());
+    let eps_repository = std::sync::Arc::new(crate::infrastructure::adapters::repositories::EPSRepositoryAdapter::new());
+    let eps_service = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
     let stock_analysis_adapter = std::sync::Arc::new(
         crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter::new(
             eps_service
@@ -225,7 +223,8 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/public/analytics/sectors", get(eps_handlers::get_sectors_by_country));
         // No authentication middleware for public routes - now uses direct TradingView API
 
-    let eps_service_clone = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new());
+    let eps_repository_clone = std::sync::Arc::new(crate::infrastructure::adapters::repositories::EPSRepositoryAdapter::new());
+    let eps_service_clone = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository_clone));
 
     Router::new()
         .merge(v1_routes)

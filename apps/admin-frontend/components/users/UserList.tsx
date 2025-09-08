@@ -9,7 +9,7 @@ import { UserListFilters } from './UserListFilters'
 import { UserCard } from './UserCard'
 import { UserListPagination } from './UserListPagination'
 import { CreateUserButton } from './CreateUserButton'
-import { adminCardVariants, cn } from '@/design-system'
+import { PancakeCard } from '@/components/ui/PancakeCard'
 
 interface UserListProps {
   searchParams: {
@@ -95,35 +95,39 @@ export async function UserList({ searchParams }: UserListProps) {
     <div className="space-y-6" data-testid="user-list-container">
       {/* Context Banner for Legacy Redirects */}
       {searchParams.view && (
-        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'bg-info-50 border-info-200')}>
+        <PancakeCard variant="feature" className="bg-orange-50 border-orange-200 dark:bg-orange-950/50 dark:border-orange-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-info-600 rounded-lg flex items-center justify-center">
-              <Users className="h-4 w-4 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-xl flex items-center justify-center shadow-lg">
+              <Users className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-medium text-info-900">{viewContext.title}</h3>
-              <p className="text-sm text-info-700">{viewContext.description}</p>
-              <p className="text-xs text-info-600 mt-1">
+              <h3 className="font-bold text-lg bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">
+                {viewContext.title}
+              </h3>
+              <p className="text-sm text-orange-700 dark:text-orange-300 mb-1">{viewContext.description}</p>
+              <p className="text-xs text-orange-600/80 dark:text-orange-400/80">
                 This page has been consolidated into the unified user management interface. 
                 Click on any user to access their {searchParams.view} settings.
               </p>
             </div>
           </div>
-        </div>
+        </PancakeCard>
       )}
 
       {/* Search and Filters */}
-      <div className={cn(adminCardVariants({ variant: 'pancake' }))}>
+      <PancakeCard variant="default">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5" />
+          <h2 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-lg flex items-center justify-center">
+              <Users className="h-4 w-4 text-white" />
+            </div>
             {viewContext.title} ({total.toLocaleString()})
           </h2>
           <CreateUserButton />
         </div>
 
         <UserListFilters currentFilters={filters} />
-      </div>
+      </PancakeCard>
 
       {/* User Cards */}
       {users.length > 0 ? (
@@ -133,11 +137,15 @@ export async function UserList({ searchParams }: UserListProps) {
           ))}
         </div>
       ) : (
-        <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-12')} data-testid="no-users-message">
-          <div className="text-center text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No users found</h3>
-            <p className="text-sm">
+        <PancakeCard variant="feature" className="p-12" data-testid="no-users-message">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-900/50 dark:to-yellow-900/50 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+              <Users className="h-8 w-8 text-orange-400/60 dark:text-orange-500/60" />
+            </div>
+            <h3 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent mb-2">
+              No users found
+            </h3>
+            <p className="text-orange-600/80 dark:text-orange-400/80">
               {filters.search || filters.status !== 'all' || filters.role !== 'all' ? (
                 'Try adjusting your search or filter criteria'
               ) : (
@@ -145,7 +153,7 @@ export async function UserList({ searchParams }: UserListProps) {
               )}
             </p>
           </div>
-        </div>
+        </PancakeCard>
       )}
 
       {/* Pagination */}

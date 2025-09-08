@@ -1,11 +1,9 @@
 // Payment Method Repository Adapter
 use async_trait::async_trait;
-use std::collections::HashMap;
 use rust_decimal::Decimal;  
 // Infrastructure implementation for payment method management
 
 use std::sync::Arc;
-use std::str::FromStr;
 
 use rust_decimal::prelude::FromPrimitive;
 
@@ -37,7 +35,7 @@ impl PaymentMethodRepositoryPort for PaymentMethodRepositoryAdapter {
         
         // For now, return stub methods as payment schema is not fully implemented
         // In full implementation, would use Diesel to SELECT from payment_methods WHERE enabled = true
-        use crate::domain::payment::value_objects::{PaymentMethodId, PaymentMethodType};
+        use crate::domain::payment::value_objects::PaymentMethodType;
         
         use crate::domain::shared_kernel::value_objects::{Currency, Network};
         

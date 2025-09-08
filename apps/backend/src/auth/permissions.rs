@@ -453,7 +453,7 @@ pub fn require_permission_pure(
 
 use crate::infrastructure::adapters::repositories::diesel::models::{
 
-    DieselUserDynamicLimit, ResolvedUserLimits, LimitSource
+    DieselUserDynamicLimit, ResolvedUserLimits
 };
 
 /// Default limits for different permission levels (fallback when no dynamic limits)

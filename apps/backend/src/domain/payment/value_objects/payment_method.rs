@@ -1,5 +1,4 @@
 use crate::domain::shared_kernel::value_object::ValueObjectError;
-use rust_decimal::Decimal;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
@@ -263,7 +262,7 @@ pub struct PaymentMethodConfig {
 impl PaymentMethodConfig {
     /// Create default configuration for method and currency
     pub fn default_for_method(method_type: &PaymentMethodType, currency: &Currency) -> Self {
-        use rust_decimal::Decimal;
+        
         use rust_decimal_macros::dec;
 
         let (min_amount, max_amount, fee_rate) = match (method_type, currency) {

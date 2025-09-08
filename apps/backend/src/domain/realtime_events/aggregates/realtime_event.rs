@@ -4,11 +4,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
-use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
-use crate::domain::realtime_events::value_objects::{EventId, UserId, EventPayload, EventType, NotificationLevel};
+use crate::domain::shared_kernel::domain_event::DomainEvent;
+use crate::domain::realtime_events::value_objects::{EventId, UserId, EventPayload};
 use super::super::RealtimeEventsBoundedContext;
 
 /// Real-time Event Aggregate Root

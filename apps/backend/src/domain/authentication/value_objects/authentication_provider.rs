@@ -4,7 +4,7 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashSet;
 
-use super::{Scope, ClientInformation};
+use super::Scope;
 
 /// Authentication provider with capabilities and configuration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

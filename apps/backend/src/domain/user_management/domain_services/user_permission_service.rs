@@ -1,5 +1,4 @@
-use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{Utc, Duration};
 use std::collections::HashSet;
 
 use crate::domain::shared_kernel::{DomainError, DomainResult, Specification};

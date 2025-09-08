@@ -3,13 +3,13 @@ use crate::domain::shared_kernel::value_objects::SessionId;
 // User Session Manager Aggregate Root
 // Central orchestrator for all session operations for a user
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
 use crate::domain::shared_kernel::AggregateRoot;
 use super::super::value_objects::{
     SessionMetadata, SessionCollection, SessionActivity, SessionHistory,
-    DeviceInfo, ActivityType, HistoryEventType, SessionStatus, SuspiciousPattern
+    DeviceInfo, ActivityType, HistoryEventType, SuspiciousPattern
 };
 
 /// Main aggregate for managing all sessions for a user

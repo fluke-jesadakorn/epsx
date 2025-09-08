@@ -1,7 +1,6 @@
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
-use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
 /// Re-export Currency and Network from shared kernel

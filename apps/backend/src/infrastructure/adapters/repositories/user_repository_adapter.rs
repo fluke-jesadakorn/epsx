@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 use std::str::FromStr;
@@ -16,7 +15,7 @@ use crate::domain::user_management::{UserSearchCriteria, UserSearchResult};
 use crate::infrastructure::adapters::repositories::diesel::{
     DbPool,
     schema::{users, user_permissions},
-    models::{DieselUser, NewDieselUser}
+    models::DieselUser
 };
 use crate::infrastructure::adapters::repositories::mappers::UserMapper;
 

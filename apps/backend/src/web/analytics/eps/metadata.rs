@@ -57,7 +57,7 @@ pub async fn get_sectors_by_country(
     debug!("Getting sectors for country: {:?}", params.country);
 
     let sectors = service.get_sectors_by_country(params.country.clone()).await
-        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, e))?;
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, e.to_string()))?;
     debug!("Found {} sectors", sectors.len());
 
     let response = SectorsResponse {

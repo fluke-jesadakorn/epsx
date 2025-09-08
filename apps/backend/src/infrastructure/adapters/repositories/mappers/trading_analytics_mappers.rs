@@ -1,7 +1,7 @@
 /// Mappers for Trading Analytics domain
 /// Convert between legacy EPS ranking structures and DDD Trading Analytics aggregates
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use tracing::{debug, warn};
 
 use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod, RankingStatistics};
@@ -21,10 +21,10 @@ impl EPSRankingMapper {
         let symbol = StockSymbol::new(legacy.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", legacy.symbol, e))?;
 
-        let eps_value = EPSValue::new(legacy.eps_current)
+        let eps_value = EPSValue::new(legacy.current_eps.unwrap_or(0.0))
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
 
-        let growth_factor = GrowthFactor::new(legacy.growth_rate)
+        let growth_factor = GrowthFactor::new(legacy.growth_factor.unwrap_or(0.0))
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
 
         let sector = MarketSector::new(legacy.sector.clone())
@@ -35,7 +35,7 @@ impl EPSRankingMapper {
 
         Ok(RankingEntry {
             symbol,
-            company_name: legacy.company_name.clone(),
+            company_name: legacy.name.clone(),
             eps_value,
             growth_factor,
             sector,
@@ -51,15 +51,19 @@ impl EPSRankingMapper {
 
         LegacyEPSRanking {
             symbol: entry.symbol.as_str().to_string(),
-            company_name: entry.company_name.clone(),
-            eps_current: entry.eps_value.value(),
-            eps_previous: 0.0, // Not available in DDD model
-            growth_rate: entry.growth_factor.percentage(),
-            rank: rank,
+            name: entry.company_name.clone(),
+            country: entry.country.name().to_string(),
             sector: entry.sector.name().to_string(),
-            market_cap: None,    // Not available in DDD model - would need market data
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps: Some(entry.eps_value.value()),
+            growth_factor: Some(entry.growth_factor.percentage()),
             price_current: None, // Not available in DDD model
-            last_updated: chrono::Utc::now()
+            market_cap: None,    // Not available in DDD model
+            volume: None,        // Not available in DDD model
+            ranking_position: Some(rank as i32),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
         }
     }
 
@@ -77,12 +81,10 @@ impl EPSRankingMapper {
         let symbol = StockSymbol::new(growth_data.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", growth_data.symbol, e))?;
 
-        let eps_value = EPSValue::new(
-            growth_data.quarterly_eps.last().copied().unwrap_or(0.0)  // Use latest quarterly EPS
-        )
+        let eps_value = EPSValue::new(growth_data.current_eps.unwrap_or(0.0))
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
 
-        let growth_factor = GrowthFactor::new(growth_data.average_quarterly_growth)
+        let growth_factor = GrowthFactor::new(growth_data.growth_factor.unwrap_or(0.0))
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
 
         let sector = MarketSector::new("Technology".to_string())  // Default sector
@@ -93,13 +95,13 @@ impl EPSRankingMapper {
 
         Ok(RankingEntry {
             symbol,
-            company_name: growth_data.company_name.clone(),
+            company_name: growth_data.name.clone(),
             eps_value,
             growth_factor,
             sector,
             country,
-            score: growth_data.volatility,  // Use volatility as score proxy
-            added_at: growth_data.last_updated,
+            score: 0.0,  // Default score
+            added_at: growth_data.created_at.unwrap_or_else(|| Utc::now()),
         })
     }
 
@@ -190,11 +192,11 @@ impl StockAnalysisMapper {
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Use EPS values from legacy ranking
-        let current_eps = EPSValue::new(legacy_ranking.eps_current)
+        let current_eps = EPSValue::new(legacy_ranking.current_eps.unwrap_or(0.0))
             .map_err(|e| format!("Invalid current EPS: {}", e))?;
             
         // Calculate previous EPS from growth factor
-        let growth_rate = legacy_ranking.growth_rate;
+        let growth_rate = legacy_ranking.growth_factor.unwrap_or(0.0);
         let previous_eps_value = if growth_rate != 0.0 {
             current_eps.value() / (1.0 + growth_rate / 100.0)
         } else {
@@ -212,7 +214,7 @@ impl StockAnalysisMapper {
         // Create stock analysis
         let stock_analysis = StockAnalysis::new(
             symbol,
-            legacy_ranking.company_name.clone(),
+            legacy_ranking.name.clone(),
             current_eps,
             previous_eps,
             sector,
@@ -236,15 +238,19 @@ impl StockAnalysisMapper {
 
         LegacyEPSRanking {
             symbol: stock_analysis.symbol().as_str().to_string(),
-            company_name: stock_analysis.company_name().to_string(),
-            eps_current: stock_analysis.current_eps().value(),
-            eps_previous: stock_analysis.previous_eps().value(),
-            growth_rate,
-            rank: rank.unwrap_or(0),
+            name: stock_analysis.company_name().to_string(),
+            country: stock_analysis.country().name().to_string(),
             sector: stock_analysis.sector().name().to_string(),
-            market_cap: None,    // Not available in DDD model
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps: Some(stock_analysis.current_eps().value()),
+            growth_factor: Some(growth_rate),
             price_current: None, // Not available in DDD model
-            last_updated: chrono::Utc::now(),
+            market_cap: None,    // Not available in DDD model
+            volume: None,        // Not available in DDD model
+            ranking_position: rank.map(|r| r as i32),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
         }
     }
 }

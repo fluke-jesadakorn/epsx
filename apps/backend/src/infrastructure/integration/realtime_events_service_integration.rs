@@ -1,15 +1,11 @@
-use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::shared_kernel::value_objects::SessionId;
-use chrono::{DateTime, Utc};// Real-time Events Service Integration
+// Real-time Events Service Integration
 // Orchestrates Real-time Events bounded context for web layer
 
 use std::sync::Arc;
 
 use crate::domain::realtime_events::{
-    RealtimeEvent, EventId, EventStatus, EventPriority, RealtimeEventError,
-    EventPayload, EventType, NotificationLevel, RealtimeUserId,
+    RealtimeEvent, EventStatus, EventPriority, RealtimeEventError,
+    EventPayload, NotificationLevel, RealtimeUserId,
     ConnectionId, ConnectionRepositoryPort, EventRepositoryPort,
     value_objects::{ConnectionInfo, ConnectionType}
 };

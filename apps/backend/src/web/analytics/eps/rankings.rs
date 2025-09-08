@@ -5,8 +5,6 @@ use axum::{
     extract::{Query, Extension},
     response::Json,
 };
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -22,13 +20,15 @@ pub async fn get_eps_rankings(
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
     
-    // Convert query params to service params with defaults
+    // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
         country: params.country.clone(),
         sector: params.sector.clone(),
-        sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
-        limit: params.limit.unwrap_or(50) as u32,
-        market_cap_min: params.min_eps, // Use min_eps as market_cap_min since that field exists
+        sort_by: params.sort_by.clone().or(Some("growth_factor".to_string())),
+        page: params.page.unwrap_or(1), // FIXED: Add missing page parameter
+        limit: params.limit.unwrap_or(50), // FIXED: Use correct i32 type
+        min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
+        min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
     };
 
     debug!("Converted to service params: {:?}", service_params);
@@ -36,8 +36,8 @@ pub async fn get_eps_rankings(
     // TODO: Implement parameter validation in EPSRankingService if needed
 
     // Log request details for debugging
-    info!("Processing EPS rankings request - Country: {:?}, Sort: {:?}, Limit: {}", 
-          service_params.country, service_params.sort_by, service_params.limit);
+    info!("Processing EPS rankings request - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
+          service_params.country, service_params.sort_by, service_params.page, service_params.limit);
 
     // Get rankings from service with enhanced WebSocket data when available
     let start_time = std::time::Instant::now();
@@ -51,8 +51,9 @@ pub async fn get_eps_rankings(
     })?;
     let duration = start_time.elapsed();
     
-    // For small requests (≤20), enhance with WebSocket data for accuracy
-    if result.rankings.len() <= 20 && result.rankings.len() > 0 {
+    // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
+    // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
+    if false && result.rankings.len() <= 20 && result.rankings.len() > 0 {
         debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
         
         // Extract symbols for WebSocket enhancement
@@ -70,16 +71,18 @@ pub async fn get_eps_rankings(
             }
         }
     }
+    
+    info!("Using fast TradingView API data (WebSocket enhancement disabled for performance)");
 
     // Log performance metrics
     debug!("EPS rankings query completed in {:?}", duration);
     info!("Returning {} EPS rankings (total: {})", 
-          result.rankings.len(), result.total_count);
+          result.rankings.len(), result.pagination.total);
 
     // Convert to API response format
     let page = params.page.unwrap_or(1);
     let limit = params.limit.unwrap_or(50);
-    let total = result.total_count as i64;
+    let total = result.pagination.total;
     let total_pages = ((total as f64 / limit as f64).ceil() as i32).max(1);
     
     let api_response = EPSRankingsApiResponse {
@@ -104,13 +107,19 @@ pub fn convert_screening_result_to_eps_ranking(
 ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
     use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
     
-    // Parse numeric values with fallback for string data
-    let current_eps = if let Some(pe_ratio) = result.pe_ratio {
-        Some(result.price / pe_ratio.max(1.0))  // Calculate EPS from price and P/E ratio
-    } else {
-        Some(1.0)  // Default EPS value
-    };
-    let growth_factor = Some(result.change_percent);  // Use change_percent as growth proxy
+    // Use real EPS data from TradingView instead of calculating from price/PE
+    let current_eps = result.current_eps.or_else(|| {
+        // Fallback: calculate from price/PE if real EPS not available
+        if let Some(pe_ratio) = result.pe_ratio {
+            Some(result.price / pe_ratio.max(1.0))
+        } else {
+            None // Don't use fake default values
+        }
+    });
+    let growth_factor = result.eps_growth_yoy.or_else(|| {
+        // Fallback: use price change as growth proxy if EPS growth not available
+        Some(result.change_percent)
+    });
     let market_cap = result.market_cap;
     let volume = Some(result.volume as i64);
     let ranking_position = Some(1); // Default ranking position
@@ -120,15 +129,19 @@ pub fn convert_screening_result_to_eps_ranking(
     
     EPSRanking {
         symbol: result.symbol,
-        company_name: result.name,
-        eps_current: current_eps.unwrap_or(0.0),
-        eps_previous: 0.0, // Not available from result
-        growth_rate: growth_factor.unwrap_or(0.0),
-        rank: ranking_position.unwrap_or(0) as u32,
+        name: result.name,
+        country: "US".to_string(), // Default country - not available in StockScreeningResult
         sector: result.sector.unwrap_or("Unknown".to_string()),
-        market_cap,
+        exchange: "NASDAQ".to_string(), // Default exchange
+        current_eps,
+        growth_factor,
         price_current,
-        last_updated: chrono::Utc::now(),
+        market_cap: market_cap.map(|mc| mc as i64),
+        volume: Some(result.volume as i64),
+        ranking_position,
+        quarterly_data: None,
+        next_earnings_date: None,
+        last_earnings_date: None,
     }
 }
 

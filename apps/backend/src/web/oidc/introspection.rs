@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};// OpenID Connect Token Introspection Endpoint (RFC 7662)
+use chrono::Utc;// OpenID Connect Token Introspection Endpoint (RFC 7662)
 // Implements standard token introspection with granular permission details
 
 use axum::{

@@ -4,9 +4,7 @@ use axum::{extract::{Query, State}, response::Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{warn, info};
 use std::sync::Arc;
-use chrono::prelude::*;
 
-use crate::domain::user_management::aggregates::User;
 use crate::domain::shared_kernel::AggregateRoot;
 use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::web::auth::routes::AppState;
@@ -50,7 +48,7 @@ pub async fn search_users_handler(
     State(state): State<AppState>,
     Query(query): Query<UserSearchQuery>
 ) -> Result<Json<SearchUsersResponse>, (StatusCode, String)> {
-    use crate::infrastructure::adapters::repositories::diesel::repos::{DieselUserRepository, DieselUserPermissionRepository};
+    
     
     info!("Searching users with query: {:?}", query);
     

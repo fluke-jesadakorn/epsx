@@ -6,7 +6,6 @@ use axum::{
 };
 use std::sync::Arc;
 use uuid::Uuid;
-use tracing::warn;
 
 use crate::core::errors::AppError;
 use crate::infrastructure::adapters::services::{FcmService, FcmNotification};

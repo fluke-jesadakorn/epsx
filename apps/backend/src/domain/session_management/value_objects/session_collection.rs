@@ -1,11 +1,10 @@
 // Session Collection Value Object
 // Manages groups of sessions for a user with business rules and limits
 
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::value_objects::SessionId;
 use crate::domain::authentication::{AuthenticatedUserId, ProviderType};
 use chrono::{DateTime, Utc, Duration};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::{SessionMetadata, SessionStatus};

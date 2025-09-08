@@ -1,11 +1,9 @@
 use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};// Session History Value Object
 // Maintains historical record of session lifecycle events
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 
 /// Complete session history for audit and analysis

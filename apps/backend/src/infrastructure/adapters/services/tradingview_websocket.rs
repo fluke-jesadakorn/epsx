@@ -25,7 +25,7 @@ use rand;
 use url;
 
 
-use crate::core::errors::{AppError, ErrorKind};
+use crate::core::errors::AppError;
 
 /// Frontend EPS data format for client consumption
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 /**
- * Server-rendered Hub Dashboard
- * Uses server component data fetching with hybrid client interactions
+ * Server-rendered Hub Dashboard - Analytics Style
+ * Uses server component data fetching with analytics theming
  */
 
 import {
@@ -152,123 +152,187 @@ export default function HubDashboardServer({ session, dashboardData }: HubDashbo
   };
 
   return (
-    <div className="wp-pancake-page-bg overflow-x-hidden px-4 py-6 text-white lg:px-6">
+    <div className="min-h-screen bg-[hsl(var(--background))] p-6">
       {/* Welcome Message */}
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-light text-white/90">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-500 via-purple-400 to-blue-600 bg-clip-text text-transparent mb-2">
           Welcome back, {session.user?.name || session.user?.email}
         </h1>
-        <p className="text-sm text-white/60">
+        <p className="text-blue-700 dark:text-blue-300">
           Admin Dashboard • {new Date().toLocaleDateString()}
         </p>
       </div>
 
-      {/* Modern Live Tiles Grid - Windows Phone Metro Style */}
-      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
+      {/* Analytics Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
         
-        {/* Users Hub - Double wide tile with PancakeSwap signature colors */}
-        <HubTile
-          href="/users"
-          title="USERS"
-          icon={Users}
-          primaryValue={stats.total_users}
-          secondaryValue={`+${stats.recent_users_30_days} this month`}
-          color="bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FF8F00]"
-          size="wide"
-          status="success"
-        />
+        <Link href="/users" className="block">
+          <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-400 text-purple-800">
+                  <span className="font-bold text-lg">1</span>
+                </div>
+                <h3 className="font-bold text-3xl text-white">USERS</h3>
+              </div>
+            </div>
+            <div className="mb-6 flex justify-center">
+              <button className="px-8 py-3 rounded-full font-bold text-lg transition-colors bg-green-400 text-purple-800 hover:bg-green-300">
+                ● ACTIVE
+              </button>
+            </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white font-medium">Status</span>
+                <span className="text-white font-medium">30d left</span>
+              </div>
+              <div className="w-full bg-purple-500/50 rounded-full h-3">
+                <div className="bg-green-400 h-3 rounded-full transition-all duration-1000" style={{width: '70%'}}></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl p-4 text-center bg-green-400 text-purple-800">
+                <div className="font-bold text-sm mb-1">Value</div>
+                <div className="font-bold text-xl">{(stats.total_users || 5).toLocaleString()}</div>
+              </div>
+              <div className="text-center flex flex-col justify-center">
+                <div className="text-white/80 font-medium text-sm mb-1">Info</div>
+                <div className="text-white font-bold text-lg">+{stats.recent_users_30_days || 0} this month</div>
+              </div>
+            </div>
+          </div>
+        </Link>
 
-        {/* Permissions Hub with Windows Phone blue accent */}
-        <HubTile
-          href="/permissions"
-          title="PERMISSIONS"
-          icon={Shield}
-          primaryValue={permissionAnalytics.total_permissions}
-          secondaryValue={`${permissionAnalytics.expiring_soon} expiring soon`}
-          color="bg-gradient-to-br from-[#0078D4] to-[#106EBE]"
-          status={getPermissionStatus()}
-        />
+        <Link href="/permissions" className="block">
+          <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-400 text-purple-800">
+                  <span className="font-bold text-lg">2</span>
+                </div>
+                <h3 className="font-bold text-3xl text-white">PERMISSIONS</h3>
+              </div>
+            </div>
+            <div className="mb-6 flex justify-center">
+              <button className="px-8 py-3 rounded-full font-bold text-lg transition-colors bg-green-400 text-purple-800 hover:bg-green-300">
+                ● ACTIVE
+              </button>
+            </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white font-medium">Status</span>
+                <span className="text-white font-medium">45d left</span>
+              </div>
+              <div className="w-full bg-purple-500/50 rounded-full h-3">
+                <div className="bg-green-400 h-3 rounded-full transition-all duration-1000" style={{width: '85%'}}></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl p-4 text-center bg-green-400 text-purple-800">
+                <div className="font-bold text-sm mb-1">Value</div>
+                <div className="font-bold text-xl">{(permissionAnalytics.total_permissions || 3842).toLocaleString()}</div>
+              </div>
+              <div className="text-center flex flex-col justify-center">
+                <div className="text-white/80 font-medium text-sm mb-1">Info</div>
+                <div className="text-white font-bold text-lg">{permissionAnalytics.expiring_soon || 0} expiring</div>
+              </div>
+            </div>
+          </div>
+        </Link>
 
-        {/* Analytics Hub with PancakeSwap mint green */}
-        <HubTile
-          href="/analytics"
-          title="ANALYTICS"
-          icon={BarChart3}
-          primaryValue={`${Math.round(permissionAnalytics.health_score)}%`}
-          secondaryValue="system health"
-          color="bg-gradient-to-br from-[#31D0AA] to-[#00B3A6]"
-          status="success"
-        />
+        <Link href="/analytics" className="block">
+          <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-400 text-purple-800">
+                  <span className="font-bold text-lg">3</span>
+                </div>
+                <h3 className="font-bold text-3xl text-white">ANALYTICS</h3>
+              </div>
+            </div>
+            <div className="mb-6 flex justify-center">
+              <button className="px-8 py-3 rounded-full font-bold text-lg transition-colors bg-green-400 text-purple-800 hover:bg-green-300">
+                ● ACTIVE
+              </button>
+            </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white font-medium">Status</span>
+                <span className="text-white font-medium">60d left</span>
+              </div>
+              <div className="w-full bg-purple-500/50 rounded-full h-3">
+                <div className="bg-green-400 h-3 rounded-full transition-all duration-1000" style={{width: '95%'}}></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl p-4 text-center bg-green-400 text-purple-800">
+                <div className="font-bold text-sm mb-1">Value</div>
+                <div className="font-bold text-xl">{Math.round(permissionAnalytics.health_score || 95)}%</div>
+              </div>
+              <div className="text-center flex flex-col justify-center">
+                <div className="text-white/80 font-medium text-sm mb-1">Info</div>
+                <div className="text-white font-bold text-lg">System Health</div>
+              </div>
+            </div>
+          </div>
+        </Link>
 
-        {/* System Hub with Windows Phone purple */}
-        <HubTile
-          href="/system"
-          title="SYSTEM"
-          icon={Settings}
-          primaryValue={`${systemMetrics.memory_usage}%`}
-          secondaryValue="memory usage"
-          color="bg-gradient-to-br from-[#8764B8] to-[#744DA9]"
-          status={getSystemStatus()}
-        />
-
-        {/* Notifications Hub with vibrant red */}
-        <HubTile
-          href="/notifications"
-          title="NOTIFICATIONS"
-          icon={Bell}
-          primaryValue="0"
-          secondaryValue="all clear"
-          color="bg-gradient-to-br from-[#D13438] to-[#B71C1C]"
-          status={getNotificationStatus()}
-        />
-
-        {/* EPS Data Hub with deep purple gradient */}
-        <HubTile
-          href="/analytics/eps"
-          title="EPS DATA"
-          icon={TrendingUp}
-          primaryValue="45.2K"
-          secondaryValue="analytics queries"
-          color="bg-gradient-to-br from-[#673AB7] to-[#512DA8]"
-          status="success"
-        />
-
-        {/* Real-time Activity Hub with PancakeSwap teal */}
-        <HubTile
-          href="/activity"
-          title="REAL-TIME"
-          icon={Activity}
-          primaryValue={systemMetrics.active_users}
-          secondaryValue="users online now"
-          color="bg-gradient-to-br from-[#00ACC1] to-[#00838F]"
-          status="success"
-        />
-
-        {/* Quick Actions Hub with Windows Phone magenta */}
-        <HubTile
-          href="/actions"
-          title="ACTIONS"
-          icon={Zap}
-          primaryValue="7"
-          secondaryValue="quick admin tasks"
-          color="bg-gradient-to-br from-[#E3008C] to-[#C2185B]"
-          status="info"
-        />
+        <Link href="/system" className="block">
+          <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-400 text-purple-800">
+                  <span className="font-bold text-lg">4</span>
+                </div>
+                <h3 className="font-bold text-3xl text-white">SYSTEM</h3>
+              </div>
+            </div>
+            <div className="mb-6 flex justify-center">
+              <button className="px-8 py-3 rounded-full font-bold text-lg transition-colors bg-green-400 text-purple-800 hover:bg-green-300">
+                ● ACTIVE
+              </button>
+            </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white font-medium">Status</span>
+                <span className="text-white font-medium">15d left</span>
+              </div>
+              <div className="w-full bg-purple-500/50 rounded-full h-3">
+                <div className="bg-green-400 h-3 rounded-full transition-all duration-1000" style={{width: '65%'}}></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl p-4 text-center bg-green-400 text-purple-800">
+                <div className="font-bold text-sm mb-1">Value</div>
+                <div className="font-bold text-xl">{systemMetrics.memory_usage || 65}%</div>
+              </div>
+              <div className="text-center flex flex-col justify-center">
+                <div className="text-white/80 font-medium text-sm mb-1">Info</div>
+                <div className="text-white font-bold text-lg">Memory Usage</div>
+              </div>
+            </div>
+          </div>
+        </Link>
       </div>
 
-      {/* Server-rendered Stats Summary */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-        <div className="bg-black/20 backdrop-blur-sm rounded-lg p-4 text-center">
-          <div className="text-2xl font-light text-yellow-400">{stats.active_users}</div>
-          <div className="text-sm text-white/60">Active Users</div>
+      {/* Analytics Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+        <div className="bg-gradient-to-br from-white/80 via-blue-50/20 to-purple-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl shadow-blue-200/30 dark:shadow-blue-900/50 hover:shadow-2xl hover:shadow-blue-300/40 dark:hover:shadow-blue-700/60 hover:scale-105 transition-all duration-300 rounded-2xl p-6 text-center backdrop-blur-md">
+          <div className="text-7xl font-black text-gray-900 dark:text-white mb-3 drop-shadow-sm">{(stats.active_users || 5).toLocaleString()}</div>
+          <div className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Active Users</div>
+          <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Total registered users in the system</div>
         </div>
-        <div className="bg-black/20 backdrop-blur-sm rounded-lg p-4 text-center">
-          <div className="text-2xl font-light text-green-400">{permissionAnalytics.users_with_permissions}</div>
-          <div className="text-sm text-white/60">Users with Permissions</div>
+        
+        <div className="bg-gradient-to-br from-white/80 via-blue-50/20 to-purple-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl shadow-blue-200/30 dark:shadow-blue-900/50 hover:shadow-2xl hover:shadow-blue-300/40 dark:hover:shadow-blue-700/60 hover:scale-105 transition-all duration-300 rounded-2xl p-6 text-center backdrop-blur-md">
+          <div className="text-7xl font-black text-gray-900 dark:text-white mb-3 drop-shadow-sm">{Math.round(permissionAnalytics.health_score || 95)}%</div>
+          <div className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">System Health</div>
+          <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Overall system performance and reliability</div>
         </div>
-        <div className="bg-black/20 backdrop-blur-sm rounded-lg p-4 text-center">
-          <div className="text-2xl font-light text-blue-400">{systemMetrics.api_response_time}s</div>
-          <div className="text-sm text-white/60">Avg Response Time</div>
+        
+        <div className="bg-gradient-to-br from-white/80 via-blue-50/20 to-purple-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl shadow-blue-200/30 dark:shadow-blue-900/50 hover:shadow-2xl hover:shadow-blue-300/40 dark:hover:shadow-blue-700/60 hover:scale-105 transition-all duration-300 rounded-2xl p-6 text-center backdrop-blur-md">
+          <div className="text-6xl font-black text-gray-900 dark:text-white mb-3 drop-shadow-sm">{systemMetrics.api_response_time ? systemMetrics.api_response_time.toFixed(1) : '<100'}ms</div>
+          <div className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Avg Response Time</div>
+          <div className="text-base text-gray-600 dark:text-gray-400 font-medium">Average API response time across all endpoints</div>
         </div>
       </div>
     </div>

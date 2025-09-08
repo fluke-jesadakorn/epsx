@@ -2,15 +2,11 @@
 // CQRS command for creating new payments in the Payment bounded context
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use rust_decimal::Decimal;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info, error};
 
 use crate::domain::payment::{
-    Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort,
-    PaymentError
+    Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort
 };
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
@@ -145,7 +141,7 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
         );
         
         // Create the payment aggregate
-        let mut payment = Payment::create(
+        let payment = Payment::create(
             command.user_id,
             command.amount,
             command.method,

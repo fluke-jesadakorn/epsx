@@ -1,4 +1,4 @@
-use super::{Cache, CacheConfig};
+use super::Cache;
 
 /// Unified cache that can switch between different implementations
 pub struct UnifiedCache {

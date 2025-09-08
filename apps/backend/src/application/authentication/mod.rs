@@ -7,6 +7,5 @@ pub mod services;
 pub mod dtos;
 
 pub use commands::*;
-pub use queries::*;
 pub use services::*;
 pub use dtos::*;

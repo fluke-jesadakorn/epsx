@@ -11,7 +11,7 @@ use axum::{
 use tracing::{debug, info, warn, error};
 
 use crate::infrastructure::oidc::granular_service::{EnhancedOIDCService, TokenValidationResult};
-use crate::infrastructure::cache::permission_cache::{PermissionCacheService, HashValidationResult};
+use crate::infrastructure::cache::permission_cache::PermissionCacheService;
 use crate::config::env::get_env_var;
 
 /// User information extracted from validated JWT

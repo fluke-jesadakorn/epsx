@@ -1,6 +1,4 @@
 use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 // Firebase Authentication Provider

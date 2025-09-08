@@ -8,7 +8,7 @@ use axum::{
     middleware::Next,
     response::{Response, IntoResponse},
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use tracing::{info, warn, error};
 
 use crate::auth::user_jwt::{UserJWTService, UserValidationResult, UserSubscription};

@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use epsx_backend::core::db;
-use epsx_backend::infrastructure::adapters::repositories::diesel::models::{
+use epsx::core::db;
+use epsx::infrastructure::adapters::repositories::diesel::models::{
     User, UserPermission,
 };
 
@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn analyze_existing_permissions(
     conn: &mut PgConnection,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    use epsx_backend::infrastructure::adapters::repositories::diesel::schema::user_permissions::dsl::*;
+    use epsx::infrastructure::adapters::repositories::diesel::schema::user_permissions::dsl::*;
     
     let existing: Vec<String> = user_permissions
         .select(permission)
@@ -299,7 +299,7 @@ async fn migrate_user_permissions(
     conn: &mut PgConnection,
     mappings: &[PermissionMapping],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use epsx_backend::infrastructure::adapters::repositories::diesel::schema::user_permissions::dsl::*;
+    use epsx::infrastructure::adapters::repositories::diesel::schema::user_permissions::dsl::*;
     use diesel::sql_query;
     
     // Get all user permissions

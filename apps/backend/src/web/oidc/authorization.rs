@@ -1,12 +1,9 @@
 // Pure OIDC Authorization Code Flow implementation
 
-use async_trait::async_trait;
 use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
-use crate::domain::authentication::{AuthenticatedUserId, ProviderType, Scope, ClientInformation};
 use crate::domain::user_management::{User, Email, FirebaseUid, UserRepositoryPort, SessionRepositoryPort};
 use crate::domain::user_management::aggregates::session::Session;
-use chrono::{DateTime, Utc, Duration};
-use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 
 use axum::{
     extract::{Query, Form},
@@ -255,9 +252,9 @@ async fn handle_authenticated_user_flow_direct(
     
     // Look up user by email to get UUID for JWT migration (sub field)
     use crate::infrastructure::adapters::repositories::diesel::create_pool;
-    use crate::infrastructure::adapters::repositories::diesel::repos::DieselUserRepository;
-    use crate::application::ports::repositories::UserRepository;
-    use crate::domain::shared_kernel::value_objects::Email;
+    
+    
+    
     use std::sync::Arc;
     
     // Get database URL
@@ -515,7 +512,7 @@ async fn handle_authenticated_user_flow(
     let auth_code = generate_authorization_code();
     
     // Look up user by email to get UUID for JWT migration (sub field)
-    use crate::domain::shared_kernel::value_objects::Email;
+    
     let user_email = firebase_user.email
         .as_ref()
         .ok_or_else(|| {

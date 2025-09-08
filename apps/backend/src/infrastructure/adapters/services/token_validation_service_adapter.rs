@@ -2,12 +2,11 @@
 // Bridges DDD token validation with existing OIDC providers
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
-    AuthenticatedUserId, AccessToken, RefreshToken,
+    RefreshToken,
     TokenValidationServicePort, TokenClaims, TokenIntrospectionResult
 };
 use crate::web::auth::providers::{AuthProvider, ProviderType};

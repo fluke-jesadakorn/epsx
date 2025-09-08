@@ -1,5 +1,4 @@
 use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc};
 // Server-Sent Events implementation for real-time updates
 
 use axum::{

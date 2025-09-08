@@ -4,10 +4,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::shared_kernel::value_objects::UserId;
 use super::{
-    AuthenticationSession, SessionId, AuthenticatedUserId,
-    AccessToken, RefreshToken, IdToken
+    AuthenticationSession, SessionId, AuthenticatedUserId
 };
 
 /// Port for authentication session repository operations

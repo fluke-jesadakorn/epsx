@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::SessionId;
 use crate::domain::authentication::AuthenticatedUserId;
 use chrono::{DateTime, Utc};
 // Session Management Repository Ports
@@ -10,7 +10,6 @@ use super::{
     UserSessionManager, SessionMetadata, SessionStatus, DeviceInfo
 };
 use super::value_objects::{IpAddressInfo};
-use super::value_objects::SuspiciousPattern as SecurityAssessment;
 
 /// Port for session manager repository operations
 #[async_trait]

@@ -1,5 +1,5 @@
 use crate::domain::shared_kernel::value_objects::UserId;
-use super::{Cache, CacheConfig};
+use super::Cache;
 
 /// Result of hash validation
 #[derive(Debug, Clone)]

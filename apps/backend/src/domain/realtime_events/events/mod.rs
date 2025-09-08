@@ -1,5 +1,3 @@
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};// Real-time Events Domain Events
 
 use uuid::Uuid;

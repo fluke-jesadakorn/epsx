@@ -1,8 +1,5 @@
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::AggregateRoot;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 // Unified User Management API handlers for the refactored admin interface
 // These handlers support the new /users/[userId]/* route structure
 

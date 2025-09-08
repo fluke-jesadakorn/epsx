@@ -10,7 +10,6 @@ use serde::{Serialize, Deserialize};
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
 use uuid::Uuid;
 
-use super::scopes::ScopeError;
 
 /// Access Token for API authorization
 #[derive(Debug, Clone, Serialize, Deserialize)]

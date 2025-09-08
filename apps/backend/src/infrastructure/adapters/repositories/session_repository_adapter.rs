@@ -17,7 +17,7 @@ use crate::domain::user_management::{SessionSearchCriteria, SessionSearchResult,
 use crate::infrastructure::adapters::repositories::diesel::{
     DbPool,
     schema::sessions,
-    models::{DieselSession, NewDieselSession}
+    models::DieselSession
 };
 use crate::infrastructure::adapters::repositories::mappers::SessionMapper;
 

@@ -1,12 +1,11 @@
 // User Identity Service Adapter
 use async_trait::async_trait;
-use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn, error};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
-    UserIdentityServicePort, AuthenticatedUserId, UserProfile
+    UserIdentityServicePort, AuthenticatedUserId
 };
 use crate::application::ports::repositories::{UserRepository, UserPermissionRepository};
 use crate::domain::shared_kernel::entities::user::User as LegacyUser;

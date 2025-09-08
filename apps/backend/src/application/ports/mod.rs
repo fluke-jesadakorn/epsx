@@ -5,7 +5,6 @@ pub mod inbound;
 pub mod outbound;
 
 // Re-export common port types
-pub use inbound::*;
 pub use outbound::*;
 
 // Convenience re-exports for specific modules

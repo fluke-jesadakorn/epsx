@@ -25,10 +25,10 @@ impl StockAnalysisRepositoryAdapter {
         let symbol = StockSymbol::new(legacy_ranking.symbol.clone())
             .map_err(|e| format!("Invalid symbol: {}", e))?;
         
-        let eps_value = EPSValue::new(legacy_ranking.eps_current)
+        let eps_value = EPSValue::new(legacy_ranking.current_eps.unwrap_or(0.0))
             .map_err(|e| format!("Invalid EPS value: {}", e))?;
         
-        let growth_factor = GrowthFactor::new(legacy_ranking.growth_rate)
+        let growth_factor = GrowthFactor::new(legacy_ranking.growth_factor.unwrap_or(0.0))
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
         
         let sector = MarketSector::new(legacy_ranking.sector.clone())
@@ -39,7 +39,7 @@ impl StockAnalysisRepositoryAdapter {
 
         Ok(RankingEntry {
             symbol,
-            company_name: legacy_ranking.company_name.clone(),
+            company_name: legacy_ranking.name.clone(),
             eps_value,
             growth_factor,
             sector,
@@ -53,15 +53,19 @@ impl StockAnalysisRepositoryAdapter {
     fn convert_ddd_to_legacy_ranking(&self, entry: &RankingEntry, rank: u32) -> LegacyEPSRanking {
         LegacyEPSRanking {
             symbol: entry.symbol.as_str().to_string(),
-            company_name: entry.company_name.clone(),
-            eps_current: entry.eps_value.value(),
-            eps_previous: 0.0, // Not available in DDD model
-            growth_rate: entry.growth_factor.percentage(),
-            rank,
+            name: entry.company_name.clone(),
+            country: "US".to_string(), // Default country
             sector: entry.sector.name().to_string(),
-            market_cap: None,    // Not available in DDD model
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps: Some(entry.eps_value.value()),
+            growth_factor: Some(entry.growth_factor.percentage()),
             price_current: None, // Not available in DDD model
-            last_updated: chrono::Utc::now(),
+            market_cap: None,    // Not available in DDD model
+            volume: None,        // Not available in DDD model
+            ranking_position: Some(rank as i32),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
         }
     }
 

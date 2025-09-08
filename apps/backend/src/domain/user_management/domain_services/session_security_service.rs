@@ -1,5 +1,5 @@
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
-use chrono::{DateTime, Utc, Duration};
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::Duration;
 
 use crate::domain::shared_kernel::{DomainError, DomainResult};
 use crate::domain::user_management::aggregates::Session;

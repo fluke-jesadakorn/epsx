@@ -12,8 +12,6 @@ pub mod repositories;
 // Re-export domain concepts
 pub use aggregates::*;
 pub use value_objects::*;
-pub use domain_services::*;
-pub use ports::*;
 pub use events::*;
 pub use repositories::*;
 

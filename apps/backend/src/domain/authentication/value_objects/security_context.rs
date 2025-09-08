@@ -1,7 +1,7 @@
 // Tracks security-related information and threat detection
 
-use crate::domain::authentication::{AuthenticatedUserId, ProviderType, ClientInformation};
-use chrono::{DateTime, Utc, Duration};
+use crate::domain::authentication::ClientInformation;
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 

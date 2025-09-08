@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use jsonwebtoken::{decode, encode, Header, Validation, Algorithm, errors::ErrorKind};
 use uuid::Uuid;
 

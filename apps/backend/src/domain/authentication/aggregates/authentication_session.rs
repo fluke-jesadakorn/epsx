@@ -1,4 +1,3 @@
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::value_objects::SessionId;
 // Authentication Session Aggregate Root
 // Manages the complete authentication lifecycle including tokens, sessions, and security

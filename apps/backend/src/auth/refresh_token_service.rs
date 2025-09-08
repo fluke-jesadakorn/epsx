@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 use sha2::{Sha256, Digest};
 
@@ -18,7 +18,7 @@ use crate::core::errors::{AppResult, AppError};
 
 use crate::infrastructure::adapters::repositories::diesel::{
 
-    models::{RefreshToken, NewRefreshToken, UpdateRefreshToken, NewRevokedToken},
+    models::{RefreshToken, NewRefreshToken},
     repos::{RefreshTokenRepository, RevokedTokenRepository},
 };
 use crate::auth::session_security_service::DeviceFingerprint;

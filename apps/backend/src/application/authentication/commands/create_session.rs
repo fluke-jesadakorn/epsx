@@ -4,10 +4,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::application::shared::{Command, ApplicationResult};
 use crate::domain::authentication::{
-    SessionId, AuthenticatedUserId, AuthenticationProvider, ClientInformation, Scope, ProviderType
+    SessionId, AuthenticatedUserId, AuthenticationProvider, ClientInformation, Scope
 };
 
 /// Command to create a new authentication session

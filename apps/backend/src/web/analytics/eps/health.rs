@@ -1,5 +1,3 @@
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 // Health Checks and Debug Endpoints
 // Focused module handling EPS service health monitoring and debugging
 
@@ -11,10 +9,8 @@ use std::sync::Arc;
 use tracing::{debug, info, error};
 
 use crate::core::errors::{AppError, ErrorKind};
-use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
 use crate::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
-use crate::infrastructure::InfraFactory;
 use super::dto::EPSHealthResponse;
 
 /// GET /api/analytics/eps-rankings/health
@@ -90,7 +86,9 @@ pub async fn debug_ranking_data(
     match service.get_eps_rankings(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingParams {
         sector: None,
         country: Some("taiwan".to_string()),
-        market_cap_min: None,
+        min_eps: None,
+        min_growth: None,
+        page: 1,
         limit: 5,
         sort_by: None,
     }).await {
@@ -101,16 +99,16 @@ pub async fn debug_ranking_data(
                 if ranking.symbol == "2330" || ranking.symbol == "LLY" {
                     results.push(serde_json::json!({
                         "symbol": ranking.symbol,
-                        "company_name": ranking.company_name,
-                        "current_eps": ranking.eps_current,
-                        "previous_eps": ranking.eps_previous,
-                        "growth_rate": ranking.growth_rate
+                        "company_name": ranking.name,
+                        "current_eps": ranking.current_eps,
+                        "previous_eps": None::<f64> /* eps_previous not available in DDD structure */,
+                        "growth_rate": ranking.growth_factor
                     }));
                     
                     info!("🔍 Ranking debug - Symbol: {}, Company: '{}', Current EPS: {:.3}, Growth Rate: {:.2}%", 
-                          ranking.symbol, ranking.company_name, 
-                          ranking.eps_current,
-                          ranking.growth_rate);
+                          ranking.symbol, ranking.name, 
+                          ranking.current_eps.unwrap_or(0.0),
+                          ranking.growth_factor.unwrap_or(0.0));
                 }
             }
             
@@ -187,7 +185,7 @@ pub async fn trigger_eps_sync() -> Result<Json<serde_json::Value>, AppError> {
             std::sync::Arc::new(get_default_config())
         }
     };
-    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new());
+    let _tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config));
     
     // Note: InfraFactory creation would be handled in actual implementation
     // let _infra_factory = InfraFactory { db_pool, cache, firebase_admin };

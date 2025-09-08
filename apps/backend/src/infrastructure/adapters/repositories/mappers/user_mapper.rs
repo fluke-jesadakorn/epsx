@@ -1,5 +1,4 @@
 use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use std::str::FromStr;
 use std::collections::HashSet;

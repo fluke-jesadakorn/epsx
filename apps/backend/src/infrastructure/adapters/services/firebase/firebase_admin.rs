@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub use super::types::FirebaseUser;
 
 /// Firebase Admin service for user management
+#[derive(Clone)]
 pub struct FirebaseAdmin {
     project_id: String,
     service_account_key: Option<String>,
@@ -132,6 +133,105 @@ impl FirebaseAdmin {
         // Placeholder implementation
         tracing::info!("Confirming password reset with code: {}", oob_code);
         Ok(())
+    }
+
+    /// Get user by email address
+    pub async fn get_user_by_email(&self, email: &str) -> Result<FirebaseUser, FirebaseError> {
+        tracing::info!("Getting Firebase user by email: {}", email);
+        
+        // Mock implementation - in production this would call Firebase Admin API
+        if email == "info@epsx.io" {
+            return Ok(FirebaseUser {
+                uid: "9ViedWlAUIfOglWpOJnXZUl8fJ12".to_string(),
+                email: Some(email.to_string()),
+                display_name: Some("Info EPSX".to_string()),
+                photo_url: None,
+                email_verified: true,
+                provider_id: "password".to_string(),
+                custom_claims: std::collections::HashMap::new(),
+            });
+        }
+        
+        // Return mock user for development
+        Ok(FirebaseUser {
+            uid: format!("user_{}", email.replace('@', "_").replace('.', "_")),
+            email: Some(email.to_string()),
+            display_name: Some("Mock User".to_string()),
+            photo_url: None,
+            email_verified: true,
+            provider_id: "password".to_string(),
+            custom_claims: std::collections::HashMap::new(),
+        })
+    }
+
+    /// Create new user in Firebase
+    pub async fn create_user(
+        &self, 
+        email: Option<String>, 
+        password: Option<String>, 
+        display_name: Option<String>
+    ) -> Result<String, FirebaseError> {
+        tracing::info!("Creating Firebase user with email: {:?}", email);
+        
+        // Mock implementation - in production this would call Firebase Admin API
+        let uid = format!("user_{}", 
+            email.as_deref()
+                .unwrap_or("anonymous")
+                .replace('@', "_")
+                .replace('.', "_")
+        );
+        
+        tracing::info!("Mock user created with UID: {}", uid);
+        Ok(uid)
+    }
+
+    /// Update existing user in Firebase
+    pub async fn update_user(
+        &self,
+        firebase_uid: &str,
+        email: Option<String>,
+        display_name: Option<String>,
+        disabled: Option<bool>
+    ) -> Result<(), FirebaseError> {
+        tracing::info!("Updating Firebase user: {}", firebase_uid);
+        
+        // Mock implementation - in production this would call Firebase Admin API
+        if let Some(email) = email {
+            tracing::info!("Updated email for user {}: {}", firebase_uid, email);
+        }
+        if let Some(display_name) = display_name {
+            tracing::info!("Updated display name for user {}: {}", firebase_uid, display_name);
+        }
+        if let Some(disabled) = disabled {
+            tracing::info!("Updated disabled status for user {}: {}", firebase_uid, disabled);
+        }
+        
+        Ok(())
+    }
+
+    /// Set custom role claims for user
+    pub async fn set_user_role(&self, firebase_uid: &str, role: &str) -> Result<(), FirebaseError> {
+        tracing::info!("Setting role '{}' for Firebase user: {}", role, firebase_uid);
+        
+        // Mock implementation - in production this would set custom claims in Firebase
+        tracing::info!("Mock: User {} role set to {}", firebase_uid, role);
+        
+        Ok(())
+    }
+
+    /// List users with pagination
+    pub async fn list_users(&self, max_results: Option<u32>, page_token: Option<String>) -> Result<(Vec<FirebaseUser>, Option<String>), FirebaseError> {
+        tracing::info!("Listing Firebase users - max_results: {:?}, page_token: {:?}", max_results, page_token);
+        
+        // Mock implementation - return empty list for now
+        // In production this would call Firebase Admin API
+        Ok((vec![], None))
+    }
+
+    /// Get admin access level for a user
+    pub fn get_admin_access_level(&self, _firebase_user: &FirebaseUser) -> String {
+        // Mock implementation - in production this would check custom claims
+        "basic".to_string()
     }
 }
 

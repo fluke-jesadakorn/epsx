@@ -1,10 +1,9 @@
 // Event Payload Value Object
 // Represents the data carried by real-time events
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 use super::UserId;
 

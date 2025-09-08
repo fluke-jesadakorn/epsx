@@ -1,15 +1,9 @@
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{info, error};
 
 // Infrastructure dependencies
 use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::infrastructure::cache::{Cache, CacheFactory};
-use crate::infrastructure::adapters::repositories::diesel::repos::user_repo::DieselUserRepository;
-use crate::application::ports::repositories::{UserRepository, UserPermissionRepository, SessionRepository};
+use crate::application::ports::repositories::{UserRepository, UserPermissionRepository};
 use crate::infrastructure::adapters::repositories::{
     UserRepositoryAdapter, SessionRepositoryAdapter, UserPermissionRepositoryAdapter,
     PaymentRepositoryAdapter, TransactionRepositoryAdapter,
@@ -21,10 +15,8 @@ use crate::infrastructure::event_bus::SimpleEventBus;
 // Domain layer imports
 use crate::domain::shared_kernel::DomainEventBus;
 use crate::domain::user_management::{UserRepositoryPort, SessionRepositoryPort};
-use crate::domain::session_management::repositories::{SessionManagerRepositoryPort, SessionMetadataRepositoryPort};
 
 // Application layer imports
-use crate::application::shared::CommandHandler;
 use crate::application::user_management::{
     CreateUserCommandHandler, 
     GrantPermissionCommandHandler,

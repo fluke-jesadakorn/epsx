@@ -2,10 +2,9 @@
 use async_trait::async_trait;
 use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
-use rust_decimal::Decimal;
 // Bridges DDD Payment aggregate with legacy payment storage systems
 
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 use std::sync::Arc;
 
 use crate::domain::payment::{

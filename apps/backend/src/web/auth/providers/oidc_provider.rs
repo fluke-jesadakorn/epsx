@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::authentication::{AuthenticatedUserId, Scope, ClientInformation};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 
 // OpenID Connect Provider
 // Handles custom OIDC JWT tokens issued by our backend

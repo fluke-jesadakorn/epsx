@@ -1,9 +1,7 @@
-use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};// Suspicious Pattern Value Object
 // Represents patterns that indicate potentially suspicious session activity
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 use crate::domain::shared_kernel::{ValueObject, value_object::ValueObjectError};
 

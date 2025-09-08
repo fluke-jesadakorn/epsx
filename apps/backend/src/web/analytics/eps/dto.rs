@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};// DTOs and Request/Response Structures for EPS Analytics
+// DTOs and Request/Response Structures for EPS Analytics
 // Focused module handling all data transfer objects and API structures
 
 use serde::{Deserialize, Serialize};
@@ -196,6 +196,29 @@ pub struct SymbolCardData {
     pub active_status: String,         // Active or Non Active based on surplus
     pub quarterly_performance: Vec<QuarterlyPerformanceData>,
     pub next_quarter_estimate: Option<NextQuarterEstimate>, // NEW: Next quarter EPS estimate
+    pub eps_quarterly: Option<EPSQuarterlyData>, // NEW: 4-Quarter EPS data structure
+}
+
+/// 4-Quarter EPS Data Structure matching frontend expectations
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EPSQuarterlyData {
+    pub eps_q_minus_2: Option<f64>,        // Q-2 (2 quarters ago)
+    pub eps_q_minus_1: Option<f64>,        // Q-1 (1 quarter ago) 
+    pub eps_q_current: Option<f64>,        // Q0 (current quarter)
+    pub eps_q_next_estimate: Option<f64>,  // Q+1 (next quarter estimate)
+    
+    // Quarter dates for EPS reporting
+    pub eps_q_minus_2_date: Option<String>,
+    pub eps_q_minus_1_date: Option<String>, 
+    pub eps_q_current_date: Option<String>,
+    pub eps_q_next_estimate_date: Option<String>,
+    
+    // Growth calculations
+    pub qoq_growth_current: Option<f64>,   // Q0 vs Q-1 growth percentage
+    pub yoy_growth_current: Option<f64>,   // Q0 vs Q-4 growth (if available)
+    pub trend_direction: Option<String>,   // "UP", "DOWN", "FLAT"
+    pub avg_growth_rate: Option<f64>,      // Average growth rate across available quarters
+    pub consistency_score: Option<String>, // "HIGH", "MEDIUM", "LOW" - earnings consistency
 }
 
 /// Quarterly performance data for the card dashboard
@@ -262,15 +285,19 @@ impl EPSRankingsApiResponse {
     ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
         crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
             symbol: entry.symbol.to_string(),
-            company_name: entry.company_name,
-            eps_current: entry.eps_value.value(),
-            eps_previous: 0.0, // Not available from entry
-            growth_rate: entry.growth_factor.percentage(),
-            rank,
+            name: entry.company_name,
+            country: entry.country.name().to_string(),
             sector: entry.sector.to_string(),
-            market_cap: None, // Would need to be calculated or provided
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps: Some(entry.eps_value.value()),
+            growth_factor: Some(entry.growth_factor.percentage()),
             price_current: None, // Not available from entry
-            last_updated: chrono::Utc::now(),
+            market_cap: None, // Would need to be calculated or provided
+            volume: None, // Not available from entry
+            ranking_position: Some(rank as i32),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
         }
     }
 }

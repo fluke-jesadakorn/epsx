@@ -64,7 +64,7 @@ export default function ServerPagination({
       {/* Results info */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
         <div className="text-sm text-gray-700 dark:text-slate-200 font-medium">
-          Showing {startItem}-{endItem} of {total} results
+          Showing {startItem}-{endItem} results
         </div>
         
         {/* Limit selector form */}

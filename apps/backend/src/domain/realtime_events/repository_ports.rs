@@ -1,6 +1,4 @@
 use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};// Real-time Events Repository Ports
 // Repository interfaces for Real-time Events bounded context
 

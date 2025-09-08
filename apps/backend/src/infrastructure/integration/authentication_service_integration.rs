@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
 use crate::domain::shared_kernel::value_objects::SessionId;
 use chrono::{DateTime, Utc};// Authentication Service Integration
 // Orchestrates SessionManagement bounded context for authentication operations
@@ -14,7 +12,7 @@ use crate::domain::user_management::{
 };
 use crate::application::user_management::{
     CreateSessionCommandHandler, 
-    commands::{CreateSessionCommand, CreateSessionResponse}
+    commands::CreateSessionCommand
 };
 use crate::application::shared::CommandHandler;
 

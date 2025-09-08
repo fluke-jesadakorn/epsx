@@ -320,8 +320,6 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         return 'bg-green-500';
       case 'STOP':
         return 'bg-red-500';
-      case 'WATCH':
-        return 'bg-yellow-500';
       default:
         return 'bg-gray-400';
     }
@@ -333,8 +331,6 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         return '🟢';
       case 'STOP':
         return '🔴';
-      case 'WATCH':
-        return '🟡';
       default:
         return '⚪';
     }
@@ -363,8 +359,6 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       switch (status) {
         case 'TRACK':
           return { action: 'KEEP', emoji: '🟢' };
-        case 'WATCH':
-          return { action: 'WATCH', emoji: '🟡' };
         case 'STOP':
           return { action: 'PAUSE', emoji: '🔴' };
         default:
@@ -731,15 +725,6 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             </span>
             <span className="text-sm text-slate-300">
               Strong performance, actively tracking
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-lg border border-slate-600/40 bg-slate-700/60 p-3 transition-all duration-200 hover:bg-slate-700">
-            <span className="inline-flex items-center rounded bg-yellow-500 px-2 py-1 text-xs font-medium text-white">
-              WATCH
-            </span>
-            <span className="text-sm text-slate-300">
-              Watch closely, mixed signals
             </span>
           </div>
 

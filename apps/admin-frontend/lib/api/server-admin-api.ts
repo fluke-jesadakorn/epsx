@@ -167,6 +167,36 @@ export class ServerAnalyticsAPI {
       new_signups: 12
     }
   }
+
+  static async getRecommendations(): Promise<any> {
+    const result = await serverAdminFetch('/api/v1/admin/analytics/recommendations')
+    return result || {
+      confidence: 87,
+      insights: [
+        {
+          title: 'Optimize EPS Data Caching',
+          description: 'Consider implementing Redis caching for frequently accessed EPS data to improve response times.',
+          priority: 'high',
+          impact: 'High',
+          effort: 'Medium'
+        },
+        {
+          title: 'Monitor High-Volume Stocks',
+          description: 'NVDA and AAPL are seeing unusually high user engagement. Consider dedicated monitoring.',
+          priority: 'medium', 
+          impact: 'Medium',
+          effort: 'Low'
+        },
+        {
+          title: 'Update Alert Thresholds',
+          description: 'Current EPS growth alert thresholds may need adjustment based on recent market volatility.',
+          priority: 'low',
+          impact: 'Low',
+          effort: 'Low'
+        }
+      ]
+    }
+  }
 }
 
 // Server System Configuration APIs

@@ -237,6 +237,12 @@ pnpm docker:dev
 - **Performance**: Optimized with caching and connection pooling
 - **Scalability**: Cloud Run deployment with auto-scaling
 
+## Testing
+
+### Test Credentials
+- **Username**: info@epsx.io
+- **Password**: P@ssword
+
 ## Troubleshooting
 
 ### Common Issues

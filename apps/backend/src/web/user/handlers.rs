@@ -1,5 +1,3 @@
-use crate::domain::authentication::AuthenticatedUserId;
-use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
 // User Profile Management handlers with Casbin authorization
 
@@ -13,7 +11,6 @@ use serde::{ Deserialize, Serialize };
 use crate::web::auth::AppState;
 use crate::application::user_management::{GetUserByFirebaseUidQuery, ListUsersQuery};
 use serde_json::{ json, Value };
-use std::collections::HashMap;
 
 /// Extract session ID from headers
 fn extract_session_from_headers(

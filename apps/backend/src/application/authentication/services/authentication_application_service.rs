@@ -1,15 +1,13 @@
-use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 // Authentication Application Service
 // Main orchestrator for authentication operations using CQRS and DDD patterns
 
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::domain::authentication::{
-    AuthenticationSession, AuthenticatedUserId, SessionId,
+    AuthenticatedUserId, SessionId,
     AuthenticationSessionRepositoryPort, TokenValidationServicePort,
     SecurityMonitoringServicePort, UserIdentityServicePort
 };

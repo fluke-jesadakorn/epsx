@@ -2,10 +2,9 @@
 // Handles authentication session creation with full OIDC compliance
 
 use async_trait::async_trait;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
-use crate::domain::shared_kernel::value_objects::UserId;
 use std::sync::Arc;
 use crate::domain::authentication::{
     AuthenticationSession, AuthenticationError, SessionId,

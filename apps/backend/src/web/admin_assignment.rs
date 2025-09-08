@@ -6,7 +6,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use serde_json::{Value, json};
-use tracing::{info, warn, error};
 use reqwest::Client;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};

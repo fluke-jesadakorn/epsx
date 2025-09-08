@@ -1,4 +1,4 @@
-use crate::domain::shared_kernel::value_objects::UserId;use crate::domain::shared_kernel::value_objects::SessionId;use chrono::{DateTime, Utc};// Authentication Domain Events
+use crate::domain::shared_kernel::value_objects::SessionId;use chrono::{DateTime, Utc};// Authentication Domain Events
 // Events published by the Authentication bounded context
 
 use serde::{Serialize, Deserialize};

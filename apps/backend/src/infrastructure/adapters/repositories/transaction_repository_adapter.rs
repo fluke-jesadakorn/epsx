@@ -1,6 +1,6 @@
 // Transaction Repository Adapter
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 // Bridges DDD transaction monitoring with blockchain infrastructure
 
 use tracing::{info, warn, error};
@@ -10,7 +10,7 @@ use crate::domain::payment::{
     PaymentId, TransactionHash, TransactionRepositoryPort, TransactionRecord
 };
 use crate::infrastructure::adapters::repositories::diesel::DbPool;
-use crate::infrastructure::cache::{Cache, CacheExt};
+use crate::infrastructure::cache::Cache;
 
 /// Repository adapter for transaction monitoring operations
 pub struct TransactionRepositoryAdapter {
@@ -274,7 +274,7 @@ impl<'de> serde::Deserialize<'de> for TransactionRecord {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
+        use serde::de::{self, Deserializer, MapAccess, Visitor};
         use std::fmt;
         
         struct TransactionRecordVisitor;

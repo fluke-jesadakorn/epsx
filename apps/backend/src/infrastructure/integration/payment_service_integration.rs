@@ -1,11 +1,5 @@
-use async_trait::async_trait;
-use crate::domain::authentication::AuthenticatedUserId;
 use crate::domain::shared_kernel::value_objects::UserId;
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use rust_decimal::Decimal;
-use tracing::{info, warn, error};
+use tracing::{info, error};
 use std::sync::Arc;
 
 // Payment Service Integration
@@ -13,13 +7,11 @@ use std::sync::Arc;
 // Maintains API compatibility while using DDD internally
 
 use crate::domain::payment::{
-    Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentStatus,
+    PaymentId, PaymentAmount, PaymentMethod, PaymentStatus,
     repository_ports::{PaymentRepositoryPort, TransactionRepositoryPort, CryptoAddressRepositoryPort, PaymentMethodRepositoryPort},
-    value_objects::{Currency, Network, TransactionHash, CryptoAddress}
+    value_objects::{Currency, Network}
 };
-use crate::application::payment::{
-    commands::{CreatePaymentCommand, CreatePaymentCommandHandler, CreatePaymentResponse}
-};
+use crate::application::payment::commands::{CreatePaymentCommand, CreatePaymentCommandHandler};
 use crate::application::shared::CommandHandler;
 
 /// Integration service that orchestrates DDD payment components

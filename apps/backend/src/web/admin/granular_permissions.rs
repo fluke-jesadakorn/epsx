@@ -1,4 +1,3 @@
-use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 // V1 Admin API for Granular Permission Management
@@ -10,7 +9,7 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::auth::granular_permissions::{
     GranularPermissionClaim, PermissionSource
@@ -18,7 +17,6 @@ use crate::auth::granular_permissions::{
 use crate::web::middleware::clean_auth::AuthenticatedUser;
 use crate::web::auth::AppState;
 // Removed: notification events - will be re-implemented
-use crate::infrastructure::cache::permission_cache::PermissionCacheService;
 
 /// Request to grant a permission
 #[derive(Debug, Deserialize)]
