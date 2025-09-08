@@ -126,7 +126,9 @@ CREATE TRIGGER user_sessions_updated_at
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
 RETURNS INTEGER AS $$
 DECLARE
-    deleted_count INTEGER := 0;
+    admin_deleted_count INTEGER := 0;
+    user_deleted_count INTEGER := 0;
+    total_deleted_count INTEGER := 0;
 BEGIN
     -- Clean up expired admin sessions
     DELETE FROM admin_sessions 
@@ -134,7 +136,7 @@ BEGIN
        OR (revoked_at IS NOT NULL AND revoked_at < NOW() - INTERVAL '24 hours')
        OR last_activity < NOW() - INTERVAL '7 days';
     
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    GET DIAGNOSTICS admin_deleted_count = ROW_COUNT;
     
     -- Clean up expired user sessions
     DELETE FROM user_sessions 
@@ -142,9 +144,11 @@ BEGIN
        OR (revoked_at IS NOT NULL AND revoked_at < NOW() - INTERVAL '24 hours')
        OR last_activity < NOW() - INTERVAL '30 days';
     
-    GET DIAGNOSTICS deleted_count = deleted_count + ROW_COUNT;
+    GET DIAGNOSTICS user_deleted_count = ROW_COUNT;
     
-    RETURN deleted_count;
+    total_deleted_count := admin_deleted_count + user_deleted_count;
+    
+    RETURN total_deleted_count;
 END;
 $$ LANGUAGE plpgsql;
 

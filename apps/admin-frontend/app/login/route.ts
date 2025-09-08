@@ -33,29 +33,29 @@ export async function GET(request: NextRequest) {
   
   const cookieStore = await cookies();
   
-  // Set PKCE cookies
-  response.cookies.set('oauth_code_verifier', codeVerifier, {
+  // Set PKCE cookies with more permissive settings for development
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 600, // 10 minutes
-    path: '/'
+    sameSite: 'lax' as const,
+    maxAge: 900, // 15 minutes - longer timeout for OAuth flow
+    path: '/',
+    // For development, don't restrict domain
+    ...(process.env.NODE_ENV === 'development' ? {} : {})
+  };
+
+  response.cookies.set('oauth_code_verifier', codeVerifier, cookieOptions);
+  response.cookies.set('oauth_state', state, cookieOptions);
+  response.cookies.set('oauth_callback_url', callbackUrl, cookieOptions);
+
+  // Also set backup cookies in case primary ones are lost
+  response.cookies.set('pkce_verifier_backup', codeVerifier, {
+    ...cookieOptions,
+    httpOnly: false, // Make accessible to client-side as backup
   });
-  
-  response.cookies.set('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 600, // 10 minutes
-    path: '/'
-  });
-  
-  response.cookies.set('oauth_callback_url', callbackUrl, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 600, // 10 minutes
-    path: '/'
+  response.cookies.set('pkce_state_backup', state, {
+    ...cookieOptions,
+    httpOnly: false, // Make accessible to client-side as backup
   });
   
   console.log('✅ Admin Route: PKCE cookies set successfully');

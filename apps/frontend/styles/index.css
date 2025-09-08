@@ -135,6 +135,11 @@
   .animate-gradient-x {
     animation: gradient-x 3s ease infinite;
   }
+  
+  /* iOS-style scroll picker - hide scrollbar */
+  .ios-scroll-picker::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ============================================================================

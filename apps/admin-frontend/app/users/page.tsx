@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import UsersHub from '@/components/hubs/UsersHub'
-import { AdminServerAPI } from '@/lib/server/admin-api'
+import { UnifiedDataFetchers } from '@/lib/server/unified-data-fetchers'
+import { ServerAuth } from '@/lib/server/auth-helpers'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
@@ -73,6 +74,9 @@ function UsersHubSkeleton() {
 
 // Server component that fetches data and passes to client component
 async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProps['searchParams'] }) {
+  // Check authentication first
+  await ServerAuth.requirePermission('admin:users:manage')
+  
   // Parse search parameters - await in Next.js 15
   const resolvedSearchParams = await searchParams
   const page = parseInt(resolvedSearchParams?.page || '1', 10)
@@ -80,38 +84,40 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
   const search = resolvedSearchParams?.search?.trim() || ''
   const filter = resolvedSearchParams?.filter || 'all'
 
-  // Determine if we should use search or regular list API
-  const isFiltered = search || filter !== 'all'
+  // Calculate offset for pagination
+  const offset = (page - 1) * limit
   
   let usersData = { users: [], total: 0, page: 1, totalPages: 1 }
   let stats = {}
 
   try {
-    if (isFiltered) {
-      // Use search API for filtered results
-      const searchParams = {
-        search,
-        page,
-        per_page: limit,
+    // Use unified data fetchers for consistent data access
+    if (search || filter !== 'all') {
+      // Use IAM users with filters
+      const filters = {
+        ...(search && { search }),
         ...(filter === 'active' && { status: 'active' }),
-        ...(filter === 'premium' && { package_tier: 'premium' })
+        ...(filter === 'premium' && { role: 'premium' }),
+        limit,
+        offset
       }
       
-      usersData = await AdminServerAPI.searchUsers(searchParams)
-    } else {
-      // Use regular list API for unfiltered results  
-      usersData = await AdminServerAPI.getUsersList({
+      const users = await UnifiedDataFetchers.getIAMUsers(filters)
+      usersData = {
+        users,
+        total: users.length,
         page,
-        limit,
-        search: '',
-        status: 'all',
-        sortBy: 'created_at',
-        sortOrder: 'desc'
-      })
+        totalPages: Math.ceil(users.length / limit)
+      }
+    } else {
+      // Use regular users endpoint
+      usersData = await UnifiedDataFetchers.getUsers(offset, limit)
+      usersData.page = page
+      usersData.totalPages = Math.ceil(usersData.total / limit)
     }
     
-    // Get stats
-    stats = await AdminServerAPI.getUserStats()
+    // Get user stats
+    stats = await UnifiedDataFetchers.getUserStats()
     
   } catch (error) {
     console.error('Failed to fetch users data:', error)

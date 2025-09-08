@@ -1,4 +1,4 @@
-// Database Schema Management Tool for EPSX
+use chrono::{DateTime, Utc};// Database Schema Management Tool for EPSX
 // Modern consolidated database schema management with Diesel migrations
 // Optimized for production deployment and development workflows
 
@@ -41,7 +41,7 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!("diesel_migrations");
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter("migrate=info,epsx_backend=info")
+        .with_env_filter("migrate=info,epsx=info")
         .init();
 
     let cli = Cli::parse();

@@ -1,4 +1,4 @@
-// OpenID Connect Token Introspection Endpoint (RFC 7662)
+use chrono::Utc;// OpenID Connect Token Introspection Endpoint (RFC 7662)
 // Implements standard token introspection with granular permission details
 
 use axum::{
@@ -7,7 +7,6 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use chrono::Utc;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 
 use crate::web::auth::AppState;
@@ -244,14 +243,14 @@ async fn get_granular_permission_details(
     app_state: &AppState,
     claims: &Claims,
 ) -> GranularPermissionDetails {
-    // Get user permissions from database
-    let user_permissions = match app_state.permission_application_service.get_user_permissions(&claims.sub).await {
-        Ok(permissions) => permissions,
+    // Get user by Firebase UID from JWT sub claim
+    let firebase_uid = match crate::domain::user_management::value_objects::FirebaseUid::new(&claims.sub) {
+        Ok(uid) => uid,
         Err(e) => {
             tracing::warn!(
                 sub = %claims.sub,
                 error = %e,
-                "Failed to get user permissions for introspection"
+                "Invalid Firebase UID in JWT token for introspection"
             );
             return GranularPermissionDetails {
                 permissions: None,
@@ -262,6 +261,40 @@ async fn get_granular_permission_details(
             };
         }
     };
+    
+    let user = match app_state.user_repo.find_by_firebase_uid(&firebase_uid).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            tracing::warn!(
+                sub = %claims.sub,
+                "User not found for introspection"
+            );
+            return GranularPermissionDetails {
+                permissions: None,
+                count: None,
+                has_admin: None,
+                package_tier: None,
+                expiring_count: None,
+            };
+        }
+        Err(e) => {
+            tracing::error!(
+                sub = %claims.sub,
+                error = %e,
+                "Database error during introspection"
+            );
+            return GranularPermissionDetails {
+                permissions: None,
+                count: None,
+                has_admin: None,
+                package_tier: None,
+                expiring_count: None,
+            };
+        }
+    };
+
+    // Get user permissions from User aggregate
+    let user_permissions = user.active_permissions();
 
     // Build detailed permission information
     let mut permission_details = Vec::new();

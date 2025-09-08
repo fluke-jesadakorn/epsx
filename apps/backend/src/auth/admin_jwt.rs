@@ -1,7 +1,6 @@
-// Admin JWT Claims and Service
+use std::collections::HashMap;// Admin JWT Claims and Service
 // Enhanced security structure for administrative operations
 
-use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Algorithm, Validation};
@@ -316,7 +315,7 @@ pub struct AdminJWTClaims {
     // Admin user information
     pub email: String,
     pub name: String,
-    pub role: String,       // admin, super_admin, operator
+    // Role removed - using permissions-based system only
     
     // Enhanced admin security context
     pub security_context: AdminSecurityContext,
@@ -418,7 +417,6 @@ impl AdminJWTService {
         admin_id: String,
         email: String,
         name: String,
-        role: String,
         security_context: AdminSecurityContext,
         permissions: AdminPermissionMatrix,
     ) -> Result<String, Box<dyn std::error::Error>> {
@@ -440,7 +438,6 @@ impl AdminJWTService {
             jti: Uuid::new_v4().to_string(),
             email,
             name,
-            role,
             security_context,
             privileged_ops: PrivilegedOperationContext {
                 operations: Vec::new(),

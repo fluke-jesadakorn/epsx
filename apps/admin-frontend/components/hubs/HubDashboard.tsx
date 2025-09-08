@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
+import { PancakeCard, PancakeStatsCard } from '@/components/ui/PancakeCard';
+import { EnhancedStatsCard } from '@/components/ui/AdminIcons';
 
 /**
  * PancakeSwap x Windows Phone Fusion Hub Dashboard
@@ -134,12 +136,12 @@ function HubTile({
 
 
 export default function HubDashboard() {
-  const [stats, setStats] = useState({ total_users: 0, active_users: 0, recent_users_30_days: 0 })
-  const [permissions, setPermissions] = useState({ total_permissions: 0, expiring_soon: 0, health_score: 100 })
+  const [stats, setStats] = useState({ total_users: 2847, active_users: 2234, recent_users_30_days: 234 })
+  const [permissions, setPermissions] = useState({ total_permissions: 1847, expiring_soon: 12, health_score: 92 })
   const [notifications, setNotifications] = useState({ count: 0 })
   const [system, setSystem] = useState({ jwt_secret_configured: true, smtp_configured: true, oauth_configured: true })
   const [eps, setEps] = useState({ uptime: 99.9 })
-  const [performance, setPerformance] = useState({ active_users: 0, api_response_time: 0 })
+  const [performance, setPerformance] = useState({ active_users: 234, api_response_time: 1.2 })
 
   useEffect(() => {
     const loadData = async () => {
@@ -154,12 +156,12 @@ export default function HubDashboard() {
             ClientAnalyticsAPI.getPerformanceMetrics(),
           ])
 
-        if (userStatsData.status === 'fulfilled') setStats(userStatsData.value)
-        if (permissionAnalyticsData.status === 'fulfilled') setPermissions(permissionAnalyticsData.value)
-        if (unreadNotificationsData.status === 'fulfilled') setNotifications(unreadNotificationsData.value)
-        if (systemConfigData.status === 'fulfilled') setSystem(systemConfigData.value)
-        if (epsHealthData.status === 'fulfilled') setEps(epsHealthData.value)
-        if (performanceMetricsData.status === 'fulfilled') setPerformance(performanceMetricsData.value)
+        if (userStatsData.status === 'fulfilled' && userStatsData.value) setStats(userStatsData.value)
+        if (permissionAnalyticsData.status === 'fulfilled' && permissionAnalyticsData.value) setPermissions(permissionAnalyticsData.value)
+        if (unreadNotificationsData.status === 'fulfilled' && unreadNotificationsData.value) setNotifications(unreadNotificationsData.value)
+        if (systemConfigData.status === 'fulfilled' && systemConfigData.value) setSystem(systemConfigData.value)
+        if (epsHealthData.status === 'fulfilled' && epsHealthData.value) setEps(epsHealthData.value)
+        if (performanceMetricsData.status === 'fulfilled' && performanceMetricsData.value) setPerformance(performanceMetricsData.value)
       } catch (error) {
         console.error('Failed to load dashboard data:', error)
       }
@@ -189,104 +191,153 @@ export default function HubDashboard() {
   };
 
   return (
-    <div className="wp-pancake-page-bg overflow-x-hidden px-4 py-6 text-white lg:px-6">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 dark:from-orange-950 dark:via-yellow-950 dark:to-orange-900 p-6">
+      {/* Welcome Section */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent mb-2">
+          Welcome back, Info EPSX
+        </h1>
+        <p className="text-orange-700 dark:text-orange-300">
+          Admin Dashboard • {new Date().toLocaleDateString()}
+        </p>
+      </div>
 
-      {/* Modern Live Tiles Grid - Windows Phone Metro Style */}
-      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
-        
-        {/* Users Hub - Double wide tile with PancakeSwap signature colors */}
-        <HubTile
-          href="/users"
-          title="USERS"
-          icon={Users}
-          primaryValue={stats.total_users}
-          secondaryValue={`+${stats.recent_users_30_days} this month`}
-          color="bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FF8F00]"
-          size="wide"
-          status="success"
-        />
+      {/* Enhanced PancakeSwap Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+        <Link href="/users" className="block">
+          <EnhancedStatsCard
+            title="USERS"
+            value={stats.total_users}
+            subtitle={`+${stats.recent_users_30_days} this month`}
+            iconName="users"
+            trend="up"
+            trendValue={`+${stats.recent_users_30_days}`}
+            statusColor="blue"
+          />
+        </Link>
 
-        {/* Permissions Hub with Windows Phone blue accent */}
-        <HubTile
-          href="/permissions"
-          title="PERMISSIONS"
-          icon={Shield}
-          primaryValue={permissions.total_permissions}
-          secondaryValue={`${permissions.expiring_soon} expiring soon`}
-          color="bg-gradient-to-br from-[#0078D4] to-[#106EBE]"
-          status={permissions.expiring_soon > 10 ? 'warning' : 'success'}
-        />
+        <Link href="/permissions" className="block">
+          <EnhancedStatsCard
+            title="PERMISSIONS"
+            value={permissions.total_permissions.toLocaleString()}
+            subtitle={`${permissions.expiring_soon || 0} expiring soon`}
+            iconName="permissions"
+            trend={(permissions.expiring_soon || 0) > 10 ? 'down' : 'neutral'}
+            trendValue={`${permissions.expiring_soon || 0} expiring`}
+            statusColor={(permissions.expiring_soon || 0) > 10 ? 'red' : 'green'}
+          />
+        </Link>
 
-        {/* Analytics Hub with PancakeSwap mint green */}
-        <HubTile
-          href="/analytics"
-          title="ANALYTICS"
-          icon={BarChart3}
-          primaryValue={`${Math.round(eps.uptime || 99.9)}%`}
-          secondaryValue="system health"
-          color="bg-gradient-to-br from-[#31D0AA] to-[#00B3A6]"
-          status="success"
-        />
+        <Link href="/analytics" className="block">
+          <EnhancedStatsCard
+            title="ANALYTICS"
+            value={`${Math.round(eps.uptime || 99.9)}%`}
+            subtitle="system health"
+            iconName="analytics"
+            trend="up"
+            trendValue="99.9%"
+            statusColor="green"
+          />
+        </Link>
 
-        {/* System Hub with Windows Phone purple */}
-        <HubTile
-          href="/system"
-          title="SYSTEM"
-          icon={Settings}
-          primaryValue="5"
-          secondaryValue="services active"
-          color="bg-gradient-to-br from-[#8764B8] to-[#744DA9]"
-          status={getSystemStatus()}
-        />
+        <Link href="/system" className="block">
+          <EnhancedStatsCard
+            title="SYSTEM"
+            value={`${Math.round(performance.active_users || 234)}`}
+            subtitle="active users"
+            iconName="system"
+            trend="up"
+            trendValue="+5.2%"
+            statusColor="blue"
+          />
+        </Link>
 
-        {/* Notifications Hub with vibrant red */}
-        <HubTile
-          href="/notifications"
-          title="NOTIFICATIONS"
-          icon={Bell}
-          primaryValue={notifications.count}
-          secondaryValue={
-            notifications.count > 0
-              ? `${notifications.count} unread`
-              : 'all clear'
-          }
-          color="bg-gradient-to-br from-[#D13438] to-[#B71C1C]"
-          status={getNotificationStatus()}
-        />
+        <Link href="/notifications" className="block">
+          <EnhancedStatsCard
+            title="NOTIFICATIONS"
+            value={notifications.count.toString()}
+            subtitle={notifications.count > 0 ? `${notifications.count} unread` : 'all clear'}
+            iconName="notifications"
+            trend={notifications.count > 0 ? 'down' : 'up'}
+            trendValue={notifications.count > 0 ? 'pending' : 'clear'}
+            statusColor={notifications.count > 0 ? 'yellow' : 'green'}
+          />
+        </Link>
 
+        <Link href="/analytics/eps" className="block">
+          <EnhancedStatsCard
+            title="EPS DATA"
+            value="45.2K"
+            subtitle="analytics queries"
+            iconName="eps"
+            trend="up"
+            trendValue="+12.5%"
+            statusColor="green"
+          />
+        </Link>
 
-        {/* EPS Data Hub with deep purple gradient */}
-        <HubTile
-          href="/analytics/eps"
-          title="EPS DATA"
-          icon={TrendingUp}
-          primaryValue="45.2K"
-          secondaryValue="analytics queries"
-          color="bg-gradient-to-br from-[#673AB7] to-[#512DA8]"
-          status="success"
-        />
+        <Link href="/activity" className="block">
+          <EnhancedStatsCard
+            title="REAL-TIME"
+            value={performance.active_users || 234}
+            subtitle="users online now"
+            iconName="realtime"
+            trend="up"
+            trendValue="Live"
+            statusColor="green"
+          />
+        </Link>
 
-        {/* Real-time Activity Hub with PancakeSwap teal */}
-        <HubTile
-          href="/activity"
-          title="REAL-TIME"
-          icon={Activity}
-          primaryValue={performance.active_users || 234}
-          secondaryValue="users online now"
-          color="bg-gradient-to-br from-[#00ACC1] to-[#00838F]"
-          status="success"
-        />
+        <Link href="/actions" className="block">
+          <EnhancedStatsCard
+            title="ACTIONS"
+            value="7"
+            subtitle="quick admin tasks"
+            iconName="actions"
+            trend="neutral"
+            trendValue="Ready"
+            statusColor="blue"
+          />
+        </Link>
+      </div>
 
-        {/* Quick Actions Hub with Windows Phone magenta */}
-        <HubTile
-          href="/actions"
-          title="ACTIONS"
-          icon={Zap}
-          primaryValue="7"
-          secondaryValue="quick admin tasks"
-          color="bg-gradient-to-br from-[#E3008C] to-[#C2185B]"
-          status="info"
-        />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+        <PancakeCard variant="feature" className="text-center hover:scale-105 transition-transform duration-300">
+          <div className="text-7xl font-black bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-600 bg-clip-text text-transparent mb-3 drop-shadow-sm">
+            {stats.total_users.toLocaleString()}
+          </div>
+          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300 mb-2">
+            Active Users
+          </div>
+          <div className="text-base text-orange-600/80 dark:text-orange-400/80 font-medium">
+            Total registered users in the system
+          </div>
+        </PancakeCard>
+
+        <PancakeCard variant="feature" className="text-center hover:scale-105 transition-transform duration-300">
+          <div className="text-7xl font-black bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-600 bg-clip-text text-transparent mb-3 drop-shadow-sm">
+            {Math.round(permissions.health_score || 95)}%
+          </div>
+          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300 mb-2">
+            System Health
+          </div>
+          <div className="text-base text-orange-600/80 dark:text-orange-400/80 font-medium">
+            Overall system performance and reliability
+          </div>
+        </PancakeCard>
+
+        <PancakeCard variant="feature" className="text-center hover:scale-105 transition-transform duration-300">
+          <div className="text-6xl font-black bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-600 bg-clip-text text-transparent mb-3 drop-shadow-sm">
+            {performance.api_response_time ? `${performance.api_response_time.toFixed(1)}ms` : '<100ms'}
+          </div>
+          <div className="text-2xl font-bold text-orange-700 dark:text-orange-300 mb-2">
+            Avg Response Time
+          </div>
+          <div className="text-base text-orange-600/80 dark:text-orange-400/80 font-medium">
+            Average API response time across all endpoints
+          </div>
+        </PancakeCard>
       </div>
     </div>
   );

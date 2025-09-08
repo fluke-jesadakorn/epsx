@@ -2,7 +2,7 @@
 // Focused module handling all data transfer objects and API structures
 
 use serde::{Deserialize, Serialize};
-use crate::dom::services::eps_cache_service::CacheStats;
+use crate::domain::shared_kernel::services::eps_cache_service::CacheStats;
 
 /// Query parameters for EPS rankings endpoint
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,7 @@ pub struct EPSRankingQueryParams {
 /// API response structure matching frontend pattern
 #[derive(Debug, Serialize)]
 pub struct EPSRankingsApiResponse {
-    pub data: Vec<crate::dom::entities::eps_growth::EPSRanking>,
+    pub data: Vec<crate::domain::shared_kernel::entities::eps_growth::EPSRanking>,
     pub pagination: EPSPaginationResponse,
 }
 
@@ -196,6 +196,29 @@ pub struct SymbolCardData {
     pub active_status: String,         // Active or Non Active based on surplus
     pub quarterly_performance: Vec<QuarterlyPerformanceData>,
     pub next_quarter_estimate: Option<NextQuarterEstimate>, // NEW: Next quarter EPS estimate
+    pub eps_quarterly: Option<EPSQuarterlyData>, // NEW: 4-Quarter EPS data structure
+}
+
+/// 4-Quarter EPS Data Structure matching frontend expectations
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EPSQuarterlyData {
+    pub eps_q_minus_2: Option<f64>,        // Q-2 (2 quarters ago)
+    pub eps_q_minus_1: Option<f64>,        // Q-1 (1 quarter ago) 
+    pub eps_q_current: Option<f64>,        // Q0 (current quarter)
+    pub eps_q_next_estimate: Option<f64>,  // Q+1 (next quarter estimate)
+    
+    // Quarter dates for EPS reporting
+    pub eps_q_minus_2_date: Option<String>,
+    pub eps_q_minus_1_date: Option<String>, 
+    pub eps_q_current_date: Option<String>,
+    pub eps_q_next_estimate_date: Option<String>,
+    
+    // Growth calculations
+    pub qoq_growth_current: Option<f64>,   // Q0 vs Q-1 growth percentage
+    pub yoy_growth_current: Option<f64>,   // Q0 vs Q-4 growth (if available)
+    pub trend_direction: Option<String>,   // "UP", "DOWN", "FLAT"
+    pub avg_growth_rate: Option<f64>,      // Average growth rate across available quarters
+    pub consistency_score: Option<String>, // "HIGH", "MEDIUM", "LOW" - earnings consistency
 }
 
 /// Quarterly performance data for the card dashboard
@@ -234,18 +257,47 @@ pub struct CardDashboardMetadata {
     pub data_source: String,
 }
 
-impl From<crate::dom::entities::eps_growth::EPSRankingsResponse> for EPSRankingsApiResponse {
-    fn from(response: crate::dom::entities::eps_growth::EPSRankingsResponse) -> Self {
+/// Convert from DDD trading analytics to API response
+impl EPSRankingsApiResponse {
+    pub fn from_ddd_ranking_entry(ranking_entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, rank: u32, page: i32, limit: i32, total: i64) -> Self {
+        let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
+        
+        // Convert DDD RankingEntry to legacy EPSRanking for API compatibility
+        let legacy_ranking = Self::convert_ddd_entry_to_legacy_ranking(ranking_entry, rank);
+        
         Self {
-            data: response.rankings,
+            data: vec![legacy_ranking],
             pagination: EPSPaginationResponse {
-                page: response.pagination.page,
-                limit: response.pagination.limit,
-                total: response.pagination.total,
-                total_pages: response.pagination.total_pages,
-                has_next: response.pagination.has_next,
-                has_prev: response.pagination.has_prev,
+                page,
+                limit,
+                total,
+                total_pages,
+                has_next: page < total_pages,
+                has_prev: page > 1,
             },
+        }
+    }
+    
+    /// Convert DDD RankingEntry to legacy EPSRanking for API compatibility
+    fn convert_ddd_entry_to_legacy_ranking(
+        entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, 
+        rank: u32
+    ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
+        crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
+            symbol: entry.symbol.to_string(),
+            name: entry.company_name,
+            country: entry.country.name().to_string(),
+            sector: entry.sector.to_string(),
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps: Some(entry.eps_value.value()),
+            growth_factor: Some(entry.growth_factor.percentage()),
+            price_current: None, // Not available from entry
+            market_cap: None, // Would need to be calculated or provided
+            volume: None, // Not available from entry
+            ranking_position: Some(rank as i32),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
         }
     }
 }

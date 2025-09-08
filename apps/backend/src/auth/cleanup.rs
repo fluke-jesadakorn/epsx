@@ -1,14 +1,13 @@
 /*!
-use chrono::{DateTime, Utc};
  * Token Cleanup Service
  * 
  * Automated background service for cleaning up expired tokens, revoked tokens,
  * and maintaining optimal performance of the authentication system.
  */
 
+use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
-use chrono::Utc;
 use serde::{Serialize, Deserialize};
 
 /// Token cleanup service configuration

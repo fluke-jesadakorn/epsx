@@ -46,7 +46,7 @@ export const colors = {
     200: 'hsl(31 95% 85%)',
     300: 'hsl(31 95% 75%)',
     400: 'hsl(31 95% 65%)',
-    500: 'hsl(31 100% 50%)', // Main primary
+    500: 'hsl(31 100% 50%)', // Main primary - Orange
     600: 'hsl(31 95% 45%)',
     700: 'hsl(31 90% 40%)',
     800: 'hsl(31 85% 35%)',
@@ -61,7 +61,7 @@ export const colors = {
     200: 'hsl(42 90% 80%)',
     300: 'hsl(42 95% 75%)',
     400: 'hsl(42 100% 70%)',
-    500: 'hsl(42 100% 70%)', // Main secondary
+    500: 'hsl(42 100% 70%)', // Main secondary - Yellow
     600: 'hsl(42 95% 65%)',
     700: 'hsl(42 90% 60%)',
     800: 'hsl(42 85% 55%)',
@@ -70,6 +70,18 @@ export const colors = {
       light: 'hsl(220 26% 14%)',
       dark: 'hsl(210 40% 95%)',
     },
+  },
+  
+  // Gradient definitions
+  gradients: {
+    pancake: 'linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%)',
+    pancakeHover: 'linear-gradient(135deg, hsl(31 95% 45%) 0%, hsl(42 95% 65%) 100%)',
+    admin: 'linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%)',
+    adminHover: 'linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%)',
+    analytics: 'linear-gradient(135deg, hsl(215 16% 47%) 0%, hsl(215 19% 35%) 100%)',
+    analyticsHover: 'linear-gradient(135deg, hsl(215 20% 52%) 0%, hsl(215 22% 40%) 100%)',
+    softHighlight: 'linear-gradient(135deg, hsl(31 95% 92%) 0%, hsl(42 90% 88%) 100%)',
+    softHighlightDark: 'linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%)',
   },
   
   // System status colors

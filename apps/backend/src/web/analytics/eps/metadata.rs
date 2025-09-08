@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 
 use crate::core::errors::AppError;
-use crate::dom::services::eps_ranking_service::EPSRankingService;
+use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
 use super::dto::*;
 
 /// GET /api/analytics/eps-rankings/countries
@@ -56,7 +56,8 @@ pub async fn get_sectors_by_country(
 ) -> Result<Json<SectorsResponse>, AppError> {
     debug!("Getting sectors for country: {:?}", params.country);
 
-    let sectors = service.get_sectors_by_country(params.country.clone()).await?;
+    let sectors = service.get_sectors_by_country(params.country.clone()).await
+        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, e.to_string()))?;
     debug!("Found {} sectors", sectors.len());
 
     let response = SectorsResponse {

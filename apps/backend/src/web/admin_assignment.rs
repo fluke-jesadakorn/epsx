@@ -1,12 +1,11 @@
 use axum::{
-    extract::State,
+    extract::{State, Path},
     http::StatusCode,
     response::Json,
-    extract::Path,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use std::collections::HashMap;
+use serde_json::{Value, json};
 use reqwest::Client;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};

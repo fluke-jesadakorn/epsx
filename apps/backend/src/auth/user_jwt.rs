@@ -1,7 +1,6 @@
-// User JWT Claims and Service
+use std::collections::HashMap;// User JWT Claims and Service
 // Performance-optimized structure for regular user operations
 
-use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Algorithm, Validation};

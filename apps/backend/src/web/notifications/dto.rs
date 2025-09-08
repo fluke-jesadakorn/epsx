@@ -1,9 +1,9 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // Temporarily use strings instead of enum types
-// use crate::infra::db::diesel::types::{NotificationPriority, NotificationType, DeliveryChannel};
+// use crate::infrastructure::adapters::repositories::diesel::types::{NotificationPriority, NotificationType, DeliveryChannel};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterFcmTokenRequest {

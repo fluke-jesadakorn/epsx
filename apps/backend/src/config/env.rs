@@ -1,7 +1,6 @@
-// Backend Environment Configuration with Validation
+use std::collections::HashMap;// Backend Environment Configuration with Validation
 // All environment variable access must go through this module
 
-use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -821,10 +820,10 @@ impl EnvVarType {
         match self {
             EnvVarType::String => Ok(()),
             EnvVarType::Url => {
-                if value.starts_with("http://") || value.starts_with("https://") {
+                if value.starts_with("http://") || value.starts_with("https://") || value.starts_with("redis://") {
                     Ok(())
                 } else {
-                    Err("Must be a valid URL starting with http:// or https://".to_string())
+                    Err("Must be a valid URL starting with http://, https://, or redis://".to_string())
                 }
             },
             EnvVarType::Number => {

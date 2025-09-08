@@ -1,18 +1,16 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use std::collections::HashMap;
 // Multi-Provider Token Broker
 // Core orchestration component for handling authentication across multiple providers
 
-use std::collections::HashMap;
-
 use jsonwebtoken::{ EncodingKey, Algorithm, Header, encode };
-
 use serde::{ Serialize, Deserialize };
-
 use chrono::{ DateTime, Utc, Duration };
 
 use crate::config::env::get_env_var;
 
 
-// use crate::dom::services::casbin_service::CasbinService; // Removed - using modern JWT auth
+// use crate::domain::shared_kernel::services::casbin_service::CasbinService; // Removed - using modern JWT auth
 use super::providers::{
 
   ProviderRegistry,
@@ -23,8 +21,6 @@ use super::providers::{
 use super::providers::firebase_provider::FirebaseProvider;
 
 use super::providers::oidc_provider::OIDCProvider;
-
-use crate::dom::values::UserId;
 
 
 /// Unified JWT claims issued by the token broker
@@ -273,11 +269,11 @@ impl TokenBroker {
     if let Ok(jwt_claims) = self.validate_unified_jwt(token).await {
       // Convert UnifiedJWTClaims to UserClaims
       return Ok(UserClaims::new(
-        UserId::new(jwt_claims.sub),
-        crate::dom::values::Email
+        UserId::from_string(jwt_claims.sub).map_err(|e| AuthProviderError::TokenValidationFailed(format!("Invalid user ID: {}", e)))?,
+        crate::domain::shared_kernel::value_objects::Email
           ::new(jwt_claims.email)
           .unwrap_or_else(|_|
-            crate::dom::values::Email
+            crate::domain::shared_kernel::value_objects::Email
               ::new("unknown@example.com".to_string())
               .unwrap()
           ),
@@ -300,11 +296,11 @@ impl TokenBroker {
         self
           .validate_unified_jwt(&unified_jwt.access_token).await
           .map(|jwt_claims| UserClaims::new(
-            UserId::new(jwt_claims.sub),
-            crate::dom::values::Email
+            UserId::from_string(jwt_claims.sub).unwrap_or_else(|_| UserId::new()),
+            crate::domain::shared_kernel::value_objects::Email
               ::new(jwt_claims.email)
               .unwrap_or_else(|_|
-                crate::dom::values::Email
+                crate::domain::shared_kernel::value_objects::Email
                   ::new("unknown@example.com".to_string())
                   .unwrap()
               ),

@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::web::auth::routes::AppState;
-use crate::infra::AppContainer;
+use crate::infrastructure::AppContainer;
 use std::sync::Arc;
 use super::discovery::*;
 use super::token::{oidc_token, oidc_userinfo};

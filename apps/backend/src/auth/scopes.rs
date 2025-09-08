@@ -34,7 +34,7 @@ pub enum ScopeCategory {
 /// Scope validation service
 pub struct ScopeService {
     scopes: HashMap<String, Scope>,
-    role_hierarchy: HashMap<String, u32>,
+    // role_hierarchy removed - using permissions-based system
 }
 
 impl ScopeService {
@@ -42,7 +42,6 @@ impl ScopeService {
     pub fn new() -> Self {
         let mut service = Self {
             scopes: HashMap::new(),
-            role_hierarchy: Self::create_role_hierarchy(),
         };
         
         service.register_builtin_scopes();
@@ -228,16 +227,7 @@ impl ScopeService {
                     scope: scope_name.clone()
                 })?;
 
-            // Check role requirement
-            if let Some(required_role) = &scope.required_role {
-                if !self.has_required_role(user_role, required_role) {
-                    return Err(ScopeError::InsufficientRole {
-                        scope: scope_name.clone(),
-                        required_role: required_role.clone(),
-                        user_role: user_role.to_string(),
-                    });
-                }
-            }
+            // Role-based scope validation removed - using permissions-based system only
 
             // Check client authorization for sensitive scopes
             if scope.sensitive && !self.is_client_authorized_for_sensitive_scopes(client_id) {
@@ -276,13 +266,7 @@ impl ScopeService {
             .collect()
     }
 
-    /// Check if user has required role
-    fn has_required_role(&self, user_role: &str, required_role: &str) -> bool {
-        let user_level = self.role_hierarchy.get(user_role).copied().unwrap_or(0);
-        let required_level = self.role_hierarchy.get(required_role).copied().unwrap_or(1);
-        
-        user_level >= required_level
-    }
+    // Role-based validation removed - using permissions-based system
 
     /// Check if client is authorized for sensitive scopes
     fn is_client_authorized_for_sensitive_scopes(&self, client_id: &str) -> bool {
@@ -300,33 +284,17 @@ impl ScopeService {
         scopes.iter().any(|scope| matches!(scope.as_str(), "profile" | "email"))
     }
 
-    /// Create role hierarchy mapping
-    fn create_role_hierarchy() -> HashMap<String, u32> {
-        let mut hierarchy = HashMap::new();
-        
-        hierarchy.insert("user".to_string(), 1);
-        hierarchy.insert("premium".to_string(), 2);
-        hierarchy.insert("moderator".to_string(), 3);
-        hierarchy.insert("admin".to_string(), 4);
-        
-        hierarchy
-    }
+    // Role hierarchy creation removed - using permissions-based system
 
     /// Get scope information
     pub fn get_scope(&self, scope_name: &str) -> Option<&Scope> {
         self.scopes.get(scope_name)
     }
 
-    /// Get all available scopes for a user role
-    pub fn get_available_scopes(&self, user_role: &str) -> Vec<&Scope> {
-        self.scopes
-            .values()
-            .filter(|scope| {
-                scope.required_role
-                    .as_ref()
-                    .map_or(true, |required| self.has_required_role(user_role, required))
-            })
-            .collect()
+    /// Get all available scopes (role filtering removed)
+    pub fn get_available_scopes(&self, _user_role: &str) -> Vec<&Scope> {
+        // Role-based filtering removed - all scopes available, permission-based validation at API level
+        self.scopes.values().collect()
     }
 
     /// Get scope statistics
@@ -410,12 +378,7 @@ pub enum ScopeError {
     #[error("Invalid scope: {scope}")]
     InvalidScope { scope: String },
     
-    #[error("Insufficient role for scope '{scope}': requires '{required_role}', user has '{user_role}'")]
-    InsufficientRole {
-        scope: String,
-        required_role: String,
-        user_role: String,
-    },
+    // InsufficientRole error removed - using permissions-based validation
     
     #[error("Client '{client_id}' not authorized for sensitive scope '{scope}'")]
     ClientNotAuthorized {
@@ -459,17 +422,7 @@ mod tests {
     fn test_insufficient_role() {
         let service = ScopeService::new();
         
-        // User role trying to access premium scope
-        let result = service.validate_scopes("trading:write", "user", "epsx-frontend");
-        assert!(result.is_err());
-        
-        if let Err(ScopeError::InsufficientRole { scope, required_role, user_role }) = result {
-            assert_eq!(scope, "trading:write");
-            assert_eq!(required_role, "premium");
-            assert_eq!(user_role, "user");
-        } else {
-            panic!("Expected InsufficientRole error");
-        }
+        // Role-based scope validation test removed - using permissions-based system
     }
 
     #[test]

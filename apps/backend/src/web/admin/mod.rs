@@ -8,7 +8,7 @@ pub mod setup_handlers;
 // Removed: permission handlers
 pub mod analytics_handlers;
 pub mod firebase_user_management;
-pub mod database_role_management;
+// pub mod database_role_management; // Removed - using permissions-based system
 // Removed admin_role_management - using simple roles
 pub mod search_handlers;
 // Embedded timestamp permission management

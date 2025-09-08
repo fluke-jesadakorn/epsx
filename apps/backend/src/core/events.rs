@@ -1,10 +1,10 @@
 // Enhanced event system for microservices-ready patterns
-use chrono::{DateTime, Utc};
 
-use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
+use async_trait::async_trait;
 
 use crate::core::errors::*;
 

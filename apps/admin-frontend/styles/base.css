@@ -1,16 +1,16 @@
 /**
- * Admin Frontend Base Styles (Tailwind CSS v4)
+ * Admin Frontend Base Styles (Tailwind CSS v4) - Analytics Theme
  * 
- * Complete Tailwind v4 theme configuration using @theme directive.
- * Includes all admin-specific colors, animations, and utilities.
+ * Complete Tailwind v4 theme configuration matching frontend design system.
+ * Uses authentic analytics theme with blue/purple gradients.
  * 
- * Migration Status: v4 Complete ✅
+ * Source: Copied from frontend design system for consistency
  */
 
 @import "tailwindcss";
 
 /* ============================================================================
-   TAILWIND V4 THEME CONFIGURATION - ADMIN FRONTEND
+   TAILWIND V4 THEME CONFIGURATION - FRONTEND ANALYTICS THEME
    ============================================================================ */
 
 @theme {
@@ -22,67 +22,46 @@
   --radius-lg: 1rem;
   --radius-md: calc(1rem - 2px);
   --radius-sm: calc(1rem - 4px);
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
-  --radius-3xl: 1.5rem;
-  
-  /* Spacing Utilities */
-  --spacing-18: 4.5rem;
-  --spacing-88: 22rem;
-  --spacing-112: 28rem;
-  --spacing-128: 32rem;
-  
-  /* Z-Index Utilities */
-  --z-60: 60;
-  --z-70: 70;
-  --z-80: 80;
-  --z-90: 90;
-  --z-100: 100;
-  
-  /* Font Families */
-  --font-sans: 'Inter', 'system-ui', 'sans-serif';
-  --font-mono: 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace';
-  --font-display: 'Cal Sans', 'Inter', 'system-ui', 'sans-serif';
   
   /* ========================================================================
-     ADMIN COLOR SYSTEM - Tailwind v4 Format
+     COLOR SYSTEM - Frontend Analytics Theme
      ======================================================================== */
   
-  /* Primary Color Scale (PancakeSwap Yellow) */
-  --color-primary-50: hsl(47 100% 95%);
-  --color-primary-100: hsl(47 100% 90%);
-  --color-primary-200: hsl(47 100% 82%);
-  --color-primary-300: hsl(47 100% 75%);
-  --color-primary-400: hsl(47 100% 65%);
-  --color-primary-500: hsl(47 100% 63%);
-  --color-primary-600: hsl(45 100% 58%);
-  --color-primary-700: hsl(43 100% 50%);
-  --color-primary-800: hsl(39 100% 44%);
-  --color-primary-900: hsl(36 100% 38%);
+  /* Primary Color Scale (Analytics Blue) */
+  --color-primary-50: hsl(217 100% 95%);
+  --color-primary-100: hsl(217 90% 90%);
+  --color-primary-200: hsl(217 95% 85%);
+  --color-primary-300: hsl(217 95% 75%);
+  --color-primary-400: hsl(217 95% 65%);
+  --color-primary-500: hsl(217 91% 60%);
+  --color-primary-600: hsl(217 95% 45%);
+  --color-primary-700: hsl(217 90% 40%);
+  --color-primary-800: hsl(217 85% 35%);
+  --color-primary-900: hsl(217 80% 30%);
   
-  /* Secondary Color Scale (Windows Phone Blue) */
-  --color-secondary-50: hsl(207 100% 95%);
-  --color-secondary-100: hsl(207 90% 88%);
-  --color-secondary-200: hsl(207 85% 80%);
-  --color-secondary-300: hsl(207 80% 72%);
-  --color-secondary-400: hsl(207 75% 64%);
-  --color-secondary-500: hsl(207 90% 54%);
-  --color-secondary-600: hsl(207 85% 48%);
-  --color-secondary-700: hsl(207 80% 42%);
-  --color-secondary-800: hsl(207 75% 36%);
-  --color-secondary-900: hsl(207 70% 30%);
+  /* Secondary Color Scale (Analytics Purple) */
+  --color-secondary-50: hsl(262 100% 95%);
+  --color-secondary-100: hsl(262 95% 88%);
+  --color-secondary-200: hsl(262 90% 80%);
+  --color-secondary-300: hsl(262 95% 75%);
+  --color-secondary-400: hsl(262 100% 70%);
+  --color-secondary-500: hsl(262 83% 58%);
+  --color-secondary-600: hsl(262 95% 65%);
+  --color-secondary-700: hsl(262 90% 60%);
+  --color-secondary-800: hsl(262 85% 55%);
+  --color-secondary-900: hsl(262 80% 50%);
   
-  /* Success Color Scale (PancakeSwap Mint) */
-  --color-success-50: hsl(174 70% 95%);
-  --color-success-100: hsl(174 65% 88%);
-  --color-success-200: hsl(174 65% 80%);
-  --color-success-300: hsl(174 65% 70%);
-  --color-success-400: hsl(174 60% 60%);
-  --color-success-500: hsl(174 60% 53%);
-  --color-success-600: hsl(174 55% 46%);
-  --color-success-700: hsl(174 50% 39%);
-  --color-success-800: hsl(174 45% 32%);
-  --color-success-900: hsl(174 40% 25%);
+  /* Success Color Scale */
+  --color-success-50: hsl(142 76% 95%);
+  --color-success-100: hsl(142 71% 88%);
+  --color-success-200: hsl(142 71% 75%);
+  --color-success-300: hsl(142 71% 65%);
+  --color-success-400: hsl(142 71% 55%);
+  --color-success-500: hsl(142 71% 45%);
+  --color-success-600: hsl(142 66% 40%);
+  --color-success-700: hsl(142 61% 35%);
+  --color-success-800: hsl(142 56% 30%);
+  --color-success-900: hsl(142 51% 25%);
   
   /* Warning Color Scale */
   --color-warning-50: hsl(45 98% 95%);
@@ -97,77 +76,89 @@
   --color-warning-900: hsl(45 73% 27%);
   
   /* Error Color Scale */
-  --color-error-50: hsl(0 93% 95%);
-  --color-error-100: hsl(0 88% 88%);
-  --color-error-200: hsl(0 88% 75%);
-  --color-error-300: hsl(0 88% 65%);
-  --color-error-400: hsl(0 88% 58%);
+  --color-error-50: hsl(0 90% 95%);
+  --color-error-100: hsl(0 85% 88%);
+  --color-error-200: hsl(0 85% 75%);
+  --color-error-300: hsl(0 85% 70%);
+  --color-error-400: hsl(0 85% 65%);
   --color-error-500: hsl(0 85% 60%);
-  --color-error-600: hsl(0 83% 55%);
-  --color-error-700: hsl(0 80% 50%);
-  --color-error-800: hsl(0 77% 45%);
-  --color-error-900: hsl(0 74% 40%);
+  --color-error-600: hsl(0 80% 55%);
+  --color-error-700: hsl(0 75% 50%);
+  --color-error-800: hsl(0 70% 45%);
+  --color-error-900: hsl(0 65% 40%);
   
   /* Info Color Scale */
   --color-info-50: hsl(217 96% 95%);
   --color-info-100: hsl(217 91% 88%);
   --color-info-200: hsl(217 91% 75%);
-  --color-info-300: hsl(217 91% 65%);
-  --color-info-400: hsl(217 91% 58%);
+  --color-info-300: hsl(217 91% 70%);
+  --color-info-400: hsl(217 91% 65%);
   --color-info-500: hsl(217 91% 60%);
   --color-info-600: hsl(217 86% 55%);
   --color-info-700: hsl(217 81% 50%);
   --color-info-800: hsl(217 76% 45%);
   --color-info-900: hsl(217 71% 40%);
   
-  /* Neutral Color Scale */
-  --color-neutral-50: hsl(217 32% 96%);
-  --color-neutral-100: hsl(217 32% 91%);
-  --color-neutral-200: hsl(215 28% 85%);
-  --color-neutral-300: hsl(215 28% 75%);
-  --color-neutral-400: hsl(215 20% 65%);
-  --color-neutral-500: hsl(215 16% 47%);
-  --color-neutral-600: hsl(215 19% 35%);
-  --color-neutral-700: hsl(215 25% 27%);
-  --color-neutral-800: hsl(215 28% 17%);
-  --color-neutral-900: hsl(220 26% 14%);
+  /* Insight Colors (Analytics Theme) */
+  --color-insight-primary: hsl(217 91% 60%);
+  --color-insight-secondary: hsl(262 83% 58%);
+  --color-insight-success: hsl(142 71% 45%);
+  --color-insight-warning: hsl(45 93% 47%);
+  --color-insight-error: hsl(0 85% 60%);
+  --color-insight-info: hsl(184 93% 47%);
   
   /* ========================================================================
-     ADMIN-SPECIFIC ANIMATIONS
+     ANIMATIONS - Custom Keyframes and Animation Properties
      ======================================================================== */
   
   /* Animation Durations and Timing */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-collapsible-down: collapsible-down 0.2s ease-out;
+  --animate-collapsible-up: collapsible-up 0.2s ease-out;
   
-  --animate-fade-in: fade-in 0.5s ease-out both;
-  --animate-fade-in-delayed: fade-in 0.5s ease-out 0.1s both;
-  --animate-fade-in-delayed-2: fade-in 0.5s ease-out 0.2s both;
-  --animate-fade-in-delayed-3: fade-in 0.5s ease-out 0.3s both;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-gentle: float-gentle 4s ease-in-out infinite;
+  --animate-float-reverse: float-reverse 5s ease-in-out infinite;
+  --animate-float-delayed: float 6s ease-in-out infinite -3s;
   
-  --animate-slide-up: slide-up 0.3s ease-out both;
-  --animate-pancake-slide-up: pancake-slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  --animate-pancake-slide-down: pancake-slide-down 0.2s ease-in both;
+  --animate-bounce-gentle: bounce-gentle 2s ease-in-out infinite;
+  --animate-bounce-slow: bounce-slow 3s ease-in-out infinite;
   
-  --animate-slide-in-from-right: slide-in-from-right 0.3s ease-out;
-  --animate-slide-out-to-right: slide-out-to-right 0.3s ease-in;
-  --animate-slide-in-from-left: slide-in-from-left 0.3s ease-out;
-  --animate-slide-out-to-left: slide-out-to-left 0.3s ease-in;
+  --animate-pulse-gentle: pulse-gentle 3s ease-in-out infinite;
+  --animate-pulse-slow: pulse-slow 4s ease-in-out infinite;
+  --animate-pulse-insight: pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   
-  --animate-menu-item: menu-item-slide-in 0.3s ease-out both;
-  --animate-submenu-enter: submenu-slide-in 0.3s ease-out both;
-  --animate-submenu-exit: submenu-slide-out 0.2s ease-in both;
+  --animate-scale-pulse: scale-pulse 3s ease-in-out infinite;
+  --animate-spin-slow: spin-slow 20s linear infinite;
+  --animate-spin-very-slow: spin-very-slow 30s linear infinite;
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
   
-  --animate-permission-granted: permission-granted 0.6s ease-out both;
-  --animate-permission-denied: permission-denied 0.6s ease-out both;
-  --animate-data-refresh: data-refresh 1s ease-in-out both;
-  
-  --animate-shimmer: shimmer 1s linear infinite;
+  --animate-gradient: gradient 8s ease infinite;
+  --animate-gradient-x: gradient-x 3s ease infinite;
   --animate-gradient-shift: gradient-shift 3s ease-in-out infinite;
+  
+  --animate-shine: shine 2s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  
+  --animate-slide-up: slide-up 0.8s ease-out;
+  --animate-slide-up-delayed: slide-up 0.8s ease-out 0.2s both;
+  --animate-slide-up-delayed-2: slide-up 0.8s ease-out 0.4s both;
+  --animate-slide-in-left: slide-in-left 0.6s ease-out;
+  --animate-slide-in-right: slide-in-right 0.6s ease-out;
+  
+  --animate-fade-in: fade-in 1s ease-out forwards;
+  --animate-fade-in-delayed: fade-in 1s ease-out 0.3s forwards;
+  --animate-fade-in-delayed-2: fade-in 1s ease-out 0.6s forwards;
+  --animate-fade-in-delayed-3: fade-in 1s ease-out 0.9s forwards;
+  
+  --animate-blob1: blob1 12s ease-in-out infinite;
+  --animate-blob2: blob2 14s ease-in-out infinite;
+  --animate-blob3: blob3 16s ease-in-out infinite;
 }
 
 /* ============================================================================
-   KEYFRAMES DEFINITIONS - ADMIN SPECIFIC
+   KEYFRAMES DEFINITIONS
    ============================================================================ */
 
 @keyframes accordion-down {
@@ -180,345 +171,397 @@
   to { height: 0; }
 }
 
-@keyframes fade-in {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 1; transform: translateY(0); }
+@keyframes collapsible-down {
+  from { height: 0; }
+  to { height: var(--collapsible-content-height); }
 }
 
-@keyframes slide-up {
-  0% { opacity: 0; transform: translateY(20px); }
-  100% { opacity: 1; transform: translateY(0); }
+@keyframes collapsible-up {
+  from { height: var(--collapsible-content-height); }
+  to { height: 0; }
 }
 
-@keyframes pancake-slide-up {
-  0% { opacity: 0; transform: translateY(30px) scale(0.9); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
 }
 
-@keyframes pancake-slide-down {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(30px) scale(0.9); }
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(1deg); }
+  66% { transform: translateY(8px) rotate(-1deg); }
 }
 
-@keyframes slide-in-from-right {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(0); }
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(15px) rotate(2deg); }
 }
 
-@keyframes slide-out-to-right {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(100%); }
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
-@keyframes slide-in-from-left {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(0); }
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
 }
 
-@keyframes slide-out-to-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
 
-@keyframes menu-item-slide-in {
-  0% { opacity: 0; transform: translateX(-20px); }
-  100% { opacity: 1; transform: translateX(0); }
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
 }
 
-@keyframes submenu-slide-in {
-  0% { opacity: 0; transform: translateX(-100%); }
-  100% { opacity: 1; transform: translateX(0); }
+@keyframes pulse-insight {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
-@keyframes submenu-slide-out {
-  0% { opacity: 1; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(-100%); }
+@keyframes scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
-@keyframes permission-granted {
-  0% { transform: scale(1); background-color: hsl(142 71% 45% / 0.1); }
-  50% { transform: scale(1.05); background-color: hsl(142 71% 45% / 0.2); }
-  100% { transform: scale(1); background-color: hsl(142 71% 45% / 0.1); }
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-@keyframes permission-denied {
-  0% { transform: scale(1); background-color: hsl(0 85% 60% / 0.1); }
-  25% { transform: translateX(-5px); background-color: hsl(0 85% 60% / 0.15); }
-  75% { transform: translateX(5px); background-color: hsl(0 85% 60% / 0.15); }
-  100% { transform: scale(1); background-color: hsl(0 85% 60% / 0.1); }
+@keyframes spin-very-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-@keyframes data-refresh {
-  0% { transform: rotate(0deg); opacity: 1; }
-  50% { transform: rotate(180deg); opacity: 0.7; }
-  100% { transform: rotate(360deg); opacity: 1; }
+@keyframes wiggle {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(1deg); }
+  75% { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
 }
 
-@keyframes shimmer {
-  0% { background-position: -468px 0; }
-  100% { background-position: 468px 0; }
-}
-
-@keyframes gradient-shift {
+@keyframes gradient {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blob1 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.1, 0.9) translate(10px, -10px); }
+  66% { transform: scale(0.95, 1.05) translate(-10px, 10px); }
+}
+
+@keyframes blob2 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.05, 0.95) translate(-12px, 8px); }
+  66% { transform: scale(0.9, 1.1) translate(12px, -8px); }
+}
+
+@keyframes blob3 {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  33% { transform: scale(1.08, 0.92) translate(8px, 12px); }
+  66% { transform: scale(0.92, 1.08) translate(-8px, -12px); }
+}
+
 /* ============================================================================
-   CSS CUSTOM PROPERTIES - ADMIN THEME VARIABLES
+   CSS CUSTOM PROPERTIES (Theme Variables) - For Backwards Compatibility
    ============================================================================ */
+
 @custom-variant dark (&:is(.dark *));
 
 @layer base {
   :root {
-    /* Light theme - PancakeSwap x Windows Phone */
-    --background: 45 100% 96%; /* Very light yellow background */
-    --foreground: 220 26% 14%; /* Dark blue-gray */
-
+    /* Light theme - Analytics colors */
+    --background: 252 100% 99%;
+    --foreground: 223 84% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 220 26% 14%;
-
+    --card-foreground: 223 84% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 26% 14%;
-
-    --primary: 47 100% 63%; /* PancakeSwap Yellow */
-    --primary-foreground: 220 26% 14%;
-
-    --secondary: 207 90% 54%; /* Windows Phone Blue */
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 45 50% 96%; /* Light yellow-gray */
-    --muted-foreground: 215 16% 47%;
-
-    --accent: 272 60% 58%; /* Windows Phone Purple */
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 60%; /* Windows Phone Red */
+    --popover-foreground: 223 84% 10%;
+    
+    /* Primary colors (Analytics platform inspired) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary colors */
+    --secondary: 42 100% 70%;
+    --secondary-foreground: 223 84% 10%;
+    
+    /* Utility colors */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 217 32% 95%;
+    --accent-foreground: 217 91% 40%;
+    --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 45 30% 85%; /* Light yellow border */
-    --input: 45 30% 90%;
-    --ring: 47 100% 63%; /* PancakeSwap Yellow */
-
-    --radius: 0rem; /* Windows Phone sharp corners */
-
-    /* Analytics platform specific colors */
-    --insight-primary: 217 91% 60%; /* Analytics blue */
-    --insight-secondary: 213 94% 68%; /* Light blue */
-    --insight-success: 142 71% 45%; /* Green */
-    --insight-warning: 45 93% 47%; /* Amber */
-    --insight-error: 0 85% 60%; /* Red */
-    --insight-info: 197 71% 52%; /* Data blue */
-    --insight-accent: 250 84% 54%; /* Command purple */
-
-    /* Admin-specific status colors */
-    --admin-active: 142 71% 45%; /* Green for active users */
-    --admin-inactive: 215 16% 47%; /* Gray for inactive */
-    --admin-pending: 45 93% 47%; /* Amber for pending */
-    --admin-suspended: 0 85% 60%; /* Red for suspended */
-    --admin-premium: 250 84% 54%; /* Purple for premium */
-
-    /* Permission status colors */
-    --permission-granted: 142 71% 45%; /* Green */
-    --permission-denied: 0 85% 60%; /* Red */
-    --permission-pending: 45 93% 47%; /* Amber */
-    --permission-inherited: 217 91% 60%; /* Blue */
-
-    /* Enhanced gradient colors */
-    --gradient-primary: linear-gradient(
-      135deg,
-      hsl(217 91% 60%) 0%,
-      hsl(213 94% 68%) 100%
-    );
-    --gradient-secondary: linear-gradient(
-      135deg,
-      hsl(250 84% 54%) 0%,
-      hsl(197 71% 52%) 100%
-    );
-    --gradient-card: linear-gradient(
-      135deg,
-      hsla(217 91% 60% / 0.05) 0%,
-      hsla(213 94% 68% / 0.05) 100%
-    );
-    --gradient-admin: linear-gradient(
-      135deg,
-      hsla(217 91% 60% / 0.08) 0%,
-      hsla(250 84% 54% / 0.08) 100%
-    );
+    
+    /* Interactive elements */
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 217 91% 60%;
   }
 
   .dark {
-    /* Dark theme - PancakeSwap x Windows Phone Black */
-    --background: 220 26% 3%; /* Windows Phone Black */
-    --foreground: 45 100% 95%; /* Light with yellow tint */
-
-    --card: 220 26% 5%; /* Slightly lighter black */
-    --card-foreground: 45 100% 95%;
-
-    --popover: 220 26% 5%;
-    --popover-foreground: 45 100% 95%;
-
-    --primary: 47 100% 63%; /* Keep PancakeSwap Yellow bright */
-    --primary-foreground: 220 26% 8%;
-
-    --secondary: 207 90% 64%; /* Brighter Windows Phone Blue */
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 220 26% 12%; /* Darker muted */
-    --muted-foreground: 45 20% 70%; /* Yellow-tinted gray */
-
-    --accent: 272 60% 68%; /* Brighter Windows Phone Purple */
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 65%; /* Brighter red for contrast */
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 45 15% 20%; /* Dark yellow-tinted border */
-    --input: 45 15% 15%;
-    --ring: 47 100% 63%; /* PancakeSwap Yellow */
-
-    --radius: 0rem; /* Windows Phone sharp corners */
-
-    /* Analytics platform specific colors - adjusted for dark mode */
-    --insight-primary: 217 91% 65%; /* Analytics blue */
-    --insight-secondary: 213 94% 73%; /* Light blue */
-    --insight-success: 142 71% 50%; /* Green */
-    --insight-warning: 45 93% 52%; /* Amber */
-    --insight-error: 0 85% 58%; /* Red */
-    --insight-info: 197 71% 57%; /* Data blue */
-    --insight-accent: 250 84% 65%; /* Command purple */
-
-    /* Admin-specific status colors - dark mode */
-    --admin-active: 142 71% 50%; /* Slightly brighter green */
-    --admin-inactive: 217 9% 60%; /* Lighter gray */
-    --admin-pending: 45 93% 52%; /* Brighter amber */
-    --admin-suspended: 0 85% 58%; /* Brighter red */
-    --admin-premium: 250 84% 65%; /* Brighter purple */
-
-    /* Permission status colors - dark mode */
-    --permission-granted: 142 71% 50%; /* Brighter green */
-    --permission-denied: 0 85% 58%; /* Brighter red */
-    --permission-pending: 45 93% 52%; /* Brighter amber */
-    --permission-inherited: 217 91% 70%; /* Brighter blue */
-
-    /* Enhanced gradient colors for dark mode */
-    --gradient-primary: linear-gradient(
-      135deg,
-      hsl(217 91% 65%) 0%,
-      hsl(213 94% 73%) 100%
-    );
-    --gradient-secondary: linear-gradient(
-      135deg,
-      hsl(250 84% 65%) 0%,
-      hsl(197 71% 57%) 100%
-    );
-    --gradient-card: linear-gradient(
-      135deg,
-      hsla(217 91% 65% / 0.1) 0%,
-      hsla(213 94% 73% / 0.1) 100%
-    );
-    --gradient-admin: linear-gradient(
-      135deg,
-      hsla(217 91% 65% / 0.12) 0%,
-      hsla(250 84% 65% / 0.12) 100%
-    );
+    /* Dark theme - Analytics colors */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Primary colors (slightly brighter for dark mode) */
+    --primary: 217 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary colors */
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 95%;
+    
+    /* Utility colors */
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 95%;
+    
+    /* Interactive elements */
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 217 91% 65%;
   }
 }
 
+/* ============================================================================
+   BASE ELEMENT STYLES
+   ============================================================================ */
+
 @layer base {
+  /* Global reset and base styles */
   * {
     @apply border-[hsl(var(--border))] ring-[hsl(var(--ring))]/50;
   }
   
+  /* Body styles */
   body {
-    @apply text-[hsl(var(--foreground))];
-    overflow-x: hidden; /* Fix horizontal overflow issues */
-    /* Windows Phone + PancakeSwap unified background */
-    background: linear-gradient(135deg, #000000 0%, #1a1a1a 25%, #2d2d2d 50%, #1a1a1a 75%, #000000 100%);
-    background-attachment: fixed;
-    position: relative;
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+    @apply antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
   
-  /* Windows Phone + PancakeSwap background pattern overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -1;
-    /* Subtle grid pattern inspired by Windows Phone tiles */
-    background-image: 
-      linear-gradient(rgba(255, 193, 7, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 193, 7, 0.02) 1px, transparent 1px);
-    background-size: 20px 20px;
-    /* Add subtle gradient overlay for depth */
-    background-blend-mode: overlay;
+  /* Interactive elements */
+  button,
+  a {
+    @apply cursor-pointer;
   }
   
-  /* Enhanced PancakeSwap accent dots */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -1;
-    /* Subtle radial dots pattern */
-    background-image: 
-      radial-gradient(circle at 20% 30%, rgba(255, 193, 7, 0.03) 1px, transparent 2px),
-      radial-gradient(circle at 80% 70%, rgba(255, 193, 7, 0.03) 1px, transparent 2px),
-      radial-gradient(circle at 40% 80%, rgba(255, 193, 7, 0.02) 1px, transparent 2px);
+  /* Focus management */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-[hsl(var(--ring))] ring-offset-2;
   }
   
-  /* Smooth theme transitions, prevent horizontal overflow, and better scrolling */
-  html {
-    overflow-x: hidden; /* Prevent horizontal overflow */
-    transition: color-scheme 0.3s ease-out;
-    scroll-behavior: smooth; /* Better scrolling behavior */
+  /* Disabled states */
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply opacity-50 cursor-not-allowed;
   }
   
-  html.dark {
-    color-scheme: dark;
+  /* Selection colors */
+  ::selection {
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
   }
   
-  html:not(.dark) {
-    color-scheme: light;
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
   
-  /* Apply smooth transitions to all theme-dependent elements */
+  ::-webkit-scrollbar-track {
+    @apply bg-[hsl(var(--muted))];
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[hsl(var(--muted-foreground))]/30 rounded-md;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-[hsl(var(--muted-foreground))]/50;
+  }
+  
+  /* Ensure proper box-sizing */
   *,
   *::before,
   *::after {
-    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-    transition-duration: 300ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
   }
   
-  /* Prevent transitions on page load */
-  .preload * {
-    transition: none !important;
+  /* Remove default margins */
+  h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+    margin: 0;
   }
-
-  /* Enhanced focus states for accessibility */
-  .focus-visible-ring:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
+  
+  /* Improve list styling */
+  ul[role='list'],
+  ol[role='list'] {
+    list-style: none;
+    padding: 0;
+    margin: 0;
   }
-
-  /* Improved form elements */
-  input, textarea, select {
-    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+  
+  /* Make images easier to work with */
+  img,
+  picture {
+    max-width: 100%;
+    display: block;
   }
+  
+  /* Improve form styling */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+  
+  /* Remove animations for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
 
-  /* Button focus improvements */
-  button:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
+/* ============================================================================
+   LAYOUT FOUNDATIONS
+   ============================================================================ */
+
+@layer base {
+  /* Main layout container */
+  .main-container {
+    @apply min-h-screen flex flex-col;
+  }
+  
+  /* Skip link for accessibility */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4;
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+    @apply px-4 py-2 rounded-md z-50;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  @page {
+    margin: 0.5cm;
+  }
+  
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2,
+  h3 {
+    page-break-after: avoid;
   }
 }

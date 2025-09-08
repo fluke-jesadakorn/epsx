@@ -1,5 +1,7 @@
 import { Suspense } from 'react'
-import HubDashboard from '@/components/hubs/HubDashboard'
+import { UnifiedDataFetchers } from '@/lib/server/unified-data-fetchers'
+import { ServerAuth } from '@/lib/server/auth-helpers'
+import HubDashboardServer from '@/components/hubs/HubDashboardServer'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
@@ -21,10 +23,34 @@ function DashboardSkeleton() {
   )
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // Server-side authentication and data fetching
+  const session = await ServerAuth.getAdminSession()
+  
+  if (!session.isLoggedIn) {
+    // Handle unauthorized access
+    return (
+      <div className="wp-pancake-page-bg p-6 text-white">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+          <p className="mb-4">Please log in to access the admin dashboard.</p>
+          <a href="/login" className="text-yellow-400 hover:text-yellow-300">
+            Go to Login
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // Fetch dashboard data server-side
+  const dashboardData = await UnifiedDataFetchers.getDashboardData()
+
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <HubDashboard />
+      <HubDashboardServer 
+        session={session}
+        dashboardData={dashboardData}
+      />
     </Suspense>
   )
 }

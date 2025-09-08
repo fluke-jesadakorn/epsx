@@ -8,8 +8,8 @@ use axum::{
     middleware::Next,
     response::{Response, IntoResponse},
 };
-use tracing::{info, warn, error};
 use chrono::Utc;
+use tracing::{info, warn, error};
 
 use crate::auth::user_jwt::{UserJWTService, UserValidationResult, UserSubscription};
 use crate::config::env::get_env_var;
