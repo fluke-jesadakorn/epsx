@@ -6,8 +6,8 @@ import HeroSection from '@/components/home/HeroSection';
 import PricingSection from '@/components/home/PricingSection';
 import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 
-// ISR configuration for homepage - revalidate every 5 minutes
-export const revalidate = 300;
+// DISABLE ISR caching to show real TradingView data immediately
+export const revalidate = 0;
 
 export default async function HomePage() {
   // Server-side data fetching via API routes - no hydration issues
@@ -15,10 +15,10 @@ export default async function HomePage() {
     try {
       const [previewResponse, cardsResponse] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=5&type=preview`, {
-          next: { revalidate: 300 }
+          cache: 'no-store'
         }),
         fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=3&type=cards`, {
-          next: { revalidate: 300 }
+          cache: 'no-store'
         })
       ]);
 

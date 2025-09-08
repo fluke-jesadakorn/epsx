@@ -156,9 +156,9 @@ pub async fn debug_websocket_eps() -> Result<Json<serde_json::Value>, AppError> 
                         serde_json::json!({
                             "symbol": eps.symbol,
                             "current_eps": eps.current_eps,
-                            "previous_eps": eps.previous_eps,
-                            "price": eps.price,
-                            "timestamp": eps.timestamp
+                            "quarterly_eps": eps.quarterly_eps,
+                            "price_current": eps.price_current,
+                            "volume": eps.volume
                         })
                     }).collect::<Vec<_>>()
                 }

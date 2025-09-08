@@ -269,6 +269,7 @@ impl EPSRankingsApiResponse {
             rank,
             sector: entry.sector.to_string(),
             market_cap: None, // Would need to be calculated or provided
+            price_current: None, // Not available from entry
             last_updated: chrono::Utc::now(),
         }
     }

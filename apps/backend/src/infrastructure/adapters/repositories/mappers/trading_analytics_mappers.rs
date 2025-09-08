@@ -58,6 +58,7 @@ impl EPSRankingMapper {
             rank: rank,
             sector: entry.sector.name().to_string(),
             market_cap: None,    // Not available in DDD model - would need market data
+            price_current: None, // Not available in DDD model
             last_updated: chrono::Utc::now()
         }
     }
@@ -242,6 +243,7 @@ impl StockAnalysisMapper {
             rank: rank.unwrap_or(0),
             sector: stock_analysis.sector().name().to_string(),
             market_cap: None,    // Not available in DDD model
+            price_current: None, // Not available in DDD model
             last_updated: chrono::Utc::now(),
         }
     }

@@ -13,6 +13,7 @@ pub struct EPSRanking {
     pub rank: u32,
     pub sector: String,
     pub market_cap: Option<f64>,
+    pub price_current: Option<f64>,
     pub last_updated: DateTime<Utc>,
 }
 
@@ -39,6 +40,7 @@ impl EPSRanking {
             rank: 0,
             sector,
             market_cap: None,
+            price_current: None,
             last_updated: Utc::now(),
         }
     }

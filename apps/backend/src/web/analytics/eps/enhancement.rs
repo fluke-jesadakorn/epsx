@@ -5,7 +5,7 @@ use std::collections::HashMap;// WebSocket Data Enhancement Logic
 use tracing::{debug, info, warn};
 
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-use crate::infrastructure::adapters::services::tradingview_websocket::{TradingViewWebSocketService, WebSocketEPSData};
+use crate::infrastructure::adapters::services::tradingview_websocket::{TradingViewWebSocketService, EPSWebSocketData};
 use super::rankings::is_valid_eps_for_ranking;
 
 /// Enhance EPS rankings with REAL TradingView WebSocket data (not hardcoded)
@@ -44,11 +44,20 @@ pub async fn enhance_with_websocket_data(
                         enhanced_count += 1;
                     }
                     
-                    // Update previous EPS if available
-                    if is_valid_eps_for_ranking(ws_data.previous_eps) {
+                    // Calculate previous EPS from quarterly data if available
+                    let previous_eps = if ws_data.quarterly_data.len() >= 2 {
+                        ws_data.quarterly_data[1].eps  // Second most recent quarter
+                    } else if !ws_data.historical_eps.is_empty() {
+                        ws_data.historical_eps[0]  // Use first historical EPS as fallback
+                    } else {
+                        ranking.eps_previous  // Keep existing value
+                    };
+                    
+                    // Update previous EPS if valid
+                    if is_valid_eps_for_ranking(previous_eps) {
                         debug!("Updating {} previous EPS: {} → {} (REAL WebSocket)", 
-                               ranking.symbol, ranking.eps_previous, ws_data.previous_eps);
-                        ranking.eps_previous = ws_data.previous_eps;
+                               ranking.symbol, ranking.eps_previous, previous_eps);
+                        ranking.eps_previous = previous_eps;
                     }
                     
                     // Recalculate growth rate from updated EPS values
@@ -59,8 +68,8 @@ pub async fn enhance_with_websocket_data(
                         ranking.growth_rate = new_growth_rate;
                     }
                     
-                    // Update last_updated timestamp
-                    ranking.last_updated = ws_data.timestamp;
+                    // Update last_updated timestamp with current time since WebSocket data is live
+                    ranking.last_updated = chrono::Utc::now();
                 }
             }
             

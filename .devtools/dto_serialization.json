@@ -3056,3 +3056,1333 @@ DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
 DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
 
 
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK11, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK12, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK13, Rank: 13, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK100, Rank: 100, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK103, Rank: 103, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK100, Rank: 100, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK103, Rank: 103, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK11, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK12, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK13, Rank: 13, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK11, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK12, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK13, Rank: 13, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK4, Rank: 4, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK5, Rank: 5, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK6, Rank: 6, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK103, Rank: 103, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK100, Rank: 100, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK101, Rank: 101, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK102, Rank: 102, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK1, Rank: 1, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK2, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK3, Rank: 3, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK11, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK12, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK13, Rank: 13, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: STOCK21, Rank: 21, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK22, Rank: 22, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+Symbol: STOCK23, Rank: 23, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.25, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.11, Price: 81.96
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: TM, Rank: 76, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 4.38, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.57, Price: 75.08
+
+Symbol: AZNCF, Rank: 77, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.17, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.39, Price: 101.46
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MS, Rank: 100, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.13, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.44, Price: 105.30
+
+Symbol: MS/PL, Rank: 101, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.13, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.44, Price: 105.30
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: MS/PF, Rank: 101, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.13, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.44, Price: 105.30
+
+Symbol: MS/PP, Rank: 102, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.13, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.44, Price: 105.30
+
+Symbol: MS, Rank: 103, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.13, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.44, Price: 105.30
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.98, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.79, Price: 86.13
+
+Symbol: WMT, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.68, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.62, Price: 83.55
+
+Symbol: XOM, Rank: 13, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.64, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.73, Price: 97.02
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.98, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.79, Price: 86.13
+
+Symbol: WMT, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.68, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.62, Price: 83.55
+
+Symbol: XOM, Rank: 13, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.64, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.73, Price: 97.02
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.98, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.79, Price: 86.13
+
+Symbol: WMT, Rank: 12, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.68, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.62, Price: 83.55
+
+Symbol: XOM, Rank: 13, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.64, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.73, Price: 97.02
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 100.00
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'WATCH', Value: 254.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.98, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.79, Price: 86.13
+
+Symbol: WMT, Rank: 12, Status: 'WATCH', Value: 152.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.68, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.62, Price: 83.55
+
+Symbol: XOM, Rank: 13, Status: 'STOP', Value: 108.44
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.64, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.73, Price: 97.02
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: V, Rank: 11, Status: 'WATCH', Value: 254.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.98, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.79, Price: 86.13
+
+Symbol: WMT, Rank: 12, Status: 'WATCH', Value: 152.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.68, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.62, Price: 83.55
+
+Symbol: XOM, Rank: 13, Status: 'STOP', Value: 108.44
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.64, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.73, Price: 97.02
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: ABBV, Rank: 21, Status: 'WATCH', Value: 164.33
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.97, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.48, Price: 76.74
+
+Symbol: PEP, Rank: 22, Status: 'WATCH', Value: 169.88
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.12, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.39, Price: 60.17
+
+Symbol: BAC, Rank: 23, Status: 'STOP', Value: 32.65
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 0.89, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 0.90, Price: 92.82
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 7, 2025', Date: 'Sep 7, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 9, 2025', Date: 'Jun 9, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 2.64, Price: 105.10
+
+DTO_SERIALIZATION_DEBUG: Final card_data structure (showing first 3 items):
+Symbol: AAPL, Rank: 1, Status: 'STOP', Value: 175.43
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 1.57, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 1.63, Price: 95.57
+
+Symbol: MSFT, Rank: 2, Status: 'WATCH', Value: 338.11
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 3.65, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 3.49, Price: 87.96
+
+Symbol: GOOGL, Rank: 3, Status: 'STOP', Value: 125.32
+Quarterly Performance:
+  Quarter: 'Sep 8, 2025', Date: 'Sep 8, 2025', EPS: 2.31, Price: 100.00
+  Quarter: 'Jun 10, 2025', Date: 'Jun 10, 2025', EPS: 2.64, Price: 105.10
+

@@ -188,8 +188,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/admin/stock-ranking/assignments", get(stock_ranking_assignments_handler))
         .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/extend", post(extend_assignment_handler))
         .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/revoke", post(revoke_assignment_handler))
-        // Inject DDD adapter as extension - now powers all analytics endpoints internally
-        .layer(Extension(stock_analysis_adapter.clone()))
+        // No longer needs DDD adapter - using direct TradingView API
         // Apply user authentication middleware
         .layer(from_fn(user_auth_middleware))
         // Apply analytics view permission requirement to all analytics routes
@@ -222,8 +221,11 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
     let public_routes = Router::new()
         .route("/api/v1/public/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/api/v1/public/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        // No authentication middleware for public routes
-        .layer(Extension(stock_analysis_adapter.clone()));
+        .route("/api/v1/public/analytics/countries", get(eps_handlers::get_available_countries))
+        .route("/api/v1/public/analytics/sectors", get(eps_handlers::get_sectors_by_country));
+        // No authentication middleware for public routes - now uses direct TradingView API
+
+    let eps_service_clone = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new());
 
     Router::new()
         .merge(v1_routes)
@@ -231,6 +233,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .merge(public_routes)
         // Add services as extensions
         .layer(Extension(unified_cache_service))
+        .layer(Extension(eps_service_clone))
 }
 
 /// System metrics handler for admin dashboard

@@ -1,4 +1,4 @@
-import { cache } from 'react';
+// import { cache } from 'react'; // DISABLED: Removing cache to show real TradingView data
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt';
 
 export interface EPSQueryParams {
@@ -65,8 +65,8 @@ export interface FilterOptions {
   sectors: string[];
 }
 
-// Cache the data fetching function
-export const getAnalyticsData = cache(async (params: EPSQueryParams): Promise<CardDashboardResponse> => {
+// NO CACHE: Direct data fetching function for real TradingView data
+export const getAnalyticsData = async (params: EPSQueryParams): Promise<CardDashboardResponse> => {
   const baseURL = process.env.BACKEND_URL || 'http://localhost:8080';
   const queryString = new URLSearchParams();
   
@@ -77,7 +77,7 @@ export const getAnalyticsData = cache(async (params: EPSQueryParams): Promise<Ca
     }
   });
 
-  const url = `${baseURL}/api/v1/analytics/eps-rankings?${queryString.toString()}`;
+  const url = `${baseURL}/api/v1/public/analytics/rankings?${queryString.toString()}`;
 
   try {
     // Get access token for authenticated requests
@@ -95,8 +95,8 @@ export const getAnalyticsData = cache(async (params: EPSQueryParams): Promise<Ca
     const response = await fetch(url, {
       method: 'GET',
       headers,
-      // Enable caching for 30 seconds
-      next: { revalidate: 30 }
+      // NO CACHE: Force fresh TradingView data
+      cache: 'no-store'
     });
 
     if (!response.ok) {
@@ -128,53 +128,47 @@ export const getAnalyticsData = cache(async (params: EPSQueryParams): Promise<Ca
       processing_time_ms: 0,
     };
   }
-});
+};
 
-export const getFilterOptions = cache(async (): Promise<FilterOptions> => {
+export const getFilterOptions = async (): Promise<FilterOptions> => {
   const baseURL = process.env.BACKEND_URL || 'http://localhost:8080';
   
   try {
-    // Get access token for authenticated requests
-    const accessToken = await getOIDCAccessTokenFromCookies();
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Add authorization header if we have an access token
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
+    console.log('🔧 Fetching filter options from:', baseURL);
 
+    // Simplified request without OIDC token for debugging
     const [countriesResponse, sectorsResponse] = await Promise.all([
-      fetch(`${baseURL}/api/v1/analytics/eps-rankings/countries`, {
-        headers,
-        next: { revalidate: 300 } // 5 minutes
+      fetch(`${baseURL}/api/v1/public/analytics/countries`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store' // NO CACHE: Force fresh data
       }),
-      fetch(`${baseURL}/api/v1/analytics/eps-rankings/sectors`, {
-        headers,
-        next: { revalidate: 300 } // 5 minutes
+      fetch(`${baseURL}/api/v1/public/analytics/sectors`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store' // NO CACHE: Force fresh data
       })
     ]);
 
     if (!countriesResponse.ok || !sectorsResponse.ok) {
-      throw new Error('Failed to fetch filter options');
+      console.error('❌ HTTP Error - Countries:', countriesResponse.status, 'Sectors:', sectorsResponse.status);
+      throw new Error(`HTTP Error - Countries: ${countriesResponse.status}, Sectors: ${sectorsResponse.status}`);
     }
 
+    console.log('✅ Both requests successful');
     const [countriesData, sectorsData] = await Promise.all([
       countriesResponse.json(),
       sectorsResponse.json()
     ]);
 
+    console.log('✅ Data parsed - Countries:', countriesData.count, 'Sectors:', sectorsData.count);
     return {
       countries: countriesData.countries || [],
       sectors: sectorsData.sectors || [],
     };
   } catch (error) {
-    console.error('Failed to fetch filter options:', error);
+    console.error('❌ Failed to fetch filter options:', error);
     return {
       countries: [],
       sectors: [],
     };
   }
-});
+};

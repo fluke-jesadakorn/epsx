@@ -127,6 +127,7 @@ pub fn convert_screening_result_to_eps_ranking(
         rank: ranking_position.unwrap_or(0) as u32,
         sector: result.sector.unwrap_or("Unknown".to_string()),
         market_cap,
+        price_current,
         last_updated: chrono::Utc::now(),
     }
 }

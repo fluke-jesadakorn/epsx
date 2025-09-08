@@ -60,6 +60,7 @@ impl StockAnalysisRepositoryAdapter {
             rank,
             sector: entry.sector.name().to_string(),
             market_cap: None,    // Not available in DDD model
+            price_current: None, // Not available in DDD model
             last_updated: chrono::Utc::now(),
         }
     }

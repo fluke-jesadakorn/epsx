@@ -16,6 +16,7 @@ use crate::core::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
 use crate::infrastructure::cache::{Cache, CacheExt};
+use crate::web::analytics::convert_screening_result_to_eps_ranking;
 use super::{
     dto::*, 
     enhancement::enhance_with_websocket_data,
@@ -23,11 +24,10 @@ use super::{
     metadata::{get_available_countries_static, get_available_sectors_static}
 };
 
-/// GET /api/v1/analytics/rankings - DDD-powered card dashboard endpoint with caching  
-/// Same API contract, but now internally uses DDD Trading Analytics bounded context
+/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint with caching
+/// Same API contract as before, now using direct TradingView API calls (bypasses broken DDD adapter)
 pub async fn get_unified_analytics_rankings_cached(
     Query(params): Query<EPSRankingQueryParams>,
-    Extension(stock_analysis_adapter): Extension<Arc<crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter>>,
     Extension(cache): Extension<Arc<dyn Cache>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
     debug!("Direct TradingView analytics rankings API called with params: {:?}", params);
@@ -41,11 +41,13 @@ pub async fn get_unified_analytics_rankings_cached(
     let cache_key = generate_cache_key(&params);
     debug!("Generated cache key: {}", cache_key);
     
-    // Check cache first (1-hour TTL)
-    if let Some(cached_data) = cache.get(&cache_key) {
-        if let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(&cached_data) {
-            info!("Cache hit for analytics rankings - returning cached data");
-            return Ok(Json(cached_response));
+    // TEMPORARILY DISABLED: Check cache first (1-hour TTL) - forcing fresh TradingView calls for real data
+    if false {
+        if let Some(cached_data) = cache.get(&cache_key) {
+            if let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(&cached_data) {
+                info!("Cache hit for analytics rankings - returning cached data");
+                return Ok(Json(cached_response));
+            }
         }
     }
     
@@ -55,32 +57,30 @@ pub async fn get_unified_analytics_rankings_cached(
     info!("Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
           params.country, params.sort_by, page, limit);
 
-    // Fetch data using DDD Trading Analytics bounded context
+    // Fetch data using direct TradingView API calls (bypasses broken DDD adapter)
     let start_time = std::time::Instant::now();
     
-    // Convert query params to DDD adapter params
-    let adapter_params = crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingParams {
-        country: params.country.clone(),
-        sector: params.sector.clone(),
-        sort_by: params.sort_by.clone().or(Some("qoq_growth".to_string())),
-        market_cap_min: None, // Would be mapped from params if available
-        limit: (skip + limit) as u32, // Get enough data for pagination
-    };
-
-    // Get rankings data from DDD adapter (internally uses legacy system for now)
-    let all_rankings_data = stock_analysis_adapter
-        .convert_legacy_rankings_to_ddd(adapter_params).await
+    // Create TradingView service for direct API calls
+    let tradingview_service = crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new();
+    
+    // Get rankings data directly from TradingView (bypasses broken DDD adapter)
+    let (screening_results, total_count) = tradingview_service
+        .fetch_eps_growth_ranking(
+            Some(skip),
+            Some(limit),
+            params.country.clone(),
+            params.sector.clone(),
+            params.sort_by.clone().or(Some("qoq_growth".to_string())),
+        )
+        .await
         .map_err(|e| AppError::new(
             crate::core::errors::ErrorKind::ExternalServiceError,
-            format!("DDD adapter error: {}", e)
+            format!("TradingView API error: {}", e)
         ))?;
     
-    let total_count = all_rankings_data.len() as u64;
-    
-    // Apply pagination to DDD results
-    let mut rankings_data: Vec<EPSRanking> = all_rankings_data.into_iter()
-        .skip(skip as usize)
-        .take(limit as usize)
+    // Convert TradingView screening results to EPS rankings format
+    let mut rankings_data: Vec<EPSRanking> = screening_results.into_iter()
+        .map(|result| convert_screening_result_to_eps_ranking(result))
         .collect();
     
     // Get rankings data with WebSocket enhancement for small requests (≤20 items)  
@@ -119,12 +119,12 @@ pub async fn get_unified_analytics_rankings_cached(
     let has_next = page < total_pages;
     let has_prev = page > 1;
 
-    // Prepare metadata - using DDD Trading Analytics bounded context
+    // Prepare metadata - using direct TradingView API
     let metadata = CardDashboardMetadata {
         available_countries: get_available_countries_static(),
         available_sectors: get_available_sectors_static(),
         request_timestamp: chrono::Utc::now(),
-        data_source: "ddd_trading_analytics".to_string(),
+        data_source: "live_tradingview_api".to_string(),
     };
     
     let duration = start_time.elapsed();
@@ -167,11 +167,11 @@ pub async fn get_unified_analytics_rankings_cached(
             has_prev,
         },
         metadata,
-        message: Some(format!("Fetched {} card dashboard rankings successfully from DDD Trading Analytics", data_len)),
+        message: Some(format!("Fetched {} card dashboard rankings successfully from TradingView API", data_len)),
         processing_time_ms: duration.as_millis() as u64,
     };
 
-    info!("DDD Trading Analytics card dashboard completed in {:?} - {} items returned", 
+    info!("Direct TradingView API card dashboard completed in {:?} - {} items returned", 
           duration, data_len);
 
     // Store response in cache with 1-hour TTL (3600 seconds)
