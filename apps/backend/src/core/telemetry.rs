@@ -1,9 +1,9 @@
 // Comprehensive telemetry system for logging, metrics, and tracing
+use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::time::Duration;
 
 

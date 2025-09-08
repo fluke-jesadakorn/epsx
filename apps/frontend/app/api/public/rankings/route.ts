@@ -37,9 +37,8 @@ export async function GET(request: NextRequest) {
     
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     
-    // Start from rank 101 (page calculation to get public ranks 101-105)
-    const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
+    // Show real top stocks instead of fake ranks 101+ 
+    const url = `${apiUrl}/api/v1/public/analytics/eps-rankings?page=${page}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -47,7 +46,7 @@ export async function GET(request: NextRequest) {
         'Accept': 'application/json',
         'Cache-Control': 'no-cache',
       },
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: 'no-store', // NO CACHE: Force fresh data
     });
 
     if (!response.ok) {

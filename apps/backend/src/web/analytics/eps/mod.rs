@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn test_transformation_functions() {
-        use crate::dom::entities::eps_growth::EPSRanking;
+        use crate::domain::trading_analytics::EPSRanking;
 
         let ranking = EPSRanking {
             symbol: "AAPL".to_string(),
@@ -61,7 +61,7 @@ mod tests {
             sector: "Technology".to_string(),
             exchange: "NASDAQ".to_string(),
             current_eps: Some(1.5),
-            qoq_growth: Some(10.0),
+            growth_factor: Some(10.0),
             price_current: Some(150.0),
             market_cap: Some(2500000000),
             volume: Some(50000000),

@@ -10,6 +10,6 @@ pub mod modern_routes;
 // Main exports
 pub use routes::AppState;
 pub use password::{PasswordValidator, PasswordHasher, PasswordError, PasswordStrength};
-// API key service moved to crate::infra::services::api_key_service
+// API key service moved to crate::infrastructure::adapters::services::api_key_service
 pub use providers::*;
 pub use token_broker::*;

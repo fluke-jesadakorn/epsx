@@ -15,11 +15,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  grantEmbeddedPermissionAction,
-  grantTemporaryPermissionAction,
-  extendPermissionByHoursAction,
-  revokeEmbeddedPermissionAction
-} from '@/lib/actions/embedded-permissions';
+  grantPermission,
+  revokePermission,
+  grantTemporaryPermission,
+  extendTemporaryPermission
+} from '@/app/actions/permission-actions';
 import type { 
   PermissionPlatform, 
   PermissionAction, 
@@ -154,20 +154,13 @@ export function GrantPermissionModal({
 
       let result;
       if (durationType === 'permanent') {
-        // Grant permanent permission by using a very far future timestamp
-        const farFutureTimestamp = Math.floor(Date.now() / 1000) + (100 * 365 * 24 * 3600); // 100 years
-        result = await grantEmbeddedPermissionAction(userId, {
-          embedded_permission: `${basePermission}:${farFutureTimestamp}`,
-          base_permission: basePermission,
-          platform,
-          resource,
-          action,
-          expiry_timestamp: farFutureTimestamp,
-          reason: reason || undefined,
-        });
+        // Grant permanent permission
+        result = await grantPermission(userId, basePermission);
       } else {
+        // Grant temporary permission with expiry
         const actualDuration = customDuration ? parseInt(customDuration) : duration;
-        result = await grantTemporaryPermissionAction(userId, basePermission, actualDuration, reason || undefined);
+        const expiryDate = new Date(Date.now() + (actualDuration * 3600 * 1000));
+        result = await grantTemporaryPermission(userId, basePermission, expiryDate);
       }
 
       if (result.success) {
@@ -195,13 +188,9 @@ export function GrantPermissionModal({
 
       const userId = selectedUser.firebase_uid || selectedUser.id;
       const actualDuration = customDuration ? parseInt(customDuration) : duration;
+      const newExpiryDate = new Date(Date.now() + (actualDuration * 3600 * 1000));
       
-      const result = await extendPermissionByHoursAction(
-        userId, 
-        selectedPermission, 
-        actualDuration, 
-        reason || undefined
-      );
+      const result = await extendTemporaryPermission(userId, selectedPermission, newExpiryDate);
 
       if (result.success) {
         setSuccess(`Permission extended successfully!`);
@@ -228,10 +217,7 @@ export function GrantPermissionModal({
 
       const userId = selectedUser.firebase_uid || selectedUser.id;
       
-      const result = await revokeEmbeddedPermissionAction(userId, {
-        permission: selectedPermission,
-        reason: reason || undefined,
-      });
+      const result = await revokePermission(userId, selectedPermission);
 
       if (result.success) {
         setSuccess(`Permission revoked successfully!`);

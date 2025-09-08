@@ -1,10 +1,11 @@
 import React from 'react'
 import { TrendingUp, Activity, BarChart3, PieChart, Target, AlertTriangle, Zap } from 'lucide-react'
 import { ServerAnalyticsAPI } from '@/lib/api/server-admin-api'
+import { PancakeCard, PancakeStatsCard, PancakeFeatureCard } from '@/components/ui/PancakeCard'
 
 /**
- * Windows Phone-style Analytics Hub
- * EPS analytics, performance metrics, and insights dashboard
+ * PancakeSwap-style Analytics Hub
+ * EPS analytics, performance metrics, and insights dashboard with PancakeSwap theming
  */
 
 function MetricTile({ title, value, subValue, trend, color, icon: Icon, size = 'normal' }: {
@@ -60,33 +61,37 @@ function EPSRankingsWidget({ rankings }: { rankings: any }) {
   const top5 = rankings?.rankings?.slice(0, 5) || []
   
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <Target className="text-blue-600" size={20} />
-          🎯 Top EPS Growth
+    <PancakeCard variant="analytics">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-lg flex items-center justify-center">
+            <Target className="text-white" size={16} />
+          </div>
+          Top EPS Growth
         </h3>
-        <span className="text-xs text-gray-500">Live Data</span>
+        <span className="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-bold rounded-full animate-pulse">
+          LIVE
+        </span>
       </div>
       
       <div className="space-y-3">
         {top5.map((stock: any, index: number) => (
-          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                #{index + 1}
-              </span>
+          <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50/50 to-yellow-50/50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-xl border border-orange-200/30 dark:border-orange-800/30 hover:shadow-md transition-all duration-300">
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                {index + 1}
+              </div>
               <div>
-                <div className="font-medium text-gray-900 dark:text-white">
+                <div className="font-bold text-orange-700 dark:text-orange-300">
                   {stock.symbol}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-orange-600/70 dark:text-orange-400/70">
                   {stock.country} • {stock.sector}
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <div className="font-bold text-green-600">
+              <div className="font-bold text-green-600 text-lg">
                 +{stock.eps_growth}%
               </div>
             </div>
@@ -94,64 +99,66 @@ function EPSRankingsWidget({ rankings }: { rankings: any }) {
         ))}
       </div>
       
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-        <div className="flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
+      <div className="mt-6 pt-4 border-t border-orange-200/50 dark:border-orange-800/50">
+        <div className="flex justify-between items-center text-sm text-orange-600/80 dark:text-orange-400/80">
           <span>Total Requests: {rankings?.total_requests?.toLocaleString() || 0}</span>
-          <span>Updated: {rankings?.last_updated ? new Date(rankings.last_updated).toLocaleTime() : 'N/A'}</span>
+          <span>Updated: {rankings?.last_updated ? new Date(rankings.last_updated).toLocaleTimeString() : 'N/A'}</span>
         </div>
       </div>
-    </div>
+    </PancakeCard>
   )
 }
 
 function PerformanceWidget({ metrics }: { metrics: any }) {
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <Activity className="text-green-600" size={20} />
-          ⚡ System Performance
+    <PancakeCard variant="analytics">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-lg flex items-center justify-center">
+            <Activity className="text-white" size={16} />
+          </div>
+          System Performance
         </h3>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs text-gray-500">Live</span>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-xs font-bold text-orange-600 dark:text-orange-400">LIVE</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-4">
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">API Response</div>
-            <div className="text-lg font-bold text-green-600">{metrics?.api_response_time || 1.2}s</div>
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
+            <div className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">API Response</div>
+            <div className="text-2xl font-bold text-green-600 mb-2">{metrics?.api_response_time || 1.2}s</div>
+            <div className="w-full bg-orange-200/50 dark:bg-orange-800/30 rounded-full h-3 overflow-hidden">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500" style={{ width: '85%' }}></div>
             </div>
           </div>
           
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Memory Usage</div>
-            <div className="text-lg font-bold text-orange-600">{metrics?.memory_usage || 67}%</div>
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
-              <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${metrics?.memory_usage || 67}%` }}></div>
+            <div className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">Memory Usage</div>
+            <div className="text-2xl font-bold text-orange-600 mb-2">{metrics?.memory_usage || 67}%</div>
+            <div className="w-full bg-orange-200/50 dark:bg-orange-800/30 rounded-full h-3 overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-yellow-500 h-3 rounded-full transition-all duration-500" style={{ width: `${metrics?.memory_usage || 67}%` }}></div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Active Users</div>
-            <div className="text-lg font-bold text-blue-600">{metrics?.active_users || 234}</div>
-            <div className="text-xs text-gray-500">Peak: {metrics?.peak_users_today || 1245}</div>
+            <div className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">Active Users</div>
+            <div className="text-2xl font-bold text-blue-600 mb-1">{metrics?.active_users || 234}</div>
+            <div className="text-xs text-orange-600/80 dark:text-orange-400/80">Peak: {metrics?.peak_users_today || 1245}</div>
           </div>
           
           <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">New Signups</div>
-            <div className="text-lg font-bold text-purple-600">+{metrics?.new_signups || 12}</div>
-            <div className="text-xs text-gray-500">Today</div>
+            <div className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">New Signups</div>
+            <div className="text-2xl font-bold text-purple-600 mb-1">+{metrics?.new_signups || 12}</div>
+            <div className="text-xs text-orange-600/80 dark:text-orange-400/80">Today</div>
           </div>
         </div>
       </div>
-    </div>
+    </PancakeCard>
   )
 }
 
@@ -222,94 +229,95 @@ export default async function AnalyticsHub() {
   const health = epsHealth.status === 'fulfilled' ? epsHealth.value : { status: 'healthy', uptime: 99.9, response_time: '2.1s' }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 dark:from-orange-950 dark:via-yellow-950 dark:to-orange-900 p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-light text-gray-900 dark:text-white mb-2">
-          📊 ANALYTICS HUB
+        <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent mb-3">
+          Analytics Hub
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-orange-700 dark:text-orange-300 text-lg">
           EPS analytics, performance insights, and system monitoring
         </p>
       </div>
 
-      {/* Key Metrics Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
-        <MetricTile
-          title="🎯 EPS Health"
-          value={health?.status === 'healthy' ? '✅ Healthy' : '❌ Issues'}
-          subValue={`${health?.uptime || 99.9}% uptime`}
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        <PancakeStatsCard
+          title="EPS Health"
+          value={health?.status === 'healthy' ? 'Healthy' : 'Issues'}
+          subtitle={`${health?.uptime || 99.9}% uptime`}
+          icon="🎯"
           trend="up"
-          color="bg-green-500"
-          icon={Target}
+          trendValue={`${health?.uptime || 99.9}%`}
         />
         
-        <MetricTile
-          title="⚡ Response Time"
+        <PancakeStatsCard
+          title="Response Time"
           value={health?.response_time || '2.1s'}
-          subValue="Average API"
-          trend="stable"
-          color="bg-blue-500"
-          icon={Zap}
+          subtitle="Average API"
+          icon="⚡"
+          trend="neutral"
+          trendValue="Stable"
         />
         
-        <MetricTile
-          title="📈 Active Users"
+        <PancakeStatsCard
+          title="Active Users"
           value={metrics?.active_users || 234}
-          subValue={`Peak: ${metrics?.peak_users_today || 1245}`}
+          subtitle={`Peak: ${metrics?.peak_users_today || 1245}`}
+          icon="📈"
           trend="up"
-          color="bg-purple-500"
-          icon={TrendingUp}
+          trendValue="+12.4%"
         />
         
-        <MetricTile
-          title="🔥 EPS Requests"
+        <PancakeStatsCard
+          title="EPS Requests"
           value={rankings?.total_requests ? (rankings.total_requests / 1000).toFixed(1) + 'K' : '45.2K'}
-          subValue="Total today"
+          subtitle="Total today"
+          icon="🔥"
           trend="up"
-          color="bg-orange-500"
-          icon={BarChart3}
-          size="wide"
+          trendValue="+18.5%"
         />
         
-        <MetricTile
-          title="🧠 AI Confidence"
+        <PancakeStatsCard
+          title="AI Insights"
           value={`${recs?.confidence || 87}%`}
-          subValue={`${recs?.insights?.length || 0} insights`}
+          subtitle={`${recs?.insights?.length || 0} recommendations`}
+          icon="🧠"
           trend="up"
-          color="bg-indigo-500"
-          icon={Activity}
+          trendValue="High confidence"
         />
         
-        <MetricTile
-          title="💾 Memory Usage"
+        <PancakeStatsCard
+          title="Memory Usage"
           value={`${metrics?.memory_usage || 67}%`}
-          subValue="System resources"
-          trend={metrics?.memory_usage > 80 ? 'up' : 'stable'}
-          color={metrics?.memory_usage > 80 ? 'bg-red-500' : 'bg-green-500'}
-          icon={PieChart}
+          subtitle="System resources"
+          icon="💾"
+          trend={metrics?.memory_usage > 80 ? 'down' : 'neutral'}
+          trendValue={metrics?.memory_usage > 80 ? 'High' : 'Normal'}
         />
       </div>
 
-      {/* Pivot Navigation */}
-      <div className="mb-6">
-        <div className="flex overflow-x-auto gap-1 border-b border-gray-200 dark:border-gray-700">
-          <button className="px-4 py-3 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
-            ◄ OVERVIEW ►
-          </button>
-          <button className="px-4 py-3 font-medium text-gray-600 hover:text-gray-900 whitespace-nowrap">
-            EPS RANKINGS
-          </button>
-          <button className="px-4 py-3 font-medium text-gray-600 hover:text-gray-900 whitespace-nowrap">
-            PERFORMANCE
-          </button>
-          <button className="px-4 py-3 font-medium text-gray-600 hover:text-gray-900 whitespace-nowrap">
-            INSIGHTS
-          </button>
-          <button className="px-4 py-3 font-medium text-gray-600 hover:text-gray-900 whitespace-nowrap">
-            TRENDS
-          </button>
-        </div>
+      {/* Navigation Tabs */}
+      <div className="mb-8">
+        <PancakeCard variant="default" className="p-2">
+          <div className="flex overflow-x-auto gap-2">
+            <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold rounded-lg shadow-lg hover:from-orange-600 hover:to-yellow-600 transition-all duration-300 whitespace-nowrap">
+              OVERVIEW
+            </button>
+            <button className="px-6 py-3 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/50 font-semibold rounded-lg transition-all duration-300 whitespace-nowrap">
+              EPS RANKINGS
+            </button>
+            <button className="px-6 py-3 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/50 font-semibold rounded-lg transition-all duration-300 whitespace-nowrap">
+              PERFORMANCE
+            </button>
+            <button className="px-6 py-3 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/50 font-semibold rounded-lg transition-all duration-300 whitespace-nowrap">
+              INSIGHTS
+            </button>
+            <button className="px-6 py-3 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/50 font-semibold rounded-lg transition-all duration-300 whitespace-nowrap">
+              TRENDS
+            </button>
+          </div>
+        </PancakeCard>
       </div>
 
       {/* Main Analytics Widgets */}
@@ -323,65 +331,71 @@ export default async function AnalyticsHub() {
 
       {/* Additional Analytics Summary */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            📊 Data Quality
-          </h3>
+        <PancakeFeatureCard
+          title="Data Quality"
+          description="Real-time monitoring of data freshness and API reliability"
+          icon="📊"
+          badge="LIVE"
+        >
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">EPS Data Freshness:</span>
-              <span className="font-medium text-green-600">🟢 2min ago</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">EPS Data Freshness:</span>
+              <span className="font-bold text-green-600">2min ago</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">API Reliability:</span>
-              <span className="font-medium text-green-600">🟢 99.9%</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">API Reliability:</span>
+              <span className="font-bold text-green-600">99.9%</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Cache Hit Rate:</span>
-              <span className="font-medium text-blue-600">🔵 94.2%</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">Cache Hit Rate:</span>
+              <span className="font-bold text-blue-600">94.2%</span>
             </div>
           </div>
-        </div>
+        </PancakeFeatureCard>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            🚀 Growth Metrics
-          </h3>
+        <PancakeFeatureCard
+          title="Growth Metrics"
+          description="Key performance indicators and growth tracking"
+          icon="🚀"
+          badge="UP +15%"
+        >
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">New Users Today:</span>
-              <span className="font-medium text-green-600">+{metrics?.new_signups || 12}</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">New Users Today:</span>
+              <span className="font-bold text-green-600">+{metrics?.new_signups || 12}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">API Calls Growth:</span>
-              <span className="font-medium text-green-600">+15.4%</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">API Calls Growth:</span>
+              <span className="font-bold text-green-600">+15.4%</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Revenue Impact:</span>
-              <span className="font-medium text-green-600">+$2.4K</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">Revenue Impact:</span>
+              <span className="font-bold text-green-600">+$2.4K</span>
             </div>
           </div>
-        </div>
+        </PancakeFeatureCard>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            🛡️ Security Status
-          </h3>
+        <PancakeFeatureCard
+          title="Security Status"
+          description="Comprehensive security monitoring and threat protection"
+          icon="🛡️"
+          badge="SECURE"
+        >
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Security Score:</span>
-              <span className="font-medium text-green-600">🟢 A+</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">Security Score:</span>
+              <span className="font-bold text-green-600">A+</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Threats Blocked:</span>
-              <span className="font-medium text-orange-600">🟡 3 today</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">Threats Blocked:</span>
+              <span className="font-bold text-orange-600">3 today</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Auth Success Rate:</span>
-              <span className="font-medium text-green-600">🟢 99.8%</span>
+              <span className="text-orange-600/80 dark:text-orange-400/80">Auth Success Rate:</span>
+              <span className="font-bold text-green-600">99.8%</span>
             </div>
           </div>
-        </div>
+        </PancakeFeatureCard>
       </div>
     </div>
   )

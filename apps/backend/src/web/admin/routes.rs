@@ -69,15 +69,7 @@ use super::firebase_user_management::{
     list_users as firebase_list_users,
     set_user_role as firebase_set_user_role,
 };
-use super::database_role_management::{
-    get_user_role as db_get_user_role,
-    assign_user_role as db_assign_user_role,
-    update_user_permissions as db_update_user_permissions,
-    revoke_user_role as db_revoke_user_role,
-    list_users_by_role as db_list_users_by_role,
-    get_role_assignment_history as db_get_role_assignment_history,
-    cleanup_expired_roles as db_cleanup_expired_roles,
-};
+// Database role management removed - using permissions-based system
 // V1 Granular permission management handlers
 use super::granular_permissions::{
     grant_permission,
@@ -92,10 +84,9 @@ use super::notification_handlers::{
     admin_send_notification,
     admin_broadcast_to_topic,
     admin_get_notification_stats,
-    admin_send_security_alert,
-    admin_get_recent_notifications,
-    admin_get_unread_notifications,
-    admin_get_notification_history,
+    admin_get_user_notifications,
+    admin_mark_notification_read,
+    admin_delete_notification,
 };
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
@@ -117,7 +108,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     // System administration routes (require system-configuration module)
     let system_config_routes = Router::new()
         .route("/api-keys", get(list_api_keys_handler))
-        .route("/roles/cleanup-expired", post(db_cleanup_expired_roles))
+        // Role cleanup removed - using permissions-based system
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ));
@@ -145,13 +136,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/firebase/users/:uid", delete(firebase_delete_user))
         .route("/firebase/users/:uid/role", post(firebase_set_user_role))
         
-        // Database Role management routes
-        .route("/roles/users/:firebase_uid", get(db_get_user_role))
-        .route("/roles/users/:firebase_uid/assign", post(db_assign_user_role))
-        .route("/roles/users/:firebase_uid/permissions", put(db_update_user_permissions))
-        .route("/roles/users/:firebase_uid", delete(db_revoke_user_role))
-        .route("/roles/users-by-role", get(db_list_users_by_role))
-        .route("/roles/users/:firebase_uid/history", get(db_get_role_assignment_history))
+        // Database role management routes removed - using permissions-based system
         
         // Admin module routes removed - using simple role system
         
@@ -204,10 +189,9 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/notifications/send", post(admin_send_notification))
         .route("/notifications/broadcast", post(admin_broadcast_to_topic))
         .route("/notifications/stats", get(admin_get_notification_stats))
-        .route("/notifications/recent", get(admin_get_recent_notifications))
-        .route("/notifications/unread", get(admin_get_unread_notifications))
-        .route("/notifications/history", get(admin_get_notification_history))
-        .route("/notifications/security-alert", post(admin_send_security_alert))
+        .route("/notifications/list", get(admin_get_user_notifications))
+        .route("/notifications/:id/read", put(admin_mark_notification_read))
+        .route("/notifications/:id", delete(admin_delete_notification))
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ))

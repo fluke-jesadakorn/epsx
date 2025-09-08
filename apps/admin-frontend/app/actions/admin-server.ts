@@ -1,134 +1,362 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { env } from '../../config/env';
 
-// TODO: Implement direct API calls to replace shared packages
-// import and re-export server actions from the shared package
-// import { 
-//   createUser as _createUser,
-//   updateUser as _updateUser,
-//   deleteUser as _deleteUser
-// } from '@epsx/server-actions';
+// Server action utilities
+async function makeServerRequest(endpoint: string, options: RequestInit = {}) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('access_token')?.value;
 
-// export { 
-//   _createUser as createUser,
-//   _updateUser as updateUser,
-//   _deleteUser as deleteUser
-// };
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
 
-import type { Feature } from '@/types/admin/iam';
-import { Permission } from '@/types/admin/iam';
-import type { Role } from '@/types/admin/iam';
+  const response = await fetch(`${env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-// TODO: Replace with direct API client implementation
-// import type { AdminUser } from '@epsx/api-client';
-// import { isApiError, serverGetAdminUsers, serverSetUserRole, serverGetUserStats as _serverGetUserStats } from '@epsx/api-client';
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `HTTP ${response.status}: ${errorText || 'Request failed'}`
+    );
+  }
 
-// Temporary type definitions for migration
-interface AdminUser {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  permissions: string[];
-  platform_context?: string;
-  primary_platform?: string;
+  return response.json();
 }
 
-// Temporary placeholder functions
-const isApiError = (error: any): boolean => false;
-const serverGetAdminUsers = async (): Promise<AdminUser[]> => [];
-const serverSetUserRole = async (userId: string, role: string): Promise<void> => {};
-const _serverGetUserStats = async (): Promise<any> => ({});
+interface CreateUserData {
+  email: string;
+  name?: string;
+  role?: string;
+  permissions?: string[];
+}
 
-interface User {
-  userId: string;
-  email?: string;
-  role: UserRole;
-  tokenBalance: number;
-  features: TokenFeature[];
-  permissions: Permission[];
+interface UpdateUserData {
+  name?: string;
+  role?: string;
+  permissions?: string[];
+  is_active?: boolean;
+}
+
+// User Management Server Actions
+export async function createUser(data: CreateUserData) {
+  try {
+    const result = await makeServerRequest('/api/v1/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    revalidatePath('/users');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create user',
+    };
+  }
+}
+
+export async function updateUser(userId: string, data: UpdateUserData) {
+  try {
+    const result = await makeServerRequest(`/api/v1/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+
+    revalidatePath('/users');
+    revalidatePath(`/users/${userId}`);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update user',
+    };
+  }
+}
+
+export async function deleteUser(userId: string) {
+  try {
+    await makeServerRequest(`/api/v1/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+
+    revalidatePath('/users');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete user',
+    };
+  }
 }
 
 export async function fetchUserDetails() {
   try {
-    const res = await serverGetAdminUsers();
-
-    if (isApiError(res)) {
-      throw new Error(`Failed to fetch users: ${res.error}`);
-    }
-
-    if (!res.data) {
-      throw new Error('No user data received');
-    }
-
-    // Transform AdminUser[] to User[] format for backward compatibility
-    const users: User[] = res.data.users.map((u: AdminUser) => ({
-      userId: u.id, // Fixed: use 'id' instead of 'uid'
-      email: u.email,
-      role: (u.role || 'user') as UserRole,
-      tokenBalance: 0, // Not available in AdminUser, set default
-      features: [], // Not available in AdminUser, set default
-      permissions: (u.permissions || [])
-        .map(p => p as Permission)
-        .filter(p => Object.values(Permission).includes(p)),
-    }));
-
-    return users;
+    const result = await makeServerRequest('/api/v1/admin/users');
+    return result.users || [];
   } catch (error) {
-    throw error;
+    console.error('Error fetching users:', error);
+    return [];
   }
 }
 
-export async function updateUserRole(uid: string, role: string) {
+export async function updateUserRole(userId: string, role: string) {
   try {
-    const res = await serverSetUserRole(uid, role);
+    const result = await makeServerRequest(
+      `/api/v1/admin/users/${userId}/role`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      }
+    );
 
-    if (isApiError(res)) {
-      throw new Error(`Failed to update user role: ${res.error}`);
-    }
-
-    return { success: true, message: 'User role updated successfully' };
+    revalidatePath('/users');
+    revalidatePath(`/users/${userId}`);
+    return {
+      success: true,
+      message: 'User role updated successfully',
+      data: result,
+    };
   } catch (error) {
-    throw error;
+    console.error('Error updating user role:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to update user role',
+    };
+  }
+}
+
+// Permission Management Server Actions
+export async function grantPermission(
+  userId: string,
+  permission: string,
+  expiresAt?: number
+) {
+  try {
+    const permissionData = expiresAt
+      ? `${permission}:${expiresAt}`
+      : permission;
+
+    const result = await makeServerRequest(
+      `/api/v1/admin/users/${userId}/permissions`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          permissions: [permissionData],
+          action: 'grant',
+        }),
+      }
+    );
+
+    revalidatePath('/users');
+    revalidatePath(`/users/${userId}`);
+    revalidatePath('/permissions');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error granting permission:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to grant permission',
+    };
+  }
+}
+
+export async function revokePermission(userId: string, permission: string) {
+  try {
+    const result = await makeServerRequest(
+      `/api/v1/admin/users/${userId}/permissions`,
+      {
+        method: 'DELETE',
+        body: JSON.stringify({
+          permissions: [permission],
+          action: 'revoke',
+        }),
+      }
+    );
+
+    revalidatePath('/users');
+    revalidatePath(`/users/${userId}`);
+    revalidatePath('/permissions');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error revoking permission:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to revoke permission',
+    };
+  }
+}
+
+export async function bulkGrantPermissions(
+  userIds: string[],
+  permissions: string[]
+) {
+  try {
+    const result = await makeServerRequest(
+      '/api/v1/admin/users/bulk/permissions',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          user_ids: userIds,
+          permissions,
+          action: 'grant',
+        }),
+      }
+    );
+
+    revalidatePath('/users');
+    revalidatePath('/permissions');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error bulk granting permissions:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to grant permissions',
+    };
+  }
+}
+
+export async function bulkRevokePermissions(
+  userIds: string[],
+  permissions: string[]
+) {
+  try {
+    const result = await makeServerRequest(
+      '/api/v1/admin/users/bulk/permissions',
+      {
+        method: 'DELETE',
+        body: JSON.stringify({
+          user_ids: userIds,
+          permissions,
+          action: 'revoke',
+        }),
+      }
+    );
+
+    revalidatePath('/users');
+    revalidatePath('/permissions');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error bulk revoking permissions:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to revoke permissions',
+    };
+  }
+}
+
+// Notification Server Actions
+export async function sendNotification(
+  userIdOrEmail: string,
+  title: string,
+  message: string,
+  priority: 'normal' | 'high' = 'normal'
+) {
+  try {
+    const result = await makeServerRequest('/api/v1/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        message,
+        notification_type: 'admin_message',
+        category: 'admin',
+        priority,
+        target_user_email: userIdOrEmail.includes('@') ? userIdOrEmail : null,
+        target_users: userIdOrEmail.includes('@') ? null : [userIdOrEmail],
+        channels: ['push', 'in_app'],
+      }),
+    });
+
+    revalidatePath('/notifications');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to send notification',
+    };
+  }
+}
+
+export async function sendBroadcastNotification(
+  title: string,
+  message: string,
+  priority: 'normal' | 'high' = 'normal'
+) {
+  try {
+    const result = await makeServerRequest('/api/v1/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        message,
+        notification_type: 'admin_broadcast',
+        category: 'admin',
+        priority,
+        target_users: null,
+        channels: ['push', 'in_app'],
+      }),
+    });
+
+    revalidatePath('/notifications');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error sending broadcast notification:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to send broadcast notification',
+    };
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    const result = await makeServerRequest(
+      `/api/v1/notifications/${notificationId}/read`,
+      {
+        method: 'PATCH',
+      }
+    );
+
+    revalidatePath('/notifications');
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to mark notification as read',
+    };
   }
 }
 
 export async function getUserStats() {
   try {
-    // Use direct fetch approach for debugging
-    const { cookies } = await import('next/headers');
-    const cookieStore = await cookies();
-    const allCookies = cookieStore.getAll();
-    
-    // Build cookie header manually
-    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-    
-    // Direct fetch to backend
-    const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
-    const url = `${backendUrl}/api/admin/analytics/user-statistics?include_roles=true&include_tiers=true`;
-    
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': cookieHeader,
-      },
-    });
-    
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[getUserStats] Error response:', errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
-    }
-    
-    const data = await response.json();
-    return data;
-    
+    const result = await makeServerRequest(
+      '/api/v1/admin/analytics/user-statistics'
+    );
+    return result;
   } catch (error) {
-    console.error('[getUserStats] Exception:', error);
+    console.error('Error getting user stats:', error);
     throw error;
   }
 }
@@ -139,33 +367,35 @@ async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
   const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-  
+
   const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
   const url = `${backendUrl}/api/v1/iam/${endpoint}`;
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'Cookie': cookieHeader,
+      Cookie: cookieHeader,
       ...options.headers,
     },
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+    throw new Error(
+      `HTTP ${response.status}: ${errorText || 'Request failed'}`
+    );
   }
-  
+
   return response.json();
 }
 
 interface IAMUserFilters {
-  role?: string
-  status?: string
-  search?: string
-  limit?: number
-  offset?: number
+  role?: string;
+  status?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export async function getIAMUsers(filters?: IAMUserFilters) {
@@ -178,7 +408,7 @@ export async function getIAMUsers(filters?: IAMUserFilters) {
         }
       });
     }
-    
+
     const endpoint = `users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return await makeIAMRequest(endpoint);
   } catch (error) {

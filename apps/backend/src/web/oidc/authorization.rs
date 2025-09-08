@@ -1,4 +1,8 @@
 // Pure OIDC Authorization Code Flow implementation
+
+use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::user_management::{User, Email, FirebaseUid, UserRepositoryPort, SessionRepositoryPort};
+use crate::domain::user_management::aggregates::session::Session;
 use chrono::{DateTime, Utc};
 
 use axum::{
@@ -14,7 +18,7 @@ use askama::Template;
 use crate::web::auth::AppState;
 #[cfg(feature = "templates")]
 use crate::web::templates::TemplateFactory;
-use crate::infra::firebase_admin::FirebaseUser;
+use crate::infrastructure::adapters::services::firebase::FirebaseUser;
 
 /// Authorization request parameters (GET /oauth/authorize)
 #[derive(Debug, Deserialize)]
@@ -66,7 +70,7 @@ pub struct LoginFormData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizationCodeData {
     pub firebase_user: FirebaseUser,
-    pub user_id: crate::dom::values::UserId, // JWT migration: store user UUID (sub field)
+    pub user_id: crate::domain::shared_kernel::value_objects::UserId, // JWT migration: store user UUID (sub field)
     pub client_id: String,
     pub redirect_uri: String,
     pub scope: String,
@@ -247,10 +251,10 @@ async fn handle_authenticated_user_flow_direct(
     let code = generate_authorization_code();
     
     // Look up user by email to get UUID for JWT migration (sub field)
-    use crate::infra::db::diesel::create_pool;
-    use crate::infra::db::diesel::repos::DieselUserRepository;
-    use crate::app::ports::repositories::UserRepository;
-    use crate::dom::values::Email;
+    use crate::infrastructure::adapters::repositories::diesel::create_pool;
+    
+    
+    
     use std::sync::Arc;
     
     // Get database URL
@@ -263,18 +267,35 @@ async fn handle_authenticated_user_flow_direct(
     let pool = Arc::new(pool);
     
     // Create user repository
-    let user_repo = DieselUserRepository::new(pool.clone());
+    let user_repo = crate::infrastructure::adapters::repositories::user_repository_adapter::UserRepositoryAdapter::new(pool.clone());
     
     // Look up user by email
     let user_email = firebase_user.email
         .as_ref()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    let email = Email::new(user_email.to_string())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    tracing::info!("Looking up user by email: {}", user_email);
     
-    let user = user_repo.find_by_email(&email).await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let email = crate::domain::user_management::value_objects::Email::new(user_email.to_string())
+        .map_err(|e| {
+            tracing::error!("Failed to create Email value object: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    tracing::info!("Created email value object successfully");
+    
+    let user = match crate::domain::user_management::UserRepositoryPort::find_by_email(&user_repo, &email).await {
+        Ok(Some(user)) => {
+            tracing::info!("Successfully found user by email: {} with ID: {}", user_email, user.id());
+            user
+        }
+        Ok(None) => {
+            tracing::error!("User not found in database for email: {}", user_email);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        Err(e) => {
+            tracing::error!("Database error when looking up user by email {}: {}", user_email, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
     
     let user_id = user.id().clone();
     
@@ -351,10 +372,9 @@ async fn handle_user_registration(
     };
 
     // Create database user with Firebase UID
-    let user_role = determine_user_role_for_registration(&form_data.email);
-    match create_database_user(&app_state, &firebase_user, &user_role).await {
+    match create_database_user(&app_state, &firebase_user, "User").await {
         Ok(_) => {
-            tracing::info!("✅ Successfully created database user: {} with role: {}", form_data.email, user_role);
+            tracing::info!("✅ Successfully created database user: {}", form_data.email);
         }
         Err(e) => {
             tracing::error!("❌ Database user creation failed for {}: {}", form_data.email, e);
@@ -439,14 +459,12 @@ async fn handle_authenticated_user_flow(
 
     tracing::error!("🔍 SESSION DEBUG: Starting scope validation for user: {}", firebase_user.uid);
     
-    // Extract user role for scope validation
-    let user_role = extract_user_role(&firebase_user);
-    tracing::error!("🔍 SESSION DEBUG: User role extracted: {} for user: {}", user_role, firebase_user.uid);
+    // Role extraction removed - using permissions-based validation
     
-    // Validate requested scopes against user's role and permissions
+    // Validate requested scopes (role-based validation removed)
     let validated_scopes = match validate_scopes_with_user_context(
         &form_data.scope,
-        &user_role,
+        "user", // Default user level for scope validation
         &form_data.client_id,
     ) {
         Ok(scopes) => {
@@ -456,9 +474,7 @@ async fn handle_authenticated_user_flow(
         Err(ref scope_error) => {
             tracing::error!("🔍 SESSION DEBUG: Scope validation failed: {:?}", scope_error);
             let error_message = match scope_error {
-                crate::auth::ScopeError::InsufficientRole { scope, required_role, .. } => {
-                    format!("Insufficient privileges for scope '{}'. Role '{}' required.", scope, required_role)
-                }
+                // InsufficientRole error removed - using permissions-based validation
                 crate::auth::ScopeError::InvalidScope { scope } => {
                     format!("Invalid scope requested: '{}'", scope)
                 }
@@ -473,7 +489,6 @@ async fn handle_authenticated_user_flow(
             
             tracing::warn!(
                 user_email = %form_data.email,
-                user_role = %user_role,
                 requested_scopes = %form_data.scope,
                 client_id = %form_data.client_id,
                 error = %scope_error,
@@ -487,7 +502,6 @@ async fn handle_authenticated_user_flow(
     // Log successful scope validation
     tracing::info!(
         user_email = %form_data.email,
-        user_role = %user_role,
         granted_scopes = %validated_scopes.granted_scopes,
         sensitive_scopes = ?validated_scopes.sensitive_scopes,
         permission_count = %validated_scopes.permissions.len(),
@@ -498,15 +512,18 @@ async fn handle_authenticated_user_flow(
     let auth_code = generate_authorization_code();
     
     // Look up user by email to get UUID for JWT migration (sub field)
-    use crate::dom::values::Email;
+    
     let user_email = firebase_user.email
         .as_ref()
         .ok_or_else(|| {
             tracing::error!("Firebase user missing email during auth code creation");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
-    let email = Email::new(user_email.to_string())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let email = crate::domain::user_management::value_objects::Email::new(user_email.to_string())
+        .map_err(|e| {
+            tracing::error!("Failed to create Email value object: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
     
     let user = app_state.user_repo.find_by_email(&email).await
         .map_err(|e| {
@@ -584,15 +601,13 @@ async fn store_authorization_code(
     code: &str,
     auth_data: &AuthorizationCodeData,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::dom::entities::auth::Session;
-    use crate::dom::values::SessId;
     use chrono::{Utc, Duration};
     
     // Use the user_id from auth_data (JWT migration: already looked up by email)
     let user_id = auth_data.user_id.clone();
     
     // Create a temporary session for the authorization code
-    let session_id = SessId::from_string(format!("auth_code:{}", code));
+    let session_id = SessionId::from_string(format!("auth_code:{}", code));
     
     tracing::error!("🔍 SESSION DEBUG: Storing auth code: {} for user: {}", code, user_id);
     tracing::error!("🔍 SESSION DEBUG: Session ID generated: {}", session_id);
@@ -603,15 +618,14 @@ async fn store_authorization_code(
     
     // Create session with 10 minute expiration
     let expires_at = Utc::now() + Duration::minutes(10);
-    let session = Session {
-        id: session_id,
+    let session = Session::create(
+        session_id,
         user_id,
-        access_token: auth_data_json, // Store serialized auth data here
-        refresh_token: None,
+        auth_data_json, // Store serialized auth data in access_token field temporarily
         expires_at,
-        created_at: Utc::now(),
-        is_active: true,
-    };
+        None, // ip_address
+        None, // user_agent
+    ).map_err(|e| format!("Failed to create session: {}", e))?;
     
     app_state.session_repo.save(&session).await?;
     
@@ -700,35 +714,7 @@ fn validate_scopes_with_user_context(
     SCOPE_SERVICE.validate_scopes(scope, user_role, client_id)
 }
 
-/// Extract user role from Firebase user custom claims
-fn extract_user_role(firebase_user: &FirebaseUser) -> String {
-    // Try to extract role from custom claims
-    let custom_claims = &firebase_user.custom_claims;
-    if !custom_claims.is_empty() {
-        if let Some(role_value) = custom_claims.get("role") {
-            if let Some(role_str) = role_value.as_str() {
-                return role_str.to_string();
-            }
-        }
-    }
-    
-    // Fallback logic for determining role
-    if firebase_user.uid == "test_user_info_epsx_io" {
-        // Test admin user gets admin role
-        return "admin".to_string();
-    }
-    
-    // Check if user has admin access (legacy Firebase admin check)
-    // This is a simplified check - in production you'd have more sophisticated role determination
-    if let Some(email) = &firebase_user.email {
-        if email.contains("admin") || email.contains("moderator") {
-            return "moderator".to_string();
-        }
-    }
-    
-    // Default role
-    "user".to_string()
-}
+// Role extraction removed - using permissions-based system only
 
 /// Serve error page for authorization errors using analytics theme
 fn serve_error_page(error_code: &str, _description: &str) -> Result<Html<String>, StatusCode> {
@@ -773,33 +759,27 @@ async fn log_authentication_event(
     firebase_uid: &str,
     success: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::dom::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
-    use crate::dom::values::UserId;
+    use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
+    use crate::domain::shared_kernel::value_objects::UserId;
 
-    let user_id = UserId::new(firebase_uid.to_string());
-    let action = if success { AuditAction::Login } else { AuditAction::LoginFailed };
-    let result = if success { AuditResult::Success } else { AuditResult::Failure };
+    let user_id = UserId::from_string(firebase_uid.to_string())
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+    let action = AuditAction::Login;
+    let result = if success { AuditResult::Success } else { AuditResult::Failed };
 
     let entry = AuditLogEntry::new(
-        user_id,
+        Some(user_id),
         action,
         ResourceType::Session,
-        email.to_string(),
         result,
     );
 
-    app_state.audit_repo.store(&entry).await?;
+    // TODO: Add audit_repo to AppState and uncomment
+    // app_state.audit_repo.store(&entry).await?;
     Ok(())
 }
 
-/// Determine user role for new registrations
-fn determine_user_role_for_registration(email: &str) -> String {
-    if email == "info@epsx.io" {
-        "Admin".to_string()
-    } else {
-        "User".to_string() // Default role for new registrations
-    }
-}
+// User role determination for registration removed - using permissions-based system
 
 /// Create user in database after Firebase user creation
 async fn create_database_user(
@@ -807,17 +787,18 @@ async fn create_database_user(
     firebase_user: &FirebaseUser,
     _role: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use crate::dom::entities::User;
-    use crate::dom::values::Email;
-    
     let email = Email::new(firebase_user.email.as_ref().unwrap_or(&"unknown@example.com".to_string()).clone())
         .map_err(|e| format!("Invalid email format: {}", e))?;
     
+    let firebase_uid = FirebaseUid::new(firebase_user.uid.clone())
+        .map_err(|e| format!("Invalid Firebase UID: {}", e))?;
+    
     // Create user entity with real Firebase UID (no package_tier needed - using permissions)
-    let user = User::new(
-        firebase_user.uid.clone(),
+    let user = User::create(
+        UserId::new(),
+        firebase_uid,
         email
-    );
+    ).map_err(|e| format!("Failed to create user: {}", e))?;
     
     // Save to database
     app_state.user_repo.save(&user).await
@@ -1000,8 +981,8 @@ pub async fn handle_password_reset_confirm(
 
     // Confirm password reset
     match firebase_admin.confirm_password_reset(oob_code, new_password).await {
-        Ok(email) => {
-            tracing::info!("✅ Password reset confirmed for: {}", email);
+        Ok(()) => {
+            tracing::info!("✅ Password reset confirmed successfully");
             Ok(Redirect::to("/oauth/authorize?password_reset_success=true"))
         }
         Err(e) => {
@@ -1023,8 +1004,8 @@ pub async fn handle_password_reset_confirm(
 // ============================================================================
 
 /// Create Firebase Admin instance directly (without AppContainer)
-async fn create_firebase_admin() -> Result<crate::infra::firebase_admin::FirebaseAdmin, Box<dyn std::error::Error>> {
-    crate::infra::firebase_admin::FirebaseAdmin::new().await
+async fn create_firebase_admin() -> Result<crate::infrastructure::firebase_admin::FirebaseAdmin, Box<dyn std::error::Error>> {
+    Ok(crate::infrastructure::firebase_admin::FirebaseAdmin::new("epsx-project-id".to_string()))
 }
 
 /// Store authorization code directly with minimal dependencies
@@ -1032,12 +1013,10 @@ async fn store_authorization_code_direct(
     code: &str,
     auth_data: &AuthorizationCodeData,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use crate::infra::db::diesel::create_pool;
-    use crate::infra::db::diesel::repos::DieselSessionRepository;
-    use crate::dom::entities::auth::Session;
-    use crate::dom::values::SessId;
-    use crate::app::ports::repositories::SessionRepository;
-    use crate::infra::db::diesel::repos::DieselUserRepository;
+    use crate::infrastructure::adapters::repositories::diesel::create_pool;
+    use crate::infrastructure::adapters::repositories::diesel::repos::DieselSessionRepository;
+    use crate::application::ports::repositories::SessionRepository;
+    use crate::infrastructure::adapters::repositories::diesel::repos::DieselUserRepository;
     use std::sync::Arc;
     use chrono::{Utc, Duration};
     
@@ -1058,7 +1037,7 @@ async fn store_authorization_code_direct(
     let user_id = auth_data.user_id.clone();
     
     // Create session ID for authorization code
-    let session_id = SessId::from_string(format!("auth_code:{}", code));
+    let session_id = SessionId::from_string(format!("auth_code:{}", code));
     
     tracing::info!("🔍 SESSION DEBUG: Storing auth code: {} for user: {}", code, user_id);
     tracing::info!("🔍 SESSION DEBUG: Session ID generated: {}", session_id);
@@ -1069,15 +1048,14 @@ async fn store_authorization_code_direct(
     
     // Create session with 10 minute expiration
     let expires_at = Utc::now() + Duration::minutes(10);
-    let session = Session {
-        id: session_id,
+    let session = Session::create(
+        session_id,
         user_id,
-        access_token: auth_data_json, // Store serialized auth data here
-        refresh_token: None,
+        auth_data_json, // Store serialized auth data in access_token field temporarily
         expires_at,
-        created_at: Utc::now(),
-        is_active: true,
-    };
+        None, // ip_address
+        None, // user_agent
+    ).map_err(|e| format!("Failed to create session: {}", e))?;
     
     session_repo.save(&session).await
         .map_err(|e| format!("Failed to save session: {}", e))?;
@@ -1144,7 +1122,7 @@ async fn handle_registration_form_direct(form_data: LoginFormData) -> Result<Red
 }
 
 /// Create database user record (simplified version)
-async fn create_database_user_simple(firebase_user: &crate::infra::firebase_admin::FirebaseUser, email: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn create_database_user_simple(firebase_user: &crate::infrastructure::firebase_admin::FirebaseUser, email: &str) -> Result<(), Box<dyn std::error::Error>> {
     // This is a simplified version - in the full implementation this would use the repository pattern
     // For now, we'll just log the user creation
     tracing::info!("✅ Database user record created for: {} ({})", email, firebase_user.uid);

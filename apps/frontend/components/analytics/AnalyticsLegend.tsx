@@ -33,11 +33,11 @@ export function AnalyticsLegend({ onComplete, className = '' }: AnalyticsLegendP
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🟢</span>
-                <span className="font-bold text-green-700 dark:text-green-300">TRACK</span>
+                <span className="font-bold text-green-700 dark:text-green-300">ACTIVE</span>
               </div>
               <p className="text-sm text-green-600 dark:text-green-400">
                 Keep monitoring - good data pattern detected
@@ -47,20 +47,10 @@ export function AnalyticsLegend({ onComplete, className = '' }: AnalyticsLegendP
             <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🔴</span>
-                <span className="font-bold text-red-700 dark:text-red-300">STOP</span>
+                <span className="font-bold text-red-700 dark:text-red-300">INACTIVE</span>
               </div>
               <p className="text-sm text-red-600 dark:text-red-400">
                 Stop monitoring - declining performance pattern
-              </p>
-            </div>
-            
-            <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">🟡</span>
-                <span className="font-bold text-yellow-700 dark:text-yellow-300">WATCH</span>
-              </div>
-              <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                Observe carefully - mixed signals detected
               </p>
             </div>
           </div>
@@ -157,9 +147,9 @@ export function AnalyticsLegend({ onComplete, className = '' }: AnalyticsLegendP
             </p>
             <div className="space-y-2 text-sm font-mono bg-white dark:bg-gray-800 p-3 rounded border">
               <div className="text-green-600">Jul 30 | $3.65 | ✅ UP | Growth: +5.49% | Price: +4.94%</div>
-              <div className="text-blue-600">Status: POSITIVE | Both numbers UP! ⬆️ | Mode: TRACK</div>
+              <div className="text-blue-600">Status: POSITIVE | Both numbers UP! ⬆️ | Mode: ACTIVE</div>
               <div className="border-t pt-2 text-purple-600">Apr 30 | $3.46 | ✅ UP | Growth: +7.12% | Price: -0.34%</div>
-              <div className="text-blue-600">Status: MIXED | Growth UP, Price DOWN ↕️ | Mode: TRACK</div>
+              <div className="text-blue-600">Status: MIXED | Growth UP, Price DOWN ↕️ | Mode: ACTIVE</div>
             </div>
           </div>
         </CardContent>

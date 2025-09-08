@@ -12,7 +12,7 @@ pub mod scopes;
 pub mod cleanup;
 pub mod session_cleanup_service;
 pub mod session_security_service;
-pub mod roles; // TODO: Remove after migration complete
+// pub mod roles; // Removed - using permissions-based system only
 
 // Separated JWT systems
 pub mod admin_jwt;
@@ -31,7 +31,7 @@ pub use scopes::{ScopeService, Scope, ValidatedScopes, ScopeError, SCOPE_SERVICE
 pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
 pub use session_cleanup_service::{SessionCleanupService, SessionCleanupConfig, CleanupStats, CleanupHealthStatus, init_global_cleanup_service, start_global_cleanup_service, run_manual_cleanup, get_cleanup_health};
 pub use session_security_service::{SessionSecurityService, SessionSecurityConfig, DeviceFingerprint, GeoLocation, SecurityEvent, SecurityEventType, SecurityAnalysisResult, UserSessionInfo};
-pub use roles::{SimpleUserClaims, check_feature_access, require_feature_async, require_admin_async, require_permission_async}; // Updated exports
+// Role-based exports removed - using permissions-based system only
 pub use permissions::{Permission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
 pub use granular_permissions::{
     GranularPermissionClaim, PermissionSource, GranularPermissionSet, 

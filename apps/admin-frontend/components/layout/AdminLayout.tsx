@@ -435,7 +435,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     });
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 dark:from-orange-950 dark:via-yellow-950 dark:to-orange-900">
       {/* Mobile Sidebar Toggle Button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
@@ -491,12 +491,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div
         ref={sidebarRef}
         className={`
-          bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col
-          fixed inset-y-0 left-0 z-50 transform transition-all duration-200 ease-out
+          bg-gradient-to-b from-orange-50 to-yellow-50 dark:from-orange-950 dark:to-yellow-950 border-r border-orange-200 dark:border-orange-800 flex flex-col
+          fixed inset-y-0 left-0 z-50 transform transition-all duration-200 ease-out backdrop-blur-sm
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${sidebarCollapsed ? 'w-16' : 'w-80'}
           ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-80'}
-          shadow-lg lg:shadow-none
+          shadow-2xl shadow-orange-200/50 dark:shadow-orange-900/50
         `}
       >
         {/* Header */}
@@ -508,11 +508,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           >
             {!sidebarCollapsed && (
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-900 dark:to-yellow-900 rounded-lg">
+                  <Shield className="h-8 w-8 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">
                     EPSX Admin
                   </h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -24,8 +24,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::middleware as axum_middleware;
 
-use crate::infra::AppContainer;
-use auth::AppState;
+use crate::infrastructure::AppContainer;
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -168,12 +167,11 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create standalone analytics routes without AppState dependency
 async fn create_standalone_analytics_routes(
-  infra_factory: &crate::infra::InfraFactory
+  _infra_factory: &crate::infrastructure::InfraFactory
 ) -> Router {
   use axum::Extension;
 
   // Create services for analytics
-  let eps_ranking_service = infra_factory.create_eps_ranking_service();
 
   // Create cache-based EPS service with TradingView integration
   let config = match crate::config::Config::from_env() {
@@ -244,36 +242,16 @@ async fn create_standalone_analytics_routes(
       })
     }
   };
-  let tradingview_service = std::sync::Arc::new(
-    crate::infra::services::tradingview::TradingViewApiService::new(config)
-  );
-  let eps_repository = infra_factory.create_eps_repo();
-  let eps_cache_service = std::sync::Arc::new(
-    crate::dom::services::eps_cache_service::EPSCacheService::new(
-      tradingview_service,
-      eps_repository,
-      None // Use default cache config
+  let _tradingview_service = std::sync::Arc::new(
+    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
+      config.clone()
     )
   );
 
   // Create unified cache service (automatically selects InMemory or Redis)
-  let unified_cache_service = match
-    crate::infra::cache::CacheFactory::from_env().await
-  {
-    Ok(cache) => cache,
-    Err(e) => {
-      tracing::warn!(
-        "Failed to create cache service: {}, falling back to in-memory cache",
-        e
-      );
-      // Fallback to in-memory cache with default config
-      std::sync::Arc::new(
-        crate::infra::cache::InMemoryCache::new(
-          crate::infra::cache::CacheConfig::default()
-        )
-      ) as std::sync::Arc<dyn crate::infra::cache::Cache>
-    }
-  };
+  let cache_box = crate::infrastructure::cache::CacheFactory::with_fallback().await;
+  let unified_cache_service: std::sync::Arc<dyn crate::infrastructure::cache::Cache> = 
+    std::sync::Arc::from(cache_box);
 
   // Background cache refresh removed - using on-demand loading instead
 
@@ -333,13 +311,80 @@ async fn create_standalone_analytics_routes(
       get(analytics::eps_handlers::cache_health_check)
     )
     // Add services as extensions
-    .layer(Extension(eps_ranking_service))
-    .layer(Extension(eps_cache_service))
     .layer(Extension(unified_cache_service))
 }
 
 /// Create the main application router with analytics support
 pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
+  // Create config for email service
+  let config = match crate::config::Config::from_env() {
+    Ok(config) => std::sync::Arc::new(config),
+    Err(_) => {
+      // Use minimal config for DDD migration
+      std::sync::Arc::new(crate::config::Config {
+        server: crate::config::ServerConfig {
+          port: 8080,
+          host: "127.0.0.1".to_string(),
+          bind_address: "0.0.0.0".to_string(),
+          frontend_url: "http://localhost:3000".to_string(),
+          admin_frontend_url: "http://localhost:3001".to_string(),
+          environment: "development".to_string(),
+        },
+        database: crate::config::DatabaseConfig {
+          url: "postgresql://localhost/epsx".to_string(),
+        },
+        auth: crate::config::AuthConfig {
+          jwt_secret_main: "default-jwt-secret".to_string(),
+          jwt_secret: "default-jwt-secret".to_string(),
+          cookie_signing_key: None,
+          cookie_encryption_key: None,
+          firebase_project_id: None,
+          backend_url: "http://localhost:8080".to_string(),
+          oidc_issuer: "http://localhost:8080".to_string(),
+        },
+        payment: crate::config::PaymentConfig {
+          musepay_partner_id: None,
+          musepay_private_key: None,
+          webhook_url: None,
+          supported_currencies: vec!["USD".to_string()],
+          default_currency: "USD".to_string(),
+          default_checkout_url_template: "https://localhost:3000/checkout/{}".to_string(),
+        },
+        email: crate::config::EmailConfig {
+          from_email: "noreply@localhost".to_string(),
+          from_name: "EPSX".to_string(),
+          sendgrid_api_key: "mock-key".to_string(),
+        },
+        branding: crate::config::BrandingConfig {
+          platform_name: "EPSX".to_string(),
+          welcome_message_template: "Welcome to EPSX".to_string(),
+          dashboard_url: "http://localhost:3000".to_string(),
+          support_email: "support@localhost".to_string(),
+        },
+        external_services: crate::config::ExternalServicesConfig {
+          tradingview: crate::config::TradingViewConfig {
+            websocket_url: "wss://data.tradingview.com".to_string(),
+            api_base_url: "https://scanner.tradingview.com".to_string(),
+            timeout_seconds: 30,
+            http_timeout_seconds: 30,
+          },
+          sendgrid_api_key: None,
+          qr_code: crate::config::QrCodeConfig {
+            enabled: false,
+            base_url: "http://localhost:8080".to_string(),
+            logo_url: None,
+            api_base_url: "http://localhost:8080".to_string(),
+            default_size: 256,
+          },
+        },
+        rate_limiting: crate::config::RateLimitingConfig {
+          default_per_minute: 60,
+          endpoint_specific: std::collections::HashMap::new(),
+        },
+      })
+    }
+  };
+
   // Create OIDC routes with full functionality including POST handlers  
   let app_state = container.create_app_state().await
     .map_err(|e| {
@@ -363,12 +408,11 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
 
 
-  // Create analytics routes that use the container's InfraFactory
-  let analytics_routes = create_standalone_analytics_routes(
-    &container.infra
-  ).await;
+  // Create analytics routes with permission middleware
+  let analytics_routes = analytics::create_analytics_router(&container.infra).await;
   
   // FCM routes removed - will be re-implemented
+
 
   // Create core routes
   let core_routes = Router::new()
@@ -385,7 +429,15 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .merge(realtime_routes)
     .merge(analytics_routes)
     .nest("/api/v1/notifications", notifications::notification_routes()
-      .layer(axum::Extension(container.fcm_service.clone()))
+      // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
+      .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(
+        Arc::new(crate::infrastructure::adapters::services::fcm_service::FcmService::new(container.infra.firebase_admin.clone())),
+        // Create stub email service for DDD migration - will be replaced with proper service
+        Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
+          config.email.sendgrid_api_key.clone(),
+        )),
+      ))))
+      // Keep legacy services for endpoints that haven't been migrated yet
       .layer(axum::Extension(container.fcm_topic_service.clone()))
       .layer(axum::Extension(container.user_notification_repo.clone()))
       .layer(axum_middleware::from_fn_with_state(

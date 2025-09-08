@@ -1,8 +1,6 @@
-// Clean Granular Permission System
+use std::collections::HashMap;use chrono::{DateTime, Utc};// Clean Granular Permission System
 // Modern permission validation with individual expiry times and metadata
 
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

@@ -8,8 +8,8 @@ use axum::{
     middleware::Next,
     response::{Response, IntoResponse},
 };
-use tracing::{info, warn, error};
 use chrono::Utc;
+use tracing::{info, warn, error};
 
 use crate::auth::admin_jwt::{AdminJWTService, AdminValidationResult};
 use crate::config::env::get_env_var;
@@ -141,7 +141,7 @@ pub async fn admin_auth_middleware(
                 admin_id: claims.sub.clone(),
                 email: claims.email.clone(),
                 name: claims.name.clone(),
-                role: claims.role.clone(),
+                role: "admin".to_string(), // Role field removed from claims - using permissions
                 security_context: AdminSecurityInfo {
                     mfa_verified: claims.security_context.mfa_verified,
                     mfa_timestamp: claims.security_context.mfa_timestamp,
@@ -159,7 +159,7 @@ pub async fn admin_auth_middleware(
             let platform_context = AdminPlatformContext {
                 platform: "admin".to_string(),
                 security_level: determine_security_level(risk_assessment.risk_score),
-                requires_approval: is_approval_required(&path, &claims.role),
+                requires_approval: is_approval_required(&path, "admin"), // Using default admin role
             };
 
             // Add admin context to request

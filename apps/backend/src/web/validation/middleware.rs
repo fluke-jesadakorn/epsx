@@ -77,10 +77,11 @@ pub async fn rate_limit_middleware(
     
     // Initialize rate limiter with configuration
     use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
-    use crate::infra::cache::CacheFactory;
-    let cache = CacheFactory::with_fallback().await;
-    let config = std::sync::Arc::new(crate::config::Config::from_env().expect("Failed to load config"));
-    let rate_limiter = UnifiedRateLimiter::with_config(cache, config);
+    use crate::infrastructure::cache::CacheFactory;
+    let cache_box = CacheFactory::with_fallback().await;
+    let cache = std::sync::Arc::from(cache_box);
+    let app_config = std::sync::Arc::new(crate::config::Config::from_env().expect("Failed to load config"));
+    let rate_limiter = UnifiedRateLimiter::with_config(cache, app_config);
     
     // Determine rate limits based on endpoint
     let config = match path {

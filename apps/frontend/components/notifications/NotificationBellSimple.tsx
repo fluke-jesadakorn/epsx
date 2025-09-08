@@ -96,11 +96,13 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   console.log('🔔 NotificationBellSimple component mounted')
 
-  // Check if mobile
+  // Prevent hydration mismatch by only checking mobile after mount
   useEffect(() => {
+    setIsMounted(true)
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
@@ -228,7 +230,22 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
     </Button>
   )
 
-  // Mobile view with Sheet
+  // Return consistent markup during hydration, then switch to responsive after mount
+  if (!isMounted) {
+    // Default to desktop view during hydration to prevent mismatch
+    return (
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          {bellButton}
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-96 p-4">
+          <NotificationContent />
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  // Mobile view with Sheet (after mount)
   if (isMobile) {
     return (
       <Sheet open={isOpen} onOpenChange={setIsOpen}>

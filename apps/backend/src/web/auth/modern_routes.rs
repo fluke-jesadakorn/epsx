@@ -2,7 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use crate::infra::db::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use std::sync::Arc;
 
 use crate::web::user::handlers::{get_user_claims, upsert_user};

@@ -1,3 +1,6 @@
+use crate::domain::shared_kernel::value_objects::UserId;
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 // ============================================================================
 // BULK PERMISSION MANAGEMENT HANDLERS
 // ============================================================================
@@ -9,11 +12,8 @@ use axum::{
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 use crate::web::auth::routes::AppState;
-use crate::dom::values::identifiers::UserId;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -36,13 +36,7 @@ pub struct BulkRevokePermissionsRequest {
     pub notify_users: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct BulkRoleAssignmentRequest {
-    pub user_ids: Vec<String>,
-    pub role: String,
-    pub merge_permissions: Option<bool>, // true = add to existing, false = replace
-    pub reason: Option<String>,
-}
+// BulkRoleAssignmentRequest removed - using permissions-based system only
 
 #[derive(Debug, Deserialize)]
 pub struct BulkPermissionTemplateRequest {
@@ -238,19 +232,31 @@ pub async fn bulk_grant_permissions(
             }
         };
         
-        // Get current permissions
-        let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-            Ok(perms) => perms.into_iter().map(|p| p.permission().to_string()).collect::<Vec<_>>(),
-            Err(e) => {
-                tracing::error!("Failed to get permissions for user {}: {:?}", user_id, e);
+        // Get user from repository first, then access their permissions
+        let user = match state.user_repo.find_by_id(&user_id_typed).await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                tracing::warn!("User not found: {}", user_id);
                 failed.push(BulkUserError {
                     user_id: user_id.clone(),
-                    error: format!("Failed to retrieve current permissions: {}", e),
+                    error: "User not found".to_string(),
+                    error_code: "USER_NOT_FOUND".to_string(),
+                });
+                continue;
+            },
+            Err(e) => {
+                tracing::error!("Failed to get user {}: {:?}", user_id, e);
+                failed.push(BulkUserError {
+                    user_id: user_id.clone(),
+                    error: format!("Failed to get user: {}", e),
                     error_code: "DATABASE_ERROR".to_string(),
                 });
                 continue;
             }
         };
+        
+        // Get current permissions from User aggregate
+        let current_permissions = user.active_permissions();
         
         let previous_permissions = current_permissions.clone();
         
@@ -265,16 +271,32 @@ pub async fn bulk_grant_permissions(
             }
         }
         
-        // Update permissions
-        match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions.clone()).await {
+        // Convert permission strings to Permission objects and update user using DDD approach
+        use crate::domain::user_management::value_objects::Permission;
+        use std::collections::HashSet;
+        
+        let mut permission_objects = HashSet::new();
+        for perm_str in &new_permissions {
+            match Permission::new(perm_str) {
+                Ok(perm) => { permission_objects.insert(perm); },
+                Err(e) => {
+                    tracing::warn!("Invalid permission format: {:?}", e);
+                    // Skip invalid permissions
+                }
+            }
+        }
+        
+        // Update user permissions using DDD approach
+        let mut updated_user = user;
+        match updated_user.update_permissions(permission_objects, None) {
             Ok(()) => {
-                total_granted += added_permissions.len();
-                
-                // Get user email for response
-                let email = match state.user_repo.get(&user_id_typed).await {
-                    Ok(Some(user)) => Some(user.email().to_string()),
-                    _ => None,
-                };
+                // Save the updated user
+                match state.user_repo.save(&updated_user).await {
+                    Ok(()) => {
+                        total_granted += added_permissions.len();
+                        
+                        // Get user email for response  
+                        let email = Some(updated_user.email().to_string());
                 
                 successful.push(BulkUserResult {
                     user_id: user_id.clone(),
@@ -284,6 +306,15 @@ pub async fn bulk_grant_permissions(
                     previous_permissions,
                     current_permissions: new_permissions,
                 });
+                    },
+                    Err(e) => {
+                        failed.push(BulkUserError {
+                            user_id: user_id.clone(),
+                            error: format!("Failed to save user: {}", e),
+                            error_code: "SAVE_FAILED".to_string(),
+                        });
+                    }
+                }
             },
             Err(e) => {
                 failed.push(BulkUserError {
@@ -348,19 +379,31 @@ pub async fn bulk_revoke_permissions(
             }
         };
         
-        // Get current permissions
-        let current_permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-            Ok(perms) => perms.into_iter().map(|p| p.permission().to_string()).collect::<Vec<_>>(),
-            Err(e) => {
-                tracing::error!("Failed to get permissions for user {}: {:?}", user_id, e);
+        // Get user from repository first, then access their permissions
+        let user = match state.user_repo.find_by_id(&user_id_typed).await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                tracing::warn!("User not found: {}", user_id);
                 failed.push(BulkUserError {
                     user_id: user_id.clone(),
-                    error: format!("Failed to retrieve current permissions: {}", e),
+                    error: "User not found".to_string(),
+                    error_code: "USER_NOT_FOUND".to_string(),
+                });
+                continue;
+            },
+            Err(e) => {
+                tracing::error!("Failed to get user {}: {:?}", user_id, e);
+                failed.push(BulkUserError {
+                    user_id: user_id.clone(),
+                    error: format!("Failed to get user: {}", e),
                     error_code: "DATABASE_ERROR".to_string(),
                 });
                 continue;
             }
         };
+        
+        // Get current permissions from User aggregate
+        let current_permissions = user.active_permissions();
         
         let previous_permissions = current_permissions.clone();
         
@@ -377,16 +420,32 @@ pub async fn bulk_revoke_permissions(
             })
             .collect();
         
-        // Update permissions
-        match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions.clone()).await {
+        // Convert permission strings to Permission objects and update user using DDD approach
+        use crate::domain::user_management::value_objects::Permission;
+        use std::collections::HashSet;
+        
+        let mut permission_objects = HashSet::new();
+        for perm_str in &new_permissions {
+            match Permission::new(perm_str) {
+                Ok(perm) => { permission_objects.insert(perm); },
+                Err(e) => {
+                    tracing::warn!("Invalid permission format: {:?}", e);
+                    // Skip invalid permissions
+                }
+            }
+        }
+        
+        // Update user permissions using DDD approach
+        let mut updated_user = user;
+        match updated_user.update_permissions(permission_objects, None) {
             Ok(()) => {
-                total_revoked += removed_permissions.len();
-                
-                // Get user email for response
-                let email = match state.user_repo.get(&user_id_typed).await {
-                    Ok(Some(user)) => Some(user.email().to_string()),
-                    _ => None,
-                };
+                // Save the updated user
+                match state.user_repo.save(&updated_user).await {
+                    Ok(()) => {
+                        total_revoked += removed_permissions.len();
+                        
+                        // Get user email for response  
+                        let email = Some(updated_user.email().to_string());
                 
                 successful.push(BulkUserResult {
                     user_id: user_id.clone(),
@@ -396,6 +455,15 @@ pub async fn bulk_revoke_permissions(
                     previous_permissions,
                     current_permissions: new_permissions,
                 });
+                    },
+                    Err(e) => {
+                        failed.push(BulkUserError {
+                            user_id: user_id.clone(),
+                            error: format!("Failed to save user: {}", e),
+                            error_code: "SAVE_FAILED".to_string(),
+                        });
+                    }
+                }
             },
             Err(e) => {
                 failed.push(BulkUserError {
@@ -428,131 +496,12 @@ pub async fn bulk_revoke_permissions(
 }
 
 /// Bulk assign roles to multiple users
-/// POST /admin/users/bulk/roles/assign
+/// POST /admin/users/bulk/roles/assign - DEPRECATED
 pub async fn bulk_assign_roles(
-    State(state): State<AppState>,
-    Json(request): Json<BulkRoleAssignmentRequest>,
+    State(_state): State<AppState>,
 ) -> Result<Json<BulkOperationResponse>, (StatusCode, String)> {
-    tracing::info!("Bulk assigning role '{}' to {} users", request.role, request.user_ids.len());
-    
-    if request.user_ids.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "No user IDs provided".to_string()));
-    }
-    
-    let roles = get_role_permissions();
-    let role_permissions = match roles.get(&request.role) {
-        Some(perms) => perms,
-        None => {
-            return Err((StatusCode::BAD_REQUEST, format!("Unknown role: {}", request.role)));
-        }
-    };
-    
-    let mut successful = Vec::new();
-    let mut failed = Vec::new();
-    let merge_permissions = request.merge_permissions.unwrap_or(false);
-    
-    for user_id in &request.user_ids {
-        let user_id_typed = match UserId::from_str(user_id) {
-            Ok(id) => id,
-            Err(_) => {
-                failed.push(BulkUserError {
-                    user_id: user_id.clone(),
-                    error: "Invalid user ID format".to_string(),
-                    error_code: "INVALID_USER_ID".to_string(),
-                });
-                continue;
-            }
-        };
-        
-        let previous_permissions = if merge_permissions {
-            // Get current permissions to merge with
-            match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-                Ok(perms) => perms.into_iter().map(|p| p.permission().to_string()).collect(),
-                Err(e) => {
-                    tracing::error!("Failed to get current permissions for user {}: {:?}", user_id, e);
-                    failed.push(BulkUserError {
-                        user_id: user_id.clone(),
-                        error: format!("Failed to retrieve current permissions: {}", e),
-                        error_code: "DATABASE_ERROR".to_string(),
-                    });
-                    continue;
-                }
-            }
-        } else {
-            vec![]
-        };
-        
-        // Determine new permissions
-        let new_permissions = if merge_permissions {
-            let mut merged = previous_permissions.clone();
-            for perm in role_permissions {
-                if !merged.contains(perm) {
-                    merged.push(perm.clone());
-                }
-            }
-            merged
-        } else {
-            role_permissions.clone()
-        };
-        
-        // Update permissions
-        match state.permission_application_service.set_user_permissions(&user_id_typed, new_permissions.clone()).await {
-            Ok(()) => {
-                // Get user email for response
-                let email = match state.user_repo.get(&user_id_typed).await {
-                    Ok(Some(user)) => Some(user.email().to_string()),
-                    _ => None,
-                };
-                
-                let added_permissions = if merge_permissions {
-                    role_permissions.iter()
-                        .filter(|perm| !previous_permissions.contains(perm))
-                        .cloned()
-                        .collect()
-                } else {
-                    role_permissions.clone()
-                };
-                
-                successful.push(BulkUserResult {
-                    user_id: user_id.clone(),
-                    email,
-                    permissions_added: added_permissions,
-                    permissions_removed: if merge_permissions { vec![] } else { previous_permissions.clone() },
-                    previous_permissions,
-                    current_permissions: new_permissions,
-                });
-            },
-            Err(e) => {
-                failed.push(BulkUserError {
-                    user_id: user_id.clone(),
-                    error: format!("Failed to update permissions: {}", e),
-                    error_code: "UPDATE_FAILED".to_string(),
-                });
-            }
-        }
-    }
-    
-    let total_granted = successful.iter().map(|r| r.permissions_added.len()).sum::<usize>();
-    let total_revoked = successful.iter().map(|r| r.permissions_removed.len()).sum::<usize>();
-    
-    let summary = BulkSummary {
-        total_users: request.user_ids.len() as i32,
-        successful_operations: successful.len() as i32,
-        failed_operations: failed.len() as i32,
-        permissions_granted: total_granted as i32,
-        permissions_revoked: total_revoked as i32,
-    };
-    
-    tracing::info!("Bulk role assignment completed: {} successful, {} failed", 
-                   summary.successful_operations, summary.failed_operations);
-    
-    Ok(Json(BulkOperationResponse {
-        successful,
-        failed,
-        summary,
-        operation: format!("bulk_assign_role_{}", request.role),
-        timestamp: Utc::now(),
-    }))
+    // Role assignment removed - using permissions-based system
+    Err((StatusCode::NOT_IMPLEMENTED, "Role assignment deprecated - use permissions API".to_string()))
 }
 
 /// Apply permission template to multiple users
@@ -587,9 +536,8 @@ pub async fn bulk_apply_permission_template(
     let mut response = bulk_grant_permissions(State(state), Json(grant_request)).await?;
     
     // Update operation name to reflect template application
-    if let Json(ref mut response_data) = response {
-        response_data.operation = format!("bulk_apply_template_{}", request.template_id);
-    }
+    let Json(ref mut response_data) = response;
+    response_data.operation = format!("bulk_apply_template_{}", request.template_id);
     
     Ok(response)
 }
@@ -619,21 +567,17 @@ pub async fn bulk_validate_permissions(
             }
         };
         
-        // Get user permissions
-        let permissions = match state.user_permission_repo.get_user_permissions(&user_id_typed).await {
-            Ok(perms) => perms,
-            Err(_) => continue, // Skip users that can't be retrieved
+        // Get user from repository
+        let user = match state.user_repo.find_by_id(&user_id_typed).await {
+            Ok(Some(user)) => user,
+            Ok(None) | Err(_) => continue, // Skip users that can't be retrieved
         };
         
-        let permission_strings: Vec<String> = permissions.iter()
-            .map(|p| p.permission().to_string())
-            .collect();
+        // Get user permissions from User aggregate
+        let permission_strings = user.active_permissions();
         
         // Get user email
-        let email = match state.user_repo.get(&user_id_typed).await {
-            Ok(Some(user)) => Some(user.email().to_string()),
-            _ => None,
-        };
+        let email = Some(user.email().to_string());
         
         // Validate permissions
         let mut valid_permissions = Vec::new();
