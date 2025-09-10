@@ -50,7 +50,7 @@ export function PublicRankingPreview({
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="">
             <CardHeader>
               <div className="h-4 w-3/4 rounded bg-gray-200"></div>
             </CardHeader>
@@ -68,8 +68,8 @@ export function PublicRankingPreview({
 
   return (
     <div className={`space-y-8 ${className}`}>
-      {/* Preview Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Analytics-style ranking cards grid */}
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-4 sm:px-0">
         {(Array.isArray(data) ? data : []).slice(0, 6).map((stock, index) => {
           const latestQuarter = stock.quarters[stock.quarters.length - 1];
           const previousQuarter = stock.quarters[stock.quarters.length - 2];
@@ -79,64 +79,78 @@ export function PublicRankingPreview({
               100
             : 0;
 
+          const getBorderColor = (rank: number) => {
+            if (rank <= 5) return 'border-green-400';
+            if (rank <= 10) return 'border-blue-400';
+            return 'border-slate-600';
+          };
+
+          const displayRank = stock.rank || (index + 6);
+
           return (
-            <Card
+            <div
               key={stock.symbol}
-              className="group relative transition-all duration-300 hover:shadow-lg"
+              className={`rounded-3xl bg-slate-800 dark:bg-slate-900 p-6 shadow-xl border-2 ${getBorderColor(displayRank)} relative overflow-hidden min-w-[280px] max-w-[320px] flex-shrink-0`}
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Badge variant="outline" className="text-xs">
-                      #{stock.rank || 101 + index}
-                    </Badge>
-                    {stock.symbol}
-                  </CardTitle>
-                  <div className="flex items-center gap-1">
-                    {epsGrowth > 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
+              {/* Rank badge */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="text-slate-400 text-sm font-medium">
+                  RANK #{displayRank}
+                </div>
+                <div className="bg-green-500 px-4 py-2 rounded-full">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold text-sm">📊 View</span>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Index Growth
-                    </span>
-                    <span
-                      className={`font-semibold ${
-                        epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
-                      {epsGrowth ? `${epsGrowth.toFixed(2)}%` : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Current Value
-                    </span>
-                    <span className="font-medium">
-                      $
-                      {stock.currentPrice
-                        ? stock.currentPrice.toFixed(2)
-                        : latestQuarter?.price?.toFixed(2) || 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">
-                      Latest Index
-                    </span>
-                    <span className="text-sm font-medium">
-                      ${latestQuarter?.eps?.toFixed(2) || 'N/A'}
-                    </span>
-                  </div>
+              </div>
+              
+              {/* Symbol */}
+              <h2 className="text-3xl font-bold text-white mb-6">{stock.symbol}</h2>
+              
+              {/* Status and Next Action */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2 bg-green-500/20 px-3 py-2 rounded-full">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-400 font-semibold text-sm">ACTIVE</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-right">
+                  <div className="text-slate-400 text-xs mb-1">Next Action</div>
+                  <div className="text-green-400 font-bold">66 days</div>
+                </div>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="mb-6">
+                <div className="w-full bg-slate-700 dark:bg-slate-600 h-2 rounded-full">
+                  <div className="h-full bg-green-500 rounded-full" style={{ width: '75%' }}></div>
+                </div>
+              </div>
+              
+              {/* Growth section */}
+              <div className="bg-slate-900/50 dark:bg-slate-800/50 rounded-2xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">{epsGrowth >= 0 ? '📈' : '📉'}</span>
+                  <span className="text-slate-400 font-medium">Growth</span>
+                </div>
+                <div className={`text-2xl font-bold ${epsGrowth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {epsGrowth >= 0 ? '+' : ''}{epsGrowth ? epsGrowth.toFixed(2) : '0.00'}%
+                </div>
+              </div>
+              
+              {/* Price section */}
+              <div className="bg-slate-900/50 dark:bg-slate-800/50 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">💰</span>
+                  <span className="text-slate-400 font-medium">Price</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  $
+                  {stock.currentPrice
+                    ? stock.currentPrice.toFixed(2)
+                    : latestQuarter?.price?.toFixed(2) || '0.00'}
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>

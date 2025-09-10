@@ -37,7 +37,7 @@ export default function ClientEpsCardSection({
       style={style}
     >
       {/* Enhanced Section Header */}
-      <div className="animate-slide-up mb-6 space-y-4 text-center">
+      <div className="mb-6 space-y-4 text-center">
         <h2 className="pancake-gradient-text text-3xl font-bold sm:text-4xl">
           Top Performing Companies
         </h2>
@@ -48,120 +48,113 @@ export default function ClientEpsCardSection({
         <div className="pancake-gradient mx-auto h-1 w-24 rounded-full" />
       </div>
 
-      <div className="animate-slide-up-delayed grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Analytics-style card grid */}
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-6 sm:px-0">
         {safeData
           .filter(
             item => item && typeof item === 'object' && item.symbol && item.name
           )
           .slice(0, 3)
           .map((item, index) => {
+            const getRankBadge = (rank: number) => {
+              if (rank === 1) return { badge: '👑', color: 'from-yellow-400 to-orange-500' };
+              if (rank === 2) return { badge: '🥈', color: 'from-slate-400 to-slate-500' };
+              if (rank === 3) return { badge: '🥉', color: 'from-orange-400 to-amber-500' };
+              return { badge: '🔥', color: 'from-green-400 to-emerald-500' };
+            };
+
+            const rankInfo = getRankBadge(index + 1);
+
+            const getUltraPremiumStyle = (rank: number) => {
+              if (rank === 1) return {
+                container: 'bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-4 border-yellow-400/50 shadow-yellow-500/40',
+                glow: 'shadow-2xl shadow-yellow-500/50',
+              };
+              if (rank === 2) return {
+                container: 'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 border-4 border-slate-400/50 shadow-slate-500/40',
+                glow: 'shadow-2xl shadow-slate-500/50',
+              };
+              if (rank === 3) return {
+                container: 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-4 border-orange-400/50 shadow-orange-500/40',
+                glow: 'shadow-2xl shadow-orange-500/50',
+              };
+              return {
+                container: 'bg-gradient-to-br from-white via-slate-50 to-gray-100 border-2 border-slate-300',
+                glow: '',
+              };
+            };
+
+            const ultraStyle = getUltraPremiumStyle(index + 1);
+
             return (
-              <Card
+              <div
                 key={item.symbol || index}
-                className="card-pancake hover:pancake-shadow group overflow-hidden"
+                className={`relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px] ${ultraStyle.container} dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 ${ultraStyle.glow}`}
               >
-                {/* Ranking badge */}
-                {index < 3 && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <span
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold shadow-lg transition-transform duration-300 group-hover:scale-110 ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900' : ''} ${index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-900' : ''} ${index === 2 ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-amber-900' : ''} `}
-                    >
-                      #{index + 1}
-                    </span>
-                  </div>
-                )}
+                {/* Ultra-premium floating rank badge */}
+                <div className={`absolute -top-4 -left-4 h-16 w-16 bg-gradient-to-br ${rankInfo.color} flex rotate-12 transform items-center justify-center rounded-full border-4 border-white text-2xl text-white shadow-2xl z-30`}>
+                  {rankInfo.badge}
+                </div>
 
-                <CardHeader className="relative pb-4">
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex items-start justify-between">
-                      <span
-                        className={`${getMarketColor(item.exchange)} bg-secondary border-secondary rounded-full border px-3 py-1.5 text-sm font-semibold transition-transform duration-300 group-hover:scale-105`}
-                      >
-                        {item.exchange || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <p className="font-semibold">{item.symbol || 'N/A'}</p>
-                      <span className="text-muted-foreground">•</span>
-                      <p className="text-muted-foreground truncate">
-                        {item.name || 'Unknown Company'}
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="from-blue-500/5 to-purple-500/5 transition-colors duration-300 group-hover:bg-gradient-to-br">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-muted-foreground text-sm">Signal</p>
-                        <p
-                          className={`font-semibold transition-colors ${
-                            item.startBuy && item.startBuy.active
-                              ? 'text-green-500 group-hover:text-green-400'
-                              : item.startAction &&
-                                  item.startAction.type === 'sell' &&
-                                  item.startAction.active
-                                ? 'text-rose-500 group-hover:text-rose-400'
-                                : 'text-yellow-500 group-hover:text-yellow-400'
-                          }`}
-                        >
-                          {item.startBuy && item.startBuy.active
-                            ? 'Buy'
-                            : item.startAction &&
-                                item.startAction.type === 'sell' &&
-                                item.startAction.active
-                              ? 'Sell'
-                              : 'Hold'}
-                        </p>
+                {/* Premium content wrapper */}
+                <div className="p-8 pt-16">
+                  {/* Ultra-premium header */}
+                  <div className="mb-6 text-center">
+                    <div className="mb-3">
+                      <div className="mb-1 text-xs font-light tracking-[0.2em] text-slate-400 uppercase">
+                        {index === 0 ? '👑 CHAMPION' : index === 1 ? '🥈 ELITE' : '🥉 LEGEND'} · RANK #{index + 1}
                       </div>
+                      <h3 className="mb-2 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-700 dark:from-slate-200 dark:via-white dark:to-slate-200 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
+                        {item.symbol || 'N/A'}
+                      </h3>
+                      <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
+                    </div>
 
-                      <div className="flex items-center justify-between">
-                        <p className="text-muted-foreground text-sm">Growth</p>
-                        <p
-                          className={`font-semibold transition-colors ${
-                            parseFloat(item.epsGrowth || '0') >= 0
-                              ? 'text-green-500 group-hover:text-green-400'
-                              : 'text-rose-500 group-hover:text-rose-400'
-                          }`}
-                        >
-                          {item.epsGrowth || '0%'}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <p className="text-muted-foreground text-sm">Status</p>
-                        <p className="text-sm">
-                          {item.startAction &&
-                          item.startAction.type === 'hold' &&
-                          item.startAction.active
-                            ? 'Waiting for Hold'
-                            : item.startAction &&
-                                item.startAction.type === 'sell' &&
-                                !item.startAction.active
-                              ? 'Waiting for Sell'
-                              : 'Active'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-blue-500/10 pt-3">
-                      <p className="text-muted-foreground text-xs">
-                        Last Report: {item.lastEarningsDate || 'N/A'}
-                      </p>
+                    <div className="flex justify-center">
                       <a
                         href={`https://www.tradingview.com/symbols/${item.symbol}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-500 transition-colors group-hover:gap-2 hover:text-blue-400"
+                        className="inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-xl bg-gradient-to-r from-green-600 via-green-500 to-emerald-600"
                       >
-                        View Date{' '}
-                        <span className="transition-transform group-hover:translate-x-1">
-                          →
-                        </span>
+                        <span className="text-base sm:text-lg">📊</span>
+                        <span className="tracking-wide text-sm sm:text-base">VIEW DETAILS</span>
+                        <span className="text-xs opacity-75">→</span>
                       </a>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+
+                  {/* Status section */}
+                  <div className="mb-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="relative inline-flex items-center gap-3 rounded-2xl border-2 px-4 py-2 text-sm font-bold backdrop-blur-md border-green-400/50 bg-green-500/20 text-green-900 shadow-green-400/20 shadow-lg">
+                        <div className="h-3 w-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50"></div>
+                        <span className="tracking-wide">ACTIVE</span>
+                      </div>
+                      <div className="text-center">
+                        <div className="mb-1 text-xs font-light tracking-wider text-slate-400 dark:text-slate-300 uppercase">Next Action</div>
+                        <div className="text-lg font-bold text-green-700 dark:text-green-400">66d</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data showcase */}
+                  <div className="flex flex-col gap-4">
+                    <div className="rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md">
+                      <div className="mb-4 flex items-center justify-center gap-3">
+                        <span className="text-xl sm:text-2xl">📈</span>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">Growth</div>
+                        </div>
+                      </div>
+                      <div className="mb-2 text-center text-lg leading-tight font-black sm:text-2xl text-green-700 dark:text-green-400">
+                        +{item.epsGrowth || '0%'}
+                      </div>
+                      <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             );
           })}
       </div>

@@ -102,8 +102,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Get callback URL from cookies or default to dashboard
-    const callbackUrl = storedCallbackUrl || '/dashboard';
+    // Get callback URL from cookies or default to home page
+    const callbackUrl = storedCallbackUrl || '/';
     
     console.log('🔄 Frontend: Redirecting to callback URL:', callbackUrl);
     const redirectUrl = new URL(callbackUrl, request.url);

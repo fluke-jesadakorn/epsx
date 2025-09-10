@@ -113,12 +113,12 @@ function NavigationContent({
                 <Link
                   key={item.key}
                   href={item.href}
-                  className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition-all duration-300 hover:scale-105 hover:bg-yellow-50 dark:text-slate-300 dark:hover:bg-slate-800/50"
+                  className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
                 >
-                  <span className="animate-pulse text-orange-500">
+                  <span className="text-orange-500">
                     {IconComponent || <Info className="h-4 w-4" />}
                   </span>
-                  <span className="animate-pulse">{item.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -162,15 +162,17 @@ function NavigationContent({
               <Link
                 key={item.key}
                 href={item.href}
-                className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:scale-105 ${
+                className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium ${
                   pathname === item.href
-                    ? 'bg-gradient-to-r from-yellow-400/90 to-orange-400/90 text-white shadow-lg shadow-yellow-400/25'
-                    : 'text-slate-600 hover:bg-yellow-50 hover:text-orange-600 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:text-orange-400'
+                    ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
+                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
                 }`}
               >
                 <span
                   className={
-                    pathname === item.href ? 'text-white' : 'text-orange-500'
+                    pathname === item.href
+                      ? 'text-orange-600 dark:text-orange-300'
+                      : 'text-orange-500'
                   }
                 >
                   {IconComponent || <Info className="h-4 w-4" />}
@@ -188,16 +190,17 @@ function NavigationContent({
         <div className="flex items-center gap-3">
           {/* Notifications */}
           {user && (
-            <div className="relative">
-              <div className="cursor-pointer rounded-2xl bg-orange-50 p-3 shadow-sm hover:bg-orange-100 hover:shadow-md dark:bg-slate-800/50 dark:hover:bg-slate-700/50">
-                <NotificationBellSimple
-                  className="!h-5 !w-5 !text-orange-500"
-                  initialData={initialNotificationData}
-                />
-              </div>
+            <div className="relative flex cursor-pointer items-center gap-2">
+              <NotificationBellSimple
+                className="!h-5 !w-5 !text-orange-500"
+                initialData={initialNotificationData}
+              />
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                Notification
+              </span>
               {initialNotificationData &&
                 initialNotificationData.unread_count > 0 && (
-                  <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500">
+                  <div className="absolute -top-1 left-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500/90">
                     <span className="text-xs font-bold text-white">
                       {initialNotificationData.unread_count > 99
                         ? '99+'
@@ -212,14 +215,10 @@ function NavigationContent({
           {user?.email && (
             <Link
               href="/settings"
-              className="flex items-center gap-3 rounded-2xl border border-orange-100/50 bg-gradient-to-r from-slate-50 to-orange-50 px-4 py-2.5 shadow-sm hover:from-orange-50 hover:to-yellow-50 hover:shadow-md dark:border-slate-600/50 dark:from-slate-800 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-600"
+              className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 text-sm font-bold text-white shadow-md">
-                {user.email.charAt(0).toUpperCase()}
-              </div>
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
-                {user.email.split('@')[0]}
-              </span>
+              <User className="h-5 w-5 text-orange-500" />
+              <span className="text-sm font-medium">User Info</span>
             </Link>
           )}
 
@@ -227,20 +226,18 @@ function NavigationContent({
           <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <ThemeToggleCSS />
-            
+
             {/* Auth Actions */}
             <div className="hidden md:block">
               {user ? (
-                <div className="rounded-2xl bg-red-50 p-1 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40">
-                  <LogoutForm
-                    variant="ghost"
-                    className="rounded-xl px-4 py-2 text-sm font-semibold text-red-500 hover:bg-transparent"
-                  />
-                </div>
+                <LogoutForm
+                  variant="ghost"
+                  className="rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
+                />
               ) : (
                 <Link
                   href="/login"
-                  className="flex items-center gap-2 rounded-2xl border border-slate-300/60 bg-slate-100/40 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-yellow-50 hover:text-orange-600 hover:border-orange-300/70 dark:border-slate-500/40 dark:bg-slate-700/20 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:text-orange-400 dark:hover:border-orange-400/50"
+                  className="flex items-center gap-2 rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
                 >
                   <LogIn className="h-4 w-4 text-orange-500" />
                   Connect
@@ -274,16 +271,16 @@ function NavigationContent({
                       key={item.key}
                       href={item.href}
                       onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300 hover:scale-105 ${
+                      className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${
                         pathname === item.href
-                          ? 'bg-gradient-to-r from-yellow-400/90 to-orange-400/90 text-white shadow-lg'
-                          : 'text-slate-600 hover:bg-yellow-50 hover:text-orange-600 dark:text-slate-300 dark:hover:bg-slate-800/50'
+                          ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
+                          : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
                       }`}
                     >
                       <span
                         className={
                           pathname === item.href
-                            ? 'text-white'
+                            ? 'text-orange-600 dark:text-orange-300'
                             : 'text-orange-500'
                         }
                       >
@@ -299,13 +296,13 @@ function NavigationContent({
                 {user ? (
                   <LogoutForm
                     variant="ghost"
-                    className="w-full justify-start rounded-2xl px-4 py-3 font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    className="w-full justify-start rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-3 font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
                   />
                 ) : (
                   <Link
                     href="/login"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-4 rounded-2xl border border-slate-300/60 bg-slate-100/40 px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-yellow-50 hover:text-orange-600 hover:border-orange-300/70 dark:border-slate-500/40 dark:bg-slate-700/20 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:text-orange-400 dark:hover:border-orange-400/50"
+                    className="flex items-center gap-4 rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
                   >
                     <LogIn className="h-4 w-4 text-orange-500" />
                     Connect

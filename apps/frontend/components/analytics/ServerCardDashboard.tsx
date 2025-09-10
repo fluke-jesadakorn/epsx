@@ -72,7 +72,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
 
   return (
     <div
-      className={`hover:shadow-3xl relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 shadow-2xl transition-all duration-300 hover:scale-105 sm:min-w-[280px] ${
+      className={`relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 shadow-2xl sm:min-w-[280px] ${
         cardData.active_status === 'TRACK'
           ? 'border-green-300 dark:border-green-600 shadow-green-500/20 hover:shadow-green-500/30'
           : cardData.active_status === 'STOP'
@@ -110,12 +110,12 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
                 href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg transition-all hover:scale-105 ${
+                className={`rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg ${
                   cardData.active_status === 'TRACK'
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600'
                     : cardData.active_status === 'STOP'
-                      ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                      ? 'bg-gradient-to-r from-red-500 to-red-600'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600'
                 }`}
               >
                 📊 View
@@ -171,7 +171,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
 
           <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-600">
             <div
-              className={`h-full rounded-full transition-all duration-1000 ${
+              className={`h-full rounded-full ${
                 cardData.active_status === 'TRACK'
                   ? 'bg-gradient-to-r from-green-400 to-emerald-500'
                   : cardData.active_status === 'STOP'
@@ -337,26 +337,26 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
           return (
             <div
               key={cardData.symbol}
-              className={`group relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl transition-all duration-500 hover:z-20 hover:scale-110 sm:min-w-[300px] ${ultraStyle.container} dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 ${ultraStyle.glow} ${ultraStyle.halo}`}
+              className={`relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px] ${ultraStyle.container} dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 ${ultraStyle.glow} ${ultraStyle.halo}`}
             >
               {/* Animated shine effect */}
               <div
-                className={`absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 ${ultraStyle.shine} animate-pulse`}
+                className={`absolute inset-0 rounded-3xl ${ultraStyle.shine}`}
               ></div>
 
               {/* Ultra-premium floating rank badge */}
               <div
-                className={`absolute -top-4 -left-4 h-16 w-16 bg-gradient-to-br ${rankInfo.color} flex rotate-12 transform animate-bounce items-center justify-center rounded-full border-4 border-white text-2xl text-white shadow-2xl transition-transform duration-500 hover:rotate-0 z-30`}
+                className={`absolute -top-4 -left-4 h-16 w-16 bg-gradient-to-br ${rankInfo.color} flex rotate-12 transform items-center justify-center rounded-full border-4 border-white text-2xl text-white shadow-2xl z-30`}
               >
                 {rankInfo.badge}
               </div>
 
               {/* Holographic corner effects */}
               <div
-                className={`bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 via-transparent to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100`}
+                className={`bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 via-transparent to-transparent opacity-60`}
               ></div>
               <div
-                className={`bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 via-transparent to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100`}
+                className={`bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 via-transparent to-transparent opacity-60`}
               ></div>
 
               {/* Premium content wrapper with extra padding */}
@@ -388,15 +388,15 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                       href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`group inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                      className={`inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-xl ${
                         cardData.active_status === 'TRACK'
-                          ? 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700'
+                          ? 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600'
                           : cardData.active_status === 'STOP'
-                            ? 'bg-gradient-to-r from-red-600 via-red-500 to-rose-600 hover:from-red-700 hover:via-red-600 hover:to-rose-700'
-                            : 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-600 hover:from-orange-700 hover:via-orange-600 hover:to-amber-700'
+                            ? 'bg-gradient-to-r from-red-600 via-red-500 to-rose-600'
+                            : 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-600'
                       }`}
                     >
-                      <span className="text-base transition-transform duration-300 group-hover:scale-110 sm:text-lg">
+                      <span className="text-base sm:text-lg">
                         📊
                       </span>
                       <span className="tracking-wide text-sm sm:text-base">VIEW DETAILS</span>
@@ -418,7 +418,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                       } shadow-lg`}
                     >
                       <div
-                        className={`h-3 w-3 animate-pulse rounded-full ${
+                        className={`h-3 w-3 rounded-full ${
                           cardData.active_status === 'TRACK'
                             ? 'bg-green-500 shadow-lg shadow-green-500/50'
                             : cardData.active_status === 'STOP'
@@ -457,9 +457,9 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
 
                   {/* Luxury progress indicator */}
                   <div className="relative h-2 overflow-hidden rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-600 dark:via-slate-500 dark:to-slate-600">
-                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/50 dark:from-slate-300/30 via-transparent to-white/50 dark:to-slate-300/30"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/50 dark:from-slate-300/30 via-transparent to-white/50 dark:to-slate-300/30"></div>
                     <div
-                      className={`relative h-full overflow-hidden rounded-full transition-all duration-2000 ease-out ${
+                      className={`relative h-full overflow-hidden rounded-full ${
                         cardData.active_status === 'TRACK'
                           ? 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-600'
                           : cardData.active_status === 'STOP'
@@ -470,17 +470,17 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                         width: `${Math.max(0, Math.min(100, ((90 - (cardData.next_quarter_estimate?.days_until_announcement || 0)) / 90) * 100))}%`,
                       }}
                     >
-                      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
                     </div>
                   </div>
                 </div>
 
                 {/* Ultra-premium data showcase */}
                 <div className="flex flex-col gap-4">
-                  <div className="group rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                  <div className="rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md">
                     <div className="mb-4 flex items-center justify-center gap-3">
                       <span
-                        className={`text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl`}
+                        className={`text-xl sm:text-2xl`}
                       >{(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}</span>
                       <div className="text-center">
                         <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -500,9 +500,9 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                     <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
                   </div>
 
-                  <div className="group rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                  <div className="rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md">
                     <div className="mb-4 flex items-center justify-center gap-3">
-                      <span className="text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl">
+                      <span className="text-xl sm:text-2xl">
                         💰
                       </span>
                       <div className="text-center">
@@ -626,30 +626,6 @@ export default async function ServerCardDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Header with search and filters */}
-      <div className="flex flex-col gap-4">
-        <div className="mb-8 rounded-2xl border-l-4 border-orange-500 bg-gradient-to-r from-orange-100 to-yellow-100 p-6 shadow-xl dark:from-orange-900/30 dark:to-yellow-900/30">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-500 text-xl font-bold text-white shadow-lg">
-              🍰
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-200">
-                🚀 Performance Analytics
-              </h2>
-              <Suspense
-                fallback={
-                  <div className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                    Loading sweet analytics...
-                  </div>
-                }
-              >
-                <StatsDisplay params={params} />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Filters - Show by default but not permanently adjustable */}
       <Suspense
@@ -662,33 +638,6 @@ export default async function ServerCardDashboard({
         <ServerFilters currentParams={params} />
       </Suspense>
 
-      {/* PancakeSwap-style Status Legend */}
-      <div className="rounded-3xl border border-pink-200/50 bg-gradient-to-r from-pink-50 via-orange-50 to-yellow-50 p-6 shadow-xl dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-lg text-white shadow-lg">
-              🎯
-            </div>
-            <h4 className="text-xl font-bold text-pink-700 dark:text-pink-300">
-              💫 Status Legend
-            </h4>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-500 hover:to-emerald-600 hover:shadow-xl sm:px-5 sm:py-3">
-              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
-              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
-                ACTIVE
-              </span>
-            </div>
-            <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-pink-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-red-500 hover:to-pink-600 hover:shadow-xl sm:px-5 sm:py-3">
-              <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
-              <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">
-                INACTIVE
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Cards grid */}
       <Suspense fallback={<LoadingGrid />}>
@@ -698,21 +647,3 @@ export default async function ServerCardDashboard({
   );
 }
 
-async function StatsDisplay({ params }: { params: EPSQueryParams }) {
-  const data = await getAnalyticsData(params);
-  const isFirstPage = params.page === 1;
-  const hasTopRanks = data.data && data.data.some(card => card.rank <= 5);
-
-  return (
-    <p className="text-gray-600 dark:text-slate-200">
-      {isFirstPage && hasTopRanks
-        ? `👑 Showing ${data.data?.length || 0} ultimate legends`
-        : `Showing ${data.data?.length || 0} results`}
-      {data.processing_time_ms && (
-        <span className="ml-2 text-sm text-gray-500 dark:text-slate-300">
-          • Lightning fast {data.processing_time_ms}ms
-        </span>
-      )}
-    </p>
-  );
-}
